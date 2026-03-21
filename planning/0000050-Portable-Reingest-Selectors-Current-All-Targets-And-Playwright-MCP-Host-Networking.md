@@ -851,7 +851,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Assumptions currently invalid:
   - Blank-markdown skip behavior does not exist yet, so this task must add it at the shared seam before either runner can rely on it.
 
-### Task 6. Finalize runtime MCP placeholder normalization and migrate checked-in config contracts
+### Task 6. Finalize runtime MCP placeholder normalization
 
 - Already existing capabilities:
   - Shared runtime normalization already exists in `server/src/config/runtimeConfig.ts`.
@@ -859,45 +859,91 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Missing prerequisite capabilities:
   - None before this task begins.
 - Assumptions currently invalid:
-  - MCP endpoint handling is still fragmented across runtime config, startup logging, status probes, and dedicated MCP listeners, so Docker and proof tasks must not assume one unified endpoint contract exists until this task is complete.
+  - MCP endpoint handling is still fragmented across runtime config, startup logging, status probes, and dedicated MCP listeners, so later migration and Docker tasks must not assume one unified endpoint contract exists until this task is complete.
 
-### Task 7. Add host-network wrapper preflight and a repo-local shell harness
+### Task 7. Migrate checked-in MCP config and env contracts
 
 - Already existing capabilities:
-  - `scripts/docker-compose-with-env.sh` already centralizes compose startup behavior.
+  - The checked-in runtime configs, shared-home configs, and env files already exist and can be migrated in place.
+- Missing prerequisite capabilities:
+  - Task 6 must land first so the final placeholder contract is defined in one shared runtime layer before checked-in files are rewritten to depend on it.
+- Assumptions currently invalid:
+  - The checked-in files still rely on legacy env names, hard-coded MCP URLs, and bridge-era assumptions, so Docker and proof tasks must not assume the final checked-in contract exists until this task is complete.
+
+### Task 8. Add a repo-local shell harness
+
+- Already existing capabilities:
   - `scripts/summary-wrapper-protocol.mjs` already defines the saved-log and heartbeat contract.
+  - Root package scripts already provide the pattern for summary wrappers.
 - Missing prerequisite capabilities:
   - None before this task begins.
 - Assumptions currently invalid:
-  - The shell harness and `npm run test:summary:shell` do not exist yet, so later host-network tasks must treat this task as the prerequisite for that proof path.
+  - `npm run test:summary:shell` and its vendored Bats runtime do not exist yet, so later wrapper-preflight work must not assume a reusable shell proof path exists until this task is complete.
 
-### Task 8. Move Docker and Compose definitions to the final host-network runtime model
+### Task 9. Add host-network wrapper preflight
 
 - Already existing capabilities:
-  - Existing Dockerfiles, compose files, entrypoint wiring, and local Docker-socket/Testcontainers behavior already exist to extend.
+  - `scripts/docker-compose-with-env.sh` already centralizes compose startup behavior.
 - Missing prerequisite capabilities:
-  - Task 6 must land first so the MCP endpoint/env contract is stable before the compose cutover.
-  - Task 7 must land first so the wrapper preflight and shell proof path exists before this runtime change is validated.
+  - Task 8 must land first so the shell harness exists to prove the new failure paths and success pass-through behavior.
 - Assumptions currently invalid:
-  - Host-network runtime packaging does not exist yet, so proof tasks must not assume source/config bind mounts are removed or port contracts are updated until this task is complete.
+  - Wrapper-level host-network prerequisite validation does not exist yet, so Docker and compose tasks must not assume early failure messaging is available until this task is complete.
 
-### Task 9. Add the main-stack host-network proof wrapper and keep the e2e proof path aligned
+### Task 10. Bake runtime assets into the image-based host-network model
+
+- Already existing capabilities:
+  - Existing Dockerfiles already build the app code and can be extended to carry the checked-in runtime assets.
+- Missing prerequisite capabilities:
+  - Task 7 must land first so the final checked-in MCP configs and env contracts are the ones baked into the image.
+- Assumptions currently invalid:
+  - The host-networked runtime still depends on repo bind mounts for checked-in runtime assets, so the final compose cutover must not assume image-baked runtime contents exist until this task is complete.
+
+### Task 11. Convert Compose definitions to the final host-network runtime model
+
+- Already existing capabilities:
+  - Existing compose files, entrypoint wiring, and local Docker-socket/Testcontainers behavior already exist to extend.
+- Missing prerequisite capabilities:
+  - Task 7 must land first so the MCP endpoint and env contract is stable before the compose cutover.
+  - Task 9 must land first so wrapper preflight exists before the compose cutover is validated.
+  - Task 10 must land first so the runtime containers can run from image-baked assets instead of checked-in runtime bind mounts.
+- Assumptions currently invalid:
+  - The host-network compose model does not exist yet, so proof tasks must not assume service definitions, direct bind ports, or mount rules are final until this task is complete.
+
+### Task 12. Add the main-stack host-network proof wrapper
 
 - Already existing capabilities:
   - Existing summary-wrapper protocol and `scripts/test-summary-e2e.mjs` already provide the wrapper pattern to extend.
 - Missing prerequisite capabilities:
-  - Task 8 must land first so there is a host-network runtime model worth probing.
+  - Task 11 must land first so there is a host-network main stack worth probing.
 - Assumptions currently invalid:
   - `npm run test:summary:host-network:main` does not exist yet, so final validation must not depend on that command until this task creates it.
 
-### Task 10. Final validation, documentation updates, and story close-out
+### Task 13. Align the e2e proof path with host-network addresses
 
 - Already existing capabilities:
-  - The repo already has the shared documentation files, wrapper-first commands, and manual Playwright verification workflow to reuse.
+  - Existing e2e wrapper, env injection, and Playwright config already exist to update.
 - Missing prerequisite capabilities:
-  - Tasks 1 through 9 must all be complete first.
+  - Task 11 must land first so the host-visible address contract is final before e2e paths are repointed to it.
+- Assumptions currently invalid:
+  - The checked-in e2e path still targets bridge-era assumptions today, so final validation must not assume e2e is aligned with host networking until this task is complete.
+
+### Task 14. Run final validation for Story 0000050
+
+- Already existing capabilities:
+  - The repo already has the wrapper-first build and test commands, plus the manual Playwright verification workflow.
+- Missing prerequisite capabilities:
+  - Tasks 1 through 13 must all be complete first.
 - Assumptions currently invalid:
   - None beyond the prerequisite ordering above; this task is only valid once the earlier implementation and proof tasks have landed.
+
+### Task 15. Update documentation and story close-out
+
+- Already existing capabilities:
+  - The repo already has the shared documentation files and PR-summary workflow to reuse.
+- Missing prerequisite capabilities:
+  - Task 14 must land first so the docs and close-out reflect the final validated behavior rather than an earlier draft state.
+- Assumptions currently invalid:
+  - Documentation and close-out content should not be treated as final until the validation evidence from Task 14 exists.
 
 # Tasks
 
@@ -939,7 +985,7 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
    - rejection when both `sourceId` and `target` are present;
    - rejection when `target` is not one of `current` or `all`.
 5. [ ] Add matching server unit coverage in `server/src/test/unit/flows-schema.test.ts`.
-6. [ ] Record any new or renamed files for later documentation updates in Task 10. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
+6. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
@@ -995,7 +1041,7 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
    - cancelled or error runs set `completionMode: null`;
    - `resolvedRepositoryId` is populated when the repository id is known;
    - the existing validation failure codes, messages, and retry-after semantics remain unchanged.
-5. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
@@ -1060,7 +1106,7 @@ Implement the shared server-side orchestration that resolves the three re-ingest
    - zero-repository `all` behavior;
    - continue-on-failure behavior for `all`;
    - selector or target orchestration preserves the existing strict-service failure categories instead of collapsing them into a generic error.
-6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
@@ -1120,7 +1166,7 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
    - batch payload fields and ordering;
    - lifecycle persistence still uses `Turn.toolCalls`;
    - older single payloads remain readable.
-7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
@@ -1172,7 +1218,7 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
    - whitespace-only markdown is skipped for flows;
    - permission or UTF-8 failures still throw;
    - no synthetic tool-result payload is created just because a markdown file was skipped.
-6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
@@ -1191,7 +1237,7 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 ---
 
-### Task 6. Finalize runtime MCP placeholder normalization and migrate checked-in config contracts
+### Task 6. Finalize runtime MCP placeholder normalization
 
 - Repository Name: `codeInfo2`
 - Task Status: __to_do__
@@ -1199,14 +1245,13 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 #### Overview
 
-Finish the MCP placeholder and env-contract migration so runtime normalization, checked-in config files, and checked-in env files all describe the same final endpoint contract. This task is complete when unresolved placeholders fail clearly, the legacy `CODEINFO_MCP_PORT` dependency is removed from checked-in defaults, and the checked-in runtime configs use the explicit placeholder strategy documented by the story.
+Finish the shared runtime placeholder normalization layer before any checked-in config files are migrated. This task is complete when unresolved placeholders fail clearly, all runtime consumers use one shared MCP endpoint contract, and stale hard-coded bypass paths have been removed from the runtime code.
 
 #### Documentation Locations
 
 - Story sections to read before changing code:
   - `## Message Contracts And Storage Shapes`
   - `## Edge Cases and Failure Modes`
-  - `## Final Validation`
 - Files to read:
   - `server/src/config/runtimeConfig.ts`
   - `server/src/config/codexConfig.ts`
@@ -1218,6 +1263,56 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
   - `server/src/index.ts`
   - `server/src/mcp2/server.ts`
   - `server/src/mcpAgents/server.ts`
+  - `server/src/test/unit/runtimeConfig.test.ts`
+  - `server/src/test/unit/codexConfig.test.ts`
+  - `server/src/test/unit/chatProviders.test.ts`
+  - `server/src/test/unit/chatModels.codex.test.ts`
+
+#### Subtasks
+
+1. [ ] Read the existing runtime normalization, codex bootstrap, runtime consumer entrypoints, and MCP bind surfaces so placeholder replacement stays centralized instead of being reimplemented per consumer.
+2. [ ] Update the shared runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config.
+3. [ ] Make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces.
+4. [ ] Remove any stale runtime-code bypasses that still hard-code MCP URLs or legacy env fallbacks outside the shared normalization path.
+5. [ ] Add or update server unit coverage so it proves:
+   - placeholder replacement works for the checked-in config style;
+   - unresolved placeholders fail clearly;
+   - the resolved chat/base MCP endpoint and the resolved agents MCP endpoint stay intentionally distinct where the checked-in config expects them to differ;
+   - browser navigation URLs and MCP control-channel URLs remain separate contracts and are not normalized into the same value by accident;
+   - chat/provider/runtime entrypoints and status probes no longer bypass the shared endpoint contract with stale hard-coded MCP URLs or legacy env fallbacks.
+6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
+2. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
+3. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
+4. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 7. Migrate checked-in MCP config and env contracts
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Move the checked-in runtime config files and env files onto the final MCP placeholder and env-variable contract defined by Task 6. This task is complete when checked-in configs use explicit placeholders, checked-in env files use `CODEINFO_CHAT_MCP_PORT` instead of `CODEINFO_MCP_PORT`, and the repo’s checked-in defaults no longer encode bridge-era MCP URLs.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Message Contracts And Storage Shapes`
+  - `## Edge Cases and Failure Modes`
+  - `## Final Validation`
+- Files to read:
   - `codex/config.toml`
   - `codex/chat/config.toml`
   - `codex_agents/coding_agent/config.toml`
@@ -1232,41 +1327,24 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
   - `server/.env.e2e`
   - `server/src/test/unit/runtimeConfig.test.ts`
   - `server/src/test/unit/codexConfig.test.ts`
-  - `server/src/test/unit/chatProviders.test.ts`
-  - `server/src/test/unit/chatModels.codex.test.ts`
 
 #### Subtasks
 
-1. [ ] Read the existing runtime normalization, codex bootstrap, runtime consumer entrypoints, and MCP bind surfaces so placeholder replacement stays centralized instead of being reimplemented per consumer.
-2. [ ] Update the runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config, and make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces. Extend the existing `runtimeConfig.ts` and `codexConfig.ts` helpers instead of layering new per-consumer rewrite code on top.
-3. [ ] Remove checked-in reliance on `CODEINFO_MCP_PORT` and make `CODEINFO_CHAT_MCP_PORT` the single checked-in dedicated MCP env contract.
-4. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for:
+1. [ ] Read the checked-in runtime config files and env files that still carry legacy MCP URLs, legacy env names, or bridge-era assumptions.
+2. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for:
    - `CODEINFO_SERVER_PORT`
    - `CODEINFO_CHAT_MCP_PORT`
    - `CODEINFO_AGENTS_MCP_PORT`
    - `CODEINFO_PLAYWRIGHT_MCP_URL`
-5. [ ] Update the checked-in env files so they match the final placeholder and port contract.
-6. [ ] Add or update server unit coverage so it proves:
-   - placeholder replacement works for the checked-in config style;
-   - unresolved placeholders fail clearly;
-   - legacy checked-in env assumptions no longer apply;
-   - the resolved chat/base MCP endpoint and the resolved agents MCP endpoint stay intentionally distinct where the checked-in config expects them to differ;
-   - browser navigation URLs and MCP control-channel URLs remain separate contracts and are not normalized into the same value by accident;
-   - chat/provider/runtime entrypoints and status probes no longer bypass the shared endpoint contract with stale hard-coded MCP URLs or legacy env fallbacks.
-7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+3. [ ] Update the checked-in env files so they match the final placeholder and port contract and remove checked-in reliance on `CODEINFO_MCP_PORT`.
+4. [ ] Add or update tests so they prove the checked-in file style still normalizes correctly and that legacy checked-in env assumptions no longer apply.
+5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
-6. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
-7. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts`
-8. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts`
-9. [ ] `npm run compose:down`
+1. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
+2. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
 
 #### Implementation notes
 
@@ -1274,7 +1352,7 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
 
 ---
 
-### Task 7. Add host-network wrapper preflight and a repo-local shell harness
+### Task 8. Add a repo-local shell harness
 
 - Repository Name: `codeInfo2`
 - Task Status: __to_do__
@@ -1282,26 +1360,67 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
 
 #### Overview
 
-Add the wrapper-side host-network preflight checks and the new shell harness that proves those failures and success paths on a clean checkout. This task is complete when the wrapper fails fast for unsupported host networking, conflicting ports, and incompatible service shapes, and `npm run test:summary:shell` can run without any globally installed Bats runtime.
+Create the reusable repo-local shell harness that later wrapper and compose tasks will use for shell-level proofs. This task is complete when `npm run test:summary:shell` works from a clean checkout without a globally installed Bats runtime and includes at least one passing and one intentionally failing harness case.
 
 #### Documentation Locations
 
 - Story sections to read before changing code:
   - `## Test Harnesses`
   - `## Proof Path Readiness`
-  - `## Edge Cases and Failure Modes`
-- DeepWiki `docker/docs` host-network behavior notes
-- Context7 `/docker/compose`
 - DeepWiki and Context7 `bats-core`
 - Files to read:
-  - `scripts/docker-compose-with-env.sh`
   - `scripts/summary-wrapper-protocol.mjs`
   - `scripts/summary-wrapper-protocol-fixture.mjs`
   - `package.json`
 
 #### Subtasks
 
-1. [ ] Read the existing compose wrapper and summary-wrapper protocol so the new preflight and shell test path match the repo’s wrapper-first conventions.
+1. [ ] Read the existing summary-wrapper protocol and package script patterns so the new shell harness follows the repo’s wrapper-first conventions.
+2. [ ] Add the repo-local shell harness files under `scripts/test/bats/`:
+   - `.bats` test file;
+   - shared helper file;
+   - fixture binaries.
+3. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout.
+4. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry so the shell harness follows the same saved-log and heartbeat contract as the other wrappers. Reuse `scripts/summary-wrapper-protocol.mjs` directly instead of inventing a second wrapper output format.
+5. [ ] Add at least one passing harness case and at least one intentionally failing harness case so the harness itself is proven before later tasks add host-network-specific checks.
+6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run test:summary:shell`
+2. [ ] Confirm the shell harness run includes at least one expected failing fixture and that the saved output reports that error clearly instead of silently passing.
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 9. Add host-network wrapper preflight
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Extend the checked-in compose wrapper so it fails fast when the checked-in host-network requirements are missing or incompatible. This task is complete when the wrapper catches unsupported host networking, incompatible service shapes, and occupied checked-in ports before `docker compose` starts, and those behaviors are covered by the shell harness from Task 8.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Proof Path Readiness`
+  - `## Edge Cases and Failure Modes`
+- DeepWiki `docker/docs` host-network behavior notes
+- Context7 `/docker/compose`
+- Files to read:
+  - `scripts/docker-compose-with-env.sh`
+  - `scripts/test/bats/`
+
+#### Subtasks
+
+1. [ ] Read the existing compose wrapper and the new shell harness so the preflight integrates with the repo-local proof path instead of adding ad-hoc shell checks elsewhere.
 2. [ ] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for:
    - unsupported host-network environments;
    - Docker Desktop environments where host networking is unavailable because the Docker Desktop version or feature state is incompatible, or where Enhanced Container Isolation makes host networking unavailable;
@@ -1309,32 +1428,20 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
    - occupied checked-in host ports;
    - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
    - and every failure path names the affected compose file or service plus the missing or incompatible prerequisite.
-3. [ ] Add the repo-local shell harness files under `scripts/test/bats/`:
-   - `.bats` test file;
-   - shared helper file;
-   - fixture binaries.
-4. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout.
-5. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry so the shell harness follows the same saved-log and heartbeat contract as the other wrappers. Reuse `scripts/summary-wrapper-protocol.mjs` directly instead of inventing a second wrapper output format.
-6. [ ] Add shell harness coverage for:
+3. [ ] Add shell harness coverage for:
    - unsupported host networking;
    - conflicting host ports;
    - incompatible host-network service shapes;
    - success-path pass-through to compose execution;
-   - actionable failure text that includes the affected compose file or service;
-   - at least one intentionally failing harness case that proves `npm run test:summary:shell` executes the harness and reports the error path as a checked failure;
-   - the local host-network manual-testing contract still declares Chrome DevTools on `9222` where the checked-in runtime expects it.
-7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+   - actionable failure text that includes the affected compose file or service.
+4. [ ] Add shell harness coverage that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222` where the checked-in runtime expects it.
+5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:shell`
-6. [ ] Confirm the shell harness run includes at least one expected failing fixture and that the saved output reports that error clearly instead of silently passing.
-7. [ ] `npm run compose:down`
+1. [ ] `npm run test:summary:shell`
+2. [ ] Confirm the saved output reports host-network preflight failures with the affected compose file or service instead of a generic shell error.
 
 #### Implementation notes
 
@@ -1342,7 +1449,7 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
 
 ---
 
-### Task 8. Move Docker and Compose definitions to the final host-network runtime model
+### Task 10. Bake runtime assets into the image-based host-network model
 
 - Repository Name: `codeInfo2`
 - Task Status: __to_do__
@@ -1350,7 +1457,51 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
 
 #### Overview
 
-Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definitions so the server and existing Playwright MCP services run in the final host-network model with image-baked runtime assets and the documented port plan. This task is complete when the main, local, and e2e Compose definitions match the story’s host-network and packaging rules and still build through the existing wrapper path.
+Update the Docker build flow so the checked-in runtime assets needed by the host-networked server are carried by the image instead of being supplied from repo bind mounts at runtime. This task is complete when the server image includes the checked-in runtime assets it needs and the relevant `.dockerignore` files only admit the required build inputs.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Feasibility Proof Pass`
+  - `## Edge Cases and Failure Modes`
+- Files to read:
+  - `server/Dockerfile`
+  - `client/Dockerfile`
+  - `.dockerignore`
+  - `server/.dockerignore`
+  - `client/.dockerignore`
+  - `docker-compose.yml`
+  - `docker-compose.local.yml`
+  - `docker-compose.e2e.yml`
+
+#### Subtasks
+
+1. [ ] Read the current Dockerfiles and Compose files and list every checked-in runtime asset that is still being bind-mounted from the repo today.
+2. [ ] Update the Docker build contexts and Dockerfiles so the checked-in runtime assets needed by the host-networked server are copied into the image instead of being required from a host source bind mount. Extend the existing `server/Dockerfile` and `client/Dockerfile` build flow instead of introducing alternate Dockerfiles or bespoke startup paths.
+3. [ ] Update the relevant `.dockerignore` files at the same time so only the required runtime assets enter the build context.
+4. [ ] Add or update proof steps that show the image-baked runtime assets are present where the later compose task expects them to be.
+5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run compose:build:summary`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 11. Convert Compose definitions to the final host-network runtime model
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Convert the checked-in `server` and existing `playwright-mcp` services to the final host-network model using the image-based runtime contents from Task 10. This task is complete when the main, local, and e2e Compose definitions match the story’s host-network rules, preserve the documented host-visible ports, and no longer rely on forbidden source-tree or checked-in runtime bind mounts.
 
 #### Documentation Locations
 
@@ -1360,12 +1511,7 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
   - `## Final Validation`
 - Context7 `/docker/compose`
 - Files to read:
-  - `server/Dockerfile`
   - `server/entrypoint.sh`
-  - `client/Dockerfile`
-  - `.dockerignore`
-  - `server/.dockerignore`
-  - `client/.dockerignore`
   - `docker-compose.yml`
   - `docker-compose.local.yml`
   - `docker-compose.e2e.yml`
@@ -1374,10 +1520,8 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
 
 #### Subtasks
 
-1. [ ] Read the current Dockerfiles and Compose files and list every checked-in runtime asset that is still being bind-mounted from the repo today.
-2. [ ] Update the Docker build contexts and Dockerfiles so the checked-in runtime assets needed by the host-networked server are copied into the image instead of being required from a host source bind mount. Extend the existing `server/Dockerfile` and `client/Dockerfile` build flow instead of introducing alternate Dockerfiles or bespoke startup paths.
-3. [ ] Update the relevant `.dockerignore` files at the same time so only the required runtime assets enter the build context.
-4. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions:
+1. [ ] Read the current Compose files and entrypoint wiring so the host-network conversion preserves the checked-in port matrix and the local Chrome DevTools `9222` contract.
+2. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions:
    - direct host-visible bind ports for the server listeners;
    - preserve the local Chrome DevTools bind contract on `9222` by keeping the required server entrypoint or environment wiring intact under host networking;
    - `8931` for local Playwright MCP;
@@ -1385,20 +1529,18 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
    - remove incompatible `ports` or `networks` definitions on host-networked services;
    - remove bridge-only service-name MCP URL assumptions;
    - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
-5. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts.
-6. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required.
-7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+3. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts.
+4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required.
+5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:shell`
-6. [ ] Confirm the updated local host-network definition still preserves the checked-in Chrome DevTools `9222` contract and any required Docker-socket/Testcontainers support without reintroducing source-tree bind mounts.
-7. [ ] `npm run compose:down`
+1. [ ] `npm run compose:build:summary`
+2. [ ] `npm run compose:up`
+3. [ ] `npm run test:summary:shell`
+4. [ ] Confirm the updated local host-network definition still preserves the checked-in Chrome DevTools `9222` contract and any required Docker-socket/Testcontainers support without reintroducing source-tree bind mounts.
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1406,7 +1548,7 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
 
 ---
 
-### Task 9. Add the main-stack host-network proof wrapper and keep the e2e proof path aligned
+### Task 12. Add the main-stack host-network proof wrapper
 
 - Repository Name: `codeInfo2`
 - Task Status: __to_do__
@@ -1414,7 +1556,7 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
 
 #### Overview
 
-Add the checked-in proof wrapper that probes the live main stack after `npm run compose:up`, and update any e2e env injection that would otherwise point at stale addresses after the host-network cutover. This task is complete when the main-stack proof path is runnable through one wrapper command and the existing e2e wrapper still points at the real host-visible URLs.
+Add the checked-in proof wrapper that probes the live main stack after `npm run compose:up`. This task is complete when the main-stack proof path is runnable through one wrapper command and has automated coverage for at least one passing and one failing probe scenario.
 
 #### Documentation Locations
 
@@ -1427,31 +1569,22 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
   - `scripts/test-summary-e2e.mjs`
   - `package.json`
   - `docker-compose.yml`
-  - `docker-compose.e2e.yml`
-  - `.env.e2e`
-  - `e2e/playwright.config.ts`
-  - `e2e` test files that assume the current URLs
 
 #### Subtasks
 
 1. [ ] Read the existing e2e wrapper and package scripts so the new proof wrapper uses the same summary-wrapper output contract.
-2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable, including separate checks for the classic `/mcp` route, the dedicated chat MCP route, the agents MCP route, and the Playwright MCP route. Reuse the existing summary-wrapper protocol and reporting conventions already used by `scripts/test-summary-e2e.mjs`.
+2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable, including separate checks for the classic `/mcp` route, the dedicated chat MCP route, the agents MCP route, and the Playwright MCP route.
 3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper.
-4. [ ] Update any e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover, while keeping browser navigation targets and MCP control-channel targets as separate contracts where the story requires them.
-5. [ ] Add or update automated coverage for the new proof wrapper so it executes the wrapper or its probe layer with at least one passing scenario and at least one failing probe scenario, and checks that the failure path emits inspectable error output instead of only a generic crash.
-6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
-7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+4. [ ] Add or update automated coverage for the new proof wrapper so it executes the wrapper or its probe layer with at least one passing scenario and at least one failing probe scenario, and checks that the failure path emits inspectable error output instead of only a generic crash.
+5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:host-network:main`
-6. [ ] Confirm the automated coverage added in this task includes at least one failing probe case for the new proof wrapper and checks the reported error output.
-7. [ ] `npm run compose:down`
-8. [ ] `npm run test:summary:e2e`
+1. [ ] `npm run compose:up`
+2. [ ] `npm run test:summary:host-network:main`
+3. [ ] Confirm the automated coverage added in this task includes at least one failing probe case for the new proof wrapper and checks the reported error output.
+4. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1459,7 +1592,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 ---
 
-### Task 10. Final validation, documentation updates, and story close-out
+### Task 13. Align the e2e proof path with host-network addresses
 
 - Repository Name: `codeInfo2`
 - Task Status: __to_do__
@@ -1467,33 +1600,66 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 #### Overview
 
-This final task proves the whole story against the acceptance criteria, updates the shared documentation, and prepares the story for review. It must rerun the wrapper-first build and test paths, prove the runtime behavior with the new proof wrappers, update the design and structure docs, and prepare the pull-request summary for the completed story.
+Update the checked-in e2e env injection, config, and test assumptions so the e2e proof path follows the real host-visible addresses after the host-network cutover. This task is complete when the checked-in e2e wrapper and tests no longer depend on bridge-era URLs or ports and still keep browser navigation targets separate from MCP control-channel targets.
 
 #### Documentation Locations
 
-- `README.md`
-- `design.md`
-- `projectStructure.md`
-- `docs/developer-reference.md`
+- Story sections to read before changing code:
+  - `## Proof Path Readiness`
+  - `## Final Validation`
+- Files to read:
+  - `scripts/test-summary-e2e.mjs`
+  - `docker-compose.e2e.yml`
+  - `.env.e2e`
+  - `e2e/playwright.config.ts`
+  - `e2e` test files that assume the current URLs
+
+#### Subtasks
+
+1. [ ] Read the existing e2e wrapper, env injection, and Playwright config so the e2e path is updated in one coherent pass.
+2. [ ] Update any checked-in e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover.
+3. [ ] Keep browser navigation targets and MCP control-channel targets as separate contracts where the story requires them.
+4. [ ] Add or update automated coverage so the checked-in e2e path proves it is using the intended host-visible addresses rather than stale bridge-only assumptions.
+5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run test:summary:e2e`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 14. Run final validation for Story 0000050
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+This task proves the completed story against the acceptance criteria. It must rerun the wrapper-first build and test paths, prove the runtime behavior with the new proof wrappers, and capture the final manual verification evidence that the rest of the close-out will reference.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Acceptance Criteria`
+  - `## Final Validation`
 - Context7 `/docker/compose`
 - Context7 `/microsoft/playwright`
-- Context7 `/typicode/husky`
-- DeepWiki and Context7 `bats-core`
-- Any documentation sources recorded in the earlier tasks when they introduced new files or commands
 
 #### Subtasks
 
 1. [ ] Re-read the full story and acceptance criteria before starting final validation so the close-out checks use the latest plan wording.
-2. [ ] Update `README.md` with any new commands, proof wrappers, or runtime expectations introduced by this story.
-3. [ ] Update `design.md` so it documents:
-   - the re-ingest request union;
-   - the single and batch re-ingest payloads;
-   - the blank-markdown skip behavior;
-   - the host-networked runtime and proof-wrapper flow.
-4. [ ] Update `docs/developer-reference.md` so it no longer documents stale MCP URLs, stale env-var names, or bridge-only networking assumptions after the host-network and `CODEINFO_CHAT_MCP_PORT` cutover.
-5. [ ] Update `projectStructure.md` with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules.
-6. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, and proof-path additions.
-7. [ ] Run repo-wide lint and format gates as the last subtask for the story.
+2. [ ] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference.
+3. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
+4. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, manual UI verification, and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
+5. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.
+6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1505,11 +1671,49 @@ This final task proves the whole story against the acceptance criteria, updates 
 6. [ ] `npm run test:summary:shell`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run test:summary:host-network:main`
-9. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
-10. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, manual UI verification, and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
-11. [ ] `npm run compose:down`
-12. [ ] `npm run test:summary:e2e`
-13. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test:summary:e2e`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 15. Update documentation and story close-out
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Update the shared documentation and prepare the finished story for review after Task 14 has produced the final validated behavior. This task is complete when the repo docs match the implemented contracts and the pull-request summary clearly explains the final server, runtime, wrapper, and proof-path changes.
+
+#### Documentation Locations
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- `docs/developer-reference.md`
+- Any documentation sources recorded in the earlier tasks when they introduced new files or commands
+
+#### Subtasks
+
+1. [ ] Update `README.md` with any new commands, proof wrappers, or runtime expectations introduced by this story.
+2. [ ] Update `design.md` so it documents:
+   - the re-ingest request union;
+   - the single and batch re-ingest payloads;
+   - the blank-markdown skip behavior;
+   - the host-networked runtime and proof-wrapper flow.
+3. [ ] Update `docs/developer-reference.md` so it no longer documents stale MCP URLs, stale env-var names, or bridge-only networking assumptions after the host-network and `CODEINFO_CHAT_MCP_PORT` cutover.
+4. [ ] Update `projectStructure.md` with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules.
+5. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, and proof-path additions.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] Review the saved outputs and screenshots from Task 14 and confirm the documentation and PR summary match the final validated behavior.
 
 #### Implementation notes
 

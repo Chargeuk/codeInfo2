@@ -174,6 +174,12 @@ COPY --from=build /app/server/src/ast/queries ./src/ast/queries
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
+COPY codex /app/codex
+COPY codex_agents /app/codex_agents
+COPY flows /app/flows
+COPY flows-sandbox /app/flows-sandbox
+COPY e2e/fixtures /fixtures
+COPY e2e/fixtures/repo /data
 
 # Set Playwright to use the browsers installed during build.
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright

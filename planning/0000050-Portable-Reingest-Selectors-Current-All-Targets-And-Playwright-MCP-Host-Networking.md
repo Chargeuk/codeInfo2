@@ -1760,7 +1760,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 10. Bake runtime assets into the image-based host-network model
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1775,25 +1775,33 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 
 #### Subtasks
 
-1. [ ] Read `server/Dockerfile`, `.dockerignore`, `server/.dockerignore`, `client/.dockerignore`, and the checked-in compose files together with story sections `## Feasibility Proof Pass` and `## Edge Cases and Failure Modes`. Make a concrete list of which checked-in runtime assets are still bind-mounted from the repo today, especially `codex/`, `codex_agents/`, and checked-in flow directories.
-2. [ ] Update the Docker build contexts and only the Dockerfiles that actually need to carry checked-in runtime assets so the host-networked server can run without repo bind mounts. Extend the existing build flow instead of introducing alternate Dockerfiles or bespoke startup paths, and do not expand client-image scope unless a checked-in runtime dependency truly requires it.
-3. [ ] Update only the `.dockerignore` files that participate in that packaging path so the required runtime assets enter the build context without broadening unrelated image scope. The target outcome from the story is that runtime application code does not depend on a repo source-tree bind mount such as `.:/app`.
-4. [ ] Reuse the existing `npm run compose:build:summary` output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
-5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe how checked-in runtime assets move from the repository into the image-based host-network runtime. Purpose: document the packaging architecture change that removes checked-in runtime bind mounts from the host-network model.
-6. [ ] Add or update the structured log marker `DEV-0000050:T10:image_runtime_assets_baked` in the Docker packaging or compose-build summary path. Include `imageName`, `runtimeAssetRoots`, and `sourceBindMountRequired`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the built image contains the required runtime assets without depending on source-tree mounts.
-7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-9. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+1. [x] Read `server/Dockerfile`, `.dockerignore`, `server/.dockerignore`, `client/.dockerignore`, and the checked-in compose files together with story sections `## Feasibility Proof Pass` and `## Edge Cases and Failure Modes`. Make a concrete list of which checked-in runtime assets are still bind-mounted from the repo today, especially `codex/`, `codex_agents/`, and checked-in flow directories.
+2. [x] Update the Docker build contexts and only the Dockerfiles that actually need to carry checked-in runtime assets so the host-networked server can run without repo bind mounts. Extend the existing build flow instead of introducing alternate Dockerfiles or bespoke startup paths, and do not expand client-image scope unless a checked-in runtime dependency truly requires it.
+3. [x] Update only the `.dockerignore` files that participate in that packaging path so the required runtime assets enter the build context without broadening unrelated image scope. The target outcome from the story is that runtime application code does not depend on a repo source-tree bind mount such as `.:/app`.
+4. [x] Reuse the existing `npm run compose:build:summary` output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
+5. [x] Update `design.md` with a Mermaid diagram and supporting text that describe how checked-in runtime assets move from the repository into the image-based host-network runtime. Purpose: document the packaging architecture change that removes checked-in runtime bind mounts from the host-network model.
+6. [x] Add or update the structured log marker `DEV-0000050:T10:image_runtime_assets_baked` in the Docker packaging or compose-build summary path. Include `imageName`, `runtimeAssetRoots`, and `sourceBindMountRequired`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the built image contains the required runtime assets without depending on source-tree mounts.
+7. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+8. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+9. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+1. [x] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 
 #### Implementation notes
 
-- **to_do**
+- Re-read the server Docker packaging path, the participating `.dockerignore` files, and the checked-in compose mounts together with the story feasibility and edge-case sections before editing so Task 10 stays on image-baked runtime assets rather than drifting into the later compose cutover.
+- Confirmed the checked-in runtime trees still coming from repo bind mounts today are `codex/`, `codex_agents/`, `flows/`, `flows-sandbox/`, `e2e/fixtures/`, and `e2e/fixtures/repo/`, while the root `.dockerignore` already excludes only the sensitive `auth.json` files rather than the runtime trees themselves.
+- Updated only `server/Dockerfile` in the packaging path so the runtime stage now bakes `codex`, `codex_agents`, `flows`, `flows-sandbox`, and the e2e fixture roots directly into the server image instead of assuming those checked-in trees arrive later through repo bind mounts.
+- Kept the `.dockerignore` change narrow by documenting that Task 10 intentionally leaves the runtime trees in scope while continuing to exclude checked-in credential files such as `codex/**/auth.json` and `codex_agents/**/auth.json`.
+- Reused the existing compose-build proof path by emitting `DEV-0000050:T10:image_runtime_assets_baked` from `scripts/compose-build-summary.mjs` with the baked runtime asset roots and `sourceBindMountRequired: false` instead of creating a one-off build script.
+- Added a Task 10 design note and Mermaid packaging flow to `design.md`, and no broader shared-doc changes were needed yet beyond that required new design documentation.
+- `npm run lint` still fails repo-wide on the existing baseline warning set even after `npm run lint:fix`, but the Task 10 files were kept isolated and the broad auto-fix spillover was restored before the task continued.
+- `npm run format:check` still fails repo-wide on the existing baseline file set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those changes were restored and the Task 10 files were rechecked with targeted `prettier --check`, `node --check`, and `git diff --check`.
+- `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, and `DEV-0000050:T10:image_runtime_assets_baked {"imageName":"codeinfo2-server","runtimeAssetRoots":["/app/codex","/app/codex_agents","/app/flows","/app/flows-sandbox","/fixtures","/data"],"sourceBindMountRequired":false}`, so the image-baked runtime asset contract is now visible on the wrapper-first build proof path.
 
 ---
 

@@ -18,5 +18,7 @@ logs
 **/*.tsbuildinfo
 
 # Never send Codex credentials in build context
+# Keep the checked-in runtime trees themselves in scope for Task 10 image baking;
+# only the credential files stay excluded from the build context.
 codex/**/auth.json
 codex_agents/**/auth.json

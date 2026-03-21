@@ -4956,6 +4956,40 @@ flowchart LR
   Contract --> Marker["DEV-0000050:T06:mcp_endpoints_normalized"]
 ```
 
+## Story 0000050 Task 10: image-baked runtime asset packaging
+
+- Task 10 keeps the existing root build context and checked-in `server/Dockerfile`, but it changes the runtime stage so the server image carries the checked-in runtime trees that the host-network model will need after bind mounts are removed.
+- The baked runtime asset roots are:
+  - `/app/codex`
+  - `/app/codex_agents`
+  - `/app/flows`
+  - `/app/flows-sandbox`
+  - `/fixtures`
+  - `/data`
+- The root `.dockerignore` still excludes only credential files such as `codex/**/auth.json` and `codex_agents/**/auth.json`, so the checked-in runtime trees remain available to the build context without broadly re-opening unrelated files.
+- The client packaging path stays unchanged in this task because no checked-in client-only runtime tree was identified; Task 10 is intentionally limited to the server image and the proof marker in the compose-build summary path.
+- `scripts/compose-build-summary.mjs` now emits `DEV-0000050:T10:image_runtime_assets_baked` after a successful compose build so later runtime-proof tasks can confirm the image-baked asset contract without introducing a bespoke build wrapper.
+
+```mermaid
+flowchart TD
+    A[Repository root build context] --> B[.dockerignore keeps auth.json excluded]
+    B --> C[server/Dockerfile runtime stage]
+    C --> D[/app/codex]
+    C --> E[/app/codex_agents]
+    C --> F[/app/flows]
+    C --> G[/app/flows-sandbox]
+    C --> H[/fixtures]
+    C --> I[/data]
+    D --> J[codeinfo2-server image]
+    E --> J
+    F --> J
+    G --> J
+    H --> J
+    I --> J
+    J --> K[scripts/compose-build-summary.mjs]
+    K --> L[DEV-0000050:T10:image_runtime_assets_baked]
+```
+
 ### ChatInterface event buffering & persistence
 
 - The server unifies chat execution behind `ChatInterface` (`server/src/chat/interfaces/ChatInterface.ts`) with provider-specific subclasses (`ChatInterfaceCodex`, `ChatInterfaceLMStudio`) selected via `getChatInterface(provider)` (`server/src/chat/factory.ts`).

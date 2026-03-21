@@ -270,86 +270,133 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 
 ## Implementation Ideas
 
-- Reuse the existing repository-selector helper as the shared selector-to-repository resolver. Current research shows it already resolves selectors by:
-  - case-insensitive repository id first;
-  - then normalized container path;
-  - then normalized host path;
-  - and it currently picks the latest ingested repository when duplicates match.
-- Keep the low-level re-ingest service strict. It should continue to validate and execute a single canonical container path. Add selector expansion and target expansion above that service rather than weakening its validation contract.
-- Add a shared orchestration helper for commands and flows that resolves re-ingest targets into one or more canonical repository roots:
-  - explicit selector or path;
-  - current repository;
-  - all repositories.
-- For backward compatibility, consider keeping the existing explicit step shape with `sourceId` while broadening the runtime meaning from "absolute path only" to "repository selector or path".
-- For the new target modes, consider adding additional step shapes such as:
-  - `{ "type": "reingest", "target": "current" }`
-  - `{ "type": "reingest", "target": "all" }`
-- Direct command runs already know which repository supplied the selected command file through direct-command resolution. Reuse that selected repository path when resolving `current`.
-- Top-level flows already track the owning flow repository during flow loading. Reuse that repository identity when resolving `current` for dedicated flow re-ingest steps.
-- Flow command execution should carry the selected command-file repository identity through nested command execution so `current` resolves from the command file being executed, not automatically from the parent flow repository.
-- For `all repositories`, derive the target set from `listIngestedRepositories()` and sort deterministically before execution so repeated runs are predictable.
-- Define that deterministic sort concretely as ascending canonical container path order and use that same order in runtime execution, transcript payloads, and tests.
-- Execute `all repositories` sequentially because the ingest layer already enforces a global lock and current re-ingest is blocking. Any attempt to parallelize would only add contention and complexity.
-- Preserve the existing rule that terminal ingest results are recorded as structured outcomes for commands and flows. For `all repositories`, introduce a dedicated batch payload instead of repeating the existing single-repository tool-result shape once per repository in conversation history, and keep the payload shape explicit enough for a junior developer to implement: one batch item containing the ordered attempted repositories plus each repository's identity, canonical container path, terminal outcome, and optional failure message.
-- Reuse or extract the current MCP canonicalization pattern so command and flow runtime logic matches the behavior already used by the existing MCP re-ingest surfaces.
-- Treat target-mode support as a new seam that must be added end-to-end: schema, parser, executor, orchestration, transcript recording, and tests all currently assume single-repository `sourceId` input.
-- Add direct command tests, dedicated flow-step tests, and flow-command nested tests that prove:
-  - repo-name selectors work;
-  - host-path selectors work when available;
-  - current-repository resolution chooses the right owning file;
-  - all-repositories mode runs sequentially and records outcomes deterministically;
-  - non-ingested `current` repositories fail fast with a clear message;
-  - resolved markdown files that are empty or whitespace-only are skipped with an info-level log instead of being executed as empty prompts.
-- Implement the empty-markdown behavior at the shared markdown-file execution layer used by both flows and commands so both surfaces stay aligned and do not drift into separate edge-case handling.
-- Make the empty-markdown info log part of the contract, not an afterthought: include the surface, resolved markdown path, and skip reason in the shared execution layer so commands and flows emit the same message shape.
-- Treat the MCP compatibility pass as already complete. The remaining story work should assume the runtime can now understand the future placeholder contracts after the validated pre-story restart, rather than spending early story tasks re-solving that same compatibility problem.
-- Sequence the story in three broad phases:
-  - first, the command and flow re-ingest behavior changes plus empty-markdown skip handling;
-  - second, the MCP placeholder replacement and env-contract work;
-  - third, the compose, `.env`, wrapper-validation, and host-networking cutover.
-- End the MCP env-name migration as a clean cutover. The temporary `CODEINFO_MCP_PORT` fallback should be removed once the checked-in compose files, env files, runtime configs, tests, and docs all use `CODEINFO_CHAT_MCP_PORT`.
-- For the host-networking implementation, use the already captured `future ideas.md` notes only as starting context, not as the final scope. The story should now plan and implement the host-networked end state for the checked-in `server` and `playwright-mcp` services.
-- The current checked-in stacks show that:
-  - `docker-compose.yml` defines a `server` service that currently publishes host ports `5010`, `5011`, and `5012`, and a `playwright-mcp` service on bridge-style wiring without an explicit published `8931:8931` mapping;
-  - `docker-compose.local.yml` defines a `server` service that currently publishes host ports `5510`, `5511`, and `5512`, and a `playwright-mcp` service with bridge-style wiring and a published `8931:8931` mapping;
-  - `docker-compose.e2e.yml` defines a `server` service that currently publishes host ports `6010`, `6011`, and `6012`, but does not define a `playwright-mcp` service;
-  - checked-in chat and agent runtime config files currently contain hard-coded CodeInfo MCP URLs such as `http://localhost:5010/mcp` and `http://localhost:5011/mcp`, and that split is now confirmed to be intentional because those runtime configs are meant to see different MCP tool sets;
-  - checked-in agent configs currently point Playwright MCP at `http://playwright-mcp:8931/mcp`.
-- Compose files that do not currently define a `playwright-mcp` service remain out of scope for adding a new Playwright MCP service here.
-- For each Compose file that declares `server`, implement host networking in a way that also updates the surrounding assumptions:
-  - remove incompatible `ports` and `networks` service wiring for that service;
-  - update `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, and `CODEINFO_AGENTS_MCP_PORT` so the host-networked server binds the host-visible ports that stack is expected to expose;
-  - preserve the current external port contract for that stack unless a documented clash requires a different value.
-- For each Compose file that declares `playwright-mcp`, implement host networking in a way that also updates the surrounding assumptions:
-  - remove incompatible `ports` and `networks` service wiring for that service;
-  - remove any `extra_hosts` rules that only existed to support the old bridge-host access path if they are no longer needed;
-  - keep the service startup command port aligned with the chosen host port for that stack.
-- Introduce a deliberate per-environment Playwright MCP port strategy. The current decision is to keep `8931` for the local stack and a different checked-in value such as `8932` for the main stack, while still allowing explicit environment configuration where needed.
-- Introduce a deliberate per-environment MCP endpoint strategy. Because service-name DNS no longer works the same way for host-networked services and the server bind ports now differ by stack, the story should replace hard-coded `http://localhost:5010/mcp`, `http://localhost:5011/mcp`, and `http://playwright-mcp:8931/mcp` assumptions with named placeholders in checked-in configs plus shared runtime replacement logic used by chat runtime config, agent runtime config, and wrappers while preserving the intentional tool-access split.
-- Apply the MCP placeholder replacement in one shared runtime-config layer and route every consuming path through it, rather than patching chat, agents, probes, wrappers, and tests independently.
-- Keep the checked-in `config.toml` edits and host-networking compose changes late in the implementation order, because the running local compose stack can observe those file changes before it is restarted and may temporarily lose MCP functionality if the new contracts land too early.
-- Follow the existing Context7 pattern rather than assuming TOML env interpolation exists. Current repository evidence shows Context7 is overlaid in memory from an environment variable during runtime config normalization, so CodeInfo MCP and Playwright MCP should use matching runtime overlay approaches for their endpoints rather than file rewriting or `${ENV_VAR}` syntax assumptions.
-- Prefer names that reflect the actual product surface rather than raw port numbers. The chosen Playwright contract name remains `CODEINFO_PLAYWRIGHT_MCP_URL`, and the CodeInfo side should use `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, and `CODEINFO_AGENTS_MCP_PORT` inside checked-in localhost URL placeholders so each Compose file can supply values that stay aligned with the real listener contracts without inventing a fourth bind port for the classic `/mcp` surface.
-- Keep the Docker image model explicit throughout implementation: the existing Dockerfiles already build application code inside the image, so this story should extend that approach to any checked-in runtime assets it still needs rather than keeping or adding host source-tree bind mounts for app code/config in the final host-networked runtime path.
-- Keep browser-navigation URLs and agent-control MCP URLs as separate concerns. Host networking is being introduced so the browser launched by Playwright can use `localhost` semantics against host-published applications. That does not automatically mean the agent control channel should use the same URL.
-- Use the existing compose-wrapper layer and documentation as the place to validate or fail fast on host-networking prerequisites for supported environments.
-- Make the wrapper failure output actionable: it should say which compose file or service is blocked and what prerequisite is missing or incompatible before any containers are started.
-- Treat Docker's current host-network support rules as part of the implementation contract: remove `ports` from services that move to `network_mode: host`, and validate that the runtime is either Linux Docker Engine or Docker Desktop `4.34+` with host networking enabled before relying on the checked-in host-networked compose setup.
-- Treat Dockerfile and build-context updates as first-class scope for any checked-in runtime assets that are currently mounted from the repo at runtime. Update the relevant `.dockerignore` file at the same time so only the required files enter the build context.
-- Preserve an explicit port inventory while implementing the Docker and compose changes. Reuse the documented existing ports for the server stacks, keep `8931` for local Playwright MCP, and use the already chosen distinct main-stack Playwright MCP port rather than introducing an implicit new port later in implementation.
-- Prefer Docker-managed volumes for generated output that must persist between container runs, and avoid bind-mounting checked-in source/config trees into the host-networked runtime containers. The only planned host bind mount exception is log output that is intentionally meant to stay visible on the host machine.
-- Do not assume dedicated MCP or Playwright readiness endpoints already exist. The story must either add explicit readiness checks for those surfaces or standardize wrapper/test probes that verify successful listener startup on the intended ports without relying on nonexistent `/health` routes.
-- Treat env and config migration as a prerequisite seam, not background cleanup: checked-in legacy `CODEINFO_MCP_PORT` usage and hard-coded MCP URLs need to be migrated as part of the same implementation order as shared placeholder normalization so the runtime, compose files, and tests do not drift.
-- Treat new test coverage as required scope because the current harnesses do not yet prove target-based re-ingest orchestration, blank-markdown skip logging, wrapper preflight failures, or host-networked manual-testing validation.
-- Validate the implementation through the manual-testing workflows that already depend on the checked-in server and Playwright MCP endpoints, including screenshot capture, browser-control flows, and MCP connectivity from both chat and agent runtime config paths.
-- Expect likely changes in:
-  - `codex/chat/config.toml`;
+- Keep this as a single-repository implementation plan. The runtime behavior may operate on many ingested repositories, but all code, config, Docker, and test changes for this story belong in `codeInfo2`.
+
+### Phase 1: Expand the re-ingest contract without weakening the strict re-ingest service
+
+- Extend the command and flow schemas in `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` so a re-ingest step can be expressed as:
+  - legacy explicit `sourceId`;
+  - `target: "current"`;
+  - `target: "all"`.
+- Keep `server/src/ingest/reingestService.ts` strict on one canonical ingested `sourceId`. Do not move selector parsing or target expansion into that service.
+- Add one shared orchestration seam above the strict service, likely alongside the existing re-ingest runtime code, that resolves a re-ingest request into one or more canonical repository roots by reusing `server/src/mcpCommon/repositorySelector.ts`.
+- Reuse the ownership context that already exists:
+  - direct commands resolve their owning repository in `server/src/agents/service.ts`;
+  - top-level flows already carry `flowSourceId` in `server/src/flows/service.ts`;
+  - nested flow commands already thread both `sourceId` and `flowSourceId` through `server/src/agents/commandItemExecutor.ts`.
+- For `target: "all"`, sort the resolved repository list by ascending canonical container path before execution and use that same order everywhere: execution, logs, transcript payloads, and tests.
+
+### Phase 2: Add batch recording and blank-markdown skip behavior at the shared seams
+
+- Introduce one dedicated batch result shape for `target: "all"` in the re-ingest transcript/result path rather than repeating the single-repository payload. The likely seam is the existing re-ingest lifecycle/result code in:
+  - `server/src/chat/reingestToolResult.ts`;
+  - `server/src/chat/reingestStepLifecycle.ts`;
+  - the command and flow call sites in `server/src/agents/commandsRunner.ts` and `server/src/flows/service.ts`.
+- Keep single-repository result handling intact for explicit `sourceId` and resolved `current` runs.
+- Implement the blank-markdown skip behavior in the shared markdown-backed execution path so commands and flows cannot drift:
+  - `server/src/flows/markdownFileResolver.ts`;
+  - `server/src/agents/commandItemExecutor.ts`;
+  - flow LLM execution in `server/src/flows/service.ts`.
+- The skip path should emit one consistent info log that includes the surface, resolved path, and skip reason, then continue safely to the next command item or flow step.
+
+### Phase 3: Finish the shared MCP endpoint normalization and env migration
+
+- Consolidate runtime MCP placeholder handling so checked-in config files hold placeholder or literal marker values, and the runtime materializes final literal MCP URLs before invoking Codex or related consumers.
+- Keep `CODEINFO_PLAYWRIGHT_MCP_URL` as the full-URL override and finish the named-port placeholder path for:
+  - `CODEINFO_SERVER_PORT`;
+  - `CODEINFO_CHAT_MCP_PORT`;
+  - `CODEINFO_AGENTS_MCP_PORT`.
+- Use the shared runtime normalization path rather than surface-specific replacement code. The main seams are:
+  - `server/src/config/runtimeConfig.ts`;
+  - `server/src/config/codexConfig.ts`;
+  - `server/src/config.ts`;
+  - `server/src/config/startupEnv.ts`;
+  - `server/src/agents/config.ts`;
+  - `server/src/routes/chat.ts`;
+  - `server/src/agents/service.ts`.
+- Finish the env migration by removing the temporary legacy `CODEINFO_MCP_PORT` fallback once the checked-in env files, compose files, runtime config files, and tests all use `CODEINFO_CHAT_MCP_PORT`.
+- Update the checked-in runtime config files that are actually consumed at runtime, not only examples:
   - `codex/config.toml`;
-  - `docker-compose.e2e.yml`;
-  - `docker-compose.local.yml`;
+  - `codex/chat/config.toml`;
+  - `config.toml.example`;
+  - relevant agent configs under `codex_agents/`.
+
+### Phase 4: Move the checked-in server and Playwright MCP compose surfaces to the final Docker/runtime model
+
+- Keep the Docker image model explicit. `server/Dockerfile` and `client/Dockerfile` already build app code inside the image, so the host-networked runtime path should extend that approach instead of relying on host source bind mounts.
+- Add the missing Docker packaging work for checked-in runtime assets that are currently mounted from the repo at runtime, especially the server-facing checked-in config and flow directories. Update the relevant `.dockerignore` files at the same time:
+  - `.dockerignore`;
+  - `server/.dockerignore`;
+  - `client/.dockerignore`.
+- Update the compose files that this story already scopes:
   - `docker-compose.yml`;
-  - server runtime config normalization code under `server/src/config/`;
-  - shared Codex config bootstrap code under `server/src/config/`;
-  - agent MCP config files under `codex_agents/`;
-  - chat/runtime config templates or checked-in config examples that assume `http://localhost:5010/mcp` or `http://localhost:5011/mcp`;
-  - any local run or documentation notes that assume the old `http://playwright-mcp:8931/mcp` control endpoint or the old server port-mapping model.
+  - `docker-compose.local.yml`;
+  - `docker-compose.e2e.yml`.
+- For each host-networked `server` or `playwright-mcp` service:
+  - remove incompatible `ports` and `networks` service wiring;
+  - remove bridge-only assumptions such as service-name MCP URLs where they are no longer valid;
+  - keep the startup command and env values aligned to the intended host-visible port.
+- Preserve the explicit host-visible port inventory while doing this work:
+  - main server `5010/5011/5012`;
+  - local server `5510/5511/5512`;
+  - e2e server `6010/6011/6012`;
+  - local Playwright MCP `8931`;
+  - main Playwright MCP uses the already chosen distinct port such as `8932`;
+  - local Chrome DevTools `9222`.
+- Prefer Docker-managed volumes for generated output that must persist, especially current Playwright output directories, and avoid bind-mounting checked-in source or config trees into the final host-networked runtime containers. The only planned host bind mount exception is logs that are intentionally meant to stay visible on the host.
+
+### Phase 5: Add wrapper preflight and proof-oriented validation
+
+- Extend `scripts/docker-compose-with-env.sh` so host-network prerequisites are validated before startup:
+  - supported runtime is Linux Docker Engine or Docker Desktop `4.34+` with host networking enabled;
+  - no incompatible compose keys remain on host-networked services;
+  - no checked-in host-visible ports needed by this story are already occupied.
+- Do not assume dedicated `/health` endpoints already exist on the MCP listeners or the Playwright MCP surface. Validation must either add explicit readiness checks or standardize port or MCP probes for:
+  - main server listener;
+  - chat MCP listener;
+  - agents MCP listener;
+  - Playwright MCP listener.
+- Expand the current tests instead of assuming the existing harness is enough. Likely extensions are:
+  - schema tests for the new re-ingest unions in `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts`;
+  - re-ingest orchestration and batch tests near `server/src/test/unit/reingestService.test.ts` and the re-ingest MCP tests;
+  - markdown skip coverage near `server/src/test/unit/markdown-file-resolver.test.ts`;
+  - runtime placeholder and env migration coverage in `server/src/test/unit/runtimeConfig.test.ts` and related env-loading tests;
+  - compose or wrapper validation coverage for host-network preflight behavior.
+
+### Practical implementation order
+
+1. Schema expansion for re-ingest unions in commands and flows.
+2. Shared selector or target orchestration above the strict re-ingest service.
+3. Batch transcript/result recording for `target: "all"`.
+4. Blank-markdown skip handling in the shared markdown-backed execution path.
+5. Shared MCP placeholder normalization and env-name migration.
+6. Dockerfile, `.dockerignore`, compose, and runtime packaging changes for host networking and no-host-source-bind-mount runtime behavior.
+7. Wrapper preflight plus proof-oriented tests and final validation.
+
+### Highest-priority files to inspect first during implementation
+
+- `server/src/agents/commandsSchema.ts`
+- `server/src/flows/flowSchema.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/service.ts`
+- `server/src/flows/service.ts`
+- `server/src/flows/markdownFileResolver.ts`
+- `server/src/mcpCommon/repositorySelector.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/chat/reingestToolResult.ts`
+- `server/src/chat/reingestStepLifecycle.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config.ts`
+- `server/src/config/startupEnv.ts`
+- `server/src/index.ts`
+- `docker-compose.yml`
+- `docker-compose.local.yml`
+- `docker-compose.e2e.yml`
+- `server/Dockerfile`
+- `client/Dockerfile`
+- `.dockerignore`
+- `server/.dockerignore`
+- `client/.dockerignore`
+- `scripts/docker-compose-with-env.sh`

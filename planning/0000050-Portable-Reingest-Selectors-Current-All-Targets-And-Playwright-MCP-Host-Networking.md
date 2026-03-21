@@ -827,108 +827,108 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 
 - Portable re-ingest definitions must keep existing `sourceId` steps working while also accepting portable selectors instead of machine-specific absolute paths.
   - Implemented by Task 1 subtasks 1-3 and Task 3 subtasks 2, 7, and 8.
-  - Proved by Task 1 Testing steps 1-3, Task 3 Testing steps 1-3, and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Proved by Task 1 Testing steps 1-3, Task 3 Testing steps 1-3, and Task 15 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
   - Regression and error coverage comes from Task 1 subtasks 7-17 and Task 3 subtasks 9 and 18.
 - `target: "current"` must resolve by the owning repository of the currently executing command or flow file, including the nested-command ownership rule.
   - Implemented by Task 3 subtasks 1-5.
-  - Proved by Task 3 subtasks 10-14 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Proved by Task 3 subtasks 10-14 and Task 15 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
   - Error and corner-case coverage comes from Task 3 subtasks 13 and 14.
 - `target: "all"` must run sequentially in ascending canonical container path order, continue after per-repository failures, and record one dedicated batch result payload.
   - Implemented by Task 3 subtasks 4-5 and Task 4 subtasks 2-17.
-  - Proved by Task 3 subtasks 15-18, Task 4 subtasks 10-17, and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Proved by Task 3 subtasks 15-18, Task 4 subtasks 10-17, and Task 15 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
   - Corner-case coverage comes from Task 3 subtask 16 and Task 4 subtasks 14-15. Error and mixed-outcome coverage comes from Task 3 subtask 17 and Task 4 subtasks 12-13.
 - The strict single-repository re-ingest service must remain the canonical execution layer and must not absorb selector parsing or multi-repository orchestration.
   - Implemented by Task 2 subtasks 1-3 and Task 3 subtasks 2-5.
-  - Proved by Task 2 subtasks 4-15, Task 3 subtask 18, Task 14 subtask 3, and Task 14 Testing steps 1, 3, and 4.
+  - Proved by Task 2 subtasks 4-15, Task 3 subtask 18, Task 15 subtask 3, and Task 15 Testing steps 1, 3, and 4.
   - Regression coverage comes from Task 2 subtasks 10-15.
 - Blank or whitespace-only markdown files must be skipped only after a successful read, with the documented info log contract, while all real resolver failures remain hard failures.
   - Implemented by Task 5 subtasks 1-4.
-  - Proved by Task 5 subtasks 5-14 and Task 14 subtask 7 plus Testing steps 1, 3, and 4.
+  - Proved by Task 5 subtasks 5-14 and Task 15 subtask 7 plus Testing steps 1, 3, and 4.
   - Error and corner-case coverage comes from Task 5 subtasks 7-13.
 - Checked-in MCP config, env, and runtime consumers must move to one shared placeholder-normalization contract with explicit placeholders and no permanent legacy `CODEINFO_MCP_PORT` fallback.
   - Implemented by Task 6 subtasks 1-4 and Task 7 subtasks 1-3.
-  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 14 subtasks 4 and 7 plus Testing steps 1, 3, and 4.
+  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 15 subtasks 4 and 7 plus Testing steps 1, 3, and 4.
   - Regression and error coverage comes from Task 6 subtasks 9-15 and Task 7 subtasks 5-8.
 - Checked-in `server` and existing `playwright-mcp` Compose services must move to host networking while preserving the documented port matrix, avoiding source-tree runtime bind mounts, and failing fast when prerequisites are missing.
   - Implemented by Task 8 subtasks 1-7, Task 9 subtasks 1-10, Task 10 subtasks 1-4, Task 11 subtasks 1-4, Task 12 subtasks 1-7, and Task 13 subtasks 1-6.
-  - Proved by Task 8 Testing steps 1-3, Task 9 Testing steps 1-3, Task 10 Testing step 1, Task 11 Testing steps 1-4, Task 12 subtasks 2-7 plus Testing steps 1-7, Task 13 Testing steps 1-8, and Task 14 subtasks 2-7 plus Testing steps 1-10.
+  - Proved by Task 8 Testing steps 1-3, Task 9 Testing steps 1-3, Task 10 Testing step 1, Task 11 Testing steps 1-4, Task 12 subtasks 2-7 plus Testing steps 1-7, Task 13 Testing steps 1-8, and Task 15 subtasks 2-7 plus Testing steps 1-10.
   - Regression, error, and corner-case coverage comes from Task 9 subtasks 4-10, Task 12 subtasks 5-7, and Task 13 subtasks 4-6.
 - Final validation must prove the whole story end to end, not only isolated task behavior, and documentation must reflect the validated end state.
-  - Implemented by Task 14 subtasks 1-10 and Task 15 subtasks 1-5.
-  - Proved by Task 14 Testing steps 1-10 and Task 15 Testing step 1.
-  - Regression and scope-drift coverage comes from Task 14 subtasks 3-8 and Task 15 subtasks 1-5.
+  - Implemented by Task 15 subtasks 1-10 and Task 16 subtasks 1-5.
+  - Proved by Task 15 Testing steps 1-10 and Task 16 Testing step 1.
+  - Regression and scope-drift coverage comes from Task 15 subtasks 3-8 and Task 16 subtasks 1-5.
 
 ### Acceptance Criteria Traceability
 
 - Existing path-based re-ingest remains valid, portable selector support is added, selector matching stays aligned with `repositorySelector`, and duplicate case-insensitive ids still pick the latest ingest.
   - Implemented by Task 1 subtasks 1-3 and Task 3 subtasks 2 and 7-9.
-  - Proved by Task 1 subtasks 4-17, Task 3 subtasks 7-9, and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Proved by Task 1 subtasks 4-17, Task 3 subtasks 7-9, and Task 15 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
   - Regression and corner cases are covered by Task 1 subtasks 7-17 and Task 3 subtask 9.
 - Direct command, top-level flow, and nested command-item `target: "current"` behavior all resolve to the correct owner, and missing or not-ingested owners fail fast.
   - Implemented by Task 3 subtasks 1-5.
-  - Proved by Task 3 subtasks 10-14 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Proved by Task 3 subtasks 10-14 and Task 15 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
   - Error coverage comes from Task 3 subtasks 13-14.
 - `target: "all"` exists, runs sequentially, uses ascending canonical container path order, waits for terminal outcomes, and preserves deterministic behavior.
   - Implemented by Task 3 subtasks 4-5.
-  - Proved by Task 3 subtasks 15-17 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Proved by Task 3 subtasks 15-17 and Task 15 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
   - Corner-case coverage comes from Task 3 subtask 16 and mixed-outcome coverage comes from Task 3 subtask 17.
 - `target: "all"` writes one dedicated batch result payload whose entries preserve repository identity, canonical container path, normalized outcome, and failure text when needed.
   - Implemented by Task 4 subtasks 2-6.
-  - Proved by Task 4 subtasks 10-17 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Proved by Task 4 subtasks 10-17 and Task 15 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
   - Corner-case and error coverage comes from Task 4 subtasks 12-15 and 17-18.
 - The low-level strict service remains canonical, and structured re-ingest result recording still works for direct commands, flow re-ingest steps, and nested command execution.
   - Implemented by Task 2 subtasks 1-3, Task 3 subtasks 2-5, and Task 4 subtasks 2-6.
-  - Proved by Task 2 subtasks 4-15, Task 3 subtask 18, Task 4 subtasks 7-18, and Task 14 subtasks 1-4 plus Testing steps 1, 3, and 4.
+  - Proved by Task 2 subtasks 4-15, Task 3 subtask 18, Task 4 subtasks 7-18, and Task 15 subtasks 1-4 plus Testing steps 1, 3, and 4.
   - Regression coverage comes from Task 2 subtasks 10-15 and Task 4 subtask 18.
 - Empty or whitespace-only markdown is skipped rather than executed, and the info-level log includes the surface and resolved path.
   - Implemented by Task 5 subtasks 1-4.
-  - Proved by Task 5 subtasks 5-9 and Task 14 subtask 7 plus Testing steps 1, 3, and 4.
+  - Proved by Task 5 subtasks 5-9 and Task 15 subtask 7 plus Testing steps 1, 3, and 4.
   - Error coverage comes from Task 5 subtasks 10-13.
 - Every checked-in Compose file that currently defines `server` moves to host networking, preserves the checked-in server port matrix, keeps app code image-baked, and removes incompatible bridge wiring and forbidden runtime source mounts.
   - Implemented by Task 10 subtasks 1-4 and Task 11 subtasks 1-4. The checked-in `server` inventory for this story is explicitly `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`.
-  - Proved by Task 10 Testing step 1, Task 11 subtasks 2-4 plus Testing steps 1-4, and Task 14 subtasks 3-5 plus Testing steps 7-10.
-  - Regression and mount-safety coverage comes from Task 11 subtask 4 and Task 14 subtask 5.
+  - Proved by Task 10 Testing step 1, Task 11 subtasks 2-4 plus Testing steps 1-4, and Task 15 subtasks 3-5 plus Testing steps 7-10.
+  - Regression and mount-safety coverage comes from Task 11 subtask 4 and Task 15 subtask 5.
 - Every checked-in Compose file that currently defines `playwright-mcp` moves to host networking, files without that service stay out of scope, and the main/local stacks keep distinct default Playwright MCP ports.
   - Implemented by Task 9 subtasks 2-10 and Task 11 subtasks 1-2. The checked-in `playwright-mcp` inventory for this story is explicitly `docker-compose.yml` and `docker-compose.local.yml`.
-  - Proved by Task 9 subtasks 4-10, Task 11 subtasks 2-4 plus Testing steps 1-4, and Task 14 subtasks 4-6 plus Testing steps 7-10.
+  - Proved by Task 9 subtasks 4-10, Task 11 subtasks 2-4 plus Testing steps 1-4, and Task 15 subtasks 4-6 plus Testing steps 7-10.
   - Error and out-of-scope coverage comes from Task 9 subtasks 8-10.
 - Checked-in runtime MCP config moves off hard-coded localhost and bridge hostnames, preserves the intentional chat-versus-agents endpoint split, uses explicit placeholders plus runtime overlays, and replaces placeholders before runtime consumers see them.
   - Implemented by Task 6 subtasks 1-4 and Task 7 subtasks 1-3.
-  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 14 subtasks 4-5 plus Testing steps 1, 3, and 4.
+  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 15 subtasks 4-5 plus Testing steps 1, 3, and 4.
   - Error and regression coverage comes from Task 6 subtasks 9-15 and Task 7 subtasks 5-8.
 - The final MCP env contract uses `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, and `CODEINFO_PLAYWRIGHT_MCP_URL`, the shared normalization layer is used by all runtime consumers, and the legacy `CODEINFO_MCP_PORT` fallback is removed.
   - Implemented by Task 6 subtasks 2-4 and Task 7 subtasks 2-3.
-  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 14 subtasks 4-5 plus Testing steps 1, 3, and 4.
+  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 15 subtasks 4-5 plus Testing steps 1, 3, and 4.
   - Regression and error coverage comes from Task 6 subtasks 10-15 and Task 7 subtasks 5-7.
 - The checked-in shared-home runtime configs under `codex/` are migrated alongside `codex_agents/*`, browser URLs stay separate from control-channel URLs, and host-network prerequisites fail fast with actionable messages.
   - Implemented by Task 7 subtasks 1-3, Task 9 subtasks 1-10, and Task 13 subtasks 1-3.
-  - Proved by Task 7 subtasks 4-8, Task 9 subtasks 4-10, Task 13 subtasks 4-6, and Task 14 subtasks 4-7 plus Testing steps 1-10.
+  - Proved by Task 7 subtasks 4-8, Task 9 subtasks 4-10, Task 13 subtasks 4-6, and Task 15 subtasks 4-7 plus Testing steps 1-10.
   - Error and corner-case coverage comes from Task 9 subtasks 4-10 and Task 13 subtasks 4-6.
 - Final validation proves listener readiness, config migration, wrapper preflight, image-baked runtime contents, generated-output volume rules, and the full manual-testing traffic patterns.
-  - Implemented by Task 12 subtasks 1-7, Task 13 subtasks 1-6, and Task 14 subtasks 1-10.
-  - Proved by Task 12 subtasks 5-7 plus Testing steps 1-7, Task 13 Testing steps 1-8, and Task 14 subtasks 2-8 plus Testing steps 1-10.
-  - Regression coverage comes from Task 12 subtasks 5-7, Task 13 subtasks 4-6, and Task 14 subtasks 4-7.
+  - Implemented by Task 12 subtasks 1-7, Task 13 subtasks 1-6, and Task 15 subtasks 1-10.
+  - Proved by Task 12 subtasks 5-7 plus Testing steps 1-7, Task 13 Testing steps 1-8, and Task 15 subtasks 2-8 plus Testing steps 1-10.
+  - Regression coverage comes from Task 12 subtasks 5-7, Task 13 subtasks 4-6, and Task 15 subtasks 4-7.
 
 ### Out Of Scope Traceability
 
 - No new multi-repository ingest engine replaces the strict single-repository service.
-  - Guarded by Task 2 subtasks 1-3, Task 3 subtasks 2-5, and Task 14 subtask 3.
+  - Guarded by Task 2 subtasks 1-3, Task 3 subtasks 2-5, and Task 15 subtask 3.
 - No parallel `target: "all"` execution is introduced.
-  - Guarded by Task 3 subtask 4 and Task 14 subtask 3.
+  - Guarded by Task 3 subtask 4 and Task 15 subtask 3.
 - No unrelated repository-selector expansion is added outside re-ingest.
-  - Guarded by Task 1 subtasks 1-3, Task 3 subtasks 2-5, and Task 14 subtask 3.
+  - Guarded by Task 1 subtasks 1-3, Task 3 subtasks 2-5, and Task 15 subtask 3.
 - No broad `sourceId` terminology cleanup is attempted across unrelated surfaces.
-  - Guarded by Task 1 subtasks 1-3, Task 4 subtasks 2 and 5, and Task 14 subtask 3.
+  - Guarded by Task 1 subtasks 1-3, Task 4 subtasks 2 and 5, and Task 15 subtask 3.
 - No unrelated workflow step types are reworked.
-  - Guarded by Task 1 subtask 3, Task 5 subtasks 1-4, and Task 14 subtask 3.
+  - Guarded by Task 1 subtask 3, Task 5 subtasks 1-4, and Task 15 subtask 3.
 - No unrelated Playwright MCP behavior is reworked beyond networking, endpoint, and port concerns.
-  - Guarded by Task 9 subtasks 2-10, Task 11 subtask 2, Task 13 subtasks 1-3, and Task 14 subtask 3.
+  - Guarded by Task 9 subtasks 2-10, Task 11 subtask 2, Task 13 subtasks 1-3, and Task 15 subtask 3.
 - No unrelated server networking model is reworked beyond the checked-in `server` host-network cutover and its required proof paths.
-  - Guarded by Task 6 subtasks 1-4, Task 11 subtasks 1-4, and Task 14 subtask 3.
+  - Guarded by Task 6 subtasks 1-4, Task 11 subtasks 1-4, and Task 15 subtask 3.
 - No whole-stack Docker networking redesign is attempted beyond the scoped `server` and existing `playwright-mcp` services.
-  - Guarded by Task 9 subtasks 2-10, Task 11 subtasks 1-4, and Task 14 subtask 3.
+  - Guarded by Task 9 subtasks 2-10, Task 11 subtasks 1-4, and Task 15 subtask 3.
 - No brand-new `server` or `playwright-mcp` services are added to Compose files that do not already define them.
-  - Guarded by Task 9 subtask 8, Task 11 subtask 2, and Task 14 subtask 3.
+  - Guarded by Task 9 subtask 8, Task 11 subtask 2, and Task 15 subtask 3.
 
 ## Manual Playwright-MCP Log Evidence
 
@@ -959,7 +959,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - Expected outcome: `classicMcp`, `chatMcp`, `agentsMcp`, `playwrightMcp`, and `result` are present, and `result` is `passed`.
 - Task 13 log marker: `DEV-0000050:T13:e2e_host_network_config_verified`
   - Expected outcome: `browserBaseUrl`, `mcpControlUrl`, and `baseUrlMatchesMcp` are present, both URLs are host-visible, and `baseUrlMatchesMcp` is `false` when the contracts are intentionally separate.
-- Task 14 log marker: `DEV-0000050:T14:story_validation_completed`
+- Task 15 final-validation log marker (historical runtime name retained): `DEV-0000050:T14:story_validation_completed`
   - Expected outcome: `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed` are present, and each final-validation boolean is `true`.
 
 ### Task 1. Extend re-ingest schema parsing for command and flow files
@@ -1088,23 +1088,32 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Assumptions currently invalid:
   - The checked-in e2e path still targets bridge-era assumptions today, so final validation must not assume e2e is aligned with host networking until this task is complete.
 
-### Task 14. Run final validation for Story 0000050
+### Task 14. Restore repo-wide lint and format gates for story close-out
+
+- Already existing capabilities:
+  - The repo already has the root `npm run lint`, `npm run lint:fix`, `npm run format`, and `npm run format:check` commands, the current blocker research, and the exact failing file list.
+- Missing prerequisite capabilities:
+  - Tasks 1 through 13 must all be complete first.
+- Assumptions currently invalid:
+  - The original final-validation task assumed repo-wide lint and format cleanup could be completed honestly inside runtime proof work, but the blocker showed that this is a separate prerequisite baseline task with its own file-scoped fixes and ignore-rule change.
+
+### Task 15. Run final validation for Story 0000050
 
 - Already existing capabilities:
   - The repo already has the wrapper-first build and test commands, plus the manual Playwright verification workflow.
 - Missing prerequisite capabilities:
-  - Tasks 1 through 13 must all be complete first.
+  - Tasks 1 through 14 must all be complete first.
 - Assumptions currently invalid:
-  - None beyond the prerequisite ordering above; this task is only valid once the earlier implementation and proof tasks have landed.
+  - The historical runtime proof marker name `DEV-0000050:T14:story_validation_completed` and the already-captured `0000050-14-*` screenshot prefix remain in place for compatibility with pre-repair evidence, even though this is now Task 15.
 
-### Task 15. Update documentation and story close-out
+### Task 16. Update documentation and story close-out
 
 - Already existing capabilities:
   - The repo already has the shared documentation files and PR-summary workflow to reuse.
 - Missing prerequisite capabilities:
-  - Task 14 must land first so the docs and close-out reflect the final validated behavior rather than an earlier draft state.
+  - Task 14 must restore the clean repo-wide lint/format baseline first, and Task 15 must land first so the docs and close-out reflect the final validated behavior rather than an earlier draft state.
 - Assumptions currently invalid:
-  - Documentation and close-out content should not be treated as final until the validation evidence from Task 14 exists.
+  - Documentation and close-out content should not be treated as final until the validation evidence from Task 15 exists.
 
 # Tasks
 
@@ -1160,7 +1169,7 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 16. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an empty or whitespace-only `sourceId`. Purpose: prove the flow schema does not accept blank selectors.
 17. [x] Add a server unit test in `server/src/test/unit/flows-schema.test.ts` that rejects an otherwise valid `reingest` flow step containing an unexpected extra property. Purpose: prove the strict flow step shape still rejects undeclared keys.
 18. [x] Add or update the structured manual-validation log marker `DEV-0000050:T01:reingest_request_shape_accepted` in the command or flow execution path that first consumes the parsed re-ingest item. Include `surface`, `targetMode`, `requestedSelector`, and `schemaSource`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the schema shape accepted by Task 1 is the one that actually reached runtime.
-19. [x] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
+19. [x] Record any new or renamed files for later documentation updates in Task 16. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
 20. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 21. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1192,7 +1201,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added flow-schema coverage that rejects blank `sourceId` values after trimming so flow selectors cannot be whitespace-only.
 - Kept the existing strict extra-property rejection test in place as the required flow re-ingest strictness coverage.
 - Added the `DEV-0000050:T01:reingest_request_shape_accepted` marker in the first command, nested-command, and flow execution seams that consume parsed re-ingest items, and made unsupported target modes fail explicitly until Task 3 lands the real orchestration.
-- No new or renamed files were introduced during Task 1, so the follow-up documentation delta for Task 15 is only that existing schema, test, and runtime-consumption files changed.
+- No new or renamed files were introduced during Task 1, so the follow-up documentation delta for Task 16 is only that existing schema, test, and runtime-consumption files changed.
 - Ran `npm run lint`, then `npm run lint:fix`, then `npm run lint` again; the repo-wide command still fails on an unrelated pre-existing warning in `client/src/components/chat/SharedTranscript.tsx`, but no remaining lint issues were left in the Task 1 files.
 - Ran `npm run format:check`, then `npm run format`, then `npm run format:check` again; the repo-wide command still fails on unrelated formatting drift plus the intentionally invalid JSON fixture `server/src/test/fixtures/flows/invalid-json.json`, and `npx prettier --check` passed for all Task 1 files after the cleanup.
 - `npm run build:summary:server` passed cleanly with `warning_count: 0` and wrapper guidance `agent_action: skip_log`, so the Task 1 server build gate is complete without log inspection.
@@ -1241,7 +1250,7 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 14. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `busy` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the busy-state retry contract.
 15. [x] Add a server unit test in `server/src/test/unit/reingestService.test.ts` that verifies the `invalid_state` validation failure still returns the same code, message, and retry-after semantics as before. Purpose: preserve the invalid-state failure contract.
 16. [x] Add or update the structured manual-validation log marker `DEV-0000050:T02:reingest_strict_result_normalized` in the strict re-ingest service or its immediate caller. Include `sourceId`, `resolvedRepositoryId`, `status`, and `completionMode`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the Task 2 result contract reaches runtime unchanged.
-17. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+17. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 18. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 19. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1271,7 +1280,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added focused regression coverage that proves the `busy` validation failure still returns the strict `BUSY` contract with retry guidance intact.
 - Added focused regression coverage that proves the `invalid_state` validation failure still returns the strict `INVALID_PARAMS` contract with the unsupported-argument message preserved.
 - Added the `DEV-0000050:T02:reingest_strict_result_normalized` marker in the strict service so the normalized Task 2 result contract is observable before later orchestration and transcript tasks build on it.
-- No new or renamed files were introduced during Task 2, so the follow-up documentation delta for Task 15 is only that the strict service, its direct unit test, and shared test helper builders changed.
+- No new or renamed files were introduced during Task 2, so the follow-up documentation delta for Task 16 is only that the strict service, its direct unit test, and shared test helper builders changed.
 - Ran `npm run lint`, then `npm run lint:fix`, then `npm run lint` again; the repo-wide command still fails on the same unrelated pre-existing warning in `client/src/components/chat/SharedTranscript.tsx`, but no remaining lint issues were left in the Task 2 files.
 - Ran `npm run format:check`, then `npm run format`, then `npm run format:check` again; the repo-wide command still fails on unrelated formatting drift plus the intentionally invalid JSON fixture `server/src/test/fixtures/flows/invalid-json.json`, and `npx prettier --check` passed for all Task 2 files after the cleanup.
 - `npm run build:summary:server` first exposed missing additive `ReingestSuccess` fields in older test fixtures, and the rerun passed cleanly with `warning_count: 0` and wrapper guidance `agent_action: skip_log` after those helpers were updated.
@@ -1328,7 +1337,7 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 19. [x] If this task introduces a new shared orchestration helper file, update `projectStructure.md` after the helper and its tests are in place. Document the exact helper file path, the updated test file path, and the purpose of the new orchestration seam so later developers can find the selector-resolution entry point.
 20. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the `sourceId`, `current`, and `all` re-ingest orchestration flow. Purpose: document the new target-resolution architecture, ownership-resolution rules, the intermediate re-ingest result contract, and deterministic batch ordering in the repository design doc immediately after implementation.
 21. [x] Add or update the structured manual-validation log marker `DEV-0000050:T03:reingest_targets_resolved` in the shared orchestration helper. Include `surface`, `targetMode`, `requestedSelector`, `resolvedCount`, and `resolvedPaths`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the correct owner or ordered repository list was resolved before execution begins.
-22. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+22. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 23. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 24. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1352,8 +1361,8 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added direct-command integration coverage for repo-id selectors, explicit path selectors, duplicate case-insensitive ids, direct-command `target: "current"`, ordered `target: "all"` execution, empty-batch `target: "all"`, and preserved strict-service failure messaging.
 - Added flow integration coverage for top-level `target: "current"` resolution, nested command-item `target: "current"` resolution, missing-owner failure, and not-currently-ingested owner failure so the owner rules are proven on the actual flow surfaces that thread `flowSourceId` and command ownership differently.
 - Updated `projectStructure.md` to record the new `server/src/ingest/reingestExecution.ts` helper and the Task 3 test touchpoints so later Docker and transcript tasks can find the orchestration seam quickly.
-- Updated `design.md` with the Task 3 orchestration contract and Mermaid flowchart, and the later Task 15 documentation delta is that README/developer-reference still need the final story-wide command and proof updates after the later runtime and Docker tasks land.
-- Recorded the Task 15 follow-up doc delta explicitly: Task 3 touched only `design.md` and `projectStructure.md`, while the shared end-user and developer docs stay deferred until the later runtime, compose, and proof tasks settle the final story-wide contract.
+- Updated `design.md` with the Task 3 orchestration contract and Mermaid flowchart, and the later Task 16 documentation delta is that README/developer-reference still need the final story-wide command and proof updates after the later runtime and Docker tasks land.
+- Recorded the Task 16 follow-up doc delta explicitly: Task 3 touched only `design.md` and `projectStructure.md`, while the shared end-user and developer docs stay deferred until the later runtime, compose, and proof tasks settle the final story-wide contract.
 - Ran `npm run lint`, then `npm run lint:fix`, then `npm run lint` again exactly as required; repo-wide baseline warnings still remain in unrelated client and older server test files, but a targeted `npx eslint` pass confirmed every Task 3 file is clean.
 - Ran `npm run format:check`, then `npm run format`, then `npm run format:check` again; repo-wide Prettier still stops on the pre-existing intentionally invalid fixture `server/src/test/fixtures/flows/invalid-json.json`, and a targeted `npx prettier --check` pass confirmed the Task 3 files and plan/docs touched here are formatted correctly.
 - `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the shared orchestration seam and its updated callers compile in the full server workspace path before Task 3 close-out.
@@ -1406,7 +1415,7 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 18. [x] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that reads an older single-result payload and asserts it still parses correctly. Purpose: prove backward compatibility for already-stored transcript data.
 19. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the single-result and batch-result transcript lifecycle, including the one-payload `target: "all"` rule, the synthetic-turn content path, and the reused `Turn.toolCalls` persistence path. Purpose: document the new transcript contract and persistence architecture at the point where it changes.
 20. [x] Add or update the structured manual-validation log marker `DEV-0000050:T04:reingest_payload_persisted` in the transcript lifecycle code. Include `payloadKind`, `targetMode`, `repositoryCount`, and `conversationId`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the persisted payload shape matches the story contract.
-21. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+21. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 22. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 23. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1430,7 +1439,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added lifecycle coverage for empty-batch persistence, zeroed batch summaries, continued use of `Turn.toolCalls`, batch-oriented synthetic turn text, and older single-result payload parsing, then reran the targeted wrapper until the payload and lifecycle suite was green.
 - Updated `design.md` with the Task 4 single-versus-batch transcript lifecycle, including the one-payload batch rule, synthetic turn path, mixed-payload reader normalization, and the reused `Turn.toolCalls` persistence channel.
 - Added the `DEV-0000050:T04:reingest_payload_persisted` marker in the lifecycle code so later manual validation can prove which payload kind and target mode were persisted for a conversation.
-- Recorded the Task 15 follow-up doc delta explicitly: Task 4 updates only `design.md`, while the shared README and developer-reference close-out remains deferred until the later runtime, Docker, and proof tasks finalize the story-wide user contract.
+- Recorded the Task 16 follow-up doc delta explicitly: Task 4 updates only `design.md`, while the shared README and developer-reference close-out remains deferred until the later runtime, Docker, and proof tasks finalize the story-wide user contract.
 - Ran `npm run lint`, then `npm run lint:fix`, then `npm run lint` again exactly as required; repo-wide baseline warnings still remain in unrelated client and older server test files, but a targeted `npx eslint` pass confirmed every Task 4 file is clean.
 - Ran `npm run format:check`, then `npm run format`, then `npm run format:check` again; repo-wide Prettier still stops on the pre-existing intentionally invalid fixture `server/src/test/fixtures/flows/invalid-json.json`, and a targeted `npx prettier --check` pass confirmed the Task 4 files and plan/docs touched here are formatted correctly.
 - `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the transcript builder and lifecycle changes compile in the full server workspace before Task 4 close-out.
@@ -1478,7 +1487,7 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 14. [x] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that verifies no synthetic tool-result payload is created when a markdown-backed step is skipped for empty content. Purpose: prove the skip does not fabricate transcript output.
 15. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the blank-markdown resolution path, the skip decision point, and the preserved hard-failure paths for missing, traversal, permission, and decoding errors. Purpose: document the shared command/flow execution behavior where the skip contract changes.
 16. [x] Add or update the structured manual-validation log marker `DEV-0000050:T05:markdown_step_skipped` in the shared markdown resolution or execution seam. Include `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove empty markdown is skipped for the documented reason instead of silently ignored.
-17. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+17. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 18. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 19. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1496,7 +1505,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added `prepareMarkdownInstruction(...)` in the markdown resolver so successful reads now branch once into `instruction` vs `skip`; direct commands, top-level flows, and nested flow commands all consume that shared result without changing hard-failure behavior.
 - Added the Task 5 skip marker `DEV-0000050:T05:markdown_step_skipped` with the documented keys plus available command/flow context, and short-circuited empty markdown before any agent execution or transcript/tool-call persistence.
 - Added the Task 5 integration and unit coverage for whitespace-only skips, preserved missing/traversal/permission/UTF-8 failures, and the no-toolCalls regression guard; the remaining work is lint/format plus wrapper validation.
-- Recorded the Task 5 design delta in `design.md`; broader shared-doc updates stay deferred to Task 15.
+- Recorded the Task 5 design delta in `design.md`; broader shared-doc updates stay deferred to Task 16.
 - `npm run lint` still hits the known repo-wide `SharedTranscript.tsx` warning after `lint:fix`, but I restored the unrelated auto-fix spillover and rechecked the Task 5 server files with targeted `npx eslint`, which passed cleanly.
 - `npm run format:check` still fails on the repo-wide baseline set and the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json` fixture even after `npm run format`; I reversed the unrelated formatting spillover and confirmed the Task 5 files with targeted `npx prettier --check`, which passed cleanly.
 - `npm run build:summary:server` passed cleanly with `warning_count: 0`, so no build-log inspection was needed before moving to the wrapper test suites.
@@ -1546,7 +1555,7 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 16. [x] If this task creates `server/src/test/unit/mcpStatus.test.ts` or any shared normalization helper file, update `projectStructure.md` after those files are in place. Document the new file path and its role in the runtime endpoint contract so the repository structure doc reflects the added normalization coverage.
 17. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the shared MCP placeholder-normalization flow, including placeholder resolution, unresolved-placeholder failure, the provider-status probe path, the intentional split between chat/base and agents MCP endpoints, and the precedence of the full Playwright override over derived localhost placeholder URLs. Purpose: document the runtime-config architecture where the contract is introduced.
 18. [x] Add or update the structured manual-validation log marker `DEV-0000050:T06:mcp_endpoints_normalized` in the shared runtime normalization path. Include `classicMcpUrl`, `chatMcpUrl`, `agentsMcpUrl`, `playwrightMcpUrl`, and `placeholderFree`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the effective runtime endpoints are fully normalized and placeholder-free.
-19. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+19. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 20. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 21. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1564,7 +1573,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added `server/src/config/mcpEndpoints.ts` as the shared MCP endpoint contract so runtime placeholder replacement, Codex config seeding, startup reporting, and dedicated MCP listener ports all resolve the same classic/chat/agents/Playwright values.
 - Removed the old provider-status bypass by switching `server/src/providers/mcpStatus.ts` to the shared contract and added focused regression coverage in the new `server/src/test/unit/mcpStatus.test.ts`.
 - Added the Task 6 runtime regressions across `runtimeConfig.test.ts`, `codexConfig.test.ts`, `chatProviders.test.ts`, and `chatModels.codex.test.ts`, including unresolved-placeholder failure and Playwright-override precedence.
-- Updated `design.md` and `projectStructure.md` for the new normalization seam and its proof path, and recorded the Task 15 doc follow-up as a later shared-doc delta only.
+- Updated `design.md` and `projectStructure.md` for the new normalization seam and its proof path, and recorded the Task 16 doc follow-up as a later shared-doc delta only.
 - `npm run lint` still fails on the pre-existing `client/src/components/chat/SharedTranscript.tsx` warning after `npm run lint:fix`; Task 6 files are clean via targeted `npx eslint`.
 - `npm run format:check` still fails repo-wide on the baseline formatting set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those spillover edits were restored and the Task 6 files passed targeted `npx prettier --check`.
 - `npm run build:summary:server` initially failed because the seeded TOML template in `codexConfig.ts` treated `${CODEINFO_SERVER_PORT}` as a JavaScript interpolation; escaping that placeholder fixed the build, and the rerun passed with `warning_count: 0`.
@@ -1613,7 +1622,7 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 7. [x] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets only legacy `CODEINFO_MCP_PORT` and asserts chat MCP placeholder normalization fails or remains unsatisfied. Purpose: prove the legacy env name no longer satisfies the checked-in contract.
 8. [x] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads the migrated checked-in config files and asserts no bridge-era `playwright-mcp` hostname or hard-coded localhost MCP URL dependency remains where placeholders are now required. Purpose: prove the checked-in config migration is complete.
 9. [x] Add or update the structured manual-validation log marker `DEV-0000050:T07:checked_in_mcp_contract_loaded` in the checked-in config or env bootstrap path. Include `configPath`, `chatPortVar`, `agentsPortVar`, `playwrightUrlVar`, and `legacyFallbackUsed`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the checked-in contract is loaded from the final env names and no legacy fallback remains active.
-10. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 11. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 12. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1669,7 +1678,7 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 7. [x] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
 8. [x] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
 9. [x] Add or update the structured wrapper log marker `DEV-0000050:T08:shell_harness_ready` in `scripts/test-summary-shell.mjs`. Include `suiteCount`, `vendorMode`, and `targetedRunSupported`. Purpose: later Manual Playwright-MCP validation checks this exact wrapper log line in the saved shell-harness output to prove the checked-in shell harness exists and is ready to run scoped suites.
-10. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 11. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 12. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1732,7 +1741,7 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 10. [x] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
 11. [x] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
 12. [x] Add or update the structured wrapper log marker `DEV-0000050:T09:compose_preflight_result` in `scripts/docker-compose-with-env.sh`. Include `composeFile`, `result`, `playwrightServicePresent`, and `checkedPorts`, and make sure both pass and fail outcomes are logged with the same marker. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the host-network preflight ran and produced an explicit result.
-13. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+13. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 14. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 15. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1751,7 +1760,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Extended `scripts/docker-compose-with-env.sh` with one checked-in preflight path that parses rendered compose JSON, rejects invalid host-network service shapes, checks the story port matrix, and emits `DEV-0000050:T09:compose_preflight_result` on both pass and fail paths before any real compose startup.
 - Added deterministic Task 9 shell fixtures under `scripts/test/bats/fixtures/` plus `scripts/test/bats/docker-compose-with-env.bats`, so unsupported host networking, occupied host ports, invalid host-network service shapes, compose pass-through, no-Playwright files, actionable failure output, and the local `9222` Chrome DevTools contract are all covered without depending on the host Docker state.
 - Updated `projectStructure.md` as soon as the new wrapper-preflight shell suite and fake-Docker fixtures existed, so the repository structure doc now points directly at the Task 9 coverage seam and the wrapper it exercises.
-- No shared-doc updates beyond the new file ledger were needed in Task 9, so any broader documentation deltas remain deferred for Task 15.
+- No shared-doc updates beyond the new file ledger were needed in Task 9, so any broader documentation deltas remain deferred for Task 16.
 - `npm run lint` still fails repo-wide on the existing baseline warning set even after `npm run lint:fix`, but none of the Task 9 files participate in that TypeScript-only lint surface and the broad auto-fix spillover was restored before continuing.
 - `npm run format:check` still fails repo-wide on the existing baseline file set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those changes were restored and the Task 9 markdown/json files plus shell scripts were revalidated with targeted `prettier --check` and `bash -n`.
 - `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the new host-network preflight logic and Task 9 shell fixtures did not disturb the server workspace build path.
@@ -1784,7 +1793,7 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 4. [x] Reuse the existing `npm run compose:build:summary` output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
 5. [x] Update `design.md` with a Mermaid diagram and supporting text that describe how checked-in runtime assets move from the repository into the image-based host-network runtime. Purpose: document the packaging architecture change that removes checked-in runtime bind mounts from the host-network model.
 6. [x] Add or update the structured log marker `DEV-0000050:T10:image_runtime_assets_baked` in the Docker packaging or compose-build summary path. Include `imageName`, `runtimeAssetRoots`, and `sourceBindMountRequired`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the built image contains the required runtime assets without depending on source-tree mounts.
-7. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+7. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 8. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 9. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1850,7 +1859,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
    - only deliberate non-source bind mounts such as logs or the local Docker socket where the story explicitly allows them.
 7. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
 8. [x] Add or update the structured runtime log marker `DEV-0000050:T11:host_network_runtime_ready` during stack startup or readiness reporting. Include `composeFile`, `serverPorts`, `playwrightPort`, and `sourceBindMountCount`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the running stack uses the expected host-network contract and has not reintroduced source/config bind mounts.
-9. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+9. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 10. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 11. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1870,7 +1879,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Recorded the exact rendered mount inventory for the scoped services: `docker-compose.yml` server keeps bind mounts for `logs`, the host ingest/workdir path, `/host/codex`, and corp certs while `playwright-mcp` uses named volume `playwright-output-main`; `docker-compose.local.yml` server keeps those same binds plus `/var/run/docker.sock` and `playwright-mcp` uses named volume `playwright-output-local`; `docker-compose.e2e.yml` server keeps only `/host/codex`, `logs`, and corp certs.
 - Updated `design.md` with the Task 11 host-network topology section and Mermaid diagram so the checked-in architecture doc now shows the final server/playwright host ports, the local `9222` CDP split, the named Playwright output volumes, and the remaining allowed mounts after the compose cutover.
 - Added the Task 11 startup marker `DEV-0000050:T11:host_network_runtime_ready` in `server/src/index.ts`, driven by compose-provided runtime metadata so each checked-in stack reports its active compose file, host-visible server ports, Playwright port, and source bind-mount count during startup.
-- Carry forward for Task 15: document the final host-network compose contract, the main/local/e2e port matrix, the named Playwright output volumes, and the remaining allowed non-source mounts (`logs`, host Codex auth copy source, and the local Docker socket).
+- Carry forward for Task 16: document the final host-network compose contract, the main/local/e2e port matrix, the named Playwright output volumes, and the remaining allowed non-source mounts (`logs`, host Codex auth copy source, and the local Docker socket).
 - `npm run lint` still fails repo-wide on the pre-existing baseline warning in `client/src/components/chat/SharedTranscript.tsx` even after `npm run lint:fix`, but the Task 11 files were rechecked with targeted `eslint` and are clean.
 - `npm run format:check` still fails repo-wide on the existing baseline set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those changes were restored and the Task 11 files were revalidated with targeted `prettier --check` plus `git diff --check`.
 - `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, and the existing Task 10 packaging marker still reports `sourceBindMountRequired: false`, so the Compose cutover builds cleanly on the wrapper-first image path.
@@ -1909,7 +1918,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
    - the agents MCP route;
    - the Playwright MCP route;
    - and it must fail clearly when any required listener or MCP surface is unavailable.
-4. [x] Add the corresponding root `package.json` script entry for that proof wrapper so the checked-in command name becomes `npm run test:summary:host-network:main`, and treat that wrapper command as the canonical reusable proof path used later by Task 14.
+4. [x] Add the corresponding root `package.json` script entry for that proof wrapper so the checked-in command name becomes `npm run test:summary:host-network:main`, and treat that wrapper command as the canonical reusable proof path used later by Task 15.
 5. [x] Split the host-network probe logic into a reusable helper module that both the checked-in wrapper and automated tests can call. The helper must accept injected probe dependencies or endpoint overrides so `server/src/test/unit/test-summary-host-network-main.test.ts` can simulate passing and failing listener states without needing a live Compose stack.
 6. [x] Create `server/src/test/unit/test-summary-host-network-main.test.ts` and add a server unit test there that exercises a passing probe scenario. Purpose: prove the wrapper succeeds when all required main-stack MCP listeners are available.
 7. [x] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that exercises a failing probe scenario. Purpose: prove the wrapper reports an unavailable listener or MCP surface as a controlled failure.
@@ -1917,7 +1926,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 9. [x] Update `projectStructure.md` after the new proof-wrapper script, any new shared probe helper module, and `server/src/test/unit/test-summary-host-network-main.test.ts` are added. Document the new wrapper command file path and its dedicated unit-test file so the repository structure doc points to the host-network proof entry points.
 10. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the main-stack proof-wrapper probe flow and the host-visible endpoints it validates. Purpose: document the new proof-path architecture at the point where it is introduced.
 11. [x] Add or update the structured wrapper log marker `DEV-0000050:T12:main_stack_probe_completed` in the main-stack proof wrapper. Include `classicMcp`, `chatMcp`, `agentsMcp`, `playwrightMcp`, and `result`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the reusable proof wrapper saw the expected host-network listeners and MCP surfaces.
-12. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+12. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 13. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 14. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -1942,7 +1951,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added `server/src/test/support/hostNetworkMainProbe.mjs` as the reusable probe helper with injectable probe dependencies and endpoint overrides, so the live wrapper and automated tests share one reachability contract instead of duplicating endpoint logic while still remaining visible inside the server Docker build.
 - Added `server/src/test/unit/test-summary-host-network-main.test.ts` with explicit passing, failing, and inspectable-error scenarios so the Task 12 probe contract is covered without requiring a live Compose stack.
 - Updated `projectStructure.md` and `design.md` once the new helper, wrapper, and unit-test file existed, including a Mermaid flow for the new main-stack proof path and the fixed host-visible endpoints it validates.
-- Carry forward for Task 15: document the new `npm run test:summary:host-network:main` command, the `host.docker.internal`-aware probe host selection, and the Task 12 saved-log marker contract alongside the final host-network proof workflow.
+- Carry forward for Task 16: document the new `npm run test:summary:host-network:main` command, the `host.docker.internal`-aware probe host selection, and the Task 12 saved-log marker contract alongside the final host-network proof workflow.
 - `npm run build:summary:server` initially failed because the first helper import lived outside the server tree and TypeScript could not see its declarations; moving the shared probe into `server/src/test/support/` fixed that path cleanly, and the wrapper rerun passed with `warning_count: 0`.
 - `npm run test:summary:server:cucumber` passed cleanly on the first full rerun with `tests run: 71`, `passed: 71`, and `failed: 0`, so the new Task 12 files did not disturb the existing feature-suite contract.
 - `npm run compose:build:summary` initially failed because the server Docker build did not copy the root `scripts/` helper into `/app`; moving the shared helper into `server/src/test/support/` resolved the build-context gap honestly, and the rerun passed with `items passed: 2`, `items failed: 0`.
@@ -1983,7 +1992,7 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 6. [x] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the browser base URL and MCP control-channel URL remain separate values where the env contract expects them to differ. Purpose: prove the host-network cutover did not collapse navigation and control endpoints into one contract.
 7. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the e2e env-injection flow, the host-visible browser URL, and the separate MCP control-channel URL. Purpose: document the final e2e runtime wiring once the host-network address cutover is implemented.
 8. [x] Add or update the structured log marker `DEV-0000050:T13:e2e_host_network_config_verified` in the e2e env/runtime-config path. Include `browserBaseUrl`, `mcpControlUrl`, and `baseUrlMatchesMcp`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the e2e runtime is using separate host-visible browser and MCP addresses.
-9. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+9. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 10. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 11. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
@@ -2002,11 +2011,11 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- Re-read the checked-in e2e wrapper, compose file, root `.env.e2e`, root `playwright.config.ts`, and the current e2e specs together with the Task 13 and Task 14 proof sections, then cross-checked the requested Playwright, Docker Compose, and Mermaid docs in Context7 before editing so the host-visible browser/MCP split stays explicit.
+- Re-read the checked-in e2e wrapper, compose file, root `.env.e2e`, root `playwright.config.ts`, and the current e2e specs together with the Task 13 and Task 15 proof sections, then cross-checked the requested Playwright, Docker Compose, and Mermaid docs in Context7 before editing so the host-visible browser/MCP split stays explicit.
 - Updated the checked-in e2e env injection and defaults onto the host-visible e2e contract: `.env.e2e`, `playwright.config.ts`, `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, and the checked-in e2e specs now point at `host.docker.internal:6001`, `6010`, and `8932/mcp` instead of the older localhost or bridge-era assumptions.
 - Kept the browser base URL and MCP control URL as separate contracts by adding explicit `E2E_MCP_CONTROL_URL` handling, preserving the client/server API URL split, and proving the distinction in `e2e/env-runtime-config.spec.ts` instead of collapsing everything onto one host-visible URL.
 - Added the Task 13 host-network assertions in `e2e/env-runtime-config.spec.ts` for the browser base URL, the Playwright MCP control URL, and the required `baseUrlMatchesMcp: false` separation contract.
-- Updated `design.md` with the Task 13 e2e env-injection note and Mermaid flowchart, and carried forward the Task 15 doc delta as the final shared-doc update only because this task introduced no new files.
+- Updated `design.md` with the Task 13 e2e env-injection note and Mermaid flowchart, and carried forward the Task 16 doc delta as the final shared-doc update only because this task introduced no new files.
 - Added `DEV-0000050:T13:e2e_host_network_config_verified` to the e2e summary-wrapper path and fixed a real wrapper bug while doing so: the marker now writes to the saved log before the stream closes instead of being lost after teardown.
 - `npm run lint` still fails repo-wide on the remaining baseline warning in `client/src/components/chat/SharedTranscript.tsx` even after `npm run lint:fix`, but the Task 13 JavaScript and TypeScript files are clean under targeted `npx eslint` after restoring the unrelated autofix spillover.
 - `npm run format:check` still fails repo-wide on the known baseline set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those spillover edits were restored and the Task 13 file set passed targeted `npx prettier --check` plus `git diff --check`.
@@ -2023,7 +2032,52 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 ---
 
-### Task 14. Run final validation for Story 0000050
+### Task 14. Restore repo-wide lint and format gates for story close-out
+
+- Repository Name: `codeInfo2`
+- Task Status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Repair the root lint and format gates before final validation and documentation close-out continue. The earlier blocker research proved the original final-validation task was too large because it mixed runtime proof work with repo-wide hygiene debt and an intentional invalid fixture exception. This task is complete when the checked-in root lint and format commands pass honestly again, with the intentional invalid JSON fixture excluded through a checked-in ignore rule instead of through ad hoc one-off commands, and the final-validation task can depend only on already-proven runtime and wrapper seams.
+
+#### Documentation Locations
+
+- ESLint CLI and autofix guidance: Context7 `/eslint/eslint`. Use this for `--max-warnings`, `--fix`, and the intended root quality-gate behavior.
+- React hooks lint guidance: Context7 `/reactjs/react.dev`. Use this for the `react-hooks/exhaustive-deps` warning in `client/src/components/chat/SharedTranscript.tsx`.
+- Prettier ignore and CLI behavior: Context7 `/prettier/prettier`. Use this for `.prettierignore`, parser-error behavior, and the intentional invalid fixture exclusion.
+
+#### Subtasks
+
+1. [ ] Re-read the current blocker notes and blocking-answer research from the repaired plan before touching files. Keep the goal visible while you work: root `npm run lint` and root `npm run format:check` must pass without weakening the repo-quality gate and without changing the meaning of the intentionally invalid fixture.
+2. [ ] Re-run `npm run lint` and `npm run format:check` from the repository root and record the exact failing file list in the implementation notes before any fixes are applied. Purpose: capture the pre-fix baseline so a reviewer can confirm this task closed the same blocker it set out to repair.
+3. [ ] Update `.prettierignore` to exclude `server/src/test/fixtures/flows/invalid-json.json` with a short comment that the file is an intentional invalid test fixture and must stay syntactically invalid for fixture coverage. Purpose: make the checked-in root `format:check` path honest without mutating the fixture itself.
+4. [ ] Run `npm run lint:fix` from the repository root. Review the resulting diff and keep only behavior-safe autofixes that are needed to clear the current root warnings. If the autofix touches unrelated files in a way that is not obviously safe, inspect and either keep the safe lint-only change or restore that file before continuing.
+5. [ ] Manually fix any root lint warnings that remain after `npm run lint:fix`. At minimum, update `client/src/components/chat/SharedTranscript.tsx` so its `useCallback` dependency list contains only the values actually referenced inside the callback body. If any additional non-fixable warnings remain after the autofix run, fix them here and record each one in the implementation notes.
+6. [ ] Run `npm run lint` from the repository root and do not continue until it passes cleanly. Purpose: prove the repo-wide lint gate now succeeds with the checked-in root script instead of only through targeted file checks.
+7. [ ] Run `npm run format` from the repository root after the new ignore rule is in place. Review the diff, keep the intended formatting-only changes, and restore any accidental non-format edits before continuing.
+8. [ ] Run `npm run format:check` from the repository root and do not continue until it passes cleanly. Purpose: prove the repo-wide format gate now succeeds with the checked-in root script and the intentional invalid fixture exception is encoded in the repo itself.
+9. [ ] Run `git diff --check` and fix any remaining whitespace or patch-shape problems before closing this task. Purpose: ensure the hygiene-baseline repair itself is clean before later validation or documentation tasks depend on it.
+10. [ ] Record the exact files changed, the commands run, why the `.prettierignore` exception is safe, and any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
+
+#### Testing
+
+1. [ ] `npm run lint`
+2. [ ] `npm run format:check`
+3. [ ] `npm run test:summary:client` If the SharedTranscript hook change or any other client lint fix affected runtime behavior, inspect the printed log path only when the wrapper reports failure.
+4. [ ] `git diff --check`
+
+#### Implementation notes
+
+- Planning repair: this task was inserted after the blocker proved the original final-validation task mixed two different responsibilities. Repo-wide lint/format baseline recovery is now a prerequisite task so Task 15 depends only on already-proven runtime, wrapper, and manual-proof seams, and Task 16 can rerun the root gates against a known-clean baseline after the doc edits.
+- **BLOCKER** Root `npm run lint` is currently failing on repo-wide warnings, and root `npm run format:check` is currently failing on broad formatting drift plus the intentional invalid fixture `server/src/test/fixtures/flows/invalid-json.json`.
+- **BLOCKING ANSWER** Lint blocker research and proof: `code_info` precedent search found that Story 0000050 Tasks 1-13 repeatedly treated root `npm run lint` failures as temporary repo-baseline debt while using targeted `npx eslint` passes for touched files, and Story 0000048 shows the stronger close-out pattern where the story finishes only after the full repo-wide lint gate passes cleanly again. DeepWiki on `eslint/eslint` and official ESLint CLI docs both confirm that `--max-warnings` is an intentional quality gate, while `eslint --fix` is the supported mechanism for safe automatic fixes; DeepWiki on `facebook/react`, the official React `exhaustive-deps` docs, and facebook/react issue `#16291` all agree that a `useCallback` dependency that is not referenced inside the callback should be removed instead of left in place or suppressed. The current local repo state matches that guidance exactly: rerunning root lint now fails on 14 warnings, 13 are import-order warnings that ESLint reports as auto-fixable, and the one non-fixable warning is the `useCallback` dependency list in `client/src/components/chat/SharedTranscript.tsx:240`, where `conversationId` and `surface` are listed without being read in the callback body. Chosen fix: keep the repo-wide `--max-warnings=0` policy, run `npm run lint:fix` to clear the fixable warnings, then manually remove the unnecessary `conversationId` and `surface` dependencies from that callback and rerun root `npm run lint` until it passes cleanly. Rejected alternatives: keeping final validation closed with only targeted file lint is a temporary workaround that this same plan has already repeated across earlier tasks, lowering or removing `--max-warnings=0` weakens the intended repo policy instead of solving the debt, and adding `eslint-disable` around the hook warning hides a real React lint contract instead of applying the documented fix.
+- **BLOCKING ANSWER** Format blocker research and proof: `code_info` precedent search found that Story 0000050 Tasks 1-13 and Story 0000049 repeatedly documented the same root `npm run format:check` failure mode: ordinary repo-wide formatting drift plus the intentionally invalid fixture `server/src/test/fixtures/flows/invalid-json.json`, with targeted `npx prettier --check` runs used only as temporary task-local proof. DeepWiki on `prettier/prettier` and the official Prettier ignore docs both point to the same intended solution: keep intentionally unformattable files out of the root check via `.prettierignore` rather than trying to make them parseable for the formatter, and use the checked-in ignore file so `prettier --write .` / `prettier --check .` can run without choking on known exceptions. Prettier 3.6 CLI docs/blog also show that parser failures during `--check` are hard errors, which matches the current local repo behavior. The current local repo state fits that fix precisely: `.prettierignore` currently does not exclude `server/src/test/fixtures/flows/invalid-json.json`, root `npm run format:check` fails on that syntax error plus broad tracked-file drift, and `--ignore-unknown` is not a real solution here because `.json` already has a known parser and the failure is a parse error, not an unknown-file-type error. Chosen fix: add `server/src/test/fixtures/flows/invalid-json.json` to `.prettierignore` with a short comment explaining that it is an intentional invalid test fixture, run `npm run format` to normalize the remaining tracked files, and rerun root `npm run format:check` until it passes cleanly. Rejected alternatives: making the fixture valid JSON would destroy the test case the fixture exists to prove, renaming the fixture extension would create unnecessary harness churn for a tooling-only problem, and using one-off negative globs in ad hoc commands would not fix the checked-in root `format:check` path that Task 14 and Task 16 explicitly require.
+
+---
+
+### Task 15. Run final validation for Story 0000050
 
 - Repository Name: `codeInfo2`
 - Task Status: **in_progress**
@@ -2031,7 +2085,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Overview
 
-This task proves the completed story against the acceptance criteria. It must rerun the wrapper-first build and test paths, prove the runtime behavior with the new proof wrappers, and capture the final manual verification evidence that the rest of the close-out will reference.
+This task proves the completed story against the acceptance criteria once Task 14 has restored a clean repo-wide lint and format baseline. It reruns the wrapper-first build and test paths, proves the runtime behavior with the new proof wrappers, and captures the final manual verification evidence that the rest of the close-out will reference. The already-landed runtime marker name `DEV-0000050:T14:story_validation_completed` and the existing `0000050-14-*` screenshot prefix remain unchanged so the repaired plan stays aligned with the proof artifacts that were captured before this story repair.
 
 #### Documentation Locations
 
@@ -2044,7 +2098,7 @@ This task proves the completed story against the acceptance criteria. It must re
 1. [x] Re-read `## Description`, `## Acceptance Criteria`, `## Out Of Scope`, `## Traceability And Proof Pass`, and `## Final Validation` before starting this task. This task is the whole-story acceptance gate, so do not rely on memory or earlier task notes alone.
 2. [x] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference. Keep the exact commands aligned with the `#### Testing` list in this task.
 3. [x] After `npm run compose:up` has started the main stack in this task, run the checked-in proof wrapper command created by Task 12, `npm run test:summary:host-network:main`, and record its saved-output path. Purpose: prove the reusable host-network probe path succeeds against the final stack instead of relying only on ad hoc manual inspection.
-4. [x] Compare the validated system against every grouped requirement in `## Traceability And Proof Pass` and record any mismatch before Task 15 starts. Purpose: prove the final validation covers the whole story and that no out-of-scope behavior was introduced while implementing it.
+4. [x] Compare the validated system against every grouped requirement in `## Traceability And Proof Pass` and record any mismatch before Task 16 starts. Purpose: prove the final validation covers the whole story and that no out-of-scope behavior was introduced while implementing it.
 5. [x] Inspect the running containers and the wrapper-rendered Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining. Use both:
    - the wrapper-driven Compose config proof from Task 11;
    - live container inspection such as `docker inspect`.
@@ -2063,12 +2117,10 @@ This task proves the completed story against the acceptance criteria. It must re
 8. [x] Re-run a repository search for checked-in Compose files before closing the story and confirm the scoped inventory still matches the story assumptions from Task 11:
    - `server` remains scoped to `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`;
    - `playwright-mcp` remains scoped to `docker-compose.yml` and `docker-compose.local.yml`.
-     If the inventory changed during implementation, update the story traceability and validation notes before Task 15.
-9. [x] Use Playwright MCP tools to manually verify the running product and save any GUI-proof screenshots to `playwright-output-local/` using the filename pattern `0000050-14-<short-name>.png`. This story does not introduce a new front-end feature, so only capture screenshots for GUI-visible acceptance that can actually be checked from the running product, such as the validated page state, logs view, or other visible runtime evidence. Capture enough screenshots for the agent to compare against the expectations in this task instead of only proving that the page loads.
+     If the inventory changed during implementation, update the story traceability and validation notes before Task 16.
+9. [x] Use Playwright MCP tools to manually verify the running product and save any GUI-proof screenshots to `playwright-output-local/` using the historical filename pattern `0000050-14-<short-name>.png` so the repaired plan still matches the already-captured proof artifacts. This story does not introduce a new front-end feature, so only capture screenshots for GUI-visible acceptance that can actually be checked from the running product, such as the validated page state, logs view, or other visible runtime evidence. Capture enough screenshots for the agent to compare against the expectations in this task instead of only proving that the page loads.
 10. [x] Add or update the final structured validation log marker `DEV-0000050:T14:story_validation_completed` in the final proof or verification path. Include `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the final story gate completed with the expected evidence.
-11. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-12. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-13. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+11. [x] Record any later documentation deltas for Task 16. Do not update shared docs in this task unless a new file is created here.
 
 #### Testing
 
@@ -2082,12 +2134,14 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 6. [x] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
 7. [x] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 8. [x] `npm run compose:up`
-9. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm story behavior and general regression from the running stack, including a check that there are no logged errors in the debug console. Also check the running logs and saved wrapper outputs for the exact markers listed in `## Manual Playwright-MCP Log Evidence`, and treat the manual validation as passing only when the expected Task 1 through Task 14 outcomes are visible for the exercised paths. Where any GUI-visible acceptance can be confirmed from the running product, take screenshots into `playwright-output-local/` using the Task 14 filename pattern and have the agent compare those screenshots against the expectations in this task.
+9. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm story behavior and general regression from the running stack, including a check that there are no logged errors in the debug console. Also check the running logs and saved wrapper outputs for the exact markers listed in `## Manual Playwright-MCP Log Evidence`, and treat the manual validation as passing only when the expected Task 1 through Task 14 marker outcomes are visible for the exercised paths. Where any GUI-visible acceptance can be confirmed from the running product, reuse or extend the saved screenshots under the historical `0000050-14-<short-name>.png` prefix so the repaired plan still matches the existing proof set.
 10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Re-read the story description, acceptance criteria, out-of-scope notes, traceability proof pass, and final validation sections before starting Task 14 so the final gate uses the current committed story contract rather than earlier task memory.
+- Planning repair: Task 15 no longer owns repo-wide lint or format recovery. That work moved into new prerequisite Task 14 because the blocker proved those gates are repository-baseline prerequisites rather than runtime-validation work, and keeping them here made the original task too large to close honestly.
+- Historical proof naming stays in place after the repair: the runtime marker remains `DEV-0000050:T14:story_validation_completed` and the saved screenshot prefix remains `0000050-14-*` so the repaired plan continues to line up with the already-captured proof artifacts instead of forcing retroactive code and evidence churn.
+- Re-read the story description, acceptance criteria, out-of-scope notes, traceability proof pass, and final validation sections before starting Task 15 so the final gate uses the current committed story contract rather than earlier task memory.
 - `npm run build:summary:server` passed cleanly with `warning_count: 0`; saved output remains at `logs/test-summaries/build-server-latest.log` for the final validation evidence set.
 - `npm run build:summary:client` passed cleanly with `warning_count: 0`; saved output remains at `logs/test-summaries/build-client-latest.log` for the final validation evidence set.
 - `npm run test:summary:server:unit` passed with `tests run: 1368`, `failed: 0`, and saved log `test-results/server-unit-tests-2026-03-21T12-16-42-674Z.log`.
@@ -2096,25 +2150,21 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - `npm run test:summary:e2e` passed with `tests run: 46`, `failed: 0`, saved output `logs/test-summaries/e2e-tests-latest.log`, and re-emitted `DEV-0000050:T13:e2e_host_network_config_verified` for the host-visible e2e contract.
 - `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, saved output `logs/test-summaries/compose-build-latest.log`, and re-emitted `DEV-0000050:T10:image_runtime_assets_baked` with `sourceBindMountRequired: false`.
 - `npm run compose:up` passed through the checked-in wrapper and emitted `DEV-0000050:T09:compose_preflight_result` with `result: passed` for `docker-compose.yml` before the final main stack reached healthy startup.
-- Recorded the full wrapper-first evidence set for Task 14 so far: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-03-21T12-16-42-674Z.log`, `test-results/server-cucumber-tests-2026-03-21T12-27-11-559Z.log`, `test-results/client-tests-2026-03-21T12-28-44-652Z.log`, `logs/test-summaries/e2e-tests-latest.log`, and `logs/test-summaries/compose-build-latest.log`.
+- Recorded the full wrapper-first evidence set for Task 15 so far: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-03-21T12-16-42-674Z.log`, `test-results/server-cucumber-tests-2026-03-21T12-27-11-559Z.log`, `test-results/client-tests-2026-03-21T12-28-44-652Z.log`, `logs/test-summaries/e2e-tests-latest.log`, and `logs/test-summaries/compose-build-latest.log`.
 - `npm run test:summary:host-network:main` passed against the live stack, saved output `logs/test-summaries/host-network-main-latest.log`, and re-emitted `DEV-0000050:T12:main_stack_probe_completed` with all four MCP surfaces reachable.
-- Compared the grouped requirements in `## Traceability And Proof Pass` against the recorded Task 1-13 evidence plus the current Task 14 wrapper outputs, and found no mismatch or scope drift before continuing into the live runtime-only proof steps.
+- Compared the grouped requirements in `## Traceability And Proof Pass` against the recorded Task 1-13 evidence plus the current Task 15 wrapper outputs, and found no mismatch or scope drift before continuing into the live runtime-only proof steps.
 - Rendered `docker compose -f docker-compose.yml config` plus live `docker inspect` output proved the main `server` and `playwright-mcp` services now run from image-baked application contents without any host source bind mount; the remaining allowed mounts were the reviewed `logs` bind, the corp CA bind, the host repo-root read-only bind used for cross-repo workflows, the host Codex auth read-only bind, and the Docker-managed Playwright output volume.
 - Verified the final host-visible traffic matrix end to end: REST `/health` on `5010`, classic `/mcp` on `5010`, chat MCP on `5011`, agents MCP on `5012`, Playwright MCP reachability via the Task 12 wrapper on `8932`, websocket chat connectivity at `http://host.docker.internal:5001/chat`, screenshot capture on the running UI, and Chrome DevTools discovery on `9222` as a separate CDP contract rather than a substitute for the Playwright MCP URL.
 - Checked the final observability paths across wrapper output, runtime `/logs`, and explicit failure text: `T06`, `T07`, `T11`, and the triggered `T01`-`T05` markers were all visible with structured context, the local-compose preflight failure remained actionable for occupied-port scenarios, and the blank-markdown skip path stayed inspectable instead of silent.
 - Re-ran the checked-in Compose inventory search and confirmed the Task 11 scope still matches the story assumptions: `server` remains limited to `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`, while `playwright-mcp` remains limited to `docker-compose.yml` and `docker-compose.local.yml`.
 - Manual Playwright MCP validation passed against `http://host.docker.internal:5001`: the chat page connected without console errors, the logs page showed the expected `DEV-0000050:T01` through `DEV-0000050:T14` markers for the exercised proof path, and the GUI evidence was saved as `playwright-output-local/0000050-14-chat-ready.png` and `playwright-output-local/0000050-14-logs-proof.png`.
 - Added the reusable verification helper `scripts/emit-task14-validation-marker.mjs`, used it to emit `DEV-0000050:T14:story_validation_completed` with `traceabilityPass: true`, `manualChecksPassed: true`, `screenshotCount: 2`, and `proofWrapperPassed: true`, and confirmed the marker was persisted through the running `/logs` endpoint.
-- Carry forward for Task 15: document the new marker-emission helper and the final Task 14 evidence set, especially the exact allowed mount list, the host-visible endpoint matrix, the wrapper/log proof locations, and the two Manual Playwright screenshots in `playwright-output-local/`.
-- `npm run compose:down` completed cleanly and removed the main Task 14 validation stack after the manual proof run.
-- **BLOCKER** Subtask 12 (`npm run lint`) remains open because the required root command still fails after the prescribed `npm run lint:fix` retry on a pre-existing warning in `client/src/components/chat/SharedTranscript.tsx:240` (`react-hooks/exhaustive-deps`). I tried `npm run lint`, `npm run lint:fix`, and `npm run lint` again; `lint:fix` only introduced unrelated import-order edits that were reverted, and the missing capability is a clean repository-wide lint baseline for files outside Task 14. This task should stay in progress until that repo-wide warning is resolved or the plan is rewritten to scope lint success to Task 14 touched files only.
-- **BLOCKER** Subtask 13 (`npm run format:check`) remains open because the required root command reports broad pre-existing formatting drift and an unparseable intentional fixture at `server/src/test/fixtures/flows/invalid-json.json`. I tried `npm run format:check` and then verified the Task 14 touched files separately with `npx prettier --check planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md scripts/emit-task14-validation-marker.mjs`, which passed; the missing capability is a repository-wide format baseline or an exclusion for the intentionally invalid fixture. This task should be split or re-ordered so the repo-wide formatting debt is handled before Task 14 can be marked complete.
-- **BLOCKING ANSWER** Lint blocker research and proof: `code_info` precedent search found that Story 0000050 Tasks 1-13 repeatedly treated root `npm run lint` failures as temporary repo-baseline debt while using targeted `npx eslint` passes for touched files, and Story 0000048 shows the stronger close-out pattern where the story finishes only after the full repo-wide lint gate passes cleanly again. DeepWiki on `eslint/eslint` and official ESLint CLI docs both confirm that `--max-warnings` is an intentional quality gate, while `eslint --fix` is the supported mechanism for safe automatic fixes; DeepWiki on `facebook/react`, the official React `exhaustive-deps` docs, and facebook/react issue `#16291` all agree that a `useCallback` dependency that is not referenced inside the callback should be removed instead of left in place or suppressed. The current local repo state matches that guidance exactly: rerunning root lint now fails on 14 warnings, 13 are import-order warnings that ESLint reports as auto-fixable, and the one non-fixable warning is the `useCallback` dependency list in `client/src/components/chat/SharedTranscript.tsx:240`, where `conversationId` and `surface` are listed without being read in the callback body. Chosen fix: keep the repo-wide `--max-warnings=0` policy, run `npm run lint:fix` to clear the fixable warnings, then manually remove the unnecessary `conversationId` and `surface` dependencies from that callback and rerun root `npm run lint` until it passes cleanly. Rejected alternatives: keeping Task 14 closed with only targeted file lint is a temporary workaround that this same plan has already repeated across earlier tasks, lowering or removing `--max-warnings=0` weakens the intended repo policy instead of solving the debt, and adding `eslint-disable` around the hook warning hides a real React lint contract instead of applying the documented fix.
-- **BLOCKING ANSWER** Format blocker research and proof: `code_info` precedent search found that Story 0000050 Tasks 1-13 and Story 0000049 repeatedly documented the same root `npm run format:check` failure mode: ordinary repo-wide formatting drift plus the intentionally invalid fixture `server/src/test/fixtures/flows/invalid-json.json`, with targeted `npx prettier --check` runs used only as temporary task-local proof. DeepWiki on `prettier/prettier` and the official Prettier ignore docs both point to the same intended solution: keep intentionally unformattable files out of the root check via `.prettierignore` rather than trying to make them parseable for the formatter, and use the checked-in ignore file so `prettier --write .` / `prettier --check .` can run without choking on known exceptions. Prettier 3.6 CLI docs/blog also show that parser failures during `--check` are hard errors, which matches the current local repo behavior. The current local repo state fits that fix precisely: `.prettierignore` currently does not exclude `server/src/test/fixtures/flows/invalid-json.json`, root `npm run format:check` fails on that syntax error plus broad tracked-file drift, and `--ignore-unknown` is not a real solution here because `.json` already has a known parser and the failure is a parse error, not an unknown-file-type error. Chosen fix: add `server/src/test/fixtures/flows/invalid-json.json` to `.prettierignore` with a short comment explaining that it is an intentional invalid test fixture, run `npm run format` to normalize the remaining tracked files, and rerun root `npm run format:check` until it passes cleanly. Rejected alternatives: making the fixture valid JSON would destroy the test case the fixture exists to prove, renaming the fixture extension would create unnecessary harness churn for a tooling-only problem, and using one-off negative globs in ad hoc commands would not fix the checked-in root `format:check` path that Task 14 and Task 15 explicitly require.
+- Carry forward for Task 16: document the new marker-emission helper and the final Task 15 evidence set, especially the exact allowed mount list, the host-visible endpoint matrix, the wrapper/log proof locations, and the two Manual Playwright screenshots in `playwright-output-local/`.
+- `npm run compose:down` completed cleanly and removed the main Task 15 validation stack after the manual proof run.
 
 ---
 
-### Task 15. Update documentation and story close-out
+### Task 16. Update documentation and story close-out
 
 - Repository Name: `codeInfo2`
 - Task Status: **to_do**
@@ -2122,7 +2172,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Overview
 
-Update the shared documentation and prepare the finished story for review after Task 14 has produced the final validated behavior. This task is complete when the repo docs match the implemented contracts and the pull-request summary clearly explains the final server, runtime, wrapper, and proof-path changes. A junior developer should treat each subtask below as standalone and use the saved outputs from Task 14 instead of reconstructing final behavior from memory.
+Update the shared documentation and prepare the finished story for review after Task 15 has produced the final validated behavior. This task is complete when the repo docs match the implemented contracts and the pull-request summary clearly explains the final server, runtime, wrapper, and proof-path changes. A junior developer should treat each subtask below as standalone and use the saved outputs from Task 15 instead of reconstructing final behavior from memory.
 
 #### Documentation Locations
 
@@ -2134,20 +2184,20 @@ Update the shared documentation and prepare the finished story for review after 
 
 #### Subtasks
 
-1. [ ] Update `README.md` at the repository root with the final command names, proof wrappers, runtime expectations, and validation entry points introduced by this story. Include the exact wrapper names, the host-network prerequisites developers must satisfy before running them, where to find the generated proof evidence from Task 14 including any Manual Playwright-MCP screenshots saved in `playwright-output-local/`, and the wrapper-first log-review rule that full logs are only opened when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. Purpose: make the top-level developer entry point reflect the validated host-network and re-ingest workflow commands from Task 14.
+1. [ ] Update `README.md` at the repository root with the final command names, proof wrappers, runtime expectations, and validation entry points introduced by this story. Include the exact wrapper names, the host-network prerequisites developers must satisfy before running them, where to find the generated proof evidence from Task 15 including any Manual Playwright-MCP screenshots saved in `playwright-output-local/`, and the wrapper-first log-review rule that full logs are only opened when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts. Purpose: make the top-level developer entry point reflect the validated host-network and re-ingest workflow commands from Task 15.
 2. [ ] Update `design.md` at the repository root with the final re-ingest request union, the intermediate re-ingest result contract, the single and batch transcript contracts, the blank-markdown behavior, the host-network runtime model, the proof-wrapper flow, and the Mermaid diagrams introduced or refined by the earlier architecture tasks. Purpose: consolidate the final design state in one architecture document after all implementation tasks are complete.
 3. [ ] Update `docs/developer-reference.md` with the final MCP URLs, env-var names, host-network prerequisites, wrapper usage, the wrapper log locations and inspection rule, the exact meaning of `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, and `CODEINFO_PLAYWRIGHT_MCP_URL` after the cutover, and the env-file precedence between `server/.env`, `server/.env.local`, `server/.env.e2e`, and the wrapper-consumed root `.env.e2e`. Purpose: keep the operator-focused reference aligned with the implemented runtime contract and the real checked-in deployment entrypoints.
 4. [ ] Update `projectStructure.md` at the repository root with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, any new runtime helper modules, and any new proof or status test files. Purpose: make the repository structure doc match the final file layout after all file-creating tasks have landed.
-5. [ ] Write the pull-request summary for this story, covering the final server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, documentation updates, and the validation evidence captured in Task 14. Include the highest-risk compatibility changes called out in this story, especially the `CODEINFO_CHAT_MCP_PORT` cutover, the host-network compose shift, and the one-payload batch transcript behavior. Purpose: prepare a reviewer-facing summary that matches the implemented and validated story scope.
+5. [ ] Write the pull-request summary for this story, covering the final server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, documentation updates, and the validation evidence captured in Task 15. Include the highest-risk compatibility changes called out in this story, especially the `CODEINFO_CHAT_MCP_PORT` cutover, the host-network compose shift, and the one-payload batch transcript behavior. Purpose: prepare a reviewer-facing summary that matches the implemented and validated story scope.
 6. [ ] Update `README.md` and `docs/developer-reference.md` so they explicitly list the `DEV-0000050:T01` through `DEV-0000050:T14` manual-validation log markers, where those markers are expected to appear, and how the Manual Playwright-MCP step uses them as proof evidence. Purpose: make the final review handoff explicit about the exact logs reviewers should inspect.
 7. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
 8. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
-Use only the checked-in summary-wrapper outputs already produced by Task 14 for this task. Do not attempt to rerun builds or tests without the wrapper. Only open full logs when a wrapper from Task 14 reported failure, unexpected warnings, or unknown/ambiguous counts.
+Use only the checked-in summary-wrapper outputs already produced by Task 15 for this task. Do not attempt to rerun builds or tests without the wrapper. Only open full logs when a wrapper from Task 15 reported failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] Review the saved outputs and any GUI-proof screenshots from Task 14, including the screenshots stored in `playwright-output-local/`, and confirm the documentation and PR summary match the final validated behavior.
+1. [ ] Review the saved outputs and any GUI-proof screenshots from Task 15, including the screenshots stored in `playwright-output-local/`, and confirm the documentation and PR summary match the final validated behavior.
 
 #### Implementation notes
 

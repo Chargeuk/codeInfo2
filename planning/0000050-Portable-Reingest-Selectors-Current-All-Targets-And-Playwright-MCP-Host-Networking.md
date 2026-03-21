@@ -977,7 +977,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Missing prerequisite capabilities:
   - None before this task begins.
 - Assumptions currently invalid:
-  - Downstream transcript and orchestration tasks cannot assume `resolvedRepositoryId` or `completionMode` exists until this task adds them.
+  - This assumption has now been resolved by Task 2. Later tasks may assume `resolvedRepositoryId` and `completionMode` exist on the strict single-repository result contract, but they must not assume transcript persistence or batch payload support exists yet until Task 4 lands.
 
 ### Task 3. Add shared target orchestration for `sourceId`, `current`, and `all`
 
@@ -985,10 +985,9 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - `sourceId` and `flowSourceId` ownership context is already threaded through command and flow execution.
   - `server/src/mcpCommon/repositorySelector.ts` already provides the reusable selector helper.
 - Missing prerequisite capabilities:
-  - Task 1 must land first so the new `target` inputs can be parsed.
-  - Task 2 must land first so the strict service returns the extended result fields needed by later consumers.
+  - These prerequisites have now been satisfied by Tasks 1 and 2, so Task 3 can build on parsed `target` inputs and the extended strict result contract.
 - Assumptions currently invalid:
-  - There is no existing shared `current` or `all` orchestration layer yet, so later tasks must not assume batch outcomes or current-owner resolution until this task is complete.
+  - This assumption has now been resolved by Task 3. Later tasks may assume shared `current` and `all` orchestration exists and returns ordered intermediate outcomes, but they must not assume transcript persistence or final batch payload shapes exist yet until Task 4 lands.
 
 ### Task 4. Emit and persist the new single and batch re-ingest transcript payloads
 
@@ -996,8 +995,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts` already provide the persistence seam.
   - Existing persisted turn storage already uses `Turn.toolCalls`.
 - Missing prerequisite capabilities:
-  - Task 2 must land first so the single-result contract carries the extended fields.
-  - Task 3 must land first so `target: "all"` produces ordered batch outcomes to persist.
+  - These prerequisites have now been satisfied by Tasks 2 and 3, so Task 4 can assume the strict result contract already carries the extended fields and the orchestration layer already produces ordered single-target and batch-target intermediate outcomes.
 - Assumptions currently invalid:
   - No batch payload shape exists yet, so this task must extend the existing lifecycle rather than assuming a second persistence channel exists.
 

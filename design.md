@@ -4903,6 +4903,31 @@ sequenceDiagram
     Reader->>Reader: normalize older single-result payloads if fields are omitted
 ```
 
+## Story 0000050 Task 5: blank-markdown skip seam
+
+- Task 5 keeps markdown repository resolution and hard-failure handling in `server/src/flows/markdownFileResolver.ts`, but it adds one shared post-resolution preparation seam so direct commands, top-level flow `llm.markdownFile` steps, and flow-owned command markdown items all inherit the same empty-content decision.
+- The new preparation seam resolves the markdown file first, preserves all existing missing/traversal/read/decode failures unchanged, and only then checks `content.trim().length === 0`.
+- Whitespace-only content now produces a skip result instead of an instruction string, and that skip path emits the proof marker `DEV-0000050:T05:markdown_step_skipped` with `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"` plus any available command or flow context.
+- Because the skip happens before agent execution or synthetic re-ingest persistence, blank markdown does not fabricate user turns, assistant turns, or tool-call payloads. Successful non-empty markdown continues to flow through the existing command/flow instruction lifecycles unchanged.
+
+```mermaid
+flowchart TD
+  A[Resolve markdown reference] --> B{Path valid and inside codeinfo_markdown?}
+  B -- no --> C[Throw existing traversal/absolute-path error]
+  B -- yes --> D[Try repository candidates in shared order]
+  D --> E{Readable file found?}
+  E -- no --> F[Throw existing not-found error]
+  E -- yes --> G{Read or decode failed?}
+  G -- yes --> H[Throw existing read or UTF-8 error]
+  G -- no --> I[Trim resolved markdown content]
+  I --> J{Content empty after trim?}
+  J -- yes --> K[Emit DEV-0000050:T05:markdown_step_skipped]
+  K --> L[Return shared skip result]
+  J -- no --> M[Return shared instruction result]
+  L --> N[Caller skips execution and persists nothing]
+  M --> O[Caller executes normal command or flow instruction path]
+```
+
 ### ChatInterface event buffering & persistence
 
 - The server unifies chat execution behind `ChatInterface` (`server/src/chat/interfaces/ChatInterface.ts`) with provider-specific subclasses (`ChatInterfaceCodex`, `ChatInterfaceLMStudio`) selected via `getChatInterface(provider)` (`server/src/chat/factory.ts`).

@@ -401,6 +401,9 @@ export async function runAgentCommandRunner(
         sourceId: params.sourceId,
         executeInstruction: async (instruction) => instruction,
       });
+      if (preparedInstruction.itemType === 'skip') {
+        continue;
+      }
       const originalInstruction = preparedInstruction.instruction;
 
       if (preparedInstruction.markdownFile) {

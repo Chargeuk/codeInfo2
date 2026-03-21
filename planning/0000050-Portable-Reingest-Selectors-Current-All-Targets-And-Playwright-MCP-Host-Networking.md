@@ -1439,7 +1439,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 5. Skip blank markdown instructions without weakening real markdown failures
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1454,42 +1454,51 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 #### Subtasks
 
-1. [ ] In `server/src/flows/markdownFileResolver.ts`, `server/src/agents/commandItemExecutor.ts`, and `server/src/flows/service.ts`, trace the current markdown resolution path together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. The skip must happen once in the shared seam, not as duplicate checks in each runner.
-2. [ ] Add the whitespace-only skip behavior only for successfully resolved markdown content. Implement it in the shared resolver or shared execution seam so both direct commands and flows inherit the same behavior automatically.
-3. [ ] Emit the documented info-level log contract from that shared seam with these exact keys from the story:
+1. [x] In `server/src/flows/markdownFileResolver.ts`, `server/src/agents/commandItemExecutor.ts`, and `server/src/flows/service.ts`, trace the current markdown resolution path together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. The skip must happen once in the shared seam, not as duplicate checks in each runner.
+2. [x] Add the whitespace-only skip behavior only for successfully resolved markdown content. Implement it in the shared resolver or shared execution seam so both direct commands and flows inherit the same behavior automatically.
+3. [x] Emit the documented info-level log contract from that shared seam with these exact keys from the story:
    - `surface`
    - `markdownFile`
    - `resolvedPath`
    - `reason: "empty_markdown"`
    - plus any available command or flow context already present at the call site.
-4. [ ] Ensure the skip only applies to successful empty-content reads. Missing files, absolute paths, traversal attempts, permission failures, invalid UTF-8, and other existing resolver errors in `server/src/flows/markdownFileResolver.ts` must still fail exactly as they do today.
-5. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that exercises a direct command whose resolved markdown file contains only whitespace. Purpose: prove the happy-path skip behavior works for direct command execution.
-6. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that exercises a flow step whose resolved markdown file contains only whitespace. Purpose: prove the same skip behavior works for flow execution through the shared seam.
-7. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that covers a newline-only markdown file. Purpose: prove the skip logic trims line-break-only content correctly.
-8. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that covers a space-only markdown file. Purpose: prove the skip logic trims plain-space content correctly.
-9. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that asserts the emitted info log includes `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`. Purpose: prove the documented log contract is emitted exactly where operators need it.
-10. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a missing markdown file. Purpose: prove missing-file failures remain hard failures rather than skip cases.
-11. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a traversal attempt. Purpose: prove traversal protection remains a hard failure rather than a skip case.
-12. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a permission-denied read failure. Purpose: prove file permission failures still throw exactly as before.
-13. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises an invalid-UTF-8 decode failure. Purpose: prove decoding failures still throw exactly as before.
-14. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that verifies no synthetic tool-result payload is created when a markdown-backed step is skipped for empty content. Purpose: prove the skip does not fabricate transcript output.
-15. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the blank-markdown resolution path, the skip decision point, and the preserved hard-failure paths for missing, traversal, permission, and decoding errors. Purpose: document the shared command/flow execution behavior where the skip contract changes.
-16. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T05:markdown_step_skipped` in the shared markdown resolution or execution seam. Include `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove empty markdown is skipped for the documented reason instead of silently ignored.
-17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-18. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-19. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+4. [x] Ensure the skip only applies to successful empty-content reads. Missing files, absolute paths, traversal attempts, permission failures, invalid UTF-8, and other existing resolver errors in `server/src/flows/markdownFileResolver.ts` must still fail exactly as they do today.
+5. [x] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that exercises a direct command whose resolved markdown file contains only whitespace. Purpose: prove the happy-path skip behavior works for direct command execution.
+6. [x] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that exercises a flow step whose resolved markdown file contains only whitespace. Purpose: prove the same skip behavior works for flow execution through the shared seam.
+7. [x] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that covers a newline-only markdown file. Purpose: prove the skip logic trims line-break-only content correctly.
+8. [x] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that covers a space-only markdown file. Purpose: prove the skip logic trims plain-space content correctly.
+9. [x] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that asserts the emitted info log includes `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`. Purpose: prove the documented log contract is emitted exactly where operators need it.
+10. [x] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a missing markdown file. Purpose: prove missing-file failures remain hard failures rather than skip cases.
+11. [x] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a traversal attempt. Purpose: prove traversal protection remains a hard failure rather than a skip case.
+12. [x] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a permission-denied read failure. Purpose: prove file permission failures still throw exactly as before.
+13. [x] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises an invalid-UTF-8 decode failure. Purpose: prove decoding failures still throw exactly as before.
+14. [x] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that verifies no synthetic tool-result payload is created when a markdown-backed step is skipped for empty content. Purpose: prove the skip does not fabricate transcript output.
+15. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the blank-markdown resolution path, the skip decision point, and the preserved hard-failure paths for missing, traversal, permission, and decoding errors. Purpose: document the shared command/flow execution behavior where the skip contract changes.
+16. [x] Add or update the structured manual-validation log marker `DEV-0000050:T05:markdown_step_skipped` in the shared markdown resolution or execution seam. Include `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove empty markdown is skipped for the documented reason instead of silently ignored.
+17. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+18. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+19. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
-3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
-- **to_do**
+- Traced the markdown-backed command and flow execution paths through the shared resolver metadata seam before editing; the main nuance is that top-level flow markdown and direct-command markdown converge at different call sites, so the skip signal needs to be shared without duplicating trim checks.
+- Added `prepareMarkdownInstruction(...)` in the markdown resolver so successful reads now branch once into `instruction` vs `skip`; direct commands, top-level flows, and nested flow commands all consume that shared result without changing hard-failure behavior.
+- Added the Task 5 skip marker `DEV-0000050:T05:markdown_step_skipped` with the documented keys plus available command/flow context, and short-circuited empty markdown before any agent execution or transcript/tool-call persistence.
+- Added the Task 5 integration and unit coverage for whitespace-only skips, preserved missing/traversal/permission/UTF-8 failures, and the no-toolCalls regression guard; the remaining work is lint/format plus wrapper validation.
+- Recorded the Task 5 design delta in `design.md`; broader shared-doc updates stay deferred to Task 15.
+- `npm run lint` still hits the known repo-wide `SharedTranscript.tsx` warning after `lint:fix`, but I restored the unrelated auto-fix spillover and rechecked the Task 5 server files with targeted `npx eslint`, which passed cleanly.
+- `npm run format:check` still fails on the repo-wide baseline set and the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json` fixture even after `npm run format`; I reversed the unrelated formatting spillover and confirmed the Task 5 files with targeted `npx prettier --check`, which passed cleanly.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, so no build-log inspection was needed before moving to the wrapper test suites.
+- The first `npm run test:summary:server:unit` run caught one Task 5 regression: the new flow skip integration fixture was missing the required `identifier`, so it failed with `FLOW_INVALID`; after fixing the fixture, the full wrapper rerun passed with `tests run: 1343`, `passed: 1343`, and `failed: 0`.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 71`, `passed: 71`, and `failed: 0`, so Task 5 validation is complete and the story can move on to Task 6.
 
 ---
 

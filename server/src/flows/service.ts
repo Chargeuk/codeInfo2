@@ -101,7 +101,7 @@ import {
 import type { FlowResumeState } from './flowState.js';
 import {
   normalizeSourceLabel,
-  resolveMarkdownFileWithMetadata,
+  prepareMarkdownInstruction,
 } from './markdownFileResolver.js';
 import {
   buildRepositoryCandidateLookupSummary,
@@ -2497,16 +2497,19 @@ async function runFlowUnlocked(params: {
       return 'ok';
     }
 
-    let resolved;
+    let preparedMarkdownInstruction;
     try {
       await resolveFlowInstructionPrerequisites({
         agentType: step.agentType,
         source: params.source,
       });
-      resolved = await resolveMarkdownFileWithMetadata({
+      preparedMarkdownInstruction = await prepareMarkdownInstruction({
         markdownFile: step.markdownFile,
         workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
         flowSourceId: params.repositoryContext.flowSourceId,
+        surface: 'flow',
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
       });
     } catch (error) {
       const agent = agentByName.get(step.agentType);
@@ -2531,6 +2534,10 @@ async function runFlowUnlocked(params: {
       return 'failed';
     }
 
+    if (preparedMarkdownInstruction.kind === 'skip') {
+      return 'ok';
+    }
+
     append({
       level: 'info',
       message: 'DEV-0000045:T5:flow_llm_markdown_loaded',
@@ -2540,21 +2547,21 @@ async function runFlowUnlocked(params: {
         flowName: params.flowName,
         stepIndex: command.stepIndex,
         markdownFile: step.markdownFile,
-        resolvedSourceId: resolved.resolvedSourceId,
-        instructionLength: resolved.content.length,
+        resolvedSourceId: preparedMarkdownInstruction.resolvedSourceId,
+        instructionLength: preparedMarkdownInstruction.instruction.length,
       },
     });
 
     const result = await runInstruction({
       agentType: step.agentType,
       identifier: step.identifier,
-      instruction: resolved.content,
+      instruction: preparedMarkdownInstruction.instruction,
       command,
       runtime: {
         ...(params.repositoryContext.workingRepositoryPath
           ? { workingFolder: params.repositoryContext.workingRepositoryPath }
           : {}),
-        lookupSummary: resolved.lookupSummary,
+        lookupSummary: preparedMarkdownInstruction.lookupSummary,
       },
     });
     return result.status;
@@ -2766,6 +2773,7 @@ async function runFlowUnlocked(params: {
         }
         let executedItem:
           | { itemType: 'message'; result: FlowInstructionResult }
+          | { itemType: 'skip' }
           | { itemType: 'reingest'; result: ExecuteCommandItemReingestResult };
         try {
           executedItem = (await executeCommandItem({
@@ -2877,6 +2885,7 @@ async function runFlowUnlocked(params: {
             },
           })) as
             | { itemType: 'message'; result: FlowInstructionResult }
+            | { itemType: 'skip' }
             | {
                 itemType: 'reingest';
                 result: ExecuteCommandItemReingestResult;
@@ -2903,6 +2912,9 @@ async function runFlowUnlocked(params: {
           shouldStopAfter(executedItem.result.status)
         ) {
           return executedItem.result.status;
+        }
+        if (executedItem.itemType === 'skip') {
+          continue;
         }
         if (
           executedItem.itemType === 'reingest' &&

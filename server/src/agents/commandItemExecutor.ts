@@ -1,4 +1,4 @@
-import { resolveMarkdownFileWithMetadata } from '../flows/markdownFileResolver.js';
+import { prepareMarkdownInstruction } from '../flows/markdownFileResolver.js';
 import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
 import type {
   ReingestExecutionBatchResult,
@@ -44,6 +44,16 @@ type ExecuteCommandMessageResult<T> = ExecuteCommandItemInstruction & {
   result: T;
 };
 
+export type ExecuteCommandItemSkippedResult = {
+  itemType: 'skip';
+  instructionSource: 'markdownFile';
+  lookupSummary?: RepositoryCandidateLookupSummary;
+  markdownFile: string;
+  reason: 'empty_markdown';
+  resolvedPath: string;
+  resolvedSourceId: string;
+};
+
 type ExecuteCommandReingestOutcome = {
   itemType: 'reingest';
   result: ExecuteCommandItemReingestResult;
@@ -83,7 +93,7 @@ export function executeCommandItem<T>(params: {
     instruction: ExecuteCommandItemInstruction,
   ) => Promise<T>;
   executeReingest?: never;
-}): Promise<ExecuteCommandMessageResult<T>>;
+}): Promise<ExecuteCommandMessageResult<T> | ExecuteCommandItemSkippedResult>;
 
 export function executeCommandItem<T>(params: {
   item: AgentCommandItem;
@@ -102,7 +112,11 @@ export function executeCommandItem<T>(params: {
   executeReingest?: (
     item: AgentCommandReingestItem,
   ) => Promise<ExecuteCommandItemReingestResult>;
-}): Promise<ExecuteCommandMessageResult<T> | ExecuteCommandReingestOutcome>;
+}): Promise<
+  | ExecuteCommandMessageResult<T>
+  | ExecuteCommandItemSkippedResult
+  | ExecuteCommandReingestOutcome
+>;
 
 export async function executeCommandItem<T>(params: {
   item: AgentCommandItem;
@@ -121,7 +135,11 @@ export async function executeCommandItem<T>(params: {
   executeReingest?: (
     item: AgentCommandReingestItem,
   ) => Promise<ExecuteCommandItemReingestResult>;
-}): Promise<ExecuteCommandMessageResult<T> | ExecuteCommandReingestOutcome> {
+}): Promise<
+  | ExecuteCommandMessageResult<T>
+  | ExecuteCommandItemSkippedResult
+  | ExecuteCommandReingestOutcome
+> {
   if (params.item.type === 'reingest') {
     if (!params.executeReingest) {
       throw new Error('Reingest execution is not configured for this command.');
@@ -185,19 +203,34 @@ export async function executeCommandItem<T>(params: {
       resolvedSourceId: undefined,
     };
   } else {
-    const markdownFile = params.item.markdownFile;
-    const resolved = await resolveMarkdownFileWithMetadata({
-      markdownFile,
+    const prepared = await prepareMarkdownInstruction({
+      markdownFile: params.item.markdownFile,
       workingRepositoryPath: params.workingRepositoryPath,
       sourceId: params.sourceId,
       flowSourceId: params.flowSourceId,
+      surface: params.flowContext ? 'flow_command' : 'command',
+      commandName: params.commandName,
+      itemIndex: params.itemIndex,
+      flowName: params.flowContext?.flowName,
+      stepIndex: params.flowContext?.stepIndex,
     });
+    if (prepared.kind === 'skip') {
+      return {
+        itemType: 'skip',
+        instructionSource: 'markdownFile',
+        lookupSummary: prepared.lookupSummary,
+        markdownFile: prepared.markdownFile,
+        reason: prepared.reason,
+        resolvedPath: prepared.resolvedPath,
+        resolvedSourceId: prepared.resolvedSourceId,
+      };
+    }
     instruction = {
-      instruction: resolved.content,
+      instruction: prepared.instruction,
       instructionSource: 'markdownFile',
-      lookupSummary: resolved.lookupSummary,
-      markdownFile,
-      resolvedSourceId: resolved.resolvedSourceId,
+      lookupSummary: prepared.lookupSummary,
+      markdownFile: prepared.markdownFile,
+      resolvedSourceId: prepared.resolvedSourceId,
     };
   }
 

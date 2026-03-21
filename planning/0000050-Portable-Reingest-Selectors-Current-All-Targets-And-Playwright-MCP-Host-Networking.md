@@ -2230,3 +2230,186 @@ Use only the checked-in summary-wrapper outputs already produced by Task 15 for 
 ## Questions
 
 - No Further Questions
+
+---
+
+## Code Review Findings
+
+- Review pass `0000050-review-20260321T163857Z-eae3d4fc` reopened this story after the branch-vs-`main` review recorded `1` `must_fix` finding and `2` `should_fix` findings in `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-findings.md`.
+- Durable review evidence for this reopen decision lives in `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-evidence.md` and `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-findings.md`. The transient handoff file is not the durable artifact and must not be treated as the story record.
+- Finding 1 (`must_fix`): `server/src/ingest/reingestExecution.ts` currently swallows repository-selector operational failures for `sourceId` requests and re-labels them as invalid user input instead of preserving the real outage/error class.
+- Finding 2 (`should_fix`): `scripts/docker-compose-with-env.sh` can silently treat docker-host probe startup failures as “port free” instead of failing closed with actionable preflight output.
+- Finding 3 (`should_fix`): `docs/developer-reference.md` and `design.md` still describe `CODEINFO_MCP_PORT` as a live final env contract even though the implemented Story 50 end state makes `CODEINFO_CHAT_MCP_PORT` canonical and leaves the legacy fallback disabled in checked-in behavior.
+- Follow-up sequencing is explicit: Task 17 fixes the server-side selector failure contract, Task 18 fixes the compose wrapper preflight failure contract, Task 19 repairs the remaining documentation drift, and Task 20 reruns the full story validation after those fixes land.
+
+### Task 17. Surface portable selector operational failures without misclassifying them as invalid input
+
+- Repository Name: `codeInfo2`
+- Task Status: **to_do**
+- Git Commits: `to_do`
+
+#### Overview
+
+Close review Finding 1 by keeping the portable-selector path honest when repository listing or selector resolution fails for a `sourceId` request. This task is complete when the `sourceId` path in `server/src/ingest/reingestExecution.ts` either resolves a selector successfully or returns a clear operational failure that preserves the real error class and diagnostics, instead of falling back to the raw selector and letting the strict single-repo validator mislabel the outage as `INVALID_SOURCE_ID`. A junior developer should keep the comparison with the already-honest `target: "current"` and `target: "all"` paths visible while working so all target modes report compatible failure classes.
+
+#### Documentation Locations
+
+- Review artifact `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-findings.md`. Use Finding 1 as the exact defect statement and closure target.
+- `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/reingestExecution.ts`, and `server/src/ingest/reingestService.ts`. Read these together so selector resolution, strict validation, and error-shape expectations stay aligned.
+- Existing server unit and integration tests covering re-ingest execution paths under `server/src/test/unit/` and `server/src/test/integration/`. Reuse the closest existing proof seam instead of inventing a second test harness.
+
+#### Subtasks
+
+1. [ ] Re-read review Finding 1, then open `server/src/ingest/reingestExecution.ts`, `server/src/mcpCommon/repositorySelector.ts`, and `server/src/ingest/reingestService.ts` together before editing. Keep the review defect visible while you work: a selector-resolution outage for `sourceId` must not be re-labeled as bad user input.
+2. [ ] Update the `sourceId` execution path so a thrown repository-listing or selector-resolution failure is surfaced as an operational/pre-start failure with actionable diagnostics instead of silently falling back to the raw selector. Keep the existing invalid-input behavior only for cases where selector resolution completed honestly and the requested selector still does not map to an ingested repository.
+3. [ ] Keep target-mode behavior aligned after the fix. `sourceId`, `current`, and `all` should not report contradictory error classes for the same underlying repository-listing outage, and any resolution log or helper output must not claim a resolved path when resolution actually failed.
+4. [ ] Add or update direct server tests that prove all of the following from the checked-in test harness:
+   - a valid portable selector still resolves to the canonical container path;
+   - an unresolved-but-successful selector lookup still reaches the strict invalid-input validation path;
+   - a selector-resolution or repository-listing exception now surfaces the real operational failure instead of `INVALID_SOURCE_ID`;
+   - the changed failure path is visible through the normal caller path, not only through a private helper.
+5. [ ] If the fix changes any structured error wording, reason code, or caller-visible metadata, update only the caller/test expectations that genuinely represent the corrected contract. Do not widen the public contract beyond what the finding requires.
+6. [ ] Record any documentation or close-out delta for Task 20. Do not update shared docs in this task unless a new file is created here.
+
+#### Testing
+
+Use the checked-in wrapper-first paths so the changed server contract is proven through the normal unit suite rather than ad hoc commands.
+
+1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts` or the exact checked-in test file that carries the new Finding 1 proof if that file name differs after implementation.
+2. [ ] `npm run test:summary:server:unit`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
+
+#### Implementation notes
+
+- Review disposition seed: this task was added after review pass `0000050-review-20260321T163857Z-eae3d4fc` found that the `sourceId` selector path can currently hide repository-selector operational failures by falling back too early to raw strict validation.
+
+### Task 18. Make docker-host port probing fail closed with actionable preflight output
+
+- Repository Name: `codeInfo2`
+- Task Status: **to_do**
+- Git Commits: `to_do`
+
+#### Overview
+
+Close review Finding 2 by making the compose wrapper’s docker-host port preflight honest when the helper probe cannot run. This task is complete when `scripts/docker-compose-with-env.sh` no longer treats a failed or unavailable docker-host probe as implicit proof that the checked-in host ports are free, and the checked-in shell harness proves both the happy path and the probe-failure path through the standard wrapper entrypoint. A junior developer should preserve the existing wrapper-first startup contract and fail closed with actionable output rather than adding a hidden fallback that weakens preflight honesty.
+
+#### Documentation Locations
+
+- Review artifact `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-findings.md`. Use Finding 2 as the exact defect statement and closure target.
+- `scripts/docker-compose-with-env.sh`, `scripts/test-summary-shell.mjs`, `scripts/test/bats/docker-compose-with-env.bats`, and the shell-harness fixtures under `scripts/test/bats/fixtures/`. Read these together so the wrapper logic, the summary-wrapper entrypoint, and the deterministic probe simulations stay aligned.
+- Story sections for the earlier host-network wrapper tasks in this plan. Reuse the existing wrapper and shell harness instead of inventing a second compose launcher or a second shell test path.
+
+#### Subtasks
+
+1. [ ] Re-read review Finding 2 and the existing Task 9 through Task 12 wrapper notes before editing `scripts/docker-compose-with-env.sh`. Keep the closure target visible while working: a broken docker-host probe must not silently degrade into a passing host-port preflight.
+2. [ ] Update `is_port_occupied()` and any related preflight helpers so the docker-host branch distinguishes between “port free,” “port occupied,” and “probe unavailable or failed.” If the docker-host probe cannot run, stop startup with actionable output that names the compose context or failing probe cause instead of implicitly continuing.
+3. [ ] Keep the wrapper-first contract honest after the change. Do not add a fallback that only works through a non-default manual invocation, and do not weaken the existing occupied-port, host-network-shape, or compose pass-through behavior that earlier tasks already proved.
+4. [ ] Extend `scripts/test/bats/docker-compose-with-env.bats` and any deterministic fixture binaries/config needed under `scripts/test/bats/fixtures/` so the checked-in shell harness proves at least:
+   - the existing happy-path docker-host probe still succeeds when the probe launches;
+   - a missing or failed probe image now causes a clear preflight failure instead of an implicit pass;
+   - the failure output stays actionable for operators and still names the affected compose file or probe surface.
+5. [ ] Keep the change scoped to the checked-in wrapper and shell-harness path. If another unchanged launcher or selector controls this code path, open it and confirm the standard `npm run compose:*` entrypoints still execute the fixed behavior without manual overrides.
+6. [ ] Record any later documentation delta for Task 20. Do not update shared docs in this task unless a new file is created here.
+
+#### Testing
+
+Use only the checked-in summary shell wrapper and root quality gates below so the wrapper proof stays inside the standard repo test path.
+
+1. [ ] `npm run test:summary:shell -- --file scripts/test/bats/docker-compose-with-env.bats`
+2. [ ] `npm run test:summary:shell`
+3. [ ] `npm run lint`
+4. [ ] `npm run format:check`
+
+#### Implementation notes
+
+- Review disposition seed: this task was added after review pass `0000050-review-20260321T163857Z-eae3d4fc` found that the docker-host probe branch can currently return a raw probe-launch failure to the caller, which the wrapper then treats as “port not occupied” instead of a fail-fast preflight error.
+
+### Task 19. Correct the remaining MCP env-name documentation drift from Story 0000050
+
+- Repository Name: `codeInfo2`
+- Task Status: **to_do**
+- Git Commits: `to_do`
+
+#### Overview
+
+Close review Finding 3 by making the final Story 50 docs describe the same MCP env contract that the implemented runtime now uses. This task is complete when the final checked-in docs stop telling operators to use `CODEINFO_MCP_PORT` as the active dedicated chat MCP contract, and the Story 50 documentation instead consistently presents `CODEINFO_CHAT_MCP_PORT` as the canonical env name while only mentioning any legacy fallback as historical context when that context is truly needed. A junior developer should treat this as a documentation-contract correction, not as a code-change task.
+
+#### Documentation Locations
+
+- Review artifact `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-findings.md`. Use Finding 3 as the exact defect statement and closure target.
+- `docs/developer-reference.md`, `design.md`, and any other Story 50 docs already changed by Task 16. Read these together so the final env-name vocabulary is consistent across operator and design surfaces.
+- The validated runtime/config code and Task 15 marker notes proving `legacyFallbackUsed: false`. Keep the docs aligned with the checked-in implementation instead of re-introducing a legacy contract in prose.
+
+#### Subtasks
+
+1. [ ] Re-read review Finding 3 and search the Story 50 documentation surfaces for `CODEINFO_MCP_PORT` and `CODEINFO_CHAT_MCP_PORT` before editing. Capture the exact files/lines being corrected in the implementation notes.
+2. [ ] Update `docs/developer-reference.md` so it no longer describes `CODEINFO_MCP_PORT` as the active dedicated MCP env contract. Keep the final wording aligned with the checked-in runtime behavior and the Story 50 port matrix.
+3. [ ] Update `design.md` so the architecture description uses the same final env-name vocabulary as the implemented runtime and the developer reference.
+4. [ ] If any other already-changed Story 50 doc still repeats the obsolete env name as an active contract, correct it in this task. Do not broaden this into a general documentation sweep outside the Story 50 surfaces already touched by the story.
+5. [ ] Re-check the final wording against the Task 15/16 proof notes so the docs do not imply that the legacy env fallback is still the recommended path.
+
+#### Testing
+
+Use simple repo-proof steps that directly validate the documentation contract and keep the shared doc baseline clean.
+
+1. [ ] `rg -n 'CODEINFO_MCP_PORT|CODEINFO_CHAT_MCP_PORT' README.md design.md docs/developer-reference.md planning/0000050-pr-summary.md`
+2. [ ] `npm run lint`
+3. [ ] `npm run format:check`
+
+#### Implementation notes
+
+- Review disposition seed: this task was added after review pass `0000050-review-20260321T163857Z-eae3d4fc` found that the final Story 50 docs still advertised `CODEINFO_MCP_PORT` as a live final contract even though the code and proof markers had already moved the canonical dedicated MCP env name to `CODEINFO_CHAT_MCP_PORT`.
+
+### Task 20. Re-run final validation after the code review fixes
+
+- Repository Name: `codeInfo2`
+- Task Status: **to_do**
+- Git Commits: `to_do`
+
+#### Overview
+
+Revalidate Story 0000050 after the code review fixes from Tasks 17 through 19 land. This task is complete when the story once again has a full wrapper-first validation pass, the review findings are explicitly closed with direct proof, and the acceptance criteria remain satisfied after the follow-up fixes. A junior developer should treat this as the new final gate for the story and should not mark the story complete again until this task is honestly finished.
+
+#### Documentation Locations
+
+- Active plan sections `## Description`, `## Acceptance Criteria`, `## Out Of Scope`, `## Traceability And Proof Pass`, `## Final Validation`, and `## Code Review Findings`. Re-read these before starting so the revalidation covers both the original story contract and the review-driven fixes.
+- Durable review artifacts `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-evidence.md` and `codeInfoStatus/reviews/0000050-review-20260321T163857Z-eae3d4fc-findings.md`. Use these to confirm each finding is closed with direct proof where possible.
+- The wrapper-first build, test, compose, and proof locations already used earlier in Story 50. Reuse those exact checked-in entrypoints instead of inventing alternate validation paths.
+
+#### Subtasks
+
+1. [ ] Re-read the story description, acceptance criteria, out-of-scope notes, traceability proof pass, final validation section, and the new `## Code Review Findings` section before running anything. Keep both the original story contract and the review-fix closure criteria visible while you work.
+2. [ ] Re-run the wrapper-first build and test paths listed in this task and record the saved-output paths that close-out notes and reviewers should inspect. Use the same wrapper-first rule as earlier Story 50 validation: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+3. [ ] Prove each review finding is now closed with direct evidence where the checked-in harness allows it:
+   - Finding 1: direct server test proof that selector-resolution outages are surfaced honestly instead of being re-labeled as `INVALID_SOURCE_ID`;
+   - Finding 2: direct shell-harness proof that docker-host probe failures fail closed with actionable output;
+   - Finding 3: direct documentation proof that the final Story 50 docs now present `CODEINFO_CHAT_MCP_PORT` as the canonical contract.
+4. [ ] After `npm run compose:up` starts the main stack in this task, run `npm run test:summary:host-network:main` and re-check the final host-visible runtime behavior against the acceptance criteria and earlier Task 15 proof seams.
+5. [ ] Use Playwright MCP tools against `http://host.docker.internal:5001` to repeat the manual regression checks needed for Story 50 completion, confirm the required log markers still appear for the exercised paths, and save updated GUI-proof screenshots only if the existing Task 15 screenshots no longer match the final behavior.
+6. [ ] Re-check the acceptance-criteria proof sources and residual-risk areas recorded in the review artifacts. If any proof remains indirect or missing after the review-fix work, document that explicitly in the implementation notes instead of implying exhaustive proof.
+7. [ ] Record any final close-out delta needed after the review-fix revalidation. Do not update shared docs in this task unless a new file is created here.
+
+#### Testing
+
+Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:server:unit`
+4. [ ] `npm run test:summary:server:cucumber`
+5. [ ] `npm run test:summary:shell`
+6. [ ] `npm run test:summary:client`
+7. [ ] `npm run test:summary:e2e`
+8. [ ] `npm run compose:build:summary`
+9. [ ] `npm run compose:up`
+10. [ ] `npm run test:summary:host-network:main`
+11. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm Story 50 behavior and review-fix closure from the running stack, including a check that there are no logged errors in the debug console and that the expected Story 50 proof markers remain visible for the exercised paths.
+12. [ ] `npm run compose:down`
+13. [ ] `npm run lint`
+14. [ ] `npm run format:check`
+
+#### Implementation notes
+
+- Review disposition seed: this task was added as the new story-completion gate because review pass `0000050-review-20260321T163857Z-eae3d4fc` found one `must_fix` defect and two `should_fix` defects after the story had previously been marked complete. Story 50 is not complete again until this task closes those findings and re-proves the acceptance criteria.

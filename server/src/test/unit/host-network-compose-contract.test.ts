@@ -46,7 +46,7 @@ test('root compose inventory for Task 11 remains scoped to the checked-in files'
   ]);
 });
 
-test('main and local host-network services keep the final port split and no repo runtime mounts', () => {
+test('main stays image-baked while local host-network compose exposes the live dev overlay mounts', () => {
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
 
@@ -77,9 +77,10 @@ test('main and local host-network services keep the final port split and no repo
   assert.match(localServer, /network_mode: host/u);
   assert.doesNotMatch(localServer, /\n\s+ports:/u);
   assert.doesNotMatch(localServer, /\n\s+networks:/u);
-  assert.doesNotMatch(localServer, /\.\/codex:/u);
-  assert.doesNotMatch(localServer, /\.\/codex_agents:/u);
-  assert.doesNotMatch(localServer, /\.\/flows:/u);
+  assert.match(localServer, /\.\/codex:\/app\/codex/u);
+  assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
+  assert.match(localServer, /\.\/flows:\/app\/flows/u);
+  assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(
     localServer,
@@ -89,7 +90,7 @@ test('main and local host-network services keep the final port split and no repo
     localServer,
     /\/var\/run\/docker\.sock:\/var\/run\/docker\.sock/u,
   );
-  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0/u);
+  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
 
   const localPlaywright = getServiceBlock(localCompose, 'playwright-mcp');
   assert.match(localPlaywright, /network_mode: host/u);
@@ -98,7 +99,7 @@ test('main and local host-network services keep the final port split and no repo
   assert.match(localPlaywright, /'8931'/u);
   assert.match(
     localPlaywright,
-    /playwright-output-local:\/tmp\/playwright-output/u,
+    /\.\/playwright-output-local:\/tmp\/playwright-output/u,
   );
 });
 

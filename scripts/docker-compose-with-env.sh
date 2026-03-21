@@ -198,6 +198,43 @@ compose_files_display() {
   printf '%s\n' "${joined}"
 }
 
+repo_root_for_compose_wrapper() {
+  if [ -n "${CODEINFO_COMPOSE_REPO_ROOT_OVERRIDE:-}" ]; then
+    printf '%s\n' "${CODEINFO_COMPOSE_REPO_ROOT_OVERRIDE}"
+    return 0
+  fi
+
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  cd "${script_dir}/.." && pwd
+}
+
+ensure_repo_bind_mount_dirs_for_profile() {
+  case "${COMPOSE_SUBCOMMAND}" in
+    up | start | restart | run | create)
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  local compose_profile repo_root
+  compose_profile="$(compose_profile_for_files)"
+  repo_root="$(repo_root_for_compose_wrapper)"
+
+  mkdir -p "${repo_root}/logs"
+
+  if [ "${compose_profile}" = "local" ]; then
+    mkdir -p \
+      "${repo_root}/codex" \
+      "${repo_root}/codex/chat" \
+      "${repo_root}/codex_agents" \
+      "${repo_root}/flows" \
+      "${repo_root}/flows-sandbox" \
+      "${repo_root}/playwright-output-local"
+  fi
+}
+
 should_run_compose_preflight() {
   case "${COMPOSE_SUBCOMMAND}" in
     up | start | restart | run | create | config)
@@ -617,6 +654,7 @@ run_compose_preflight_if_needed() {
 }
 
 parse_compose_args "$@"
+ensure_repo_bind_mount_dirs_for_profile
 
 SOCKET_PATH="$(resolve_docker_socket)"
 SOCKET_GID="$(stat -c %g "${SOCKET_PATH}" 2>/dev/null || stat -f %g "${SOCKET_PATH}" 2>/dev/null || echo 0)"

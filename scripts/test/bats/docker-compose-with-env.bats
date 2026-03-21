@@ -81,6 +81,27 @@ codeinfo2_run_compose_wrapper() {
   assert_success
 }
 
+@test "compose wrapper creates missing repo-owned local bind-mount directories before startup" {
+  local workspace_root
+  workspace_root="${CODEINFO2_TASK9_TMPDIR}/workspace"
+  mkdir -p "${workspace_root}"
+
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_COMPOSE_REPO_ROOT_OVERRIDE="${workspace_root}"
+
+  assert_success
+  [ -d "${workspace_root}/logs" ]
+  [ -d "${workspace_root}/codex" ]
+  [ -d "${workspace_root}/codex/chat" ]
+  [ -d "${workspace_root}/codex_agents" ]
+  [ -d "${workspace_root}/flows" ]
+  [ -d "${workspace_root}/flows-sandbox" ]
+  [ -d "${workspace_root}/playwright-output-local" ]
+}
+
 @test "compose wrapper does not require playwright-mcp for compose files that are out of scope" {
   codeinfo2_run_compose_wrapper \
     docker-compose.e2e.yml \

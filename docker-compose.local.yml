@@ -28,7 +28,7 @@ services:
       - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.local.yml
       - CODEINFO_RUNTIME_SERVER_PORTS=5510,5511,5512
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8931
-      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4
       - HOME=${HOME}
       - TMP=${HOME}/tmp
       - TEMP=${HOME}/tmp
@@ -56,6 +56,10 @@ services:
       - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
+      - ./codex:/app/codex
+      - ./codex_agents:/app/codex_agents
+      - ./flows:/app/flows
+      - ./flows-sandbox:/app/flows-sandbox
       - ${CODEINFO_HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -200,7 +204,7 @@ services:
         '*',
       ]
     volumes:
-      - playwright-output-local:/tmp/playwright-output
+      - ./playwright-output-local:/tmp/playwright-output
     extra_hosts:
       - 'host.docker.internal:host-gateway'
 
@@ -213,4 +217,3 @@ volumes:
     external: false
   mongo_config:
     external: false
-  playwright-output-local:

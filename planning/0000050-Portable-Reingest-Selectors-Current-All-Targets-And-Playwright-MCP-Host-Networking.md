@@ -971,20 +971,27 @@ Add the new re-ingest request union to command and flow schema parsing so JSON f
 
 #### Subtasks
 
-1. [ ] Read the story contract sections and the existing command or flow schema files so the new union matches the documented request shapes exactly.
-2. [ ] Update `server/src/agents/commandsSchema.ts` so a command re-ingest item accepts exactly one of:
+1. [ ] In `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts`, read the current `sourceId`-only `reingest` schema together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. The exact request contract to copy into code is:
    - `{ "type": "reingest", "sourceId": "<selector-or-path>" }`
    - `{ "type": "reingest", "target": "current" }`
    - `{ "type": "reingest", "target": "all" }`
-   - Implement this as a plain union of strict object shapes or an equivalent mutual-exclusion helper, not as `z.discriminatedUnion('type', ...)`, because every allowed variant still has the same discriminator value.
-3. [ ] Update `server/src/flows/flowSchema.ts` with the same re-ingest union and keep the rest of the flow schema behavior unchanged.
-4. [ ] Add server unit coverage in `server/src/test/unit/agent-commands-schema.test.ts` for:
+   - invalid when both `sourceId` and `target` are present.
+2. [ ] In `server/src/agents/commandsSchema.ts`, replace the current `AgentCommandReingestItemSchema` with a plain union of strict object shapes or an equivalent mutual-exclusion helper. Do not use `z.discriminatedUnion('type', ...)`, because every allowed variant still has `type: 'reingest'`. The implementation should read like this shape, even if variable names differ:
+   ```ts
+   z.union([
+     z.object({ type: z.literal('reingest'), sourceId: trimmedNonEmptyString }).strict(),
+     z.object({ type: z.literal('reingest'), target: z.literal('current') }).strict(),
+     z.object({ type: z.literal('reingest'), target: z.literal('all') }).strict(),
+   ]);
+   ```
+3. [ ] In `server/src/flows/flowSchema.ts`, mirror the same `reingest` union for flow steps and keep the rest of the `flowStepUnionSchema()` behavior unchanged. The end result must leave `llm`, `break`, `command`, and `startLoop` validation exactly as-is while only broadening the `reingest` step shape.
+4. [ ] In `server/src/test/unit/agent-commands-schema.test.ts`, add or update parse tests that call the real command-file parser and prove these exact cases from `## Message Contracts And Storage Shapes`:
    - valid `sourceId`;
    - valid `target: "current"`;
    - valid `target: "all"`;
    - rejection when both `sourceId` and `target` are present;
    - rejection when `target` is not one of `current` or `all`.
-5. [ ] Add matching server unit coverage in `server/src/test/unit/flows-schema.test.ts`.
+5. [ ] In `server/src/test/unit/flows-schema.test.ts`, add the same pass/fail coverage for flow-step parsing so command and flow files enforce the same contract. Keep the tests close to the existing `reingest` schema coverage so later developers can find both parser paths quickly.
 6. [ ] Record any new or renamed files for later documentation updates in Task 15. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1026,16 +1033,17 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 
 #### Subtasks
 
-1. [ ] Read the current `ReingestSuccess` type and the existing unit tests so the new fields extend the contract without weakening strict validation.
-2. [ ] Update `server/src/ingest/reingestService.ts` so the success payload adds:
+1. [ ] In `server/src/ingest/reingestService.ts`, read the current `ReingestSuccess` type, `runReingestRepository()` return path, and the existing cases in `server/src/test/unit/reingestService.test.ts` together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. This task changes only the strict single-repository result contract; it must not move selector parsing into this service.
+2. [ ] Update the `ReingestSuccess` payload in `server/src/ingest/reingestService.ts` so it adds these exact fields from the story contract:
    - `resolvedRepositoryId: string | null`
    - `completionMode: "reingested" | "skipped" | null`
-3. [ ] Preserve the existing validation and terminal status behavior:
+   - keep the existing fields `status`, `operation`, `runId`, `sourceId`, `files`, `chunks`, `embedded`, and `errorCode`.
+3. [ ] In the same file, preserve the existing validation and terminal status behavior exactly as documented in `## Edge Cases and Failure Modes`:
    - keep `status` as `completed`, `cancelled`, or `error`;
    - keep existing failure codes and retry lists;
    - map internal ingest `skipped` to `status: "completed"` with `completionMode: "skipped"`;
    - keep the exact pre-start validation and busy-state categories unchanged for `missing`, `non_absolute`, `ambiguous_path`, `unknown_root`, `busy`, and `invalid_state`.
-4. [ ] Update `server/src/test/unit/reingestService.test.ts` so it proves:
+4. [ ] In `server/src/test/unit/reingestService.test.ts`, add or update tests around the actual `runReingestRepository()` result so they prove:
    - completed runs set `completionMode: "reingested"`;
    - internal skipped runs set `completionMode: "skipped"`;
    - cancelled or error runs set `completionMode: null`;
@@ -1085,20 +1093,20 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 
 #### Subtasks
 
-1. [ ] Read the command and flow execution paths and identify exactly where `sourceId` and `flowSourceId` are already threaded today.
-2. [ ] Add one shared orchestration path above `runReingestRepository()` so explicit selectors, `current`, and `all` all resolve to canonical container paths before strict execution begins. Reuse `server/src/mcpCommon/repositorySelector.ts` for selector matching and keep this as one shared helper consumed by both command and flow paths instead of duplicating selector logic inside each runner.
-3. [ ] Implement the `current` resolution rules exactly as the story defines them:
+1. [ ] In `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/agents/service.ts`, and `server/src/agents/commandItemExecutor.ts`, trace how `sourceId` and `flowSourceId` are threaded today. Cross-check that with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`, because this task must resolve targets above `runReingestRepository()` rather than changing the strict ingest layer.
+2. [ ] Add one shared orchestration helper above `runReingestRepository()` so explicit selectors, `current`, and `all` all resolve to canonical container paths before strict execution begins. Put the shared logic where both the command path and flow path can call it, and reuse `server/src/mcpCommon/repositorySelector.ts` for selector matching instead of duplicating selector rules inside separate runners.
+3. [ ] In that shared orchestration helper, implement the `current` resolution rules exactly as written in the story:
    - direct command uses the command owner;
    - top-level flow uses the flow owner;
    - nested flow command uses the command owner, not the parent flow owner;
    - fail fast with a clear pre-start error when the current owner is missing or resolves to a repository that is not currently ingested, with no fallback to any other repository.
-4. [ ] Implement `target: "all"` behavior exactly as the story defines it:
+4. [ ] In the same orchestration helper, implement `target: "all"` exactly as defined in `## Message Contracts And Storage Shapes`:
    - gather all ingested repositories;
    - sort by ascending canonical container path;
    - execute sequentially;
    - return an empty batch result when there are zero repositories;
    - continue after a per-repository failure and record that failure instead of aborting the batch.
-5. [ ] Add or update server unit or integration tests near the existing re-ingest runner coverage so they prove:
+5. [ ] Add or update server unit or integration tests near the existing re-ingest runner coverage, especially around `server/src/test/integration/commands.reingest.test.ts`, so they prove:
    - `sourceId` selector resolution by repo id and path;
    - `current` failure when there is no owning repository;
    - `current` failure when the owning repository exists in metadata but is not currently ingested;
@@ -1151,17 +1159,18 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 
 #### Subtasks
 
-1. [ ] Read the current `reingest_step_result` payload builder and the lifecycle code that persists synthetic turns.
-2. [ ] Extend the single payload to include the fields defined in the plan:
+1. [ ] In `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/mongo/turn.ts`, and `server/src/mongo/repo.ts`, read the current synthetic-turn persistence path together with story section `## Message Contracts And Storage Shapes`. This task must stay on the existing `Turn.toolCalls` storage path and must not invent a second persistence channel.
+2. [ ] Extend the single payload in `server/src/chat/reingestToolResult.ts` to include the exact fields defined by the story:
    - `targetMode`
    - `requestedSelector`
    - `resolvedRepositoryId`
    - `outcome`
    - existing `status` and `completionMode`
-3. [ ] Add the new `reingest_step_batch_result` payload variant with the ordered `repositories` array and `summary` object exactly as defined in the story.
-4. [ ] Update the lifecycle and persisted turn handling so one `target: "all"` run records one batch payload instead of one synthetic turn pair per repository. Reuse the existing synthetic-turn lifecycle and `Turn.toolCalls` persistence path rather than creating a second batch-only persistence channel.
-5. [ ] Keep backward compatibility for older stored single payloads by making reads tolerant of both the old and new single-result shapes, and do not make the reader depend on empty nested objects being persisted where Mongoose `Schema.Types.Mixed` plus default minimization may omit them.
-6. [ ] Add or update server unit coverage in the existing re-ingest payload or lifecycle tests so they prove:
+   - keep `sourceId` as the canonical resolved container path for backward compatibility.
+3. [ ] Add the new `reingest_step_batch_result` payload variant in the same area with the ordered `repositories` array and `summary` object from `## Message Contracts And Storage Shapes`. The batch payload must represent one `target: "all"` action, not one payload per repository.
+4. [ ] Update `server/src/chat/reingestStepLifecycle.ts` so one `target: "all"` run records one batch payload instead of one synthetic turn pair per repository. Reuse the existing synthetic-turn lifecycle and `Turn.toolCalls` persistence path rather than creating a second batch-only persistence channel.
+5. [ ] Keep backward compatibility for older stored single payloads by making the payload reader tolerant of both the old and new single-result shapes. In `server/src/mongo/turn.ts`, remember that `toolCalls` stays `Schema.Types.Mixed`, so the read path must tolerate omitted optional nested fields rather than depending on empty-object persistence.
+6. [ ] Add or update server unit coverage in `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` so they prove:
    - new single payload fields;
    - batch payload fields and ordering;
    - lifecycle persistence still uses `Turn.toolCalls`;
@@ -1209,11 +1218,16 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 #### Subtasks
 
-1. [ ] Read the current markdown resolver and command or flow execution paths so the skip happens once in the shared seam already shared by commands and flows.
-2. [ ] Add the whitespace-only skip behavior only for successfully resolved markdown content, and implement it at that shared resolver or execution seam instead of adding separate blank-content checks in each runner.
-3. [ ] Emit the documented info-level log contract with `surface`, `markdownFile`, `resolvedPath`, and `reason: empty_markdown`, plus any available command or flow context.
-4. [ ] Ensure missing files, absolute paths, traversal attempts, permission failures, invalid UTF-8, and other existing resolver errors still fail exactly as they do today.
-5. [ ] Add or update tests so they prove:
+1. [ ] In `server/src/flows/markdownFileResolver.ts`, `server/src/agents/commandItemExecutor.ts`, and `server/src/flows/service.ts`, trace the current markdown resolution path together with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`. The skip must happen once in the shared seam, not as duplicate checks in each runner.
+2. [ ] Add the whitespace-only skip behavior only for successfully resolved markdown content. Implement it in the shared resolver or shared execution seam so both direct commands and flows inherit the same behavior automatically.
+3. [ ] Emit the documented info-level log contract from that shared seam with these exact keys from the story:
+   - `surface`
+   - `markdownFile`
+   - `resolvedPath`
+   - `reason: "empty_markdown"`
+   - plus any available command or flow context already present at the call site.
+4. [ ] Ensure the skip only applies to successful empty-content reads. Missing files, absolute paths, traversal attempts, permission failures, invalid UTF-8, and other existing resolver errors in `server/src/flows/markdownFileResolver.ts` must still fail exactly as they do today.
+5. [ ] Add or update tests in `server/src/test/unit/markdown-file-resolver.test.ts` and `server/src/test/integration/commands.markdown-file.test.ts` so they prove:
    - whitespace-only markdown is skipped for direct commands;
    - whitespace-only markdown is skipped for flows;
    - permission or UTF-8 failures still throw;
@@ -1270,11 +1284,15 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 
 #### Subtasks
 
-1. [ ] Read the existing runtime normalization, codex bootstrap, runtime consumer entrypoints, and MCP bind surfaces so placeholder replacement stays centralized instead of being reimplemented per consumer.
-2. [ ] Update the shared runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config.
-3. [ ] Make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces.
-4. [ ] Remove any stale runtime-code bypasses that still hard-code MCP URLs or legacy env fallbacks outside the shared normalization path.
-5. [ ] Add or update server unit coverage so it proves:
+1. [ ] In `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, `server/src/config.ts`, `server/src/config/startupEnv.ts`, `server/src/providers/mcpStatus.ts`, `server/src/index.ts`, `server/src/mcp2/server.ts`, and `server/src/mcpAgents/server.ts`, trace every place that currently resolves or consumes MCP endpoints. Use story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes` as the contract source.
+2. [ ] Update the shared runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config. The required placeholders to keep in view are:
+   - `${CODEINFO_SERVER_PORT}`
+   - `${CODEINFO_CHAT_MCP_PORT}`
+   - `${CODEINFO_AGENTS_MCP_PORT}`
+   - `CODEINFO_PLAYWRIGHT_MCP_URL`
+3. [ ] Make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces. Keep the intentional split between chat/base MCP and agents MCP intact; do not collapse them into one URL.
+4. [ ] Remove any stale runtime-code bypasses that still hard-code MCP URLs or legacy env fallbacks outside the shared normalization path, especially in startup reporting and provider status code.
+5. [ ] Add or update server unit coverage in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/chatProviders.test.ts`, and `server/src/test/unit/chatModels.codex.test.ts` so it proves:
    - placeholder replacement works for the checked-in config style;
    - unresolved placeholders fail clearly;
    - the resolved chat/base MCP endpoint and the resolved agents MCP endpoint stay intentionally distinct where the checked-in config expects them to differ;
@@ -1330,14 +1348,22 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 
 #### Subtasks
 
-1. [ ] Read the checked-in runtime config files and env files that still carry legacy MCP URLs, legacy env names, or bridge-era assumptions.
-2. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for:
+1. [ ] Read the checked-in runtime config files and env files that still carry legacy MCP URLs, legacy env names, or bridge-era assumptions. Use story sections `## Message Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`, and `## Final Validation` while you read these exact files:
+   - `codex/config.toml`
+   - `codex/chat/config.toml`
+   - `codex_agents/*/config.toml`
+   - `config.toml.example`
+   - `server/.env`
+   - `server/.env.local`
+   - `server/.env.e2e`
+2. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for these exact contracts:
    - `CODEINFO_SERVER_PORT`
    - `CODEINFO_CHAT_MCP_PORT`
    - `CODEINFO_AGENTS_MCP_PORT`
    - `CODEINFO_PLAYWRIGHT_MCP_URL`
-3. [ ] Update the checked-in env files so they match the final placeholder and port contract and remove checked-in reliance on `CODEINFO_MCP_PORT`.
-4. [ ] Add or update tests so they prove the checked-in file style still normalizes correctly and that legacy checked-in env assumptions no longer apply.
+   - remove hard-coded MCP URLs such as `http://localhost:5010/mcp`, `http://localhost:5011/mcp`, or bridge-era `playwright-mcp` hostnames where the story says placeholders should be used instead.
+3. [ ] Update the checked-in env files so they match the final placeholder and port contract and remove checked-in reliance on `CODEINFO_MCP_PORT`. After this task, the checked-in dedicated MCP env name must be `CODEINFO_CHAT_MCP_PORT`.
+4. [ ] Add or update tests in `server/src/test/unit/runtimeConfig.test.ts` and `server/src/test/unit/codexConfig.test.ts` so they prove the checked-in file style still normalizes correctly and that legacy checked-in env assumptions no longer apply.
 5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1375,14 +1401,14 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 
 #### Subtasks
 
-1. [ ] Read the existing summary-wrapper protocol and package script patterns so the new shell harness follows the repo’s wrapper-first conventions.
-2. [ ] Add the repo-local shell harness files under `scripts/test/bats/`:
+1. [ ] Read `scripts/summary-wrapper-protocol.mjs`, `scripts/summary-wrapper-protocol-fixture.mjs`, and `package.json` together with story section `## Test Harnesses`. This harness must follow the same saved-log and heartbeat contract as the other repo wrappers.
+2. [ ] Add the repo-local shell harness files under `scripts/test/bats/` with this minimum shape so another developer can find everything in one place:
    - `.bats` test file;
    - shared helper file;
    - fixture binaries.
-3. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout.
-4. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry so the shell harness follows the same saved-log and heartbeat contract as the other wrappers. Reuse `scripts/summary-wrapper-protocol.mjs` directly instead of inventing a second wrapper output format.
-5. [ ] Add at least one passing harness case and at least one intentionally failing harness case so the harness itself is proven before later tasks add host-network-specific checks.
+3. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout with no global Bats installation.
+4. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry `npm run test:summary:shell` so the shell harness uses the same summary-wrapper protocol fields as the other wrappers: saved log path, heartbeat output, and final guidance.
+5. [ ] Add at least one passing harness case and at least one intentionally failing harness case so the harness itself is proven before later tasks add host-network-specific checks. The failing case must be expected and asserted, not treated as an accidental crash.
 6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1420,21 +1446,21 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 
 #### Subtasks
 
-1. [ ] Read the existing compose wrapper and the new shell harness so the preflight integrates with the repo-local proof path instead of adding ad-hoc shell checks elsewhere.
-2. [ ] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for:
+1. [ ] Read `scripts/docker-compose-with-env.sh` and the new harness files under `scripts/test/bats/` together with story sections `## Proof Path Readiness` and `## Edge Cases and Failure Modes`. This task must extend the checked-in wrapper, not add a second compose launcher.
+2. [ ] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for these exact prerequisite failures from the story:
    - unsupported host-network environments;
    - Docker Desktop environments where host networking is unavailable or incompatible for the checked-in compose path;
    - disabled host networking where it is required;
    - occupied checked-in host ports;
    - host-networked service definitions that still contain incompatible `ports` or `networks` wiring;
    - and every failure path names the affected compose file or service plus the missing or incompatible prerequisite.
-3. [ ] Add shell harness coverage for:
+3. [ ] Add shell harness coverage under `scripts/test/bats/` for:
    - unsupported host networking;
    - conflicting host ports;
    - incompatible host-network service shapes;
    - success-path pass-through to compose execution;
    - actionable failure text that includes the affected compose file or service.
-4. [ ] Add shell harness coverage that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222` where the checked-in runtime expects it.
+4. [ ] Add shell harness coverage that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222` where the checked-in runtime expects it. This proof belongs in the harness because the story explicitly treats local-stack-specific validation as a shell-level proof path.
 5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1475,10 +1501,10 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 
 #### Subtasks
 
-1. [ ] Read the current Dockerfiles and Compose files and list every checked-in runtime asset that is still being bind-mounted from the repo today.
+1. [ ] Read `server/Dockerfile`, `.dockerignore`, `server/.dockerignore`, `client/.dockerignore`, and the checked-in compose files together with story sections `## Feasibility Proof Pass` and `## Edge Cases and Failure Modes`. Make a concrete list of which checked-in runtime assets are still bind-mounted from the repo today, especially `codex/`, `codex_agents/`, and checked-in flow directories.
 2. [ ] Update the Docker build contexts and only the Dockerfiles that actually need to carry checked-in runtime assets so the host-networked server can run without repo bind mounts. Extend the existing build flow instead of introducing alternate Dockerfiles or bespoke startup paths, and do not expand client-image scope unless a checked-in runtime dependency truly requires it.
-3. [ ] Update only the `.dockerignore` files that participate in that packaging path so the required runtime assets enter the build context without broadening unrelated image scope.
-4. [ ] Reuse the existing compose-build output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
+3. [ ] Update only the `.dockerignore` files that participate in that packaging path so the required runtime assets enter the build context without broadening unrelated image scope. The target outcome from the story is that runtime application code does not depend on a repo source-tree bind mount such as `.:/app`.
+4. [ ] Reuse the existing `npm run compose:build:summary` output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
 5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1519,8 +1545,8 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 
 #### Subtasks
 
-1. [ ] Read the current Compose files and entrypoint wiring so the host-network conversion preserves the checked-in port matrix and the local Chrome DevTools `9222` contract.
-2. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions:
+1. [ ] Read `server/entrypoint.sh`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `server/src/test/support/chromaContainer.ts`, and `server/src/test/support/mongoContainer.ts` together with story sections `## Feasibility Proof Pass`, `## Edge Cases and Failure Modes`, and `## Final Validation`. This task is only about checked-in `server` and existing `playwright-mcp` services.
+2. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions with these exact port rules from the story:
    - direct host-visible bind ports for the server listeners;
    - preserve the local Chrome DevTools bind contract on `9222` by keeping the required server entrypoint or environment wiring intact under host networking;
    - `8931` for local Playwright MCP;
@@ -1528,7 +1554,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
    - remove incompatible `ports` or `networks` definitions on host-networked services;
    - remove bridge-only service-name MCP URL assumptions;
    - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
-3. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts.
+3. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
 4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required.
 5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
@@ -1571,9 +1597,14 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 #### Subtasks
 
-1. [ ] Read the existing e2e wrapper and package scripts so the new proof wrapper uses the same summary-wrapper output contract.
-2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable, including separate checks for the classic `/mcp` route, the dedicated chat MCP route, the agents MCP route, and the Playwright MCP route.
-3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper.
+1. [ ] Read `scripts/summary-wrapper-protocol.mjs`, `scripts/summary-wrapper-protocol-fixture.mjs`, `scripts/test-summary-e2e.mjs`, `package.json`, and `docker-compose.yml` together with story sections `## Proof Path Readiness` and `## Final Validation`. This wrapper must reuse the existing wrapper protocol rather than inventing a new command style.
+2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up`. The wrapper must separately prove:
+   - the classic `/mcp` route;
+   - the dedicated chat MCP route;
+   - the agents MCP route;
+   - the Playwright MCP route;
+   - and it must fail clearly when any required listener or MCP surface is unavailable.
+3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper so the checked-in command name becomes the canonical proof path used later by Task 14.
 4. [ ] Add or update automated coverage for the new proof wrapper so it executes the wrapper or its probe layer with at least one passing scenario and at least one failing probe scenario, and checks that the failure path emits inspectable error output instead of only a generic crash.
 5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
@@ -1615,9 +1646,9 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 
 #### Subtasks
 
-1. [ ] Read the existing e2e wrapper, env injection, and Playwright config so the e2e path is updated in one coherent pass.
-2. [ ] Update any checked-in e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover.
-3. [ ] Keep browser navigation targets and MCP control-channel targets as separate contracts where the story requires them.
+1. [ ] Read `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, `.env.e2e`, `e2e/playwright.config.ts`, and the checked-in `e2e` tests together with story sections `## Proof Path Readiness` and `## Final Validation`.
+2. [ ] Update any checked-in e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover. The end result must use the real host-visible addresses from the story’s port matrix.
+3. [ ] Keep browser navigation targets and MCP control-channel targets as separate contracts where the story requires them. Do not replace one with the other just because both are host-visible URLs.
 4. [ ] Add or update automated coverage so the checked-in e2e path proves it is using the intended host-visible addresses rather than stale bridge-only assumptions.
 5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
@@ -1652,11 +1683,20 @@ This task proves the completed story against the acceptance criteria. It must re
 
 #### Subtasks
 
-1. [ ] Re-read the full story and acceptance criteria before starting final validation so the close-out checks use the latest plan wording.
-2. [ ] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference.
+1. [ ] Re-read `## Acceptance Criteria` and `## Final Validation` before starting this task. This task is the acceptance-criteria gate, so do not rely on memory or earlier task notes alone.
+2. [ ] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference. Keep the exact commands aligned with the `#### Testing` list in this task.
 3. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
-4. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints: REST/API access, classic `/mcp`, dedicated chat MCP, agents MCP, Playwright browser control, websocket flows, screenshot capture, manual UI verification, and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
-5. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.
+4. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints:
+   - REST/API access;
+   - classic `/mcp`;
+   - dedicated chat MCP;
+   - agents MCP;
+   - Playwright browser control;
+   - websocket flows;
+   - screenshot capture;
+   - manual UI verification;
+   - and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
+5. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`. Capture enough screenshots to prove the validated UI and runtime state from this task, not just that the page loads.
 6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
 7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
@@ -1699,15 +1739,15 @@ Update the shared documentation and prepare the finished story for review after 
 
 #### Subtasks
 
-1. [ ] Update `README.md` with any new commands, proof wrappers, or runtime expectations introduced by this story.
-2. [ ] Update `design.md` so it documents:
+1. [ ] Update `README.md` with any new commands, proof wrappers, or runtime expectations introduced by this story. Use the saved outputs and verified command names from Task 14 instead of guessing final command text.
+2. [ ] Update `design.md` so it documents these exact items from the implemented story:
    - the re-ingest request union;
    - the single and batch re-ingest payloads;
    - the blank-markdown skip behavior;
    - the host-networked runtime and proof-wrapper flow.
 3. [ ] Update `docs/developer-reference.md` so it no longer documents stale MCP URLs, stale env-var names, or bridge-only networking assumptions after the host-network and `CODEINFO_CHAT_MCP_PORT` cutover.
 4. [ ] Update `projectStructure.md` with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules.
-5. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, and proof-path additions.
+5. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, and the validation evidence captured in Task 14.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing

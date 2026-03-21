@@ -36,7 +36,7 @@ This host-networking work is not just a one-line Compose change. Docker host net
 - `docker-compose.local.yml` server stays available on host ports `5510`, `5511`, and `5512`, so the local host-networked server process must bind those ports directly;
 - `docker-compose.local.yml` Playwright MCP stays available on host port `8931`;
 - `docker-compose.yml` server stays available on host ports `5010`, `5011`, and `5012`;
-- `docker-compose.yml` Playwright MCP must move to a different checked-in host port than the local stack so the two stacks do not clash, for example `8932`;
+- `docker-compose.yml` Playwright MCP must move to checked-in host port `8932` so the main and local stacks do not clash;
 - `docker-compose.e2e.yml` server keeps its current host-visible contract on `6010`, `6011`, and `6012`;
 - other checked-in Compose files should preserve their current host-visible server ports unless a documented clash requires a different value.
 
@@ -115,7 +115,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 - Every checked-in Docker Compose file that defines a `playwright-mcp` service is updated to use host networking.
 - Compose files that do not currently define a `playwright-mcp` service remain unchanged with respect to Playwright services for this story.
 - Each host-networked Playwright MCP service uses a deliberate host port plan so checked-in stacks do not clash when run together.
-- The checked-in default Playwright MCP port strategy uses distinct defaults for the existing stacks, keeping `8931` for `docker-compose.local.yml` and using a different checked-in port for `docker-compose.yml`, for example `8932`.
+- The checked-in default Playwright MCP port strategy uses distinct defaults for the existing stacks, keeping `8931` for `docker-compose.local.yml` and using `8932` for `docker-compose.yml`.
 - The Dockerfiles and the relevant `.dockerignore` files are updated together wherever this story changes what checked-in runtime files must be copied into the image, so only required files enter the build context and no host source bind mount is needed for runtime application code.
 - The implementation removes any incompatible bridge-style `server` and `playwright-mcp` wiring that cannot coexist with host networking.
 - The final host-networked compose path does not introduce new bind mounts for application source trees or checked-in runtime config trees. If container-generated output must persist, it uses Docker-managed volumes for generated output only, while log output may remain host-visible.
@@ -187,7 +187,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 5. Use distinct checked-in default ports for the main and local Playwright MCP stacks.
    - Question being addressed: What checked-in default ports should the existing Playwright MCP compose services use so they do not clash if stacks run together?
    - Why the question matters: this decides the compose defaults, the runtime endpoint values that correspond to those defaults, and whether the checked-in stacks can safely coexist during local development and manual testing.
-   - What the answer is: keep `8931` for `docker-compose.local.yml` and use a different checked-in port for `docker-compose.yml`, for example `8932`.
+   - What the answer is: keep `8931` for `docker-compose.local.yml` and use checked-in port `8932` for `docker-compose.yml`.
    - Where the answer came from: direct user answer in this planning conversation.
    - Why it is the best answer: it preserves the existing local manual-testing port contract, avoids an immediate clash with the main stack, and keeps the story focused on explicit per-environment wiring instead of leaving port separation to manual operator discipline.
 
@@ -279,7 +279,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
   - `target: "current"`;
   - `target: "all"`.
 - Keep `server/src/ingest/reingestService.ts` strict on one canonical ingested `sourceId`. Do not move selector parsing or target expansion into that service.
-- Add one shared orchestration seam above the strict service, likely alongside the existing re-ingest runtime code, that resolves a re-ingest request into one or more canonical repository roots by reusing `server/src/mcpCommon/repositorySelector.ts`.
+- Add one shared orchestration seam above the strict service in the command and flow runners so both `server/src/agents/commandsRunner.ts` and `server/src/flows/service.ts` resolve a re-ingest request into one or more canonical repository roots by reusing `server/src/mcpCommon/repositorySelector.ts`.
 - Reuse the ownership context that already exists:
   - direct commands resolve their owning repository in `server/src/agents/service.ts`;
   - top-level flows already carry `flowSourceId` in `server/src/flows/service.ts`;
@@ -288,7 +288,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
 
 ### Phase 2: Add batch recording and blank-markdown skip behavior at the shared seams
 
-- Introduce one dedicated batch result shape for `target: "all"` in the re-ingest transcript/result path rather than repeating the single-repository payload. The likely seam is the existing re-ingest lifecycle/result code in:
+- Introduce one dedicated batch result shape for `target: "all"` in the re-ingest transcript/result path rather than repeating the single-repository payload. The implementation seam for that work is the existing re-ingest lifecycle/result code in:
   - `server/src/chat/reingestToolResult.ts`;
   - `server/src/chat/reingestStepLifecycle.ts`;
   - the command and flow call sites in `server/src/agents/commandsRunner.ts` and `server/src/flows/service.ts`.
@@ -319,7 +319,12 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
   - `codex/config.toml`;
   - `codex/chat/config.toml`;
   - `config.toml.example`;
-  - relevant agent configs under `codex_agents/`.
+  - `codex_agents/coding_agent/config.toml`;
+  - `codex_agents/lmstudio_agent/config.toml`;
+  - `codex_agents/planning_agent/config.toml`;
+  - `codex_agents/research_agent/config.toml`;
+  - `codex_agents/tasking_agent/config.toml`;
+  - `codex_agents/vllm_agent/config.toml`.
 
 ### Phase 4: Move the checked-in server and Playwright MCP compose surfaces to the final Docker/runtime model
 
@@ -341,7 +346,7 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
   - local server `5510/5511/5512`;
   - e2e server `6010/6011/6012`;
   - local Playwright MCP `8931`;
-  - main Playwright MCP uses the already chosen distinct port such as `8932`;
+  - main Playwright MCP uses checked-in port `8932`;
   - local Chrome DevTools `9222`.
 - Prefer Docker-managed volumes for generated output that must persist, especially current Playwright output directories, and avoid bind-mounting checked-in source or config trees into the final host-networked runtime containers. The only planned host bind mount exception is logs that are intentionally meant to stay visible on the host.
 
@@ -695,3 +700,19 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - The evidence for this section comes from current repository inspection and external harness documentation:
   - repository facts from `package.json`, `scripts/test-summary-server-unit.mjs`, `scripts/test-summary-server-cucumber.mjs`, `scripts/test-summary-client.mjs`, `scripts/test-summary-e2e.mjs`, `scripts/summary-wrapper-protocol.mjs`, and `scripts/docker-compose-with-env.sh`;
   - shell-harness guidance from DeepWiki and Context7 documentation for `bats-core`, which both describe `.bats` file organization, helper loading, and `run`-based exit-code or stdout or stderr assertions.
+
+## Final Validation
+
+- Final validation must prove the story works from schema parsing through persisted transcript output, not just that the code compiles.
+- Required automated wrappers after implementation:
+  - `npm run test:summary:server:unit` passes with coverage for re-ingest request unions, selector or target resolution, strict-service result extensions, single and batch transcript payloads, blank-markdown skips, and runtime-config placeholder normalization.
+  - `npm run test:summary:shell` passes once the new shell harness exists, proving host-network preflight failures and success-path wrapper behavior.
+  - `npm run compose:build:summary` passes so the changed Dockerfiles, `.dockerignore` files, and Compose definitions build cleanly through the wrapper-first path.
+  - `npm run test:summary:e2e` passes so the e2e stack still works after the host-network and MCP endpoint changes.
+- Final runtime proof must also confirm these concrete outputs:
+  - `docker-compose.yml` host-networked server surfaces bind `5010`, `5011`, and `5012` directly on the host, and `playwright-mcp` binds `8932`.
+  - `docker-compose.local.yml` host-networked server surfaces bind `5510`, `5511`, and `5512` directly on the host, `playwright-mcp` binds `8931`, and the existing Chrome DevTools port remains `9222`.
+  - `docker-compose.e2e.yml` host-networked server surfaces bind `6010`, `6011`, and `6012` directly on the host.
+  - Checked-in config files resolve the MCP placeholders to literal runtime URLs for the server-owned MCP surfaces and the Playwright override without leaving raw placeholders in the runtime config passed to Codex.
+  - Direct `sourceId`, `target: "current"`, and `target: "all"` re-ingest runs all produce the transcript and storage shapes defined in `## Message Contracts And Storage Shapes`.
+  - Empty-markdown command or flow steps are skipped with the documented info-level log contract and do not create a new persisted storage shape of their own.

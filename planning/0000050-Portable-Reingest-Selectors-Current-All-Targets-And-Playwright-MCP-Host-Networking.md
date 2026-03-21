@@ -789,3 +789,579 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - Checked-in config files resolve the MCP placeholders to literal runtime URLs for the server-owned MCP surfaces and the Playwright override without leaving raw placeholders in the runtime config passed to Codex.
   - Direct `sourceId`, `target: "current"`, and `target: "all"` re-ingest runs all produce the transcript and storage shapes defined in `## Message Contracts And Storage Shapes`.
   - Empty-markdown command or flow steps are skipped with the documented info-level log contract and do not create a new persisted storage shape of their own.
+
+# Tasks
+
+### Task 1. Extend re-ingest schema parsing for command and flow files
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Add the new re-ingest request union to command and flow schema parsing so JSON files can express `sourceId`, `target: "current"`, and `target: "all"` without yet changing execution behavior. This task is schema-only and is complete when parsing accepts the allowed shapes and rejects the invalid combinations defined in the plan.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Message Contracts And Storage Shapes`
+  - `## Edge Cases and Failure Modes`
+- Zod discriminated unions: Context7 `/colinhacks/zod`
+- Files to read:
+  - `server/src/agents/commandsSchema.ts`
+  - `server/src/flows/flowSchema.ts`
+  - `server/src/test/unit/agent-commands-schema.test.ts`
+  - `server/src/test/unit/flows-schema.test.ts`
+
+#### Subtasks
+
+1. [ ] Read the story contract sections and the existing command or flow schema files so the new union matches the documented request shapes exactly.
+2. [ ] Update `server/src/agents/commandsSchema.ts` so a command re-ingest item accepts exactly one of:
+   - `{ "type": "reingest", "sourceId": "<selector-or-path>" }`
+   - `{ "type": "reingest", "target": "current" }`
+   - `{ "type": "reingest", "target": "all" }`
+3. [ ] Update `server/src/flows/flowSchema.ts` with the same re-ingest union and keep the rest of the flow schema behavior unchanged.
+4. [ ] Add server unit coverage in `server/src/test/unit/agent-commands-schema.test.ts` for:
+   - valid `sourceId`;
+   - valid `target: "current"`;
+   - valid `target: "all"`;
+   - rejection when both `sourceId` and `target` are present;
+   - rejection when `target` is not one of `current` or `all`.
+5. [ ] Add matching server unit coverage in `server/src/test/unit/flows-schema.test.ts`.
+6. [ ] Record any new or renamed files for later documentation updates in Task 10. Do not update `README.md`, `design.md`, or `projectStructure.md` in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 2. Extend the strict single-repository re-ingest result contract
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Keep `runReingestRepository()` strict on one canonical repository, but extend its success payload so downstream code can tell which repository was selected and whether a completed run was a real re-ingest or an internal skip. This task is complete when the strict service contract matches the story’s `resolvedRepositoryId` and `completionMode` requirements and has unit coverage.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Message Contracts And Storage Shapes`
+  - `## Edge Cases and Failure Modes`
+- Files to read:
+  - `server/src/ingest/reingestService.ts`
+  - `server/src/test/unit/reingestService.test.ts`
+  - `server/src/mcpCommon/repositorySelector.ts`
+
+#### Subtasks
+
+1. [ ] Read the current `ReingestSuccess` type and the existing unit tests so the new fields extend the contract without weakening strict validation.
+2. [ ] Update `server/src/ingest/reingestService.ts` so the success payload adds:
+   - `resolvedRepositoryId: string | null`
+   - `completionMode: "reingested" | "skipped" | null`
+3. [ ] Preserve the existing validation and terminal status behavior:
+   - keep `status` as `completed`, `cancelled`, or `error`;
+   - keep existing failure codes and retry lists;
+   - map internal ingest `skipped` to `status: "completed"` with `completionMode: "skipped"`.
+4. [ ] Update `server/src/test/unit/reingestService.test.ts` so it proves:
+   - completed runs set `completionMode: "reingested"`;
+   - internal skipped runs set `completionMode: "skipped"`;
+   - cancelled or error runs set `completionMode: null`;
+   - `resolvedRepositoryId` is populated when the repository id is known.
+5. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 3. Add shared target orchestration for `sourceId`, `current`, and `all`
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Implement the shared server-side orchestration that resolves the three re-ingest request modes into canonical repository paths before calling the strict service. This task is complete when command and flow execution can resolve `sourceId`, `current`, and `all` correctly, preserve deterministic ordering, return an empty batch for zero repositories, and continue after per-repository failures in `all` mode.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Feasibility Proof Pass`
+  - `## Message Contracts And Storage Shapes`
+  - `## Edge Cases and Failure Modes`
+- Files to read:
+  - `server/src/agents/commandsRunner.ts`
+  - `server/src/flows/service.ts`
+  - `server/src/agents/service.ts`
+  - `server/src/agents/commandItemExecutor.ts`
+  - `server/src/mcpCommon/repositorySelector.ts`
+  - `server/src/ingest/reingestService.ts`
+
+#### Subtasks
+
+1. [ ] Read the command and flow execution paths and identify exactly where `sourceId` and `flowSourceId` are already threaded today.
+2. [ ] Add one shared orchestration path above `runReingestRepository()` so explicit selectors, `current`, and `all` all resolve to canonical container paths before strict execution begins.
+3. [ ] Implement the `current` resolution rules exactly as the story defines them:
+   - direct command uses the command owner;
+   - top-level flow uses the flow owner;
+   - nested flow command uses the command owner, not the parent flow owner.
+4. [ ] Implement `target: "all"` behavior exactly as the story defines it:
+   - gather all ingested repositories;
+   - sort by ascending canonical container path;
+   - execute sequentially;
+   - return an empty batch result when there are zero repositories;
+   - continue after a per-repository failure and record that failure instead of aborting the batch.
+5. [ ] Add or update server unit or integration tests near the existing re-ingest runner coverage so they prove:
+   - `sourceId` selector resolution by repo id and path;
+   - `current` failure when there is no owning repository;
+   - `all` ordering;
+   - zero-repository `all` behavior;
+   - continue-on-failure behavior for `all`.
+6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --test-name reingest`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 4. Emit and persist the new single and batch re-ingest transcript payloads
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Update the transcript and persistence layer so single re-ingest runs emit the extended single payload and `target: "all"` emits one batch payload while remaining backward compatible with older stored turns. This task is complete when the new payloads are built, persisted, replayed, and read without breaking existing `toolCalls` storage assumptions.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Message Contracts And Storage Shapes`
+  - `## Edge Cases and Failure Modes`
+- Files to read:
+  - `server/src/chat/reingestToolResult.ts`
+  - `server/src/chat/reingestStepLifecycle.ts`
+  - `server/src/chat/interfaces/ChatInterface.ts`
+  - `server/src/mongo/turn.ts`
+  - `server/src/mongo/repo.ts`
+  - `server/src/test/unit/reingest-tool-result.test.ts`
+  - `server/src/test/unit/reingest-step-lifecycle.test.ts`
+
+#### Subtasks
+
+1. [ ] Read the current `reingest_step_result` payload builder and the lifecycle code that persists synthetic turns.
+2. [ ] Extend the single payload to include the fields defined in the plan:
+   - `targetMode`
+   - `requestedSelector`
+   - `resolvedRepositoryId`
+   - `outcome`
+   - existing `status` and `completionMode`
+3. [ ] Add the new `reingest_step_batch_result` payload variant with the ordered `repositories` array and `summary` object exactly as defined in the story.
+4. [ ] Update the lifecycle and persisted turn handling so one `target: "all"` run records one batch payload instead of one synthetic turn pair per repository.
+5. [ ] Keep backward compatibility for older stored single payloads by making reads tolerant of both the old and new single-result shapes.
+6. [ ] Add or update server unit coverage in the existing re-ingest payload or lifecycle tests so they prove:
+   - new single payload fields;
+   - batch payload fields and ordering;
+   - lifecycle persistence still uses `Turn.toolCalls`;
+   - older single payloads remain readable.
+7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-tool-result.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-step-lifecycle.test.ts`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 5. Skip blank markdown instructions without weakening real markdown failures
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Implement the shared blank-markdown skip behavior for commands and flows while preserving all existing hard failures for missing files, path traversal, permission errors, and invalid UTF-8. This task is complete when whitespace-only markdown is skipped with the documented info-level log contract and all other markdown errors remain failures.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Message Contracts And Storage Shapes`
+  - `## Edge Cases and Failure Modes`
+- Files to read:
+  - `server/src/flows/markdownFileResolver.ts`
+  - `server/src/agents/commandItemExecutor.ts`
+  - `server/src/flows/service.ts`
+  - `server/src/test/unit/markdown-file-resolver.test.ts`
+  - `server/src/test/integration/commands.markdown-file.test.ts`
+
+#### Subtasks
+
+1. [ ] Read the current markdown resolver and command or flow execution paths so the skip happens once in the shared seam.
+2. [ ] Add the whitespace-only skip behavior only for successfully resolved markdown content.
+3. [ ] Emit the documented info-level log contract with `surface`, `markdownFile`, `resolvedPath`, and `reason: empty_markdown`, plus any available command or flow context.
+4. [ ] Ensure missing files, absolute paths, traversal attempts, permission failures, invalid UTF-8, and other existing resolver errors still fail exactly as they do today.
+5. [ ] Add or update tests so they prove:
+   - whitespace-only markdown is skipped for direct commands;
+   - whitespace-only markdown is skipped for flows;
+   - permission or UTF-8 failures still throw;
+   - no synthetic tool-result payload is created just because a markdown file was skipped.
+6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/markdown-file-resolver.test.ts`
+6. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/commands.markdown-file.test.ts`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 6. Finalize runtime MCP placeholder normalization and migrate checked-in config contracts
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Finish the MCP placeholder and env-contract migration so runtime normalization, checked-in config files, and checked-in env files all describe the same final endpoint contract. This task is complete when unresolved placeholders fail clearly, the legacy `CODEINFO_MCP_PORT` dependency is removed from checked-in defaults, and the checked-in runtime configs use the explicit placeholder strategy documented by the story.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Message Contracts And Storage Shapes`
+  - `## Edge Cases and Failure Modes`
+  - `## Final Validation`
+- Files to read:
+  - `server/src/config/runtimeConfig.ts`
+  - `server/src/config/codexConfig.ts`
+  - `server/src/config.ts`
+  - `server/src/config/startupEnv.ts`
+  - `codex/config.toml`
+  - `codex/chat/config.toml`
+  - `codex_agents/coding_agent/config.toml`
+  - `codex_agents/lmstudio_agent/config.toml`
+  - `codex_agents/planning_agent/config.toml`
+  - `codex_agents/research_agent/config.toml`
+  - `codex_agents/tasking_agent/config.toml`
+  - `codex_agents/vllm_agent/config.toml`
+  - `config.toml.example`
+  - `server/.env`
+  - `server/.env.local`
+  - `server/.env.e2e`
+
+#### Subtasks
+
+1. [ ] Read the existing runtime normalization and codex bootstrap code so placeholder replacement stays centralized.
+2. [ ] Update the runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config.
+3. [ ] Remove checked-in reliance on `CODEINFO_MCP_PORT` and make `CODEINFO_CHAT_MCP_PORT` the single checked-in dedicated MCP env contract.
+4. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for:
+   - `CODEINFO_SERVER_PORT`
+   - `CODEINFO_CHAT_MCP_PORT`
+   - `CODEINFO_AGENTS_MCP_PORT`
+   - `CODEINFO_PLAYWRIGHT_MCP_URL`
+5. [ ] Update the checked-in env files so they match the final placeholder and port contract.
+6. [ ] Add or update server unit coverage so it proves:
+   - placeholder replacement works for the checked-in config style;
+   - unresolved placeholders fail clearly;
+   - legacy checked-in env assumptions no longer apply.
+7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:server:unit -- --test-name runtimeConfig`
+6. [ ] `npm run test:summary:server:unit -- --test-name codexConfig`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 7. Add host-network wrapper preflight and a repo-local shell harness
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Add the wrapper-side host-network preflight checks and the new shell harness that proves those failures and success paths on a clean checkout. This task is complete when the wrapper fails fast for unsupported host networking, conflicting ports, and incompatible service shapes, and `npm run test:summary:shell` can run without any globally installed Bats runtime.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Test Harnesses`
+  - `## Proof Path Readiness`
+  - `## Edge Cases and Failure Modes`
+- DeepWiki `docker/docs` host-network behavior notes
+- Context7 `/docker/compose`
+- DeepWiki and Context7 `bats-core`
+- Files to read:
+  - `scripts/docker-compose-with-env.sh`
+  - `scripts/summary-wrapper-protocol.mjs`
+  - `package.json`
+
+#### Subtasks
+
+1. [ ] Read the existing compose wrapper and summary-wrapper protocol so the new preflight and shell test path match the repo’s wrapper-first conventions.
+2. [ ] Extend `scripts/docker-compose-with-env.sh` so it fails before `docker compose` for:
+   - unsupported host-network environments;
+   - disabled host networking where it is required;
+   - occupied checked-in host ports;
+   - host-networked service definitions that still contain incompatible `ports` or `networks` wiring.
+3. [ ] Add the repo-local shell harness files under `scripts/test/bats/`:
+   - `.bats` test file;
+   - shared helper file;
+   - fixture binaries.
+4. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout.
+5. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry so the shell harness follows the same saved-log and heartbeat contract as the other wrappers.
+6. [ ] Add shell harness coverage for:
+   - unsupported host networking;
+   - conflicting host ports;
+   - incompatible host-network service shapes;
+   - success-path pass-through to compose execution.
+7. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:shell`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 8. Move Docker and Compose definitions to the final host-network runtime model
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definitions so the server and existing Playwright MCP services run in the final host-network model with image-baked runtime assets and the documented port plan. This task is complete when the main, local, and e2e Compose definitions match the story’s host-network and packaging rules and still build through the existing wrapper path.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Feasibility Proof Pass`
+  - `## Edge Cases and Failure Modes`
+  - `## Final Validation`
+- Context7 `/docker/compose`
+- Files to read:
+  - `server/Dockerfile`
+  - `client/Dockerfile`
+  - `.dockerignore`
+  - `server/.dockerignore`
+  - `client/.dockerignore`
+  - `docker-compose.yml`
+  - `docker-compose.local.yml`
+  - `docker-compose.e2e.yml`
+
+#### Subtasks
+
+1. [ ] Read the current Dockerfiles and Compose files and list every checked-in runtime asset that is still being bind-mounted from the repo today.
+2. [ ] Update the Docker build contexts and Dockerfiles so the checked-in runtime assets needed by the host-networked server are copied into the image instead of being required from a host source bind mount.
+3. [ ] Update the relevant `.dockerignore` files at the same time so only the required runtime assets enter the build context.
+4. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions:
+   - direct host-visible bind ports for the server listeners;
+   - `8931` for local Playwright MCP;
+   - `8932` for main Playwright MCP;
+   - remove incompatible `ports` or `networks` definitions on host-networked services;
+   - remove bridge-only service-name MCP URL assumptions.
+5. [ ] Keep any generated output on Docker-managed volumes except for the explicitly host-visible logs.
+6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:shell`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 9. Add the main-stack host-network proof wrapper and keep the e2e proof path aligned
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Add the checked-in proof wrapper that probes the live main stack after `npm run compose:up`, and update any e2e env injection that would otherwise point at stale addresses after the host-network cutover. This task is complete when the main-stack proof path is runnable through one wrapper command and the existing e2e wrapper still points at the real host-visible URLs.
+
+#### Documentation Locations
+
+- Story sections to read before changing code:
+  - `## Proof Path Readiness`
+  - `## Final Validation`
+- Files to read:
+  - `scripts/test-summary-e2e.mjs`
+  - `package.json`
+  - `docker-compose.yml`
+  - `docker-compose.e2e.yml`
+  - `.env.e2e`
+  - `e2e/playwright.config.ts`
+  - `e2e` test files that assume the current URLs
+
+#### Subtasks
+
+1. [ ] Read the existing e2e wrapper and package scripts so the new proof wrapper uses the same summary-wrapper output contract.
+2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable.
+3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper.
+4. [ ] Update any e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover.
+5. [ ] Add or update automated coverage for the new proof wrapper if it is practical to unit-test its probe logic without bringing the whole stack up.
+6. [ ] Record any later documentation deltas for Task 10. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:host-network:main`
+6. [ ] `npm run compose:down`
+7. [ ] `npm run test:summary:e2e`
+
+#### Implementation notes
+
+- __to_do__
+
+---
+
+### Task 10. Final validation, documentation updates, and story close-out
+
+- Repository Name: `codeInfo2`
+- Task Status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+This final task proves the whole story against the acceptance criteria, updates the shared documentation, and prepares the story for review. It must rerun the wrapper-first build and test paths, prove the runtime behavior with the new proof wrappers, update the design and structure docs, and prepare the pull-request summary for the completed story.
+
+#### Documentation Locations
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- Context7 `/docker/compose`
+- Context7 `/microsoft/playwright`
+- Context7 `/typicode/husky`
+- DeepWiki and Context7 `bats-core`
+- Any documentation sources recorded in the earlier tasks when they introduced new files or commands
+
+#### Subtasks
+
+1. [ ] Re-read the full story and acceptance criteria before starting final validation so the close-out checks use the latest plan wording.
+2. [ ] Update `README.md` with any new commands, proof wrappers, or runtime expectations introduced by this story.
+3. [ ] Update `design.md` so it documents:
+   - the re-ingest request union;
+   - the single and batch re-ingest payloads;
+   - the blank-markdown skip behavior;
+   - the host-networked runtime and proof-wrapper flow.
+4. [ ] Update `projectStructure.md` with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules.
+5. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, and proof-path additions.
+6. [ ] Run repo-wide lint and format gates as the last subtask for the story.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run test:summary:server:unit`
+5. [ ] `npm run test:summary:server:cucumber`
+6. [ ] `npm run test:summary:shell`
+7. [ ] `npm run compose:up`
+8. [ ] `npm run test:summary:host-network:main`
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test:summary:e2e`
+11. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`.
+
+#### Implementation notes
+
+- __to_do__
+
+---

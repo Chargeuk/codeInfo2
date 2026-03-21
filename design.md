@@ -4990,6 +4990,46 @@ flowchart TD
     K --> L[DEV-0000050:T10:image_runtime_assets_baked]
 ```
 
+## Story 0000050 Task 11: final host-network runtime topology
+
+- Task 11 moves every checked-in `server` service and the existing checked-in `playwright-mcp` services onto `network_mode: host`, so those processes now bind their real host-visible ports directly instead of relying on Compose port translation.
+- The preserved host-visible server port matrix is:
+  - main stack: `5010`, `5011`, `5012`
+  - local stack: `5510`, `5511`, `5512`
+  - e2e stack: `6010`, `6011`, `6012`
+- The preserved Playwright and browser-debug split is:
+  - main `playwright-mcp`: `8932`
+  - local `playwright-mcp`: `8931`
+  - local Chromium CDP: `9222`
+- The host-networked runtime no longer bind-mounts checked-in runtime trees such as `codex/`, `codex_agents/`, `flows/`, `flows-sandbox/`, or `e2e/fixtures/`. The remaining deliberate mounts are limited to host-visible logs, the external ingest/workdir bind, the host Codex auth-copy source, the local Docker socket where Testcontainers still needs it, corp certs, and Docker-managed named volumes for generated Playwright output.
+- `server/src/index.ts` now emits `DEV-0000050:T11:host_network_runtime_ready` from compose-provided runtime metadata so startup logs can prove the active compose file, bound server ports, Playwright port, and zero checked-in source/config bind mounts.
+
+```mermaid
+flowchart TD
+    subgraph Main["docker-compose.yml"]
+        MainClient[client :5001 bridge port]
+        MainServer[server host network :5010/:5011/:5012]
+        MainPw[playwright-mcp host network :8932]
+    end
+    subgraph Local["docker-compose.local.yml"]
+        LocalClient[client :5501 bridge port]
+        LocalServer[server host network :5510/:5511/:5512]
+        LocalCdp[chromium CDP :9222]
+        LocalPw[playwright-mcp host network :8931]
+    end
+    subgraph E2E["docker-compose.e2e.yml"]
+        E2EClient[client :6001 bridge port]
+        E2EServer[server host network :6010/:6011/:6012]
+    end
+    MainServer --> MainMarker[DEV-0000050:T11:host_network_runtime_ready]
+    LocalServer --> MainMarker
+    E2EServer --> MainMarker
+    MainServer --> Allowed[Allowed mounts: logs, host ingest/workdir, /host/codex, corp certs]
+    LocalServer --> LocalAllowed[Allowed local extras: docker.sock plus logs/host ingest/workdir/host codex/corp certs]
+    MainPw --> PwVolume[named volume: playwright-output-main]
+    LocalPw --> LocalPwVolume[named volume: playwright-output-local]
+```
+
 ### ChatInterface event buffering & persistence
 
 - The server unifies chat execution behind `ChatInterface` (`server/src/chat/interfaces/ChatInterface.ts`) with provider-specific subclasses (`ChatInterfaceCodex`, `ChatInterfaceLMStudio`) selected via `getChatInterface(provider)` (`server/src/chat/factory.ts`).

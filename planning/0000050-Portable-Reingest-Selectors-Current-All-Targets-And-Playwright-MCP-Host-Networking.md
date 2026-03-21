@@ -1808,7 +1808,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 11. Convert Compose definitions to the final host-network runtime model
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1824,13 +1824,13 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 
 #### Subtasks
 
-1. [ ] Read `server/entrypoint.sh`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `server/src/test/support/chromaContainer.ts`, and `server/src/test/support/mongoContainer.ts` together with story sections `## Feasibility Proof Pass`, `## Edge Cases and Failure Modes`, and `## Final Validation`. Keep these exact rules visible while you work: local server binds `5510/5511/5512`, local Chrome DevTools stays on `9222`, local Playwright MCP stays on `8931`, main Playwright MCP stays on `8932`, host-networked services must not keep `ports` or `networks`, and source-tree / checked-in runtime bind mounts must not remain. Also keep the task docs open while doing this step: Docker Compose docs via Context7 `/docker/compose`, Docker host-network docs via DeepWiki `docker/docs` plus https://docs.docker.com/engine/network/tutorials/host/, Bash docs at https://www.gnu.org/software/bash/manual/bash.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
-2. [ ] Before editing the compose files, run a repository search for checked-in Compose files and confirm the scoped inventory still matches the story assumptions:
+1. [x] Read `server/entrypoint.sh`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `server/src/test/support/chromaContainer.ts`, and `server/src/test/support/mongoContainer.ts` together with story sections `## Feasibility Proof Pass`, `## Edge Cases and Failure Modes`, and `## Final Validation`. Keep these exact rules visible while you work: local server binds `5510/5511/5512`, local Chrome DevTools stays on `9222`, local Playwright MCP stays on `8931`, main Playwright MCP stays on `8932`, host-networked services must not keep `ports` or `networks`, and source-tree / checked-in runtime bind mounts must not remain. Also keep the task docs open while doing this step: Docker Compose docs via Context7 `/docker/compose`, Docker host-network docs via DeepWiki `docker/docs` plus https://docs.docker.com/engine/network/tutorials/host/, Bash docs at https://www.gnu.org/software/bash/manual/bash.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
+2. [x] Before editing the compose files, run a repository search for checked-in Compose files and confirm the scoped inventory still matches the story assumptions:
    - files in scope for `server`: `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`;
    - files in scope for `playwright-mcp`: `docker-compose.yml` and `docker-compose.local.yml`;
    - no additional checked-in Compose file that defines `server` or `playwright-mcp` has appeared since the story was planned.
      If the inventory has changed, update the story plan before changing code so the implementation does not silently miss a checked-in runtime surface.
-3. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions with these exact port rules from the story:
+3. [x] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions with these exact port rules from the story:
    - direct host-visible bind ports for the server listeners;
    - preserve the local Chrome DevTools bind contract on `9222` by keeping the required server entrypoint or environment wiring intact under host networking;
    - `8931` for local Playwright MCP;
@@ -1838,24 +1838,24 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
    - remove incompatible `ports` or `networks` definitions on host-networked services;
    - remove bridge-only service-name MCP URL assumptions;
    - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
-4. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
-5. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required. Use the checked-in wrapper script with the `config` subcommand for this inspection instead of ad-hoc compose invocations so the same env-file and UID/GID rules are applied during validation.
-6. [ ] After the compose definitions are updated, inspect the rendered wrapper-driven Compose output and write down the exact services and mount types that remain. The expected end state is:
+4. [x] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
+5. [x] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required. Use the checked-in wrapper script with the `config` subcommand for this inspection instead of ad-hoc compose invocations so the same env-file and UID/GID rules are applied during validation.
+6. [x] After the compose definitions are updated, inspect the rendered wrapper-driven Compose output and write down the exact services and mount types that remain. The expected end state is:
    - no bind mount for the repository root;
    - no bind mount for checked-in runtime config trees such as `codex/`, `codex_agents/`, or checked-in flow directories;
    - only Docker-managed volumes for generated output;
    - only deliberate non-source bind mounts such as logs or the local Docker socket where the story explicitly allows them.
-7. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
-8. [ ] Add or update the structured runtime log marker `DEV-0000050:T11:host_network_runtime_ready` during stack startup or readiness reporting. Include `composeFile`, `serverPorts`, `playwrightPort`, and `sourceBindMountCount`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the running stack uses the expected host-network contract and has not reintroduced source/config bind mounts.
-9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+7. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
+8. [x] Add or update the structured runtime log marker `DEV-0000050:T11:host_network_runtime_ready` during stack startup or readiness reporting. Include `composeFile`, `serverPorts`, `playwrightPort`, and `sourceBindMountCount`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the running stack uses the expected host-network contract and has not reintroduced source/config bind mounts.
+9. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+11. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+1. [x] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
 2. [ ] `npm run compose:up`
 3. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the host-network runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs for `DEV-0000050:T09:compose_preflight_result` with `result: "passed"`, `DEV-0000050:T10:image_runtime_assets_baked` with `sourceBindMountRequired: false`, and `DEV-0000050:T11:host_network_runtime_ready` with the expected `composeFile`, preserved port values, and `sourceBindMountCount: 0`.
 4. [ ] While the stack is running, inspect the live containers with `docker inspect` or an equivalent wrapper-safe inspection path and confirm the mount list matches the rendered Compose proof from Subtasks 5 and 6:
@@ -1866,7 +1866,19 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 #### Implementation notes
 
-- **to_do**
+- Re-read the scoped Compose files, `server/entrypoint.sh`, the chroma/mongo Testcontainers helpers, and the story feasibility, edge-case, and final-validation sections together before editing so the Task 11 cutover stays anchored to the fixed host-network port matrix and the allowed-mount rules.
+- Re-checked the checked-in Compose inventory with a repository search and confirmed the Task 11 scope still matches the story assumptions: `server` exists only in `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`, while `playwright-mcp` exists only in `docker-compose.yml` and `docker-compose.local.yml`.
+- Converted the scoped `server` and existing `playwright-mcp` services to `network_mode: host`, removed incompatible `ports`/`networks` keys from those services, moved the main Playwright MCP port to `8932`, and rewired the local/e2e server listeners to bind their checked-in host-visible ports directly inside the container.
+- Kept the allowed local runtime exceptions intact by preserving the Docker socket, UID/GID wiring, and Testcontainers-related settings in `docker-compose.local.yml` while removing the forbidden checked-in runtime-tree bind mounts from the host-networked server services.
+- Proved the rendered wrapper-driven Compose output no longer includes repository-root or checked-in runtime-tree bind mounts on the scoped host-network services; the remaining server-side binds are limited to host-visible logs, the external ingest/workdir bind, the host Codex auth-copy source, the local Docker socket where required, and the corp-certs directory, while Playwright output now persists through Docker-managed named volumes.
+- Recorded the exact rendered mount inventory for the scoped services: `docker-compose.yml` server keeps bind mounts for `logs`, the host ingest/workdir path, `/host/codex`, and corp certs while `playwright-mcp` uses named volume `playwright-output-main`; `docker-compose.local.yml` server keeps those same binds plus `/var/run/docker.sock` and `playwright-mcp` uses named volume `playwright-output-local`; `docker-compose.e2e.yml` server keeps only `/host/codex`, `logs`, and corp certs.
+- Updated `design.md` with the Task 11 host-network topology section and Mermaid diagram so the checked-in architecture doc now shows the final server/playwright host ports, the local `9222` CDP split, the named Playwright output volumes, and the remaining allowed mounts after the compose cutover.
+- Added the Task 11 startup marker `DEV-0000050:T11:host_network_runtime_ready` in `server/src/index.ts`, driven by compose-provided runtime metadata so each checked-in stack reports its active compose file, host-visible server ports, Playwright port, and source bind-mount count during startup.
+- Carry forward for Task 15: document the final host-network compose contract, the main/local/e2e port matrix, the named Playwright output volumes, and the remaining allowed non-source mounts (`logs`, host Codex auth copy source, and the local Docker socket).
+- `npm run lint` still fails repo-wide on the pre-existing baseline warning in `client/src/components/chat/SharedTranscript.tsx` even after `npm run lint:fix`, but the Task 11 files were rechecked with targeted `eslint` and are clean.
+- `npm run format:check` still fails repo-wide on the existing baseline set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those changes were restored and the Task 11 files were revalidated with targeted `prettier --check` plus `git diff --check`.
+- `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, and the existing Task 10 packaging marker still reports `sourceBindMountRequired: false`, so the Compose cutover builds cleanly on the wrapper-first image path.
+- **BLOCKER** Testing step 2 stopped at `npm run compose:up` because Task 9 preflight correctly detected host port `5010` already occupied before any new containers were started. I confirmed the conflict is not from the checked-in main stack: `ss -ltnp '( sport = :5010 )'` shows `node` listening on `*:5010` as `pid=1` inside this agent container, while `docker ps` only shows the older local stack on `5510/5511/5512` and `8931`. The missing capability is an available host `5010/5011/5012` range for the checked-in main-stack host-network proof path from inside this environment; because `pid=1` is the session’s own long-lived process, I cannot free that port without killing the workspace container. The task should continue once the flow runs in an environment where the main-stack host-network ports are actually available, or the story should be re-ordered so Tasks 12-14 run in a dedicated host environment that is not already binding the main-stack server port contract.
 
 ---
 

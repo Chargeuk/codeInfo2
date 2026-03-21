@@ -2023,7 +2023,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 14. Run final validation for Story 0000050
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2038,9 +2038,9 @@ This task proves the completed story against the acceptance criteria. It must re
 
 #### Subtasks
 
-1. [ ] Re-read `## Description`, `## Acceptance Criteria`, `## Out Of Scope`, `## Traceability And Proof Pass`, and `## Final Validation` before starting this task. This task is the whole-story acceptance gate, so do not rely on memory or earlier task notes alone.
-2. [ ] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference. Keep the exact commands aligned with the `#### Testing` list in this task.
-3. [ ] After `npm run compose:up` has started the main stack in this task, run the checked-in proof wrapper command created by Task 12, `npm run test:summary:host-network:main`, and record its saved-output path. Purpose: prove the reusable host-network probe path succeeds against the final stack instead of relying only on ad hoc manual inspection.
+1. [x] Re-read `## Description`, `## Acceptance Criteria`, `## Out Of Scope`, `## Traceability And Proof Pass`, and `## Final Validation` before starting this task. This task is the whole-story acceptance gate, so do not rely on memory or earlier task notes alone.
+2. [x] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference. Keep the exact commands aligned with the `#### Testing` list in this task.
+3. [x] After `npm run compose:up` has started the main stack in this task, run the checked-in proof wrapper command created by Task 12, `npm run test:summary:host-network:main`, and record its saved-output path. Purpose: prove the reusable host-network probe path succeeds against the final stack instead of relying only on ad hoc manual inspection.
 4. [ ] Compare the validated system against every grouped requirement in `## Traceability And Proof Pass` and record any mismatch before Task 15 starts. Purpose: prove the final validation covers the whole story and that no out-of-scope behavior was introduced while implementing it.
 5. [ ] Inspect the running containers and the wrapper-rendered Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining. Use both:
    - the wrapper-driven Compose config proof from Task 11;
@@ -2071,20 +2071,30 @@ This task proves the completed story against the acceptance criteria. It must re
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
-4. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
-5. [ ] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:client` after fixes.
-6. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
-7. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
-8. [ ] `npm run compose:up`
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+4. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+5. [x] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:client` after fixes.
+6. [x] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
+7. [x] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+8. [x] `npm run compose:up`
 9. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm story behavior and general regression from the running stack, including a check that there are no logged errors in the debug console. Also check the running logs and saved wrapper outputs for the exact markers listed in `## Manual Playwright-MCP Log Evidence`, and treat the manual validation as passing only when the expected Task 1 through Task 14 outcomes are visible for the exercised paths. Where any GUI-visible acceptance can be confirmed from the running product, take screenshots into `playwright-output-local/` using the Task 14 filename pattern and have the agent compare those screenshots against the expectations in this task.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
-- **to_do**
+- Re-read the story description, acceptance criteria, out-of-scope notes, traceability proof pass, and final validation sections before starting Task 14 so the final gate uses the current committed story contract rather than earlier task memory.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`; saved output remains at `logs/test-summaries/build-server-latest.log` for the final validation evidence set.
+- `npm run build:summary:client` passed cleanly with `warning_count: 0`; saved output remains at `logs/test-summaries/build-client-latest.log` for the final validation evidence set.
+- `npm run test:summary:server:unit` passed with `tests run: 1368`, `failed: 0`, and saved log `test-results/server-unit-tests-2026-03-21T12-16-42-674Z.log`.
+- `npm run test:summary:server:cucumber` passed with `tests run: 71`, `failed: 0`, and saved log `test-results/server-cucumber-tests-2026-03-21T12-27-11-559Z.log`.
+- `npm run test:summary:client` passed with `tests run: 632`, `failed: 0`, and saved log `test-results/client-tests-2026-03-21T12-28-44-652Z.log`.
+- `npm run test:summary:e2e` passed with `tests run: 46`, `failed: 0`, saved output `logs/test-summaries/e2e-tests-latest.log`, and re-emitted `DEV-0000050:T13:e2e_host_network_config_verified` for the host-visible e2e contract.
+- `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, saved output `logs/test-summaries/compose-build-latest.log`, and re-emitted `DEV-0000050:T10:image_runtime_assets_baked` with `sourceBindMountRequired: false`.
+- `npm run compose:up` passed through the checked-in wrapper and emitted `DEV-0000050:T09:compose_preflight_result` with `result: passed` for `docker-compose.yml` before the final main stack reached healthy startup.
+- Recorded the full wrapper-first evidence set for Task 14 so far: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-03-21T12-16-42-674Z.log`, `test-results/server-cucumber-tests-2026-03-21T12-27-11-559Z.log`, `test-results/client-tests-2026-03-21T12-28-44-652Z.log`, `logs/test-summaries/e2e-tests-latest.log`, and `logs/test-summaries/compose-build-latest.log`.
+- `npm run test:summary:host-network:main` passed against the live stack, saved output `logs/test-summaries/host-network-main-latest.log`, and re-emitted `DEV-0000050:T12:main_stack_probe_completed` with all four MCP surfaces reachable.
 
 ---
 

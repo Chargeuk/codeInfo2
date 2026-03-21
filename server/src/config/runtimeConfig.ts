@@ -5,6 +5,7 @@ import path from 'node:path';
 import toml from 'toml';
 
 import { discoverAgents } from '../agents/discovery.js';
+import { append } from '../logStore.js';
 
 import {
   getCodexChatConfigPathForHome,
@@ -182,7 +183,7 @@ function logCheckedInMcpContractLoaded(params: {
   env?: NodeJS.ProcessEnv;
 }) {
   const env = params.env ?? process.env;
-  console.info(T07_CHECKED_IN_MCP_CONTRACT_LOADED, {
+  const payload = {
     configPath: params.configPath,
     chatPortVar: 'CODEINFO_CHAT_MCP_PORT',
     agentsPortVar: 'CODEINFO_AGENTS_MCP_PORT',
@@ -191,6 +192,14 @@ function logCheckedInMcpContractLoaded(params: {
       getUsableCodeinfoEnvValue('CODEINFO_MCP_PORT', env) &&
         !getUsableCodeinfoEnvValue('CODEINFO_CHAT_MCP_PORT', env),
     ),
+  };
+  console.info(T07_CHECKED_IN_MCP_CONTRACT_LOADED, payload);
+  append({
+    level: 'info',
+    message: T07_CHECKED_IN_MCP_CONTRACT_LOADED,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: payload,
   });
 }
 

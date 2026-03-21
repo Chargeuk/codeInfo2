@@ -5175,8 +5175,21 @@ sequenceDiagram
 - Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns), validates raw outbound payload preservation (leading/trailing whitespace + multiline newlines), and asserts whitespace-only submit does not dispatch `POST /chat`; it skips automatically when `/chat/models` is unreachable/empty.
 - Playwright test `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks `POST /chat` (202) + `/ws` transcript events, and asserts citations render `repo/relPath` plus host path. The question is “What does main.txt say about the project?” with the expected answer text “This is the ingest test fixture for CodeInfo2.”
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
-- Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
+- Uses `E2E_BASE_URL` to override the client URL; the checked-in host-network default is `http://host.docker.internal:6001`.
+- The checked-in e2e proof path keeps browser navigation and MCP control separate after the host-network cutover:
+  - browser navigation uses `E2E_BASE_URL` and Playwright `use.baseURL` with the host-visible client address
+  - client runtime API calls still resolve through `E2E_API_URL` / `VITE_CODEINFO_API_URL` against the host-visible server address
+  - Playwright MCP control stays on the separate `E2E_MCP_CONTROL_URL` / `CODEINFO_PLAYWRIGHT_MCP_URL` host-visible endpoint and must not collapse onto the browser base URL
 - Dedicated e2e stack: `docker-compose.e2e.yml` runs client (6001), server (6010), and Chroma (8800) with an isolated `chroma-e2e-data` volume and a mounted fixture repo at `/fixtures`. Scripts `compose:e2e:*` wrap build/up/down. Ingest e2e specs (`e2e/ingest.spec.ts`) exercise happy path, cancel, re-embed, and remove; they auto-skip when LM Studio/models are unavailable.
+
+```mermaid
+flowchart LR
+  EnvFile[".env.e2e host-visible values"] --> Wrapper["scripts/test-summary-e2e.mjs"]
+  Wrapper --> Browser["E2E_BASE_URL -> Playwright baseURL -> http://host.docker.internal:6001"]
+  Wrapper --> Api["E2E_API_URL -> client runtime API base -> http://host.docker.internal:6010"]
+  Wrapper --> Mcp["E2E_MCP_CONTROL_URL -> Playwright MCP control -> http://host.docker.internal:8932/mcp"]
+  Browser -. separate contract .-> Mcp
+```
 
 ### Ingest BDD (Testcontainers)
 

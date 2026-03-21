@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 
 // Minimal repo + vector payload used in tool-result

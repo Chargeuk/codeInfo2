@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
-const apiUrl = process.env.E2E_API_URL ?? 'http://localhost:5010';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
+const apiUrl = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 
 const skipIfUnreachable = async (page: Page) => {
   try {

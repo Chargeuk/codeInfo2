@@ -60,7 +60,7 @@ services:
       context: .
       dockerfile: client/Dockerfile
       args:
-        VITE_CODEINFO_API_URL: http://host.docker.internal:6010
+        VITE_CODEINFO_API_URL: ${E2E_API_URL:-http://host.docker.internal:6010}
         VITE_CODEINFO_LMSTUDIO_URL: ${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
         VITE_CODEINFO_LOG_FORWARD_ENABLED: true
         VITE_CODEINFO_LOG_MAX_BYTES: 32768
@@ -73,7 +73,7 @@ services:
     env_file:
       - client/.env.e2e
     environment:
-      - VITE_CODEINFO_API_URL=http://host.docker.internal:6010
+      - VITE_CODEINFO_API_URL=${E2E_API_URL:-http://host.docker.internal:6010}
       - VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
       - VITE_CODEINFO_LOG_FORWARD_ENABLED=true
       - VITE_CODEINFO_LOG_MAX_BYTES=32768

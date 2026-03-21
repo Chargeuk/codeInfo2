@@ -2,7 +2,7 @@ import { mkdirSync } from 'fs';
 import { expect, test, type Page } from '@playwright/test';
 import { installMockChatWs, type MockChatWsServer } from './support/mockChatWs';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
 const mockModels = [{ key: 'mock-chat', displayName: 'Mock Chat Model' }];
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';

@@ -1957,7 +1957,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 13. Align the e2e proof path with host-network addresses
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1972,34 +1972,51 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 
 #### Subtasks
 
-1. [ ] Read `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, `.env.e2e`, `e2e/playwright.config.ts`, and the checked-in `e2e` tests together with story sections `## Proof Path Readiness` and `## Final Validation`. Keep these exact rules visible while you work: browser navigation URL and MCP control-channel URL are separate contracts; both must be host-visible after the cutover; neither may fall back to bridge-only hostnames. Also keep the task docs open while doing this step: Playwright docs via Context7 `/microsoft/playwright`, Docker/Compose docs via Context7 `/docker/compose`, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
-2. [ ] Update any checked-in e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover. The end result must use the real host-visible addresses from the story’s port matrix.
-3. [ ] Keep browser navigation targets and MCP control-channel targets as separate contracts where the story requires them. Do not replace one with the other just because both are host-visible URLs.
-4. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the runtime uses the intended host-visible base URL instead of a stale bridge-only address. Purpose: prove the browser-facing side of the e2e path has moved to the host-network contract.
-5. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts any MCP control-channel URL uses the intended host-visible value instead of a stale bridge-only address. Purpose: prove the control-channel side of the e2e path has moved to the host-network contract.
-6. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the browser base URL and MCP control-channel URL remain separate values where the env contract expects them to differ. Purpose: prove the host-network cutover did not collapse navigation and control endpoints into one contract.
-7. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the e2e env-injection flow, the host-visible browser URL, and the separate MCP control-channel URL. Purpose: document the final e2e runtime wiring once the host-network address cutover is implemented.
-8. [ ] Add or update the structured log marker `DEV-0000050:T13:e2e_host_network_config_verified` in the e2e env/runtime-config path. Include `browserBaseUrl`, `mcpControlUrl`, and `baseUrlMatchesMcp`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the e2e runtime is using separate host-visible browser and MCP addresses.
-9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+1. [x] Read `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, `.env.e2e`, `e2e/playwright.config.ts`, and the checked-in `e2e` tests together with story sections `## Proof Path Readiness` and `## Final Validation`. Keep these exact rules visible while you work: browser navigation URL and MCP control-channel URL are separate contracts; both must be host-visible after the cutover; neither may fall back to bridge-only hostnames. Also keep the task docs open while doing this step: Playwright docs via Context7 `/microsoft/playwright`, Docker/Compose docs via Context7 `/docker/compose`, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
+2. [x] Update any checked-in e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover. The end result must use the real host-visible addresses from the story’s port matrix.
+3. [x] Keep browser navigation targets and MCP control-channel targets as separate contracts where the story requires them. Do not replace one with the other just because both are host-visible URLs.
+4. [x] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the runtime uses the intended host-visible base URL instead of a stale bridge-only address. Purpose: prove the browser-facing side of the e2e path has moved to the host-network contract.
+5. [x] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts any MCP control-channel URL uses the intended host-visible value instead of a stale bridge-only address. Purpose: prove the control-channel side of the e2e path has moved to the host-network contract.
+6. [x] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the browser base URL and MCP control-channel URL remain separate values where the env contract expects them to differ. Purpose: prove the host-network cutover did not collapse navigation and control endpoints into one contract.
+7. [x] Update `design.md` with a Mermaid diagram and supporting text that describe the e2e env-injection flow, the host-visible browser URL, and the separate MCP control-channel URL. Purpose: document the final e2e runtime wiring once the host-network address cutover is implemented.
+8. [x] Add or update the structured log marker `DEV-0000050:T13:e2e_host_network_config_verified` in the e2e env/runtime-config path. Include `browserBaseUrl`, `mcpControlUrl`, and `baseUrlMatchesMcp`. Purpose: later Manual Playwright-MCP validation checks this exact line to prove the e2e runtime is using separate host-visible browser and MCP addresses.
+9. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+11. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
-3. [ ] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:client` after fixes.
-4. [ ] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
-5. [ ] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
-6. [ ] `npm run compose:up`
-7. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the e2e runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs for `DEV-0000050:T06:mcp_endpoints_normalized` with `placeholderFree: true`, `DEV-0000050:T07:checked_in_mcp_contract_loaded` with `legacyFallbackUsed: false`, `DEV-0000050:T11:host_network_runtime_ready` for the active stack, and `DEV-0000050:T13:e2e_host_network_config_verified` with host-visible URLs and `baseUrlMatchesMcp: false`.
-8. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [x] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/client-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:client` after fixes.
+4. [x] `npm run test:summary:e2e` Allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:e2e` after fixes.
+5. [x] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
+6. [x] `npm run compose:up`
+7. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the e2e runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs for `DEV-0000050:T06:mcp_endpoints_normalized` with `placeholderFree: true`, `DEV-0000050:T07:checked_in_mcp_contract_loaded` with `legacyFallbackUsed: false`, `DEV-0000050:T11:host_network_runtime_ready` for the active stack, and `DEV-0000050:T13:e2e_host_network_config_verified` with host-visible URLs and `baseUrlMatchesMcp: false`.
+8. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- **to_do**
+- Re-read the checked-in e2e wrapper, compose file, root `.env.e2e`, root `playwright.config.ts`, and the current e2e specs together with the Task 13 and Task 14 proof sections, then cross-checked the requested Playwright, Docker Compose, and Mermaid docs in Context7 before editing so the host-visible browser/MCP split stays explicit.
+- Updated the checked-in e2e env injection and defaults onto the host-visible e2e contract: `.env.e2e`, `playwright.config.ts`, `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, and the checked-in e2e specs now point at `host.docker.internal:6001`, `6010`, and `8932/mcp` instead of the older localhost or bridge-era assumptions.
+- Kept the browser base URL and MCP control URL as separate contracts by adding explicit `E2E_MCP_CONTROL_URL` handling, preserving the client/server API URL split, and proving the distinction in `e2e/env-runtime-config.spec.ts` instead of collapsing everything onto one host-visible URL.
+- Added the Task 13 host-network assertions in `e2e/env-runtime-config.spec.ts` for the browser base URL, the Playwright MCP control URL, and the required `baseUrlMatchesMcp: false` separation contract.
+- Updated `design.md` with the Task 13 e2e env-injection note and Mermaid flowchart, and carried forward the Task 15 doc delta as the final shared-doc update only because this task introduced no new files.
+- Added `DEV-0000050:T13:e2e_host_network_config_verified` to the e2e summary-wrapper path and fixed a real wrapper bug while doing so: the marker now writes to the saved log before the stream closes instead of being lost after teardown.
+- `npm run lint` still fails repo-wide on the remaining baseline warning in `client/src/components/chat/SharedTranscript.tsx` even after `npm run lint:fix`, but the Task 13 JavaScript and TypeScript files are clean under targeted `npx eslint` after restoring the unrelated autofix spillover.
+- `npm run format:check` still fails repo-wide on the known baseline set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those spillover edits were restored and the Task 13 file set passed targeted `npx prettier --check` plus `git diff --check`.
+- `npm run build:summary:server` passed with `warning_count: 0` and `agent_action: skip_log`, so the Task 13 e2e changes did not disturb the server workspace build.
+- `npm run build:summary:client` passed cleanly through both the client typecheck and build phases with `warning_count: 0`, confirming the host-visible e2e config updates compile on the browser side too.
+- `npm run test:summary:client` passed with `tests run: 632`, `passed: 632`, and `failed: 0`, so the client-side runtime-config and env/default updates did not regress the browser test suite.
+- The first full `npm run test:summary:e2e` rerun exposed two real Task 13 regressions: the new env-runtime-config assertions were reading `test.info().config.use.baseURL` from the wrong shape, and the wrapper’s JSON parser was grabbing the `{` from the literal `${E2E_USE_MOCK_CHAT:-true}` npm-script text instead of the Playwright report. Switching the assertions to the actual injected `baseUrl`, restoring a brace-free npm script, and falling back to Playwright `stats` counts fixed both issues.
+- The final full `npm run test:summary:e2e` rerun passed with `tests run: 49`, `passed: 49`, `failed: 0`, and emitted `DEV-0000050:T13:e2e_host_network_config_verified {"browserBaseUrl":"http://host.docker.internal:6001","mcpControlUrl":"http://host.docker.internal:8932/mcp","baseUrlMatchesMcp":false}` in `logs/test-summaries/e2e-tests-latest.log`.
+- `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, so the e2e host-visible env changes still build cleanly through the checked-in Docker path and keep the Task 10 image-baked runtime proof intact.
+- `npm run compose:up` passed Task 9 preflight for the main stack and brought the host-network main runtime up cleanly, preserving the fixed `5010/5011/5012/8932` contract needed for the later manual proof.
+- Testing step 7 initially surfaced one real proof gap: `DEV-0000050:T07:checked_in_mcp_contract_loaded` was not landing in the inspectable runtime log path, so `server/src/config/runtimeConfig.ts` now appends that marker into the shared log store as well as `console.info`. After rebuilding and re-running the host-network stack, the live proof showed `T06` in `/logs` with `placeholderFree: true`, `T07` in `/logs` with `legacyFallbackUsed: false`, `T11` in `/app/logs/server.1.log` for the active `5010/5011/5012/8932` stack, and `T13` in `logs/test-summaries/e2e-tests-latest.log` with `baseUrlMatchesMcp: false`.
+- Manual browser proof on `http://host.docker.internal:5001/chat` loaded cleanly in the browser tool, showed no console errors or warnings, and exercised a live Codex chat send so the Task 13 host-visible runtime path was verified against the running main stack rather than only against saved wrapper output.
+- `npm run compose:down` completed cleanly after the rebuilt main-stack proof cycle, returning the host-network stack to a stopped state before Task 13 close-out.
 
 ---
 

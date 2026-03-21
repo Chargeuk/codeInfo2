@@ -1,12 +1,16 @@
 import { expect, test } from '@playwright/test';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const expectedApiBase =
   process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const expectedLmStudioBase =
   process.env.VITE_CODEINFO_LMSTUDIO_URL ?? 'http://host.docker.internal:1234';
+const expectedMcpControlUrl =
+  process.env.E2E_MCP_CONTROL_URL ?? 'http://host.docker.internal:8932/mcp';
 
-test('runtime config marker matches injected client config', async ({ page }) => {
+test('runtime config marker matches injected client config', async ({
+  page,
+}) => {
   try {
     const ping = await page.request.get(baseUrl);
     if (!ping.ok()) {
@@ -25,14 +29,18 @@ test('runtime config marker matches injected client config', async ({ page }) =>
   await page.goto(baseUrl);
 
   const marker = await markerPromise;
-  const markerArgs = await Promise.all(marker.args().map((arg) => arg.jsonValue()));
+  const markerArgs = await Promise.all(
+    marker.args().map((arg) => arg.jsonValue()),
+  );
   const markerPayload = markerArgs[1] as Record<string, unknown>;
 
   const runtimeConfig = (await page.evaluate(() => {
     return (
-      (window as typeof window & {
-        __CODEINFO_CONFIG__?: Record<string, unknown>;
-      }).__CODEINFO_CONFIG__ ?? {}
+      (
+        window as typeof window & {
+          __CODEINFO_CONFIG__?: Record<string, unknown>;
+        }
+      ).__CODEINFO_CONFIG__ ?? {}
     );
   })) as Record<string, unknown>;
 
@@ -81,7 +89,9 @@ test('runtime config marker surfaces object-like malformed runtime containers be
   await page.goto(baseUrl);
 
   const marker = await markerPromise;
-  const markerArgs = await Promise.all(marker.args().map((arg) => arg.jsonValue()));
+  const markerArgs = await Promise.all(
+    marker.args().map((arg) => arg.jsonValue()),
+  );
   const markerPayload = markerArgs[1] as Record<string, unknown>;
 
   expect(markerPayload.apiBaseUrl).toBe(expectedApiBase);
@@ -101,4 +111,30 @@ test('runtime config marker surfaces object-like malformed runtime containers be
       reason: 'invalid_container',
     },
   ]);
+});
+
+test('e2e browser base URL uses the host-visible client address', async () => {
+  expect(baseUrl).toBe('http://host.docker.internal:6001');
+  expect(baseUrl).not.toContain('localhost:5001');
+  expect(baseUrl).not.toContain('codeinfo2-client');
+});
+
+test('e2e MCP control URL uses the host-visible Playwright endpoint', async () => {
+  expect(expectedMcpControlUrl).toBe('http://host.docker.internal:8932/mcp');
+  expect(expectedMcpControlUrl).not.toContain('playwright-mcp');
+  expect(expectedMcpControlUrl).not.toContain('localhost:8931');
+});
+
+test('e2e browser and MCP control URLs remain separate host-visible contracts', async () => {
+  const markerPayload = {
+    browserBaseUrl: baseUrl,
+    mcpControlUrl: expectedMcpControlUrl,
+    baseUrlMatchesMcp: baseUrl === expectedMcpControlUrl,
+  };
+
+  expect(markerPayload.browserBaseUrl).toBe('http://host.docker.internal:6001');
+  expect(markerPayload.mcpControlUrl).toBe(
+    'http://host.docker.internal:8932/mcp',
+  );
+  expect(markerPayload.baseUrlMatchesMcp).toBe(false);
 });

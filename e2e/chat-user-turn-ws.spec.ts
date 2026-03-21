@@ -4,7 +4,7 @@ import { installMockChatWs } from './support/mockChatWs';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 
 test('user_turn streams to non-originating tabs and dedupes sender tab', async ({

@@ -2,8 +2,8 @@ import { mkdirSync } from 'fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
-const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
+const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const fixturePath = '/fixtures/repo';
 const fixtureName = 'fixtures-chat-tools';
 const preferredModelId = 'text-embedding-qwen3-embedding-4b';

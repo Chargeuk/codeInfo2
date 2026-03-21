@@ -16,6 +16,22 @@ For multi-repository stories, you MUST also perform an explicit cross-repository
 
 After the plan-based review, you MUST perform a second pass that is not limited by the acceptance criteria and look for generic engineering defects in the changed code even if the active plan did not mention them. This second pass applies to the non-support-file changes only. In that second pass, prioritize: invalid input being silently normalized into success, warnings/errors/reason values produced by helpers but dropped by callers, inconsistent schema or value vocabularies for the same log marker/event/response field across surfaces, bootstrap/existence checks that may misclassify files/directories/invalid paths, duplicate or conflicting object keys/payload fields, deleted/moved/conditional validation, partial-failure behavior, dead-field or dead-branch risk, and logic that hides misconfiguration by falling back too early. For multi-repository stories, include cross-repository generic engineering defects such as producer/consumer schema drift, one-sided migrations, incompatible fallback precedence between repositories, or sequencing that breaks mixed-version operation.
 
+In that second pass, you MUST also perform a generic adversarial review for the non-support-file changes and explicitly ask:
+
+- Could this changed code behave incorrectly because of execution-routing or harness rules that live in unchanged files, including `testMatch`/`testIgnore`, filename or suffix conventions, tags, worker-count or project assignment, startup registration, feature flags, or env wiring?
+- Does any changed test modify shared state, shared temp paths, locks, caches, singleton resources, or persisted artifacts, and if so, what guarantees that it runs in the correct serialized project and cannot interfere with parallel suites, retries, or other project variants?
+- For any changed reader and writer pair over the same file, directory, or persisted artifact, are writes atomic or otherwise safe to observe, do readers tolerate partial writes, and can cleanup or delete paths remove a live resource owned by another actor?
+- Could `missing`, `malformed`, or `incomplete` state be a transient in-progress state rather than a truly stale state, and if so, does the code use ownership proof, age checks, retries, or atomic rename or write patterns before treating that state as stale?
+- Does any cleanup, stale-lock, or recovery logic risk false-positive deletion, reset, or takeover of live state owned by another process, worker, tab, or test?
+- Are there lifecycle or ordering hazards across create or acquire, in-progress, steady-state, cancel, retry, release, teardown, and crash-recovery paths that are not covered by the happy-path tests?
+- Does correctness depend on an unchanged config or harness file that must be opened to review the change honestly? If yes, inspect it and include the result in the findings.
+
+For changed tests, treat test code with the same review rigor as production code. Do not accept a changed test as sufficient proof of correctness until you have also checked isolation, shared-state safety, project membership, worker-safety, teardown behavior, and interaction with other suites.
+
+For changed code that reads state written by another actor, explicitly compare the writer and reader implementations together rather than reviewing them in isolation.
+
+Raise a finding when a concurrency-sensitive, lifecycle-sensitive, cleanup-sensitive, or harness-sensitive path has only happy-path proof or depends on an unstated serialization convention.
+
 For every changed API route, config shape, persisted artifact, wrapper output, or shared log marker/event schema OUTSIDE the allowed spelling/grammar-only support-file set, perform a before/after contract comparison and state whether the change is backward compatible, intentionally breaking, or unclear.
 
 For every changed helper that merges, normalizes, or defaults config/runtime/user input before validation OUTSIDE the allowed spelling/grammar-only support-file set, verify that malformed input is not silently dropped, coerced into `{}`, or replaced by inherited defaults before validation can reject it. Also check whether validation was deleted, moved later, or made conditional in a way that weakens the previous contract.

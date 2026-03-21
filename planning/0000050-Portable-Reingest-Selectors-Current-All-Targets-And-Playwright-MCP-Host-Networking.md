@@ -2182,7 +2182,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 
 - Repository Name: `codeInfo2`
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits: `5d03b6da` `DEV-[50] - Complete story 50 documentation close-out`
 
 #### Overview
 

@@ -811,6 +811,115 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Sequencing consequence:
   - All task sequencing, proof paths, and final validation steps below should be interpreted as single-repository `codeInfo2` work only.
 
+## Traceability And Proof Pass
+
+### Description And Major Requirement Traceability
+
+- Portable re-ingest definitions must keep existing `sourceId` steps working while also accepting portable selectors instead of machine-specific absolute paths.
+  - Implemented by Task 1 subtasks 1-3 and Task 3 subtasks 2, 7, and 8.
+  - Proved by Task 1 Testing steps 1-3, Task 3 Testing steps 1-3, and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Regression and error coverage comes from Task 1 subtasks 7-17 and Task 3 subtasks 9 and 18.
+- `target: "current"` must resolve by the owning repository of the currently executing command or flow file, including the nested-command ownership rule.
+  - Implemented by Task 3 subtasks 1-5.
+  - Proved by Task 3 subtasks 10-14 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Error and corner-case coverage comes from Task 3 subtasks 13 and 14.
+- `target: "all"` must run sequentially in ascending canonical container path order, continue after per-repository failures, and record one dedicated batch result payload.
+  - Implemented by Task 3 subtasks 4-5 and Task 4 subtasks 2-17.
+  - Proved by Task 3 subtasks 15-18, Task 4 subtasks 10-17, and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Corner-case coverage comes from Task 3 subtask 16 and Task 4 subtasks 14-15. Error and mixed-outcome coverage comes from Task 3 subtask 17 and Task 4 subtasks 12-13.
+- The strict single-repository re-ingest service must remain the canonical execution layer and must not absorb selector parsing or multi-repository orchestration.
+  - Implemented by Task 2 subtasks 1-3 and Task 3 subtasks 2-5.
+  - Proved by Task 2 subtasks 4-15, Task 3 subtask 18, Task 14 subtask 3, and Task 14 Testing steps 1, 3, and 4.
+  - Regression coverage comes from Task 2 subtasks 10-15.
+- Blank or whitespace-only markdown files must be skipped only after a successful read, with the documented info log contract, while all real resolver failures remain hard failures.
+  - Implemented by Task 5 subtasks 1-4.
+  - Proved by Task 5 subtasks 5-14 and Task 14 subtask 7 plus Testing steps 1, 3, and 4.
+  - Error and corner-case coverage comes from Task 5 subtasks 7-13.
+- Checked-in MCP config, env, and runtime consumers must move to one shared placeholder-normalization contract with explicit placeholders and no permanent legacy `CODEINFO_MCP_PORT` fallback.
+  - Implemented by Task 6 subtasks 1-4 and Task 7 subtasks 1-3.
+  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 14 subtasks 4 and 7 plus Testing steps 1, 3, and 4.
+  - Regression and error coverage comes from Task 6 subtasks 9-15 and Task 7 subtasks 5-8.
+- Checked-in `server` and existing `playwright-mcp` Compose services must move to host networking while preserving the documented port matrix, avoiding source-tree runtime bind mounts, and failing fast when prerequisites are missing.
+  - Implemented by Task 8 subtasks 1-7, Task 9 subtasks 1-10, Task 10 subtasks 1-4, Task 11 subtasks 1-4, Task 12 subtasks 1-7, and Task 13 subtasks 1-6.
+  - Proved by Task 8 Testing steps 1-3, Task 9 Testing steps 1-3, Task 10 Testing step 1, Task 11 Testing steps 1-4, Task 12 subtasks 2-7 plus Testing steps 1-7, Task 13 Testing steps 1-8, and Task 14 subtasks 2-7 plus Testing steps 1-10.
+  - Regression, error, and corner-case coverage comes from Task 9 subtasks 4-10, Task 12 subtasks 5-7, and Task 13 subtasks 4-6.
+- Final validation must prove the whole story end to end, not only isolated task behavior, and documentation must reflect the validated end state.
+  - Implemented by Task 14 subtasks 1-10 and Task 15 subtasks 1-5.
+  - Proved by Task 14 Testing steps 1-10 and Task 15 Testing step 1.
+  - Regression and scope-drift coverage comes from Task 14 subtasks 3-8 and Task 15 subtasks 1-5.
+
+### Acceptance Criteria Traceability
+
+- Existing path-based re-ingest remains valid, portable selector support is added, selector matching stays aligned with `repositorySelector`, and duplicate case-insensitive ids still pick the latest ingest.
+  - Implemented by Task 1 subtasks 1-3 and Task 3 subtasks 2 and 7-9.
+  - Proved by Task 1 subtasks 4-17, Task 3 subtasks 7-9, and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Regression and corner cases are covered by Task 1 subtasks 7-17 and Task 3 subtask 9.
+- Direct command, top-level flow, and nested command-item `target: "current"` behavior all resolve to the correct owner, and missing or not-ingested owners fail fast.
+  - Implemented by Task 3 subtasks 1-5.
+  - Proved by Task 3 subtasks 10-14 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Error coverage comes from Task 3 subtasks 13-14.
+- `target: "all"` exists, runs sequentially, uses ascending canonical container path order, waits for terminal outcomes, and preserves deterministic behavior.
+  - Implemented by Task 3 subtasks 4-5.
+  - Proved by Task 3 subtasks 15-17 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Corner-case coverage comes from Task 3 subtask 16 and mixed-outcome coverage comes from Task 3 subtask 17.
+- `target: "all"` writes one dedicated batch result payload whose entries preserve repository identity, canonical container path, normalized outcome, and failure text when needed.
+  - Implemented by Task 4 subtasks 2-6.
+  - Proved by Task 4 subtasks 10-17 and Task 14 subtasks 1-4 plus Testing steps 1, 3, 4, and 6.
+  - Corner-case and error coverage comes from Task 4 subtasks 12-15 and 17-18.
+- The low-level strict service remains canonical, and structured re-ingest result recording still works for direct commands, flow re-ingest steps, and nested command execution.
+  - Implemented by Task 2 subtasks 1-3, Task 3 subtasks 2-5, and Task 4 subtasks 2-6.
+  - Proved by Task 2 subtasks 4-15, Task 3 subtask 18, Task 4 subtasks 7-18, and Task 14 subtasks 1-4 plus Testing steps 1, 3, and 4.
+  - Regression coverage comes from Task 2 subtasks 10-15 and Task 4 subtask 18.
+- Empty or whitespace-only markdown is skipped rather than executed, and the info-level log includes the surface and resolved path.
+  - Implemented by Task 5 subtasks 1-4.
+  - Proved by Task 5 subtasks 5-9 and Task 14 subtask 7 plus Testing steps 1, 3, and 4.
+  - Error coverage comes from Task 5 subtasks 10-13.
+- Every checked-in Compose file that currently defines `server` moves to host networking, preserves the checked-in server port matrix, keeps app code image-baked, and removes incompatible bridge wiring and forbidden runtime source mounts.
+  - Implemented by Task 10 subtasks 1-4 and Task 11 subtasks 1-4. The checked-in `server` inventory for this story is explicitly `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`.
+  - Proved by Task 10 Testing step 1, Task 11 subtasks 2-4 plus Testing steps 1-4, and Task 14 subtasks 3-5 plus Testing steps 7-10.
+  - Regression and mount-safety coverage comes from Task 11 subtask 4 and Task 14 subtask 5.
+- Every checked-in Compose file that currently defines `playwright-mcp` moves to host networking, files without that service stay out of scope, and the main/local stacks keep distinct default Playwright MCP ports.
+  - Implemented by Task 9 subtasks 2-10 and Task 11 subtasks 1-2. The checked-in `playwright-mcp` inventory for this story is explicitly `docker-compose.yml` and `docker-compose.local.yml`.
+  - Proved by Task 9 subtasks 4-10, Task 11 subtasks 2-4 plus Testing steps 1-4, and Task 14 subtasks 4-6 plus Testing steps 7-10.
+  - Error and out-of-scope coverage comes from Task 9 subtasks 8-10.
+- Checked-in runtime MCP config moves off hard-coded localhost and bridge hostnames, preserves the intentional chat-versus-agents endpoint split, uses explicit placeholders plus runtime overlays, and replaces placeholders before runtime consumers see them.
+  - Implemented by Task 6 subtasks 1-4 and Task 7 subtasks 1-3.
+  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 14 subtasks 4-5 plus Testing steps 1, 3, and 4.
+  - Error and regression coverage comes from Task 6 subtasks 9-15 and Task 7 subtasks 5-8.
+- The final MCP env contract uses `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, and `CODEINFO_PLAYWRIGHT_MCP_URL`, the shared normalization layer is used by all runtime consumers, and the legacy `CODEINFO_MCP_PORT` fallback is removed.
+  - Implemented by Task 6 subtasks 2-4 and Task 7 subtasks 2-3.
+  - Proved by Task 6 subtasks 5-15, Task 7 subtasks 4-8, and Task 14 subtasks 4-5 plus Testing steps 1, 3, and 4.
+  - Regression and error coverage comes from Task 6 subtasks 10-15 and Task 7 subtasks 5-7.
+- The checked-in shared-home runtime configs under `codex/` are migrated alongside `codex_agents/*`, browser URLs stay separate from control-channel URLs, and host-network prerequisites fail fast with actionable messages.
+  - Implemented by Task 7 subtasks 1-3, Task 9 subtasks 1-10, and Task 13 subtasks 1-3.
+  - Proved by Task 7 subtasks 4-8, Task 9 subtasks 4-10, Task 13 subtasks 4-6, and Task 14 subtasks 4-7 plus Testing steps 1-10.
+  - Error and corner-case coverage comes from Task 9 subtasks 4-10 and Task 13 subtasks 4-6.
+- Final validation proves listener readiness, config migration, wrapper preflight, image-baked runtime contents, generated-output volume rules, and the full manual-testing traffic patterns.
+  - Implemented by Task 12 subtasks 1-7, Task 13 subtasks 1-6, and Task 14 subtasks 1-10.
+  - Proved by Task 12 subtasks 5-7 plus Testing steps 1-7, Task 13 Testing steps 1-8, and Task 14 subtasks 2-8 plus Testing steps 1-10.
+  - Regression coverage comes from Task 12 subtasks 5-7, Task 13 subtasks 4-6, and Task 14 subtasks 4-7.
+
+### Out Of Scope Traceability
+
+- No new multi-repository ingest engine replaces the strict single-repository service.
+  - Guarded by Task 2 subtasks 1-3, Task 3 subtasks 2-5, and Task 14 subtask 3.
+- No parallel `target: "all"` execution is introduced.
+  - Guarded by Task 3 subtask 4 and Task 14 subtask 3.
+- No unrelated repository-selector expansion is added outside re-ingest.
+  - Guarded by Task 1 subtasks 1-3, Task 3 subtasks 2-5, and Task 14 subtask 3.
+- No broad `sourceId` terminology cleanup is attempted across unrelated surfaces.
+  - Guarded by Task 1 subtasks 1-3, Task 4 subtasks 2 and 5, and Task 14 subtask 3.
+- No unrelated workflow step types are reworked.
+  - Guarded by Task 1 subtask 3, Task 5 subtasks 1-4, and Task 14 subtask 3.
+- No unrelated Playwright MCP behavior is reworked beyond networking, endpoint, and port concerns.
+  - Guarded by Task 9 subtasks 2-10, Task 11 subtask 2, Task 13 subtasks 1-3, and Task 14 subtask 3.
+- No unrelated server networking model is reworked beyond the checked-in `server` host-network cutover and its required proof paths.
+  - Guarded by Task 6 subtasks 1-4, Task 11 subtasks 1-4, and Task 14 subtask 3.
+- No whole-stack Docker networking redesign is attempted beyond the scoped `server` and existing `playwright-mcp` services.
+  - Guarded by Task 9 subtasks 2-10, Task 11 subtasks 1-4, and Task 14 subtask 3.
+- No brand-new `server` or `playwright-mcp` services are added to Compose files that do not already define them.
+  - Guarded by Task 9 subtask 8, Task 11 subtask 2, and Task 14 subtask 3.
+
 ### Task 1. Extend re-ingest schema parsing for command and flow files
 
 - Already existing capabilities:
@@ -1578,7 +1687,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
    - the agents MCP route;
    - the Playwright MCP route;
    - and it must fail clearly when any required listener or MCP surface is unavailable.
-3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper so the checked-in command name becomes the canonical proof path used later by Task 14.
+3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper so the checked-in command name becomes `npm run test:summary:host-network:main`, and treat that wrapper command as the canonical reusable proof path used later by Task 14.
 4. [ ] Split the host-network probe logic into a reusable helper module that both the checked-in wrapper and automated tests can call. The helper must accept injected probe dependencies or endpoint overrides so `server/src/test/unit/test-summary-host-network-main.test.ts` can simulate passing and failing listener states without needing a live Compose stack.
 5. [ ] Create `server/src/test/unit/test-summary-host-network-main.test.ts` and add a server unit test there that exercises a passing probe scenario. Purpose: prove the wrapper succeeds when all required main-stack MCP listeners are available.
 6. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that exercises a failing probe scenario. Purpose: prove the wrapper reports an unavailable listener or MCP surface as a controlled failure.
@@ -1671,10 +1780,12 @@ This task proves the completed story against the acceptance criteria. It must re
 
 #### Subtasks
 
-1. [ ] Re-read `## Acceptance Criteria` and `## Final Validation` before starting this task. This task is the acceptance-criteria gate, so do not rely on memory or earlier task notes alone.
+1. [ ] Re-read `## Description`, `## Acceptance Criteria`, `## Out Of Scope`, `## Traceability And Proof Pass`, and `## Final Validation` before starting this task. This task is the whole-story acceptance gate, so do not rely on memory or earlier task notes alone.
 2. [ ] Run the wrapper-first build and test paths required by the story and record the saved-output locations that later close-out notes will reference. Keep the exact commands aligned with the `#### Testing` list in this task.
-3. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
-4. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints:
+3. [ ] After `npm run compose:up` has started the main stack in this task, run the checked-in proof wrapper command created by Task 12, `npm run test:summary:host-network:main`, and record its saved-output path. Purpose: prove the reusable host-network probe path succeeds against the final stack instead of relying only on ad hoc manual inspection.
+4. [ ] Compare the validated system against every grouped requirement in `## Traceability And Proof Pass` and record any mismatch before Task 15 starts. Purpose: prove the final validation covers the whole story and that no out-of-scope behavior was introduced while implementing it.
+5. [ ] Inspect the running containers and Compose definitions to prove the host-network runtime is using image-baked application contents rather than host source bind mounts, with only Docker-managed generated-output volumes plus the explicitly host-visible logs remaining.
+6. [ ] Verify the final runtime still supports the required traffic patterns on the documented host-visible endpoints:
    - REST/API access;
    - classic `/mcp`;
    - dedicated chat MCP;
@@ -1684,11 +1795,11 @@ This task proves the completed story against the acceptance criteria. It must re
    - screenshot capture;
    - manual UI verification;
    - and the local manual-testing Chrome DevTools contract on `9222`, keeping that `9222` endpoint as a distinct Chromium CDP surface rather than treating it as interchangeable with the Playwright MCP control URL.
-5. [ ] Inspect the saved wrapper outputs, startup reporting, and runtime logs produced during this task to prove the observability contracts introduced by the story are real in the final system. Confirm that classic/chat/agents MCP endpoints are reported separately, that actionable wrapper or compose failure text is available whenever a wrapper in this task reports failure, and that any blank-markdown skip or related informational paths still emit the documented structured context instead of silent behavior.
-6. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-10-<short-name>.png`. Capture enough screenshots to prove the validated UI and runtime state from this task, not just that the page loads.
-7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-9. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+7. [ ] Inspect the saved wrapper outputs, startup reporting, and runtime logs produced during this task to prove the observability contracts introduced by the story are real in the final system. Confirm that classic/chat/agents MCP endpoints are reported separately, that actionable wrapper or compose failure text is available whenever a wrapper in this task reports failure, and that any blank-markdown skip or related informational paths still emit the documented structured context instead of silent behavior.
+8. [ ] Use Playwright MCP tools to manually verify the running product and save screenshots to `test-results/screenshots/` using the filename pattern `0000050-14-<short-name>.png`. Capture enough screenshots to prove the validated UI and runtime state from this task, not just that the page loads.
+9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+11. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.

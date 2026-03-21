@@ -930,7 +930,7 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 #### Subtasks
 
 1. [ ] Read the command and flow execution paths and identify exactly where `sourceId` and `flowSourceId` are already threaded today.
-2. [ ] Add one shared orchestration path above `runReingestRepository()` so explicit selectors, `current`, and `all` all resolve to canonical container paths before strict execution begins.
+2. [ ] Add one shared orchestration path above `runReingestRepository()` so explicit selectors, `current`, and `all` all resolve to canonical container paths before strict execution begins. Reuse `server/src/mcpCommon/repositorySelector.ts` for selector matching and keep this as one shared helper consumed by both command and flow paths instead of duplicating selector logic inside each runner.
 3. [ ] Implement the `current` resolution rules exactly as the story defines them:
    - direct command uses the command owner;
    - top-level flow uses the flow owner;
@@ -1003,7 +1003,7 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
    - `outcome`
    - existing `status` and `completionMode`
 3. [ ] Add the new `reingest_step_batch_result` payload variant with the ordered `repositories` array and `summary` object exactly as defined in the story.
-4. [ ] Update the lifecycle and persisted turn handling so one `target: "all"` run records one batch payload instead of one synthetic turn pair per repository.
+4. [ ] Update the lifecycle and persisted turn handling so one `target: "all"` run records one batch payload instead of one synthetic turn pair per repository. Reuse the existing synthetic-turn lifecycle and `Turn.toolCalls` persistence path rather than creating a second batch-only persistence channel.
 5. [ ] Keep backward compatibility for older stored single payloads by making reads tolerant of both the old and new single-result shapes.
 6. [ ] Add or update server unit coverage in the existing re-ingest payload or lifecycle tests so they prove:
    - new single payload fields;
@@ -1053,8 +1053,8 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 #### Subtasks
 
-1. [ ] Read the current markdown resolver and command or flow execution paths so the skip happens once in the shared seam.
-2. [ ] Add the whitespace-only skip behavior only for successfully resolved markdown content.
+1. [ ] Read the current markdown resolver and command or flow execution paths so the skip happens once in the shared seam already shared by commands and flows.
+2. [ ] Add the whitespace-only skip behavior only for successfully resolved markdown content, and implement it at that shared resolver or execution seam instead of adding separate blank-content checks in each runner.
 3. [ ] Emit the documented info-level log contract with `surface`, `markdownFile`, `resolvedPath`, and `reason: empty_markdown`, plus any available command or flow context.
 4. [ ] Ensure missing files, absolute paths, traversal attempts, permission failures, invalid UTF-8, and other existing resolver errors still fail exactly as they do today.
 5. [ ] Add or update tests so they prove:
@@ -1128,7 +1128,7 @@ Finish the MCP placeholder and env-contract migration so runtime normalization, 
 #### Subtasks
 
 1. [ ] Read the existing runtime normalization, codex bootstrap, runtime consumer entrypoints, and MCP bind surfaces so placeholder replacement stays centralized instead of being reimplemented per consumer.
-2. [ ] Update the runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config, and make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces.
+2. [ ] Update the runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config, and make one shared endpoint contract feed base-config seeding, chat runtime loading, agent runtime loading, provider status probes, startup endpoint reporting, and the dedicated MCP bind surfaces. Extend the existing `runtimeConfig.ts` and `codexConfig.ts` helpers instead of layering new per-consumer rewrite code on top.
 3. [ ] Remove checked-in reliance on `CODEINFO_MCP_PORT` and make `CODEINFO_CHAT_MCP_PORT` the single checked-in dedicated MCP env contract.
 4. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for:
    - `CODEINFO_SERVER_PORT`
@@ -1203,7 +1203,7 @@ Add the wrapper-side host-network preflight checks and the new shell harness tha
    - shared helper file;
    - fixture binaries.
 4. [ ] Check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the harness is runnable from a clean checkout.
-5. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry so the shell harness follows the same saved-log and heartbeat contract as the other wrappers.
+5. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry so the shell harness follows the same saved-log and heartbeat contract as the other wrappers. Reuse `scripts/summary-wrapper-protocol.mjs` directly instead of inventing a second wrapper output format.
 6. [ ] Add shell harness coverage for:
    - unsupported host networking;
    - conflicting host ports;
@@ -1264,7 +1264,7 @@ Update the Dockerfiles, `.dockerignore` files, and checked-in Compose definition
 #### Subtasks
 
 1. [ ] Read the current Dockerfiles and Compose files and list every checked-in runtime asset that is still being bind-mounted from the repo today.
-2. [ ] Update the Docker build contexts and Dockerfiles so the checked-in runtime assets needed by the host-networked server are copied into the image instead of being required from a host source bind mount.
+2. [ ] Update the Docker build contexts and Dockerfiles so the checked-in runtime assets needed by the host-networked server are copied into the image instead of being required from a host source bind mount. Extend the existing `server/Dockerfile` and `client/Dockerfile` build flow instead of introducing alternate Dockerfiles or bespoke startup paths.
 3. [ ] Update the relevant `.dockerignore` files at the same time so only the required runtime assets enter the build context.
 4. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions:
    - direct host-visible bind ports for the server listeners;
@@ -1324,7 +1324,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 #### Subtasks
 
 1. [ ] Read the existing e2e wrapper and package scripts so the new proof wrapper uses the same summary-wrapper output contract.
-2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable, including separate checks for the classic `/mcp` route, the dedicated chat MCP route, the agents MCP route, and the Playwright MCP route.
+2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up` and fails clearly when any required listener or MCP surface is unavailable, including separate checks for the classic `/mcp` route, the dedicated chat MCP route, the agents MCP route, and the Playwright MCP route. Reuse the existing summary-wrapper protocol and reporting conventions already used by `scripts/test-summary-e2e.mjs`.
 3. [ ] Add the corresponding root `package.json` script entry for that proof wrapper.
 4. [ ] Update any e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover, while keeping browser navigation targets and MCP control-channel targets as separate contracts where the story requires them.
 5. [ ] Add or update automated coverage for the new proof wrapper so it executes the wrapper or its probe layer with at least one passing scenario and at least one failing probe scenario, and checks that the failure path emits inspectable error output instead of only a generic crash.

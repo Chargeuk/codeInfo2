@@ -1938,10 +1938,9 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
 3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 4. [x] `npm run compose:build:summary` If status is `failed`, or item counts indicate failures or unknown states in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing targets.
-5. [x] Before `npm run compose:up`, verify the target host can actually offer the fixed main-stack ports `5010`, `5011`, `5012`, and `8932`. If Task 9 preflight reports those ports already occupied, stop and move this task to a dedicated host environment instead of changing the checked-in port contract.
-6. [x] `npm run compose:up`
-7. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the proof-wrapper-related runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs and saved wrapper output for `DEV-0000050:T11:host_network_runtime_ready` with the main-stack port contract intact and `DEV-0000050:T12:main_stack_probe_completed` with `result: "passed"` and each MCP field reported as reachable.
-8. [x] `npm run compose:down`
+5. [x] `npm run compose:up`
+6. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to manually confirm the proof-wrapper-related runtime behavior covered by this task, verify the relevant story behavior from the running UI and stack, and confirm there are no logged errors in the debug console. Also check the running logs and saved wrapper output for `DEV-0000050:T11:host_network_runtime_ready` with the main-stack port contract intact and `DEV-0000050:T12:main_stack_probe_completed` with `result: "passed"` and each MCP field reported as reachable.
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2063,10 +2062,10 @@ Repair the root lint and format gates before final validation and documentation 
 
 #### Testing
 
-1. [x] `npm run lint`
-2. [x] `npm run format:check`
-3. [x] `npm run test:summary:client` If the SharedTranscript hook change or any other client lint fix affected runtime behavior, inspect the printed log path only when the wrapper reports failure.
-4. [x] `git diff --check`
+Use only the checked-in summary wrappers below for this task. Do not attempt to run builds or tests without using the wrapper. Keep the repo-wide `lint`, `format`, and `git diff --check` commands in the subtasks above; this testing section is only for app-level wrapper proof tied to the behavior-safe cleanup that landed here. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
+
+1. [x] `npm run build:summary:client` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+2. [x] `npm run test:summary:client` If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`), then diagnose with targeted wrapper commands only if needed. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 

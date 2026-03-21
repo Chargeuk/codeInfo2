@@ -1111,7 +1111,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 
 - Repository Name: `codeInfo2`
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits: `99483e19` `DEV-[50] - Complete Task 1 reingest schema parsing`
 
 #### Overview
 

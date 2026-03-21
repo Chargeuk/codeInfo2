@@ -967,7 +967,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Missing prerequisite capabilities:
   - None before this task begins.
 - Assumptions currently invalid:
-  - `target: "current"` and `target: "all"` parsing does not exist yet, so later tasks must not assume those inputs are valid until this task is complete.
+  - This assumption has now been resolved by Task 1. Later tasks may assume `target: "current"` and `target: "all"` parse successfully, but they must not assume those target modes execute yet until Task 3 lands the shared orchestration layer.
 
 ### Task 2. Extend the strict single-repository re-ingest result contract
 

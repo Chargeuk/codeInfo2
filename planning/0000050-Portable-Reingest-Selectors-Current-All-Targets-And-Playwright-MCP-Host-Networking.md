@@ -1082,6 +1082,7 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 
 - TypeScript control flow and helper extraction: https://www.typescriptlang.org/docs/. Use this to structure the shared orchestration helper without widening types or duplicating resolution branches.
 - Node.js test runner for targeted unit and integration coverage: https://nodejs.org/api/test.html. Use this for the targeted server tests that prove ordering, fail-fast behavior, and continue-on-failure handling.
+- Mermaid flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the re-ingest target-resolution diagram so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1110,8 +1111,10 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 14. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises `target: "all"` when there are zero ingested repositories. Purpose: prove the corner case returns an empty batch instead of crashing or fabricating work.
 15. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that exercises `target: "all"` with a failing repository followed by successful or skipped repositories. Purpose: prove the batch continues after failure and preserves later outcomes instead of truncating the run.
 16. [ ] Add a server integration test in `server/src/test/integration/commands.reingest.test.ts` that verifies selector and target orchestration still surfaces the existing strict-service failure categories rather than collapsing them into a generic error. Purpose: preserve downstream error handling expectations.
-17. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-18. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+17. [ ] If this task introduces a new shared orchestration helper file, update `projectStructure.md` after the helper and its tests are in place. Document the exact helper file path, the updated test file path, and the purpose of the new orchestration seam so later developers can find the selector-resolution entry point.
+18. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the `sourceId`, `current`, and `all` re-ingest orchestration flow. Purpose: document the new target-resolution architecture, ownership-resolution rules, and deterministic batch ordering in the repository design doc immediately after implementation.
+19. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+20. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1143,6 +1146,7 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 
 - Mongoose mixed/object persistence behavior: Context7 `/automattic/mongoose`. Use this to confirm how `Schema.Types.Mixed` and omitted nested fields behave so the batch payload remains backward compatible without a Mongo migration.
 - Node.js test runner: https://nodejs.org/api/test.html. Use this for the payload-builder and lifecycle tests that exercise the real synthetic-turn persistence path.
+- Mermaid sequence or flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the single-result and batch-result transcript lifecycle diagrams so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1166,8 +1170,9 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 12. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that persists an empty `target: "all"` run and asserts one batch payload is still stored with an empty repository list. Purpose: prove the empty-batch corner case still leaves an explicit transcript record.
 13. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that exercises a batch run and asserts lifecycle persistence still uses `Turn.toolCalls`. Purpose: prove the new batch mode reuses the existing persistence path instead of creating a second channel.
 14. [ ] Add a server unit test in `server/src/test/unit/reingest-step-lifecycle.test.ts` that reads an older single-result payload and asserts it still parses correctly. Purpose: prove backward compatibility for already-stored transcript data.
-15. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-16. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+15. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the single-result and batch-result transcript lifecycle, including the one-payload `target: "all"` rule and the reused `Turn.toolCalls` persistence path. Purpose: document the new transcript contract and persistence architecture at the point where it changes.
+16. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+17. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1199,6 +1204,7 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 - Node.js filesystem and text decoding APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/util.html. Use these to keep the empty-markdown skip limited to successful reads while preserving current file-error handling.
 - Node.js test runner: https://nodejs.org/api/test.html. Use this for the unit and integration tests that prove skip-versus-fail behavior.
+- Mermaid flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the blank-markdown resolution and skip flow so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1221,8 +1227,9 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 12. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises a permission-denied read failure. Purpose: prove file permission failures still throw exactly as before.
 13. [ ] Add a server unit test in `server/src/test/unit/markdown-file-resolver.test.ts` that exercises an invalid-UTF-8 decode failure. Purpose: prove decoding failures still throw exactly as before.
 14. [ ] Add a server integration test in `server/src/test/integration/commands.markdown-file.test.ts` that verifies no synthetic tool-result payload is created when a markdown-backed step is skipped for empty content. Purpose: prove the skip does not fabricate transcript output.
-15. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-16. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+15. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the blank-markdown resolution path, the skip decision point, and the preserved hard-failure paths for missing, traversal, permission, and decoding errors. Purpose: document the shared command/flow execution behavior where the skip contract changes.
+16. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+17. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1255,6 +1262,7 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 - TOML syntax basics: https://toml.io/en/v1.1.0. Use this to confirm how literal placeholder strings are represented in checked-in TOML without relying on nonexistent native env interpolation.
 - TypeScript config-object shaping: https://www.typescriptlang.org/docs/. Use this to keep the normalized config object strongly typed across the runtime entrypoints.
 - Node.js test runner: https://nodejs.org/api/test.html. Use this for the server tests that prove placeholder normalization, unresolved-placeholder failure, and endpoint separation.
+- Mermaid flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the shared MCP placeholder-normalization and endpoint-resolution flow so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1274,8 +1282,9 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 10. [ ] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads distinct chat/base and agents MCP values and asserts they remain different. Purpose: prove the intentional endpoint split is preserved by normalization.
 11. [ ] Add a server unit test in `server/src/test/unit/chatProviders.test.ts` that keeps browser navigation URLs and MCP control-channel URLs different. Purpose: prove normalization does not collapse unrelated browser and MCP contracts into one value.
 12. [ ] Add a server unit test in `server/src/test/unit/chatModels.codex.test.ts` that exercises provider/runtime entrypoints or status probes after the refactor and asserts they use the shared endpoint contract instead of stale hard-coded MCP URLs or legacy env fallbacks. Purpose: prove bypass paths have been removed.
-13. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-14. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+13. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the shared MCP placeholder-normalization flow, including placeholder resolution, unresolved-placeholder failure, and the intentional split between chat/base and agents MCP endpoints. Purpose: document the runtime-config architecture where the contract is introduced.
+14. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+15. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1367,8 +1376,9 @@ Create the reusable repo-local shell harness that later wrapper and compose task
 4. [ ] Add `scripts/test-summary-shell.mjs` and the root `package.json` script entry `npm run test:summary:shell` so the shell harness uses the same summary-wrapper protocol fields as the other wrappers: saved log path, heartbeat output, and final guidance.
 5. [ ] Create `scripts/test/bats/shell-harness.bats` and add a shell test there that exercises a passing harness fixture. Purpose: prove the vendored Bats harness can execute a normal success case from a clean checkout.
 6. [ ] In `scripts/test/bats/shell-harness.bats`, add a shell test that exercises an intentionally failing fixture and asserts the failure is expected. Purpose: prove the harness can report controlled failures without treating them as accidental crashes.
-7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+7. [ ] Update `projectStructure.md` after all new shell-harness files are added in this task. Document `scripts/test-summary-shell.mjs`, the `scripts/test/bats/` tree, and the vendored Bats runtime paths so the repository structure doc reflects the new shell-test harness entry points.
+8. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+9. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1414,8 +1424,9 @@ Extend the checked-in compose wrapper so it fails fast when the checked-in host-
 7. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that exercises a compose file without `playwright-mcp`. Purpose: prove preflight does not force new Playwright services into files that are out of scope for this story.
 8. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that asserts failure output names the affected compose file or service. Purpose: prove operators receive actionable preflight errors instead of a generic shell failure.
 9. [ ] In `scripts/test/bats/docker-compose-with-env.bats`, add a shell test that proves the local host-network manual-testing contract still declares Chrome DevTools on `9222`. Purpose: keep the checked-in local CDP validation rule under automated shell-harness coverage.
-10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-11. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+10. [ ] Update `projectStructure.md` after `scripts/test/bats/docker-compose-with-env.bats` is added. Document the new shell-test file path and its relationship to `scripts/docker-compose-with-env.sh` so the repository structure doc shows where host-network preflight coverage lives.
+11. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+12. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1442,6 +1453,7 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 
 - Docker build contexts and ignore files: Context7 `/docker/docs`. Use this to keep the image-baking task focused on required build inputs instead of broadening unrelated image scope.
 - Dockerfile reference: Context7 `/docker/docs`. Use this for the correct copy/build layering when moving checked-in runtime assets into the image.
+- Mermaid flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the image-baked runtime-asset packaging flow so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1449,8 +1461,9 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 2. [ ] Update the Docker build contexts and only the Dockerfiles that actually need to carry checked-in runtime assets so the host-networked server can run without repo bind mounts. Extend the existing build flow instead of introducing alternate Dockerfiles or bespoke startup paths, and do not expand client-image scope unless a checked-in runtime dependency truly requires it.
 3. [ ] Update only the `.dockerignore` files that participate in that packaging path so the required runtime assets enter the build context without broadening unrelated image scope. The target outcome from the story is that runtime application code does not depend on a repo source-tree bind mount such as `.:/app`.
 4. [ ] Reuse the existing `npm run compose:build:summary` output plus the later runtime/container inspection in Tasks 11 and 14 as the proof path for image-baked assets instead of adding a bespoke new proof script in this task.
-5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe how checked-in runtime assets move from the repository into the image-based host-network runtime. Purpose: document the packaging architecture change that removes checked-in runtime bind mounts from the host-network model.
+6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1477,6 +1490,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 - Docker Compose service rules: Context7 `/docker/compose`. Use this to apply `network_mode: host` correctly and remove incompatible keys from the scoped services.
 - Docker host networking behavior: DeepWiki `docker/docs` plus https://docs.docker.com/engine/network/tutorials/host/. Use these to keep the compose cutover aligned with the checked-in host-visible port matrix and prerequisites.
 - Bash manual: https://www.gnu.org/software/bash/manual/bash.html. Use this only where shell-entrypoint behavior must remain correct for the `9222` Chrome DevTools contract.
+- Mermaid deployment or flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the host-network runtime topology so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1491,8 +1505,9 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
    - keep compose files that do not already define `playwright-mcp` out of scope so no new Playwright service is introduced by this task.
 3. [ ] Preserve the existing local Docker-socket, UID/GID, and Testcontainers-related runtime contract where it is still required for checked-in local workflows, while keeping that exception separate from the forbidden source-tree and checked-in-config bind mounts. Do not add new source-tree mounts to solve runtime issues.
 4. [ ] Prove the final host-networked Compose definitions no longer bind-mount application source trees or checked-in runtime asset trees into the runtime containers, and that any remaining persistence is limited to Docker-managed generated-output volumes plus the explicitly host-visible logs, with only deliberate non-source runtime mounts such as the local Docker socket remaining where required.
-5. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+5. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the final host-network runtime topology, the preserved host-visible port matrix, and the allowed remaining runtime mounts. Purpose: document the checked-in runtime architecture after the compose cutover lands.
+6. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+7. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1523,6 +1538,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 - Playwright connectivity and browser probing: Context7 `/microsoft/playwright` plus https://playwright.dev/docs/next/api/class-browsertype. Use these to confirm `connectOverCDP()` behavior and the expected browser-probe surface for `http://localhost:9222` and related runtime checks.
 - Node.js child process and stream handling: https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html. Use these for the proof wrapper’s process execution and log-capture behavior.
+- Mermaid flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the main-stack proof-wrapper probe flow so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1537,8 +1553,10 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 4. [ ] Create `server/src/test/unit/test-summary-host-network-main.test.ts` and add a server unit test there that exercises a passing probe scenario. Purpose: prove the wrapper succeeds when all required main-stack MCP listeners are available.
 5. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that exercises a failing probe scenario. Purpose: prove the wrapper reports an unavailable listener or MCP surface as a controlled failure.
 6. [ ] In `server/src/test/unit/test-summary-host-network-main.test.ts`, add a server unit test that asserts the failing probe emits inspectable error output rather than a generic crash. Purpose: prove later diagnosis can rely on saved wrapper output.
-7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+7. [ ] Update `projectStructure.md` after the new proof-wrapper script and `server/src/test/unit/test-summary-host-network-main.test.ts` are added. Document the new wrapper command file path and its dedicated unit-test file so the repository structure doc points to the host-network proof entry points.
+8. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the main-stack proof-wrapper probe flow and the host-visible endpoints it validates. Purpose: document the new proof-path architecture at the point where it is introduced.
+9. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+10. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1567,6 +1585,7 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 
 - Playwright config and base URL handling: Context7 `/microsoft/playwright`. Use this to keep the checked-in Playwright config and e2e wrapper aligned with the final host-visible addresses.
 - Docker/Compose environment wiring: Context7 `/docker/compose`. Use this to confirm how the e2e stack should receive host-visible URLs after the host-network cutover.
+- Mermaid flowchart syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` with the e2e host-visible address and env-injection flow so the Mermaid syntax matches the current specification.
 
 #### Subtasks
 
@@ -1576,8 +1595,9 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 4. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the runtime uses the intended host-visible base URL instead of a stale bridge-only address. Purpose: prove the browser-facing side of the e2e path has moved to the host-network contract.
 5. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts any MCP control-channel URL uses the intended host-visible value instead of a stale bridge-only address. Purpose: prove the control-channel side of the e2e path has moved to the host-network contract.
 6. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the browser base URL and MCP control-channel URL remain separate values where the env contract expects them to differ. Purpose: prove the host-network cutover did not collapse navigation and control endpoints into one contract.
-7. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-8. [ ] Run repo-wide lint and format gates as the last subtask for this task.
+7. [ ] Update `design.md` with a Mermaid diagram and supporting text that describe the e2e env-injection flow, the host-visible browser URL, and the separate MCP control-channel URL. Purpose: document the final e2e runtime wiring once the host-network address cutover is implemented.
+8. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+9. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing
 
@@ -1658,19 +1678,16 @@ Update the shared documentation and prepare the finished story for review after 
 - Docker/Compose runtime documentation: Context7 `/docker/compose` plus https://docs.docker.com/engine/network/tutorials/host/. Use these when updating docs so the host-network contract and prerequisites are described accurately.
 - Playwright runtime and screenshot documentation: Context7 `/microsoft/playwright` plus https://playwright.dev/docs/next/api/class-browsertype. Use these when documenting the proof wrappers, screenshots, and Chrome DevTools validation behavior.
 - Cucumber guides for validation workflow context: https://cucumber.io/docs/guides/testable-architecture/ and https://cucumber.io/docs/guides/continuous-integration/. Use these to keep the close-out notes grounded in reliable automated test usage rather than UI-only proof.
+- Mermaid diagram syntax: Context7 `/mermaid-js/mermaid`. Use this when updating `design.md` so the final Mermaid diagrams conform to the current Mermaid specification.
 - Any external documentation sources recorded in the earlier tasks when they introduced new commands or runtime contracts
 
 #### Subtasks
 
-1. [ ] Update `README.md` with any new commands, proof wrappers, or runtime expectations introduced by this story. Use the saved outputs and verified command names from Task 14 instead of guessing final command text.
-2. [ ] Update `design.md` so it documents these exact items from the implemented story:
-   - the re-ingest request union;
-   - the single and batch re-ingest payloads;
-   - the blank-markdown skip behavior;
-   - the host-networked runtime and proof-wrapper flow.
-3. [ ] Update `docs/developer-reference.md` so it no longer documents stale MCP URLs, stale env-var names, or bridge-only networking assumptions after the host-network and `CODEINFO_CHAT_MCP_PORT` cutover.
-4. [ ] Update `projectStructure.md` with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules.
-5. [ ] Write the pull-request summary covering all tasks in this story, including server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, and the validation evidence captured in Task 14.
+1. [ ] Update `README.md` at the repository root with the final command names, proof wrappers, and runtime expectations introduced by this story. Purpose: make the top-level developer entry point reflect the validated host-network and re-ingest workflow commands from Task 14.
+2. [ ] Update `design.md` at the repository root with the final re-ingest request union, transcript contracts, blank-markdown behavior, host-network runtime model, proof-wrapper flow, and the Mermaid diagrams introduced or refined by the earlier architecture tasks. Purpose: consolidate the final design state in one architecture document after all implementation tasks are complete.
+3. [ ] Update `docs/developer-reference.md` with the final MCP URLs, env-var names, host-network prerequisites, and wrapper usage after the `CODEINFO_CHAT_MCP_PORT` cutover. Purpose: keep the operator-focused reference aligned with the implemented runtime contract.
+4. [ ] Update `projectStructure.md` at the repository root with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules. Purpose: make the repository structure doc match the final file layout after all file-creating tasks have landed.
+5. [ ] Write the pull-request summary for this story, covering the final server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, documentation updates, and the validation evidence captured in Task 14. Purpose: prepare a reviewer-facing summary that matches the implemented and validated story scope.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing

@@ -369,6 +369,10 @@ This remains a single-repository story inside `codeInfo2`. The runtime behavior 
   - markdown skip coverage near `server/src/test/unit/markdown-file-resolver.test.ts`;
   - runtime placeholder and env migration coverage in `server/src/test/unit/runtimeConfig.test.ts` and related env-loading tests;
   - compose or wrapper validation coverage for host-network preflight behavior.
+  - add the wrapper and probe entry points that make the final proof path runnable, not just theoretically testable:
+    - `scripts/test-summary-shell.mjs` plus a root `package.json` script for the new shell harness;
+    - a checked-in main-stack runtime proof wrapper under `scripts/` plus a root `package.json` script that probes the live host-visible ports and MCP surfaces after `npm run compose:up`;
+    - any `e2e:test` env injection updates needed so `npm run test:summary:e2e` still points at the host-visible URLs that exist after the host-network cutover.
 
 ### Practical implementation order
 
@@ -732,6 +736,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - `scripts/test/bats/docker-compose-with-env.bats` should hold the executable shell test cases for wrapper preflight behavior;
   - `scripts/test/bats/test_helper/common.bash` should provide shared repo-root discovery, temp-directory setup, PATH overrides, and reusable assertion helpers;
   - `scripts/test/bats/fixtures/bin/` should contain stub executables such as fake `docker`, `uname`, and any port-probe helper used by the wrapper so tests can force Linux versus Darwin behavior, Docker Desktop host-network support states, docker-context responses, and occupied-port cases without touching the real host daemon;
+  - `scripts/test/bats/vendor/bats-core/`, `scripts/test/bats/vendor/bats-support/`, and `scripts/test/bats/vendor/bats-assert/` should be checked in so the shell harness can run from a clean checkout without requiring a globally installed Bats runtime;
   - `scripts/test-summary-shell.mjs` should be added as the summary-wrapper entry point for this harness so shell tests follow the same wrapper-first output contract and saved-log behavior already used elsewhere in the repository;
   - root `package.json` should expose that wrapper through one dedicated script such as `test:summary:shell`.
 - Use `bats-core` for this new harness. DeepWiki and Context7 both document that Bats keeps Bash test suites maintainable with `.bats` files, shared helper loading, and `setup_file` or `setup` or `teardown` functions. The planned wrapper tests should use `run -1` or `run !` for expected preflight failures and `run --separate-stderr` when the wrapper is expected to place the user-facing prerequisite message on stderr.
@@ -747,6 +752,27 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - repository facts from `package.json`, `scripts/test-summary-server-unit.mjs`, `scripts/test-summary-server-cucumber.mjs`, `scripts/test-summary-client.mjs`, `scripts/test-summary-e2e.mjs`, `scripts/summary-wrapper-protocol.mjs`, and `scripts/docker-compose-with-env.sh`;
   - shell-harness guidance from DeepWiki and Context7 documentation for `bats-core`, which both describe `.bats` file organization, helper loading, and `run`-based exit-code or stdout or stderr assertions.
 
+## Proof Path Readiness
+
+- `npm run test:summary:server:unit`
+  - Already exists today.
+  - Proof-path prerequisite: only the new unit coverage needs to be added; no new runtime or wrapper is required for this proof step to remain runnable.
+- `npm run test:summary:shell`
+  - Does not exist today.
+  - Story prerequisite: add `scripts/test-summary-shell.mjs`, add the root script entry, add the `.bats` files and fixtures, and check in the Bats runtime and helper libraries under `scripts/test/bats/vendor/` so the proof step runs on a clean checkout without global installs.
+- `npm run compose:build:summary`
+  - Already exists today.
+  - Proof-path prerequisite: Dockerfile, `.dockerignore`, and Compose changes must keep using the existing wrapper-first build flow so this command remains the build proof step instead of being replaced by ad hoc raw Docker commands.
+- `npm run test:summary:e2e`
+  - Already exists today.
+  - Proof-path prerequisite: if the host-network cutover changes any host-visible URL or port that the e2e wrapper assumes, the story must update the e2e env injection and related checked-in e2e config at the same time so this wrapper still points at the real runtime addresses when final validation is reached.
+- Main-stack runtime proof
+  - The compose lifecycle wrappers already exist today as `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`, but there is no dedicated proof wrapper for the host-visible port and MCP probe assertions the story now requires.
+  - Story prerequisite: add one checked-in summary wrapper under `scripts/` plus a root `package.json` script that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up`, records saved logs, and fails clearly if any required listener or MCP surface is unavailable.
+- Local-stack-specific proof
+  - The story does not need a second local-runtime automation path beyond the shell harness.
+  - Proof-path rule: local-stack-specific host-network validation should be covered by the new shell harness and its preflight assertions, while the live runtime proof remains centered on the existing main-stack and e2e wrappers.
+
 ## Final Validation
 
 - Final validation must prove the story works from schema parsing through persisted transcript output, not just that the code compiles.
@@ -754,6 +780,7 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - `npm run test:summary:server:unit` passes with coverage for re-ingest request unions, selector or target resolution, strict-service result extensions, single and batch transcript payloads, blank-markdown skips, and runtime-config placeholder normalization.
   - `npm run test:summary:shell` passes once the new shell harness exists, proving host-network preflight failures and success-path wrapper behavior.
   - `npm run compose:build:summary` passes so the changed Dockerfiles, `.dockerignore` files, and Compose definitions build cleanly through the wrapper-first path.
+  - `npm run compose:up` followed by the new main-stack proof wrapper passes, then `npm run compose:down` succeeds cleanly.
   - `npm run test:summary:e2e` passes so the e2e stack still works after the host-network and MCP endpoint changes.
 - Final runtime proof must also confirm these concrete outputs:
   - `docker-compose.yml` host-networked server surfaces bind `5010`, `5011`, and `5012` directly on the host, and `playwright-mcp` binds `8932`.

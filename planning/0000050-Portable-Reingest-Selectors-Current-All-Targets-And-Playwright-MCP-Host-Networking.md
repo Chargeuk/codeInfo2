@@ -2093,8 +2093,8 @@ Repair the root lint and format gates before final validation and documentation 
 ### Task 15. Run final validation for Story 0000050
 
 - Repository Name: `codeInfo2`
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `e48d4b0e` `DEV-[50] - Record task 14 validation proof`
 
 #### Overview
 
@@ -2174,6 +2174,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 - Added the reusable verification helper `scripts/emit-task14-validation-marker.mjs`, used it to emit `DEV-0000050:T14:story_validation_completed` with `traceabilityPass: true`, `manualChecksPassed: true`, `screenshotCount: 2`, and `proofWrapperPassed: true`, and confirmed the marker was persisted through the running `/logs` endpoint.
 - Carry forward for Task 16: document the new marker-emission helper and the final Task 15 evidence set, especially the exact allowed mount list, the host-visible endpoint matrix, the wrapper/log proof locations, and the two Manual Playwright screenshots in `playwright-output-local/`.
 - `npm run compose:down` completed cleanly and removed the main Task 15 validation stack after the manual proof run.
+- Audit follow-up: Task 15 was left at `in_progress` even though every subtask and testing item had already been checked and the proof artifacts were present in the repo. The task-level status and commit ledger were corrected after re-checking the saved logs, screenshots, marker helper, and the existing validation notes.
 
 ---
 

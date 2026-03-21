@@ -11,6 +11,7 @@ import {
   getCodexConfigPathForHome,
   getCodexHome,
 } from '../../config/codexConfig.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
   ensureChatRuntimeConfigBootstrapped,
   loadRuntimeConfigSnapshot,
@@ -944,6 +945,110 @@ describe('runtimeConfig merge and validation', () => {
 });
 
 describe('runtimeConfig Context7 overlay', () => {
+  it('resolves CODEINFO_SERVER_PORT placeholders through the shared runtime path', () => {
+    process.env.CODEINFO_SERVER_PORT = '6510';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        ingest: {
+          url: 'http://localhost:${CODEINFO_SERVER_PORT}/mcp',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      ingest: { url: 'http://localhost:6510/mcp' },
+    });
+  });
+
+  it('resolves CODEINFO_CHAT_MCP_PORT placeholders through the shared runtime path', () => {
+    process.env.CODEINFO_CHAT_MCP_PORT = '6511';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        code_info: {
+          command: 'npx',
+          args: [
+            '-y',
+            'mcp-remote',
+            'http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp',
+          ],
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      code_info: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6511/mcp'],
+      },
+    });
+  });
+
+  it('resolves CODEINFO_AGENTS_MCP_PORT placeholders through the shared runtime path', () => {
+    process.env.CODEINFO_AGENTS_MCP_PORT = '6512';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        agents: {
+          url: 'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      agents: { url: 'http://localhost:6512/mcp' },
+    });
+  });
+
+  it('resolves CODEINFO_PLAYWRIGHT_MCP_URL through the shared runtime path', () => {
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:8931/mcp/playwright';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        playwright: {
+          url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      playwright: { url: 'http://localhost:8931/mcp/playwright' },
+    });
+  });
+
+  it('prefers the full Playwright MCP URL override over derived localhost contract values', () => {
+    process.env.CODEINFO_CHAT_MCP_PORT = '6511';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:8931/mcp/playwright';
+
+    const endpoints = resolveCodeinfoMcpEndpointContract();
+
+    assert.equal(endpoints.chatMcpUrl, 'http://localhost:6511/mcp');
+    assert.equal(
+      endpoints.playwrightMcpUrl,
+      'http://localhost:8931/mcp/playwright',
+    );
+    assert.notEqual(endpoints.playwrightMcpUrl, endpoints.chatMcpUrl);
+  });
+
+  it('fails clearly when a required MCP placeholder remains unresolved', () => {
+    delete process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
+
+    assert.throws(
+      () =>
+        normalizeCodeinfoRuntimeConfigPlaceholders({
+          mcp_servers: {
+            playwright: {
+              url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+            },
+          },
+        }),
+      /Unresolved required MCP placeholder CODEINFO_PLAYWRIGHT_MCP_URL/u,
+    );
+  });
+
   it('replaces MCP placeholder values in memory before validation', () => {
     process.env.CODEINFO_SERVER_PORT = '5510';
     process.env.CODEINFO_CHAT_MCP_PORT = '5511';
@@ -954,7 +1059,11 @@ describe('runtimeConfig Context7 overlay', () => {
       mcp_servers: {
         code_info: {
           command: 'npx',
-          args: ['-y', 'mcp-remote', 'http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp'],
+          args: [
+            '-y',
+            'mcp-remote',
+            'http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp',
+          ],
         },
         ingest: {
           url: 'http://localhost:${CODEINFO_SERVER_PORT}/mcp',

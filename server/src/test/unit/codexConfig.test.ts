@@ -10,6 +10,7 @@ import {
   buildDefaultCodexConfig,
   ensureCodexConfigSeeded,
 } from '../../config/codexConfig.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
   detectCodex,
   refreshCodexDetection,
@@ -74,6 +75,21 @@ describe('codexConfig', () => {
 
     assert.match(rewritten, /http:\/\/localhost:5710\/mcp/);
     assert.doesNotMatch(rewritten, /\$\{CODEINFO_SERVER_PORT\}/u);
+  });
+
+  it('keeps chat/base and agents MCP endpoint contracts distinct after normalization', () => {
+    process.env.CODEINFO_SERVER_PORT = '6010';
+    process.env.CODEINFO_CHAT_MCP_PORT = '6011';
+    process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:6999/mcp/playwright';
+
+    const endpoints = resolveCodeinfoMcpEndpointContract();
+
+    assert.equal(endpoints.classicMcpUrl, 'http://localhost:6010/mcp');
+    assert.equal(endpoints.chatMcpUrl, 'http://localhost:6011/mcp');
+    assert.equal(endpoints.agentsMcpUrl, 'http://localhost:6012/mcp');
+    assert.notEqual(endpoints.classicMcpUrl, endpoints.agentsMcpUrl);
   });
 
   it('ensureCodexConfigSeeded writes the in-code template when config.toml is missing', async () => {

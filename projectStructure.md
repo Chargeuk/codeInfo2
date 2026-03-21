@@ -1,5 +1,42 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000050 Task 6 structural change ledger
+
+Added files:
+
+- `server/src/config/mcpEndpoints.ts`
+- `server/src/test/unit/mcpStatus.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `server/src/config.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/config/startupEnv.ts`
+- `server/src/index.ts`
+- `server/src/providers/mcpStatus.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/codexConfig.test.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
+Story notes:
+
+- Task 6 adds `server/src/config/mcpEndpoints.ts` as the shared MCP endpoint contract seam so runtime placeholder normalization, Codex config seeding, provider-status probing, startup reporting, and the dedicated MCP listener ports all consume one source of truth.
+- `server/src/test/unit/mcpStatus.test.ts` is the focused regression seam that proves provider availability probing no longer bypasses the shared endpoint contract with `MCP_URL` or a hidden localhost fallback.
+- The runtime keeps the classic `/mcp`, chat MCP, and agents MCP surfaces intentionally split, while `CODEINFO_PLAYWRIGHT_MCP_URL` stays a full-URL override that is normalized through the same upstream contract before runtime consumers see it.
+
 ## Story 0000050 Task 3 structural change ledger
 
 Added files:

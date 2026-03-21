@@ -4928,6 +4928,34 @@ flowchart TD
   M --> O[Caller executes normal command or flow instruction path]
 ```
 
+## Story 0000050 Task 6: shared MCP placeholder normalization
+
+- Task 6 introduces `server/src/config/mcpEndpoints.ts` as the runtime-owned MCP endpoint contract. It resolves `${CODEINFO_SERVER_PORT}`, `${CODEINFO_CHAT_MCP_PORT}`, `${CODEINFO_AGENTS_MCP_PORT}`, and the direct `CODEINFO_PLAYWRIGHT_MCP_URL` token before downstream runtime consumers see an effective endpoint.
+- `server/src/config/runtimeConfig.ts` stays the upstream placeholder-replacement layer for checked-in TOML config, but it now delegates required MCP values to that shared contract so chat runtime loading, agent runtime loading, and checked-in config normalization cannot drift.
+- `server/src/config/codexConfig.ts`, `server/src/providers/mcpStatus.ts`, and `server/src/index.ts` now consume the same endpoint contract for base-config seeding, provider-status probing, and startup reporting. That removes the old `MCP_URL` or generic-localhost bypass and keeps classic `/mcp`, chat MCP, and agents MCP intentionally separate.
+- `CODEINFO_PLAYWRIGHT_MCP_URL` remains a full-URL override instead of a derived localhost placeholder. Its precedence is explicit: if the checked-in runtime config asks for the Playwright token, the runtime injects that full override URL instead of trying to infer a Playwright control channel from the chat/base MCP port contract.
+- The shared proof seam for later manual validation is `DEV-0000050:T06:mcp_endpoints_normalized`, emitted from the endpoint contract after the effective classic/chat/agents/Playwright values have been materialized.
+
+```mermaid
+flowchart LR
+  Env["process.env"] --> Contract["mcpEndpoints.ts"]
+  CheckedIn["checked-in TOML placeholders"] --> RuntimeNormalize["runtimeConfig.ts"]
+  Contract --> RuntimeNormalize
+  Contract --> BaseSeed["codexConfig.ts seed and rewrite"]
+  Contract --> Status["mcpStatus.ts probe"]
+  Contract --> Startup["index.ts startup reporting"]
+  Contract --> BindPorts["config.ts -> mcp2/server.ts and mcpAgents/server.ts"]
+  RuntimeNormalize --> Chat["chat runtime config"]
+  RuntimeNormalize --> Agents["agent runtime config"]
+  Contract --> Classic["classicMcpUrl = localhost:CODEINFO_SERVER_PORT/mcp"]
+  Contract --> ChatMcp["chatMcpUrl = localhost:CODEINFO_CHAT_MCP_PORT/mcp"]
+  Contract --> AgentsMcp["agentsMcpUrl = localhost:CODEINFO_AGENTS_MCP_PORT/mcp"]
+  Contract --> Playwright["playwrightMcpUrl = CODEINFO_PLAYWRIGHT_MCP_URL"]
+  Playwright --> Override["full URL override wins"]
+  RuntimeNormalize --> Failure["unresolved required placeholder -> clear failure"]
+  Contract --> Marker["DEV-0000050:T06:mcp_endpoints_normalized"]
+```
+
 ### ChatInterface event buffering & persistence
 
 - The server unifies chat execution behind `ChatInterface` (`server/src/chat/interfaces/ChatInterface.ts`) with provider-specific subclasses (`ChatInterfaceCodex`, `ChatInterfaceLMStudio`) selected via `getChatInterface(provider)` (`server/src/chat/factory.ts`).

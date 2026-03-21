@@ -12,6 +12,7 @@ import {
   validateAndLogCodexSdkUpgrade,
 } from './config/codexSdkUpgrade.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
+import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
 import './flows/flowSchema.js';
 import './ingest/index.js';
@@ -169,9 +170,18 @@ append({
   },
 });
 const CODEINFO_SERVER_PORT = resolveServerPort();
-const mcpHostUrl = `http://localhost:${CODEINFO_SERVER_PORT}/mcp`;
-const mcpDockerUrl = `http://server:${CODEINFO_SERVER_PORT}/mcp`;
-baseLogger.info({ mcpHostUrl, mcpDockerUrl }, 'MCP endpoint available');
+const mcpEndpoints = resolveCodeinfoMcpEndpointContract();
+baseLogger.info(
+  {
+    classicMcpUrl: mcpEndpoints.classicMcpUrl,
+    chatMcpUrl: mcpEndpoints.chatMcpUrl,
+    agentsMcpUrl: mcpEndpoints.agentsMcpUrl,
+    playwrightMcpUrl: mcpEndpoints.playwrightMcpUrl,
+    placeholderFree: mcpEndpoints.placeholderFree,
+    mcpDockerUrl: `http://server:${CODEINFO_SERVER_PORT}/mcp`,
+  },
+  'MCP endpoint available',
+);
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
   if (requestId) res.locals.requestId = requestId;

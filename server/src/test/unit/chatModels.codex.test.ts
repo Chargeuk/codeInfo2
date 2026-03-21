@@ -14,6 +14,7 @@ import {
   type CodexCapabilityResolution,
 } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
@@ -99,6 +100,7 @@ async function startServer(params: {
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const address = httpServer.address();
   assert(address && typeof address === 'object');
+  env.set('CODEINFO_SERVER_PORT', String(address.port));
   return {
     httpServer,
     baseUrl: `http://127.0.0.1:${address.port}`,
@@ -234,6 +236,33 @@ test('codex models include non-empty supportedReasoningEfforts arrays', async ()
         assert.ok(effort.length > 0);
       }
     }
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('chat models status probes use the shared endpoint contract instead of legacy MCP_URL', async () => {
+  env.set('Codex_model_list', 'alpha');
+  env.set('MCP_URL', 'http://127.0.0.1:9/legacy-bypass');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+
+  try {
+    const endpoints = resolveCodeinfoMcpEndpointContract();
+    assert.match(endpoints.classicMcpUrl, /\/mcp$/u);
+    assert.notEqual(
+      endpoints.classicMcpUrl,
+      'http://127.0.0.1:9/legacy-bypass',
+    );
+
+    await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
   } finally {
     await stopServer(server);
   }

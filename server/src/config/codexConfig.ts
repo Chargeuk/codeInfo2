@@ -2,7 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { baseLogger } from '../logger.js';
-import { resolveServerPort } from './serverPort.js';
+import {
+  resolveCodeinfoMcpEndpointContract,
+  resolveRequiredCodeinfoPlaceholderValue,
+} from './mcpEndpoints.js';
 
 const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
 
@@ -32,7 +35,7 @@ startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:__SERVER_PORT__/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:\${CODEINFO_SERVER_PORT}/mcp"]
 startup_timeout_sec = 60
 
 [projects]
@@ -83,18 +86,20 @@ const authStoreRegex = new RegExp(
   `${authStoreKey}\\s*=\\s*["']?([^"'\\n]+)["']?`,
 );
 
-const serverPortPlaceholder = '__SERVER_PORT__';
-
 export function applyResolvedServerPortToCodexConfig(
   configText: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const port = resolveServerPort(env);
+  const { classicMcpUrl } = resolveCodeinfoMcpEndpointContract(env);
+  const port = resolveRequiredCodeinfoPlaceholderValue(
+    'CODEINFO_SERVER_PORT',
+    env,
+  );
   return configText
     .replaceAll('${CODEINFO_SERVER_PORT}', port)
-    .replaceAll('http://localhost:5010/mcp', `http://localhost:${port}/mcp`)
+    .replaceAll('http://localhost:5010/mcp', classicMcpUrl)
     .replaceAll('http://server:5010/mcp', `http://server:${port}/mcp`)
-    .replaceAll(serverPortPlaceholder, port);
+    .replaceAll('http://localhost:${CODEINFO_SERVER_PORT}/mcp', classicMcpUrl);
 }
 
 export function buildDefaultCodexConfig(

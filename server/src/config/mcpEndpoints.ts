@@ -73,8 +73,7 @@ export function resolveCodeinfoChatMcpPort(
 ): string {
   return assertPlaceholderFreeValue({
     label: 'CODEINFO_CHAT_MCP_PORT',
-    value:
-      readNonEmpty(env.CODEINFO_CHAT_MCP_PORT, env.CODEINFO_MCP_PORT) ?? '5011',
+    value: readNonEmpty(env.CODEINFO_CHAT_MCP_PORT) ?? '5011',
   });
 }
 

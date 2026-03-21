@@ -30,6 +30,8 @@ const T03_CHAT_BOOTSTRAP_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
 const T04_RUNTIME_INHERITANCE_MARKER =
   'DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED';
 const T05_CONTEXT7_NORMALIZED_MARKER = 'DEV_0000047_T05_CONTEXT7_NORMALIZED';
+const T07_CHECKED_IN_MCP_CONTRACT_LOADED =
+  'DEV-0000050:T07:checked_in_mcp_contract_loaded';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -173,6 +175,23 @@ function getUsableCodeinfoEnvValue(
   }
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function logCheckedInMcpContractLoaded(params: {
+  configPath: string;
+  env?: NodeJS.ProcessEnv;
+}) {
+  const env = params.env ?? process.env;
+  console.info(T07_CHECKED_IN_MCP_CONTRACT_LOADED, {
+    configPath: params.configPath,
+    chatPortVar: 'CODEINFO_CHAT_MCP_PORT',
+    agentsPortVar: 'CODEINFO_AGENTS_MCP_PORT',
+    playwrightUrlVar: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+    legacyFallbackUsed: Boolean(
+      getUsableCodeinfoEnvValue('CODEINFO_MCP_PORT', env) &&
+        !getUsableCodeinfoEnvValue('CODEINFO_CHAT_MCP_PORT', env),
+    ),
+  });
 }
 
 function replaceCodeinfoEnvPlaceholdersInString(
@@ -953,6 +972,10 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       mode: context7Result.mode,
       surface: params.surface,
       success: true,
+    });
+    logCheckedInMcpContractLoaded({
+      configPath: params.runtimeConfigPath,
+      env: process.env,
     });
     console.info(T04_SUCCESS_LOG, {
       surface: params.surface,

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it, mock } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   applyResolvedServerPortToCodexConfig,
@@ -19,6 +20,11 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../..',
+);
 
 describe('codexConfig', () => {
   const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
@@ -90,6 +96,34 @@ describe('codexConfig', () => {
     assert.equal(endpoints.chatMcpUrl, 'http://localhost:6011/mcp');
     assert.equal(endpoints.agentsMcpUrl, 'http://localhost:6012/mcp');
     assert.notEqual(endpoints.classicMcpUrl, endpoints.agentsMcpUrl);
+  });
+
+  it('migrated checked-in configs no longer depend on bridge-era playwright hosts or hard-coded localhost MCP ports', async () => {
+    const configPaths = [
+      'codex/chat/config.toml',
+      'config.toml.example',
+      'codex_agents/lmstudio_agent/config.toml',
+      'codex_agents/research_agent/config.toml',
+      'codex_agents/planning_agent/config.toml',
+      'codex_agents/tasking_agent/config.toml',
+      'codex_agents/coding_agent/config.toml',
+    ].map((relPath) => path.join(repoRoot, relPath));
+
+    const contents = await Promise.all(
+      configPaths.map(async (configPath) => ({
+        configPath,
+        content: await fs.readFile(configPath, 'utf8'),
+      })),
+    );
+
+    for (const { configPath, content } of contents) {
+      assert.doesNotMatch(
+        content,
+        /http:\/\/localhost:501[01]\/mcp/u,
+        configPath,
+      );
+      assert.doesNotMatch(content, /playwright-mcp/u, configPath);
+    }
   });
 
   it('ensureCodexConfigSeeded writes the in-code template when config.toml is missing', async () => {

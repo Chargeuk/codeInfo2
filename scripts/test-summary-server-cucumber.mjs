@@ -168,6 +168,8 @@ const cucumberEnv = {
   CODEINFO_LOG_FILE_PATH: '../logs/server-cucumber.log',
   CODEINFO_CHROMA_URL: '',
   CODEINFO_MONGO_URI: '',
+  CODEINFO_PLAYWRIGHT_MCP_URL:
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL ?? 'http://localhost:8932/mcp',
   TS_NODE_FILES: 'true',
   TS_NODE_PROJECT: './tsconfig.json',
   NODE_OPTIONS:

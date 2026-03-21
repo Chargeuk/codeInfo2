@@ -1573,7 +1573,7 @@ Use only the checked-in summary wrappers and wrapper-first commands below for th
 ### Task 7. Migrate checked-in MCP config and env contracts
 
 - Repository Name: `codeInfo2`
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1588,7 +1588,7 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
 
 #### Subtasks
 
-1. [ ] Read the checked-in runtime config files and env files that still carry legacy MCP URLs, legacy env names, or bridge-era assumptions. Use story sections `## Message Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`, and `## Final Validation` while you read these exact files:
+1. [x] Read the checked-in runtime config files and env files that still carry legacy MCP URLs, legacy env names, or bridge-era assumptions. Use story sections `## Message Contracts And Storage Shapes`, `## Edge Cases and Failure Modes`, and `## Final Validation` while you read these exact files:
    - `codex/config.toml`
    - `codex/chat/config.toml`
    - `codex_agents/*/config.toml`
@@ -1597,34 +1597,43 @@ Move the checked-in runtime config files and env files onto the final MCP placeh
    - `server/.env.local`
    - `server/.env.e2e`
    - `.env.e2e`
-2. [ ] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for these exact contracts:
+2. [x] Update the checked-in runtime config files to use the explicit placeholder strategy defined in the story for these exact contracts:
    - `CODEINFO_SERVER_PORT`
    - `CODEINFO_CHAT_MCP_PORT`
    - `CODEINFO_AGENTS_MCP_PORT`
    - `CODEINFO_PLAYWRIGHT_MCP_URL`
    - remove hard-coded MCP URLs such as `http://localhost:5010/mcp`, `http://localhost:5011/mcp`, or bridge-era `playwright-mcp` hostnames where the story says placeholders should be used instead.
-3. [ ] Update the checked-in env files so they match the final placeholder and port contract and remove checked-in reliance on `CODEINFO_MCP_PORT`. Keep the wrapper-consumed root `.env.e2e` file aligned with the server-owned env defaults so the existing e2e wrapper and compose scripts read the same contract the code expects. After this task, the checked-in dedicated MCP env name must be `CODEINFO_CHAT_MCP_PORT`.
-4. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that loads the checked-in file style with the new placeholder tokens and asserts successful normalization. Purpose: prove the migrated checked-in config format remains runnable.
-5. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets `CODEINFO_CHAT_MCP_PORT` and asserts the checked-in chat MCP placeholders resolve from that value. Purpose: prove the new env contract is wired correctly.
-6. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that loads the checked-in root `.env.e2e` file shape and asserts the e2e wrapper's MCP placeholders resolve from the actual repo-root env file it uses. Purpose: prove the story updates the real e2e env entrypoint instead of only the server-local copy.
-7. [ ] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets only legacy `CODEINFO_MCP_PORT` and asserts chat MCP placeholder normalization fails or remains unsatisfied. Purpose: prove the legacy env name no longer satisfies the checked-in contract.
-8. [ ] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads the migrated checked-in config files and asserts no bridge-era `playwright-mcp` hostname or hard-coded localhost MCP URL dependency remains where placeholders are now required. Purpose: prove the checked-in config migration is complete.
-9. [ ] Add or update the structured manual-validation log marker `DEV-0000050:T07:checked_in_mcp_contract_loaded` in the checked-in config or env bootstrap path. Include `configPath`, `chatPortVar`, `agentsPortVar`, `playwrightUrlVar`, and `legacyFallbackUsed`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the checked-in contract is loaded from the final env names and no legacy fallback remains active.
-10. [ ] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
-11. [ ] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
-12. [ ] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
+3. [x] Update the checked-in env files so they match the final placeholder and port contract and remove checked-in reliance on `CODEINFO_MCP_PORT`. Keep the wrapper-consumed root `.env.e2e` file aligned with the server-owned env defaults so the existing e2e wrapper and compose scripts read the same contract the code expects. After this task, the checked-in dedicated MCP env name must be `CODEINFO_CHAT_MCP_PORT`.
+4. [x] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that loads the checked-in file style with the new placeholder tokens and asserts successful normalization. Purpose: prove the migrated checked-in config format remains runnable.
+5. [x] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets `CODEINFO_CHAT_MCP_PORT` and asserts the checked-in chat MCP placeholders resolve from that value. Purpose: prove the new env contract is wired correctly.
+6. [x] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that loads the checked-in root `.env.e2e` file shape and asserts the e2e wrapper's MCP placeholders resolve from the actual repo-root env file it uses. Purpose: prove the story updates the real e2e env entrypoint instead of only the server-local copy.
+7. [x] Add a server unit test in `server/src/test/unit/runtimeConfig.test.ts` that sets only legacy `CODEINFO_MCP_PORT` and asserts chat MCP placeholder normalization fails or remains unsatisfied. Purpose: prove the legacy env name no longer satisfies the checked-in contract.
+8. [x] Add a server unit test in `server/src/test/unit/codexConfig.test.ts` that loads the migrated checked-in config files and asserts no bridge-era `playwright-mcp` hostname or hard-coded localhost MCP URL dependency remains where placeholders are now required. Purpose: prove the checked-in config migration is complete.
+9. [x] Add or update the structured manual-validation log marker `DEV-0000050:T07:checked_in_mcp_contract_loaded` in the checked-in config or env bootstrap path. Include `configPath`, `chatPortVar`, `agentsPortVar`, `playwrightUrlVar`, and `legacyFallbackUsed`. Purpose: later Manual Playwright-MCP validation checks this exact log line to prove the checked-in contract is loaded from the final env names and no legacy fallback remains active.
+10. [x] Record any later documentation deltas for Task 15. Do not update shared docs in this task unless a new file is created here.
+11. [x] Run `npm run lint` from the repository root for repository `codeInfo2`. If it fails, run `npm run lint:fix` first to auto-fix what it can, then run `npm run lint` again, and manually fix any remaining issues in the files changed by this task before moving on.
+12. [x] Run `npm run format:check` from the repository root for repository `codeInfo2`. If it fails, run `npm run format` first to auto-fix formatting, then run `npm run format:check` again, and manually fix any remaining formatting issues yourself before moving on.
 
 #### Testing
 
 Use only the checked-in summary wrappers and wrapper-first commands below for this task. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous counts.
 
-1. [ ] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
-2. [ ] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
-3. [ ] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
+1. [x] `npm run build:summary:server` If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [x] `npm run test:summary:server:unit` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:unit` after fixes.
+3. [x] `npm run test:summary:server:cucumber` If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), diagnose with targeted wrapper commands only if needed, and rerun full `npm run test:summary:server:cucumber` after fixes.
 
 #### Implementation notes
 
-- **to_do**
+- Audited the exact Task 7 file set and confirmed the current checked-in split: `codex/chat/config.toml`, `config.toml.example`, and `codex_agents/lmstudio_agent/config.toml` still point at classic `5010`, while the coding/planning/research/tasking agent configs still point at dedicated `5011` and some still hard-code `playwright-mcp:8931`.
+- Migrated the checked-in runtime configs onto explicit placeholders: classic `5010` entries now use `${CODEINFO_SERVER_PORT}`, dedicated `5011` entries now use `${CODEINFO_CHAT_MCP_PORT}`, and the checked-in Playwright entries now use the direct `CODEINFO_PLAYWRIGHT_MCP_URL` token instead of the bridge-era `playwright-mcp` hostname.
+- Updated the checked-in env files to the final Task 7 contract by replacing `CODEINFO_MCP_PORT` with `CODEINFO_CHAT_MCP_PORT` in `server/.env` and by adding the MCP port inventory to `.env.e2e` so the wrapper-owned e2e env file now carries the same endpoint contract as the server-owned files.
+- Removed the legacy `CODEINFO_MCP_PORT` fallback from runtime normalization and startup env inventory so checked-in placeholder resolution now depends on `CODEINFO_CHAT_MCP_PORT` explicitly.
+- Added Task 7 regression coverage for checked-in file normalization, repo-root `.env.e2e` loading, legacy-env failure, checked-in config migration, and the new `DEV-0000050:T07:checked_in_mcp_contract_loaded` marker.
+- `npm run lint` still fails repo-wide on the pre-existing `client/src/components/chat/SharedTranscript.tsx` warning after `npm run lint:fix`; the Task 7 TypeScript files are clean via targeted `npx eslint`.
+- `npm run format:check` still fails repo-wide on the baseline formatting set plus the intentionally invalid `server/src/test/fixtures/flows/invalid-json.json`; after `npm run format` touched unrelated files, those spillover edits were restored, supported Task 7 files passed targeted `npx prettier --check`, and this repo’s Prettier setup still does not expose a `toml` parser for direct `.toml` checks.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the Task 7 migration compiles against the server workspace before the runtime tests run.
+- The first full unit wrapper still failed because the summary wrappers were spawning their own env maps without `CODEINFO_PLAYWRIGHT_MCP_URL`; wiring that env into `scripts/test-summary-server-unit.mjs` and `scripts/test-summary-server-cucumber.mjs`, then tightening the legacy-env regression test to prove `CODEINFO_MCP_PORT` is ignored instead of reused, brought the full rerun to `1361` passed and `0` failed in `test-results/server-unit-tests-2026-03-21T08-14-10-031Z.log`.
+- `npm run test:summary:server:cucumber` also passed cleanly at `71` passed and `0` failed in `test-results/server-cucumber-tests-2026-03-21T08-24-17-674Z.log`, so the checked-in MCP contract migration now clears both wrapper-first server validation gates.
 
 ---
 

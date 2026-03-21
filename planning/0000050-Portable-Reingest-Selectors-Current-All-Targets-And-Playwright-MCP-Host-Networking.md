@@ -1076,7 +1076,7 @@ Keep `runReingestRepository()` strict on one canonical repository, but extend it
 
 #### Overview
 
-Implement the shared server-side orchestration that resolves the three re-ingest request modes into canonical repository paths before calling the strict service. This task is complete when command and flow execution can resolve `sourceId`, `current`, and `all` correctly, preserve deterministic ordering, return an empty batch for zero repositories, and continue after per-repository failures in `all` mode.
+Implement the shared server-side orchestration that resolves the three re-ingest request modes into canonical repository paths before calling the strict service. This task is complete when command and flow execution can resolve `sourceId`, `current`, and `all` correctly, preserve deterministic ordering, return an empty batch for zero repositories, and continue after per-repository failures in `all` mode. A junior developer should treat each subtask below as standalone and keep the exact request contract, ownership rules, and deterministic ordering rule visible while working.
 
 #### Documentation Locations
 
@@ -1086,7 +1086,7 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 
 #### Subtasks
 
-1. [ ] In `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/agents/service.ts`, and `server/src/agents/commandItemExecutor.ts`, trace how `sourceId` and `flowSourceId` are threaded today. Cross-check that with story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes`, because this task must resolve targets above `runReingestRepository()` rather than changing the strict ingest layer.
+1. [ ] In `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/agents/service.ts`, and `server/src/agents/commandItemExecutor.ts`, trace how `sourceId` and `flowSourceId` are threaded today. Keep these exact rules visible while you work: direct command current-owner = command file repository; top-level flow current-owner = flow file repository; nested command current-owner = command file repository; `target: "all"` = ascending canonical container path order. Also keep the task docs open while doing this step: TypeScript docs at https://www.typescriptlang.org/docs/, Node test docs at https://nodejs.org/api/test.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
 2. [ ] Add one shared orchestration helper above `runReingestRepository()` so explicit selectors, `current`, and `all` all resolve to canonical container paths before strict execution begins. Put the shared logic where both the command path and flow path can call it, and reuse `server/src/mcpCommon/repositorySelector.ts` for selector matching instead of duplicating selector rules inside separate runners.
 3. [ ] In that shared orchestration helper, implement the `current` resolution rules exactly as written in the story:
    - direct command uses the command owner;
@@ -1143,7 +1143,7 @@ Implement the shared server-side orchestration that resolves the three re-ingest
 
 #### Overview
 
-Update the transcript and persistence layer so single re-ingest runs emit the extended single payload and `target: "all"` emits one batch payload while remaining backward compatible with older stored turns. This task is complete when the new payloads are built, persisted, replayed, and read without breaking existing `toolCalls` storage assumptions.
+Update the transcript and persistence layer so single re-ingest runs emit the extended single payload and `target: "all"` emits one batch payload while remaining backward compatible with older stored turns. This task is complete when the new payloads are built, persisted, replayed, and read without breaking existing `toolCalls` storage assumptions. A junior developer should treat each subtask below as standalone and keep the exact payload contract visible while working.
 
 #### Documentation Locations
 
@@ -1153,7 +1153,7 @@ Update the transcript and persistence layer so single re-ingest runs emit the ex
 
 #### Subtasks
 
-1. [ ] In `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/mongo/turn.ts`, and `server/src/mongo/repo.ts`, read the current synthetic-turn persistence path together with story section `## Message Contracts And Storage Shapes`. This task must stay on the existing `Turn.toolCalls` storage path and must not invent a second persistence channel.
+1. [ ] In `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/mongo/turn.ts`, and `server/src/mongo/repo.ts`, read the current synthetic-turn persistence path together with story section `## Message Contracts And Storage Shapes`. Keep these contract rules visible while you work: single results stay backward compatible on `sourceId`; batch results use one payload for the whole `target: "all"` run; each batch entry must carry resolved repository identity, canonical path, normalized outcome, and failure text when failed. Also keep the task docs open while doing this step: Mongoose docs via Context7 `/automattic/mongoose`, Node test docs at https://nodejs.org/api/test.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
 2. [ ] Extend the single payload in `server/src/chat/reingestToolResult.ts` to include the exact fields defined by the story:
    - `targetMode`
    - `requestedSelector`
@@ -1262,7 +1262,7 @@ Implement the shared blank-markdown skip behavior for commands and flows while p
 
 #### Overview
 
-Finish the shared runtime placeholder normalization layer before any checked-in config files are migrated. This task is complete when unresolved placeholders fail clearly, all runtime consumers use one shared MCP endpoint contract, and stale hard-coded bypass paths have been removed from the runtime code.
+Finish the shared runtime placeholder normalization layer before any checked-in config files are migrated. This task is complete when unresolved placeholders fail clearly, all runtime consumers use one shared MCP endpoint contract, and stale hard-coded bypass paths have been removed from the runtime code. A junior developer should treat each subtask below as standalone and keep the full endpoint contract visible while working.
 
 #### Documentation Locations
 
@@ -1273,7 +1273,7 @@ Finish the shared runtime placeholder normalization layer before any checked-in 
 
 #### Subtasks
 
-1. [ ] In `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, `server/src/config.ts`, `server/src/config/startupEnv.ts`, `server/src/providers/mcpStatus.ts`, `server/src/index.ts`, `server/src/mcp2/server.ts`, and `server/src/mcpAgents/server.ts`, trace every place that currently resolves or consumes MCP endpoints. Use story sections `## Message Contracts And Storage Shapes` and `## Edge Cases and Failure Modes` as the contract source.
+1. [ ] In `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, `server/src/config.ts`, `server/src/config/startupEnv.ts`, `server/src/providers/mcpStatus.ts`, `server/src/index.ts`, `server/src/mcp2/server.ts`, and `server/src/mcpAgents/server.ts`, trace every place that currently resolves or consumes MCP endpoints. Keep these exact contracts visible while you work: `${CODEINFO_SERVER_PORT}` = classic `/mcp`; `${CODEINFO_CHAT_MCP_PORT}` = chat MCP; `${CODEINFO_AGENTS_MCP_PORT}` = agents MCP; `CODEINFO_PLAYWRIGHT_MCP_URL` = full URL override; the chat/base and agents MCP endpoints must stay intentionally separate. Also keep the task docs open while doing this step: TOML docs at https://toml.io/en/v1.1.0, TypeScript docs at https://www.typescriptlang.org/docs/, Node test docs at https://nodejs.org/api/test.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
 2. [ ] Update the shared runtime normalization path so unresolved required MCP placeholders fail clearly instead of passing raw placeholder text through to the effective config. The required placeholders to keep in view are:
    - `${CODEINFO_SERVER_PORT}`
    - `${CODEINFO_CHAT_MCP_PORT}`
@@ -1494,7 +1494,7 @@ Update the Docker build flow so the checked-in runtime assets needed by the host
 
 #### Overview
 
-Convert the checked-in `server` and existing `playwright-mcp` services to the final host-network model using the image-based runtime contents from Task 10. This task is complete when the main, local, and e2e Compose definitions match the story’s host-network rules, preserve the documented host-visible ports, and no longer rely on forbidden source-tree or checked-in runtime bind mounts.
+Convert the checked-in `server` and existing `playwright-mcp` services to the final host-network model using the image-based runtime contents from Task 10. This task is complete when the main, local, and e2e Compose definitions match the story’s host-network rules, preserve the documented host-visible ports, and no longer rely on forbidden source-tree or checked-in runtime bind mounts. A junior developer should treat each subtask below as standalone and keep the exact port matrix and allowed-mount rules visible while working.
 
 #### Documentation Locations
 
@@ -1505,7 +1505,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 
 #### Subtasks
 
-1. [ ] Read `server/entrypoint.sh`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `server/src/test/support/chromaContainer.ts`, and `server/src/test/support/mongoContainer.ts` together with story sections `## Feasibility Proof Pass`, `## Edge Cases and Failure Modes`, and `## Final Validation`. This task is only about checked-in `server` and existing `playwright-mcp` services.
+1. [ ] Read `server/entrypoint.sh`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `server/src/test/support/chromaContainer.ts`, and `server/src/test/support/mongoContainer.ts` together with story sections `## Feasibility Proof Pass`, `## Edge Cases and Failure Modes`, and `## Final Validation`. Keep these exact rules visible while you work: local server binds `5510/5511/5512`, local Chrome DevTools stays on `9222`, local Playwright MCP stays on `8931`, main Playwright MCP stays on `8932`, host-networked services must not keep `ports` or `networks`, and source-tree / checked-in runtime bind mounts must not remain. Also keep the task docs open while doing this step: Docker Compose docs via Context7 `/docker/compose`, Docker host-network docs via DeepWiki `docker/docs` plus https://docs.docker.com/engine/network/tutorials/host/, Bash docs at https://www.gnu.org/software/bash/manual/bash.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
 2. [ ] Convert the scoped `server` and existing `playwright-mcp` services to the final host-network definitions with these exact port rules from the story:
    - direct host-visible bind ports for the server listeners;
    - preserve the local Chrome DevTools bind contract on `9222` by keeping the required server entrypoint or environment wiring intact under host networking;
@@ -1543,7 +1543,7 @@ Convert the checked-in `server` and existing `playwright-mcp` services to the fi
 
 #### Overview
 
-Add the checked-in proof wrapper that probes the live main stack after `npm run compose:up`. This task is complete when the main-stack proof path is runnable through one wrapper command and has automated coverage for at least one passing and one failing probe scenario.
+Add the checked-in proof wrapper that probes the live main stack after `npm run compose:up`. This task is complete when the main-stack proof path is runnable through one wrapper command and has automated coverage for at least one passing and one failing probe scenario. A junior developer should treat each subtask below as standalone and keep the exact proof endpoints visible while working.
 
 #### Documentation Locations
 
@@ -1553,7 +1553,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 #### Subtasks
 
-1. [ ] Read `scripts/summary-wrapper-protocol.mjs`, `scripts/summary-wrapper-protocol-fixture.mjs`, `scripts/test-summary-e2e.mjs`, `package.json`, and `docker-compose.yml` together with story sections `## Proof Path Readiness` and `## Final Validation`. This wrapper must reuse the existing wrapper protocol rather than inventing a new command style.
+1. [ ] Read `scripts/summary-wrapper-protocol.mjs`, `scripts/summary-wrapper-protocol-fixture.mjs`, `scripts/test-summary-e2e.mjs`, `package.json`, and `docker-compose.yml` together with story sections `## Proof Path Readiness` and `## Final Validation`. Keep these exact endpoints visible while you work: classic MCP on `5010`, chat MCP on `5011`, agents MCP on `5012`, and main Playwright MCP on `8932`. Also keep the task docs open while doing this step: Playwright docs via Context7 `/microsoft/playwright` plus https://playwright.dev/docs/next/api/class-browsertype, Node child-process docs at https://nodejs.org/api/child_process.html and https://nodejs.org/api/stream.html, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
 2. [ ] Add one checked-in summary wrapper under `scripts/` that probes the live main-stack host-visible ports `5010`, `5011`, `5012`, and `8932` after `npm run compose:up`. The wrapper must separately prove:
    - the classic `/mcp` route;
    - the dedicated chat MCP route;
@@ -1590,7 +1590,7 @@ Add the checked-in proof wrapper that probes the live main stack after `npm run 
 
 #### Overview
 
-Update the checked-in e2e env injection, config, and test assumptions so the e2e proof path follows the real host-visible addresses after the host-network cutover. This task is complete when the checked-in e2e wrapper and tests no longer depend on bridge-era URLs or ports and still keep browser navigation targets separate from MCP control-channel targets.
+Update the checked-in e2e env injection, config, and test assumptions so the e2e proof path follows the real host-visible addresses after the host-network cutover. This task is complete when the checked-in e2e wrapper and tests no longer depend on bridge-era URLs or ports and still keep browser navigation targets separate from MCP control-channel targets. A junior developer should treat each subtask below as standalone and keep the exact browser-vs-MCP URL split visible while working.
 
 #### Documentation Locations
 
@@ -1600,7 +1600,7 @@ Update the checked-in e2e env injection, config, and test assumptions so the e2e
 
 #### Subtasks
 
-1. [ ] Read `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, `.env.e2e`, `e2e/playwright.config.ts`, and the checked-in `e2e` tests together with story sections `## Proof Path Readiness` and `## Final Validation`.
+1. [ ] Read `scripts/test-summary-e2e.mjs`, `docker-compose.e2e.yml`, `.env.e2e`, `e2e/playwright.config.ts`, and the checked-in `e2e` tests together with story sections `## Proof Path Readiness` and `## Final Validation`. Keep these exact rules visible while you work: browser navigation URL and MCP control-channel URL are separate contracts; both must be host-visible after the cutover; neither may fall back to bridge-only hostnames. Also keep the task docs open while doing this step: Playwright docs via Context7 `/microsoft/playwright`, Docker/Compose docs via Context7 `/docker/compose`, and Mermaid docs via Context7 `/mermaid-js/mermaid`.
 2. [ ] Update any checked-in e2e env injection, checked-in e2e config, or test assumptions that would otherwise still point at stale bridge-era URLs or ports after the host-network cutover. The end result must use the real host-visible addresses from the story’s port matrix.
 3. [ ] Keep browser navigation targets and MCP control-channel targets as separate contracts where the story requires them. Do not replace one with the other just because both are host-visible URLs.
 4. [ ] Add or update an e2e test in `e2e/env-runtime-config.spec.ts` that asserts the runtime uses the intended host-visible base URL instead of a stale bridge-only address. Purpose: prove the browser-facing side of the e2e path has moved to the host-network contract.
@@ -1682,7 +1682,7 @@ This task proves the completed story against the acceptance criteria. It must re
 
 #### Overview
 
-Update the shared documentation and prepare the finished story for review after Task 14 has produced the final validated behavior. This task is complete when the repo docs match the implemented contracts and the pull-request summary clearly explains the final server, runtime, wrapper, and proof-path changes.
+Update the shared documentation and prepare the finished story for review after Task 14 has produced the final validated behavior. This task is complete when the repo docs match the implemented contracts and the pull-request summary clearly explains the final server, runtime, wrapper, and proof-path changes. A junior developer should treat each subtask below as standalone and use the saved outputs from Task 14 instead of reconstructing final behavior from memory.
 
 #### Documentation Locations
 
@@ -1694,11 +1694,11 @@ Update the shared documentation and prepare the finished story for review after 
 
 #### Subtasks
 
-1. [ ] Update `README.md` at the repository root with the final command names, proof wrappers, and runtime expectations introduced by this story. Purpose: make the top-level developer entry point reflect the validated host-network and re-ingest workflow commands from Task 14.
-2. [ ] Update `design.md` at the repository root with the final re-ingest request union, transcript contracts, blank-markdown behavior, host-network runtime model, proof-wrapper flow, and the Mermaid diagrams introduced or refined by the earlier architecture tasks. Purpose: consolidate the final design state in one architecture document after all implementation tasks are complete.
-3. [ ] Update `docs/developer-reference.md` with the final MCP URLs, env-var names, host-network prerequisites, and wrapper usage after the `CODEINFO_CHAT_MCP_PORT` cutover. Purpose: keep the operator-focused reference aligned with the implemented runtime contract.
-4. [ ] Update `projectStructure.md` at the repository root with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, and any new server modules. Purpose: make the repository structure doc match the final file layout after all file-creating tasks have landed.
-5. [ ] Write the pull-request summary for this story, covering the final server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, documentation updates, and the validation evidence captured in Task 14. Purpose: prepare a reviewer-facing summary that matches the implemented and validated story scope.
+1. [ ] Update `README.md` at the repository root with the final command names, proof wrappers, runtime expectations, and validation entry points introduced by this story. Include the exact wrapper names, the host-network prerequisites developers must satisfy before running them, and where to find the generated proof evidence from Task 14. Purpose: make the top-level developer entry point reflect the validated host-network and re-ingest workflow commands from Task 14.
+2. [ ] Update `design.md` at the repository root with the final re-ingest request union, the intermediate re-ingest result contract, the single and batch transcript contracts, the blank-markdown behavior, the host-network runtime model, the proof-wrapper flow, and the Mermaid diagrams introduced or refined by the earlier architecture tasks. Purpose: consolidate the final design state in one architecture document after all implementation tasks are complete.
+3. [ ] Update `docs/developer-reference.md` with the final MCP URLs, env-var names, host-network prerequisites, wrapper usage, and the exact meaning of `CODEINFO_SERVER_PORT`, `CODEINFO_CHAT_MCP_PORT`, `CODEINFO_AGENTS_MCP_PORT`, and `CODEINFO_PLAYWRIGHT_MCP_URL` after the cutover. Purpose: keep the operator-focused reference aligned with the implemented runtime contract.
+4. [ ] Update `projectStructure.md` at the repository root with every new or changed file path created by this story, including wrappers, tests, vendored shell-harness runtime files, any new runtime helper modules, and any new proof or status test files. Purpose: make the repository structure doc match the final file layout after all file-creating tasks have landed.
+5. [ ] Write the pull-request summary for this story, covering the final server contract changes, Docker/runtime changes, wrapper changes, proof-path additions, documentation updates, and the validation evidence captured in Task 14. Include the highest-risk compatibility changes called out in this story, especially the `CODEINFO_CHAT_MCP_PORT` cutover, the host-network compose shift, and the one-payload batch transcript behavior. Purpose: prepare a reviewer-facing summary that matches the implemented and validated story scope.
 6. [ ] Run repo-wide lint and format gates as the last subtask for this task.
 
 #### Testing

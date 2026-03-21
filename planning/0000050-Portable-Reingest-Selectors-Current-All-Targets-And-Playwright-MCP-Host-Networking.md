@@ -790,6 +790,112 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
   - Direct `sourceId`, `target: "current"`, and `target: "all"` re-ingest runs all produce the transcript and storage shapes defined in `## Message Contracts And Storage Shapes`.
   - Empty-markdown command or flow steps are skipped with the documented info-level log contract and do not create a new persisted storage shape of their own.
 
+## Task Feasibility Proof Pass
+
+- Repository scope validation:
+  - Every task in this story belongs to the single repository `codeInfo2`.
+  - No task currently mixes work across repositories, so no repository split is required.
+
+### Task 1. Extend re-ingest schema parsing for command and flow files
+
+- Already existing capabilities:
+  - `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` already define the current `reingest` item shape.
+  - Matching unit-test files already exist and can be extended.
+- Missing prerequisite capabilities:
+  - None before this task begins.
+- Assumptions currently invalid:
+  - `target: "current"` and `target: "all"` parsing does not exist yet, so later tasks must not assume those inputs are valid until this task is complete.
+
+### Task 2. Extend the strict single-repository re-ingest result contract
+
+- Already existing capabilities:
+  - `server/src/ingest/reingestService.ts` already owns the strict single-repository contract and validation categories.
+  - `server/src/test/unit/reingestService.test.ts` already covers that service.
+- Missing prerequisite capabilities:
+  - None before this task begins.
+- Assumptions currently invalid:
+  - Downstream transcript and orchestration tasks cannot assume `resolvedRepositoryId` or `completionMode` exists until this task adds them.
+
+### Task 3. Add shared target orchestration for `sourceId`, `current`, and `all`
+
+- Already existing capabilities:
+  - `sourceId` and `flowSourceId` ownership context is already threaded through command and flow execution.
+  - `server/src/mcpCommon/repositorySelector.ts` already provides the reusable selector helper.
+- Missing prerequisite capabilities:
+  - Task 1 must land first so the new `target` inputs can be parsed.
+  - Task 2 must land first so the strict service returns the extended result fields needed by later consumers.
+- Assumptions currently invalid:
+  - There is no existing shared `current` or `all` orchestration layer yet, so later tasks must not assume batch outcomes or current-owner resolution until this task is complete.
+
+### Task 4. Emit and persist the new single and batch re-ingest transcript payloads
+
+- Already existing capabilities:
+  - `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts` already provide the persistence seam.
+  - Existing persisted turn storage already uses `Turn.toolCalls`.
+- Missing prerequisite capabilities:
+  - Task 2 must land first so the single-result contract carries the extended fields.
+  - Task 3 must land first so `target: "all"` produces ordered batch outcomes to persist.
+- Assumptions currently invalid:
+  - No batch payload shape exists yet, so this task must extend the existing lifecycle rather than assuming a second persistence channel exists.
+
+### Task 5. Skip blank markdown instructions without weakening real markdown failures
+
+- Already existing capabilities:
+  - `server/src/flows/markdownFileResolver.ts` already provides the shared markdown resolution seam.
+  - Command and flow execution already consume that seam.
+- Missing prerequisite capabilities:
+  - None before this task begins.
+- Assumptions currently invalid:
+  - Blank-markdown skip behavior does not exist yet, so this task must add it at the shared seam before either runner can rely on it.
+
+### Task 6. Finalize runtime MCP placeholder normalization and migrate checked-in config contracts
+
+- Already existing capabilities:
+  - Shared runtime normalization already exists in `server/src/config/runtimeConfig.ts`.
+  - The current codex bootstrap and env readers already exist and can be extended.
+- Missing prerequisite capabilities:
+  - None before this task begins.
+- Assumptions currently invalid:
+  - MCP endpoint handling is still fragmented across runtime config, startup logging, status probes, and dedicated MCP listeners, so Docker and proof tasks must not assume one unified endpoint contract exists until this task is complete.
+
+### Task 7. Add host-network wrapper preflight and a repo-local shell harness
+
+- Already existing capabilities:
+  - `scripts/docker-compose-with-env.sh` already centralizes compose startup behavior.
+  - `scripts/summary-wrapper-protocol.mjs` already defines the saved-log and heartbeat contract.
+- Missing prerequisite capabilities:
+  - None before this task begins.
+- Assumptions currently invalid:
+  - The shell harness and `npm run test:summary:shell` do not exist yet, so later host-network tasks must treat this task as the prerequisite for that proof path.
+
+### Task 8. Move Docker and Compose definitions to the final host-network runtime model
+
+- Already existing capabilities:
+  - Existing Dockerfiles, compose files, entrypoint wiring, and local Docker-socket/Testcontainers behavior already exist to extend.
+- Missing prerequisite capabilities:
+  - Task 6 must land first so the MCP endpoint/env contract is stable before the compose cutover.
+  - Task 7 must land first so the wrapper preflight and shell proof path exists before this runtime change is validated.
+- Assumptions currently invalid:
+  - Host-network runtime packaging does not exist yet, so proof tasks must not assume source/config bind mounts are removed or port contracts are updated until this task is complete.
+
+### Task 9. Add the main-stack host-network proof wrapper and keep the e2e proof path aligned
+
+- Already existing capabilities:
+  - Existing summary-wrapper protocol and `scripts/test-summary-e2e.mjs` already provide the wrapper pattern to extend.
+- Missing prerequisite capabilities:
+  - Task 8 must land first so there is a host-network runtime model worth probing.
+- Assumptions currently invalid:
+  - `npm run test:summary:host-network:main` does not exist yet, so final validation must not depend on that command until this task creates it.
+
+### Task 10. Final validation, documentation updates, and story close-out
+
+- Already existing capabilities:
+  - The repo already has the shared documentation files, wrapper-first commands, and manual Playwright verification workflow to reuse.
+- Missing prerequisite capabilities:
+  - Tasks 1 through 9 must all be complete first.
+- Assumptions currently invalid:
+  - None beyond the prerequisite ordering above; this task is only valid once the earlier implementation and proof tasks have landed.
+
 # Tasks
 
 ### Task 1. Extend re-ingest schema parsing for command and flow files

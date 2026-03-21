@@ -691,6 +691,39 @@ This remains a single-repository contract definition inside `codeInfo2`. The fil
 - Evidence note:
   - Repository contract ownership for this section came from `scripts/docker-compose-with-env.sh`, `scripts/summary-wrapper-protocol.mjs`, `server/src/mongo/turn.ts`, `server/src/mongo/repo.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts`, with additive union guidance confirmed via DeepWiki and Context7 documentation for `colinhacks/zod`.
 
+## Edge Cases and Failure Modes
+
+- Re-ingest selector resolution edge cases:
+  - Duplicate case-insensitive repository ids are not treated as a hard ambiguity for this story. The runtime must keep the existing selector behavior of choosing the latest ingest, and the resulting transcript payload should record the resolved repository id and canonical path so the selection is visible after the fact.
+  - `target: "current"` must fail fast with a clear message when the current command or flow does not have an owning repository path available. It must not silently fall back to the working folder, the `codeInfo2` repo, or the first ingested repository.
+  - `target: "all"` with zero currently ingested repositories should return one successful batch payload with `summary.total = 0` and an empty ordered `repositories` array, rather than throwing a synthetic failure for an otherwise valid maintenance action.
+  - `target: "all"` must preserve deterministic ascending canonical container path order even when repository ids, host paths, or ingest timestamps differ.
+- Strict re-ingest validation and terminal-state edge cases:
+  - Existing strict validation failures from `server/src/ingest/reingestService.ts` such as `missing`, `non_absolute`, `non_normalized`, `ambiguous_path`, `unknown_root`, `busy`, and `invalid_state` must remain distinguishable after the new selector or target orchestration layer is added. The new layer must not collapse them into one generic error message.
+  - Internal ingest terminal state `skipped` currently maps to `completed` in the strict service. The story must preserve that low-level behavior for service compatibility while surfacing the normalized transcript outcome as `skipped`.
+  - `WAIT_TIMEOUT`, missing run status, and other deterministic terminal failures must become `failed` transcript outcomes with the underlying `errorCode` preserved.
+  - In `target: "all"` mode, a failure for one repository must not abort the remaining repositories. The batch continues sequentially, records the failed repository item, and proceeds to the next repository so the final batch result shows the full estate outcome.
+- Blank-markdown edge cases:
+  - Only successfully resolved markdown content that trims to empty should be skipped.
+  - Missing files, absolute paths, parent-directory traversal, permission failures, invalid UTF-8, or other read errors from `server/src/flows/markdownFileResolver.ts` remain hard failures and must not be reclassified as skips.
+  - A markdown file containing only whitespace or blank lines must produce the documented info-level skip log and no synthetic tool-result payload of its own.
+- MCP placeholder and env-migration edge cases:
+  - Unresolved placeholder tokens must never be passed through silently as runtime MCP URLs. If required placeholder values are missing by the final end state, runtime normalization should fail clearly rather than leaving literal `${CODEINFO_*}` or `CODEINFO_PLAYWRIGHT_MCP_URL` strings in the effective config.
+  - During the migration window, mixed `CODEINFO_MCP_PORT` and `CODEINFO_CHAT_MCP_PORT` support remains temporary compatibility only. By the final end state, checked-in env files, tests, and runtime configs must stop depending on `CODEINFO_MCP_PORT`.
+  - Checked-in config files that still reference `http://server:...` or other bridge-only MCP assumptions after the host-network cutover are story failures, even if one local environment still happens to resolve them.
+- Host-network and wrapper-preflight edge cases:
+  - A host-networked service definition that still contains incompatible `ports` or `networks` keys must fail wrapper preflight before `docker compose` starts.
+  - Unsupported environments, disabled host networking on Docker Desktop, or occupied checked-in host ports must fail fast before startup with a message that names the affected compose file or service and the reason.
+  - The main and local Playwright MCP stacks must never compete for the same checked-in host port. `docker-compose.yml` uses `8932`, and `docker-compose.local.yml` uses `8931`.
+  - After host-network cutover, service-name DNS assumptions such as `http://playwright-mcp:8931/...` or `http://server:...` must not remain in runtime paths that are supposed to talk to host-networked services.
+- Persistence and transcript compatibility edge cases:
+  - Historical turns containing the older single `reingest_step_result` payload must remain readable after the story lands.
+  - New `reingest_step_batch_result` payloads must still fit inside the existing `Turn.toolCalls` envelope without requiring a Mongo migration.
+  - One `target: "all"` run records one batch result payload, not one synthetic turn pair per repository, so large refresh runs do not flood the transcript.
+- Evidence note:
+  - Repository failure-mode evidence for this section came from `server/src/ingest/reingestService.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/flows/markdownFileResolver.ts`, `server/src/test/unit/markdown-file-resolver.test.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, `server/src/config.ts`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, and `scripts/docker-compose-with-env.sh`.
+  - External host-network failure-mode guidance was cross-checked with DeepWiki on `docker/docs` and Context7 on `/docker/compose`.
+
 ## Test Harnesses
 
 - This story should keep most verification in the harnesses the repository already has. No new harness type is needed for re-ingest schema changes, re-ingest orchestration, batch result payloads, blank-markdown skip behavior, MCP placeholder normalization, or end-to-end runtime checks. Those should extend the existing server `node:test` suites under `server/src/test/unit` and `server/src/test/integration`, the server cucumber suites under `server/src/test/features` and `server/src/test/steps`, the client Jest suites under `client/src/test`, and the existing summary-wrapper entry points in `scripts/test-summary-server-unit.mjs`, `scripts/test-summary-server-cucumber.mjs`, `scripts/test-summary-client.mjs`, and `scripts/test-summary-e2e.mjs`.

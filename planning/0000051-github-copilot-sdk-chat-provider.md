@@ -734,7 +734,7 @@ Standalone context for every subtask in this task: update `server/src/routes/cha
 1. [ ] Update `server/src/routes/chatProviders.ts` so the provider payload includes Copilot in the ordered list `codex`, `copilot`, `lmstudio`, even when Copilot is unavailable. Keep `available`, `toolsAvailable`, warnings, and the surfaced `reason` distinct.
 2. [ ] Implement one explicit readiness precedence rule in the Copilot readiness path and document it in code comments if the ordering would otherwise be hard to follow. The surfaced `reason` must be stable across provider listing, auth refresh, and chat execution, and it must respect the documented Copilot CLI credential precedence so existing env-token or `gh`-fallback authentication is treated as authenticated rather than as unauthenticated.
 3. [ ] Keep the route behavior deterministic when Copilot is unavailable, authenticated via env-token or `gh` fallback, or unauthenticated. Unknown warning details should be ignored safely, not treated as fatal errors.
-4. [ ] Add or update unit tests in `server/src/test/unit/chatProviders.test.ts` so they prove provider ordering, unavailable reasons, and readiness precedence behavior.
+4. [ ] Add or update unit tests in `server/src/test/unit/chatProviders.test.ts` so they prove provider ordering, unavailable reasons, readiness precedence behavior, and the credential-precedence happy path where existing `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored login state, or authenticated `gh` fallback makes Copilot surface as already authenticated without forcing the device-login path. Include at least one authenticated-via-env case and one unauthenticated or startup-failure case so the blocking `reason` ordering is proved, not assumed.
 5. [ ] Update `design.md` if the provider readiness precedence would otherwise only exist in tests. Update `README.md` only if it contains provider-list behavior that would now be inaccurate. Update `projectStructure.md` if this task adds or removes files.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -745,7 +745,7 @@ Standalone context for every subtask in this task: update `server/src/routes/cha
 2. [ ] Run `npm run build:summary:client` to prove the shared provider response shape still compiles on the client side.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new provider readiness wiring.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the route-level Copilot provider readiness tests pass.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the route-level Copilot provider readiness tests pass, including an existing-credential happy path and an unauthenticated or startup-failure path.
 
 #### Implementation notes
 
@@ -820,7 +820,7 @@ Standalone context for every subtask in this task: update `server/src/chat/facto
 4. [ ] Keep Codex-only request flags server-side. When a Copilot request arrives with Codex-specific flags, ignore them safely or return the documented warning behavior for this repository, but do not reinterpret them as Copilot settings or let them silently change Copilot execution semantics.
 5. [ ] Reuse `conversationId` as the Copilot session id throughout the default implementation path. Update both Mongoose-backed persistence and `server/src/chat/memoryPersistence.ts` so that direct reuse is stored and resumed deterministically in normal runtime and in test-mode memory persistence. Only introduce `conversation.flags.copilotSessionId` if direct code evidence from the installed SDK proves a separate stored id is required, and do not add a new nested Mongoose sub-schema for `flags` unless that fallback path truly forces it.
 6. [ ] Make resume failure explicit. If an existing persisted Copilot conversation cannot resume its expected session, return a clear error for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
-7. [ ] Add or update unit and integration tests so they prove Copilot event mapping, session creation, session resumption, resume failure, conversation persistence, concurrent-request protection on the same conversation id, and the server-side handling of Codex-only flags on Copilot requests.
+7. [ ] Add or update unit and integration tests so they prove Copilot event mapping, session creation, session resumption, resume failure, conversation persistence, concurrent-request protection on the same conversation id, route-level fallback behavior when the requested provider is unavailable, and the server-side handling of Codex-only flags on Copilot requests. Add explicit stream-edge tests for delta-only output, final-without-deltas output, repeated final-like events, and partial-output session errors so the chat bridge finishes once without duplicate transcript text or a stuck streaming state. Also prove that `onPermissionRequest` is registered on both create and resume, that the default handler allows the request for this story, and that any resumed tool path still works after those handlers are re-registered. If implementation adds any Copilot-only request field, add a negative test that proves non-Copilot providers ignore it with warnings or reject it clearly instead of reinterpreting it.
 8. [ ] Update `design.md` with the chosen Copilot session identity rule, the Codex-only flag handling rule for Copilot requests, and the Copilot event-to-transcript mapping if those details are not obvious from the code. Update `README.md` only if user-facing chat behavior needs clarification. Update `projectStructure.md` if this task adds or removes files.
 9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 7, recording implementation notes, and listing the task commit hashes once they exist.
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -831,7 +831,7 @@ Standalone context for every subtask in this task: update `server/src/chat/facto
 2. [ ] Run `npm run build:summary:client` to prove the shared workspace still compiles after any chat contract updates.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the server chat changes.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot chat adapter, persistence, and Codex-only-flag handling tests pass.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot chat adapter, persistence, fallback, permission-handler, stream-edge, and Codex-only-flag handling tests pass.
 
 #### Implementation notes
 
@@ -859,10 +859,10 @@ Replace the current Codex-only auth contract with one shared provider-auth contr
 
 Standalone context for every subtask in this task: update `common/src/api.ts`, `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, and `client/src/api/codex.ts` together so Codex and Copilot share one provider-auth contract. The contract must stay two-phase, return verification details early, and preserve existing Codex behavior while removing the Codex-only raw-output shape; follow [Acceptance Criteria](#acceptance-criteria), [Message Contracts and Storage Shapes](#message-contracts-and-storage-shapes), and [Schema and Contracts Matrix](#schema-and-contracts-matrix).
 
-1. [ ] Update `common/src/api.ts` so the shared auth contract can represent provider id, verification URL, one-time code, early verification-ready state, completion-pending state, completed state, failed state, and unavailable-before-start state. Keep the contract generic enough for Codex and Copilot without exposing BYOK provider details.
+1. [ ] Update `common/src/api.ts` so the shared auth contract can represent provider id, verification URL, one-time code, early verification-ready state, completion-pending state, completed state, already-authenticated state, failed state, and unavailable-before-start state. Keep the contract generic enough for Codex and Copilot without exposing BYOK provider details.
 2. [ ] Refactor the existing Codex auth route and utilities so they use the new shared provider-auth contract without changing Codex behavior. Preserve the current ability to return verification details early while completion continues separately.
 3. [ ] Update `openapi.json` for the shared provider-auth contract and any Codex route schema changes that now reference it.
-4. [ ] Add or update server unit and integration tests so they prove the shared Codex contract still works and that completion or failure remains observable through the shared contract. Keep Copilot-specific route tests out of this task.
+4. [ ] Add or update server unit and integration tests so they prove the shared Codex contract still works and that verification-ready, completion-pending, completed, already-authenticated, failed, and unavailable-before-start outcomes all remain observable through the shared contract. Keep Copilot-specific route tests out of this task.
 5. [ ] Update `design.md` and `README.md` if they currently describe only the Codex-specific auth shape or modal wording. Update `projectStructure.md` if this task adds or removes files.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -873,7 +873,7 @@ Standalone context for every subtask in this task: update `common/src/api.ts`, `
 2. [ ] Run `npm run build:summary:client` to prove the shared auth types still compile on the client side before the UI task starts.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the shared auth contract changes.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the shared-contract auth unit tests pass.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the shared-contract auth unit tests pass, including the already-authenticated and unavailable-before-start states.
 
 #### Implementation notes
 
@@ -904,7 +904,7 @@ Standalone context for every subtask in this task: add the Copilot auth route al
 1. [ ] Add the Copilot device-auth backend route and utility code using the documented Copilot device-login flow. Register the new route in `server/src/index.ts`, and return the verification URL and one-time code as soon as they are available rather than waiting for the whole login to finish.
 2. [ ] Make readiness refresh explicit by reusing the shared auth contract state plus the existing provider-readiness surfaces the UI already consumes. After the external browser step completes, the UI should be able to learn whether authentication is complete or has failed without guessing from raw output text, and without adding a second Copilot-only polling route unless direct code evidence forces it. That same refresh path must also recognize already-authenticated Copilot states that came from documented env-token or `gh` fallback credentials rather than from the device flow route itself.
 3. [ ] Keep the auth storage location aligned with the shared Copilot home/config helper from Task 2, and make missing CLI, unavailable keychain, unwritable config directory, and failed login outcomes surface as clear reasons rather than generic route failures. If Copilot is already authenticated through env-token, stored login, or `gh` fallback, return the shared contract’s already-authenticated or unavailable-before-start state instead of forcing a redundant device-login flow.
-4. [ ] Add or update server unit and integration tests so they prove the new Copilot route returns verification details early, the new route is mounted correctly, and completion or failure is observable through the shared contract. Reuse the device-auth harness from Task 4 instead of inlining route behavior in each test.
+4. [ ] Add or update server unit and integration tests so they prove the new Copilot route returns verification details early, the new route is mounted correctly, completion or failure is observable through the shared contract, and already-authenticated runtime states short-circuit correctly when authentication already exists through env tokens, stored login, or `gh` fallback. Reuse the device-auth harness from Task 4 instead of inlining route behavior in each test, and include at least one missing-CLI or unwritable-config error path plus one keychain-unavailable-but-writable-home fallback case.
 5. [ ] Update `openapi.json` for the new Copilot auth route path. Update `design.md` and `README.md` if they need new Copilot-auth-specific wording. Update `projectStructure.md` if this task adds or removes files.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -915,7 +915,7 @@ Standalone context for every subtask in this task: add the Copilot auth route al
 2. [ ] Run `npm run build:summary:client` to prove the shared auth types still compile on the client side before the UI task starts.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new Copilot auth route and utilities are added.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot auth unit tests pass.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot auth unit tests pass, including already-authenticated short-circuit, early verification, and explicit failure-path coverage.
 
 #### Implementation notes
 
@@ -943,10 +943,10 @@ Extend the existing client-side fetch-based auth fixtures so dialog and auth API
 
 Standalone context for every subtask in this task: stay inside the existing client test helper layer, centered on `client/src/test/support/fetchMock.ts`, current auth tests, and the shared contract from Task 8. The rule here is to extend the current fetch-based fixture style for Codex and Copilot states, not to introduce a second client harness abstraction; follow [Test Harnesses](#test-harnesses), [Acceptance Criteria](#acceptance-criteria), and [Feasibility Proof](#feasibility-proof).
 
-1. [ ] Extend the existing fetch-based client test helpers, centered on `client/src/test/support/fetchMock.ts` and any current auth fixture utilities, so tests can request Codex and Copilot auth start, verification-ready, completion-pending, completed, failed, and unavailable-before-start states without rebuilding raw response objects in each file.
+1. [ ] Extend the existing fetch-based client test helpers, centered on `client/src/test/support/fetchMock.ts` and any current auth fixture utilities, so tests can request Codex and Copilot auth start, verification-ready, completion-pending, completed, already-authenticated, failed, and unavailable-before-start states without rebuilding raw response objects in each file.
 2. [ ] Define one clear fixture API around those existing helpers so later client tests can request a named provider-auth scenario without adding a second test-support layer.
 3. [ ] Update the existing client test bootstrap path so dialog and API tests can opt into the extended fixtures cleanly without affecting unrelated client tests.
-4. [ ] Add or update a focused client test that proves the extended fetch-based fixtures can drive a valid verification state and at least one explicit failure state without throwing unexpected shape errors.
+4. [ ] Add or update a focused client test that proves the extended fetch-based fixtures can drive a valid verification state, an already-authenticated state, and at least one explicit failure state without throwing unexpected shape errors.
 5. [ ] Update `projectStructure.md` only if this task adds or removes files beyond the current helper locations. Update `design.md` only if the client test entry point needs brief explanation for future maintainers.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -957,7 +957,7 @@ Standalone context for every subtask in this task: stay inside the existing clie
 2. [ ] Run `npm run build:summary:client` to prove the shared provider-auth client fixtures compile.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing client test helpers.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the client provider-auth fixture proof passes, including at least one explicit failure state.
+5. [ ] Run `npm run test:summary:client` and confirm the client provider-auth fixture proof passes, including already-authenticated and explicit failure-state coverage.
 
 #### Implementation notes
 
@@ -991,7 +991,7 @@ Standalone context for every subtask in this task: update `client/src/hooks/useC
 3. [ ] Preserve the existing rule that changing provider or model only affects the next send by starting a new conversation. Do not mutate the runtime provider or model in place for an already-persisted conversation.
 4. [ ] Keep existing Codex-only flags, defaults, and warning surfaces Codex-only in this task. When the selected provider is Copilot, hide or disable Codex-only UI such as `CodexFlagsPanel`, do not misapply Codex settings to the outgoing request payload, and preserve the existing Codex experience when the user switches back to Codex.
 5. [ ] Update any legacy provider-bootstrap handling or test fixtures in `useChatModel` and the chat page so three-provider provider-list responses are the normal path and any fallback-to-LM-Studio behavior remains an explicit degraded fallback rather than an accidental default that would hide Copilot.
-6. [ ] Add or update client tests so they prove provider ordering, provider fallback, disabled Copilot rendering, Copilot model loading, Codex-only banner and flags-panel behavior, and next-send new-conversation behavior. Reuse existing chat page test harnesses instead of creating a second page test setup.
+6. [ ] Add or update client tests so they prove provider ordering, provider fallback, disabled Copilot rendering with its surfaced reason, Copilot model loading, Codex-only banner and flags-panel behavior, and next-send new-conversation behavior. Reuse existing chat page test harnesses instead of creating a second page test setup, and include one regression case where the server returns a degraded fallback list so Copilot is not hidden accidentally.
 7. [ ] Update `design.md` only if the client bootstrap sequence or next-send behavior is now clearer when written down. Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Update `projectStructure.md` if this task adds or removes files.
 8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 11, recording implementation notes, and listing the task commit hashes once they exist.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -1002,7 +1002,7 @@ Standalone context for every subtask in this task: update `client/src/hooks/useC
 2. [ ] Run `npm run build:summary:client` to prove the updated provider and model UI compiles.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client assets.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the provider-selection, model-loading, and Codex-only UI regression tests pass.
+5. [ ] Run `npm run test:summary:client` and confirm the provider-selection, model-loading, disabled-provider-reason, and Codex-only UI regression tests pass.
 
 #### Implementation notes
 
@@ -1037,7 +1037,7 @@ Standalone context for every subtask in this task: update `client/src/components
 3. [ ] Render verification URL, one-time code, loading state, completion-pending state, completion success, already-authenticated state, and failure state below the shared auth buttons without replacing the overall dialog structure. Keep the outer dialog tree stable while provider-specific content changes so provider output only resets when the implementation chooses to reset it intentionally.
 4. [ ] Update every current consumer of `CodexDeviceAuthDialog`, including `client/src/pages/ChatPage.tsx` and `client/src/components/agents/AgentsComposerPanel.tsx`, so the shared dialog keeps existing Codex behavior working outside the chat page while adding Copilot support to the shared component.
 5. [ ] Refresh provider readiness after auth completion using the shared provider and model surfaces instead of guessing from stale local state. Keep current Codex behavior working while adding Copilot behavior through the same contract.
-6. [ ] Add or update client tests so they prove the shared dialog layout, provider button ordering, early verification display, completion refresh, provider-specific failure handling, and the existing agents-page re-authenticate flow. Add at least one regression test that proves the Codex path still works.
+6. [ ] Add or update client tests so they prove the shared dialog layout, provider button ordering, early verification display, already-authenticated display, completion refresh, provider-specific failure handling, unavailable-before-start handling, and the existing agents-page re-authenticate flow. Add at least one regression test that proves the Codex path still works.
 7. [ ] Update `README.md` and `design.md` if they describe the old Codex-only dialog wording or flow. Update `projectStructure.md` if this task adds or removes files, including any renamed dialog components or test helpers.
 8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 12, recording implementation notes, and listing the task commit hashes once they exist.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -1048,7 +1048,7 @@ Standalone context for every subtask in this task: update `client/src/components
 2. [ ] Run `npm run build:summary:client` to prove the new dialog and client auth code compile.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client auth assets.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the shared auth dialog tests pass, including the existing agents-page re-authenticate regression coverage.
+5. [ ] Run `npm run test:summary:client` and confirm the shared auth dialog tests pass, including already-authenticated, unavailable-before-start, and existing agents-page re-authenticate regression coverage.
 
 #### Implementation notes
 
@@ -1120,7 +1120,7 @@ Standalone context for every subtask in this task: update `server/src/config/sta
 
 1. [ ] Update `server/src/config/startupEnv.ts`, the shared Copilot home/config helper from Task 2, and the server env files so `CODEINFO_COPILOT_HOME` is loaded in development, local Docker, and e2e in the same style as `CODEINFO_CODEX_HOME`. Keep the development default repo-local and the container path `/app/copilot`, and make sure this env wiring does not override or mask the documented Copilot credential env vars `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN`.
 2. [ ] Make sure `/health` remains a process-level health check and does not start failing just because the Copilot CLI is missing, Copilot is unauthenticated, or Copilot models are unavailable. Copilot readiness belongs on the chat provider and model surfaces only.
-3. [ ] Add or update runtime config contract tests so they prove env injection, credential-precedence-safe loading, and Copilot-home path resolution. Reuse the existing runtime config test patterns instead of adding an unrelated test harness.
+3. [ ] Add or update runtime config contract tests so they prove env injection, credential-precedence-safe loading, Copilot-home path resolution, and that `/health` remains process-only when Copilot is missing, unauthenticated, or model discovery is unavailable. Reuse the existing runtime config and route test patterns instead of adding an unrelated test harness.
 4. [ ] Update `README.md`, `design.md`, and `projectStructure.md` so they document the new env var and any runtime-config files changed by this task.
 5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 14, recording implementation notes, and listing the task commit hashes once they exist.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -1130,7 +1130,7 @@ Standalone context for every subtask in this task: update `server/src/config/sta
 1. [ ] Run `npm run build:summary:server` to prove the runtime config code compiles.
 2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any updated env-exposed shared types.
 3. [ ] Run `npm run compose:up`, confirm the stack starts with the unchanged port contract, then run `npm run compose:down`.
-4. [ ] Run `npm run test:summary:server:unit` and confirm the runtime config tests pass.
+4. [ ] Run `npm run test:summary:server:unit` and confirm the runtime config and `/health` isolation tests pass.
 
 #### Implementation notes
 

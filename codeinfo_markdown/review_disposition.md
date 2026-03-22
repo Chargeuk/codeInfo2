@@ -14,6 +14,7 @@ Finish the current story review using ONLY the handoff file and findings file re
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
 - Do not reopen the story, request reverts, or record scope-creep findings solely because those allowed support files changed without being named in the active plan.
 - For those allowed support files, only spelling, grammar, and obvious wording findings are actionable.
+- Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files.
 - This is the only review step allowed to mutate plans.
 
 ## Scope And Inputs
@@ -76,16 +77,29 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 5. Update numbering and cross-references if needed.
 6. Every new review-fix task MUST name exactly one repository using `Repository Name`.
 7. For cross-repository findings, keep the work in the one canonical plan but split it into repository-specific tasks and make sequencing explicit.
-8. If only `optional_simplification` findings exist, reopen the canonical plan when the simplification is localized to files already changed by the story, low-risk, objectively testable, and worth the churn.
-9. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
-10. If there are no findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
+8. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, or wording corrections.
+9. If only `optional_simplification` findings exist, reopen the canonical plan when the simplification is localized to files already changed by the story, low-risk, objectively testable, and improves a shared contract such as logging vocabulary, marker schema, configuration consistency, or cross-repository compatibility.
+10. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
+11. If an `optional_simplification` is deferred, record it in a short review note instead of reopening.
+12. This `optional_simplification` rule does not permit reopening an allowed support file for anything other than spelling, grammar, or wording corrections.
+13. If there are no findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
     - the branch-vs-base checks performed across all repositories in scope;
     - the acceptance-evidence checks performed;
     - the files inspected;
     - why the story remains complete.
-11. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
-12. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
-13. The transient handoff file should not be treated as the durable artifact; once it has been consumed successfully, either remove it before committing or leave it untracked so later review passes do not rely on stale committed handoff state.
+14. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
+15. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
+16. Even when there are no findings, the `Post-Implementation Code Review` section MUST state whether the generic adversarial checklist had direct proof, indirect proof, or missing proof for:
+    - execution-routing or harness dependence;
+    - default launcher, wrapper, dispatcher, CI, or startup-path inclusion;
+    - shared-state or concurrency safety;
+    - reader and writer atomicity or partial-write tolerance;
+    - cleanup ownership or stale-state safety;
+    - lifecycle ordering;
+    - test isolation.
+17. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
+18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
+19. The transient handoff file should not be treated as the durable artifact; once it has been consumed successfully, either remove it before committing or leave it untracked so later review passes do not rely on stale committed handoff state.
 
 ## Output Contract
 
@@ -104,5 +118,7 @@ Before you finish this step, verify all of the following:
 - the current-plan handoff and review handoff still match the current repository state;
 - every affected repository has been reflected correctly in the canonical plan updates;
 - cross-repository findings produced explicit sequencing in the canonical plan;
+- no allowed support file was reopened for anything other than spelling, grammar, or wording corrections;
 - the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope;
+- the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope;
 - durable artifacts are treated as commit-worthy and the transient handoff is not treated as the durable artifact.

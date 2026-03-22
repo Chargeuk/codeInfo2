@@ -12,8 +12,8 @@ Start the 3-step review sequence for the current story. This step is the evidenc
 - If any handoff validation rule fails, stop and say the current-plan handoff is stale and must be regenerated.
 - For multi-repository stories, you MUST gather cross-repository integration evidence rather than treating each repository in isolation.
 - Treat `flows/**` as approved workflow configuration. Changes under `flows/**` must not be classified as suspicious, out-of-scope, or scope creep solely because they are absent from the active plan, but they should still be reviewed normally for workflow behavior, instruction safety, and other engineering concerns.
-- Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
-- For the allowed support files above, review ONLY for spelling, grammar, and obvious wording mistakes.
+- Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes. These files must not be classified as suspicious, out-of-scope, scope creep, or unwanted solely because they changed outside the active story.
+- For the allowed support files above, review ONLY for spelling, grammar, and obvious wording mistakes. Do NOT review them for workflow-contract correctness, artifact hygiene, path usage, instruction/runtime safety, plan-selection rules, story-scope alignment, or revert-worthiness.
 - Do not edit any plan in this step unless a tiny note is absolutely required to unblock the review.
 - Do not commit in this step unless you had to make tracked changes for that unblock.
 
@@ -87,11 +87,42 @@ For each repository in review scope, resolve the review base branch from Git's c
    - compatibility expectations;
    - any before/after contract comparison that only becomes visible when two or more repositories are considered together.
 9. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
-10. For each changed file or helper outside the allowed support-file set, record any review hotspots that the findings pass must inspect explicitly.
-11. Identify any changed external contract surfaces outside the allowed support-file set that need explicit before/after comparison in findings.
-12. Name the top 3 changed helpers/functions by review risk from the non-support-file changes across the whole review scope, and record the worst malformed or contradictory input each one should reject or survive, plus whether that path currently has direct proof, indirect proof, or missing proof.
-13. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-14. Record the per-repository HEAD short SHA values and resolved base branches separately in the evidence summary and handoff.
+10. For each changed file or helper OUTSIDE the allowed spelling/grammar-only support-file set, record any review hotspots that the findings pass must inspect explicitly:
+    - merge-before-validate logic;
+    - normalization-before-validate logic;
+    - bootstrap or existence checks;
+    - helpers that return warnings/errors/reason metadata;
+    - shared log markers or shared response fields;
+    - fallback-selection logic;
+    - duplicate/conflicting object keys;
+    - deleted/moved/conditional validation;
+    - partial-failure handling;
+    - dead-field or dead-branch risk;
+    - any helper that could hide misconfiguration by defaulting too early;
+    - any alias-migration or backward-compatibility helper where legacy and canonical fields can partially coexist in mixed-shape configs.
+11. Identify any changed external contract surfaces OUTSIDE the allowed spelling/grammar-only support-file set that need explicit before/after comparison in findings:
+    - API routes;
+    - config file shapes;
+    - persisted artifacts;
+    - wrapper outputs;
+    - log marker/event schemas;
+    - legacy alias/deprecated-input compatibility where old and new field shapes may coexist.
+12. Note where backward-compatibility risk exists and where the canonical plan explicitly permits an edge-case deviation from generic best practice.
+13. Name the top 3 changed helpers/functions by review risk from the non-support-file changes across the whole review scope, and record the worst malformed or contradictory input each one should reject or survive, plus whether that path currently has direct proof, indirect proof, or missing proof.
+14. Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
+    - execution-routing or harness-selection rules that may live in unchanged files, including `testMatch`/`testIgnore`, filename or suffix conventions, tags, worker-count or project assignment, startup registration, feature flags, and env wiring;
+    - default launcher, wrapper, dispatcher, CI, or startup entrypoints to verify the changed behavior still runs in the standard path without manual overrides;
+    - shared-state surfaces touched by the change, including lock files or directories, temp paths, caches, singleton resources, ports, persisted artifacts, and cross-test fixtures;
+    - selector/consumer pairs that jointly determine reachability, inclusion, or routing, such as config files plus dispatcher scripts, wrapper scripts, CI jobs, npm scripts, startup code, or other launch-time selectors;
+    - reader and writer pairs over the same file, directory, or persisted artifact, including whether writes are atomic, whether readers tolerate partial writes, and whether cleanup or delete paths can remove a live resource owned by another actor;
+    - lifecycle transitions and cleanup paths, including create or acquire, in-progress or partially written state, steady-state, retry, cancel, release, teardown, and crash recovery;
+    - tests that mutate shared state or rely on serialization, including what prevents interference with parallel suites, other projects, retries, or stateful variants;
+    - malformed, missing, incomplete, or contradictory state that could be transient rather than stale, including partially written files, half-created directories, and delayed metadata visibility;
+    - rename, ignore-rule, suffix, tag, project-assignment, or classification changes that may silently exclude tests, routes, jobs, or code paths from the default validation path.
+15. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
+16. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
+17. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+18. Record the per-repository HEAD short SHA values and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 
@@ -128,6 +159,7 @@ Before you finish this step, verify all of the following:
 - every acceptance criterion has a proof source or an explicit weak/missing-proof note;
 - cross-repository evidence was added when the story spans multiple repositories;
 - the top 3 risky helpers/functions were named;
+- the generic adversarial review checklist was recorded;
 - the evidence file path and handoff file path are correct and consistent with the current HEAD commits.
 
 ## Final Response

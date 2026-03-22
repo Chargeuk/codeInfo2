@@ -3,14 +3,14 @@
   "steps": [
     {
       "type": "llm",
-      "label": "Clear stale current plan handoff",
+      "label": "Confirm current review scope",
       "agentType": "planning_agent",
       "identifier": "planner",
       "messages": [
         {
           "role": "user",
           "content": [
-            "Please read AGENTS.md and follow its instructions. Read `codeInfoStatus/flow-state/current-plan.json` first and treat it as the sole source of review scope for this flow. Support both the legacy single-repository shape `{ \"plan_path\": \"planning/<story-file>.md\" }` and the newer multi-repository shape `{ \"story_id\": \"<story-number>\", \"review_mode\": \"single_repo\"|\"multi_repo\", \"repos\": [ { \"repo_id\": \"<name>\", \"repo_root\": \"/abs/path/to/repo\", \"plan_path\": \"planning/<story-file>.md\", \"branch\": \"feature/<story-number>-...\", \"base_branch\": \"main\" } ] }`. If the legacy shape is present, normalize it to a single repo entry rooted at the current repository. If the `repos` array shape is present, use only those repo entries and do not independently search for or select different plans. Verify that every selected plan exists, that every selected plan filename carries the same story number, and that each participating branch matches that story number. If those checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection. Confirm what story the normalized review scope represents, list the participating repositories when there is more than one, and provide me with an overview of what is still remaining to be done without making file changes at this time."
+            "Please read AGENTS.md and follow its instructions. Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first and treat it as the sole source of review scope for this flow. Determine the active `plan_path`, then extract repository paths from `additional_repositories` in that handoff file, and re-open that exact relative `plan_path` from disk. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry. Re-check the current repository branch directly from git, for example with `git branch --show-current`, and re-check each participating additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`. Verify that the selected plan exists in the current repository, that the selected plan filename carries the story number that matches the current repository branch, and that each participating additional repository is on a branch whose story number matches the selected plan filename. If those checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection. Confirm what story the normalized review scope represents, list the participating repositories when there is more than one, and provide me with an overview of what is still remaining to be done without making file changes at this time."
           ]
         }
       ]
@@ -38,7 +38,14 @@
     },
     {
       "type": "llm",
-      "label": "update new task testing",
+      "label": "Refresh current plan handoff after review",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
+    },
+    {
+      "type": "llm",
+      "label": "Ensure Testing Steps Are Correct",
       "agentType": "planning_agent",
       "identifier": "planner",
       "markdownFile": "ensure_testing_steps_are_correct.md"
@@ -51,7 +58,9 @@
       "messages": [
         {
           "role": "user",
-          "content": ["If possible, git push the branch."]
+          "content": [
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and determine the active `plan_path`, then extract repository paths from `additional_repositories` as the active scope for this flow. If possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
+          ]
         }
       ]
     }

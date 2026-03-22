@@ -3,38 +3,10 @@
   "steps": [
     {
       "type": "llm",
-      "label": "Clear stale current plan handoff",
+      "label": "Planner Select And Store Next Plan",
       "agentType": "planning_agent",
       "identifier": "planner",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Please read AGENTS.md and follow its instructions. Then delete `codeInfoStatus/flow-state/current-plan.json` if it already exists so this flow cannot inherit stale active-plan state from an earlier run. Do not fail if the file is missing, and do not create a replacement in this step. If you deleted it, commit the change and then, if you can, push."
-          ]
-        }
-      ]
-    },
-    {
-      "type": "llm",
-      "label": "Planner Select Next Plan",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "select_next_plan_and_branch.md"
-    },
-    {
-      "type": "llm",
-      "label": "Planner Store Next Plan",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Now you know the selected plan/spec/story, write or overwrite `codeInfoStatus/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow. Commit this file, and push if you can"
-          ]
-        }
-      ]
+      "markdownFile": "store_current_plan_handoff.md"
     },
     {
       "type": "llm",
@@ -45,7 +17,7 @@
         {
           "role": "user",
           "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and determine the active `plan_path`, then extract repository paths from `additional_repositories` for this flow. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository path is readable and is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If branch setup in an additional repository would overwrite local changes, stop and say repository branch setup is blocked by local changes. Before touching any additional repository later in the flow, you must read that repository's `AGENTS.md` and follow its repository-specific workflow rules. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, list the participating repositories when there is more than one, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]
@@ -63,7 +35,7 @@
             {
               "role": "user",
               "content": [
-                "Please check the last commit AND re-read the plan you are working on, even if you have read it before. You MUST double-check to see if tasks have been added to it by another agent or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of what the plan entails."
+                "Use fresh disk reads and current git state, not conversational memory. Read `codeInfoStatus/flow-state/current-plan.json` from disk first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` stored in the handoff from disk even if you have read it before. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. Re-check the current repository branch directly from git, for example with `git branch --show-current`, and re-check the most recent commit directly from git, for example with `git log --oneline -1`. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. Re-check each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`, and re-check its most recent commit directly from git, for example with `git -C <repo_root> log --oneline -1`. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. You MUST double-check to see if tasks have been added to the plan by another agent or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the whole plan again and CANNOT assume you understand it from before. Once you have done this, give me a summary of what the plan entails."
               ]
             }
           ]
@@ -77,7 +49,7 @@
             {
               "role": "user",
               "content": [
-                "Do you have any new requirement/scope based questions about the plan that need clarification before the plan is tasked up or worked on? Even if you have previously provided questions, maybe you have thought of some more after re-reading the plan and asking yourself `Am I sure about the full plan scope and requirements, and is it all documented within the plan`? If a '## Questions' section doesn't already exist within the plan, then create one at the end of the file, even if you do not have any questions to add. If you have questions not already in the section, then add them to the '## Questions' section as a numbered list. If the section already contains questions, then please renumber them so that the full list is ordered numerically and starts from 1. If you do not have any new questions you MUST write the exact line '- No Further Questions' immediately below the '## Questions' title, and above any existing questions within the section."
+                "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk before deciding whether any new questions are needed, because another agent may have edited it. Do not rediscover the story independently. Do you have any new requirement/scope based questions about the plan that need clarification before the plan is tasked up or worked on? Even if you have previously provided questions, maybe you have thought of some more after re-reading the plan and asking yourself `Am I sure about the full plan scope and requirements, and is it all documented within the plan`? If a '## Questions' section doesn't already exist within the plan, then create one at the end of the file, even if you do not have any questions to add. If you have questions not already in the section, then add them to the '## Questions' section as a numbered list. If the section already contains questions, then please renumber them so that the full list is ordered numerically and starts from 1. If you do not have any new questions you MUST write the exact line '- No Further Questions' immediately below the '## Questions' title, and above any existing questions within the section."
               ]
             }
           ]
@@ -87,7 +59,7 @@
           "label": "Check for No Further Questions",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "question": "Did you add additional/new questions to the plan file (adding 'No Further Questions' does NOT count as adding questions)? You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Did you add additional/new questions to the plan file during your latest edit (adding 'No Further Questions' does NOT count as adding questions)? You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "no"
         },
         {
@@ -95,7 +67,7 @@
           "label": "Check for No Further Questions",
           "agentType": "research_agent",
           "identifier": "researcher",
-          "question": "Re-open the plan that you are working on, ensuring that you re-read it from disk since another agent will have edited it, so what you think the plan contains is definitely out of date. Does the plan contain the line 'No Further Questions' within the '## Questions' section of the plan file? You MUST re-read the plan before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, ensuring that you re-read it since another agent will have edited it and what you think the plan contains is definitely out of date. Does the plan contain the line 'No Further Questions' within the '## Questions' section of the plan file? You MUST re-read the plan before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
         },
         {
@@ -107,12 +79,19 @@
             {
               "role": "user",
               "content": [
-                "Please read through each question listed within the '## Questions' section of the plan. For each question, I want you to perform thorough research for each question seperately in order. While researching an answer, I want you to follow these golden rules: 1. Use the KISS principle, only planning what is needed for THIS story and avoiding extra work and over engineering. Follow established patterns of what has been done before. 3. Ensure we are not going outside the scope of the oringinal plan. 4. Ensure everything we are planning to do has a purpose - To answer each question you MUST follow these steps: 1. Use the code_info tool to find out how we have approached similar issues within this repository before.  2. Use the code_info tool to find out how these kinds of issues have been approached within ALL ingested repositories. 3. Use the deepwiki and context7 tools along with web searches to confirm any questions related to external libraries that are not accessible from the code_info tool.  4. Search the web to see if other people have asked the same question, and use the best and proven solutions that match with our KISS principles.  - Once you have an answer to a question, add it to a '## Decisions' section immediately after the '## Questions' section (you will need to create it if it doesn't already exist). Each decision should be added as an item within a numbered list under the '## Decisions' section. The decision should have bullet points that indicate: - the question being addressed, WHY the question matters, WHAT the answer is, WHERE the answer came from and WHY it is the best answer to the question. In addition to adding the answer to the '## Decisions' section, you MUST update all other sections of the plan where appropriate based on the information from the answer, including description, acceptance, out of scope, etc... You MUST ALSO remove answered questions from the '## Questions' section, but never actually remove the '## Questions' section heading (in case more questions are added later). If it is impossible for you to answer a question after following the above steps, just leave it within the '## Questions' section. Never task up and commit after making any changes."
+                "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk before researching, because another agent may have just edited it. Do not rediscover the story independently. Please read through each question listed within the '## Questions' section of the plan. For each question, I want you to perform thorough research for each question separately in order. While researching an answer, I want you to follow these golden rules: 1. Use the KISS principle, only planning what is needed for THIS story and avoiding extra work and over engineering. Follow established patterns of what has been done before. 3. Ensure we are not going outside the scope of the original plan. 4. Ensure everything we are planning to do has a purpose - To answer each question you MUST follow these steps: 1. Use the code_info tool to find out how we have approached similar issues within this repository before.  2. Use the code_info tool to find out how these kinds of issues have been approached within ALL ingested repositories. 3. Use the deepwiki and context7 tools along with web searches to confirm any questions related to external libraries that are not accessible from the code_info tool.  4. Search the web to see if other people have asked the same question, and use the best and proven solutions that match with our KISS principles.  - Once you have an answer to a question, add it to a '## Decisions' section immediately after the '## Questions' section (you will need to create it if it doesn't already exist). Each decision should be added as an item within a numbered list under the '## Decisions' section. The decision should have bullet points that indicate: - the question being addressed, WHY the question matters, WHAT the answer is, WHERE the answer came from and WHY it is the best answer to the question. In addition to adding the answer to the '## Decisions' section, you MUST update all other sections of the plan where appropriate based on the information from the answer, including description, acceptance, out of scope, etc... You MUST ALSO remove answered questions from the '## Questions' section, but never actually remove the '## Questions' section heading (in case more questions are added later). If it is impossible for you to answer a question after following the above steps, just leave it within the '## Questions' section. Never task up and commit after making any changes."
               ]
             }
           ]
         }
       ]
+    },
+    {
+      "type": "llm",
+      "label": "Refresh current plan handoff after planning",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
     },
     {
       "type": "llm",
@@ -123,7 +102,7 @@
         {
           "role": "user",
           "content": [
-            "Commit all local changes, and if possible, git push the branch."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Commit all local changes, and if possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
           ]
         }
       ]

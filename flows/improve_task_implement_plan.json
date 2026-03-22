@@ -3,38 +3,10 @@
   "steps": [
     {
       "type": "llm",
-      "label": "Clear stale current plan handoff",
+      "label": "Planner Select And Store Next Plan",
       "agentType": "planning_agent",
       "identifier": "planner",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Please read AGENTS.md and follow its instructions. Then delete `codeInfoStatus/flow-state/current-plan.json` if it already exists so this flow cannot inherit stale active-plan state from an earlier run. Do not fail if the file is missing, and do not create a replacement in this step. If you deleted it, commit the change and then, if you can, push."
-          ]
-        }
-      ]
-    },
-    {
-      "type": "llm",
-      "label": "Planner Select Next Plan",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "select_next_plan_and_branch.md"
-    },
-    {
-      "type": "llm",
-      "label": "Planner Store Next Plan",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Now you know the selected plan/spec/story, write or overwrite `codeInfoStatus/flow-state/current-plan.json` with only the selected relative plan path using the shape `{ \"plan_path\": \"planning/<story-file>.md\" }`. Do not write absolute paths. This handoff file becomes the sole plan-selection source for every later step in this flow. Commit this file, and push if you can"
-          ]
-        }
-      ]
+      "markdownFile": "store_current_plan_handoff.md"
     },
     {
       "type": "llm",
@@ -45,7 +17,7 @@
         {
           "role": "user",
           "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and determine the active `plan_path`, then extract repository paths from `additional_repositories` for this flow. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository path is readable and is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If branch setup in an additional repository would overwrite local changes, stop and say repository branch setup is blocked by local changes. Before touching any additional repository later in the flow, you must read that repository's `AGENTS.md` and follow its repository-specific workflow rules. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, list the participating repositories when there is more than one, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]
@@ -63,7 +35,7 @@
             {
               "role": "user",
               "content": [
-                "Please check the last commit AND re-read the plan you are working on, even if you have read it before. You MUST double-check to see if it has been edited by another agent or if anything has changed. You must ensure you fully understand the plan before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of what the plan entails."
+                "Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first and determine the active `plan_path`, then re-open that exact relative `plan_path` from disk even if you have read it before. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and check the most recent commit directly from git, for example with `git log --oneline -1`. You MUST double-check to see if another agent has edited the plan or changed its scope since you last looked at it. You MUST read the whole plan again and CANNOT assume you understand it from before. Once you have done this, give me a summary of what the plan entails."
               ]
             }
           ]
@@ -107,12 +79,19 @@
             {
               "role": "user",
               "content": [
-                "Please read through each question listed within the '## Questions' section of the plan as it should have been edited by another agent. For each question, I want you to perform thorough research for each question seperately in order. While researching an answer, I want you to follow these golden rules: 1. Use the KISS principle, only planning what is needed for THIS story and avoiding extra work and over engineering. Follow established patterns of what has been done before. 3. Ensure we are not going outside the scope of the oringinal plan. 4. Ensure everything we are planning to do has a purpose - To answer each question you MUST follow these steps: 1. Use the code_info tool to find out how we have approached similar issues within this repository before.  2. Use the code_info tool to find out how these kinds of issues have been approached within ALL ingested repositories. 3. Use the deepwiki and context7 tools along with web searches to confirm any questions related to external libraries that are not accessible from the code_info tool.  4. Search the web to see if other people have asked the same question, and use the best and proven solutions that match with our KISS principles.  - Once you have an answer to a question, add it to a '## Decisions' section immediately after the '## Questions' section (you will need to create it if it doesn't already exist). Each decision should be added as an item within a numbered list under the '## Decisions' section. The decision should indicate: - the question being adressed, WHY the question matters, WHAT the answer is, WHERE the answer came from and WHY it is the best answer to the question. In addition to adding the answer to the '## Decisions' section, you MUST update all other sections of the plan where appropriate based on the information from the answer, including description, acceptance, out of scope, etc... You MUST ALSO remove answered questions from the '## Questions' section, but never actually remove the '## Questions' section heading (in case more questions are added later). If it is impossible for you to answer a question after following the above steps, just leave it within the '## Questions' section. Never task up and commit after making any changes."
+                "Please read through each question listed within the '## Questions' section of the plan as it should have been edited by another agent. For each question, I want you to perform thorough research for each question separately in order. While researching an answer, I want you to follow these golden rules: 1. Use the KISS principle, only planning what is needed for THIS story and avoiding extra work and over engineering. Follow established patterns of what has been done before. 3. Ensure we are not going outside the scope of the original plan. 4. Ensure everything we are planning to do has a purpose - To answer each question you MUST follow these steps: 1. Use the code_info tool to find out how we have approached similar issues within this repository before.  2. Use the code_info tool to find out how these kinds of issues have been approached within ALL ingested repositories. 3. Use the deepwiki and context7 tools along with web searches to confirm any questions related to external libraries that are not accessible from the code_info tool.  4. Search the web to see if other people have asked the same question, and use the best and proven solutions that match with our KISS principles.  - Once you have an answer to a question, add it to a '## Decisions' section immediately after the '## Questions' section (you will need to create it if it doesn't already exist). Each decision should be added as an item within a numbered list under the '## Decisions' section. The decision should indicate: - the question being addressed, WHY the question matters, WHAT the answer is, WHERE the answer came from and WHY it is the best answer to the question. In addition to adding the answer to the '## Decisions' section, you MUST update all other sections of the plan where appropriate based on the information from the answer, including description, acceptance, out of scope, etc... You MUST ALSO remove answered questions from the '## Questions' section, but never actually remove the '## Questions' section heading (in case more questions are added later). If it is impossible for you to answer a question after following the above steps, just leave it within the '## Questions' section. Never task up and commit after making any changes."
               ]
             }
           ]
         }
       ]
+    },
+    {
+      "type": "llm",
+      "label": "Refresh current plan handoff after planning",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
     },
     {
       "type": "llm",
@@ -123,7 +102,7 @@
         {
           "role": "user",
           "content": [
-            "Commit all local changes, and if possible, git push the branch."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Then commit all local changes, and if possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
           ]
         }
       ]
@@ -137,6 +116,13 @@
     },
     {
       "type": "llm",
+      "label": "Refresh current plan handoff after improve plan",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
+    },
+    {
+      "type": "llm",
       "label": "Tasker Use Next Plan",
       "agentType": "tasking_agent",
       "identifier": "tasker",
@@ -144,7 +130,7 @@
         {
           "role": "user",
           "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository path is readable and is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If branch setup in an additional repository would overwrite local changes, stop and say repository branch setup is blocked by local changes. Before touching any additional repository later in the flow, you must read that repository's `AGENTS.md` and follow its repository-specific workflow rules. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, list the participating repositories when there is more than one, and provide me with an overview of the story including what is still remaining to be done without making file changes at this time."
           ]
         }
       ]
@@ -165,10 +151,17 @@
         {
           "role": "user",
           "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. The plan has now been tasked up. Please check that the tasks created fully cover that selected plan and that nothing has been missed. If you feel something is missing, please update the plan and tasks accordingly. Remember to ensure that each task has clear implementation instructions and testing steps so a developer can fully understand what to do. Please confirm once you are happy that the plan has been fully tasked up and nothing is missing. Do not ask me any questions, instead just update the plan and tasks following the KISS principle until you are happy everything is fully covered."
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. The plan has now been tasked up. Please check that the tasks created fully cover that selected plan and that nothing has been missed. If you feel something is missing, please update the plan and tasks accordingly. Remember to ensure that each task has clear implementation instructions and testing steps so a developer can fully understand what to do. Please confirm once you are happy that the plan has been fully tasked up and nothing is missing. Do not ask me any questions, instead just update the plan and tasks following the KISS principle until you are happy everything is fully covered."
           ]
         }
       ]
+    },
+    {
+      "type": "llm",
+      "label": "Refresh current plan handoff after tasking",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
     },
     {
       "type": "llm",
@@ -179,7 +172,7 @@
         {
           "role": "user",
           "content": [
-            "Please read AGENTS.md and follow its instructions. Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time."
+            "Please read AGENTS.md and follow its instructions. Read `codeInfoStatus/flow-state/current-plan.json` first and determine the active `plan_path` and any `additional_repositories` in scope for this flow. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry. Re-open the exact relative `plan_path` from disk before summarizing the next coding work, because the tasking or planning agents may have just edited it. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository path is readable and is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If branch setup in an additional repository would overwrite local changes, stop and say repository branch setup is blocked by local changes. Before touching any additional repository later in the flow, you must read that repository's `AGENTS.md` and follow its repository-specific workflow rules. Do NOT use code_info tools for plan selection and do NOT independently search for or select a different plan. Confirm to me what story that selected plan is, list the participating repositories when there is more than one, and provide me with an overview of the story, including what is still remaining to be done, without making file changes at this time."
           ]
         }
       ]
@@ -197,7 +190,7 @@
             {
               "role": "user",
               "content": [
-                "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Then check the last commit AND re-read that same plan, even if you have read it before. You MUST double-check to see if tasks have been added to it by another agent or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
+                "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last commit in the current repository and in every additional repository AND re-read that same plan, even if you have read it before. You MUST double-check to see if tasks have been added to it by another agent or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
               ]
             }
           ]
@@ -222,7 +215,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Continue using only the relative `plan_path` stored in `codeInfoStatus/flow-state/current-plan.json` as the active plan for this flow. Do not switch plans or rediscover the next story independently. Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section. You must keep the subtasks tick box updated as you work through each subtask to ensure everyone understands what has been done. Then run through the testing steps, ensuring you keep the subtasks tick box updated as you work through each testing step. Note that LMStudio is running and available, and Codex has been logged in locally and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task, and any commands or output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit, write it into the implementation notes marked as **BLOCKER** and write a note describing the issue you hit. Blockers must include the exact subtask or testing step where work stopped, what you tried, the exact capability that is missing and whether you think the task should be split, re-ordered or re-written before work continues. Do not invent fake runtime seams, fake containers, fake health checks, or pretend a proof step passed when the required capability does not yet exist. Remember to keep your implementation notes concise and to the point. Remember that your normal output will not be seen by users or agents, and any issues MUST be marked as **BLOCKER** within the implementation notes to be visible to others to help you. YOU MUST commit, but not push, before finishing this request, no matter what changes you made."
+                    "Continue using only the stored `plan_path` and `additional_repositories` in `codeInfoStatus/flow-state/current-plan.json` as the active scope for this flow. Do not switch plans or rediscover the next story independently. Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section. You must keep the subtasks tick box updated as you work through each subtask to ensure everyone understands what has been done. Then run through the testing steps, ensuring you keep the subtasks tick box updated as you work through each testing step. Note that LMStudio is running and available, and Codex has been logged in locally and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task, and any commands or output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit, write it into the implementation notes marked as **BLOCKER** and write a note describing the issue you hit. Blockers must include the exact subtask or testing step where work stopped, what you tried, the exact capability that is missing and whether you think the task should be split, re-ordered or re-written before work continues. Do not invent fake runtime seams, fake containers, fake health checks, or pretend a proof step passed when the required capability does not yet exist. Remember to keep your implementation notes concise and to the point. Remember that your normal output will not be seen by users or agents, and any issues MUST be marked as **BLOCKER** within the implementation notes to be visible to others to help you. YOU MUST commit, but not push, before finishing this request, no matter what changes you made."
                   ]
                 }
               ]
@@ -236,7 +229,21 @@
                 {
                   "role": "user",
                   "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Do not rediscover the story independently. Then audit the coding agent's work on that plan honestly: check whether completed work was implemented but left unmarked, and correct tasks, subtask and testing statuses if the evidence supports it. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker is local to the task or reveals a design problem within the plan. If you make tracked changes, you MUST commit them, but do not push."
+                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's work on that plan honestly: check whether completed work was implemented but left unmarked, and correct tasks, subtask and testing statuses if the evidence supports it. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker is local to the task or reveals a design problem within the plan. If you make tracked changes, you MUST commit them, but do not push."
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "llm",
+              "label": "Research blocker impact on plan",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": [
+                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Re-open the exact relative `plan_path` from disk before checking for blockers or implementation notes, because the coding agent may have just edited that file. If the implementation does not contain a blocker, just state that. If the implementation notes contain a blocker, you MUST research and prove the solution before continuing. Your research must cover: 1. Pattern research - use the code_info tool to see how other ingested repositories solve the same class of problem, and use deepwiki, context7 and web searches to confirm intended usage of the relevant external libraries and frameworks. Prefer existing repository and official library solutions over invented approaches. 2. Issue-resolution research - research the exact blocker or error itself using official docs and internet searches, and find how other engineers resolve the same concrete failure mode in practice. Distinguish between temporary workarounds, proper fixes, and anti-patterns. 3. You MUST prove the chosen solution before editing the plan: record the repository precedents you found, record the external library precedents you found, record the issue resolution references you found, explain why the chosen fix fits the current local repo state, and explain why the rejected alternatives were not suitable. write the answer into the implementation notes marked as **BLOCKING ANSWER**. Do not ask me questions or for clarification and do not offer me options - you must solve this one. If you make tracked changes, you MUST commit them, but do not push."
                   ]
                 }
               ]
@@ -250,24 +257,17 @@
                 {
                   "role": "user",
                   "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Do not rediscover the story independently. If the implementation does not contain a blocker, just state that. If the implementation notes contain a blocker, you MUST research and prove the solution before continuing. Your research must cover: 1. Pattern research - use the code_info tool to see how other ingested repositoires solve the same class of problem, and use deepwiki, context7 and web searches to confirm intended usage of the relevant external libraries and frameworks. Prefer existing repository and official library solutions over invented approaches. 2. Issue-resolution research - research the exact blocker or error itself using official docs and internet searches, and find how other engineers resolve the same concrete failure mode in practice. Distinguish between temporary workarounds, proper fixes, and anti-patterns. 3. You MUST prove the chosen solution before editing the plan: record the repository precidents you found, record the external library precidents you found, record the issue resolution references you found, explain why the chosen fix fits the current local repo state, and explain why the rejected alternatives were not suitable. write the answer into the implementation notes marked as **BLOCKING ANSWER**. Do not ask me questions or for clarification and do not offer me options - you must solve this one. If you make tracked changes, you MUST commit them, but do not push."
+                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Re-open the exact relative `plan_path` from disk before deciding whether the blocker changes the plan, because the coding agent or the earlier planner step may have just edited it. If the implementation does not contain a blocker, or didn't contain a blocker you just researched and attempted to fix, just state that. If there is/was a blocker, you must decide if the blocker proves the plan itself is wrong or incomplete. You MUST check if the blocker reveals any of the following: missing prerequisite tasks, a task that is too large and must be split, a task that assumes a runtime seam, readiness contract, dependency, test harness, environment mapping, or startup contract that does not yet exist, a task with testing steps that cannot honestly be run at the point the task is supposed to complete, or later tasks that now require renumbering or reference updates. If any of those are true, you MUST repair the story before continuing: insert explicit prerequisite tasks, narrow or re-write a blocked task so it depends only on already proven capabilities, renumber all downstream tasks, update all cross-references, note-file references, prerequisite references, and testing gates, make the new subtasks detailed enough for a junior engineer to follow without asking for help, ensure each testing section is runnable at the point that task completes and actually proves the intended work, and write what changed and WHY inside the task and implementation notes. If the blocker exists because the current task assumes a runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract that does not yet exist, you MUST prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task. If no story repair is needed, state explicitly why not. If you make tracked changes, you MUST commit them, but do not push."
                   ]
                 }
               ]
             },
             {
               "type": "llm",
-              "label": "Research blocker solution and prove it",
+              "label": "Refresh current plan handoff after planner edits",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "messages": [
-                {
-                  "role": "user",
-                  "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan for this flow. Do not rediscover the story independently. If the implementation does not contain a blocker, or didn't contain a blocker you just researched and attempted to fix, just state that. If there is/was a blocker, you must decide if the blocker proves the plan itself is wrong or incomplete. You MUST check if the blocker reveals any of the following: missing prerequisite tasks, a task that is too large and must be split, a task that assumes a runtime seam, readiness contract, dependency, test harness, environment mapping, or startup contract that does not yest exist, a task with testing steps that cannot honestly be run at the point the task is supposed to complete, or later tasks that now require renumbering or reference updates. If any of those are true, you MUST repair the story before continuing: insert explicit prerequisite tasks, narrow or re-write a blocked task so it depends only on already proven capabilities, renumber all downstream tasks, update all cross-references, note-file references, prerequisite references, and testing gates, make the new subtasks detailed enough for a junior engineer to follow without asking for help, ensure each testing section is runnable at the point that task completes and actually proves the intended work, and write what changed and WHY inside the task and implementation notes. If the blocker exists because the current task assumes a runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract that does not yet exist, you MUST prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task. If no story repair is needed, state explicitly why not. If you make tracked changes, you MUST commit them, but do not push."
-                  ]
-                }
-              ]
+              "markdownFile": "refresh_current_plan_handoff.md"
             },
             {
               "type": "llm",
@@ -278,7 +278,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` stored there after the planning agent step. Verify that the selected plan file still exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Confirm any Task Status updates or new tasks that were added, or any task renumbering that occured, and run `git status -sb` to verify the plan file change was committed. Then, identify the next executable task based on the updated plan, not based on what used to be blocked, and summarize the remaining tasks based on the updated plan before proceeding."
+                    "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` stored there after the planning agent step. Verify that the selected plan file still exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Confirm any Task Status updates or new tasks that were added, or any task renumbering that occurred, and run `git status -sb` to verify the plan file change was committed. Then, identify the next executable task based on the updated plan, not based on what used to be blocked, and summarize the remaining tasks based on the updated plan before proceeding."
                   ]
                 }
               ]
@@ -292,7 +292,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and open only the relative `plan_path` stored there. Do not rediscover the story independently. Before answering completion, list each task's Task Status (including the final task). Explicitly state whether the final task is __done__ or not, and cite the relative plan file path you read."
+                    "Read `codeInfoStatus/flow-state/current-plan.json` first and open only the relative `plan_path` stored there in the current repository. Do not rediscover the story independently. Before answering completion, list each task's Task Status (including the final task). Explicitly state whether the final task is __done__ or not, cite the relative plan file path you read, and state whether every repository in scope is still on a branch whose story number matches the selected plan filename or whether repository branch scope has drifted."
                   ]
                 }
               ]
@@ -302,7 +302,7 @@
               "label": "Check for completion",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the relative `plan_path` stored there as the active plan. Verify that the selected plan file exists and that the story number in the current branch name matches the story number in the selected plan filename. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Then re-read that plan and check the last 3 git commits. You MUST confirm the final task's Task Status from the plan file and only answer yes if every task is marked __done__. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then re-read that plan and check the last 3 git commits in the current repository and in every additional repository. You MUST confirm the final task's Task Status from the plan file and only answer yes if every task is marked __done__ and every repository in scope is still on a branch whose story number matches the selected plan filename. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]
@@ -330,7 +330,14 @@
         },
         {
           "type": "llm",
-          "label": "update new task testing",
+          "label": "Refresh current plan handoff after review",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "refresh_current_plan_handoff.md"
+        },
+        {
+          "type": "llm",
+          "label": "Ensure Testing Steps Are Correct",
           "agentType": "planning_agent",
           "identifier": "planner",
           "markdownFile": "ensure_testing_steps_are_correct.md"
@@ -340,7 +347,7 @@
           "label": "Check for completion",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "question": "Re-read the plan that was being worked on and check the last 3 git commits. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer, as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then re-read that plan and check the last 3 git commits in the current repository and in every additional repository. Is the plan that was being worked on now complete and do all repositories in scope remain on branches whose story numbers match the selected plan filename? You MUST re-read the plan and check the last 3 git commits before giving your answer, as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
         }
       ]
@@ -354,27 +361,15 @@
     },
     {
       "type": "llm",
-      "label": "Remove current plan handoff",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "The flow has now finished working through the selected story. Delete `codeInfoStatus/flow-state/current-plan.json` so later runs cannot reuse stale active-plan state. Do not fail if the file is already missing."
-          ]
-        }
-      ]
-    },
-    {
-      "type": "llm",
       "label": "Push",
       "agentType": "planning_agent",
       "identifier": "planner",
       "messages": [
         {
           "role": "user",
-          "content": ["If possible, git push the branch."]
+          "content": [
+            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. If possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
+          ]
         }
       ]
     }

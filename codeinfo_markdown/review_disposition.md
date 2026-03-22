@@ -5,7 +5,7 @@ Finish the current story review using ONLY the handoff file and findings file re
 ## Critical Rules
 
 - Do NOT rediscover review artifacts by timestamp.
-- First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path` plus any `additional_repositories` in scope.
+- First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path`, then extract repository paths from `additional_repositories`.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - Then read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit any plan.
@@ -24,7 +24,7 @@ Finish the current story review using ONLY the handoff file and findings file re
 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
-- Review scope is the current repository plus every path in `additional_repositories`.
+- Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
 
 ### Review Handoff Requirements
 

@@ -5,10 +5,10 @@ Start the 3-step review sequence for the current story. This step is the evidenc
 ## Critical Rules
 
 - First read `codeInfoStatus/flow-state/current-plan.json` and treat it as the SOLE source of review scope for this flow.
-- Resolve the active `plan_path` and any `additional_repositories` from that handoff file.
+- Resolve the active `plan_path` and extract repository paths from `additional_repositories` in that handoff file.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it for review scope.
-- Use ONLY the repositories defined by the current repository plus `additional_repositories`. Do not invent additional repositories or plan files.
+- Use ONLY the current repository plus the repository paths extracted from `additional_repositories`. Do not invent additional repositories or plan files.
 - If any handoff validation rule fails, stop and say the current-plan handoff is stale and must be regenerated.
 - For multi-repository stories, you MUST gather cross-repository integration evidence rather than treating each repository in isolation.
 - Treat `flows/**` as approved workflow configuration. Changes under `flows/**` must not be classified as suspicious, out-of-scope, or scope creep solely because they are absent from the active plan, but they should still be reviewed normally for workflow behavior, instruction safety, and other engineering concerns.
@@ -23,7 +23,7 @@ Start the 3-step review sequence for the current story. This step is the evidenc
 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
-- Review scope is always the current repository plus every path in `additional_repositories`.
+- Review scope is always the current repository plus the repository paths extracted from `additional_repositories`.
 - The story number comes from the canonical plan filename.
 - The story branch name comes from the current repository branch and must match the canonical plan story number.
 

@@ -139,7 +139,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: MCP answer-only responses for codebase_question
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 566d444, 58d8c91
 
 #### Overview
@@ -365,7 +365,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 ### 2. Server: MCP agents answer-only responses
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 727168e, 585b497
 
 #### Overview
@@ -547,7 +547,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 
 ### 3. Server: distance semantics for vector aggregations (min distance)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **7e897d9, eabb8c9**
 
 #### Overview
@@ -738,7 +738,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 
 ### 4. Server: retrieval cutoff + fallback selection
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **7700d4a, 621762b**
 
 #### Overview
@@ -1007,7 +1007,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 ### 5. Server: tool payload size caps + server-side dedupe
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 72a98af
 
 #### Overview
@@ -1300,7 +1300,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 ### 6. Client: render citations without dedupe (server-only)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 4174f78
 
 #### Overview
@@ -1432,7 +1432,7 @@ Ensure the client renders VectorSearch citations exactly as the server returns t
 
 ### 7. Client: tool details show distance labels + per-match distances
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 91420ea
 
 #### Overview
@@ -1667,7 +1667,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 ### 8. Final verification + documentation + PR summary
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 6a5246d
 
 #### Overview

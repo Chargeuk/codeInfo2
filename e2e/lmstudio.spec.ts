@@ -1,8 +1,8 @@
 import type { LmStudioStatusResponse } from '@codeinfo2/common';
 import { expect, test } from '@playwright/test';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
-const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
+const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const lmBaseUrl =
   process.env.CODEINFO_LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
 

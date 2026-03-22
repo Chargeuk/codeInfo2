@@ -19,9 +19,7 @@ export function resolvePreviewAllowedHosts(
   rawValue: string | undefined,
 ): true | string[] {
   const configuredHosts = normalizeHosts(rawValue);
-  const allowAll = configuredHosts.some(
-    (host) => host.toUpperCase() === 'ALL',
-  );
+  const allowAll = configuredHosts.some((host) => host.toUpperCase() === 'ALL');
   if (allowAll) {
     return true;
   }

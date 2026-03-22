@@ -233,12 +233,11 @@ export default function VirtualizedTranscript({
             !historyTopLockActive &&
             beforeSnapshot?.scrollMode === 'pinned-bottom' &&
             deltaHeight > 0;
-          const expectedScrollTop =
-            !beforeSnapshot
-              ? null
-              : shouldPreserveAnchor || shouldPreservePinnedBottom
-                ? beforeSnapshot.scrollTop + deltaHeight
-                : beforeSnapshot.scrollTop;
+          const expectedScrollTop = !beforeSnapshot
+            ? null
+            : shouldPreserveAnchor || shouldPreservePinnedBottom
+              ? beforeSnapshot.scrollTop + deltaHeight
+              : beforeSnapshot.scrollTop;
           if (
             beforeSnapshot &&
             afterSnapshot &&
@@ -246,7 +245,8 @@ export default function VirtualizedTranscript({
           ) {
             const scrollElement = transcriptContainerRef.current;
             if (scrollElement) {
-              scrollElement.scrollTop = expectedScrollTop ?? scrollElement.scrollTop;
+              scrollElement.scrollTop =
+                expectedScrollTop ?? scrollElement.scrollTop;
             }
           }
           const settledSnapshot = getScrollSnapshot();

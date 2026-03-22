@@ -345,7 +345,7 @@ These findings are based on the current repository implementation and are includ
 
 ### 1. Conversation list filtering (state query)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **1c89fa7**
 
 #### Overview
@@ -590,7 +590,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 ### 2. Conversation bulk endpoints
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 57a91cf, c95e5dd
 
 #### Overview
@@ -885,7 +885,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 ### 3. WebSocket server foundation
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 3210d97
 
 #### Overview
@@ -1182,7 +1182,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 ### 4. Chat WebSocket streaming publisher
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 2a890cc
 
 #### Overview
@@ -1648,7 +1648,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 ### 5. Server test updates for chat WebSockets
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: d200678, a83bc37
 
 #### Overview
@@ -2145,7 +2145,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 ### 6. Chat sidebar bulk actions UI
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 6f4543c, 8da77c4
 
 #### Overview
@@ -2356,7 +2356,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 ### 7. Chat WebSocket client streaming
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f4d044b
 
 #### Overview
@@ -2664,7 +2664,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 ### 8. Client streaming logs
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: fbb6188
 
 #### Overview
@@ -2807,7 +2807,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 ### 9. Front-end test updates
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: e3869bd
 
 #### Overview
@@ -3570,7 +3570,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 ### 10. Final verification
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 2652330
 
 #### Overview
@@ -3758,7 +3758,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 ### 11. Fix WS sequence gating to accept new in-flight runs
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **ca9c8a6**
 
 #### Overview
@@ -3839,7 +3839,7 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
 
 ### 12. Prevent empty history hydration from clearing in-flight transcript
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **e58728e**
 
 #### Overview
@@ -3915,7 +3915,7 @@ When a run starts, the client streams tokens via WebSocket and separately hydrat
 
 ### 13. Prevent duplicate bubbles when hydration arrives during streaming
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **6ae29dd**
 
 #### Overview
@@ -3991,7 +3991,7 @@ When a message is sent, the UI creates an in-flight bubble immediately and later
 
 ### 14. Treat transient Codex reconnects as warnings (no failed turns)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **5248a37, 601f34d**
 
 #### Overview
@@ -4196,7 +4196,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 ### 15. Fix Codex reasoning delta truncation (multi-item reasoning support)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **745e203, 7ef4031**
 
 #### Overview
@@ -4353,7 +4353,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
 
 ### 16. Refresh transcript + sidebar snapshots on focus/reconnect (no cross-tab broadcast)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **62efeef36556b360ecf9e47674ce354390f4e5e3**
 
 #### Overview
@@ -4530,7 +4530,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
 
 ### 17. Include in-memory inflight state in conversation snapshot refresh
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **daf09cb**
 
 #### Overview
@@ -4699,7 +4699,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 
 ### 18. Stream user turns over WS at run start (dedupe on sender tab)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **b943664**
 
 #### Overview
@@ -4857,7 +4857,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 ### 19. Prevent transcript width expansion (wrap citations/tool/markdown content)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **921ae0b, 1c9530d**
 
 #### Overview
@@ -5017,7 +5017,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
 
 ### 20. Align chat layout: fixed sidebar + full-width transcript column
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: **a97e89c**
 
 #### Overview
@@ -5181,7 +5181,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
 
 ### 21. Make transcript fill remaining viewport height beneath controls
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: **1d7b857**
 
 #### Overview
@@ -5328,7 +5328,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
 
 ### 22. Remove Codex MCP info banner from Chat page
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: **d926e7d**
 
 #### Overview
@@ -5444,7 +5444,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
 
 ### 23. Default Codex Flags panel to collapsed
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: **442ad34**
 
 #### Overview
@@ -5602,7 +5602,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
 
 ### 24. Allow full-width layout by removing App container max width (gutters preserved)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **b642971, 51db639**
 
 #### Overview
@@ -5762,7 +5762,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
 
 ### 25. Always merge inflight data into snapshots until persistence completes
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **8f0faa0**
 
 #### Overview
@@ -5918,7 +5918,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
 
 ### 26. Snapshot hardening: stable turn IDs + deterministic merge ordering
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **a696838**
 
 #### Overview
@@ -6061,7 +6061,7 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
 
 ### 27. Reset assistant bubble on cross-tab runs + add diagnostics (and dual-window e2e)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **5bb3299**
 
 #### Overview
@@ -6212,7 +6212,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
 
 ### 28. Persist client logs to server log file (tagged + client correlation)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **ffadb2a**
 
 #### Overview
@@ -6341,7 +6341,7 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
 
 ### 29. Add targeted client/server logs for cross-tab overwrite investigation
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: **5769b21**
 
 #### Overview
@@ -6440,7 +6440,7 @@ Add deterministic log lines that prove whether the active assistant pointer and 
 
 ### 30. Fix sending-tab assistant overwrite on second prompt
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits: **2febc39**
 
 #### Overview
@@ -6545,7 +6545,7 @@ The sending tab clears its inflight state before WS events arrive. Because the a
 
 ### 31. Fix Provider/Model label clipping by switching to TextField select
 
-- Task Status: ****completed****
+- Task Status: \***\*completed\*\***
 - Git Commits:
   - DEV-19 - Fix provider/model label clipping in ChatPage (`37709cf`)
 
@@ -6661,7 +6661,7 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
 
 ### 32. Add responsive collapsible Conversations drawer (sm breakpoint)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits:
   - DEV-19 - Add responsive Conversations drawer (`397c9f2`)
 
@@ -6777,7 +6777,7 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
 
 ### 33. Align Conversations drawer vertically with Chat panel
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits:
   - DEV-19 - Start Task 33 drawer alignment (`6abe0ac`)
   - DEV-19 - Align drawer with chat panel (`aff31c7`)
@@ -6881,7 +6881,7 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
 
 ### 34. Remount Drawer on breakpoint switch to prevent stuck toggle
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits:
   - DEV-19 - Start Task 34 remount drawer (`b41ac9a`)
   - DEV-19 - Fix drawer breakpoint remount (`db5dbe2`)

@@ -33,6 +33,7 @@ import type {
   ReingestError,
   ReingestSuccess,
 } from '../../ingest/reingestService.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -86,13 +87,23 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const buildReingestSuccess = (
   overrides: Partial<
-    Pick<ReingestSuccess, 'status' | 'errorCode' | 'sourceId' | 'runId'>
+    Pick<
+      ReingestSuccess,
+      | 'status'
+      | 'errorCode'
+      | 'sourceId'
+      | 'runId'
+      | 'resolvedRepositoryId'
+      | 'completionMode'
+    >
   > = {},
 ): ReingestSuccess => ({
   status: 'completed',
   operation: 'reembed',
   runId: 'run-123',
   sourceId: '/repo/source-a',
+  resolvedRepositoryId: 'repo-a',
+  completionMode: 'reingested',
   durationMs: 100,
   files: 3,
   chunks: 7,
@@ -169,6 +180,36 @@ const buildReingestError = (params: {
     },
   };
 };
+
+const buildRepoEntry = (params: {
+  id: string;
+  containerPath: string;
+}): RepoEntry => ({
+  id: params.id,
+  description: null,
+  containerPath: params.containerPath,
+  hostPath: `/host${params.containerPath}`,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+});
+
+const listDefaultReingestRepos = async (): Promise<ListReposResult> => ({
+  repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' })],
+  lockedModelId: null,
+});
 
 async function waitForTurns(
   conversationId: string,
@@ -600,6 +641,7 @@ test('dedicated flow reingest terminal error remains non-fatal to later steps', 
       flowName: 'reingest-error-continues',
       source: 'REST',
       chatFactory: () => new MinimalChat(),
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
@@ -641,6 +683,7 @@ test('dedicated flow reingest terminal cancelled remains non-fatal to later step
       flowName: 'reingest-cancelled-continues',
       source: 'REST',
       chatFactory: () => new MinimalChat(),
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
@@ -675,6 +718,7 @@ test('accepted skipped outcomes stay on the public completed path for dedicated 
       flowName: 'reingest-completed-continues',
       source: 'REST',
       chatFactory: () => new MinimalChat(),
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
@@ -710,6 +754,7 @@ test('malformed sourceId stops the dedicated flow reingest step before later ste
     const result = await startFlowRun({
       flowName: 'reingest-invalid-source',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
@@ -748,6 +793,7 @@ test('unknown sourceId stops the dedicated flow reingest step before later steps
     const result = await startFlowRun({
       flowName: 'reingest-unknown-source',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
@@ -785,6 +831,7 @@ test('busy reingest refusal stops the dedicated flow clearly', async () => {
     const result = await startFlowRun({
       flowName: 'reingest-busy',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
@@ -821,6 +868,7 @@ test('shared prestart formatter fallback stays aligned for dedicated flow failur
     const result = await startFlowRun({
       flowName: 'reingest-format-fallback',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
@@ -853,6 +901,7 @@ test('unexpected thrown exceptions fail the current dedicated flow', async () =>
     const result = await startFlowRun({
       flowName: 'reingest-throws',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
@@ -892,6 +941,7 @@ test('stop during the blocking wait prevents the next flow step from starting', 
     const result = await startFlowRun({
       flowName: 'reingest-stop-after-return',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       onOwnershipReady: ({ runToken: token }) => {
         runToken = token;
       },
@@ -942,6 +992,7 @@ test('timeout terminal results stay structured as nested dedicated flow reingest
       flowName: 'reingest-timeout-structured',
       source: 'REST',
       chatFactory: () => new MinimalChat(),
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
@@ -980,6 +1031,7 @@ test('missing-run terminal results stay structured as nested dedicated flow rein
       flowName: 'reingest-missing-structured',
       source: 'REST',
       chatFactory: () => new MinimalChat(),
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
@@ -1017,6 +1069,7 @@ test('unknown terminal results stay structured as nested dedicated flow reingest
       flowName: 'reingest-unknown-terminal',
       source: 'REST',
       chatFactory: () => new MinimalChat(),
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
@@ -1056,6 +1109,7 @@ test('flows containing only dedicated reingest steps start with the fallback mod
     const result = await startFlowRun({
       flowName: 'reingest-only-flow',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     assert.equal(result.modelId, 'gpt-5.1-codex-max');
@@ -1095,6 +1149,7 @@ test('dedicated reingest steps publish live and persisted flow metadata without 
     const result = await startFlowRun({
       flowName: 'reingest-metadata',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     const snapshot = await waitForEvent({
@@ -1182,6 +1237,7 @@ test('multiple dedicated reingest steps targeting the same sourceId keep distinc
     const result = await startFlowRun({
       flowName: 'reingest-double',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({

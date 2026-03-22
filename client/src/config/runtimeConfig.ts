@@ -388,17 +388,17 @@ function resolveClientRuntimeConfig(): {
     envApiBaseUrl.value ||
     (envApiBaseUrlBlockingIssue ? INVALID_EXPLICIT_API_BASE_URL : undefined) ||
     getFallbackApiBaseUrl();
-  const apiBaseUrlMode =
-    runtimeApiBaseUrl.value
-      ? runtimeApiBaseUrl.mode ?? 'literal_url'
-      : runtimeApiBaseUrlBlockingIssue
-        ? 'invalid_explicit'
-        : envApiBaseUrl.value
-          ? envApiBaseUrl.mode ?? 'literal_url'
-          : envApiBaseUrlBlockingIssue
-            ? 'invalid_explicit'
-            : 'fallback';
-  if (runtimeApiBaseUrl.diagnostic) diagnostics.push(runtimeApiBaseUrl.diagnostic);
+  const apiBaseUrlMode = runtimeApiBaseUrl.value
+    ? (runtimeApiBaseUrl.mode ?? 'literal_url')
+    : runtimeApiBaseUrlBlockingIssue
+      ? 'invalid_explicit'
+      : envApiBaseUrl.value
+        ? (envApiBaseUrl.mode ?? 'literal_url')
+        : envApiBaseUrlBlockingIssue
+          ? 'invalid_explicit'
+          : 'fallback';
+  if (runtimeApiBaseUrl.diagnostic)
+    diagnostics.push(runtimeApiBaseUrl.diagnostic);
   if (envApiBaseUrl.diagnostic) diagnostics.push(envApiBaseUrl.diagnostic);
 
   const runtimeLmStudioBaseUrl = normalizeUrl(
@@ -418,7 +418,8 @@ function resolveClientRuntimeConfig(): {
   if (runtimeLmStudioBaseUrl.diagnostic) {
     diagnostics.push(runtimeLmStudioBaseUrl.diagnostic);
   }
-  if (envLmStudioBaseUrl.diagnostic) diagnostics.push(envLmStudioBaseUrl.diagnostic);
+  if (envLmStudioBaseUrl.diagnostic)
+    diagnostics.push(envLmStudioBaseUrl.diagnostic);
 
   const runtimeLogForwardEnabled = normalizeBoolean(
     'logForwardEnabled',
@@ -451,7 +452,8 @@ function resolveClientRuntimeConfig(): {
   );
   const logMaxBytes =
     runtimeLogMaxBytes.value ?? envLogMaxBytes.value ?? DEFAULT_LOG_MAX_BYTES;
-  if (runtimeLogMaxBytes.diagnostic) diagnostics.push(runtimeLogMaxBytes.diagnostic);
+  if (runtimeLogMaxBytes.diagnostic)
+    diagnostics.push(runtimeLogMaxBytes.diagnostic);
   if (envLogMaxBytes.diagnostic) diagnostics.push(envLogMaxBytes.diagnostic);
 
   const config: ResolvedRuntimeConfig = {
@@ -508,7 +510,9 @@ export function hasBlockingApiBaseUrlConfigIssue(): boolean {
 }
 
 export function getApiBaseUrlBlockingIssueMessage(): string | null {
-  return describeApiBaseUrlBlockingIssue(getApiBaseUrlBlockingIssue() ?? undefined);
+  return describeApiBaseUrlBlockingIssue(
+    getApiBaseUrlBlockingIssue() ?? undefined,
+  );
 }
 
 export function getApiBaseUrl(): string {
@@ -531,10 +535,7 @@ export function resetClientRuntimeConfigLogForTests() {
   runtimeConfigLogged = false;
 }
 
-export {
-  INVALID_EXPLICIT_API_BASE_URL,
-  hasInvalidCanonicalRuntimeConfig,
-};
+export { INVALID_EXPLICIT_API_BASE_URL, hasInvalidCanonicalRuntimeConfig };
 
 export type {
   ApiBaseUrlBlockingIssue,

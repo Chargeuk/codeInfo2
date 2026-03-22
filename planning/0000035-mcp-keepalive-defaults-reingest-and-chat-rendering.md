@@ -534,7 +534,7 @@ Server test command note (KISS, deterministic):
 
 ### 1. Server: Shared default resolver for REST chat + committed env defaults
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 8218fa92ad2f692213a5b5f5822b1abfe47af4a6, 1e8b3984549242e9f2c5557be024400ca7e8560e
 
 #### Overview
@@ -650,6 +650,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -688,12 +689,14 @@ Create one authoritative provider/model default resolver and wire it into REST c
         - Test location: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`.
         - Description: Add/adjust tests where env defaults are empty/invalid and assert resolver/validator drop them and resolve to valid values.
         - Purpose: Prevent invalid env configuration from leaking into runtime behavior.
+
 6. [x] Update `design.md` for shared defaults architecture behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -701,18 +704,21 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Update architecture notes for provider/model default precedence and REST application flow.
    - Purpose: Keep architecture documentation aligned with implemented default-resolution behavior.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show provider/model default resolution precedence (`request -> env -> hardcoded fallback`) and where this resolution is applied in the REST chat path.
+
 7. [x] Update `README.md` for shared defaults runtime behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -720,10 +726,12 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document shared provider/model defaults and how env/request precedence works.
    - Purpose: Provide accurate operator/developer usage guidance for runtime defaults.
+
 8. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -787,7 +795,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 
 ### 2. Server: Runtime provider availability auto-fallback across REST + MCP selection paths
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 850d967fd34fa35d25fbf1cf8db09915838523ea
 
 #### Overview
@@ -945,6 +953,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -1019,6 +1028,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
      - Description: Add/adjust tests where Codex is unavailable but LM Studio is available and assert router execution reaches tool-call handling (no immediate global `CODE_INFO_LLM_UNAVAILABLE` pre-block).
      - Purpose: Lock provider-aware fallback reachability on the `tools/call` path.
+
 8. [x] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1038,6 +1048,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -1064,12 +1075,14 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
         - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
         - Description: Add a scenario proving execution remains on selected/default provider when available.
         - Purpose: Prevent unnecessary provider switching.
+
 9. [x] Update `design.md` for runtime auto-fallback/model-selection architecture.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -1077,12 +1090,14 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Document single-hop fallback decisions, fallback model selection, and resolved provider/model persistence flow.
    - Purpose: Keep architecture-level fallback behavior concrete and auditable for future changes.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show single-hop provider fallback decisions, fallback model selection, and persistence of resolved provider/model for REST and MCP `codebase_question`.
+
 10. [x] Update `README.md` for runtime auto-fallback/model-selection behavior.
 
 - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
@@ -1090,6 +1105,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
 - Starter snippet (documentation-only changes must be explicit and testable):
+
   ```md
   ## <Section>
 
@@ -1097,6 +1113,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
   - File/endpoint impacted:
   - Verification command(s):
   ```
+
 - Document name: `README.md`
 - Document location: `README.md`
 - Description: Document runtime provider availability fallback behavior and user-visible model/provider selection outcomes.
@@ -1186,7 +1203,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 ### 3. Server: Raw-input acceptance policy and whitespace-only rejection message contracts
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 4219f76
 
 #### Overview
@@ -1278,6 +1295,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -1304,6 +1322,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
         - Test location: `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-router-run.test.ts`.
         - Description: Add/adjust tests with non-whitespace content surrounded by whitespace and assert payload is accepted unchanged.
         - Purpose: Prevent unintended trim mutation.
+
 5. [x] Add server Cucumber contract scenarios for whitespace-only rejection message contracts by extending existing chat stream contract coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1323,6 +1342,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -1349,12 +1369,14 @@ Implement server-side non-empty-content enforcement without trimming valid user 
         - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
         - Description: Add a scenario where payload includes leading/trailing whitespace plus real content and assert successful acceptance.
         - Purpose: Ensure valid raw input is not rejected.
+
 6. [x] Update `openapi.json` for exact validation message contracts.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -1362,14 +1384,17 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Files to edit:
      - `openapi.json`
+
 7. [x] Update `README.md` for raw-input validation and rejection message behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -1377,16 +1402,19 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document whitespace-only/newline-only rejection rules and exact error message contracts.
    - Purpose: Keep user-facing API behavior documentation accurate.
+
 8. [x] Update `design.md` for raw-input validation flow and contracts.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -1394,10 +1422,12 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Update architecture/contract notes for raw payload preservation and whitespace-only rejection logic.
    - Purpose: Ensure design-level validation semantics remain precise and testable.
+
 9. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1497,7 +1527,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 
 ### 4. Server: MCP keepalive helper unification across all MCP surfaces
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 627b2cc, eac12cb
 
 #### Overview
@@ -1620,6 +1650,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -1664,12 +1695,14 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
         - Test location: `server/src/test/integration/mcp-server.test.ts`.
         - Description: Add/adjust tests asserting classic MCP `initialize` and `tools/list` responses do not include keepalive whitespace before JSON payload.
         - Purpose: Ensure keepalive scope remains limited to long-running tool execution.
+
 7. [x] Update docs for shared MCP keepalive behavior and architecture diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -1677,10 +1710,12 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Files to edit:
      - `design.md`
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show shared keepalive helper lifecycle (`start -> heartbeat -> stop`) and integration points for classic MCP, MCP v2, and agents MCP routes.
+
 8. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1799,7 +1834,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 
 ### 5. Server: `reingest_repository` shared service + canonical validation/error mapping
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 5b0c2be2a154e6bb0b33f2715136c581721866c8
 
 #### Overview
@@ -1895,6 +1930,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -1927,12 +1963,14 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
         - Test location: `server/src/test/unit/reingestService.test.ts`.
         - Description: Add/adjust tests for locked ingest state and assert `BUSY` mapping.
         - Purpose: Lock busy-state behavior.
+
 5. [x] Update `design.md` for canonical error/retry architecture and diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -1940,18 +1978,21 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Update architecture details and Mermaid diagrams for validation branches and canonical contract mapping.
    - Purpose: Keep service-level behavior and error contracts unambiguous in architecture docs.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show `reingest_repository` service validation branches and canonical success/error mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
+
 6. [x] Update `README.md` for canonical re-ingest error/retry behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -1959,10 +2000,12 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document canonical success/error payloads and retry-guidance fields for re-ingest.
    - Purpose: Ensure operators and integrators can implement against stable contracts.
+
 7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -2067,7 +2110,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 
 ### 6. Server: Wire `reingest_repository` into classic MCP (`POST /mcp`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9aa98d2
 
 #### Overview
@@ -2151,6 +2194,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -2183,12 +2227,14 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
         - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
         - Description: Add/adjust tests asserting `error.code=429` and `error.message="BUSY"` when ingest lock is active.
         - Purpose: Lock busy error semantics.
+
 5. [x] Update `README.md` for classic MCP `reingest_repository` exposure.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -2196,16 +2242,19 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document classic MCP tool availability and contract expectations for `reingest_repository`.
    - Purpose: Keep classic MCP usage docs aligned with implemented tool exposure.
+
 6. [x] Update `design.md` for classic MCP architecture flow and diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -2213,12 +2262,14 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Document classic MCP request flow to shared re-ingest service and contract mapping.
    - Purpose: Preserve architectural clarity of classic MCP integration behavior.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show classic MCP `initialize -> tools/list -> tools/call(reingest_repository)` routing to the shared re-ingest service and canonical response mapping.
+
 7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -2325,7 +2376,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 
 ### 7. Server: Wire `reingest_repository` into MCP v2 tools surface
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: c14d73a
 
 #### Overview
@@ -2409,6 +2460,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -2441,6 +2493,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
         - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust tests asserting `error.code=429` and `error.message="BUSY"` when ingest is locked.
         - Purpose: Lock busy error semantics.
+
 5. [x] Add parity assertions in existing classic/MCP-v2 suites for same inputs (avoid separate parity harness file).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -2460,6 +2513,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -2480,12 +2534,14 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
         - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust paired assertions comparing `code`, `message`, and `error.data` for identical failing inputs.
         - Purpose: Guarantee contract parity across MCP surfaces.
+
 6. [x] Update `README.md` for MCP v2 tool availability and parity expectations.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -2493,16 +2549,19 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document MCP v2 tool exposure and parity guarantees relative to classic MCP.
    - Purpose: Keep integrator-facing expectations explicit and current.
+
 7. [x] Update `design.md` for MCP v2 architecture flow and parity diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -2510,12 +2569,14 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Document MCP v2 tools/list/call flow and parity relationship with classic MCP contracts.
    - Purpose: Preserve architecture-level clarity and reduce cross-surface contract drift risk.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show MCP v2 `tools/list` and `tools/call(reingest_repository)` flow and explicit parity relationship with classic MCP contracts.
+
 8. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -2636,7 +2697,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 
 ### 8. Server: Codex stream merge fix for cropped/duplicate assistant output
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 598ebde, 4614193
 
 #### Overview
@@ -2727,6 +2788,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -2771,12 +2833,14 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
         - Test location: `server/src/test/unit/ws-chat-stream.test.ts`.
         - Description: Add/adjust tests with stale inflight ids and assert current conversation content remains unchanged.
         - Purpose: Prevent run-crossing corruption.
+
 5. [x] Update docs for Codex merge invariants/finalization rules and architecture diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -2784,10 +2848,12 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Files to edit:
      - `design.md`
    - `design.md` requirements:
      - Add/update Mermaid sequence diagram(s) that show item-keyed delta merge, completed-item authoritative finalization, and bridge/inflight publish boundaries that prevent duplicate final bubbles.
+
 6. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -2905,7 +2971,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 
 ### 9. Client: Chat page raw-input send behavior
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9bcf8ff
 
 #### Overview
@@ -2977,6 +3043,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -3009,6 +3076,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
         - Test location: `client/src/test/chatPage.stream.test.tsx`.
         - Description: Add/adjust tests asserting whitespace-only input never triggers send request.
         - Purpose: Keep UX aligned with server validation policy.
+
 4. [x] Extend existing Chat e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3027,6 +3095,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -3053,12 +3122,14 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
         - Test location: `e2e/chat.spec.ts`.
         - Description: Add/adjust e2e assertions that submit attempt with whitespace-only input does not emit network request.
         - Purpose: Ensure client guard enforcement in UI.
+
 5. [x] Update `README.md` for Chat raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -3066,16 +3137,19 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document raw input preservation rules and whitespace-only guard behavior for Chat.
    - Purpose: Keep user-facing behavior docs aligned with UI send-path logic.
+
 6. [x] Update `design.md` for Chat raw-input send flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -3083,10 +3157,12 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Document Chat send-flow behavior for raw payload preservation and validation boundaries.
    - Purpose: Keep implementation design notes consistent with frontend behavior and tests.
+
 7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3224,7 +3300,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 
 ### 10. Client: Chat page user bubble markdown parity
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: e7a300c
 
 #### Overview
@@ -3299,6 +3375,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -3331,6 +3408,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
         - Test location: `client/src/test/chatPage.mermaid.test.tsx`.
         - Description: Add/adjust tests for invalid mermaid syntax asserting same safe fallback behavior as assistant path.
         - Purpose: Prevent render crashes and behavior divergence.
+
 4. [x] Extend Chat e2e markdown parity coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3350,6 +3428,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -3370,12 +3449,14 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
         - Test location: `e2e/chat-mermaid.spec.ts`.
         - Description: Add/adjust e2e assertions that invalid mermaid input does not break page and shows expected fallback output.
         - Purpose: Validate resilience in browser execution.
+
 5. [x] Update `README.md` for Chat user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -3383,16 +3464,19 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document Chat user-bubble markdown parity behavior and mermaid rendering expectations.
    - Purpose: Keep behavior documentation aligned with rendered markdown capabilities.
+
 6. [x] Update `design.md` for Chat user markdown parity flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -3400,10 +3484,12 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Document markdown rendering pipeline reuse for user bubbles, including mermaid and sanitization behavior.
    - Purpose: Keep architecture/implementation docs consistent with parity behavior.
+
 7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3561,7 +3647,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 
 ### 11. Client: Agents page raw-input send behavior
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: de6b087, 360e3ee
 
 #### Overview
@@ -3630,6 +3716,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -3662,6 +3749,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
         - Test location: `client/src/test/agentsPage.run.test.tsx`.
         - Description: Add/adjust tests asserting whitespace-only instruction does not trigger run request.
         - Purpose: Keep client guard aligned with server validation.
+
 4. [x] Add Agents e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3680,6 +3768,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -3706,12 +3795,14 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
         - Test location: `e2e/agents.spec.ts`.
         - Description: Add/adjust e2e assertions that whitespace-only submit attempts do not issue network request.
         - Purpose: Verify guard behavior in real UI execution.
+
 5. [x] Update `README.md` for Agents raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -3719,16 +3810,19 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document raw input preservation and whitespace-only guard behavior for Agents send path.
    - Purpose: Keep usage docs aligned with actual Agents input behavior.
+
 6. [x] Update `design.md` for Agents raw-input send flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -3736,10 +3830,12 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Document Agents send-flow behavior for raw payload preservation and validation boundaries.
    - Purpose: Keep design documentation accurate for future maintenance.
+
 7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3903,7 +3999,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 
 ### 12. Client: Agents page user bubble markdown parity
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 2c46871
 
 #### Overview
@@ -3978,6 +4074,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -4004,6 +4101,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
         - Test location: `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.turnHydration.test.tsx`.
         - Description: Add/adjust tests asserting malformed mermaid fences follow same safe fallback behavior as assistant path.
         - Purpose: Prevent render-break differences between roles.
+
 4. [x] Extend Agents e2e markdown parity coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -4022,6 +4120,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Explicit test subtasks (complete each separately):
    - Nested-subtask standalone reminder: each numbered item below is independently executable; use the documentation links above and the exact `Test location` in that numbered item.
    - Nested-subtask starter snippet:
+
      ```ts
      it('should satisfy this numbered test contract', async () => {
        // Arrange
@@ -4042,12 +4141,14 @@ Render Agents user bubbles with the same markdown/sanitization component used by
         - Test location: `e2e/agents.spec.ts`.
         - Description: Add/adjust e2e assertions that invalid mermaid content does not break rendering and uses expected fallback.
         - Purpose: Validate resilience in full UI flow.
+
 5. [x] Update `README.md` for Agents user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -4055,16 +4156,19 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Document Agents user-bubble markdown parity behavior and rendering expectations.
    - Purpose: Keep developer/operator docs aligned with user-visible markdown behavior.
+
 6. [x] Update `design.md` for Agents user markdown parity flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -4072,10 +4176,12 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Document markdown-rendering component reuse and parity behavior for Agents user bubbles.
    - Purpose: Keep architecture notes and UI behavior contracts synchronized.
+
 7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -4232,7 +4338,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 
 ### 13. Final verification: acceptance check, full regressions, and documentation normalization
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f179b78
 
 #### Overview
@@ -4274,6 +4380,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -4281,16 +4388,19 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `README.md`
    - Document location: `README.md`
    - Description: Apply final documentation updates for user-facing behavior and commands verified by regression runs.
    - Purpose: Ensure final delivery documentation is accurate and complete.
+
 3. [x] Update `design.md` with final verified behavior and diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` (Reason: authoritative compose/build workflow reference for full-regression verification steps.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Jest docs (Context7): `/jestjs/jest` (Reason: test runner and CLI filtering behavior for workspace regression runs.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: diagram fence syntax/rendering expectations used by markdown parity checks.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -4298,16 +4408,19 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
    - Document name: `design.md`
    - Document location: `design.md`
    - Description: Apply final architecture notes and Mermaid diagram updates that match implemented behavior.
    - Purpose: Keep design documentation authoritative at story completion.
+
 4. [x] Prepare manual verification artifacts in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` with naming `0000035-13-<label>.png`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` (Reason: authoritative compose/build workflow reference for full-regression verification steps.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Jest docs (Context7): `/jestjs/jest` (Reason: test runner and CLI filtering behavior for workspace regression runs.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: diagram fence syntax/rendering expectations used by markdown parity checks.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -4315,6 +4428,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
 5. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after screenshot files are prepared).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` (Reason: authoritative compose/build workflow reference for full-regression verification steps.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Jest docs (Context7): `/jestjs/jest` (Reason: test runner and CLI filtering behavior for workspace regression runs.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: diagram fence syntax/rendering expectations used by markdown parity checks.)
@@ -4338,6 +4452,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
    - Starter snippet (documentation-only changes must be explicit and testable):
+
      ```md
      ## <Section>
 
@@ -4345,6 +4460,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - File/endpoint impacted:
      - Verification command(s):
      ```
+
 7. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `client/src/logging/logger.ts`
@@ -4410,6 +4526,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
     - `rg -n "playwright-output-local|0000035-13-chat-raw-input-parity|0000035-13-general-regression" projectStructure.md` (pass; new entries present)
 - Subtask 6 completed:
   - Prepared PR summary comment for Task 13 outcomes, contract deltas, and verification evidence:
+
     ```md
     ## Story 0000035 - Task 13 final verification
 
@@ -4421,8 +4538,10 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
     - Prepared and then captured Task 13 manual screenshots (`playwright-output-local/0000035-13-*.png`) for chat raw input parity, chat markdown parity, agents raw input parity, agents markdown parity, and general regression state.
     - Verification evidence includes full regression command runs (build/test/e2e/compose/lint/format), manual Playwright-MCP walkthroughs, required log-tag checks, and clean compose teardown.
     ```
+
   - Verification commands/results:
     - `rg -n "Subtask 6 completed|PR summary comment" planning/0000035-mcp-keepalive-defaults-reingest-and-chat-rendering.md` (pass)
+
 - Subtask 7 completed:
   - Added required Task 13 structured log tags in shared logger modules:
     - `client/src/logging/logger.ts`: exported tags + start/complete emitters + `window.__codeinfoManualAcceptanceCheck` hooks for manual walkthrough triggering.
@@ -4479,7 +4598,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 
 ### 14. Post-review fixes: provider fallback correctness, render-side effects, and MCP tool contract text
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 6cf263a
 
 #### Overview
@@ -4610,7 +4729,7 @@ Address code-review findings discovered after Task 13 completion. This task rest
 
 ### 15. Re-test gate: full story regression and acceptance re-validation after Task 14
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 3a0d1e9
 
 #### Overview

@@ -12,7 +12,8 @@ export type MappedPath = {
 
 export function mapIngestPath(
   containerPath: string,
-  hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR || DEFAULT_CONTAINER_ROOT,
+  hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR ||
+    DEFAULT_CONTAINER_ROOT,
 ): MappedPath {
   const normalizedContainer = path.posix.normalize(
     containerPath.replace(/\\/g, '/'),

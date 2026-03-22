@@ -5,12 +5,14 @@ import path from 'node:path';
 import toml from 'toml';
 
 import { discoverAgents } from '../agents/discovery.js';
+import { append } from '../logStore.js';
 
 import {
   getCodexChatConfigPathForHome,
   getCodexConfigPathForHome,
   resolveCodexHome,
 } from './codexConfig.js';
+import { resolveRequiredCodeinfoPlaceholderValue } from './mcpEndpoints.js';
 
 const T03_SUCCESS_LOG =
   '[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success';
@@ -29,6 +31,8 @@ const T03_CHAT_BOOTSTRAP_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
 const T04_RUNTIME_INHERITANCE_MARKER =
   'DEV_0000047_T04_RUNTIME_INHERITANCE_APPLIED';
 const T05_CONTEXT7_NORMALIZED_MARKER = 'DEV_0000047_T05_CONTEXT7_NORMALIZED';
+const T07_CHECKED_IN_MCP_CONTRACT_LOADED =
+  'DEV-0000050:T07:checked_in_mcp_contract_loaded';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -101,6 +105,16 @@ const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
   'REPLACE_WITH_CONTEXT7_API_KEY',
   'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866',
 ]);
+const CODEINFO_ENV_PLACEHOLDER_PATTERN = /\$\{([A-Z0-9_]+)\}/g;
+const DIRECT_CODEINFO_ENV_PLACEHOLDERS = new Set([
+  'CODEINFO_PLAYWRIGHT_MCP_URL',
+]);
+const REQUIRED_MCP_PLACEHOLDER_KEYS = new Set([
+  'CODEINFO_SERVER_PORT',
+  'CODEINFO_CHAT_MCP_PORT',
+  'CODEINFO_AGENTS_MCP_PORT',
+  'CODEINFO_PLAYWRIGHT_MCP_URL',
+]);
 const CHAT_CONFIG_TEMPLATE = [
   'model = "gpt-5.3-codex"',
   'model_reasoning_effort = "high"',
@@ -150,6 +164,104 @@ function getUsableContext7EnvApiKey(): string | undefined {
   }
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function getUsableCodeinfoEnvValue(
+  key: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const raw = env[key];
+  if (typeof raw !== 'string') {
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function logCheckedInMcpContractLoaded(params: {
+  configPath: string;
+  env?: NodeJS.ProcessEnv;
+}) {
+  const env = params.env ?? process.env;
+  const payload = {
+    configPath: params.configPath,
+    chatPortVar: 'CODEINFO_CHAT_MCP_PORT',
+    agentsPortVar: 'CODEINFO_AGENTS_MCP_PORT',
+    playwrightUrlVar: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+    legacyFallbackUsed: false,
+  };
+  console.info(T07_CHECKED_IN_MCP_CONTRACT_LOADED, payload);
+  append({
+    level: 'info',
+    message: T07_CHECKED_IN_MCP_CONTRACT_LOADED,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: payload,
+  });
+}
+
+function replaceCodeinfoEnvPlaceholdersInString(
+  value: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const directPlaceholder = value.trim();
+  if (DIRECT_CODEINFO_ENV_PLACEHOLDERS.has(directPlaceholder)) {
+    return resolveRequiredCodeinfoPlaceholderValue(directPlaceholder, env);
+  }
+
+  return value.replace(CODEINFO_ENV_PLACEHOLDER_PATTERN, (match, key) => {
+    if (REQUIRED_MCP_PLACEHOLDER_KEYS.has(key)) {
+      return resolveRequiredCodeinfoPlaceholderValue(key, env);
+    }
+    return getUsableCodeinfoEnvValue(key, env) ?? match;
+  });
+}
+
+function assertNoUnresolvedRequiredMcpPlaceholders(value: unknown): void {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (DIRECT_CODEINFO_ENV_PLACEHOLDERS.has(trimmed)) {
+      throw new Error(
+        `RUNTIME_CONFIG_INVALID: Unresolved required MCP placeholder ${trimmed}`,
+      );
+    }
+    for (const match of value.matchAll(CODEINFO_ENV_PLACEHOLDER_PATTERN)) {
+      const key = match[1];
+      if (key && REQUIRED_MCP_PLACEHOLDER_KEYS.has(key)) {
+        throw new Error(
+          `RUNTIME_CONFIG_INVALID: Unresolved required MCP placeholder ${key}`,
+        );
+      }
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach(assertNoUnresolvedRequiredMcpPlaceholders);
+    return;
+  }
+  if (isRecord(value)) {
+    Object.values(value).forEach(assertNoUnresolvedRequiredMcpPlaceholders);
+  }
+}
+
+function replaceCodeinfoEnvPlaceholders(
+  value: unknown,
+  env: NodeJS.ProcessEnv = process.env,
+): unknown {
+  if (typeof value === 'string') {
+    return replaceCodeinfoEnvPlaceholdersInString(value, env);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => replaceCodeinfoEnvPlaceholders(entry, env));
+  }
+  if (isRecord(value)) {
+    const normalized: Record<string, unknown> = {};
+    for (const [key, entryValue] of Object.entries(value)) {
+      normalized[key] = replaceCodeinfoEnvPlaceholders(entryValue, env);
+    }
+    return normalized;
+  }
+  return value;
 }
 
 function isPlaceholderEquivalentContext7Key(value: unknown): boolean {
@@ -252,6 +364,18 @@ export function normalizeContext7RuntimeConfig(
     config: normalized,
     mode: result.mode,
   };
+}
+
+export function normalizeCodeinfoRuntimeConfigPlaceholders(
+  input: RuntimeTomlConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): RuntimeTomlConfig {
+  const normalized = replaceCodeinfoEnvPlaceholders(
+    cloneConfig(input),
+    env,
+  ) as RuntimeTomlConfig;
+  assertNoUnresolvedRequiredMcpPlaceholders(normalized);
+  return normalized;
 }
 
 export function normalizeRuntimeConfig(
@@ -836,7 +960,10 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       baseConfig,
       runtimeConfig!,
     );
-    const context7Result = normalizeContext7RuntimeConfig(mergeResult.merged);
+    const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
+      mergeResult.merged,
+    );
+    const context7Result = normalizeContext7RuntimeConfig(placeholderResult);
     const validated = validateRuntimeConfig(context7Result.config, {
       pathLabel: params.surface,
     });
@@ -851,6 +978,10 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       mode: context7Result.mode,
       surface: params.surface,
       success: true,
+    });
+    logCheckedInMcpContractLoaded({
+      configPath: params.runtimeConfigPath,
+      env: process.env,
     });
     console.info(T04_SUCCESS_LOG, {
       surface: params.surface,

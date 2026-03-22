@@ -13,7 +13,9 @@ describe('preview allowed hosts', () => {
 
   it('merges configured hosts with the defaults', () => {
     expect(
-      resolvePreviewAllowedHosts(' dastapleton-everest.nord, example.internal '),
+      resolvePreviewAllowedHosts(
+        ' dastapleton-everest.nord, example.internal ',
+      ),
     ).toEqual([
       ...DEFAULT_PREVIEW_ALLOWED_HOSTS,
       'dastapleton-everest.nord',

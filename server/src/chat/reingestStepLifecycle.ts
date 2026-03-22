@@ -22,7 +22,11 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from './memoryPersistence.js';
-import type { ReingestStepResultPayload } from './reingestToolResult.js';
+import type {
+  ReingestStepBatchResultPayload,
+  ReingestStepResultPayload,
+  ReingestToolResultPayload,
+} from './reingestToolResult.js';
 
 type PersistedTurnResult = { turnId?: string };
 
@@ -96,22 +100,58 @@ const toLiveToolEvent = (toolResult: ChatToolResultEvent): ToolEvent => ({
   errorFull: toolResult.error ?? undefined,
 });
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object';
+
+const isValidSingleTargetMode = (
+  value: unknown,
+): value is ReingestStepResultPayload['targetMode'] =>
+  value === 'sourceId' || value === 'current';
+
+const isValidOutcome = (
+  value: unknown,
+): value is ReingestStepResultPayload['outcome'] =>
+  value === 'reingested' || value === 'skipped' || value === 'failed';
+
+const isValidStatus = (
+  value: unknown,
+): value is ReingestStepResultPayload['status'] =>
+  value === 'completed' || value === 'cancelled' || value === 'error';
+
+const isValidCompletionMode = (
+  value: unknown,
+): value is ReingestStepResultPayload['completionMode'] =>
+  value === 'reingested' || value === 'skipped' || value === null;
+
 const getReingestPayload = (
   toolResult: ChatToolResultEvent,
-): ReingestStepResultPayload | null => {
+): ReingestToolResultPayload | null => {
   const result = toolResult.result;
-  if (!result || typeof result !== 'object') return null;
-  const payload = result as Partial<ReingestStepResultPayload>;
-  if (payload.kind !== 'reingest_step_result') return null;
-  if (payload.stepType !== 'reingest') return null;
-  if (typeof payload.sourceId !== 'string') return null;
-  if (
-    payload.status !== 'completed' &&
-    payload.status !== 'cancelled' &&
-    payload.status !== 'error'
-  ) {
-    return null;
+  if (!isRecord(result)) return null;
+  if (result.stepType !== 'reingest') return null;
+
+  if (result.kind === 'reingest_step_batch_result') {
+    if (result.targetMode !== 'all') return null;
+    if (result.requestedSelector !== null) return null;
+    if (!Array.isArray(result.repositories)) return null;
+    if (!isRecord(result.summary)) return null;
+
+    const summary = result.summary;
+    if (
+      typeof summary.reingested !== 'number' ||
+      typeof summary.skipped !== 'number' ||
+      typeof summary.failed !== 'number'
+    ) {
+      return null;
+    }
+
+    return result as ReingestStepBatchResultPayload;
   }
+
+  if (result.kind !== 'reingest_step_result') return null;
+  const payload = result as Partial<ReingestStepResultPayload>;
+  if (typeof payload.sourceId !== 'string') return null;
+  if (!isValidStatus(payload.status)) return null;
   if (typeof payload.operation !== 'string') return null;
   if (typeof payload.runId !== 'string') return null;
   if (typeof payload.files !== 'number') return null;
@@ -125,11 +165,46 @@ const getReingestPayload = (
     return null;
   }
 
+  const normalizedTargetMode = isValidSingleTargetMode(payload.targetMode)
+    ? payload.targetMode
+    : 'sourceId';
+  const normalizedRequestedSelector =
+    payload.requestedSelector === undefined ||
+    payload.requestedSelector === null
+      ? null
+      : typeof payload.requestedSelector === 'string'
+        ? payload.requestedSelector
+        : null;
+  const normalizedResolvedRepositoryId =
+    payload.resolvedRepositoryId === undefined ||
+    payload.resolvedRepositoryId === null
+      ? null
+      : typeof payload.resolvedRepositoryId === 'string'
+        ? payload.resolvedRepositoryId
+        : null;
+  const normalizedCompletionMode = isValidCompletionMode(payload.completionMode)
+    ? payload.completionMode
+    : payload.status === 'completed'
+      ? 'reingested'
+      : null;
+  const normalizedOutcome = isValidOutcome(payload.outcome)
+    ? payload.outcome
+    : payload.status === 'completed'
+      ? normalizedCompletionMode === 'skipped'
+        ? 'skipped'
+        : 'reingested'
+      : 'failed';
+
   return {
     kind: 'reingest_step_result',
     stepType: 'reingest',
+    targetMode: normalizedTargetMode,
+    requestedSelector: normalizedRequestedSelector,
     sourceId: payload.sourceId,
+    resolvedRepositoryId: normalizedResolvedRepositoryId,
+    outcome: normalizedOutcome,
     status: payload.status,
+    completionMode: normalizedCompletionMode,
     operation: payload.operation,
     runId: payload.runId,
     files: payload.files,
@@ -142,12 +217,18 @@ const getReingestPayload = (
 const buildUserTurnContent = (toolResult: ChatToolResultEvent): string => {
   const payload = getReingestPayload(toolResult);
   if (!payload) return 'Record re-ingest step result';
+  if (payload.kind === 'reingest_step_batch_result') {
+    return 'Record re-ingest result for all ingested repositories';
+  }
   return `Record re-ingest result for ${payload.sourceId}`;
 };
 
 const buildAssistantTurnContent = (toolResult: ChatToolResultEvent): string => {
   const payload = getReingestPayload(toolResult);
   if (!payload) return 'Re-ingest step result recorded.';
+  if (payload.kind === 'reingest_step_batch_result') {
+    return `Batch re-ingest recorded for ${payload.repositories.length} repositories (${payload.summary.reingested} reingested, ${payload.summary.skipped} skipped, ${payload.summary.failed} failed).`;
+  }
   switch (payload.status) {
     case 'completed':
       return `Re-ingest completed for ${payload.sourceId}.`;
@@ -231,6 +312,7 @@ export async function runReingestStepLifecycle(params: {
   const userContent = buildUserTurnContent(params.toolResult);
   const assistantContent = buildAssistantTurnContent(params.toolResult);
   const liveToolEvent = toLiveToolEvent(params.toolResult);
+  const payload = getReingestPayload(params.toolResult);
 
   lifecycleDeps.createInflight({
     conversationId: params.conversationId,
@@ -340,6 +422,24 @@ export async function runReingestStepLifecycle(params: {
         finalTurnStatus: 'ok',
       },
     });
+
+    if (payload) {
+      lifecycleDeps.appendLog({
+        level: 'info',
+        message: 'DEV-0000050:T04:reingest_payload_persisted',
+        timestamp: lifecycleDeps.now().toISOString(),
+        source: 'server',
+        context: {
+          conversationId: params.conversationId,
+          payloadKind: payload.kind,
+          targetMode: payload.targetMode,
+          repositoryCount:
+            payload.kind === 'reingest_step_batch_result'
+              ? payload.repositories.length
+              : 1,
+        },
+      });
+    }
   } finally {
     bridge?.cleanup();
     lifecycleDeps.cleanupInflight({

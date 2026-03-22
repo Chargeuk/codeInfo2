@@ -191,7 +191,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: AST Mongo schemas
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: ceb28fd, 0e93765
 
 #### Overview
@@ -348,7 +348,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 ### 2. Server: AST repo helpers
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 0dd078e, a9b0c43
 
 #### Overview
@@ -460,7 +460,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 
 ### 3. Server: Tree-sitter dependencies + Docker build support
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 8d10bf2
 
 #### Overview
@@ -561,7 +561,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 
 ### 4. Server: Tree-sitter parser module
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 35d2d19
 
 #### Overview
@@ -796,7 +796,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 
 ### 5. Server: Ingest AST indexing + persistence
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 1ca39a4
 
 #### Overview
@@ -1024,7 +1024,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 
 ### 6. Server: Ingest status AST fields
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f70e5ab
 
 #### Overview
@@ -1133,7 +1133,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 
 ### 7. Server: AST tool service
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 358ea01
 
 #### Overview
@@ -1350,7 +1350,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 
 ### 8. Server: AST REST endpoints
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: d62af2e
 
 #### Overview
@@ -1483,7 +1483,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 
 ### 9. Server: MCP AST tool definitions
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: a8919f4
 
 #### Overview
@@ -1622,7 +1622,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 
 ### 10. Client: Ingest status type updates
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f7e7bf8
 
 #### Overview
@@ -1729,7 +1729,7 @@ Extend client ingest status types to include optional AST counts and update test
 
 ### 11. Client: Ingest AST status banners
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: c36cb16
 
 #### Overview
@@ -1845,7 +1845,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 
 ### 12. Final Task: Full verification + acceptance criteria
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: adf928e
 
 #### Overview
@@ -1938,7 +1938,7 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 
 ### 13. Server: AST relationship edges + collision logging
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 8333efe
 
 #### Overview
@@ -2043,7 +2043,7 @@ Add missing AST edge types (`EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`) and log 
 
 ### 14. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits:
   - `f7697e0` DEV-0000032 - Task 14 verification artifacts
 
@@ -2104,7 +2104,7 @@ Re-run full verification after the added AST edge work to ensure the story still
 
 ### 15. Server: Persist AST stats in ingest roots
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 7d8798c
 
 #### Overview
@@ -2195,7 +2195,7 @@ Duplicate AST coverage counts into ingest root metadata and return them from `GE
 
 ### 16. Client: Show AST stats per ingested root
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 86b619e
 
 #### Overview
@@ -2290,7 +2290,7 @@ Surface AST coverage counts on the Ingest page per embedded root, and handle mis
 
 ### 17. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: ca8c26c
 
 #### Overview
@@ -2350,7 +2350,7 @@ Re-run full verification after adding AST counts to ingest roots so the story me
 
 ### 18. Server: Normalize AST tool inputs (case-insensitive)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f87bd2c, a616f79
 
 #### Overview
@@ -2436,7 +2436,7 @@ Make AST tool inputs tolerant of case differences so users can pass repository i
 
 ### 19. Server: Validate unsupported AST tool inputs
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 3461645, 8efebfc
 
 #### Overview
@@ -2521,7 +2521,7 @@ Ensure AST tool inputs reject unsupported kinds and repositories with clear erro
 
 ### 20. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 5a4bb50, d177b21
 
 #### Overview
@@ -2581,7 +2581,7 @@ Re-run full verification after normalising/validating AST tool inputs so the sto
 
 ### 21. Server: Always full AST parse on re-embed
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 112abf4
 
 #### Overview

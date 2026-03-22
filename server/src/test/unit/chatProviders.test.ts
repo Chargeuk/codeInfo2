@@ -11,6 +11,7 @@ import request from 'supertest';
 
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
@@ -93,6 +94,7 @@ async function startServer(params: {
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const address = httpServer.address();
   assert(address && typeof address === 'object');
+  env.set('CODEINFO_SERVER_PORT', String(address.port));
   return {
     httpServer,
     baseUrl: `http://127.0.0.1:${address.port}`,
@@ -210,6 +212,30 @@ test('providers marker normalizes model_source and retains raw codex_model_sourc
     assert.equal(marker.codex_model_source, 'hardcoded');
   } finally {
     console.info = originalInfo;
+    await stopServer(server);
+  }
+});
+
+test('providers route keeps browser navigation urls separate from MCP control-channel urls', async () => {
+  await setCodexHome('model = "config-model"\n');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+
+  try {
+    const endpoints = resolveCodeinfoMcpEndpointContract();
+    assert.notEqual(server.baseUrl, endpoints.classicMcpUrl);
+
+    await request(server.httpServer).get('/chat/providers').expect(200);
+  } finally {
     await stopServer(server);
   }
 });

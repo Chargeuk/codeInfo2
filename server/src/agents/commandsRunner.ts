@@ -12,7 +12,10 @@ import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
 import { formatReingestPrestartReason } from '../ingest/reingestError.js';
+import { executeReingestRequest } from '../ingest/reingestExecution.js';
+import type { ReingestResult } from '../ingest/reingestService.js';
 import { runReingestRepository } from '../ingest/reingestService.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import type { TurnRuntimeMetadata } from '../mongo/turn.js';
@@ -68,6 +71,7 @@ export type RunAgentCommandRunnerParams = {
   commandsRoot?: string;
   commandFilePath?: string;
   sourceId?: string;
+  listIngestedRepositories?: typeof listIngestedRepositories;
   lockAlreadyHeld?: boolean;
   working_folder?: string;
   signal?: AbortSignal;
@@ -98,7 +102,9 @@ export type RunAgentCommandRunnerParams = {
 };
 
 type CommandRunnerDeps = {
-  runReingestRepository: typeof runReingestRepository;
+  runReingestRepository: (args: {
+    sourceId?: string;
+  }) => Promise<ReingestResult>;
   buildReingestToolResult: typeof buildReingestToolResult;
   runReingestStepLifecycle: typeof runReingestStepLifecycle;
   createCallId: () => string;
@@ -140,6 +146,19 @@ const toCommandRunnerError = (
   code: CommandRunnerErrorCode,
   reason?: string,
 ): CommandRunnerError => ({ code, reason });
+
+const getReingestRequestLogContext = (
+  item: { type: 'reingest' } & (
+    | { sourceId: string }
+    | { target: 'current' | 'all' }
+  ),
+  schemaSource: 'command',
+) => ({
+  surface: 'command',
+  targetMode: 'sourceId' in item ? 'sourceId' : item.target,
+  requestedSelector: 'sourceId' in item ? item.sourceId : null,
+  schemaSource,
+});
 
 function isSafeCommandName(raw: string): boolean {
   const name = raw.trim();
@@ -291,14 +310,32 @@ export async function runAgentCommandRunner(
       };
 
       if (item.type === 'reingest') {
-        const result = await commandRunnerDeps.runReingestRepository({
-          sourceId: item.sourceId,
+        append({
+          level: 'info',
+          message: 'DEV-0000050:T01:reingest_request_shape_accepted',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: getReingestRequestLogContext(item, 'command'),
+        });
+
+        const result = await executeReingestRequest({
+          request: item,
+          surface: 'command',
+          currentOwnerSourceId: params.sourceId,
+          deps: {
+            listIngestedRepositories:
+              params.listIngestedRepositories ?? listIngestedRepositories,
+            runReingestRepository: commandRunnerDeps.runReingestRepository,
+            appendLog: append,
+          },
         });
 
         if (!result.ok) {
+          const requestedLabel =
+            'sourceId' in item ? item.sourceId : `target: ${item.target}`;
           await params.onPrestartFailure?.({
             command: stepMeta,
-            instruction: `Re-ingest repository ${item.sourceId}`,
+            instruction: `Re-ingest repository ${requestedLabel}`,
             message: formatReingestPrestartReason(result.error),
             errorCode: 'COMMAND_INVALID',
           });
@@ -311,7 +348,7 @@ export async function runAgentCommandRunner(
         const callId = commandRunnerDeps.createCallId();
         const toolResult = commandRunnerDeps.buildReingestToolResult({
           callId,
-          outcome: result.value,
+          execution: result.value,
         });
 
         await commandRunnerDeps.runReingestStepLifecycle({
@@ -333,8 +370,22 @@ export async function runAgentCommandRunner(
           context: {
             commandName,
             itemIndex: i,
-            sourceId: result.value.sourceId,
-            status: result.value.status,
+            targetMode: result.value.targetMode,
+            requestedSelector: result.value.requestedSelector,
+            sourceId:
+              result.value.kind === 'single'
+                ? result.value.outcome.sourceId
+                : null,
+            status:
+              result.value.kind === 'single'
+                ? result.value.outcome.status
+                : null,
+            repositoryCount:
+              result.value.kind === 'batch'
+                ? result.value.repositories.length
+                : 1,
+            repositories:
+              result.value.kind === 'batch' ? result.value.repositories : null,
             callId,
             continuedToNextItem,
           },
@@ -350,6 +401,9 @@ export async function runAgentCommandRunner(
         sourceId: params.sourceId,
         executeInstruction: async (instruction) => instruction,
       });
+      if (preparedInstruction.itemType === 'skip') {
+        continue;
+      }
       const originalInstruction = preparedInstruction.instruction;
 
       if (preparedInstruction.markdownFile) {

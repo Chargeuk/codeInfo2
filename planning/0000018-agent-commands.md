@@ -2297,9 +2297,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
      - `client/src/api/agents.ts`
    - Required export:
      ```ts
-     export async function listAgentCommands(
-       agentName: string,
-     ): Promise<{
+     export async function listAgentCommands(agentName: string): Promise<{
        commands: Array<{
          name: string;
          description: string;

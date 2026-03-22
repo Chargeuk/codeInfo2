@@ -160,7 +160,7 @@ External reference check:
 
 ### 1. Server: Persist per-agent flow transcripts
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: ae31b78
 
 #### Overview
@@ -420,7 +420,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 ### 2. Client: Inflight snapshot hydration overlay
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 0a10fe9, 864cc16
 
 #### Overview
@@ -781,7 +781,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 
 ### 3. Final: Verify acceptance criteria + full regression
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 1472f73, 0d74c8d
 
 #### Overview
@@ -926,7 +926,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 ### 4. Server: Reduce flow persistence log noise
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 28aeb3b, aef040d
 
 #### Overview
@@ -986,7 +986,7 @@ Remove the redundant `console.log` from flow agent turn persistence logging whil
 
 ### 5. Docs: Clarify Compose flow directory
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: b5c7256, af8ae63
 
 #### Overview

@@ -13,18 +13,21 @@ services:
         CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
         CODEINFO_NODE_EXTRA_CA_CERTS: ${CODEINFO_NODE_EXTRA_CA_CERTS:-}
     image: codeinfo2-server-e2e
-    ports:
-      - '6010:5010'
-      - '6011:5011'
-      - '6012:5012'
-    networks:
-      - internal_e2e
+    network_mode: host
     env_file:
       - server/.env.e2e
     environment:
+      - CODEINFO_SERVER_PORT=6010
+      - CODEINFO_CHAT_MCP_PORT=6011
+      - CODEINFO_AGENTS_MCP_PORT=6012
+      - CODEINFO_CHROMA_URL=http://host.docker.internal:8800
+      - CODEINFO_PLAYWRIGHT_MCP_URL=${CODEINFO_PLAYWRIGHT_MCP_URL:-http://host.docker.internal:8932/mcp}
+      - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.e2e.yml
+      - CODEINFO_RUNTIME_SERVER_PORTS=6010,6011,6012
+      - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
-      - CODEINFO_AGENTS_MCP_PORT=5012
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
       - CODEINFO_RUNTIME_GID=${CODEINFO_DOCKER_GID:-1000}
@@ -37,21 +40,19 @@ services:
     volumes:
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
-      - ./e2e/fixtures:/fixtures:ro
-      - ./e2e/fixtures/repo:/data:ro
-      - ./codex:/app/codex
-      - ./codex_agents:/app/codex_agents
-      - "${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"
+      - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
     depends_on:
       chroma-e2e:
         condition: service_started
       mongo-e2e:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5010/health']
+      test: ['CMD', 'curl', '-f', 'http://localhost:6010/health']
       interval: 10s
       timeout: 5s
       retries: 5
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   client:
     container_name: codeinfo2-client-e2e
@@ -59,7 +60,7 @@ services:
       context: .
       dockerfile: client/Dockerfile
       args:
-        VITE_CODEINFO_API_URL: http://host.docker.internal:6010
+        VITE_CODEINFO_API_URL: ${E2E_API_URL:-http://host.docker.internal:6010}
         VITE_CODEINFO_LMSTUDIO_URL: ${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
         VITE_CODEINFO_LOG_FORWARD_ENABLED: true
         VITE_CODEINFO_LOG_MAX_BYTES: 32768
@@ -72,7 +73,7 @@ services:
     env_file:
       - client/.env.e2e
     environment:
-      - VITE_CODEINFO_API_URL=http://host.docker.internal:6010
+      - VITE_CODEINFO_API_URL=${E2E_API_URL:-http://host.docker.internal:6010}
       - VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
       - VITE_CODEINFO_LOG_FORWARD_ENABLED=true
       - VITE_CODEINFO_LOG_MAX_BYTES=32768
@@ -84,6 +85,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   mongo-e2e:
     container_name: 'mongo_db_CodeInfo-e2e'

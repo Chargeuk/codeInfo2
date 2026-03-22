@@ -10,24 +10,25 @@ services:
         CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
         CODEINFO_NODE_EXTRA_CA_CERTS: ${CODEINFO_NODE_EXTRA_CA_CERTS:-}
     image: codeinfo2-server
-    ports:
-      - '5010:5010'
-      - '5011:5011'
-      - '5012:5012'
-    networks:
-      - internal
+    network_mode: host
     env_file:
       - server/.env
       - server/.env.local
     environment:
+      - CODEINFO_SERVER_PORT=5010
+      - CODEINFO_CHAT_MCP_PORT=5011
+      - CODEINFO_AGENTS_MCP_PORT=5012
+      - CODEINFO_PLAYWRIGHT_MCP_URL=http://host.docker.internal:8932/mcp
+      - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.yml
+      - CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012
+      - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8932
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0
       # Override to use host.docker.internal for ChromaDB
       - CODEINFO_LOG_FILE_PATH=/app/logs/server.log
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - FLOWS_DIR=/app/flows-sandbox
-      - CODEINFO_MCP_PORT=5011 # Codex-only MCP JSON-RPC port
-      - CODEINFO_AGENTS_MCP_PORT=5012
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
@@ -42,11 +43,7 @@ services:
       - ./logs:/app/logs
       - ${CODEINFO_HOST_INGEST_DIR:-/tmp}:${CODEINFO_CODEX_WORKDIR}:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
-      - ./codex:${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}
-      - ./codex:/app/codex
-      - ./codex_agents:/app/codex_agents
-      - ./flows-sandbox:/app/flows-sandbox
-      - "${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"
+      - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
     depends_on:
       chroma:
         condition: service_started
@@ -165,6 +162,7 @@ services:
   playwright-mcp:
     image: mcr.microsoft.com/playwright/mcp:latest
     user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
+    network_mode: host
     entrypoint: ['node', 'cli.js']
     command:
       [
@@ -176,14 +174,12 @@ services:
         '--no-sandbox',
         '--isolated',
         '--port',
-        '8931',
+        '8932',
         '--allowed-hosts',
         '*',
       ]
     volumes:
-      - ./playwright-output:/tmp/playwright-output
-    networks:
-      - internal
+      - playwright-output-main:/tmp/playwright-output
     extra_hosts:
       - 'host.docker.internal:host-gateway'
 
@@ -196,3 +192,4 @@ volumes:
     external: false
   mongo_config:
     external: false
+  playwright-output-main:

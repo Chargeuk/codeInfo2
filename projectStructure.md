@@ -1,5 +1,350 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000050 Task 16 structural change ledger
+
+Added files:
+
+- `planning/0000050-pr-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `docs/developer-reference.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 16 lands the final Story 50 close-out in the shared documentation set and adds `planning/0000050-pr-summary.md` as the reviewer-facing summary artifact for the completed story.
+- The README and developer reference now document the validated host-network runtime, wrapper-first proof path, evidence locations, and the `DEV-0000050:T01` through `DEV-0000050:T14` manual-proof marker checklist.
+- The design close-out adds one consolidated Story 50 contract section so reviewers can see the final re-ingest, transcript, blank-markdown, host-network, and proof-wrapper model in one place instead of reconstructing it from task-by-task notes.
+
+## Story 0000050 Task 15 structural change ledger
+
+Added files:
+
+- `scripts/emit-task14-validation-marker.mjs`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+
+Story notes:
+
+- Task 15 reused the already-landed runtime stack and evidence paths, then added `scripts/emit-task14-validation-marker.mjs` as the checked-in helper that emits the final `DEV-0000050:T14:story_validation_completed` marker.
+- Manual proof artifacts for the final validation live under `playwright-output-local/0000050-14-*.png`, while the reusable wrapper outputs remain under `logs/test-summaries/` and `test-results/`.
+
+## Story 0000050 Task 14 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.prettierignore`
+- `client/src/components/Markdown.tsx`
+- `client/src/components/chat/SharedTranscript.tsx`
+- `client/src/components/chat/VirtualizedTranscript.tsx`
+- `client/src/components/ingest/ActiveRunCard.tsx`
+- `client/src/components/ingest/IngestForm.tsx`
+- `client/src/config/previewAllowedHosts.ts`
+- `client/src/config/runtimeConfig.ts`
+- `client/src/hooks/useConversations.ts`
+- `client/src/hooks/useIngestModels.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/test/baseUrl.env.test.ts`
+- `client/src/test/chatPage.flags.approval.payload.test.tsx`
+- `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+- `client/src/test/chatPage.focusRefresh.test.tsx`
+- `client/src/test/chatPage.models.test.tsx`
+- `client/src/test/chatPage.workingFolder.test.tsx`
+- `client/src/test/config/previewAllowedHosts.test.ts`
+- `client/src/test/conversationsApi.workingFolder.test.ts`
+- `client/src/test/logging/transport.test.ts`
+- `client/src/test/useChatWs.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+- `codeInfoStatus/flow-state/current-plan.json`
+- `codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-evidence.md`
+- `codeInfoStatus/reviews/0000047-20260315T112504Z-a715fc25-findings.md`
+- `codeInfoStatus/reviews/0000047-20260315T191021Z-15417516-evidence.md`
+- `codeInfoStatus/reviews/0000047-20260315T201134Z-edfbd11e-evidence.md`
+- `codeInfoStatus/reviews/0000047-external-review-input.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T121229Z-36689200-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T131305Z-35932fbe-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T145700Z-84ca2ecd-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T190644Z-95b0dc38-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260317T234112Z-13231df9-evidence.md`
+- `codeInfoStatus/reviews/0000048-review-20260318T005340Z-c547031b-evidence.md`
+- `codeInfoStatus/reviews/0000049-20260319T110609Z-719900be-evidence.md`
+- `codeInfoStatus/reviews/0000049-20260319T130208Z-644b72c6-evidence.md`
+- `codeInfo_simple_stories/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `codeinfo_markdown/check_all_changes_are_tasked_up.md`
+- `codeinfo_markdown/code_info_task_search.md`
+- `codeinfo_markdown/create_final_summary.md`
+- `codeinfo_markdown/create_new_story.md`
+- `codeinfo_markdown/create_simple_story.md`
+- `codeinfo_markdown/deployment_tasks_setup.md`
+- `codeinfo_markdown/documentation_tasks_update.md`
+- `codeinfo_markdown/ensure_testing_steps_are_correct.md`
+- `codeinfo_markdown/junior_developer_tasks.md`
+- `codeinfo_markdown/linting_tasks_setup.md`
+- `codeinfo_markdown/logline_tasks.md`
+- `codeinfo_markdown/qa.md`
+- `codeinfo_markdown/screenshot_test_tasks.md`
+- `codeinfo_markdown/select_next_plan_and_branch.md`
+- `codeinfo_markdown/subtasks_for_linting.md`
+- `codex_agents/planning_agent/commands/create_new_story.json`
+- `codex_agents/planning_agent/commands/qa.json`
+- `flows/implement_next_plan.json`
+- `flows/improve_next_plan.json`
+- `flows/improve_task_implement_plan.json`
+- `flows/ingest_external_review_plan.json`
+- `flows/review_plan.json`
+- `flows/task_and_implement_plan.json`
+- `planning/0000007-ingest-visibility.md`
+- `planning/0000008-tool-visibility.md`
+- `planning/0000010-codex-cli-integration.md`
+- `planning/0000013-conversation-persistence.md`
+- `planning/0000018-agent-commands.md`
+- `planning/0000019-chat-page-ux.md`
+- `planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md`
+- `planning/0000021-agents-chat-unification.md`
+- `planning/0000022-ingest-ws-streaming-and-layout.md`
+- `planning/0000023-conversation-sidebar-fixes.md`
+- `planning/0000024-chat-bubble-metadata-and-agent-steps.md`
+- `planning/0000025-summary-first-retrieval.md`
+- `planning/0000026-codex-models-and-flag-defaults-via-env.md`
+- `planning/0000027-flows-mode.md`
+- `planning/0000028-agents-chat-gui-consistency.md`
+- `planning/0000029-flow-agent-transcripts-and-inflight-hydration.md`
+- `planning/0000030-flow-page-stability-ui.md`
+- `planning/0000031-codex-device-auth-relogin.md`
+- `planning/0000032-tree-sitter-ast-index.md`
+- `planning/0000033-ast-language-support.md`
+- `planning/0000034-ingested-repo-commands-flows.md`
+- `planning/0000035-mcp-keepalive-defaults-reingest-and-chat-rendering.md`
+- `planning/0000036-openai-embeddings-provider-locking.md`
+- `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`
+- `planning/0000038-agent-ux-stop-and-ingest-status.md`
+- `planning/0000039-agents-command-info-and-working-folder-prompts.md`
+- `planning/0000041-corporate-registry-and-certificate-overrides-via-codeinfo-env.md`
+- `planning/0000045-command-flow-reingest-and-codeinfo-markdown-steps.md`
+- `planning/0000046-prevent-blank-embedding-inputs-and-unintended-conversation-switch-stops.md`
+- `planning/0000048-working-repo-first-reference-resolution-for-flows-and-commands.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `planning/plan_format.md`
+- `planning/plan_format_no_tasks.md`
+- `server/src/ingest/pathMap.ts`
+- `server/src/routes/conversations.ts`
+- `server/src/test/integration/flows.run.loop.test.ts`
+- `server/src/test/integration/flows.run.working-folder.test.ts`
+- `server/src/test/support/chromaContainer.ts`
+- `server/src/test/unit/agents-router-run.test.ts`
+- `server/src/test/unit/chat-interface-run-persistence.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/openai-ingest-retries-config.test.ts`
+- `server/src/workingFolders/state.ts`
+
+Story notes:
+
+- Task 14 repaired the root repo-quality baseline rather than adding new product files: it added one narrow `.prettierignore` exception for the intentional invalid JSON fixture, kept the safe repo-wide lint autofixes, and normalized the tracked-file formatting drift with the checked-in root `npm run format` path.
+- The only behavior change in Task 14 was the `SharedTranscript.tsx` dependency cleanup needed to satisfy the restored root lint gate; the remainder of the diff was import-order or formatting-only normalization required to make the root gates pass honestly again.
+
+## Story 0000050 Task 12 structural change ledger
+
+Added files:
+
+- `scripts/test-summary-host-network-main.mjs`
+- `server/src/test/support/hostNetworkMainProbe.mjs`
+- `server/src/test/support/hostNetworkMainProbe.d.mts`
+- `server/src/test/unit/test-summary-host-network-main.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `package.json`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `server/src/test/unit/host-network-compose-contract.test.ts`
+
+Story notes:
+
+- Task 12 adds `scripts/test-summary-host-network-main.mjs` as the checked-in wrapper-first proof command for the live main-stack host-network listeners after `npm run compose:up`.
+- The shared probe contract lives in `server/src/test/support/hostNetworkMainProbe.mjs`, so the wrapper and the new unit tests exercise the same endpoint-resolution, reachability, and failure-reporting logic instead of duplicating probe behavior.
+- `server/src/test/unit/test-summary-host-network-main.test.ts` is the focused regression seam for passing, failing, and inspectable-error host-network probe outcomes without requiring a live Compose stack.
+
+## Story 0000050 Task 9 structural change ledger
+
+Added files:
+
+- `scripts/test/bats/docker-compose-with-env.bats`
+- `scripts/test/bats/fixtures/bin/docker-fixture`
+- `scripts/test/bats/fixtures/compose/host-network-local-valid.json`
+- `scripts/test/bats/fixtures/compose/host-network-local-invalid-shape.json`
+- `scripts/test/bats/fixtures/compose/host-network-e2e-valid.json`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `scripts/docker-compose-with-env.sh`
+- `scripts/test/bats/test_helper/common.bash`
+
+Story notes:
+
+- Task 9 keeps host-network validation inside `scripts/docker-compose-with-env.sh` so the checked-in compose launcher fails before `docker compose` starts whenever host-network prerequisites, checked ports, or service-shape rules are invalid.
+- `scripts/test/bats/docker-compose-with-env.bats` is the dedicated shell-proof file for the wrapper preflight, and it builds directly on the vendored Task 8 Bats harness instead of introducing a second shell test path.
+- The deterministic fake-Docker seam lives in `scripts/test/bats/fixtures/bin/docker-fixture` with JSON config fixtures under `scripts/test/bats/fixtures/compose/`, so Task 9 can simulate unsupported host networking, occupied ports, invalid host-network service shapes, and compose pass-through without depending on the developer host state.
+
+## Story 0000050 Task 8 structural change ledger
+
+Added files:
+
+- `scripts/test-summary-shell.mjs`
+- `scripts/test/bats/shell-harness.bats`
+- `scripts/test/bats/test_helper/common.bash`
+- `scripts/test/bats/fixtures/bin/fixture-success`
+- `scripts/test/bats/fixtures/bin/fixture-fail`
+- `scripts/test/bats/vendor/bats-core/`
+- `scripts/test/bats/vendor/bats-support/`
+- `scripts/test/bats/vendor/bats-assert/`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `package.json`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 8 adds `scripts/test-summary-shell.mjs` as the summary-wrapper entry point for the new vendored shell harness so later shell-based proof tasks reuse the same heartbeat, saved-log, and final-guidance contract as the existing wrappers.
+- The shell harness lives under `scripts/test/bats/` with one shared helper in `scripts/test/bats/test_helper/common.bash`, checked-in fixture binaries in `scripts/test/bats/fixtures/bin/`, and vendored `bats-core`, `bats-support`, and `bats-assert` runtimes under `scripts/test/bats/vendor/`.
+- `scripts/test/bats/shell-harness.bats` is the first proof seam for the vendored runtime and targeted suite execution before Task 9 adds Docker-wrapper-specific shell coverage on top of the same harness.
+
+## Story 0000050 Task 6 structural change ledger
+
+Added files:
+
+- `server/src/config/mcpEndpoints.ts`
+- `server/src/test/unit/mcpStatus.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `server/src/config.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/config/startupEnv.ts`
+- `server/src/index.ts`
+- `server/src/providers/mcpStatus.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/codexConfig.test.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
+Story notes:
+
+- Task 6 adds `server/src/config/mcpEndpoints.ts` as the shared MCP endpoint contract seam so runtime placeholder normalization, Codex config seeding, provider-status probing, startup reporting, and the dedicated MCP listener ports all consume one source of truth.
+- `server/src/test/unit/mcpStatus.test.ts` is the focused regression seam that proves provider availability probing no longer bypasses the shared endpoint contract with `MCP_URL` or a hidden localhost fallback.
+- The runtime keeps the classic `/mcp`, chat MCP, and agents MCP surfaces intentionally split, while `CODEINFO_PLAYWRIGHT_MCP_URL` stays a full-URL override that is normalized through the same upstream contract before runtime consumers see it.
+
+## Story 0000050 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/ingest/reingestExecution.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md`
+- `projectStructure.md`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/service.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+
+Story notes:
+
+- Task 3 introduces `server/src/ingest/reingestExecution.ts` as the shared orchestration seam above the strict single-repository re-ingest service so direct commands, dedicated flow steps, and flow-owned command items all resolve `sourceId`, `current`, and `all` the same way.
+- The execution seams in `server/src/agents/commandsRunner.ts`, `server/src/agents/commandItemExecutor.ts`, and `server/src/flows/service.ts` now carry one shared single-versus-batch intermediate result contract for later transcript work instead of forcing Task 4 to reconstruct batch metadata from ad hoc runner state.
+- Task 3 test coverage is split across `server/src/test/unit/agent-commands-runner.test.ts` for the internal batch seam and the integration files for direct-command and flow-owner resolution rules.
+
 ## Story 0000049 Task 10 structural change ledger
 
 Added files:

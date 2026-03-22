@@ -97,7 +97,7 @@ The story is well scoped: it is confined to the client-side sidebar layout and f
 
 ### 1. Client: ConversationList control parity (filters, row actions, bulk UI)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 8159bfb, f5d8af6
 
 #### Overview
@@ -217,7 +217,7 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 
 ### 2. Client: Agents sidebar wiring for archive/restore + bulk actions
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 7cdbce6, 0cdbe17
 
 #### Overview
@@ -318,7 +318,7 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 
 ### 3. Client: Sidebar parity tests (ConversationList + Agents)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9b0134c, cf28150
 
 #### Overview
@@ -706,7 +706,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 
 ### 4. Client: Drawer paper overflow guard (Chat + Agents)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 668da21, e73a67c
 
 #### Overview
@@ -797,7 +797,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 
 ### 5. Client: List panel padding + vertical scroll behavior
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f014306, d637c0b
 
 #### Overview
@@ -891,7 +891,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 
 ### 6. Client: Layout tests for scroll + overflow
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 237b835
 
 #### Overview
@@ -1060,7 +1060,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 
 ### 7. Final verification (acceptance criteria, clean builds, docs, PR summary)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: b3ef81a, c13036c, a16dd68
 
 #### Overview

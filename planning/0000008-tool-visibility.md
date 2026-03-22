@@ -41,7 +41,7 @@ Enhance chat tool-call visibility so users can understand exactly which tool ran
 
 ### 1. Data shaping & plumbing
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: ac9bfd2
 
 #### Overview

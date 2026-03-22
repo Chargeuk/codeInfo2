@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useChatWs } from '../hooks/useChatWs';
 import type {
   WebSocketMockInstance,

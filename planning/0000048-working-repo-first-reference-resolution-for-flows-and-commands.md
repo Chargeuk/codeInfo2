@@ -256,6 +256,7 @@ Repository inspection for this story also found five concrete scope facts that s
 No new test harness type needs to be created for story 48. The repository already has the runner types needed for every planned change in this story, so implementation should extend the existing harnesses instead of inventing a new runner.
 
 1. Server unit and integration harness
+
 - Reuse `npm run test:summary:server:unit`, which is backed by `scripts/test-summary-server-unit.mjs`.
 - Place new or expanded server unit tests under `server/src/test/unit/`.
 - Place new or expanded server integration tests under `server/src/test/integration/`.
@@ -266,12 +267,14 @@ No new test harness type needs to be created for story 48. The repository alread
   - OpenAI tokenizer, guardrail, provider, and chunk-sizing tests.
 
 2. Server cucumber harness
+
 - Reuse `npm run test:summary:server:cucumber`, which is backed by `scripts/test-summary-server-cucumber.mjs`.
 - Add any story-specific feature files under `server/src/test/features/`.
 - Add or extend step definitions and shared setup under `server/src/test/steps/` and `server/src/test/support/`.
 - No new cucumber harness is needed; use this only if story 48 needs higher-level Gherkin coverage beyond node:test integration coverage.
 
 3. Client test harness
+
 - Reuse `npm run test:summary:client`, which is backed by `scripts/test-summary-client.mjs`.
 - Add or extend client tests under `client/src/test/`.
 - Place any shared test helpers in `client/src/test/support/`.
@@ -282,12 +285,14 @@ No new test harness type needs to be created for story 48. The repository alread
   - client env rename regressions for `VITE_CODEINFO_*` readers.
 
 4. Browser e2e harness
+
 - Reuse `npm run test:summary:e2e`, which is backed by `scripts/test-summary-e2e.mjs` and the existing Playwright runner in `playwright.config.ts`.
 - Add targeted browser specs under `e2e/`.
 - Place any shared e2e helpers or fixtures under `e2e/support/` and `e2e/fixtures/`.
 - No custom browser harness is required; the existing Playwright setup already supports the kind of targeted restore-flow and runtime-env validation this story may need.
 
 5. Compose and manual validation harness
+
 - Reuse `npm run compose:build:summary`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`, and `npm run compose:logs` for containerized validation.
 - This existing compose harness is sufficient for manual acceptance checks around working-folder restore, repository resolution visibility, and env cutover behavior.
 - If story 48 needs any additional shared test scaffolding, create it inside the existing support directories above rather than introducing a new top-level harness type.
@@ -330,7 +335,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
   - `POST /agents/:agentName/run`
   - `POST /agents/:agentName/commands/run`
   - `POST /flows/:flowName/run`
-  already include `working_folder?: string` and should keep that field rather than introducing a second alias.
+    already include `working_folder?: string` and should keep that field rather than introducing a second alias.
 - The client-side request helpers should mirror the same field name across all four surfaces so the server and UI are not translating between multiple working-folder names.
 
 ### 4. Response And Conversation-Summary Contract
@@ -373,31 +378,37 @@ Story 48 does require contract and storage-shape changes, but they can be define
 ## Research Findings
 
 1. Current reference resolution is owner-first in two different places
+
 - `server/src/flows/service.ts` currently builds flow-command candidates with `same_source -> codeInfo2 -> others`.
 - `server/src/flows/markdownFileResolver.ts` separately builds markdown candidates with the same owner-first shape.
 - This confirms story 48 should explicitly consolidate repository ordering into one shared helper or contract rather than editing the two orderings independently.
 
 2. Working-folder support is uneven across surfaces today
+
 - `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, and `server/src/routes/flowsRun.ts` already validate and forward `working_folder`.
 - `server/src/routes/chat.ts` does not currently accept a `working_folder` field even though the plan says chat conversations must persist and restore the selected current folder.
 - This means chat support is a real scope item for story 48 and should not be treated as already solved infrastructure.
 
 3. The env rename needs a concrete inventory because the repo still mixes namespacing styles
+
 - The repo already uses many `CODEINFO_*` variables, but checked-in files still also rely on unprefixed product-owned names such as `LMSTUDIO_BASE_URL`, `OPENAI_EMBEDDING_KEY`, `INGEST_*`, `CHAT_DEFAULT_*`, `LOG_*`, `VITE_API_URL`, and `VITE_LMSTUDIO_URL`.
 - Story 48 should therefore treat the env rename as an explicit inventory-and-cutover task, not as a quick search/replace on a few obvious files.
 
 4. The OpenAI bug fix must cover more than one counting call site
+
 - `server/src/ingest/providers/openaiGuardrails.ts` still uses the byte-and-word heuristic `estimateOpenAiTokens(...)`.
 - `server/src/ingest/providers/openaiEmbeddingProvider.ts` exposes the same heuristic through the OpenAI model's `countTokens(...)`.
 - `server/src/ingest/chunker.ts` uses `model.countTokens(...)` for chunk sizing and still falls back to whitespace estimates on token-count failures.
 - This confirms the tokenizer work must keep guardrails, OpenAI model counting, and chunk sizing aligned or the story will leave one of the failure paths behind.
 
 5. External tokenizer evidence changes one implementation detail that should be visible during tasking
+
 - Official OpenAI documentation says `text-embedding-3-small` and `text-embedding-3-large` support up to 8192 input tokens.
 - Context7 documentation for the current JavaScript `tiktoken` package shows Node/TypeScript usage and notes that encoder instances may require explicit `free()` cleanup.
 - Story 48 should therefore treat encoder lifecycle handling as part of the implementation contract, not as an afterthought discovered during coding.
 
 6. Working-folder persistence has to follow the existing conversation ownership model
+
 - `server/src/routes/chat.ts` creates and updates plain chat conversations with no `agentName` or `flowName`.
 - `server/src/agents/service.ts` uses agent conversations for both normal agent instructions and direct command execution.
 - `server/src/flows/service.ts` creates top-level flow conversations and separate child agent conversations for flow-owned agent steps.
@@ -408,6 +419,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 ## Decisions
 
 1. Canonical stored identity of the current working repository
+
 - Question being addressed: What should be the canonical stored identity of the current working repository: the absolute repository root path, the ingested repository id, or both?
 - Why this question matters: the runtime, persistence layer, and GUI restoration all need one stable identity so they do not drift or break when repository metadata changes.
 - What the answer is: store the absolute repository root path as the canonical identity.
@@ -415,6 +427,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: the GUI already selects and shows the absolute path, so using the same value avoids translation layers and keeps persisted state aligned with what the user actually chose.
 
 2. Editing the working folder while execution is in progress
+
 - Question being addressed: If a user changes the selected working folder while a flow or command is already running, should that change affect only future runs or also affect later steps that have not executed yet in the current in-flight run?
 - Why this question matters: this decides whether execution is stable once started or whether runtime behavior can shift underneath an active run.
 - What the answer is: do not allow the working folder to be changed while a chat, agent conversation, flow run, or command run is in progress; allow edits only after completion.
@@ -422,6 +435,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: it guarantees stable execution semantics for in-flight work and avoids surprising partial-run behavior changes.
 
 3. Handling saved working-folder paths that become invalid
+
 - Question being addressed: If a saved working-folder path no longer exists or is no longer ingested, should the GUI keep and show the invalid value, clear it automatically, or block execution until the user chooses a replacement?
 - Why this question matters: the product needs one predictable recovery behavior so restore, validation, and fallback logic stay understandable instead of silently doing different things in different screens.
 - What the answer is: clear the saved value automatically and emit a warning log.
@@ -429,6 +443,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: it removes stale state quickly while still leaving an observable audit trail for debugging and support.
 
 4. Environment-variable rename rollout strategy
+
 - Question being addressed: Should the environment-variable rename include a temporary compatibility window that still reads the old names, or should the story perform a single clean cutover once docs, compose files, wrappers, and tests are updated?
 - Why this question matters: this determines rollout risk, migration complexity, and how much temporary compatibility code and documentation debt the story needs to carry.
 - What the answer is: perform one clean cutover with no temporary dual-read compatibility once the coordinated updates are ready.
@@ -436,6 +451,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: it avoids dragging old names forward, keeps the rename easy to reason about, and prevents long-lived split behavior between old and new configuration paths.
 
 5. Scope boundary for the OpenAI embedding bug fix
+
 - Question being addressed: Should the OpenAI embedding bug fix in this story be limited to tokenizer-backed counting, oversized-input classification, and regression coverage, or is it also expected to include a broader redesign of ingest batching if accurate counting reveals more request-limit issues?
 - Why this question matters: this sets a clear boundary for the emergency bug fix so implementation does not expand unexpectedly into a larger ingest-architecture rewrite.
 - What the answer is: keep the bug fix limited to tokenizer-backed counting, oversized-input classification, and regression coverage only.
@@ -443,6 +459,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: it addresses the live bug directly without slowing the story down with broader ingest redesign work that belongs in its own focused scope.
 
 6. Where the editable saved working-folder value lives for flows and commands
+
 - Question being addressed: For flows and direct commands, where should the editable saved working-folder value live: on the owning conversation record, on each individual run record, or on both?
 - Why this question matters: the data model choice affects how edits are restored, how reruns behave, and whether past runs remain historically accurate after the user changes the folder later.
 - What the answer is: keep the editable canonical value on the owning conversation record, and also store the exact working-folder snapshot on each individual run record at run start. For direct commands, that owning conversation is the existing agent conversation. When a flow creates or uses a child agent conversation, initialize that child conversation with the same folder path the flow step actually used.
@@ -450,6 +467,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: it matches the GUI editing model, preserves accurate historical execution data, and ensures that switching into a child agent conversation created by a flow shows the actual folder path that was used.
 
 7. Missing current working repository fallback behavior
+
 - Question being addressed: When no current working repository is available for a lookup, should resolution simply skip the first slot and continue with owner -> `codeInfo2` -> others, and should observability explicitly log that no working repository was available?
 - Why this question matters: the runtime needs one deterministic fallback rule for missing current-folder state, and debugging will be much easier if the missing first slot is visible rather than silent.
 - What the answer is: yes. Skip the first slot, continue with owner -> `codeInfo2` -> others, and emit observability that explicitly records that no current working repository was available.
@@ -457,6 +475,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: it keeps lookup deterministic without inventing a fake working repo, while still making the degraded behavior obvious during debugging.
 
 8. Direct command ownership semantics outside flows
+
 - Question being addressed: For direct command execution outside flows, if a command is selected from an ingested repository while the current working repository is different, should the command's own repository always be treated as the owner slot for lookup?
 - Why this question matters: direct commands need the same owner semantics as flows, otherwise command lookup behavior could diverge in subtle ways that are hard for users to predict.
 - What the answer is: yes. The current working repository stays first, and the repository that owns the selected command file becomes the owner slot second for any references that direct command resolves.
@@ -464,6 +483,7 @@ Story 48 does require contract and storage-shape changes, but they can be define
 - Why it is the best answer: it keeps standalone command behavior aligned with flow behavior and matches the mental model that the referencing file still contributes the owner slot even when the current working repository is different.
 
 9. Observability surfaces for lookup resolution
+
 - Question being addressed: Which logs or API responses should expose the candidate lookup order and the selected repository so debugging remains easy without requiring deep log inspection?
 - Why this question matters: this story changes core lookup behavior, so support and development workflows need a clear and consistent place to see why a particular repository won.
 - What the answer is: structured server-side lookup logs are the canonical full debugging surface, and execution metadata for runs or steps includes a compact lookup summary with the final selected repository and, where useful, the candidate order. General high-level API responses should not be broadly expanded with verbose lookup internals.
@@ -488,8 +508,6 @@ This is the execution checklist for the task list below. It should only be used 
 10. Use the repository build/test wrappers. Only inspect saved logs when a wrapper reports failure, warnings that need review, or `agent_action: inspect_log`.
 
 # Tasks
-
-
 
 ### 1. Create The Shared Repository Candidate Order Helper
 
@@ -546,8 +564,8 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
 - Testing step 2 passed via `npm run test:summary:server:unit` with `tests run: 1220`, `passed: 1220`, `failed: 0`, and `agent_action: skip_log`.
 - Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
----
 
+---
 
 ### 2. Apply The Shared Order To Flow And Direct-Command Command Resolution
 
@@ -610,6 +628,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - Testing step 1 passed on rerun via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`; the first build failed only on strict TypeScript issues in the new direct-command log/test code, which I fixed before rerunning.
 - Testing step 2 passed via `npm run test:summary:server:unit` with `tests run: 1229`, `passed: 1229`, `failed: 0`, and `agent_action: skip_log`; the first full run exposed local-agent command path compatibility plus stale other-repo ordering expectations, so I used targeted wrapper reruns to fix those before rerunning the full suite.
 - Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
+
 ---
 
 ### 3. Apply The Shared Order To Markdown Resolution And Nested Lookup Logging
@@ -747,6 +766,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
 - Testing step 2 passed on rerun via `npm run test:summary:server:unit` with `tests run: 1245`, `passed: 1245`, `failed: 0`, and `agent_action: skip_log`; the first full run exposed one Task 4 test bug where the new memory-mode flow coverage used a non-existent fake working-folder path, so I switched that assertion to a real temp directory and reran the full suite.
 - Testing step 3 passed via `npm run test:summary:server:cucumber` with `tests run: 71`, `passed: 71`, `failed: 0`, and `agent_action: skip_log`.
+
 ---
 
 ### 5. Wire The Server Working-Folder Contract Through Chat, Agents, Flows, And Child Conversations
@@ -825,6 +845,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - `npm run test:summary:server:unit` first exposed memory-mode gaps on the conversations list and idle-edit websocket paths; after making the route list and persist working folders through memory mode as well, aligning the valid-path fixtures, and confirming the stale flow restore with a targeted wrapper rerun, the full server unit wrapper passed with `1264/1264` tests green.
 - `npm run test:summary:server:cucumber` passed cleanly with `71/71` scenarios after the server-route changes, confirming the wider regression suite stayed stable.
 - `npm run lint --workspaces` and `npm run format:check --workspaces` initially failed on one new unused test parameter plus import-order and prettier drift; after `npm run lint:fix --workspaces`, `npm run format --workspaces`, and the explicit `_model` use in the chat persistence test, both repo-wide checks passed.
+
 ---
 
 ### 6. Fix Dockerized Conversation Visibility For E2E History Seeding
@@ -877,6 +898,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - **BLOCKING ANSWER** Repository precedents and current local proof point to a server-side fix, not another test-side wait. `e2e/chat-provider-history.spec.ts` already follows the repo precedent for historical-chat seeding by calling `POST /conversations` and `POST /conversations/:id/turns`, and `server/src/mongo/repo.ts` shows those writes update `lastMessageAt`, which is the field `GET /conversations` sorts on. The real mismatch is in `server/src/routes/conversations.ts`: `createConversationsRouter(...)` currently captures `listConversations = shouldUseMemoryPersistence() ? listMemoryConversations : defaultListConversations` when the router is constructed, but `server/src/index.ts` mounts `createConversationsRouter()` before `await connectMongo(mongoUri)`. In the dockerized e2e stack that means the list route can get locked onto the empty in-memory map at startup even though the later seed writes go through the Mongo-backed defaults, which exactly matches the observed failure shape of successful seed requests followed by `GET /conversations` returning `items: []`.
 - **BLOCKING ANSWER** External library precedents confirm the same conclusion. Official Mongoose docs show `readyState` is only meaningful after awaiting connection completion and demonstrate checking it after `createConnection(...).asPromise()` resolves, not before startup completes (`https://mongoosejs.com/docs/api/connection`, `https://mongoosejs.com/docs/6.x/docs/api/connection`). DeepWiki's Mongoose summary reaches the same practical guidance: one-time startup branching on `readyState` before connection settles is unsafe, while per-request checks are safe. Official Playwright docs and DeepWiki both say `expect.poll` / `toPass` are the right tools for waiting on a backend state that is expected to become true, but they are not a substitute for a broken backend contract; longer `waitForTimeout(...)` or extra page polling are brittle workarounds rather than a fix (`https://playwright.dev/docs/test-assertions`, `https://playwright.dev/docs/api/class-apirequestcontext`, `https://deepwiki.com/search/for-playwright-endtoend-tests_0464c5ec-8fe5-4baa-ac6a-2e53b7800078`).
 - **BLOCKING ANSWER** Issue-resolution references also line up with this diagnosis. The existing e2e log proves the poll timed out on an always-empty array, which means the server contract never became true rather than the UI merely lagging. Community Mongoose guidance consistently treats `readyState` as the current singleton connection state, not as something to snapshot once and reuse forever; the linked Stack Overflow discussion also calls out the state values and the fact that it should be read from the live connection object, with ping or per-request state checks used when freshness matters (`https://stackoverflow.com/questions/19599543/check-mongoose-connection-state-without-creating-new-connection`). That makes the correct fix to move the memory-vs-Mongo decision for the conversations list path to request execution time, using the same pattern this router already uses for `persistConversationWorkingFolder(...)` and `findConversationById(...)`, then rerun the blocked targeted e2e wrapper. Rejected alternatives: increasing the Playwright poll timeout, adding more `waitForTimeout(...)`, or seeding through the UI would only hide the startup-time persistence mismatch; moving router registration in `server/src/index.ts` until after `connectMongo(...)` would also address the symptom, but it is a broader startup refactor than needed when a narrow dynamic resolver in `server/src/routes/conversations.ts` matches existing local patterns and fixes the exact broken seam with less risk.
+
 ---
 
 ### 7. Restore And Lock Working-Folder Pickers In The Client
@@ -968,6 +990,7 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - `npm run compose:up` started the Dockerized stack cleanly and reached healthy server plus running client containers, so the manual Playwright-MCP checks can use `http://host.docker.internal:5001` as required.
 - Manual Playwright-MCP validation at `http://host.docker.internal:5001` exercised restore, idle save, clear, run-lock, and stale-path reset behavior on chat, agents, and flows; captured reviewed screenshots in `playwright-output-local/`; and a clean replay tab confirmed `DEV_0000048_T6_PICKER_SYNC` restore markers for all three surfaces with no error-level browser console entries.
 - `npm run compose:down` stopped and removed the Dockerized validation stack cleanly, so Task 7 now has the full wrapper-build, wrapper-test, manual-browser, and teardown proof chain completed in order.
+
 ---
 
 ### 8. Rename Server And Compose Environment Variables To `CODEINFO_`
@@ -1251,10 +1274,8 @@ Use only the wrapper commands below. Do not run raw build or test commands direc
 - Subtask 7: completed the final Task 11 notes with the wrapper matrix, acceptance-proof mapping, manual marker verification, and the final screenshot artifact paths so the story closeout is self-contained in this plan.
 - Testing 9: Manual Playwright-MCP verification at `http://host.docker.internal:5001` reconfirmed `DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG` on home load, restored `/app` in the seeded chat, agent, and flow conversations with fresh `DEV_0000048_T6_PICKER_SYNC` browser-console entries, showed `http://host.docker.internal:1234` on LM Studio, returned no error-level browser console messages, and verified the server `/logs` markers `DEV_0000048_T1_REPOSITORY_CANDIDATE_ORDER`, `DEV_0000040_T11_FLOW_RESOLUTION_ORDER`, `DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER`, `DEV_0000048_T4_WORKING_FOLDER_STATE_STORED`, `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION`, `DEV_0000048_T7_CODEINFO_ENV_RESOLVED`, and `DEV_0000048_T9_OPENAI_TOKENIZER_COUNT` with success-path fields after exercising the real conversation-edit, flow-command, markdown, env, and OpenAI ingest routes. Final GUI evidence was saved as `test-results/screenshots/0000048-11-home.png`, `test-results/screenshots/0000048-11-chat-restore.png`, `test-results/screenshots/0000048-11-agents-restore.png`, `test-results/screenshots/0000048-11-flows-restore.png`, `test-results/screenshots/0000048-11-lmstudio.png`, and mirrored into `playwright-output-local/playwright-output-local/` with the same names.
 - Testing 10: `npm run compose:down` stopped and removed the final manual-verification stack cleanly after the Story 48 marker checks and screenshot capture completed, so the repo finished Task 11 with no running compose resources left behind.
+
 ---
-
-
-
 
 ## Code Review Findings
 
@@ -1586,9 +1607,6 @@ Use only the wrapper commands below. Do not attempt to run builds or tests witho
 
 ---
 
-
-
-
 ## Code Review Findings (Second Pass)
 
 Review pass `0000048-review-20260317T050644Z-810fd4f1` re-opened Story 48 after the completed implementation was reviewed again against `main`. The durable review artifacts for this second pass are [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T050644Z-810fd4f1-findings.md).
@@ -1887,8 +1905,6 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
-
-
 ## Code Review Findings (Third Pass)
 
 Review pass `0000048-review-20260317T093538Z-d8154d87` re-opened Story 48 after the completed branch was reviewed again against `main`. The durable review artifacts for this third pass are [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T093538Z-d8154d87-findings.md).
@@ -2138,9 +2154,6 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
-
-
-
 ## Code Review Findings (Fourth Pass)
 
 Review pass `0000048-review-20260317T110320Z-07647eeb` re-opened Story 48 after the fully completed branch was reviewed again against `main`. The durable review artifacts for this fourth pass are [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-evidence.md) and [codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000048-review-20260317T110320Z-07647eeb-findings.md).
@@ -2248,9 +2261,6 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing 10: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, and collector containers and tore down the `codeinfo2_internal` network cleanly, so the final rerun stack left no running verification services behind.
 
 ---
-
-
-
 
 ## Code Review Findings (Fifth Pass)
 
@@ -2375,9 +2385,6 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 - Testing 10: `npm run compose:down` removed the client, server, Mongo, Chroma, Zipkin, collector, and the `codeinfo2_internal` network cleanly after the final manual verification pass.
 
 ---
-
-
-
 
 ## Code Review Findings (Sixth Pass)
 
@@ -2540,8 +2547,6 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ---
 
-
-
 ## Historical Post-Implementation Code Review
 
 This section records the previously completed no-findings closeout that existed before the later user-requested follow-up env-prefix expansion reopened Story 48. It is retained as historical review evidence only and should not be treated as the current story-complete state while Tasks 34-35 remain open.
@@ -2594,8 +2599,6 @@ The implemented code was judged appropriately succinct for the behavior Story 48
 ### Historical Completion Decision
 
 The review pass above found no `must_fix`, `should_fix`, or `optional_simplification` issue that justified reopening Story 48 at that time. That historical closeout remains useful review evidence, but the story is now being reopened for the separate user-requested env-prefix follow-up below.
-
-
 
 ## Additional Requested Follow-Up
 

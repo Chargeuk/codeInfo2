@@ -29,7 +29,11 @@ const legacyClientLogForwardEnvName = legacyClientEnv(
 );
 const legacyClientLogMaxBytesEnvName = legacyClientEnv('LOG', 'MAX', 'BYTES');
 const legacyClientLogLevelEnvName = legacyClientEnv('LOG', 'LEVEL');
-const legacyClientLogStreamEnvName = legacyClientEnv('LOG', 'STREAM', 'ENABLED');
+const legacyClientLogStreamEnvName = legacyClientEnv(
+  'LOG',
+  'STREAM',
+  'ENABLED',
+);
 
 beforeEach(() => {
   process.env.MODE = 'development';

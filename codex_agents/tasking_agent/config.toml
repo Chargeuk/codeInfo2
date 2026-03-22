@@ -23,7 +23,7 @@ startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:5011/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
 

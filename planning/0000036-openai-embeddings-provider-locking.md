@@ -705,7 +705,7 @@ This section defines how implementation tasks must be executed once development 
 
 ### 1. Server: Refactor LM Studio embedding flow behind a shared provider interface (parity only)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `be6470e`, `7a1b0f7`, `5eb9e73`, `c2ab615`, `cccf011`
 
 #### Overview
@@ -784,7 +784,7 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 
 ### 2. Server: Unify lock resolution source and remove placeholder lock path
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `4b64c72`, `8b7f31e`
 
 #### Overview
@@ -856,7 +856,7 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 
 ### 3. Server: Environment loading parity for `.env` and `.env.local`
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `ed9074f`, `320c151`, `39739e9`, `1fe83f4`
   - `ed9074f` - DEV-0000036 - Start Task 3 env loading parity
   - `320c151` - DEV-0000036 - Complete Task 3 env loading parity and verification
@@ -934,7 +934,7 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 
 ### 4. Server: Make break-step answer parsing robust while preserving strict JSON schema
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `eb7aaaa`, `4d3ca55`, `d2d3339`
 
 #### Overview
@@ -1031,7 +1031,7 @@ Improve break-step parsing so the flow engine can safely recover the required JS
 
 ### 5. Server: Add configurable retry budget for failed command and flow steps
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `77de0ef`, `64d5e95`, `a3597fc`
 
 #### Overview
@@ -1117,7 +1117,7 @@ Increase resilience by retrying failed command and flow execution steps with a s
 
 ### 6. Server: Add OpenAI embedding provider adapter with retries, limits, and taxonomy mapping
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `69e1034`, `9d3d17d`
   - `69e1034` — Added OpenAI embedding provider adapter modules, provider selection wiring for ingest/query paths, guardrails/retry/taxonomy handling, Task 6 OpenAI adapter unit tests, and Task 6 documentation/verification updates.
 
@@ -1226,7 +1226,7 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 
 ### 7. Server: Provider-aware lock identity and embedding execution in ingest/reembed/vector-search internals
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `ff8b653`, `f0278c9`
 
 #### Overview
@@ -1325,7 +1325,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 
 ### 8. Server Messages: `/ingest/models` provider-aware response contract and warning states
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `a7df34c`
 
 #### Overview
@@ -1418,7 +1418,7 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 
 ### 9. Server Messages: ingest start/reembed/vector-search request and error contracts
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `59630b7`, `afd89bf`
 
 #### Overview
@@ -1515,7 +1515,7 @@ Implement provider-aware request/response contracts for ingest start and vector 
 
 ### 10. Server Messages: `/ingest/roots`, `/tools/ingested-repos`, classic MCP `ListIngestedRepositories`, and schema docs
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `baff46d`
 
 #### Overview
@@ -1605,7 +1605,7 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 
 ### 11. Server: Update transitive runtime consumers to canonical+compat ingest repo contracts
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `51e76ce`
 
 #### Overview
@@ -1684,7 +1684,7 @@ Align server-side transitive consumers that depend on ingest repository/tool pay
 
 ### 12. Client: Update ingest data hooks and API types to new server contracts
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `479b947`, `3061e91`
 
 #### Overview
@@ -1764,7 +1764,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 
 ### 13. Client: Ingest UI provider-model selection and info/warning state behavior
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `5ecd1af`, `3e1eeb6`
 
 #### Overview
@@ -1854,7 +1854,7 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 ### 14. Final verification: full acceptance validation, regressions, and documentation sync
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `b695ed9`
 
 #### Overview
@@ -2010,7 +2010,7 @@ Story `0000036` is now finalized with provider-aware embedding lock contracts an
 
 ### 15. Post-implementation review remediation: provider-qualified lock-option collision and startup env precedence hardening
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `c950b51`
   - `c950b51` - DEV-0000036 - Fix provider-qualified lock fallback and preserve pre-seeded startup env values
 
@@ -2060,7 +2060,7 @@ Address issues found during branch-vs-main code review that affect lock-selectio
 
 ### 16. Final re-verification: full acceptance regression after Task 15 remediation
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `c5523f2`
 
 #### Overview
@@ -2120,7 +2120,7 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 
 ### 17. Server observability hardening: frontend-visible ingest failure logging for OpenAI and LM Studio
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `2444830`, `1de3d3b`, `4797be7`
 
 #### Overview
@@ -2189,7 +2189,7 @@ Ensure all ingest-process failures tied to OpenAI or LM Studio are emitted as fr
 
 ### 18. Server configuration extension: env-configurable OpenAI ingest retry budget (`OPENAI_INGEST_MAX_RETRIES`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `bf3e628`
 
 #### Overview
@@ -2259,7 +2259,7 @@ Add a server environment variable, `OPENAI_INGEST_MAX_RETRIES`, to override the 
 
 ### 19. Ingest reliability hardening: close missing catch/log coverage gaps with retry-aware severity semantics
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: `1feb4b6`, `777649c`
 
 #### Overview
@@ -2354,7 +2354,7 @@ Close the remaining ingest failure-handling gaps identified during Story 0000036
 
 ### 20. Post-review remediation: retry-env parsing strictness and reembed failure log context correctness
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **5d1b225, 4110887**
 
 #### Overview
@@ -2420,7 +2420,7 @@ Address defects identified during branch-vs-main code review: (1) `OPENAI_INGEST
 
 ### 21. Final re-verification after Task 20 remediation: full acceptance regression and traceability re-audit
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **eed4752, 3f3f856, 38b92da**
 
 #### Overview

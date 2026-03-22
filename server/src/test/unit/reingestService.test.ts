@@ -10,10 +10,10 @@ import type { RepoEntry } from '../../lmstudio/toolService.js';
 const noopLog = () => undefined;
 
 const buildRepoEntry = (params: {
-  id: string;
+  id?: string;
   containerPath: string;
 }): RepoEntry => ({
-  id: params.id,
+  id: params.id ?? 'repo-a',
   description: null,
   containerPath: params.containerPath,
   hostPath: `/host${params.containerPath}`,
@@ -84,6 +84,8 @@ test('blocking success returns completed terminal payload with required fields',
   assert.equal(payload.operation, 'reembed');
   assert.equal(payload.runId, 'ingest-123');
   assert.equal(payload.sourceId, '/data/repo-a');
+  assert.equal(payload.resolvedRepositoryId, 'repo-a');
+  assert.equal(payload.completionMode, 'reingested');
   assert.equal(typeof payload.durationMs, 'number');
   assert.equal(payload.durationMs >= 0, true);
   assert.equal(typeof payload.files, 'number');
@@ -92,7 +94,7 @@ test('blocking success returns completed terminal payload with required fields',
   assert.equal(payload.errorCode, null);
 });
 
-test('internal skipped maps to completed', async () => {
+test('internal skipped maps to completed with skipped completionMode', async () => {
   const result = await runReingestRepository(
     { sourceId: '/data/repo-a' },
     {
@@ -108,10 +110,11 @@ test('internal skipped maps to completed', async () => {
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.status, 'completed');
+  assert.equal(result.value.completionMode, 'skipped');
   assert.equal(result.value.errorCode, null);
 });
 
-test('cancelled returns last-known counters and errorCode null', async () => {
+test('cancelled returns last-known counters, null completionMode, and errorCode null', async () => {
   const counts = { files: 9, chunks: 13, embedded: 4 };
   const result = await runReingestRepository(
     { sourceId: '/data/repo-a' },
@@ -128,13 +131,14 @@ test('cancelled returns last-known counters and errorCode null', async () => {
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.status, 'cancelled');
+  assert.equal(result.value.completionMode, null);
   assert.equal(result.value.files, counts.files);
   assert.equal(result.value.chunks, counts.chunks);
   assert.equal(result.value.embedded, counts.embedded);
   assert.equal(result.value.errorCode, null);
 });
 
-test('terminal error contract includes non-null errorCode and full field set', async () => {
+test('terminal error contract includes null completionMode, non-null errorCode, and full field set', async () => {
   const result = await runReingestRepository(
     { sourceId: '/data/repo-a' },
     {
@@ -151,6 +155,7 @@ test('terminal error contract includes non-null errorCode and full field set', a
   if (!result.ok) return;
   const payload = result.value;
   assert.equal(payload.status, 'error');
+  assert.equal(payload.completionMode, null);
   assert.notEqual(payload.errorCode, null);
   assert.equal(payload.operation, 'reembed');
   assert.equal(typeof payload.durationMs, 'number');
@@ -179,6 +184,7 @@ test('timeout during wait returns deterministic terminal error payload', async (
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.status, 'error');
+  assert.equal(result.value.completionMode, null);
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
@@ -198,51 +204,94 @@ test('missing run status after start returns deterministic terminal error payloa
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.status, 'error');
+  assert.equal(result.value.completionMode, null);
   assert.equal(result.value.errorCode, 'RUN_STATUS_MISSING');
 });
 
-test('invalid sourceId reason branches map to INVALID_PARAMS', async () => {
+test('missing validation failure preserves the strict INVALID_PARAMS contract', async () => {
   const listIngestedRepositories = async () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
     lockedModelId: 'model',
   });
 
-  const cases: Array<{ name: string; args: unknown; reason: string }> = [
-    { name: 'missing', args: {}, reason: 'missing' },
-    { name: 'non-string', args: { sourceId: 1 }, reason: 'non_string' },
-    { name: 'empty', args: { sourceId: '   ' }, reason: 'empty' },
+  const result = await runReingestRepository(
+    {},
     {
-      name: 'non-absolute',
-      args: { sourceId: 'repo-a' },
-      reason: 'non_absolute',
-    },
-    {
-      name: 'non-normalized',
-      args: { sourceId: '/data/repo-a//src' },
-      reason: 'non_normalized',
-    },
-    {
-      name: 'ambiguous path',
-      args: { sourceId: '/data\\repo-a' },
-      reason: 'ambiguous_path',
-    },
-  ];
-
-  for (const c of cases) {
-    const result = await runReingestRepository(c.args, {
       listIngestedRepositories,
       isBusy: () => false,
       reembed: async () => 'unused',
       appendLog: noopLog,
-    });
+    },
+  );
 
-    assert.equal(result.ok, false, c.name);
-    if (result.ok) continue;
-    assert.equal(result.error.code, -32602, c.name);
-    assert.equal(result.error.message, 'INVALID_PARAMS', c.name);
-    assert.equal(result.error.data.code, 'INVALID_SOURCE_ID', c.name);
-    assert.equal(result.error.data.fieldErrors[0]?.reason, c.reason, c.name);
-  }
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, -32602);
+  assert.equal(result.error.message, 'INVALID_PARAMS');
+  assert.equal(result.error.data.code, 'INVALID_SOURCE_ID');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.retryMessage.includes('retry'), true);
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'missing');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'sourceId is required',
+  );
+});
+
+test('non-absolute validation failure preserves the strict INVALID_PARAMS contract', async () => {
+  const result = await runReingestRepository(
+    { sourceId: 'repo-a' },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
+        lockedModelId: 'model',
+      }),
+      isBusy: () => false,
+      reembed: async () => 'unused',
+      appendLog: noopLog,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, -32602);
+  assert.equal(result.error.message, 'INVALID_PARAMS');
+  assert.equal(result.error.data.code, 'INVALID_SOURCE_ID');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.retryMessage.includes('retry'), true);
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'non_absolute');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'sourceId must be an absolute normalized container path',
+  );
+});
+
+test('ambiguous_path validation failure preserves the strict INVALID_PARAMS contract', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data\\repo-a' },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
+        lockedModelId: 'model',
+      }),
+      isBusy: () => false,
+      reembed: async () => 'unused',
+      appendLog: noopLog,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, -32602);
+  assert.equal(result.error.message, 'INVALID_PARAMS');
+  assert.equal(result.error.data.code, 'INVALID_SOURCE_ID');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.retryMessage.includes('retry'), true);
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'ambiguous_path');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'sourceId must not mix slash styles',
+  );
 });
 
 test('unsupported wait/blocking args are rejected with INVALID_PARAMS', async () => {
@@ -296,6 +345,53 @@ test('unknown root includes AI retry guidance fields', async () => {
   assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
 });
 
+test('known repository id is surfaced as resolvedRepositoryId', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitForTerminalIngestStatus: async () => ({
+        reason: 'terminal',
+        status: buildTerminal('completed'),
+        lastKnown: buildTerminal('completed'),
+      }),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.resolvedRepositoryId, 'repo-a');
+});
+
+test('missing repository id is surfaced as resolvedRepositoryId null', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            ...buildRepoEntry({
+              containerPath: '/data/repo-a',
+            }),
+            id: undefined,
+          } as unknown as RepoEntry,
+        ],
+        lockedModelId: 'model',
+      }),
+      waitForTerminalIngestStatus: async () => ({
+        reason: 'terminal',
+        status: buildTerminal('completed'),
+        lastKnown: buildTerminal('completed'),
+      }),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.resolvedRepositoryId, null);
+});
+
 test('busy maps to canonical BUSY contract from lock and reembed', async () => {
   const listIngestedRepositories = async () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
@@ -342,6 +438,34 @@ test('busy maps to canonical BUSY contract from lock and reembed', async () => {
   }
 });
 
+test('busy validation failure preserves the strict BUSY contract', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
+        lockedModelId: 'model',
+      }),
+      isBusy: () => true,
+      reembed: async () => 'unused',
+      appendLog: noopLog,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, 429);
+  assert.equal(result.error.message, 'BUSY');
+  assert.equal(result.error.data.code, 'BUSY');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.retryMessage.includes('retry'), true);
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'busy');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'reingest is currently locked by another ingest operation',
+  );
+});
+
 test('pre-run invalid states remain protocol-level INVALID_PARAMS errors', async () => {
   const invalidCodes = [
     'INVALID_REEMBED_STATE',
@@ -365,6 +489,57 @@ test('pre-run invalid states remain protocol-level INVALID_PARAMS errors', async
     assert.equal(result.error.code, -32602);
     assert.equal(result.error.message, 'INVALID_PARAMS');
   }
+});
+
+test('unknown_root validation failure preserves the strict NOT_FOUND contract', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-missing' },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
+        lockedModelId: 'model',
+      }),
+      isBusy: () => false,
+      reembed: async () => 'unused',
+      appendLog: noopLog,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, 404);
+  assert.equal(result.error.message, 'NOT_FOUND');
+  assert.equal(result.error.data.code, 'NOT_FOUND');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.retryMessage.includes('retry'), true);
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'sourceId must match an existing ingested repository root exactly',
+  );
+});
+
+test('invalid_state validation failure preserves the strict INVALID_PARAMS contract', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a', wait: true },
+    {
+      ...buildDeps(),
+      appendLog: noopLog,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, -32602);
+  assert.equal(result.error.message, 'INVALID_PARAMS');
+  assert.equal(result.error.data.code, 'INVALID_SOURCE_ID');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.retryMessage.includes('retry'), true);
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'invalid_state');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'Unsupported arguments for reingest_repository: wait',
+  );
 });
 
 test('success result contract omits top-level message field', async () => {
@@ -410,6 +585,7 @@ test('no-change terminal completed payload remains external completed with zero 
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.status, 'completed');
+  assert.equal(result.value.completionMode, 'reingested');
   assert.equal(result.value.files, 0);
   assert.equal(result.value.chunks, 0);
   assert.equal(result.value.embedded, 0);

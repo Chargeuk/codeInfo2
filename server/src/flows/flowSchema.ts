@@ -53,8 +53,7 @@ export type FlowCommandStep = {
 export type FlowReingestStep = {
   type: 'reingest';
   label?: string;
-  sourceId: string;
-};
+} & ({ sourceId: string } | { target: 'current' | 'all' });
 
 export type FlowStep =
   | FlowStartLoopStep
@@ -117,7 +116,7 @@ const FlowCommandStepSchema = z
   })
   .strict();
 
-const FlowReingestStepSchema = z
+const FlowReingestSourceIdStepSchema = z
   .object({
     type: z.literal('reingest'),
     label: trimmedNonEmptyString.optional(),
@@ -125,13 +124,31 @@ const FlowReingestStepSchema = z
   })
   .strict();
 
+const FlowReingestCurrentTargetStepSchema = z
+  .object({
+    type: z.literal('reingest'),
+    label: trimmedNonEmptyString.optional(),
+    target: z.literal('current'),
+  })
+  .strict();
+
+const FlowReingestAllTargetStepSchema = z
+  .object({
+    type: z.literal('reingest'),
+    label: trimmedNonEmptyString.optional(),
+    target: z.literal('all'),
+  })
+  .strict();
+
 function flowStepUnionSchema() {
-  return z.discriminatedUnion('type', [
+  return z.union([
     FlowStartLoopStepSchema,
     FlowLlmStepSchema,
     FlowBreakStepSchema,
     FlowCommandStepSchema,
-    FlowReingestStepSchema,
+    FlowReingestSourceIdStepSchema,
+    FlowReingestCurrentTargetStepSchema,
+    FlowReingestAllTargetStepSchema,
   ]);
 }
 

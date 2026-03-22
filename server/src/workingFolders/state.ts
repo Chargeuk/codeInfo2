@@ -24,8 +24,8 @@ export const isWorkingFolderOperationalError = (
 ): error is WorkingFolderValidationError =>
   Boolean(error) &&
   typeof error === 'object' &&
-  (((error as WorkingFolderValidationError).code ===
-    'WORKING_FOLDER_UNAVAILABLE') ||
+  ((error as WorkingFolderValidationError).code ===
+    'WORKING_FOLDER_UNAVAILABLE' ||
     (error as WorkingFolderValidationError).code ===
       'WORKING_FOLDER_REPOSITORY_UNAVAILABLE');
 
@@ -79,9 +79,7 @@ const defaultStatPath = async (dirPath: string) =>
 let statPath = defaultStatPath;
 
 export const setWorkingFolderStatForTests = (
-  next:
-    | ((dirPath: string) => ReturnType<typeof defaultStatPath>)
-    | undefined,
+  next: ((dirPath: string) => ReturnType<typeof defaultStatPath>) | undefined,
 ): void => {
   statPath = next ?? defaultStatPath;
 };
@@ -158,7 +156,7 @@ export async function resolveKnownRepositoryPathsState(
   } catch (error) {
     return knownRepositoryPathsUnavailable(error);
   }
-};
+}
 
 const getLocalCodeInfo2Root = () => {
   const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -173,7 +171,10 @@ const validateKnownRepository = (params: {
   if (params.workingFolder === getLocalCodeInfo2Root()) return null;
 
   const knownRepositoriesState = params.knownRepositoryPathsState;
-  if (!knownRepositoriesState || knownRepositoriesState.status === 'unavailable') {
+  if (
+    !knownRepositoriesState ||
+    knownRepositoriesState.status === 'unavailable'
+  ) {
     return {
       code: 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE',
       reason:

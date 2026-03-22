@@ -19,6 +19,8 @@ import {
 
 export const DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER =
   'DEV_0000048_T3_MARKDOWN_RESOLUTION_ORDER';
+export const DEV_0000050_T05_MARKDOWN_STEP_SKIPPED =
+  'DEV-0000050:T05:markdown_step_skipped';
 
 export type MarkdownFileResolutionParams = {
   markdownFile: string;
@@ -30,10 +32,31 @@ export type MarkdownFileResolutionParams = {
 export type ResolvedMarkdownFile = {
   content: string;
   lookupSummary: RepositoryCandidateLookupSummary;
+  markdownFile: string;
   resolvedSourceId: string;
   resolvedRepositoryLabel: string;
   resolvedPath: string;
 };
+
+export type MarkdownInstructionSurface = 'command' | 'flow' | 'flow_command';
+
+export type PreparedMarkdownInstruction =
+  | {
+      kind: 'instruction';
+      instruction: string;
+      lookupSummary: RepositoryCandidateLookupSummary;
+      markdownFile: string;
+      resolvedSourceId: string;
+      resolvedPath: string;
+    }
+  | {
+      kind: 'skip';
+      lookupSummary: RepositoryCandidateLookupSummary;
+      markdownFile: string;
+      reason: 'empty_markdown';
+      resolvedSourceId: string;
+      resolvedPath: string;
+    };
 
 type MarkdownResolutionCandidate = RepositoryCandidateOrderEntry & {
   markdownRoot: string;
@@ -153,6 +176,36 @@ const decodeUtf8Strict = (bytes: Uint8Array) => {
 
 const isMissingFileError = (error: unknown) =>
   (error as { code?: string }).code === 'ENOENT';
+
+const isWhitespaceOnlyMarkdown = (content: string) =>
+  content.trim().length === 0;
+
+const appendEmptyMarkdownSkipLog = (params: {
+  surface: MarkdownInstructionSurface;
+  markdownFile: string;
+  resolvedPath: string;
+  commandName?: string;
+  itemIndex?: number;
+  flowName?: string;
+  stepIndex?: number;
+}) => {
+  append({
+    level: 'info',
+    message: DEV_0000050_T05_MARKDOWN_STEP_SKIPPED,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: params.surface,
+      markdownFile: params.markdownFile,
+      resolvedPath: params.resolvedPath,
+      reason: 'empty_markdown',
+      commandName: params.commandName ?? null,
+      itemIndex: params.itemIndex ?? null,
+      flowName: params.flowName ?? null,
+      stepIndex: params.stepIndex ?? null,
+    },
+  });
+};
 
 const appendMarkdownResolutionLog = (params: {
   level: 'info' | 'warn';
@@ -308,6 +361,7 @@ export async function resolveMarkdownFileWithMetadata(
     return {
       content,
       lookupSummary,
+      markdownFile: normalizedMarkdownFile,
       resolvedSourceId: candidate.sourceId,
       resolvedRepositoryLabel: candidate.sourceLabel,
       resolvedPath,
@@ -334,6 +388,47 @@ export async function resolveMarkdownFile(
 ): Promise<string> {
   const resolved = await resolveMarkdownFileWithMetadata(params);
   return resolved.content;
+}
+
+export async function prepareMarkdownInstruction(
+  params: MarkdownFileResolutionParams & {
+    surface: MarkdownInstructionSurface;
+    commandName?: string;
+    itemIndex?: number;
+    flowName?: string;
+    stepIndex?: number;
+  },
+): Promise<PreparedMarkdownInstruction> {
+  const resolved = await resolveMarkdownFileWithMetadata(params);
+  if (!isWhitespaceOnlyMarkdown(resolved.content)) {
+    return {
+      kind: 'instruction',
+      instruction: resolved.content,
+      lookupSummary: resolved.lookupSummary,
+      markdownFile: resolved.markdownFile,
+      resolvedSourceId: resolved.resolvedSourceId,
+      resolvedPath: resolved.resolvedPath,
+    };
+  }
+
+  appendEmptyMarkdownSkipLog({
+    surface: params.surface,
+    markdownFile: resolved.markdownFile,
+    resolvedPath: resolved.resolvedPath,
+    commandName: params.commandName,
+    itemIndex: params.itemIndex,
+    flowName: params.flowName,
+    stepIndex: params.stepIndex,
+  });
+
+  return {
+    kind: 'skip',
+    lookupSummary: resolved.lookupSummary,
+    markdownFile: resolved.markdownFile,
+    reason: 'empty_markdown',
+    resolvedSourceId: resolved.resolvedSourceId,
+    resolvedPath: resolved.resolvedPath,
+  };
 }
 
 export function __setMarkdownFileResolverDepsForTests(

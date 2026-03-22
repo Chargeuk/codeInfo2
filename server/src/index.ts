@@ -12,6 +12,7 @@ import {
   validateAndLogCodexSdkUpgrade,
 } from './config/codexSdkUpgrade.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
+import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
 import './flows/flowSchema.js';
 import './ingest/index.js';
@@ -169,15 +170,73 @@ append({
   },
 });
 const CODEINFO_SERVER_PORT = resolveServerPort();
-const mcpHostUrl = `http://localhost:${CODEINFO_SERVER_PORT}/mcp`;
-const mcpDockerUrl = `http://server:${CODEINFO_SERVER_PORT}/mcp`;
-baseLogger.info({ mcpHostUrl, mcpDockerUrl }, 'MCP endpoint available');
+const mcpEndpoints = resolveCodeinfoMcpEndpointContract();
+baseLogger.info(
+  {
+    classicMcpUrl: mcpEndpoints.classicMcpUrl,
+    chatMcpUrl: mcpEndpoints.chatMcpUrl,
+    agentsMcpUrl: mcpEndpoints.agentsMcpUrl,
+    playwrightMcpUrl: mcpEndpoints.playwrightMcpUrl,
+    placeholderFree: mcpEndpoints.placeholderFree,
+    mcpDockerUrl: `http://server:${CODEINFO_SERVER_PORT}/mcp`,
+  },
+  'MCP endpoint available',
+);
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
   if (requestId) res.locals.requestId = requestId;
   next();
 });
 const clientFactory = (baseUrl: string) => getClient(baseUrl);
+
+const parseRuntimePorts = (value: string | undefined): number[] =>
+  (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .map((item) => Number.parseInt(item, 10))
+    .filter((item) => Number.isFinite(item));
+
+const parseOptionalRuntimePort = (value: string | undefined): number | null => {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseSourceBindMountCount = (value: string | undefined): number => {
+  const parsed = Number.parseInt((value ?? '0').trim(), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const runtimeComposeFile = process.env.CODEINFO_RUNTIME_COMPOSE_FILE?.trim();
+if (runtimeComposeFile) {
+  const hostNetworkRuntimeReadyContext = {
+    composeFile: runtimeComposeFile,
+    serverPorts: parseRuntimePorts(process.env.CODEINFO_RUNTIME_SERVER_PORTS),
+    playwrightPort: parseOptionalRuntimePort(
+      process.env.CODEINFO_RUNTIME_PLAYWRIGHT_PORT,
+    ),
+    sourceBindMountCount: parseSourceBindMountCount(
+      process.env.CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT,
+    ),
+  };
+  baseLogger.info(
+    {
+      event: 'DEV-0000050:T11:host_network_runtime_ready',
+      ...hostNetworkRuntimeReadyContext,
+    },
+    'DEV-0000050:T11:host_network_runtime_ready',
+  );
+  append({
+    level: 'info',
+    message: 'DEV-0000050:T11:host_network_runtime_ready',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: hostNetworkRuntimeReadyContext,
+  });
+}
 
 app.get('/health', (_req, res) => {
   res.json({

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it, mock } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   applyResolvedServerPortToCodexConfig,
@@ -10,6 +11,7 @@ import {
   buildDefaultCodexConfig,
   ensureCodexConfigSeeded,
 } from '../../config/codexConfig.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
   detectCodex,
   refreshCodexDetection,
@@ -18,6 +20,11 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../..',
+);
 
 describe('codexConfig', () => {
   const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
@@ -62,6 +69,61 @@ describe('codexConfig', () => {
     });
     assert.match(rewritten, /http:\/\/localhost:5710\/mcp/);
     assert.match(rewritten, /http:\/\/server:5710\/mcp/);
+  });
+
+  it('applyResolvedServerPortToCodexConfig rewrites CODEINFO_SERVER_PORT placeholders', () => {
+    const rewritten = applyResolvedServerPortToCodexConfig(
+      'host = "http://localhost:${CODEINFO_SERVER_PORT}/mcp"',
+      {
+        CODEINFO_SERVER_PORT: '5710',
+      },
+    );
+
+    assert.match(rewritten, /http:\/\/localhost:5710\/mcp/);
+    assert.doesNotMatch(rewritten, /\$\{CODEINFO_SERVER_PORT\}/u);
+  });
+
+  it('keeps chat/base and agents MCP endpoint contracts distinct after normalization', () => {
+    process.env.CODEINFO_SERVER_PORT = '6010';
+    process.env.CODEINFO_CHAT_MCP_PORT = '6011';
+    process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:6999/mcp/playwright';
+
+    const endpoints = resolveCodeinfoMcpEndpointContract();
+
+    assert.equal(endpoints.classicMcpUrl, 'http://localhost:6010/mcp');
+    assert.equal(endpoints.chatMcpUrl, 'http://localhost:6011/mcp');
+    assert.equal(endpoints.agentsMcpUrl, 'http://localhost:6012/mcp');
+    assert.notEqual(endpoints.classicMcpUrl, endpoints.agentsMcpUrl);
+  });
+
+  it('migrated checked-in configs no longer depend on bridge-era playwright hosts or hard-coded localhost MCP ports', async () => {
+    const configPaths = [
+      'codex/chat/config.toml',
+      'config.toml.example',
+      'codex_agents/lmstudio_agent/config.toml',
+      'codex_agents/research_agent/config.toml',
+      'codex_agents/planning_agent/config.toml',
+      'codex_agents/tasking_agent/config.toml',
+      'codex_agents/coding_agent/config.toml',
+    ].map((relPath) => path.join(repoRoot, relPath));
+
+    const contents = await Promise.all(
+      configPaths.map(async (configPath) => ({
+        configPath,
+        content: await fs.readFile(configPath, 'utf8'),
+      })),
+    );
+
+    for (const { configPath, content } of contents) {
+      assert.doesNotMatch(
+        content,
+        /http:\/\/localhost:501[01]\/mcp/u,
+        configPath,
+      );
+      assert.doesNotMatch(content, /playwright-mcp/u, configPath);
+    }
   });
 
   it('ensureCodexConfigSeeded writes the in-code template when config.toml is missing', async () => {

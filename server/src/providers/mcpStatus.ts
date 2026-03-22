@@ -1,5 +1,5 @@
 import { setTimeout as delay } from 'timers/promises';
-import { resolveServerPort } from '../config/serverPort.js';
+import { resolveCodeinfoMcpEndpointContract } from '../config/mcpEndpoints.js';
 import { baseLogger } from '../logger.js';
 
 type McpStatus = { available: boolean; reason?: string };
@@ -9,16 +9,20 @@ let cached: { status: McpStatus; expires: number } | null = null;
 const DEFAULT_TTL_MS = 30_000;
 const DEFAULT_TIMEOUT_MS = 1_500;
 
-function buildMcpUrl() {
-  const port = resolveServerPort();
-  return process.env.MCP_URL ?? `http://localhost:${port}/mcp`;
-}
-
 export async function getMcpStatus(): Promise<McpStatus> {
   const now = Date.now();
   if (cached && cached.expires > now) return cached.status;
 
-  const url = buildMcpUrl();
+  let url: string;
+  try {
+    url = resolveCodeinfoMcpEndpointContract().classicMcpUrl;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'mcp_unresolved';
+    const status: McpStatus = { available: false, reason };
+    cached = { status, expires: now + DEFAULT_TTL_MS };
+    baseLogger.warn({ reason }, 'mcp availability check failed');
+    return status;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 

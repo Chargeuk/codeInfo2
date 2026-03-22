@@ -138,6 +138,8 @@ const unitEnv = {
   CODEINFO_LOG_FILE_PATH: '../logs/server-test.log',
   CODEINFO_CHROMA_URL: '',
   CODEINFO_MONGO_URI: '',
+  CODEINFO_PLAYWRIGHT_MCP_URL:
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL ?? 'http://localhost:8932/mcp',
   TS_NODE_DEBUG: 'false',
   TS_NODE_LOG_ERROR: 'true',
   TS_NODE_FILES: 'true',

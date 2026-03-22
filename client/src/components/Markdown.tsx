@@ -1,4 +1,5 @@
 import { Box, useTheme } from '@mui/material';
+import type { Schema } from 'hast-util-sanitize';
 import mermaid from 'mermaid';
 import {
   isValidElement,
@@ -11,7 +12,6 @@ import {
 } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
-import type { Schema } from 'hast-util-sanitize';
 import remarkGfm from 'remark-gfm';
 import { createLogger } from '../logging/logger';
 

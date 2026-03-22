@@ -418,6 +418,73 @@ Story 45 extends command and flow JSON files with repository-aware markdown load
 - `[agents.prompts.execute.payload_built]`: execute payload constructed; `instructionHasFullPath=true` expected.
 - `[agents.prompts.execute.result]`: execute path completed with `status=started` or `status=error` and code.
 
+## Story 50 Host-Network Runtime and Validation
+
+Story 50 finishes the portable re-ingest selector work and moves the checked-in main runtime to a host-network Compose contract. The validated runtime uses these host-visible surfaces:
+
+- client UI: `http://host.docker.internal:5001`
+- REST API plus classic `POST /mcp`: `http://host.docker.internal:5010`
+- dedicated chat MCP: `http://host.docker.internal:5011`
+- dedicated agents MCP: `http://host.docker.internal:5012`
+- Playwright MCP control URL: `http://host.docker.internal:8932/mcp`
+- Chrome DevTools discovery for manual browser attachment: `http://host.docker.internal:9222`
+
+Host-network prerequisites:
+
+- Docker Desktop or an equivalent runtime that supports host networking for the checked-in Compose stack
+- `host.docker.internal` must resolve from both the host and the containerized agent/browser tooling
+- repositories that need to be visible to Codex and runtime folder pickers must live under `${HOME}/Documents/dev`
+- host Codex auth must be available through `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` so the server container can seed `/app/codex/auth.json`
+
+Wrapper-first validation flow:
+
+1. Build and test through the checked-in summary wrappers:
+   - `npm run build:summary:server`
+   - `npm run build:summary:client`
+   - `npm run test:summary:server:unit`
+   - `npm run test:summary:server:cucumber`
+   - `npm run test:summary:client`
+   - `npm run test:summary:e2e`
+   - `npm run compose:build:summary`
+2. Start the validated main stack with `npm run compose:up`.
+3. Probe the live host-network listeners with `npm run test:summary:host-network:main`.
+4. Perform the manual Playwright-MCP proof against `http://host.docker.internal:5001`.
+5. Stop the stack with `npm run compose:down`.
+
+Evidence locations:
+
+- summary-wrapper logs: `logs/test-summaries/`
+- client/server test logs: `test-results/`
+- manual Playwright screenshots: `playwright-output-local/0000050-14-chat-ready.png` and `playwright-output-local/0000050-14-logs-proof.png`
+- final validation marker helper: `scripts/emit-task14-validation-marker.mjs`
+- reviewer-facing summary: `planning/0000050-pr-summary.md`
+
+Wrapper log review rule:
+
+- if a summary wrapper reports clean success with `agent_action: skip_log`, do not open the saved log just to inspect it
+- only open full logs when the wrapper reports failure, unexpected warnings, or ambiguous/unknown counts
+
+### Story 50 Manual Proof Markers
+
+Manual Playwright-MCP review uses the Story 50 marker set as proof evidence. Reviewers should expect these markers in the validated wrapper logs and/or the running `/logs` page:
+
+- `DEV-0000050:T01:reingest_request_shape_accepted` — runtime `/logs`; proves the re-ingest request union reached execution
+- `DEV-0000050:T02:reingest_strict_result_normalized` — runtime `/logs`; proves the strict normalized result contract
+- `DEV-0000050:T03:reingest_targets_resolved` — runtime `/logs`; proves `sourceId` / `current` / `all` target resolution
+- `DEV-0000050:T04:reingest_payload_persisted` — runtime `/logs`; proves the persisted transcript payload kind and target mode
+- `DEV-0000050:T05:markdown_step_skipped` — runtime `/logs`; proves empty markdown skips are explicit and inspectable
+- `DEV-0000050:T06:mcp_endpoints_normalized` — runtime `/logs`; proves classic/chat/agents/Playwright endpoint normalization
+- `DEV-0000050:T07:checked_in_mcp_contract_loaded` — runtime `/logs`; proves the checked-in env contract loaded without legacy fallback
+- `DEV-0000050:T08:shell_harness_ready` — shell-wrapper output; proves the checked-in shell harness contract exists
+- `DEV-0000050:T09:compose_preflight_result` — compose wrapper output; proves host-network preflight pass/fail reporting
+- `DEV-0000050:T10:image_runtime_assets_baked` — `logs/test-summaries/compose-build-latest.log`; proves image-baked runtime assets
+- `DEV-0000050:T11:host_network_runtime_ready` — runtime startup logs and `/logs`; proves the active host-network port contract
+- `DEV-0000050:T12:main_stack_probe_completed` — `logs/test-summaries/host-network-main-latest.log`; proves the four main MCP surfaces were reachable
+- `DEV-0000050:T13:e2e_host_network_config_verified` — `logs/test-summaries/e2e-tests-latest.log`; proves e2e uses separate host-visible browser and MCP addresses
+- `DEV-0000050:T14:story_validation_completed` — runtime `/logs`; proves final manual validation completed with `traceabilityPass`, `manualChecksPassed`, `screenshotCount`, and `proofWrapperPassed`
+
+During the manual proof pass, use the running UI at `http://host.docker.internal:5001` plus the saved screenshots in `playwright-output-local/` to confirm that the expected Story 50 markers are visible for the exercised paths.
+
 ## Quick Commands
 
 - Start stack: `npm run compose:local`
@@ -430,6 +497,7 @@ Story 45 extends command and flow JSON files with repository-aware markdown load
 ## Detailed Documentation
 
 - Developer reference (APIs, MCP surfaces, runtime details): [docs/developer-reference.md](docs/developer-reference.md)
+- Story 50 PR summary: [planning/0000050-pr-summary.md](planning/0000050-pr-summary.md)
 - Repository map and file purpose reference: [projectStructure.md](projectStructure.md)
 
 ## Environment Policy

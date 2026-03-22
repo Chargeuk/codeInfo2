@@ -374,9 +374,7 @@
       "messages": [
         {
           "role": "user",
-          "content": [
-            "If possible, git push the branch."
-          ]
+          "content": ["If possible, git push the branch."]
         }
       ]
     }

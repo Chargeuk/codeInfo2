@@ -1,5 +1,9 @@
-import { resolveMarkdownFileWithMetadata } from '../flows/markdownFileResolver.js';
+import { prepareMarkdownInstruction } from '../flows/markdownFileResolver.js';
 import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
+import type {
+  ReingestExecutionBatchResult,
+  ReingestExecutionSingleResult,
+} from '../ingest/reingestExecution.js';
 import { append } from '../logStore.js';
 
 import type {
@@ -18,23 +22,61 @@ export type ExecuteCommandItemInstruction = {
   resolvedSourceId?: string;
 };
 
-export type ExecuteCommandItemReingestResult = {
-  status: 'completed' | 'cancelled' | 'error';
-  sourceId: string;
-  callId: string;
-  continuedToNextItem: boolean;
-  stopAfter: boolean;
-};
+export type ExecuteCommandItemSingleReingestResult =
+  ReingestExecutionSingleResult & {
+    callId: string;
+    continuedToNextItem: boolean;
+    stopAfter: boolean;
+  };
+
+export type ExecuteCommandItemBatchReingestResult =
+  ReingestExecutionBatchResult & {
+    continuedToNextItem: boolean;
+    stopAfter: boolean;
+  };
+
+export type ExecuteCommandItemReingestResult =
+  | ExecuteCommandItemSingleReingestResult
+  | ExecuteCommandItemBatchReingestResult;
 
 type ExecuteCommandMessageResult<T> = ExecuteCommandItemInstruction & {
   itemType: 'message';
   result: T;
 };
 
+export type ExecuteCommandItemSkippedResult = {
+  itemType: 'skip';
+  instructionSource: 'markdownFile';
+  lookupSummary?: RepositoryCandidateLookupSummary;
+  markdownFile: string;
+  reason: 'empty_markdown';
+  resolvedPath: string;
+  resolvedSourceId: string;
+};
+
 type ExecuteCommandReingestOutcome = {
   itemType: 'reingest';
   result: ExecuteCommandItemReingestResult;
 };
+
+const buildReingestRequestLogContext = (params: {
+  item: AgentCommandReingestItem;
+  commandName: string;
+  itemIndex: number;
+  flowContext?: {
+    flowName: string;
+    stepIndex: number;
+  };
+}) => ({
+  surface: params.flowContext ? 'flow_command' : 'command',
+  targetMode: 'sourceId' in params.item ? 'sourceId' : params.item.target,
+  requestedSelector: 'sourceId' in params.item ? params.item.sourceId : null,
+  schemaSource: 'command',
+  commandName: params.commandName,
+  itemIndex: params.itemIndex,
+  flowName: params.flowContext?.flowName ?? null,
+  flowStepIndex: params.flowContext?.stepIndex ?? null,
+});
 
 export function executeCommandItem<T>(params: {
   item: AgentCommandMessageItem;
@@ -51,7 +93,7 @@ export function executeCommandItem<T>(params: {
     instruction: ExecuteCommandItemInstruction,
   ) => Promise<T>;
   executeReingest?: never;
-}): Promise<ExecuteCommandMessageResult<T>>;
+}): Promise<ExecuteCommandMessageResult<T> | ExecuteCommandItemSkippedResult>;
 
 export function executeCommandItem<T>(params: {
   item: AgentCommandItem;
@@ -70,7 +112,11 @@ export function executeCommandItem<T>(params: {
   executeReingest?: (
     item: AgentCommandReingestItem,
   ) => Promise<ExecuteCommandItemReingestResult>;
-}): Promise<ExecuteCommandMessageResult<T> | ExecuteCommandReingestOutcome>;
+}): Promise<
+  | ExecuteCommandMessageResult<T>
+  | ExecuteCommandItemSkippedResult
+  | ExecuteCommandReingestOutcome
+>;
 
 export async function executeCommandItem<T>(params: {
   item: AgentCommandItem;
@@ -89,11 +135,28 @@ export async function executeCommandItem<T>(params: {
   executeReingest?: (
     item: AgentCommandReingestItem,
   ) => Promise<ExecuteCommandItemReingestResult>;
-}): Promise<ExecuteCommandMessageResult<T> | ExecuteCommandReingestOutcome> {
+}): Promise<
+  | ExecuteCommandMessageResult<T>
+  | ExecuteCommandItemSkippedResult
+  | ExecuteCommandReingestOutcome
+> {
   if (params.item.type === 'reingest') {
     if (!params.executeReingest) {
       throw new Error('Reingest execution is not configured for this command.');
     }
+    append({
+      level: 'info',
+      message: 'DEV-0000050:T01:reingest_request_shape_accepted',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: buildReingestRequestLogContext({
+        item: params.item,
+        commandName: params.commandName,
+        itemIndex: params.itemIndex,
+        flowContext: params.flowContext,
+      }),
+    });
+
     const result = await params.executeReingest(params.item);
     if (params.flowContext) {
       append({
@@ -106,9 +169,14 @@ export async function executeCommandItem<T>(params: {
           stepIndex: params.flowContext.stepIndex,
           commandName: params.commandName,
           itemIndex: params.itemIndex,
-          sourceId: result.sourceId,
-          status: result.status,
-          callId: result.callId,
+          targetMode: result.targetMode,
+          requestedSelector: result.requestedSelector,
+          sourceId: result.kind === 'single' ? result.outcome.sourceId : null,
+          status: result.kind === 'single' ? result.outcome.status : null,
+          repositoryCount:
+            result.kind === 'batch' ? result.repositories.length : 1,
+          repositories: result.kind === 'batch' ? result.repositories : null,
+          callId: result.kind === 'single' ? result.callId : null,
           continuedToNextItem: result.continuedToNextItem,
         },
       });
@@ -135,19 +203,34 @@ export async function executeCommandItem<T>(params: {
       resolvedSourceId: undefined,
     };
   } else {
-    const markdownFile = params.item.markdownFile;
-    const resolved = await resolveMarkdownFileWithMetadata({
-      markdownFile,
+    const prepared = await prepareMarkdownInstruction({
+      markdownFile: params.item.markdownFile,
       workingRepositoryPath: params.workingRepositoryPath,
       sourceId: params.sourceId,
       flowSourceId: params.flowSourceId,
+      surface: params.flowContext ? 'flow_command' : 'command',
+      commandName: params.commandName,
+      itemIndex: params.itemIndex,
+      flowName: params.flowContext?.flowName,
+      stepIndex: params.flowContext?.stepIndex,
     });
+    if (prepared.kind === 'skip') {
+      return {
+        itemType: 'skip',
+        instructionSource: 'markdownFile',
+        lookupSummary: prepared.lookupSummary,
+        markdownFile: prepared.markdownFile,
+        reason: prepared.reason,
+        resolvedPath: prepared.resolvedPath,
+        resolvedSourceId: prepared.resolvedSourceId,
+      };
+    }
     instruction = {
-      instruction: resolved.content,
+      instruction: prepared.instruction,
       instructionSource: 'markdownFile',
-      lookupSummary: resolved.lookupSummary,
-      markdownFile,
-      resolvedSourceId: resolved.resolvedSourceId,
+      lookupSummary: prepared.lookupSummary,
+      markdownFile: prepared.markdownFile,
+      resolvedSourceId: prepared.resolvedSourceId,
     };
   }
 

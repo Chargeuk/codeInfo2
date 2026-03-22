@@ -1,0 +1,10 @@
+{
+  "services": {
+    "server": {
+      "network_mode": "host"
+    },
+    "playwright-mcp": {
+      "network_mode": "host"
+    }
+  }
+}

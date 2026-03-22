@@ -87,7 +87,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ### 1. Server: allow client-supplied `conversationId` for new Agents runs
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: ccd9772
 
 #### Overview
@@ -437,7 +437,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 
 ### 2. Server: emit chat-parity run-start WS events for agent runs
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 7d91851
 
 #### Overview
@@ -716,7 +716,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 
 ### 3. Server: cancellation test coverage for Agents (`cancel_inflight`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: da3a93d
 
 #### Overview
@@ -840,13 +840,11 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 - Testing: `npm run compose:build`.
 - Testing: `npm run compose:up`.
 - Manual verification (host.docker.internal): started `/agents/coding_agent/run` with `conversationId=manual-t3-1767552898649-24f1a37a`, observed WS `inflight_snapshot.inflightId=2729172a-308c-46b6-850c-2e0945e9f83d`, sent `cancel_inflight`, and observed `turn_final.status === 'stopped'` plus both required log messages in `/logs?text=DEV-0000021[T3]`.
--
-
----
+- ***
 
 ### 4. Client: switch Agents transcript state to the Chat WS pipeline
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: a6605c4
 
 #### Overview
@@ -1149,7 +1147,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 ### 5. Client: align Agents transcript UI with Chat transcript UI
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 4fa7e20, 4851457
 
 #### Overview
@@ -1376,7 +1374,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 
 ### 6. Client: Agents Stop uses WS `cancel_inflight` + abort request (Chat parity)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 7472ebd
 
 #### Overview
@@ -1531,7 +1529,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 
 ### 7. Client: Agents sidebar updates via WS (`subscribe_sidebar`)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 7992b39
 
 #### Overview
@@ -1705,7 +1703,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 
 ### 8. Client: rebuild Agents page layout to match Chat (Drawer + controls + transcript)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: af10adb
 
 #### Overview
@@ -1924,7 +1922,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: cd7bd8e, 2068188, 4c2e3bf
 
 #### Overview
@@ -2065,7 +2063,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 ### 10. Simplify snapshots: always full history + inflight (no pagination), client replace-only
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 2aa8a84
 
 #### Overview
@@ -2326,7 +2324,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 
 ### 11. Agents: decouple run lifecycle from HTTP request (async 202 + background)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: eb7c187
 
 #### Overview

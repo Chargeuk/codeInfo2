@@ -587,7 +587,6 @@ Implementation starter pattern for every subtask in this task: mirror the reposi
 12. [ ] Update `README.md` if it currently documents chat providers or defaults in a way that would now be false. Document name: `README.md`. Location: repository root. Description: correct any user-facing provider or default-provider wording touched by this task. Purpose: keep top-level usage documentation truthful.
 13. [ ] Update `projectStructure.md` only if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task. Purpose: keep the repository file map accurate.
 14. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 1, recording the task’s implementation notes, and listing the task commit hashes once they exist.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -596,6 +595,7 @@ Implementation starter pattern for every subtask in this task: mirror the reposi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated shared contracts.
 4. [ ] Run `npm run compose:up`, confirm the stack starts without contract-related startup failures, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite still passes with the new three-provider contract surface.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -641,7 +641,6 @@ Implementation starter pattern for every subtask in this task: mirror the reposi
 12. [ ] Update `design.md` if the new lifecycle seam or Copilot home/config helper changes the repository architecture in a way a future junior developer would not infer from code alone. Document name: `design.md`. Location: repository root. Description: describe the runtime seam, Copilot home helper, and any new lifecycle flow, and add Mermaid flowcharts or sequence diagrams if they help explain the runtime boundary. Purpose: keep architecture documentation in sync with the new server seam.
 13. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new lifecycle seam files, Copilot config helper, and any new test files added by this task after those files exist. Purpose: keep the repository file map accurate after file creation.
 14. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -650,6 +649,7 @@ Implementation starter pattern for every subtask in this task: mirror the reposi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the SDK dependency.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the new lifecycle seam and Copilot home/config helper tests pass.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -689,7 +689,6 @@ Implementation starter pattern for every subtask in this task: copy the scenario
 7. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot SDK harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding harness files.
 8. [ ] Update `design.md` only if the harness entry point needs one sentence of explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a brief note about how the fake Copilot SDK harness plugs into the runtime seam if that relationship is not obvious from code. Purpose: prevent future test-maintainer confusion.
 9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -698,6 +697,7 @@ Implementation starter pattern for every subtask in this task: copy the scenario
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the server test harness files.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the dedicated fake Copilot SDK harness test passes, including at least one scripted error case.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -736,7 +736,6 @@ Implementation starter pattern for every subtask in this task: mirror the two-ph
 6. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot device-auth harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding auth harness files.
 7. [ ] Update `design.md` only if the harness entry point or fake auth phases need brief architectural clarification. Document name: `design.md`. Location: repository root. Description: add a brief explanation of the fake auth phases only if later maintainers would not infer them from the code and tests. Purpose: keep auth-harness architecture understandable.
 8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -745,6 +744,7 @@ Implementation starter pattern for every subtask in this task: mirror the two-ph
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the auth harness files.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the dedicated fake Copilot device-auth harness test passes, including at least one explicit error case.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -788,7 +788,6 @@ Implementation starter pattern for every subtask in this task: keep the existing
 10. [ ] Update `README.md` only if it contains provider-list behavior that would now be inaccurate. Document name: `README.md`. Location: repository root. Description: correct any user-facing description of provider availability or provider ordering changed by this task. Purpose: keep top-level usage documentation truthful.
 11. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task after those changes land. Purpose: keep the repository file map accurate.
 12. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -797,6 +796,7 @@ Implementation starter pattern for every subtask in this task: keep the existing
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new provider readiness wiring.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the route-level Copilot provider readiness tests pass, including an existing-credential happy path and an unauthenticated or startup-failure path.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -837,7 +837,6 @@ Implementation starter pattern for every subtask in this task: extend the curren
 7. [ ] Update `README.md` only if it contains model-list behavior that would now be inaccurate. Document name: `README.md`. Location: repository root. Description: correct any user-facing wording about model discovery or unavailable-model behavior touched by this task. Purpose: keep top-level usage documentation truthful.
 8. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task after those changes land. Purpose: keep the repository file map accurate.
 9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -846,6 +845,7 @@ Implementation starter pattern for every subtask in this task: extend the curren
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new model-route wiring.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the route-level Copilot model tests pass.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -901,7 +901,6 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 22. [ ] Update `README.md` only if user-facing chat behavior needs clarification. Document name: `README.md`. Location: repository root. Description: explain any user-visible Copilot chat behavior, errors, or warnings introduced by this task. Purpose: keep top-level usage documentation truthful.
 23. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: list any new chat adapter, route test, or helper files added by this task after those files are created. Purpose: keep the repository file map accurate after file creation.
 24. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 7, recording implementation notes, and listing the task commit hashes once they exist.
-25. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -910,6 +909,7 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the server chat changes.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot chat adapter, persistence, fallback, permission-handler, stream-edge, and Codex-only-flag handling tests pass.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -957,7 +957,6 @@ Implementation starter pattern for every subtask in this task: start from the cu
 14. [ ] Update `README.md` if it currently describes only the Codex-specific auth shape or wording. Document name: `README.md`. Location: repository root. Description: correct any top-level auth wording that should now describe the shared provider-auth behavior. Purpose: keep user-facing documentation truthful.
 15. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this contract task after those changes land. Purpose: keep the repository file map accurate.
 16. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -966,6 +965,7 @@ Implementation starter pattern for every subtask in this task: start from the cu
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the shared auth contract changes.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the shared-contract auth unit tests pass, including the already-authenticated and unavailable-before-start states.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1014,7 +1014,6 @@ Implementation starter pattern for every subtask in this task: mirror the route 
 15. [ ] Update `README.md` if this task needs new Copilot-auth-specific wording. Document name: `README.md`. Location: repository root. Description: explain any user-visible Copilot auth behavior or prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
 16. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: list the new Copilot auth route, utility, and test files after they are created. Purpose: keep the repository file map accurate after file creation.
 17. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1023,6 +1022,7 @@ Implementation starter pattern for every subtask in this task: mirror the route 
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new Copilot auth route and utilities are added.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot auth unit tests pass, including already-authenticated short-circuit, early verification, and explicit failure-path coverage.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1062,7 +1062,6 @@ Implementation starter pattern for every subtask in this task: stay inside the e
 7. [ ] Update `projectStructure.md` only if this task adds or removes files beyond the current helper locations. Document name: `projectStructure.md`. Location: repository root. Description: list any new fixture helper or proof-test files after they are created. Purpose: keep the repository file map accurate after file creation.
 8. [ ] Update `design.md` only if the client test entry point needs brief explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a short note about the shared provider-auth fixture entry point only if future maintainers would not infer it from the test code. Purpose: keep test architecture understandable.
 9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1071,6 +1070,7 @@ Implementation starter pattern for every subtask in this task: stay inside the e
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing client test helpers.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:client` and confirm the client provider-auth fixture proof passes, including already-authenticated and explicit failure-state coverage.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1119,7 +1119,6 @@ Implementation starter pattern for every subtask in this task: extend the existi
 13. [ ] Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Document name: `README.md`. Location: repository root. Description: correct any top-level wording about provider selection, disabled providers, or next-send conversation behavior. Purpose: keep user-facing documentation truthful.
 14. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new chat page test or helper files after they are created. Purpose: keep the repository file map accurate after file creation.
 15. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 11, recording implementation notes, and listing the task commit hashes once they exist.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1128,6 +1127,7 @@ Implementation starter pattern for every subtask in this task: extend the existi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client assets.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:client` and confirm the provider-selection, model-loading, disabled-provider-reason, and Codex-only UI regression tests pass.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1182,7 +1182,6 @@ Implementation starter pattern for every subtask in this task: preserve the exis
 18. [ ] Update `design.md` if it describes the old Codex-only dialog wording or flow. Document name: `design.md`. Location: repository root. Description: document the shared auth dialog flow, provider-refresh behavior, the unchanged agents execution scope, and any Mermaid diagrams needed to show the UI auth flow clearly. Purpose: keep architecture and user-flow documentation aligned with the shared dialog.
 19. [ ] Update `projectStructure.md` if this task adds or removes files, including any renamed dialog components or test helpers. Document name: `projectStructure.md`. Location: repository root. Description: record any renamed or newly added dialog, page, or test files after those file operations are complete. Purpose: keep the repository file map accurate after file creation or rename work.
 20. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 12, recording implementation notes, and listing the task commit hashes once they exist.
-21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1191,6 +1190,7 @@ Implementation starter pattern for every subtask in this task: preserve the exis
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client auth assets.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:client` and confirm the shared auth dialog tests pass, including already-authenticated, unavailable-before-start, and existing agents-page re-authenticate regression coverage.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1232,7 +1232,6 @@ Implementation starter pattern for every subtask in this task: harden the existi
 8. [ ] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Document name: `design.md`. Location: repository root. Description: add a short note about partial metadata omission only if the formatter contract would be hard to infer from the tests and code alone. Purpose: keep rendering behavior understandable.
 9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new transcript test files after they are created. Purpose: keep the repository file map accurate after file creation.
 10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 13, recording implementation notes, and listing the task commit hashes once they exist.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1241,6 +1240,7 @@ Implementation starter pattern for every subtask in this task: harden the existi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the transcript UI changes.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:client` and confirm the transcript formatting tests pass.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1282,7 +1282,6 @@ Implementation starter pattern for every subtask in this task: copy the existing
 8. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the runtime-env loading flow, `/health` isolation rule, and add Mermaid diagrams if they help explain the runtime flow. Purpose: keep architecture and runtime-flow documentation aligned with the implementation.
 9. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record any new runtime-config or health-isolation test files after they are created. Purpose: keep the repository file map accurate after file creation.
 10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 14, recording implementation notes, and listing the task commit hashes once they exist.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1290,6 +1289,7 @@ Implementation starter pattern for every subtask in this task: copy the existing
 2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any updated env-exposed shared types.
 3. [ ] Run `npm run compose:up`, confirm the stack starts with the unchanged port contract, then run `npm run compose:down`.
 4. [ ] Run `npm run test:summary:server:unit` and confirm the runtime config and `/health` isolation tests pass.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1334,7 +1334,6 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 11. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the Docker delivery and persistence flow, and add Mermaid diagrams if they help explain the container runtime path. Purpose: keep architecture and deployment-flow documentation aligned with the implementation.
 12. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record the new Docker contract test file and any other file additions after those files are created. Purpose: keep the repository file map accurate after file creation.
 13. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1343,6 +1342,7 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build succeeds with the new Copilot Docker wiring.
 4. [ ] Run `npm run compose:up`, confirm the stack starts with the unchanged port contract, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilot-compose-contract.test.ts` and confirm the targeted compose contract tests pass before relying on the full wrapper-backed suite later in the story.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1384,7 +1384,6 @@ Implementation starter pattern for every subtask in this task: extend the reposi
 7. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list any new higher-level support files and proof tests after those files are created. Purpose: keep the repository file map accurate after file creation.
 8. [ ] Update `design.md` if the boot-path extension needs explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the scenario-selection and higher-level boot flow, and add Mermaid diagrams if they help explain the path. Purpose: keep architecture and boot-flow documentation aligned with the implementation.
 9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 16, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1393,6 +1392,7 @@ Implementation starter pattern for every subtask in this task: extend the reposi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing higher-level boot path.
 4. [ ] Run `npm run compose:e2e:up`, confirm the e2e stack starts with the named Copilot scenario path available, then run `npm run compose:e2e:down`.
 5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` and confirm the targeted boot-path proof passes at least one happy path and one explicit error case.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1435,7 +1435,6 @@ Implementation starter pattern for every subtask in this task: preserve the curr
 8. [ ] Update `design.md` only if the server-side proof path needs explicit documentation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the server-side BDD flow and add a Mermaid diagram if it helps explain the fake-scenario path from feature to server behavior. Purpose: keep proof-path architecture understandable.
 9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new feature or step-definition files after they are created. Purpose: keep the repository file map accurate after file creation.
 10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 17, recording implementation notes, and listing the task commit hashes once they exist.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1444,6 +1443,7 @@ Implementation starter pattern for every subtask in this task: preserve the curr
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated server-side test support.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
 5. [ ] Run `npm run test:summary:server:cucumber` and confirm the updated Copilot feature scenarios pass.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1485,7 +1485,6 @@ Implementation starter pattern for every subtask in this task: follow the existi
 8. [ ] Update `design.md` only if the Playwright proof path needs explicit documentation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the browser proof flow and add a Mermaid diagram if it helps explain the fake Copilot e2e path clearly. Purpose: keep proof-path architecture understandable.
 9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new Playwright spec or support files after they are created. Purpose: keep the repository file map accurate after file creation.
 10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 18, recording implementation notes, and listing the task commit hashes once they exist.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1494,6 +1493,7 @@ Implementation starter pattern for every subtask in this task: follow the existi
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated e2e support.
 4. [ ] Run `npm run compose:e2e:up`, confirm the e2e stack starts with the named Copilot scenario path available, then run `npm run compose:e2e:down`.
 5. [ ] Run `npm run test:summary:e2e` and confirm the Copilot Playwright coverage passes through the wrapper-driven stack.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Implementation notes
 
@@ -1532,9 +1532,7 @@ Implementation starter pattern for every subtask in this task: reuse the reposit
 3. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: record the final Copilot architecture, provider ordering rule, auth flow, runtime-home handling, session identity choice, and any Mermaid diagrams needed to keep the design document truthful. Purpose: keep the repository architecture and flow documentation aligned with the completed story.
 4. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: reflect every file added, removed, or renamed by Story `0000051` after all earlier file operations and documentation updates are complete. Purpose: keep the repository file map accurate at story close-out.
 5. [ ] Create a pull request summary comment that explains all user-visible, server-side, client-side, Docker, and testing changes in this story. Save it in the repository location normally used for story summaries or PR planning notes if one already exists; otherwise add it to this plan task’s implementation notes.
-6. [ ] Use the Playwright MCP tools to manually check the implemented chat flow, provider selection, auth dialog, and transcript rendering, then save screenshots to `test-results/screenshots/` using names that start with `0000051-19-`.
-7. [ ] Update this plan file one final time by marking every completed checkbox, recording the final implementation notes, and listing the final task commit hashes once they exist.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before closing the story.
+6. [ ] Update this plan file one final time by marking every completed checkbox, recording the final implementation notes, and listing the final task commit hashes once they exist.
 
 #### Testing
 
@@ -1547,6 +1545,7 @@ Implementation starter pattern for every subtask in this task: reuse the reposit
 7. [ ] Run `npm run test:summary:client` and confirm the full client test suite passes.
 8. [ ] Run `npm run test:summary:e2e` and confirm the full end-to-end suite passes.
 9. [ ] Use the Playwright MCP tools for a final manual verification pass and save the required screenshots to `test-results/screenshots/`.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before closing the story.
 
 #### Implementation notes
 

@@ -41,7 +41,15 @@ If any of those checks fail, stop and say the current-plan handoff is stale and 
 
 ## Base Branch Resolution
 
-For each repository in review scope, resolve the review base branch from Git's configured remote default branch. Prefer `origin/HEAD` or equivalent default-branch metadata. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`. Record the resolved base branch and use it for all review diffs and later review-step validation.
+For each repository in review scope, resolve the review base branch using this order:
+
+1. First try to determine where the current story branch was originally branched from by using the information available in `codeInfoStatus/flow-state/current-plan.json`. Treat that ancestry information as a helpful hint, not as absolute truth.
+2. If you can confidently determine a branched-from branch or ref for that repository, then determine whether it has already been merged into the repository's default branch.
+3. If that branched-from branch has already been merged into the repository's default branch, use the default branch as the review base.
+4. If that branched-from branch has NOT been merged into the repository's default branch, use the branched-from branch itself as the review base.
+5. If you cannot confidently determine the branched-from branch, or the ref is missing, unreadable, or otherwise unusable, fall back to Git's configured remote default branch. Prefer `origin/HEAD` or equivalent default-branch metadata. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`.
+
+Record the final per-repository resolved base branch and the reason it was chosen, and use that resolved base branch for all review diffs and later review-step validation.
 
 ## Exact Step Order
 

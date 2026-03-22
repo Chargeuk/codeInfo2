@@ -31,12 +31,13 @@ When you have found the selected story:
 13. In `additional_repositories`, write repository entries as objects with a required `path` field. The optional `branched_from` field belongs inside that same object when available.
 14. Do not use absolute paths for `plan_path`.
 15. If `codeInfoStatus/flow-state/current-plan.json` does not exist, create it with that payload.
-16. If it already exists and already matches the selected `plan_path` plus the repository paths in `additional_repositories`, leave it unchanged and do NOT rewrite it.
-17. If it already exists but the stored information is missing, stale, or otherwise different from the selected `plan_path` or repository scope, update the file in place so it matches the expected payload. Do NOT delete it first unless an in-place update is genuinely impossible.
-18. Treat any older or incomplete handoff format that still identifies the same selected plan as incomplete data. If the existing file communicates the same selected plan but omits explicit repository scope or otherwise uses an older format, update it in place to the full canonical shape.
-19. When updating an existing handoff file, preserve any existing `branched_from` value for the current repository or an additional repository that remains in scope, unless this step created that branch again and can replace it with a new concrete value.
-20. Remove `branched_from` only when its repository is no longer represented in the handoff.
-21. This handoff file becomes the sole plan-selection source for every later step in the flow.
-22. Commit the handoff file only if you created it or changed its contents, and push if you can.
+16. If it already exists, read it and determine its meaning from the information it contains rather than from an exact JSON shape. Work out the active `plan_path`, the additional repository paths in scope, and any existing `branched_from` values that are still attached to repositories remaining in scope.
+17. If the existing file already communicates the same selected `plan_path`, the same repository scope, and there are no new `branched_from` values from this run that need to be added or replaced, leave it unchanged and do NOT rewrite it.
+18. Otherwise, update the file in place so it matches the canonical payload for the selected plan and repository scope. Do NOT delete it first unless an in-place update is genuinely impossible.
+19. Treat any older, incomplete, or differently structured handoff that still communicates the same selected plan as valid input to be normalized rather than as a hard failure. If you can determine the selected plan, repository scope, or preserved `branched_from` values from the existing file, carry that information forward into the canonical output.
+20. When updating an existing handoff file, preserve any existing `branched_from` value for the current repository or an additional repository that remains in scope, unless this step created that branch again and can replace it with a new concrete value.
+21. Remove `branched_from` only when its repository is no longer represented in the handoff.
+22. This handoff file becomes the sole plan-selection source for every later step in the flow.
+23. Commit the handoff file only if you created it or changed its contents, and push if you can.
 
 This step owns plan selection, repository branch setup, and current-plan handoff creation together. Do not stop after selecting the story unless one of the blocking conditions above occurs.

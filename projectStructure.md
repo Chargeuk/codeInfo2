@@ -120,6 +120,12 @@ Modified files (implementation traceability):
 - `codeinfo_markdown/linting_tasks_setup.md`
 - `codeinfo_markdown/logline_tasks.md`
 - `codeinfo_markdown/qa.md`
+- `codeinfo_markdown/code_review_findings.md`
+- `codeinfo_markdown/review_evidence_gate.md`
+- `codeinfo_markdown/review_disposition.md`
+- `codeinfo_markdown/external_review_evidence_gate.md`
+- `codeinfo_markdown/external_review_findings.md`
+- `codeinfo_markdown/external_review_disposition.md`
 - `codeinfo_markdown/screenshot_test_tasks.md`
 - `codeinfo_markdown/store_current_plan_handoff.md`
 - `codeinfo_markdown/subtasks_for_linting.md`

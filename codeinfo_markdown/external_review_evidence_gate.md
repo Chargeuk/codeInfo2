@@ -12,5 +12,5 @@ Then apply these external-review-specific additions:
    - any comments that obviously require deeper validation in the findings step.
 6. When writing or overwriting `codeInfoStatus/reviews/<story-number>-current-review.json`, extend the base handoff with:
    - `external_review_input_file`
-7. Keep the rest of the handoff contract aligned with `review_evidence_gate.md`, including stable repo aliases, resolved base branches, and current HEAD commits for every repository in scope.
+7. Keep the rest of the handoff contract aligned with `review_evidence_gate.md`, including stable repo aliases, ancestry-aware resolved base branches, and current HEAD commits for every repository in scope.
 8. Report the evidence summary and the exact handoff file path when done.

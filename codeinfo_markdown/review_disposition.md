@@ -39,6 +39,8 @@ Read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from t
 
 still match the normalized review scope and current repository state for every selected repository.
 
+Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
+
 ## Validation And Stop Conditions
 
 Before deciding disposition, validate all of the following:

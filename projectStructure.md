@@ -121,7 +121,7 @@ Modified files (implementation traceability):
 - `codeinfo_markdown/logline_tasks.md`
 - `codeinfo_markdown/qa.md`
 - `codeinfo_markdown/screenshot_test_tasks.md`
-- `codeinfo_markdown/select_next_plan_and_branch.md`
+- `codeinfo_markdown/store_current_plan_handoff.md`
 - `codeinfo_markdown/subtasks_for_linting.md`
 - `codex_agents/planning_agent/commands/create_new_story.json`
 - `codex_agents/planning_agent/commands/qa.json`

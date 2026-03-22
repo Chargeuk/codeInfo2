@@ -250,3 +250,7 @@ The chosen modal direction for this story is:
   - client tests for provider selection and model loading when Copilot is present;
   - client transcript-formatting tests proving missing Copilot usage/timing fields are omitted cleanly and do not alter existing Codex or LM Studio bubble output.
 - `Implementation constraint`: do not use this story to refactor agents or flows to become provider-agnostic. The later agent-support plan can build on the chat integration patterns proven here.
+
+## Questions
+
+- No Further Questions

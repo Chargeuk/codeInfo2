@@ -408,61 +408,103 @@ Those wrappers make the proof path realistic for this story, but only after the 
 
 ## Feasibility Proof
 
-This story stays within the current repository. The feasibility proof below distinguishes which capabilities already exist, which prerequisite capabilities must be created before Copilot chat can work, and which implementation assumptions are currently invalid if we tried to wire Copilot in directly today.
+This story stays within the current repository. No additional repository is involved, so every prerequisite check below is scoped to `Current Repository` only. The purpose of this feasibility proof is to walk the task list in order and confirm, for each task, which capabilities already exist in this repository, which capabilities must first be created by earlier tasks or as explicit prerequisite work, and which assumptions are currently invalid if a developer tried to skip ahead.
 
-### Shared provider contracts
+### Task 1. Expand the shared three-provider chat contracts and ordered defaults
 
-- `Already existing capabilities`: the repository already has shared provider contracts, default-provider resolution, runtime selection, route validation, persistence validation, and OpenAPI contract surfaces. The relevant existing files are `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/conversation.ts`, `common/src/api.ts`, `common/src/lmstudio.ts`, and `openapi.json`.
-- `Missing prerequisite capabilities`: those shared contracts must first be expanded from two providers to three. That means adding `copilot` to the shared provider unions, route validators, persistence schema enums, request or response schemas, and OpenAPI enums before Copilot can be accepted consistently across the app.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the repo already has a provider-neutral contract surface. Right now the provider model is still hard-coded around `codex` and `lmstudio`, and `provider: "copilot"` would be rejected or mishandled in multiple layers.
+- `Already existing capabilities`: `common/src/api.ts`, `common/src/lmstudio.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/conversation.ts`, and `openapi.json` already provide the contract surfaces this task needs to extend.
+- `Missing prerequisite capabilities`: none before Task 1 inside this story. This is the first explicit prerequisite task because every later server and client task depends on `copilot` being a legal provider across those shared surfaces.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the repository already has a provider-neutral contract layer. The live code still hard-codes `codex` and `lmstudio` in multiple validators, enums, and fallback paths.
 
-### Server Copilot runtime seam
+### Task 2. Add the reusable Copilot runtime seam
 
-- `Already existing capabilities`: the repository already has a provider abstraction pattern in `server/src/chat/interfaces/ChatInterface.ts`, provider implementations in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and provider selection in `server/src/chat/factory.ts`.
-- `Missing prerequisite capabilities`: the repository does not yet have a Copilot runtime seam. Before route work can succeed, the story must add `@github/copilot-sdk`, create a reusable Copilot client lifecycle module, and introduce a `ChatInterfaceCopilot` implementation that owns client startup, session creation or resumption, model listing, event translation, and shutdown behavior.
-- `Assumptions that are currently invalid`: it is currently invalid to treat Copilot as a light variation of LM Studio or as a route-only change. Context7 and DeepWiki confirm that Copilot is session-based and event-driven, so it needs its own provider implementation rather than being squeezed into the LM Studio path.
+- `Already existing capabilities`: `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chat/factory.ts`, and `server/src/config/codexConfig.ts` already provide the abstraction pattern and config-helper pattern this task should mirror.
+- `Missing prerequisite capabilities`: the repository does not yet have any Copilot lifecycle module, Copilot home helper, or injectable Copilot adapter. Task 2 must create those before provider readiness, auth, or chat execution can reuse them.
+- `Assumptions that are currently invalid`: it is currently invalid to assume Copilot can be added as a small route-only branch or by squeezing it into the LM Studio path. The planned provider is session-based and needs its own lifecycle seam.
 
-### Provider readiness and model routes
+### Task 3. Add the server fake Copilot SDK harness
 
-- `Already existing capabilities`: the repository already has `/chat/providers` and `/chat/models` routes with readiness and model-list behavior for the current providers. Those surfaces live in `server/src/routes/chatProviders.ts` and `server/src/routes/chatModels.ts`.
-- `Missing prerequisite capabilities`: those routes need a Copilot readiness branch, a Copilot model-list branch, and one explicit three-provider ordering rule shared with runtime selection. The plan must treat that as prerequisite route work, not just as optional polish.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the existing provider ordering and fallback logic can naturally absorb a third provider. `server/src/config/chatDefaults.ts` still uses a two-provider alternate-provider rule, and `server/src/routes/chatProviders.ts` still builds a binary ordered list.
+- `Already existing capabilities`: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/wsClient.ts`, `server/src/test/unit/chat-factory.test.ts`, and `server/src/test/unit/chat-stream-bridge.test.ts` already show the repository’s test-support style for provider fakes and stream assertions.
+- `Missing prerequisite capabilities`: Task 2 must complete first so the fake can plug into the real Copilot seam instead of inventing a separate test-only shape.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing LM Studio fake can cover Copilot behavior unchanged. There is no Copilot-specific fake client or fake session support in the repository today.
 
-### Chat execution and persistence
+### Task 4. Add the server fake Copilot device-auth harness
 
-- `Already existing capabilities`: the repository already has streaming chat execution, inflight tracking, conversation locks, conversation creation, turn persistence, and provider-specific persistence patterns. The main surfaces are `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `server/src/mongo/turn.ts`.
-- `Missing prerequisite capabilities`: the story must first add `copilot` to conversation storage enums and define one explicit conversation-to-Copilot-session identity rule. It must also add Copilot-specific event mapping and persist only verified Copilot usage or timing data.
-- `Assumptions that are currently invalid`: it is currently invalid to assume existing persistence can already store Copilot chat sessions. `server/src/mongo/conversation.ts` still constrains providers to `lmstudio | codex`, and silently creating a fresh Copilot session on resume failure would contradict the current plan's continuity requirement.
+- `Already existing capabilities`: `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `server/src/utils/singleFlight.ts`, `server/src/agents/authSeed.ts`, `server/src/test/unit/codexDeviceAuth.test.ts`, and `server/src/test/integration/codex.device-auth.test.ts` already show the current auth-flow shape that the harness should mirror.
+- `Missing prerequisite capabilities`: none before Task 4 inside the auth area, but this harness must exist before Task 7 can prove Copilot auth deterministically and before Tasks 13 and 14 can reuse auth scenarios in higher-level tests.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the current Codex auth tests can simply be copied inline into each Copilot route test. The story now requires a reusable two-phase auth harness rather than scattered raw fixtures.
 
-### Shared auth flow
+### Task 5. Expose Copilot readiness and model listing on the server
 
-- `Already existing capabilities`: the repository already has a device-auth pattern, backend route orchestration, parser utilities, shared API transport, and a chat-mounted auth dialog for Codex. The relevant files are `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `common/src/api.ts`, `client/src/api/codex.ts`, and `client/src/components/codex/CodexDeviceAuthDialog.tsx`.
-- `Missing prerequisite capabilities`: before Copilot auth can exist, the story must create a shared provider-auth contract, add a Copilot auth route and parser flow, and update the client auth dialog to support provider-specific actions with the new two-phase contract.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the existing auth flow is already shared. The route path, client API, response types, and modal copy are all Codex-specific today, so Copilot cannot simply be plugged into the current auth UI unchanged.
+- `Already existing capabilities`: `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/config/chatDefaults.ts` already expose provider-list and model-list behavior for the existing providers.
+- `Missing prerequisite capabilities`: Task 1 must complete first so `copilot` is a legal provider everywhere, Task 2 must complete first so the routes have a real Copilot seam to call, and Task 3 must complete first so readiness and model-list coverage can run without a live Copilot account.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the current routes can absorb a third provider naturally. Today they still build a binary provider list and treat non-Codex traffic as LM Studio by default.
 
-### Client provider and model UI
+### Task 6. Add Copilot chat execution, streaming, and conversation persistence
 
-- `Already existing capabilities`: the repository already has provider and model bootstrap logic in `client/src/hooks/useChatModel.ts`, provider-sensitive chat behavior in `client/src/pages/ChatPage.tsx`, and transcript metadata formatting in `client/src/components/chat/chatTranscriptFormatting.ts`.
-- `Missing prerequisite capabilities`: the client must first be updated to understand a three-provider world, including provider ordering, provider availability reasons, shared auth refresh behavior, and Copilot metadata handling that does not assume Codex-only defaults.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the current client is fully provider-neutral. Some state and formatting behavior is generic, but the existing flow still treats Codex as the only special provider and falls back to effectively binary provider handling.
+- `Already existing capabilities`: `server/src/routes/chat.ts`, `server/src/chat/factory.ts`, `server/src/chat/chatStreamBridge.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/ws/server.ts`, `server/src/chat/memoryPersistence.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `server/src/mongo/turn.ts` already provide the execution, streaming, locking, and persistence paths this task should extend.
+- `Missing prerequisite capabilities`: Task 1 must complete first for provider and persistence enums, Task 2 must complete first for the Copilot adapter boundary, Task 3 must complete first for deterministic stream tests, and Task 5 should settle readiness and model-route semantics before chat execution is exposed publicly.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing binary `codex` versus `lmstudio` branches in `server/src/routes/chat.ts` are already provider-neutral, and it is currently invalid to assume a failed Copilot resume can safely fall back to a fresh session behind the same conversation.
 
-### Docker, environment, and runtime wiring
+### Task 7. Generalize the auth contract and add the Copilot device-auth backend
 
-- `Already existing capabilities`: the repository already has startup env loading, compose-based runtime wiring, Docker image builds, Codex home resolution, and contract-style tests around compose and runtime config. The relevant files are `server/src/config/startupEnv.ts`, `server/src/config/codexConfig.ts`, `server/Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, and `.dockerignore`.
-- `Missing prerequisite capabilities`: the story must first add `CODEINFO_COPILOT_HOME` through startup env loading, env files, compose files, Docker runtime setup, and build-context exclusions. It must also add a concrete Copilot SDK and CLI availability path in the server runtime image.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the existing runtime already has a parallel Copilot home or Copilot binary path. The repository only wires Codex home today, and there are no existing Copilot env vars, mounts, or dependencies.
+- `Already existing capabilities`: `common/src/api.ts`, `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `server/src/index.ts`, `client/src/api/codex.ts`, and the existing Codex auth tests already provide the shared contract surface, route pattern, parser utilities, and route registration pattern that this task should extend.
+- `Missing prerequisite capabilities`: Task 2 must complete first so auth storage uses the shared Copilot home helper rather than scattered env reads, and Task 4 must complete first so the Copilot auth route can be proved through a reusable fake instead of ad hoc route fixtures.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing auth flow is already shared or that the new Copilot route is already mounted. Both the contract and the route registration are Codex-specific today.
 
-### Automated testing
+### Task 8. Add the client shared provider-auth test harness
 
-- `Already existing capabilities`: the repository already has unit, integration, Cucumber, and Playwright layers, plus strong current coverage for provider ordering, model routes, Codex auth, runtime config, and transcript UI behavior. Examples include `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `client/src/test/chatPage.provider.test.tsx`, and `e2e/env-runtime-config.spec.ts`.
-- `Missing prerequisite capabilities`: the story must first add the Copilot-specific harnesses already documented in `## Test Harnesses`, especially a fake Copilot SDK seam and a shared provider-auth fixture. Existing test layers are present, but they are not yet capable of deterministic Copilot coverage.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the existing tests will pass after Copilot is introduced without deliberate updates. Many tests and OpenAPI assertions are still explicitly bound to the two-provider contract and Codex-only auth route.
+- `Already existing capabilities`: `client/src/test/setupTests.ts`, `client/src/test/support/fetchMock.ts`, `client/src/test/support/mockWebSocket.ts`, `client/src/test/support/userEvent.ts`, `client/src/test/codexDeviceAuthApi.test.ts`, and `client/src/test/codexDeviceAuthDialog.test.tsx` already provide the client test bootstrap and fixture style this task should follow.
+- `Missing prerequisite capabilities`: Task 7 must complete first so this harness can target the real shared provider-auth contract rather than guessing a response shape.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the current client fetch helpers alone are sufficient. The story now needs a named shared provider-auth harness because auth responses are no longer Codex-only.
+
+### Task 9. Update client provider and model selection for the three-provider contract
+
+- `Already existing capabilities`: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `client/src/components/chat/CodexFlagsPanel.tsx`, and the current chat page provider tests already provide the hook, page, and regression surfaces this task should extend.
+- `Missing prerequisite capabilities`: Task 1 must complete first so the client can compile against the three-provider contract, Task 5 must complete first so the backend readiness and model routes are stable, and Task 7 must complete first so provider-refresh behavior can consume the shared auth contract instead of stale Codex-only assumptions.
+- `Assumptions that are currently invalid`: it is currently invalid to assume `useChatModel` and `ChatPage` are already three-provider neutral. The current fallback behavior can still collapse to LM Studio and hide a third provider if this task is not done deliberately.
+
+### Task 10. Replace the Codex-only auth dialog with the shared Choose Authentication flow
+
+- `Already existing capabilities`: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/pages/ChatPage.tsx`, and the current dialog or agents-page tests already provide the component and consumer surfaces this task should update.
+- `Missing prerequisite capabilities`: Task 7 must complete first so the UI has one settled shared auth contract and mounted Copilot route to call, and Task 8 must complete first so the dialog tests can reuse the shared provider-auth harness.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing auth dialog is already shared or only consumed by the chat page. The current dialog and client API are Codex-specific, and the agents flow also depends on that UI.
+
+### Task 11. Harden transcript metadata rendering for partial Copilot usage and timing fields
+
+- `Already existing capabilities`: `client/src/components/chat/chatTranscriptFormatting.ts`, `client/src/test/chatPage.stream.test.tsx`, `client/src/test/chatPage.reasoning.test.tsx`, and `client/src/test/transcriptTestHarness.test.ts` already provide the formatter and regression-test surfaces this task should update.
+- `Missing prerequisite capabilities`: Task 6 must complete first so the server has a real Copilot event-to-transcript mapping and the formatter can be hardened against the actual partial metadata shape the story emits.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the current formatter already handles partial metadata safely. The current code still falls back some missing usage values to placeholder zeros.
+
+### Task 12. Wire Copilot runtime delivery, environment injection, and Docker persistence
+
+- `Already existing capabilities`: `server/src/config/startupEnv.ts`, `server/src/config/codexConfig.ts`, `server/Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `.dockerignore`, and runtime-config tests already provide the env and container wiring patterns this task should extend.
+- `Missing prerequisite capabilities`: Task 2 must complete first so this wiring can point at one shared Copilot home helper instead of inventing another env-resolution path.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the runtime already provides `CODEINFO_COPILOT_HOME`, a writable Copilot home, or a Copilot CLI delivery path. None of those repository capabilities exist yet.
+
+### Task 13. Add the higher-level Copilot fixture seam for integration, Cucumber, and e2e
+
+- `Already existing capabilities`: `server/src/test/integration`, `server/src/test/steps`, `server/src/test/support/wsClient.ts`, `e2e/support/mockChatWs.ts`, `client/src/test/support/mockChatWs.ts`, and `client/src/test/support/mockWebSocket.ts` already provide the higher-level bootstrap and transport-helper patterns this task should reuse.
+- `Missing prerequisite capabilities`: Task 3 must complete first for fake Copilot SDK behavior, Task 4 must complete first for fake Copilot auth behavior, and Task 8 must complete first for client-side shared auth fixtures. Task 12 must also define the final env contract before the wrapper-backed e2e path is treated as complete.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing integration and e2e stack already has a switch for fake Copilot readiness, models, chat, and auth. That cross-layer fixture seam does not exist yet.
+
+### Task 14. Extend Cucumber and Playwright coverage to prove the Copilot story through the fake seam
+
+- `Already existing capabilities`: `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/steps/chat_stream.steps.ts`, `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `e2e/chat-user-turn-ws.spec.ts`, and `e2e/env-runtime-config.spec.ts` already provide the higher-level proof surfaces this task should extend.
+- `Missing prerequisite capabilities`: Tasks 5, 6, 7, 9, 10, 12, and 13 must complete first so the routes, client behavior, env wiring, and fake higher-level boot path are all real and deterministic.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing high-level suites can prove Copilot today or that a live authenticated Copilot account should be part of the default proof path.
+
+### Task 15. Run final validation and close out Story 0000051
+
+- `Already existing capabilities`: the repository already has the required wrapper scripts, documentation files, and Playwright-backed manual-check path for final validation.
+- `Missing prerequisite capabilities`: every earlier task in this story is a prerequisite because final validation is only meaningful once the contracts, runtime seam, auth flow, client changes, Docker wiring, and higher-level tests all exist.
+- `Assumptions that are currently invalid`: it is currently invalid to treat the existence of wrappers alone as proof that the story is ready to close. Those wrappers only become meaningful for Copilot once the earlier tasks complete.
 
 ### Feasibility conclusion
 
-- `Already existing capabilities`: this repository already has enough architectural shape to support a Copilot provider story without cross-repository work. The provider abstraction, route structure, persistence model, auth pattern, Docker workflow, and test layers are all present.
-- `Missing prerequisite capabilities`: Copilot support is still blocked on explicit prerequisite work in shared contracts, a Copilot runtime seam, a shared provider-auth contract, Copilot env and Docker wiring, and Copilot-ready test harnesses.
-- `Assumptions that are currently invalid`: the story must not be executed as if Copilot were only a new enum value plus a few route branches. Today that assumption is false in contracts, persistence, auth, runtime wiring, and tests, and the plan should continue to treat those as prerequisite implementation areas that must land before end-to-end Copilot chat can be expected to work.
+- `Already existing capabilities`: this repository already has enough architectural shape to support the story without adding another repository, another application, or a parallel test stack.
+- `Missing prerequisite capabilities`: the story is still blocked on explicit work in Tasks 1 through 13 before the wrapper-backed proof in Tasks 14 and 15 is realistic.
+- `Assumptions that are currently invalid`: the plan must continue to treat the following dependency chain as hard gates rather than soft suggestions: Task 1 before Tasks 5, 6, 7, and 9; Task 2 before Tasks 3, 5, 6, 7, and 12; Task 3 before Tasks 5, 6, 13, and 14; Task 4 before Tasks 7, 13, and 14; Task 7 before Tasks 8, 9, and 10; Task 8 before Tasks 10 and 13; Task 12 before the wrapper-backed e2e proof in Tasks 13, 14, and 15.
 
 ## Questions
 
@@ -563,7 +605,7 @@ Create the reusable server-side Copilot client seam that later route and chat ta
 
 #### Overview
 
-Create the dedicated fake Copilot SDK harness for server tests so unit, integration, and BDD layers can script Copilot startup, model discovery, session resumption, streaming events, and deterministic failure cases without a real Copilot account. This task is only about the harness and the proof that the harness itself can run and surface scripted errors.
+Create the dedicated fake Copilot SDK harness for server tests so unit, integration, and BDD layers can script Copilot startup, model discovery, session resumption, streaming events, and deterministic failure cases without a real Copilot account. This task depends on Task 2 because the fake must plug into the real Copilot seam instead of creating a second test-only interface. This task is only about the harness and the proof that the harness itself can run and surface scripted errors.
 
 #### Documentation Locations
 
@@ -604,7 +646,7 @@ Create the dedicated fake Copilot SDK harness for server tests so unit, integrat
 
 #### Overview
 
-Create the dedicated fake Copilot device-auth harness for server tests so auth routes can prove verification-code parsing, completion polling, missing CLI behavior, and failure outcomes without depending on a real external login. This task is only about the auth harness and the proof that the harness itself can run and expose deterministic errors.
+Create the dedicated fake Copilot device-auth harness for server tests so auth routes can prove verification-code parsing, completion polling, missing CLI behavior, and failure outcomes without depending on a real external login. This task must land before Task 7 so the Copilot auth route can be proved through a reusable fake instead of route-specific inline fixtures. This task is only about the auth harness and the proof that the harness itself can run and expose deterministic errors.
 
 #### Documentation Locations
 
@@ -644,7 +686,7 @@ Create the dedicated fake Copilot device-auth harness for server tests so auth r
 
 #### Overview
 
-Wire the reusable Copilot seam into `GET /chat/providers` and `GET /chat/models` so Copilot appears in the provider list with deterministic availability reasons and returns model metadata through the existing shared response shape. This task should stop at provider readiness and model discovery; it should not yet execute chat turns.
+Wire the reusable Copilot seam into `GET /chat/providers` and `GET /chat/models` so Copilot appears in the provider list with deterministic availability reasons and returns model metadata through the existing shared response shape. This task depends on Tasks 1, 2, and 3 because it needs the three-provider contract, the runtime seam, and the fake Copilot SDK proof path in place first. This task should stop at provider readiness and model discovery; it should not yet execute chat turns.
 
 #### Documentation Locations
 
@@ -688,7 +730,7 @@ Wire the reusable Copilot seam into `GET /chat/providers` and `GET /chat/models`
 
 #### Overview
 
-Implement the actual Copilot chat turn path on the server so `POST /chat` can create or resume a Copilot session, stream transcript events into the existing bridge, and persist the conversation deterministically. This task is intentionally backend-only because the frontend should not consume Copilot chat until the server contract and persistence behavior are working.
+Implement the actual Copilot chat turn path on the server so `POST /chat` can create or resume a Copilot session, stream transcript events into the existing bridge, and persist the conversation deterministically. This task depends on Tasks 1, 2, and 3, and it should start only after Task 5 has settled the provider-readiness and model-route behavior the chat path will share. This task is intentionally backend-only because the frontend should not consume Copilot chat until the server contract and persistence behavior are working.
 
 #### Documentation Locations
 
@@ -733,7 +775,7 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 
 #### Overview
 
-Replace the current Codex-only auth contract with a shared provider-auth contract, then add the server-side Copilot device-auth route that uses the documented device-login flow and returns verification details early. This task remains server-first so the frontend can consume one settled contract in the next task instead of chasing backend changes.
+Replace the current Codex-only auth contract with a shared provider-auth contract, then add the server-side Copilot device-auth route that uses the documented device-login flow and returns verification details early. This task depends on Task 2 for the shared Copilot home helper and Task 4 for the reusable auth fake. This task remains server-first so the frontend can consume one settled contract in the next task instead of chasing backend changes.
 
 #### Documentation Locations
 
@@ -776,7 +818,7 @@ Replace the current Codex-only auth contract with a shared provider-auth contrac
 
 #### Overview
 
-Create the dedicated client-side provider-auth harness so dialog and auth API tests can script Codex and Copilot auth states without duplicating fixtures in every test file. This task is only about the harness and the proof that the harness itself can render or return expected success and failure states.
+Create the dedicated client-side provider-auth harness so dialog and auth API tests can script Codex and Copilot auth states without duplicating fixtures in every test file. This task depends on Task 7 because the harness must target the real shared provider-auth contract instead of a guessed interim shape. This task is only about the harness and the proof that the harness itself can render or return expected success and failure states.
 
 #### Documentation Locations
 
@@ -816,7 +858,7 @@ Create the dedicated client-side provider-auth harness so dialog and auth API te
 
 #### Overview
 
-Teach the existing chat page to consume the new three-provider contract for provider ordering, provider availability, model loading, and next-send conversation semantics. This task must not change the shared auth dialog yet; it should only update the provider and model selection flow that depends on the backend contracts completed in Tasks 1, 5, and 7.
+Teach the existing chat page to consume the new three-provider contract for provider ordering, provider availability, model loading, and next-send conversation semantics. This task depends on Tasks 1, 5, and 7, and it must not start earlier because the chat page would otherwise be forced to guess provider or auth semantics that still belong to the server. This task must not change the shared auth dialog yet; it should only update the provider and model selection flow that depends on those settled backend contracts.
 
 #### Documentation Locations
 
@@ -859,7 +901,7 @@ Teach the existing chat page to consume the new three-provider contract for prov
 
 #### Overview
 
-Update the existing client auth experience so the chat page uses one shared `Choose Authentication` dialog with `Codex Auth` and `Copilot Auth`, and so the UI consumes the shared provider-auth contract from Task 7 through the client harness from Task 8. This task should stay focused on the dialog flow, not on provider or model selection, which belongs to Task 9.
+Update the existing client auth experience so the chat page uses one shared `Choose Authentication` dialog with `Codex Auth` and `Copilot Auth`, and so the UI consumes the shared provider-auth contract from Task 7 through the client harness from Task 8. This task depends on Tasks 7 and 8 and should not start earlier because the dialog would otherwise be built against a contract or fixture layer that does not exist yet. This task should stay focused on the dialog flow, not on provider or model selection, which belongs to Task 9.
 
 #### Documentation Locations
 
@@ -902,7 +944,7 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 
 #### Overview
 
-Update the existing transcript formatting path so partial Copilot usage and timing metadata render cleanly without placeholder zeros or misleading labels. This task is intentionally narrow: it should improve shared transcript formatting without rewriting the rest of the chat page.
+Update the existing transcript formatting path so partial Copilot usage and timing metadata render cleanly without placeholder zeros or misleading labels. This task depends on Task 6 because the formatter should harden itself against the real Copilot metadata shape the server emits rather than against guessed placeholder payloads. This task is intentionally narrow: it should improve shared transcript formatting without rewriting the rest of the chat page.
 
 #### Documentation Locations
 
@@ -942,7 +984,7 @@ Update the existing transcript formatting path so partial Copilot usage and timi
 
 #### Overview
 
-Add the runtime and deployment prerequisites that let the existing server and compose stack host Copilot safely: `CODEINFO_COPILOT_HOME`, Copilot CLI delivery, writable runtime storage, Docker-managed persistence, and build-context exclusions. This task must keep the repository’s image-build model intact and must not introduce host source bind mounts for application code.
+Add the runtime and deployment prerequisites that let the existing server and compose stack host Copilot safely: `CODEINFO_COPILOT_HOME`, Copilot CLI delivery, writable runtime storage, Docker-managed persistence, and build-context exclusions. This task depends on Task 2 so the env and container wiring can point at one shared Copilot home helper. This task must keep the repository’s image-build model intact and must not introduce host source bind mounts for application code.
 
 #### Documentation Locations
 
@@ -985,7 +1027,7 @@ Add the runtime and deployment prerequisites that let the existing server and co
 
 #### Overview
 
-Create the higher-level fake Copilot fixture seam that lets integration tests, Cucumber scenarios, and the Playwright-driven stack boot the application with deterministic Copilot availability, model responses, auth states, and streamed chat events. This task is about the reusable higher-level fixture itself, not about writing the full end-to-end story coverage yet.
+Create the higher-level fake Copilot fixture seam that lets integration tests, Cucumber scenarios, and the Playwright-driven stack boot the application with deterministic Copilot availability, model responses, auth states, and streamed chat events. This task depends on Tasks 3, 4, and 8 for the lower-level fake surfaces it composes, and it must stay aligned with Task 12 before the wrapper-backed e2e stack is treated as complete. This task is about the reusable higher-level fixture itself, not about writing the full end-to-end story coverage yet.
 
 #### Documentation Locations
 
@@ -1025,7 +1067,7 @@ Create the higher-level fake Copilot fixture seam that lets integration tests, C
 
 #### Overview
 
-Use the fake Copilot seams to prove the new provider behavior end to end across the repository’s existing higher-level test layers. This task is about expanding coverage, not changing the user-facing feature contract again.
+Use the fake Copilot seams to prove the new provider behavior end to end across the repository’s existing higher-level test layers. This task depends on Tasks 5, 6, 7, 9, 10, 12, and 13 because the routes, client behavior, env wiring, and higher-level fixture seam all need to exist first. This task is about expanding coverage, not changing the user-facing feature contract again.
 
 #### Documentation Locations
 
@@ -1067,7 +1109,7 @@ Use the fake Copilot seams to prove the new provider behavior end to end across 
 
 #### Overview
 
-Run the final full proof path for Story `0000051`, verify the implemented behavior against the acceptance criteria, update the remaining repository documentation, and prepare the story close-out notes. This task must use the repository wrappers and must include a manual Playwright spot check with screenshots saved under `test-results/screenshots/`.
+Run the final full proof path for Story `0000051`, verify the implemented behavior against the acceptance criteria, update the remaining repository documentation, and prepare the story close-out notes. This task depends on every earlier task in the story, because the wrapper-backed validation is only meaningful once the contracts, runtime seam, auth flow, client behavior, Docker wiring, and higher-level proofs all exist. This task must use the repository wrappers and must include a manual Playwright spot check with screenshots saved under `test-results/screenshots/`.
 
 #### Documentation Locations
 

@@ -96,6 +96,7 @@ The chosen modal direction for this story is:
 - The shared chat-default and runtime-provider-selection path no longer assumes exactly two providers.
 - The chat provider selection flow can choose or fall back across three providers in a deterministic way.
 - One explicit ordered provider list must drive provider-list ordering, default-provider fallback, and client bootstrap selection everywhere this story touches provider selection. In this story that ordered list is `codex`, then `copilot`, then `lmstudio`, unless a valid request or persisted conversation already pins a specific provider.
+- `GET /chat/providers` returns provider entries in that ordered list and keeps Copilot visible with `available: false` plus a stable `reason` when Copilot is unavailable or unauthenticated.
 - The implementation removes the current binary alternate-provider assumptions rather than adding a second special case for Copilot.
 - This story does not add a new provider-specific default-model configuration source for Copilot or LM Studio analogous to Codex `codex/chat/config.toml`.
 - If Copilot participates in default-provider or default-model bootstrap for chat, it does so through the existing shared chat-default path rather than through a new Copilot-specific config file, user preference store, or dedicated UI.
@@ -110,6 +111,7 @@ The chosen modal direction for this story is:
 - `POST /chat` accepts `provider: "copilot"` and can execute a chat turn through the Copilot SDK.
 - Copilot chat responses stream back into the existing chat event bridge so the current chat page can render live output without needing a brand new transport.
 - Copilot chat turns persist into conversations and turns using provider value `copilot`.
+- A successful Copilot chat turn creates or updates a conversation record with `provider: 'copilot'`, persists the selected model, and persists an optional `conversation.flags.copilotSessionId` only if the implementation does not use `conversationId` directly as the Copilot `sessionId`.
 - The Copilot chat path reuses the existing conversation identity so a conversation can continue coherently across multiple Copilot turns.
 - Existing shared contracts that currently hard-code `codex` and `lmstudio` only, including server defaults, request validation, Mongo conversation provider enums, conversation REST validation, shared common types, and OpenAPI request or response enums, are updated to include `copilot` without breaking existing LM Studio and Codex records or API consumers.
 - Copilot session continuity is deterministic for chat in this story. A follow-up request in the same chat conversation resumes the correct Copilot session rather than creating unrelated context silently.
@@ -131,12 +133,14 @@ The chosen modal direction for this story is:
 - The shared auth contract is no longer a Codex-only raw-output shape. It must support two phases for both providers: first, provider-specific verification details that the UI can render immediately; second, completion or readiness refresh so the page can update provider availability after the external browser or token step finishes.
 - The shared auth flow returns the verification URL and one-time code as soon as they are available, rather than waiting for the full external browser login flow to complete.
 - The shared auth flow tracks completion separately from the initial verification-details response and refreshes Copilot readiness after completion is detected.
+- The shared auth contract defines enough state for the UI to distinguish at least these cases deterministically: verification details ready, completion still pending, authentication complete, authentication failed, and authentication unavailable before start.
 - The Copilot auth flow works when the product is running in Docker without a browser in the container, because the UI shows the GitHub device-login URL and one-time code for the user to complete in an external browser.
 - Successful Copilot authentication persists under the resolved `CODEINFO_COPILOT_HOME` location so later provider checks and chat requests can reuse it.
 - If the container environment does not provide a usable keychain, the first implementation automatically persists Copilot auth/config state using the documented fallback under the mounted `CODEINFO_COPILOT_HOME` path without showing an extra confirmation dialog.
 - Server process startup and the existing `/health` endpoint remain process-level health checks only. They must not fail just because the Copilot CLI is missing, Copilot is unauthenticated, or Copilot model discovery is unavailable. Copilot readiness stays on the chat-provider and chat-model surfaces.
 - The story defines one concrete Copilot runtime delivery strategy for this repository. For this first implementation, the server runtime image and local development environment must provide a Copilot CLI binary that the SDK can spawn directly, either from `PATH` or from an explicit configured `cliPath`; the implementation must not rely on an undocumented external Copilot CLI server already running somewhere else.
 - Development, local Docker, and e2e runtime paths all inject and mount `CODEINFO_COPILOT_HOME` consistently enough for the selected auth and session-persistence strategy to work.
+- `server/.env`, `server/.env.local`, `server/.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` all define or override `CODEINFO_COPILOT_HOME` consistently for their environment instead of relying on ad hoc shell state.
 - This story does not add a new HTTP listener, sidecar runtime, or externally exposed Copilot CLI port. The existing server and client ports remain the only application ports in scope: main `5010`, `5011`, `5012`, `5001`; local `5510`, `5511`, `5512`, `5501`, with Playwright MCP on `8931`; e2e `6010`, `6011`, `6012`, `6001`, with Playwright MCP on `8932`.
 - Docker execution for this story continues to build the server and client from copied source inside the image build, using the existing Dockerfiles and build contexts. The plan must not introduce a new host source bind mount of application code into the Copilot-enabled containers.
 - Any persistent Copilot-generated artifacts in containers use Docker-managed volumes or other container-managed writable directories for generated state only, not host bind-mounted source trees. Host-visible bind mounts remain acceptable for logs only.
@@ -169,9 +173,9 @@ The chosen modal direction for this story is:
 
 - No Additional Repositories
 
-### Questions
+### Planning Status
 
-- No Further Questions
+- Planning questions for this story have been resolved. The canonical `## Questions` section at the end of this file should remain the single questions checkpoint for the story.
 
 ### Decisions
 
@@ -243,6 +247,19 @@ The chosen modal direction for this story is:
 - Auth contract: this story does require one genuinely new shared message contract. The current `CodexDeviceAuthResponse` in `common/src/api.ts` is Codex-specific and cannot serve Copilot unchanged. Replace it with a shared provider-auth contract used by both Codex and Copilot. Up front, that shared contract should carry: provider id, whether verification details are available yet, verification URL when present, one-time user code when present, provider-facing display output only where still useful for the UI, completion or readiness state for the second phase of device auth, and a deterministic failure reason when auth cannot proceed. The story should treat this as a new shared contract that supersedes the Codex-only response shape rather than as a second parallel auth response family.
 - OpenAPI and shared-type propagation contract: every contract change above must be reflected in `openapi.json` and the shared exported types at the same time. This includes provider enums for `/chat`, `/chat/models`, and conversation APIs, plus the new shared auth route or routes and their response schemas. The plan should treat OpenAPI updates as part of the contract definition itself, not as follow-up documentation work.
 - Migration and compatibility expectations: no historical data migration should be required for existing LM Studio or Codex conversations and turns. Provider enum expansion must remain backward-compatible with existing stored data. The only new storage field currently expected is the optional `conversation.flags.copilotSessionId`, and that field should only appear on Copilot conversations if it is actually needed by the final implementation choice.
+
+### Schema and Contracts Matrix
+
+- `Server input validation`: update `server/src/routes/chatValidators.ts` so chat request bodies accept `provider: 'copilot'` and still reject malformed provider values and mis-scoped Codex-only flags.
+- `Server provider defaults and fallback`: update `server/src/config/chatDefaults.ts` so provider parsing, fallback, and ordered-provider logic all understand `copilot` and use the same ordered list everywhere.
+- `Server provider discovery and model routes`: update `server/src/routes/chatProviders.ts` and `server/src/routes/chatModels.ts` so Copilot availability, reason text, and model entries use the shared contract shapes already defined above.
+- `Server execution factory`: update `server/src/chat/factory.ts` and the Copilot chat adapter so provider id `copilot` is accepted by the execution layer and translated into the existing event bridge.
+- `Server conversation persistence`: update `server/src/mongo/conversation.ts`, `server/src/routes/conversations.ts`, and any conversation repository helpers so the stored provider enum accepts `copilot` and the optional `conversation.flags.copilotSessionId` field is handled consistently if that strategy is chosen.
+- `Shared auth contract`: update `common/src/api.ts` and the server or client auth callers together so the existing Codex-only auth response becomes one shared provider-auth contract used by both `Codex Auth` and `Copilot Auth`.
+- `Client provider and model consumers`: update `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, and `client/src/pages/ChatPage.tsx` so they consume the updated provider, model, and auth contracts without assuming a two-provider world.
+- `Transcript rendering`: update `client/src/components/chat/chatTranscriptFormatting.ts` and related transcript consumers so partial Copilot metadata follows the shared missing-value rules already defined in this plan.
+- `OpenAPI`: update `openapi.json` at the same time as the code changes above so documented request or response enums, auth routes, and provider-specific schemas match the implemented server behavior exactly.
+- `Tests`: update unit, integration, Cucumber, and e2e tests anywhere they currently assert a two-provider contract or a Codex-only auth contract, and add the Copilot harness-backed coverage already described in `## Test Harnesses`.
 
 ### Edge Cases and Failure Modes
 

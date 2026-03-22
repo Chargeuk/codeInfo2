@@ -238,20 +238,6 @@
           ]
         }
       ]
-    },
-    {
-      "type": "llm",
-      "label": "Remove current plan handoff",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Then delete `codeInfoStatus/flow-state/current-plan.json` so later runs cannot reuse stale active-plan state. Do not fail if the file is already missing. If deleting it creates tracked changes, commit that cleanup and, if possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
-          ]
-        }
-      ]
     }
   ]
 }

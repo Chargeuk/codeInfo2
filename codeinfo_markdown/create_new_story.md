@@ -27,7 +27,7 @@ We need to decide where to create the new story:
 
 1. Search this repository for existing stories/specs/plans. If you find some then try to get an understanding of the folder structure used for documenting future work.
 2. Ask the user to confirm the folder and name of the story. You should always provide them your best guess, but you must ask them to confirm and allow them to change what you suggest.
-3. When the user has confirmed the filename and location, create the new story file following the format as described within the `plan_format_no_tasks.md` file that you must try to find within the working repository. If you cannot find this file there, then attempt to find it within other ingested rfepositories. If you still can't find it, then create a markdown document with the following headings and include the relevant data you have found out about the story in each one:
+3. When the user has confirmed the filename and location, create the new story file following the format as described within the `plan_format_no_tasks.md` file. First try to find it in the working repository. If it is not there, use the `code_info` tool to find it in the `codeInfo2` repository. If it is still not found there, use the `code_info` tool to find it in another repository. If you still can't find it, then create a markdown document with the following headings and include the relevant data you have found out about the story in each one:
    - Title
    - Overview
    - Acceptance Criteria

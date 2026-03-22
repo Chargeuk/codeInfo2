@@ -9,7 +9,7 @@ This should only be started once all the above sections are clear and understood
 
 1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
 2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
-3. Work through the tasks **in order**. Before touching any code, update the Task Status to `In progress`, commit & push that change, and only then begin implementation.
+3. Work through the tasks **in order**. Before touching any code, update the Task Status to `__in_progress__`, commit & push that change, and only then begin implementation.
 4. For each task, execute every subtask sequentially: before starting a subtask, read the documentation sources listed in that task; after finishing the subtask, run the relevant linters/formatters (Python + TypeScript) and fix issues before continuing.
 5. Once a subtask is complete, mark its checkbox.
 6. Once all subtasks are done, Move on to the Testing section and work through the tests in order
@@ -18,14 +18,20 @@ This should only be started once all the above sections are clear and understood
 9. Once a document is updated, mark its checkbox.
 10. When all subtasks, tests, documentation updates, and verification commands are complete, consider the task finished and follow points 11–13 below.
 11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
-12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
+12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `__done__`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
+
+## Additional Repositories
+
+- If this story needs work outside the current repository, list each additional repository as `- <alias>: /abs/path/to/repository`.
+- The current repository is always implicit. If it is also listed here, treat that as redundant and remove or ignore it when the plan is updated.
+- If no extra repositories are needed, write exactly `- No Additional Repositories`.
 
 # Tasks
 
 ### Task 1. Task One Title
 
-- Repository Name: <The name of the repository this task is to be worked in>
+- Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
 - Task Status: The current status of the task. Use exactly one of `__to_do__`, `__in_progress__`, or `__done__`.
 - Git Commits: a comma separated list of git hashes that have been committed to implement this story.
 
@@ -69,9 +75,9 @@ Couple of sentences of what this task achieves and why it is needed. Each task s
 
 ### Task 2. Task Two Title
 
-- Repository Name: <The name of the repository this task is to be worked in>
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -98,8 +104,9 @@ task overview.
 
 ### [N]. Final Task Title
 
-- status: **to_do**
-- Git Commits: **to_do**
+- Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 

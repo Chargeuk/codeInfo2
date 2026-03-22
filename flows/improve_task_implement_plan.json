@@ -35,7 +35,7 @@
             {
               "role": "user",
               "content": [
-                "Please check the last commit AND re-read the plan you are working on, even if you have read it before. You MUST double-check to see if it has been edited by another agent or if anything has changed. You must ensure you fully understand the plan before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of what the plan entails."
+                "Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first and determine the active `plan_path`, then re-open that exact relative `plan_path` from disk even if you have read it before. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and check the most recent commit directly from git, for example with `git log --oneline -1`. You MUST double-check to see if another agent has edited the plan or changed its scope since you last looked at it. You MUST read the whole plan again and CANNOT assume you understand it from before. Once you have done this, give me a summary of what the plan entails."
               ]
             }
           ]

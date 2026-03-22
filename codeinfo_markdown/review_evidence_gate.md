@@ -4,8 +4,8 @@ Start the 3-step review sequence for the current story. This step is the evidenc
 
 ## Critical Rules
 
-- First read `codeInfoStatus/flow-state/current-plan.json` and treat it as the SOLE source of review scope for this flow.
-- Resolve the active `plan_path` and extract repository paths from `additional_repositories` in that handoff file.
+- Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and treat it as the SOLE source of review scope for this flow.
+- Resolve the active `plan_path` and extract repository paths from `additional_repositories` in that handoff file, then re-open the exact relative `plan_path` from disk before continuing.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it for review scope.
 - Use ONLY the current repository plus the repository paths extracted from `additional_repositories`. Do not invent additional repositories or plan files.
@@ -54,30 +54,31 @@ Record the final per-repository resolved base branch and the reason it was chose
 ## Exact Step Order
 
 1. Re-read the canonical plan from disk.
-2. Inspect each repository in review scope against its resolved base branch.
-3. Extract the Description, Acceptance Criteria, Out of Scope, and final completed tasks from the canonical plan.
-4. Inspect `git -C <repo_root> diff --name-status <resolved_base_branch>...HEAD` plus the recent branch commits for every repository in scope.
-5. Group changed files by repository, then within each repository group them into:
+2. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and re-check each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
+3. Inspect each repository in review scope against its resolved base branch.
+4. Extract the Description, Acceptance Criteria, Out of Scope, and final completed tasks from the canonical plan.
+5. Inspect `git -C <repo_root> diff --name-status <resolved_base_branch>...HEAD` plus recent branch commits for every repository in scope, using direct git commands such as `git log --oneline -3` or `git -C <repo_root> log --oneline -3`.
+6. Group changed files by repository, then within each repository group them into:
    - planned implementation files;
    - planned docs/tests;
    - allowed spelling/grammar-only support files;
    - approved workflow configuration under `flows/**`;
    - suspicious or out-of-scope files.
-6. Do not place allowed support files in the suspicious or out-of-scope bucket solely because they are absent from the active plan.
-7. For every acceptance criterion in the canonical plan, identify the current proof source:
+7. Do not place allowed support files in the suspicious or out-of-scope bucket solely because they are absent from the active plan.
+8. For every acceptance criterion in the canonical plan, identify the current proof source:
    - code path;
    - tests;
    - wrapper/test logs;
    - screenshots/manual proof;
    - or note that the proof is weak/missing.
-8. For multi-repository stories, add a dedicated cross-repository evidence section covering:
+9. For multi-repository stories, add a dedicated cross-repository evidence section covering:
    - integration seams;
    - ownership boundaries;
    - dependency direction;
    - compatibility expectations;
    - any before/after contract comparison that only becomes visible when two or more repositories are considered together.
-9. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
-10. For each changed file or helper OUTSIDE the allowed spelling/grammar-only support-file set, record any review hotspots that the findings pass must inspect explicitly:
+10. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
+11. For each changed file or helper OUTSIDE the allowed spelling/grammar-only support-file set, record any review hotspots that the findings pass must inspect explicitly:
     - merge-before-validate logic;
     - normalization-before-validate logic;
     - bootstrap or existence checks;
@@ -90,16 +91,16 @@ Record the final per-repository resolved base branch and the reason it was chose
     - dead-field or dead-branch risk;
     - any helper that could hide misconfiguration by defaulting too early;
     - any alias-migration or backward-compatibility helper where legacy and canonical fields can partially coexist in mixed-shape configs.
-11. Identify any changed external contract surfaces OUTSIDE the allowed spelling/grammar-only support-file set that need explicit before/after comparison in findings:
+12. Identify any changed external contract surfaces OUTSIDE the allowed spelling/grammar-only support-file set that need explicit before/after comparison in findings:
     - API routes;
     - config file shapes;
     - persisted artifacts;
     - wrapper outputs;
     - log marker/event schemas;
     - legacy alias/deprecated-input compatibility where old and new field shapes may coexist.
-12. Note where backward-compatibility risk exists and where the canonical plan explicitly permits an edge-case deviation from generic best practice.
-13. Name the top 3 changed helpers/functions by review risk from the non-support-file changes across the whole review scope, and record the worst malformed or contradictory input each one should reject or survive, plus whether that path currently has direct proof, indirect proof, or missing proof.
-14. Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
+13. Note where backward-compatibility risk exists and where the canonical plan explicitly permits an edge-case deviation from generic best practice.
+14. Name the top 3 changed helpers/functions by review risk from the non-support-file changes across the whole review scope, and record the worst malformed or contradictory input each one should reject or survive, plus whether that path currently has direct proof, indirect proof, or missing proof.
+15. Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
     - execution-routing or harness-selection rules that may live in unchanged files, including `testMatch`/`testIgnore`, filename or suffix conventions, tags, worker-count or project assignment, startup registration, feature flags, and env wiring;
     - default launcher, wrapper, dispatcher, CI, or startup entrypoints to verify the changed behavior still runs in the standard path without manual overrides;
     - shared-state surfaces touched by the change, including lock files or directories, temp paths, caches, singleton resources, ports, persisted artifacts, and cross-test fixtures;
@@ -109,10 +110,10 @@ Record the final per-repository resolved base branch and the reason it was chose
     - tests that mutate shared state or rely on serialization, including what prevents interference with parallel suites, other projects, retries, or stateful variants;
     - malformed, missing, incomplete, or contradictory state that could be transient rather than stale, including partially written files, half-created directories, and delayed metadata visibility;
     - rename, ignore-rule, suffix, tag, project-assignment, or classification changes that may silently exclude tests, routes, jobs, or code paths from the default validation path.
-15. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
-16. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
-17. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-18. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+16. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
+17. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
+18. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+19. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 

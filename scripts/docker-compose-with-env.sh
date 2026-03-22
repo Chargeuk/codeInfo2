@@ -262,7 +262,7 @@ should_run_compose_preflight() {
 
 should_check_host_ports() {
   case "${COMPOSE_SUBCOMMAND}" in
-    up | start | restart | run | create)
+    up | run)
       return 0
       ;;
     *)

@@ -152,6 +152,25 @@ codeinfo2_run_compose_wrapper() {
   assert_output --partial "\"checkedPorts\":[5510,5511,5512,9222,8931]"
 }
 
+@test "compose wrapper skips host-port occupancy failures for restart on an already-running host-network stack" {
+  run env \
+    CODEINFO_DOCKER_BIN="${CODEINFO2_DOCKER_FIXTURE_BIN}" \
+    CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON="${CODEINFO2_COMPOSE_FIXTURE_DIR}/host-network-local-valid.json" \
+    CODEINFO_TEST_DOCKER_FIXTURE_LOG="${CODEINFO_TEST_DOCKER_FIXTURE_LOG}" \
+    CODEINFO_TEST_DISABLE_REAL_PORT_CHECKS=1 \
+    CODEINFO_DOCKER_DESKTOP_HOST_NETWORKING_ENABLED=1 \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_TEST_OCCUPIED_PORTS=5510 \
+    bash "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh" \
+    --env-file server/.env \
+    --env-file server/.env.local \
+    -f docker-compose.local.yml \
+    restart
+
+  assert_success
+  assert_output --partial "fake compose execution"
+}
+
 @test "compose wrapper can probe docker-host ports when the launcher itself runs inside a container" {
   codeinfo2_run_compose_wrapper \
     docker-compose.local.yml \

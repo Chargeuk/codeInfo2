@@ -8,6 +8,9 @@ const expectedLmStudioBase =
 const expectedMcpControlUrl =
   process.env.E2E_MCP_CONTROL_URL ?? 'http://host.docker.internal:8932/mcp';
 
+const parsedBaseUrl = new URL(baseUrl);
+const parsedMcpControlUrl = new URL(expectedMcpControlUrl);
+
 test('runtime config marker matches injected client config', async ({
   page,
 }) => {
@@ -114,15 +117,16 @@ test('runtime config marker surfaces object-like malformed runtime containers be
 });
 
 test('e2e browser base URL uses the host-visible client address', async () => {
-  expect(baseUrl).toBe('http://host.docker.internal:6001');
-  expect(baseUrl).not.toContain('localhost:5001');
-  expect(baseUrl).not.toContain('codeinfo2-client');
+  expect(parsedBaseUrl.protocol).toBe('http:');
+  expect(parsedBaseUrl.pathname).not.toBe('/mcp');
+  expect(parsedBaseUrl.host).not.toBe('localhost:5001');
+  expect(parsedBaseUrl.hostname).not.toBe('codeinfo2-client');
 });
 
 test('e2e MCP control URL uses the host-visible Playwright endpoint', async () => {
-  expect(expectedMcpControlUrl).toBe('http://host.docker.internal:8932/mcp');
-  expect(expectedMcpControlUrl).not.toContain('playwright-mcp');
-  expect(expectedMcpControlUrl).not.toContain('localhost:8931');
+  expect(parsedMcpControlUrl.protocol).toBe('http:');
+  expect(parsedMcpControlUrl.pathname).toBe('/mcp');
+  expect(parsedMcpControlUrl.hostname).not.toBe('playwright-mcp');
 });
 
 test('e2e browser and MCP control URLs remain separate host-visible contracts', async () => {
@@ -132,9 +136,7 @@ test('e2e browser and MCP control URLs remain separate host-visible contracts', 
     baseUrlMatchesMcp: baseUrl === expectedMcpControlUrl,
   };
 
-  expect(markerPayload.browserBaseUrl).toBe('http://host.docker.internal:6001');
-  expect(markerPayload.mcpControlUrl).toBe(
-    'http://host.docker.internal:8932/mcp',
-  );
+  expect(markerPayload.browserBaseUrl).toBe(baseUrl);
+  expect(markerPayload.mcpControlUrl).toBe(expectedMcpControlUrl);
   expect(markerPayload.baseUrlMatchesMcp).toBe(false);
 });

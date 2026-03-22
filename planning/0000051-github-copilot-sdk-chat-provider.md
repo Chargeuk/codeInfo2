@@ -476,23 +476,23 @@ This story stays within the current repository. The feasibility proof below dist
 
 #### Overview
 
-Make `copilot` a valid top-level chat provider everywhere the current repository defines shared provider ids, request validation, persistence enums, ordered fallback, and OpenAPI enums. This task is intentionally contract-first so later backend and frontend tasks can build on one consistent three-provider surface instead of adding more two-provider exceptions.
+Make `copilot` a valid top-level chat provider everywhere the current repository defines shared provider ids, request validation, persistence enums, ordered fallback, and OpenAPI enums. This task is intentionally contract-first so later backend and frontend tasks can build on one consistent three-provider surface instead of adding more two-provider exceptions. It must also establish one shared ordered provider definition so the server and client do not drift into separate hard-coded orderings.
 
 #### Documentation Locations
 
 - Story requirements in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Schema and Contracts Matrix`, and `### Feasibility Proof`.
-- Shared contract files: `common/src/api.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/conversation.ts`, and `openapi.json`.
+- Shared contract files: `common/src/api.ts`, `common/src/lmstudio.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/conversation.ts`, and `openapi.json`.
 - Existing server contract tests: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chat-unsupported-provider.test.ts`, and `server/src/test/unit/mcp-unsupported-provider.test.ts`.
 - Architecture and repo docs to update if this task changes public behavior wording: `design.md`, `README.md`, and `projectStructure.md`.
 
 #### Subtasks
 
 1. [ ] Re-read this story’s `Acceptance Criteria`, `Message Contracts and Storage Shapes`, and `Feasibility Proof` sections and write down the exact shared provider ordering rule for this task: `codex`, then `copilot`, then `lmstudio`. Do not start editing until that rule is written into your own working notes because every file in this task must follow it.
-2. [ ] Update `common/src/api.ts` so every shared chat provider union, request shape, response shape, and conversation summary type that currently assumes only `codex` and `lmstudio` accepts `copilot` as well. Keep the auth contract out of scope for this task unless a shared provider enum must be reused there later.
-3. [ ] Update `server/src/config/chatDefaults.ts` so the default-provider and fallback-selection helpers use one explicit ordered provider list instead of a binary alternate-provider rule. Do not add a second Copilot special case; replace the two-provider assumption directly.
+2. [ ] Update `common/src/api.ts` and `common/src/lmstudio.ts` so every shared chat provider union, request shape, response shape, conversation summary type, and provider or model contract that currently assumes only `codex` and `lmstudio` accepts `copilot` as well. Keep the auth contract out of scope for this task unless a shared provider enum must be reused there later.
+3. [ ] Create or reuse one exported ordered provider definition in the shared contract layer, then update `server/src/config/chatDefaults.ts` to consume that same ordering for default-provider resolution and fallback selection. Do not leave separate hard-coded provider arrays in server and client code.
 4. [ ] Update `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, and `server/src/mongo/conversation.ts` so `provider: "copilot"` is accepted consistently in request validation, REST validation, and Mongo storage enums. Preserve backward compatibility for existing `codex` and `lmstudio` records.
 5. [ ] Update `openapi.json` so every relevant request and response enum that currently lists only `codex` and `lmstudio` includes `copilot` in the same top-level provider role. Make sure the generated contract names and enum descriptions still match the implemented server behavior.
-6. [ ] Add or update focused unit tests in `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chat-unsupported-provider.test.ts`, and `server/src/test/unit/mcp-unsupported-provider.test.ts` so they prove the new ordered fallback contract and the new provider acceptance behavior. Add one negative test that still rejects an actually unsupported provider name.
+6. [ ] Add or update focused unit tests in `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chat-unsupported-provider.test.ts`, and `server/src/test/unit/mcp-unsupported-provider.test.ts` so they prove the new ordered fallback contract, shared provider-order definition, and new provider acceptance behavior. Add one negative test that still rejects an actually unsupported provider name.
 7. [ ] Update `design.md` so it explains the new three-provider ordering rule and names the contract surfaces that now share it. Update `README.md` only if it currently documents chat providers or defaults in a way that would now be false. Update `projectStructure.md` only if this task adds or removes files.
 8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 1, recording the task’s implementation notes, and listing the task commit hashes once they exist.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -620,13 +620,14 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 1. [ ] Update `server/src/chat/factory.ts` so the chat factory can construct the Copilot chat adapter through the reusable seam added in Task 2. Keep the existing Codex and LM Studio branches unchanged except where the shared provider contract already required updates.
 2. [ ] Finish `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so it can create and resume Copilot sessions, register any required permission or tool handlers, and translate Copilot events into the existing `ChatInterface` event model. Allow permissions by default for this story.
 3. [ ] Update `server/src/routes/chat.ts` so `provider: "copilot"` is accepted, uses the shared runtime-selection contract, and streams Copilot output back through the existing transcript transport without introducing a new websocket or HTTP transport.
-4. [ ] Choose one session identity strategy and implement it consistently: either reuse `conversationId` as the Copilot session id or persist a separate `conversation.flags.copilotSessionId`. Update `server/src/mongo/conversation.ts` and any repo helpers so the chosen strategy is stored and resumed deterministically.
-5. [ ] Make resume failure explicit. If an existing persisted Copilot conversation cannot resume its expected session, return a clear error for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
-6. [ ] Add or update unit and integration tests so they prove Copilot event mapping, session creation, session resumption, resume failure, conversation persistence, and concurrent-request protection on the same conversation id.
-7. [ ] Extend `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`, and any related chat cancellation feature files so the BDD layer exercises a Copilot chat stream through the fake seam. Cover at least one happy path and one deterministic failure path.
-8. [ ] Update `design.md` with the chosen Copilot session identity rule and the Copilot event-to-transcript mapping if those details are not obvious from the code. Update `README.md` only if user-facing chat behavior needs clarification. Update `projectStructure.md` if this task adds or removes files.
-9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+4. [ ] Keep Codex-only request flags server-side. When a Copilot request arrives with Codex-specific flags, ignore them safely or return the documented warning behavior for this repository, but do not reinterpret them as Copilot settings or let them silently change Copilot execution semantics.
+5. [ ] Choose one session identity strategy and implement it consistently: either reuse `conversationId` as the Copilot session id or persist a separate `conversation.flags.copilotSessionId`. Update `server/src/mongo/conversation.ts` and any repo helpers so the chosen strategy is stored and resumed deterministically.
+6. [ ] Make resume failure explicit. If an existing persisted Copilot conversation cannot resume its expected session, return a clear error for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
+7. [ ] Add or update unit and integration tests so they prove Copilot event mapping, session creation, session resumption, resume failure, conversation persistence, concurrent-request protection on the same conversation id, and the server-side handling of Codex-only flags on Copilot requests.
+8. [ ] Extend `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`, and any related chat cancellation feature files so the BDD layer exercises a Copilot chat stream through the fake seam. Cover at least one happy path and one deterministic failure path.
+9. [ ] Update `design.md` with the chosen Copilot session identity rule, the Codex-only flag handling rule for Copilot requests, and the Copilot event-to-transcript mapping if those details are not obvious from the code. Update `README.md` only if user-facing chat behavior needs clarification. Update `projectStructure.md` if this task adds or removes files.
+10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -634,7 +635,7 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 2. [ ] Run `npm run build:summary:client` to prove the shared workspace still compiles after any chat contract updates.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the server chat changes.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot chat adapter and persistence tests pass.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot chat adapter, persistence, and Codex-only-flag handling tests pass.
 6. [ ] Run `npm run test:summary:server:cucumber` and confirm the updated Copilot chat stream features pass.
 
 #### Implementation notes

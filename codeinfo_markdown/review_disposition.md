@@ -44,8 +44,8 @@ still match the normalized review scope and current repository state for every s
 Before deciding disposition, validate all of the following:
 
 - the canonical plan exists;
-- the canonical plan filename story number still matches the shared story branch;
-- every repository in scope is still on the shared story branch;
+- the canonical plan filename story number still matches the current repository branch story number;
+- every repository in scope is still on a branch whose story number matches the canonical plan filename;
 - the review handoff is complete and still matches the normalized review scope, canonical `plan_path`, and current repository state.
 
 If the current-plan checks fail, stop and say the current-plan handoff is stale and must be regenerated.

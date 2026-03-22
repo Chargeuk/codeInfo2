@@ -34,7 +34,7 @@ Before doing review work, validate all of the following:
 - the canonical `plan_path` exists in the current repository;
 - the story number in the current repository branch name matches the canonical plan filename;
 - every additional repository path exists and is readable;
-- every additional repository is checked out to the same shared story branch as the current repository, and that branch story number matches the canonical plan filename; otherwise the review stops because the scope is stale;
+- every additional repository is checked out to a branch whose story number matches the canonical plan filename; otherwise the review stops because the scope is stale;
 - no additional repository duplicates the current repository path.
 
 If any of those checks fail, stop and say the current-plan handoff is stale and must be regenerated.

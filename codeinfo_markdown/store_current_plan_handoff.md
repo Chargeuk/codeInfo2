@@ -7,7 +7,7 @@ When you have found the selected story:
 3. Read the selected plan's `Additional Repositories` section if it exists. Support both `## Additional Repositories` and `### Additional Repositories`.
 4. If the selected plan has no `Additional Repositories` section, treat it as a legacy single-repository plan and behave as if it said `- No Additional Repositories`.
 5. Treat the current repository as the canonical plan host and as implicitly in scope.
-6. For each additional repository listed in that section, ensure the same story branch name exists there too. Reuse it if it already exists. If it does not exist, create it from that repository's current checkout so existing local changes stay attached to the new branch.
+6. For each additional repository listed in that section, ensure it is on a branch whose story number matches the selected plan. Reuse any existing matching-story branch if it is already there. If no such branch exists yet, create one from that repository's current checkout so existing local changes stay attached to the new branch.
 7. Do NOT switch branches in any repository if doing so would overwrite local changes. Stop and say repository branch setup is blocked by local changes instead.
 8. If an additional repository path is missing, invalid, unreadable, or ambiguously mapped from the plan, stop and say the plan must be fixed before the current-plan handoff can be created.
 9. Build the expected current-plan handoff payload using only this shape:

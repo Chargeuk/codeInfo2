@@ -40,7 +40,7 @@ Read `codeInfoStatus/reviews/<story-number>-current-review.json` and verify that
 Before doing findings work, validate all of the following:
 
 - the canonical plan exists;
-- every repository in scope is still on the shared story branch;
+- every repository in scope is still on a branch whose story number matches the canonical plan filename;
 - the review handoff still matches the normalized current-plan scope and current repository state.
 
 If the current-plan checks fail, stop and say the current-plan handoff is stale and must be regenerated.

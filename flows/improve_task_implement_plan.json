@@ -17,14 +17,7 @@
     },
     {
       "type": "llm",
-      "label": "Planner Select Next Plan",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "select_next_plan_and_branch.md"
-    },
-    {
-      "type": "llm",
-      "label": "Planner Store Next Plan",
+      "label": "Planner Select And Store Next Plan",
       "agentType": "planning_agent",
       "identifier": "planner",
       "markdownFile": "store_current_plan_handoff.md"

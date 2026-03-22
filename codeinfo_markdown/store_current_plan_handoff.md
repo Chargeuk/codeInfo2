@@ -1,19 +1,25 @@
-Now you know the selected story.
+Please tell me the next plan that has not yet been fully executed. Determine this by finding the lowest indexed plan that either does NOT yet have tasks, or includes tasks that are not yet moved to the status of done/completed/complete, such as tasks marked todo or in_progress. Do NOT use code_info tools for this search.
 
-Read the selected plan's `Additional Repositories` section if it exists, supporting both `## Additional Repositories` and `### Additional Repositories`.
+When you have found the selected story:
 
-If the selected plan has no such section, treat it as a legacy single-repository plan and write an empty `additional_repositories` array.
-
-Then write or overwrite `codeInfoStatus/flow-state/current-plan.json` using only this shape:
+1. Confirm what story it is and give a concise overview of the story, including what still remains to be done.
+2. Follow the rules within the `## Branching And Phase Flow` section of `AGENTS.md` to ensure the current repository is on the correct story branch, and if not, create or reuse the correct branch and switch to it safely.
+3. Read the selected plan's `Additional Repositories` section if it exists. Support both `## Additional Repositories` and `### Additional Repositories`.
+4. If the selected plan has no `Additional Repositories` section, treat it as a legacy single-repository plan and behave as if it said `- No Additional Repositories`.
+5. Treat the current repository as the canonical plan host and as implicitly in scope.
+6. For each additional repository listed in that section, ensure the same story branch name exists there too. Reuse it if it already exists. If it does not exist, create it from that repository's current checkout so existing local changes stay attached to the new branch.
+7. Do NOT switch branches in any repository if doing so would overwrite local changes. Stop and say repository branch setup is blocked by local changes instead.
+8. If an additional repository path is missing, invalid, unreadable, or ambiguously mapped from the plan, stop and say the plan must be fixed before the current-plan handoff can be created.
+9. Write or overwrite `codeInfoStatus/flow-state/current-plan.json` using only this shape:
 
 ```json
 { "plan_path": "planning/<story-file>.md", "additional_repositories": ["/abs/path/to/repo-b"] }
 ```
 
-Rules:
+10. If the plan says `- No Additional Repositories`, write an empty `additional_repositories` array.
+11. The current repository is implicit and MUST NOT be listed inside `additional_repositories`.
+12. Do not write absolute paths for `plan_path`.
+13. This handoff file becomes the sole plan-selection source for every later step in the flow.
+14. Commit this file after writing it, and push if you can.
 
-1. If the plan says `- No Additional Repositories`, write an empty `additional_repositories` array.
-2. The current repository is implicit and MUST NOT be listed inside `additional_repositories`.
-3. Do not write absolute paths for `plan_path`.
-4. This handoff file becomes the sole plan-selection source for every later step in the flow.
-5. Commit this file after writing it, and push if you can.
+This step owns plan selection, repository branch setup, and current-plan handoff creation together. Do not stop after selecting the story unless one of the blocking conditions above occurs.

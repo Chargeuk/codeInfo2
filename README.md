@@ -97,7 +97,8 @@ Use this section only when your network requires internal registries and/or corp
 Workflow env-file rules:
 
 ```text
-compose/compose:local -> edit server/.env.local
+compose -> edit server/.env.local
+compose:local -> edit server/.env.local and client/.env.local
 e2e -> edit .env.e2e
 ```
 
@@ -106,6 +107,7 @@ For e2e specifically, `.env.e2e` is used for compose interpolation values. Conta
 Client env contract:
 
 - `client/.env` / `client/.env.local` now use `VITE_CODEINFO_API_URL`, `VITE_CODEINFO_LMSTUDIO_URL`, `VITE_CODEINFO_LOG_FORWARD_ENABLED`, and `VITE_CODEINFO_LOG_MAX_BYTES`.
+- `compose:local` passes `client/.env.local` into Docker Compose interpolation so client-only overrides can drive both the local client image build args and the runtime-injected `window.__CODEINFO_CONFIG__`.
 - Docker Compose passes the same renamed `VITE_CODEINFO_*` values into the client build and runtime container so the built bundle and runtime-injected `window.__CODEINFO_CONFIG__` stay aligned.
 - Older generic client log-level and log-stream toggles are documentation-only leftovers and are not live runtime readers.
 

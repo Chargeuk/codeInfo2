@@ -111,11 +111,11 @@ The chosen modal direction for this story is:
 - `POST /chat` accepts `provider: "copilot"` and can execute a chat turn through the Copilot SDK.
 - Copilot chat responses stream back into the existing chat event bridge so the current chat page can render live output without needing a brand new transport.
 - Copilot chat turns persist into conversations and turns using provider value `copilot`.
-- A successful Copilot chat turn creates or updates a conversation record with `provider: 'copilot'`, persists the selected model, and persists an optional `conversation.flags.copilotSessionId` only if the implementation does not use `conversationId` directly as the Copilot `sessionId`.
+- A successful Copilot chat turn creates or updates a conversation record with `provider: 'copilot'`, persists the selected model, and reuses `conversationId` directly as the Copilot `sessionId` unless direct inspection of the installed SDK proves a separate stored session id is required.
 - The Copilot chat path reuses the existing conversation identity so a conversation can continue coherently across multiple Copilot turns.
 - Existing shared contracts that currently hard-code `codex` and `lmstudio` only, including server defaults, request validation, Mongo conversation provider enums, conversation REST validation, shared common types, and OpenAPI request or response enums, are updated to include `copilot` without breaking existing LM Studio and Codex records or API consumers.
 - Copilot session continuity is deterministic for chat in this story. A follow-up request in the same chat conversation resumes the correct Copilot session rather than creating unrelated context silently.
-- The implementation chooses one compatibility-safe session identity strategy and applies it consistently in persistence, resume logic, and tests: either `conversationId` is used directly as the Copilot `sessionId`, or a Copilot-specific session id is stored under `conversation.flags`. The story must document and test whichever single approach is chosen.
+- The implementation prefers the simplest compatibility-safe session identity strategy: use `conversationId` directly as the Copilot `sessionId` and document or test that path. Only fall back to storing `conversation.flags.copilotSessionId` if direct inspection of the installed SDK proves a separate stored session id is required.
 - Copilot session create and resume calls both provide the documented `onPermissionRequest` handler, and any required tools, hooks, or other session-scoped handlers are re-registered on resume instead of assuming the SDK persists them automatically.
 - Changing provider or model continues to follow the existing chat-page next-send behavior by starting a new conversation for the next send rather than switching the Copilot runtime in place for an existing conversation.
 - If an existing persisted Copilot conversation cannot resume its expected session, the chat path fails clearly for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
@@ -133,7 +133,7 @@ The chosen modal direction for this story is:
 - The `Copilot Auth` action starts a Copilot-specific backend device-auth route rather than reusing the Codex route.
 - The shared auth contract is no longer a Codex-only raw-output shape. It must support two phases for both providers: first, provider-specific verification details that the UI can render immediately; second, completion or readiness refresh so the page can update provider availability after the external browser or token step finishes.
 - The shared auth flow returns the verification URL and one-time code as soon as they are available, rather than waiting for the full external browser login flow to complete.
-- The shared auth flow tracks completion separately from the initial verification-details response and refreshes Copilot readiness after completion is detected.
+- The shared auth flow tracks completion separately from the initial verification-details response and refreshes Copilot readiness after completion is detected through the existing provider-readiness surfaces rather than a second Copilot-only polling contract unless direct code evidence forces it.
 - The shared auth contract defines enough state for the UI to distinguish at least these cases deterministically: verification details ready, completion still pending, authentication complete, authentication failed, and authentication unavailable before start.
 - The Copilot auth flow works when the product is running in Docker without a browser in the container, because the UI shows the GitHub device-login URL and one-time code for the user to complete in an external browser.
 - Successful Copilot authentication persists under the resolved `CODEINFO_COPILOT_HOME` location so later provider checks and chat requests can reuse it.
@@ -141,12 +141,12 @@ The chosen modal direction for this story is:
 - If the container environment does not provide a usable keychain, the first implementation automatically persists Copilot auth/config state using the documented fallback under the mounted `CODEINFO_COPILOT_HOME` path without showing an extra confirmation dialog.
 - Server process startup and the existing `/health` endpoint remain process-level health checks only. They must not fail just because the Copilot CLI is missing, Copilot is unauthenticated, or Copilot model discovery is unavailable. Copilot readiness stays on the chat-provider and chat-model surfaces.
 - The story defines one concrete Copilot runtime delivery strategy for this repository. For this first implementation, the server runtime image and local development environment must provide a Copilot CLI binary that the SDK can spawn directly, either from `PATH` or from an explicit configured `cliPath`; the implementation must not rely on an undocumented external Copilot CLI server already running somewhere else.
-- Development, local Docker, and e2e runtime paths all inject and mount `CODEINFO_COPILOT_HOME` consistently enough for the selected auth and session-persistence strategy to work.
+- Development, local Docker, and e2e runtime paths all inject and mount `CODEINFO_COPILOT_HOME` consistently enough for the selected auth and session-persistence strategy to work, using one Docker-managed named-volume persistence pattern wherever container persistence is required.
 - Runtime env wiring for this story must preserve the documented Copilot CLI credential precedence instead of overriding it. Committed env files may define `CODEINFO_COPILOT_HOME`, but they must not hard-code credential secrets or break runtime use of `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, or authenticated `gh` fallback.
 - `server/.env`, `server/.env.local`, `server/.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` all define or override `CODEINFO_COPILOT_HOME` consistently for their environment instead of relying on ad hoc shell state.
 - This story does not add a new HTTP listener, sidecar runtime, or externally exposed Copilot CLI port. The existing server and client ports remain the only application ports in scope: main `5010`, `5011`, `5012`, `5001`; local `5510`, `5511`, `5512`, `5501`, with Playwright MCP on `8931`; e2e `6010`, `6011`, `6012`, `6001`, with Playwright MCP on `8932`.
 - Docker execution for this story continues to build the server and client from copied source inside the image build, using the existing Dockerfiles and build contexts. The plan must not introduce a new host source bind mount of application code into the Copilot-enabled containers.
-- Any persistent Copilot-generated artifacts in containers use Docker-managed volumes or other container-managed writable directories for generated state only, not host bind-mounted source trees. Host-visible bind mounts remain acceptable for logs only.
+- Any persistent Copilot-generated artifacts in containers use one Docker-managed named-volume pattern for generated state only, not host bind-mounted source trees. Host-visible bind mounts remain acceptable for logs only.
 - Automated unit, integration, and default e2e coverage for this story do not require a live authenticated Copilot account. The story must provide a fake or mocked Copilot runtime seam for automated tests and treat any live Copilot smoke check as optional or manual-only.
 - If Copilot is unavailable or unauthenticated, the provider list and/or chat execution path reports a clear reason instead of failing silently.
 - If Copilot is unavailable, it remains visible in the provider list as disabled with its clear reason rather than being hidden.
@@ -184,7 +184,7 @@ The chosen modal direction for this story is:
 
 1. Question: Should this story add Copilot support everywhere the product runs models, or only in the chat surface? Why it matters: the repository contains both chat-provider wiring and separate Codex-oriented agent and flow execution paths, and the amount of work changes significantly depending on scope. Decision: this story is chat-only. Agent, command, and flow support remain future work. Source and why this is best: direct repository inspection showed chat already has a provider factory and provider selection path, while agent and flow services still hardcode `provider: 'codex'` in many places. This is the smallest useful slice and avoids turning one provider addition into a repo-wide execution refactor.
 2. Question: What top-level provider id should be used for this story, given that the Copilot SDK itself also uses the term `provider` for nested BYOK configuration? Why it matters: reusing ambiguous names would make route payloads, internal types, and future settings harder to reason about. Decision: the product-level provider id for this story is `copilot`, and the SDK's own nested provider configuration remains out of scope. Source and why this is best: the existing chat-provider ids are short transport/runtime identifiers such as `codex` and `lmstudio`, and repository research showed the Copilot SDK's `provider` object means something different. Keeping `copilot` as the app-level provider avoids naming collisions and keeps the story focused on GitHub Copilot-backed chat.
-3. Question: How should Copilot chat session continuity be mapped onto the repository's existing chat conversation model? Why it matters: the Copilot SDK is session-based rather than stateless, so this story needs one deterministic rule for creating and resuming context across turns. Decision: Copilot chat should map one product chat conversation to one Copilot SDK session, using the existing conversation identity as the stable session identity or as the source of truth for a stored Copilot session id. Source and why this is best: the repository already uses stable conversation ids for persistence, and the Copilot SDK supports named session creation and resumption. This is the most natural fit because it preserves conversation continuity without inventing a second competing chat identity.
+3. Question: How should Copilot chat session continuity be mapped onto the repository's existing chat conversation model? Why it matters: the Copilot SDK is session-based rather than stateless, so this story needs one deterministic rule for creating and resuming context across turns. Decision: Copilot chat should map one product chat conversation to one Copilot SDK session by reusing the existing conversation identity as the Copilot session identity by default. Only if direct inspection of the installed SDK proves that approach cannot work should the implementation store a separate Copilot session id under `conversation.flags`. Source and why this is best: the repository already uses stable conversation ids for persistence, and the Copilot SDK supports named session creation and resumption. Reusing the existing id is the simplest fit because it preserves conversation continuity without inventing a second competing chat identity or extra persistence unless the runtime truly forces it.
 4.
    - Question being addressed: Should the first Copilot chat story expose the Copilot runtime's broader built-in tool and permission surface, or should it stay conservative?
    - Why the question matters: the SDK requires a permission handler and can enable shell, write, read, url, MCP, and custom-tool permissions, which directly changes what Copilot can do during chat.
@@ -232,7 +232,7 @@ The chosen modal direction for this story is:
 - Current provider discovery and model loading are two-provider-only. `server/src/routes/chatProviders.ts` builds a `providerMap` for `codex` and `lmstudio` only and orders the provider list by `executionProvider` plus one alternate provider. `server/src/routes/chatModels.ts` branches only for `provider === 'codex'`, otherwise it assumes LM Studio.
 - Current request validation is two-provider-only. `server/src/routes/chatValidators.ts` accepts only `provider must be "codex" or "lmstudio"` and types the validated provider as `type Provider = 'codex' | 'lmstudio'`.
 - Current execution factory is two-provider-only. `server/src/chat/factory.ts` registers only `codex` and `lmstudio`, so Copilot must be added as a first-class provider rather than handled through an ad hoc conditional elsewhere.
-- Current persistence is partly Codex-oriented. `server/src/mongo/conversation.ts` types `ConversationProvider = 'lmstudio' | 'codex'` and documents `_id` as `conversation id (Codex thread id for Codex provider)`, so the story must tighten how Copilot session identity maps onto existing conversation ids or flags.
+- Current persistence is partly Codex-oriented. `server/src/mongo/conversation.ts` types `ConversationProvider = 'lmstudio' | 'codex'` and documents `_id` as `conversation id (Codex thread id for Codex provider)`, so the story must tighten how Copilot session identity maps onto existing conversation ids. The preferred path is to reuse that existing conversation identity directly instead of adding a second stored id unless the SDK proves that is impossible.
 - Current conversation REST validation is also two-provider-only. `server/src/routes/conversations.ts` validates `provider: z.enum(['lmstudio', 'codex'])`.
 - Current shared client and OpenAPI contracts are still legacy-biased. `common/src/lmstudio.ts` exposes generic `ChatProviderInfo` and `ChatModelsResponse`, but `openapi.json` and related request or response enums still contain two-provider-only values and some older `openai` literals that need reconciliation when Copilot is added.
 - Current shared auth UX is Codex-only. `client/src/components/codex/CodexDeviceAuthDialog.tsx` shows `Codex device auth` with a raw-output panel and `Start device auth`, and `common/src/api.ts` only defines `CodexDeviceAuthResponse`. `server/src/routes/codexDeviceAuth.ts` is likewise Codex-specific, so the story needs an upstream shared auth contract rather than a second unrelated modal.
@@ -245,11 +245,11 @@ The chosen modal direction for this story is:
 - Model-list contract: reuse the existing shared `ChatModelsResponse` and `ChatModelInfo` shapes rather than inventing a Copilot-only model response. This is an existing-shape extension, not a brand new contract. Copilot model entries should map into the same `key`, `displayName`, and `type` fields, and may populate optional reasoning metadata only where the installed SDK actually exposes compatible fields. `codexDefaults` and `codexWarnings` remain Codex-only optional payload fields and should be omitted for Copilot responses rather than mirrored with Copilot-specific duplicates.
 - Chat request contract: extend the existing request contract, not replace it. The validated provider enum in `server/src/routes/chatValidators.ts`, any shared client request helpers, and the corresponding request enums in `openapi.json` must all expand to include `copilot`. This story should not introduce new top-level Copilot-only request fields for normal chat sends. Any provider-specific request behavior should continue to live in validated optional flags, and Codex-only flags must remain Codex-only.
 - Chat event and transcript contract: no new top-level persisted turn shape is required up front. The existing chat stream and turn payload model already supports content, tool calls, usage, timing, and status. Copilot streaming events from the SDK or CLI must therefore be translated into the current repository event model rather than stored as raw Copilot event envelopes. This means the application owns the translation layer, while the SDK remains the source of raw session events such as `assistant.message_delta`, `assistant.message`, `assistant.reasoning_delta`, `assistant.usage`, `tool.execution_*`, and `session.idle`.
-- Conversation storage contract: reuse the existing conversation collection rather than creating a new Copilot-specific collection. This is an existing-shape change. `server/src/mongo/conversation.ts` and `server/src/routes/conversations.ts` must expand their provider enums to allow `provider: 'copilot'`. If the implementation uses the repository `conversationId` as the Copilot `sessionId`, no extra storage field is needed. If the implementation uses a different Copilot session id, store it under `conversation.flags.copilotSessionId` so the resumable identity is explicit and remains within the existing conversation document.
+- Conversation storage contract: reuse the existing conversation collection rather than creating a new Copilot-specific collection. This is an existing-shape change. `server/src/mongo/conversation.ts` and `server/src/routes/conversations.ts` must expand their provider enums to allow `provider: 'copilot'`. The default implementation path is to reuse the repository `conversationId` as the Copilot `sessionId`, which needs no extra storage field. Only if the installed SDK proves a different session id is required should that fallback value be stored under `conversation.flags.copilotSessionId`.
 - Turn storage contract: no new Mongo collection or mandatory top-level turn schema is needed. The existing `Turn` shape in `server/src/mongo/turn.ts` already supports `provider`, `toolCalls`, `usage`, `timing`, `runtime`, and `status`. The required contract rule is that Copilot usage or timing fields must only be persisted when they are actually produced by the SDK or CLI. Missing values remain absent, not zero-filled. If Copilot reasoning content is shown in the UI, it should continue to flow through the repository's existing assistant-message or think-display paths rather than introducing a second persisted reasoning store in this story.
 - Auth contract: this story does require one genuinely new shared message contract. The current `CodexDeviceAuthResponse` in `common/src/api.ts` is Codex-specific and cannot serve Copilot unchanged. Replace it with a shared provider-auth contract used by both Codex and Copilot. Up front, that shared contract should carry: provider id, whether verification details are available yet, verification URL when present, one-time user code when present, provider-facing display output only where still useful for the UI, completion or readiness state for the second phase of device auth, and a deterministic failure reason when auth cannot proceed. The story should treat this as a new shared contract that supersedes the Codex-only response shape rather than as a second parallel auth response family.
 - OpenAPI and shared-type propagation contract: every contract change above must be reflected in `openapi.json` and the shared exported types at the same time. This includes provider enums for `/chat`, `/chat/models`, and conversation APIs, plus the new shared auth route or routes and their response schemas. The plan should treat OpenAPI updates as part of the contract definition itself, not as follow-up documentation work.
-- Migration and compatibility expectations: no historical data migration should be required for existing LM Studio or Codex conversations and turns. Provider enum expansion must remain backward-compatible with existing stored data. The only new storage field currently expected is the optional `conversation.flags.copilotSessionId`, and that field should only appear on Copilot conversations if it is actually needed by the final implementation choice.
+- Migration and compatibility expectations: no historical data migration should be required for existing LM Studio or Codex conversations and turns. Provider enum expansion must remain backward-compatible with existing stored data. The only new storage field currently expected is the optional `conversation.flags.copilotSessionId`, and that field should appear only if direct implementation evidence proves the simpler `conversationId` reuse path cannot work.
 
 ### Schema and Contracts Matrix
 
@@ -257,7 +257,7 @@ The chosen modal direction for this story is:
 - `Server provider defaults and fallback`: update `server/src/config/chatDefaults.ts` so provider parsing, fallback, and ordered-provider logic all understand `copilot` and use the same ordered list everywhere.
 - `Server provider discovery and model routes`: update `server/src/routes/chatProviders.ts` and `server/src/routes/chatModels.ts` so Copilot availability, reason text, and model entries use the shared contract shapes already defined above.
 - `Server execution factory`: update `server/src/chat/factory.ts` and the Copilot chat adapter so provider id `copilot` is accepted by the execution layer and translated into the existing event bridge.
-- `Server conversation persistence`: update `server/src/mongo/conversation.ts`, `server/src/routes/conversations.ts`, and any conversation repository helpers so the stored provider enum accepts `copilot` and the optional `conversation.flags.copilotSessionId` field is handled consistently if that strategy is chosen.
+- `Server conversation persistence`: update `server/src/mongo/conversation.ts`, `server/src/routes/conversations.ts`, and any conversation repository helpers so the stored provider enum accepts `copilot` and defaults to reusing `conversationId` as the Copilot session id. Handle `conversation.flags.copilotSessionId` only if direct implementation evidence proves that fallback is required.
 - `Shared auth contract`: update `common/src/api.ts` and the server or client auth callers together so the existing Codex-only auth response becomes one shared provider-auth contract used by both `Codex Auth` and `Copilot Auth`.
 - `Client provider and model consumers`: update `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, and `client/src/pages/ChatPage.tsx` so they consume the updated provider, model, and auth contracts without assuming a two-provider world.
 - `Transcript rendering`: update `client/src/components/chat/chatTranscriptFormatting.ts` and related transcript consumers so partial Copilot metadata follows the shared missing-value rules already defined in this plan.
@@ -301,7 +301,7 @@ The chosen modal direction for this story is:
 1. `Shared contracts first`: update the provider enum and request or response shapes in `common/src/api.ts`, `common/src/lmstudio.ts`, `common/src/index.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, and `openapi.json` together so `copilot` is accepted consistently across client, server, persistence, and docs. This step should also replace the current two-provider fallback assumptions with one ordered provider list: `codex`, `copilot`, `lmstudio`.
 2. `Server runtime seam next`: add `@github/copilot-sdk` in `server/package.json`, create a small reusable Copilot lifecycle module under `server/src/chat` or `server/src/providers`, and introduce `server/src/chat/interfaces/ChatInterfaceCopilot.ts`. The seam should own `CopilotClient.start()`, `stop()`, `createSession(...)`, `resumeSession(...)`, and `listModels()` so routes do not construct clients ad hoc.
 3. `Provider readiness and model routes`: extend `server/src/routes/chatProviders.ts` and `server/src/routes/chatModels.ts` to use the new Copilot seam, keep Copilot visible with a stable `reason` when unavailable, and map Copilot `ModelInfo` into the existing shared model response shape. Keep readiness precedence deterministic: connectivity first, auth second, model-list success third, tool availability last.
-4. `Chat execution and persistence`: extend `server/src/chat/factory.ts`, `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and the shared conversation repo helpers so Copilot can create or resume chat sessions, stream events into the existing transcript pipeline, and persist a resumable session identity without silently forking an existing conversation. If the repo conversation id is not used directly as the Copilot session id, store the Copilot session id explicitly in `conversation.flags`.
+4. `Chat execution and persistence`: extend `server/src/chat/factory.ts`, `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and the shared conversation repo helpers so Copilot can create or resume chat sessions, stream events into the existing transcript pipeline, and persist a resumable session identity without silently forking an existing conversation. Reuse the repo conversation id directly as the Copilot session id unless direct SDK evidence proves a separate stored id is required, in which case store that fallback id explicitly in `conversation.flags`.
 5. `Shared auth flow`: generalize the current Codex-only auth contract in `common/src/api.ts`, `server/src/routes/codexDeviceAuth.ts`, `client/src/api/codex.ts`, and `client/src/components/codex/CodexDeviceAuthDialog.tsx` into a shared provider-auth flow, then add the Copilot device-login route and UI action on top. The response contract should return the verification URL and one-time code as soon as they are available and let readiness refresh happen separately.
 6. `Client provider and transcript behavior`: update `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, and `client/src/components/chat/chatTranscriptFormatting.ts` so the chat page handles three providers, preserves current next-send new-conversation behavior on provider or model change, and omits missing Copilot token or timing values instead of rendering placeholder zeros.
 7. `Runtime wiring and Docker`: update `server/src/config/startupEnv.ts`, `server/.env`, `server/.env.local`, `server/.env.e2e`, `server/Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, and the root `.dockerignore` so Copilot runtime state is resolved through `CODEINFO_COPILOT_HOME`, copied into images via the normal Docker build context, and persisted only via Docker-managed volumes where needed. Do not add a Copilot-specific port or a new source-tree bind mount.
@@ -359,8 +359,8 @@ The harnesses that should be added are:
 
 - `Server Copilot SDK fake harness`: add `server/src/test/support/mockCopilotSdk.ts`. This should expose a deterministic fake `CopilotClient` and fake session objects for unit, integration, and Cucumber-backed route tests. The fake should let tests script `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, `resumeSession(...)`, auth or readiness results, and emitted session events such as `assistant.message_delta`, `assistant.message`, `session.idle`, tool events, and failure paths.
 - `Server Copilot auth CLI harness`: add `server/src/test/support/mockCopilotDeviceAuth.ts`. This should provide reusable fake outputs for the planned Copilot device-login route, including verification URL and one-time code parsing, delayed completion, declined or expired codes, missing CLI cases, and readiness-refresh outcomes. The current Codex auth tests inline these behaviors, but Copilot will need a reusable harness because the story explicitly adds two-phase auth behavior and provider-specific readiness refresh.
-- `Client shared provider-auth harness`: add `client/src/test/support/mockProviderAuth.ts`. This should let client tests drive the shared `Choose Authentication` dialog with Codex and Copilot response fixtures, including early verification details, later completion refresh, loading states, and provider-specific failure messages. Existing fetch mocks are not enough on their own because this story changes the auth contract from one Codex-specific response shape to a shared provider-auth shape.
-- `Playwright and server integration Copilot fixture seam`: add a reusable Copilot fixture path that can be enabled by e2e and integration tests without a real login. The simplest place is to extend the server test support area with the fake SDK above and expose it through test-only dependency injection so Playwright specs and integration tests can boot the app with a fake available Copilot provider, fake model list, and scripted chat stream. This should be wired for use from `server/src/test/integration`, `server/src/test/steps`, and the existing Playwright suite under `e2e/`.
+- `Client shared provider-auth fixtures`: extend the existing fetch-based client test helpers under `client/src/test/support` so client tests can drive the shared `Choose Authentication` dialog with Codex and Copilot response fixtures, including early verification details, later completion refresh, loading states, and provider-specific failure messages. Reuse `fetchMock.ts` and current auth test patterns instead of adding a second client-specific harness layer unless direct code evidence forces it.
+- `Playwright and server integration Copilot scenarios`: extend the existing integration and e2e boot paths so they can enable named fake Copilot scenarios without a real login. The simplest place is to reuse the fake SDK and auth harnesses above through the repository's current test dependency-injection and wrapper-backed startup paths rather than introducing a second fixture layer for Playwright and integration tests.
 
 The harnesses above should then support the planned tests in these locations:
 
@@ -469,11 +469,11 @@ This story stays within the current repository. No additional repository is invo
 - `Missing prerequisite capabilities`: Task 4 must complete first for reusable Copilot auth fakes, and Task 8 must complete first so the new route lands on the settled shared contract.
 - `Assumptions that are currently invalid`: it is currently invalid to assume the new Copilot route is already mounted or that device auth is the only valid authentication path. Copilot CLI also supports documented env-token and `gh` fallback authentication that the server must respect.
 
-### Task 10. Add the client shared provider-auth test harness
+### Task 10. Extend the existing client provider-auth test fixtures
 
 - `Already existing capabilities`: `client/src/test/setupTests.ts`, `client/src/test/support/fetchMock.ts`, `client/src/test/support/mockWebSocket.ts`, `client/src/test/support/userEvent.ts`, `client/src/test/codexDeviceAuthApi.test.ts`, and `client/src/test/codexDeviceAuthDialog.test.tsx` already provide the client test bootstrap and fixture style this task should follow.
-- `Missing prerequisite capabilities`: Task 8 must complete first so this harness can target the real shared provider-auth contract rather than guessing a response shape.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the current client fetch helpers alone are sufficient. The story now needs a named shared provider-auth harness because auth responses are no longer Codex-only.
+- `Missing prerequisite capabilities`: Task 8 must complete first so these fixtures can target the real shared provider-auth contract rather than guessing a response shape.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing Codex-only auth fixtures are already generic. However, it is also unnecessary to add a second client harness layer when the existing fetch-based fixtures can be extended cleanly.
 
 ### Task 11. Update client provider and model selection for the three-provider contract
 
@@ -484,7 +484,7 @@ This story stays within the current repository. No additional repository is invo
 ### Task 12. Replace the Codex-only auth dialog with the shared Choose Authentication flow
 
 - `Already existing capabilities`: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/pages/ChatPage.tsx`, and the current dialog or agents-page tests already provide the component and consumer surfaces this task should update.
-- `Missing prerequisite capabilities`: Task 9 must complete first so the UI has a mounted Copilot route to call, and Task 10 must complete first so the dialog tests can reuse the shared provider-auth harness.
+- `Missing prerequisite capabilities`: Task 9 must complete first so the UI has a mounted Copilot route to call, and Task 10 must complete first so the dialog tests can reuse the shared provider-auth fixtures.
 - `Assumptions that are currently invalid`: it is currently invalid to assume the existing auth dialog is already shared or only consumed by the chat page. The current dialog and client API are Codex-specific, and the agents flow also depends on that UI.
 
 ### Task 13. Harden transcript metadata rendering for partial Copilot usage and timing fields
@@ -505,22 +505,22 @@ This story stays within the current repository. No additional repository is invo
 - `Missing prerequisite capabilities`: Task 2 must complete first for the shared home helper, and Task 14 should settle the runtime env contract before Docker and compose persistence are wired around it.
 - `Assumptions that are currently invalid`: it is currently invalid to assume the container image already includes Copilot runtime support, writable Copilot state, or build-context exclusions for Copilot runtime artifacts.
 
-### Task 16. Add the higher-level Copilot fixture seam for integration, Cucumber, and e2e
+### Task 16. Extend existing integration, Cucumber, and e2e boot paths for fake Copilot scenarios
 
 - `Already existing capabilities`: `server/src/test/integration`, `server/src/test/steps`, `server/src/test/support/wsClient.ts`, `e2e/support/mockChatWs.ts`, `client/src/test/support/mockChatWs.ts`, and `client/src/test/support/mockWebSocket.ts` already provide the higher-level bootstrap and transport-helper patterns this task should reuse.
-- `Missing prerequisite capabilities`: Task 3 must complete first for fake Copilot SDK behavior, Task 4 must complete first for fake Copilot auth behavior, Task 10 must complete first for client-side shared auth fixtures, and Task 15 must define the final env and container contract before the wrapper-backed e2e path is treated as complete.
-- `Assumptions that are currently invalid`: it is currently invalid to assume the existing integration and e2e stack already has a switch for fake Copilot readiness, models, chat, and auth. That cross-layer fixture seam does not exist yet.
+- `Missing prerequisite capabilities`: Task 3 must complete first for fake Copilot SDK behavior, Task 4 must complete first for fake Copilot auth behavior, and Task 15 must define the final env and container contract before the wrapper-backed e2e path is treated as complete.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing integration and e2e stack already has a switch for fake Copilot readiness, models, chat, and auth. The simpler plan is to extend the current boot paths with named scenarios rather than creating a second cross-layer fixture abstraction.
 
-### Task 17. Extend Cucumber coverage to prove the Copilot story through the fake seam
+### Task 17. Extend Cucumber coverage to prove the Copilot story through fake Copilot scenarios
 
 - `Already existing capabilities`: `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_models.steps.ts`, and `server/src/test/steps/chat_stream.steps.ts` already provide the server-side BDD proof surfaces this task should extend.
-- `Missing prerequisite capabilities`: Tasks 5, 6, 7, 9, 15, and 16 must complete first so the routes, auth backend, Docker-backed startup path, and higher-level fixture seam are all real and deterministic.
+- `Missing prerequisite capabilities`: Tasks 5, 6, 7, 9, 15, and 16 must complete first so the routes, auth backend, Docker-backed startup path, and extended higher-level boot path are all real and deterministic.
 - `Assumptions that are currently invalid`: it is currently invalid to assume the existing Cucumber suites can prove Copilot today or that they should depend on a live authenticated Copilot account.
 
-### Task 18. Extend Playwright coverage to prove the Copilot story through the fake seam
+### Task 18. Extend Playwright coverage to prove the Copilot story through fake Copilot scenarios
 
 - `Already existing capabilities`: `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `e2e/chat-user-turn-ws.spec.ts`, and `e2e/env-runtime-config.spec.ts` already provide the client-facing end-to-end proof surfaces this task should extend.
-- `Missing prerequisite capabilities`: Tasks 5, 6, 7, 9, 11, 12, 15, and 16 must complete first so the routes, client behavior, auth dialog, Docker-backed startup path, and higher-level fixture seam are all real and deterministic.
+- `Missing prerequisite capabilities`: Tasks 5, 6, 7, 9, 11, 12, 15, and 16 must complete first so the routes, client behavior, auth dialog, Docker-backed startup path, and extended higher-level boot path are all real and deterministic.
 - `Assumptions that are currently invalid`: it is currently invalid to assume the existing Playwright suite can prove Copilot today or that a live authenticated Copilot account should be part of the default proof path.
 
 ### Task 19. Run final validation and close out Story 0000051
@@ -533,7 +533,7 @@ This story stays within the current repository. No additional repository is invo
 
 - `Already existing capabilities`: this repository already has enough architectural shape to support the story without adding another repository, another application, or a parallel test stack.
 - `Missing prerequisite capabilities`: the story is still blocked on explicit work in Tasks 1 through 16 before the wrapper-backed proof in Tasks 17 through 19 is realistic.
-- `Assumptions that are currently invalid`: the plan must continue to treat the following dependency chain as hard gates rather than soft suggestions: Task 1 before Tasks 5, 6, 7, and 11; Task 2 before Tasks 3, 5, 6, 8, 9, 14, and 15; Task 3 before Tasks 5, 6, 7, 16, and 17; Task 4 before Tasks 9, 16, and 17; Task 8 before Tasks 9, 10, and 11; Task 9 before Tasks 12, 17, and 18; Task 10 before Tasks 12 and 16; Task 14 before Task 15; and Task 15 before the wrapper-backed proof in Tasks 16 through 19.
+- `Assumptions that are currently invalid`: the plan must continue to treat the following dependency chain as hard gates rather than soft suggestions: Task 1 before Tasks 5, 6, 7, and 11; Task 2 before Tasks 3, 5, 6, 8, 9, 14, and 15; Task 3 before Tasks 5, 6, 7, 16, and 17; Task 4 before Tasks 9, 16, and 17; Task 8 before Tasks 9, 10, and 11; Task 9 before Tasks 12, 17, and 18; Task 10 before Task 12; Task 14 before Task 15; and Task 15 before the wrapper-backed proof in Tasks 16 through 19.
 
 ## Questions
 
@@ -810,7 +810,7 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 2. [ ] Finish `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so it can create and resume Copilot sessions, register the documented `onPermissionRequest` handler on both create and resume, re-register any required tools or hooks when resuming, and translate Copilot events into the existing `ChatInterface` event model. Route streamed output through the existing `chatStreamBridge` and websocket publishing path instead of inventing a second transport. Allow permissions by default for this story.
 3. [ ] Update `server/src/routes/chat.ts` so `provider: "copilot"` is accepted, uses the shared runtime-selection contract, replaces the remaining binary `codex` versus `lmstudio` branches with provider-neutral logic, and reuses the existing inflight registry, conversation lock, and transcript transport flow without introducing a new websocket or HTTP transport.
 4. [ ] Keep Codex-only request flags server-side. When a Copilot request arrives with Codex-specific flags, ignore them safely or return the documented warning behavior for this repository, but do not reinterpret them as Copilot settings or let them silently change Copilot execution semantics.
-5. [ ] Choose one session identity strategy and implement it consistently: either reuse `conversationId` as the Copilot session id or persist a separate `conversation.flags.copilotSessionId`. Update both Mongoose-backed persistence and `server/src/chat/memoryPersistence.ts` so the chosen strategy is stored and resumed deterministically in normal runtime and in test-mode memory persistence. Do not add a new nested Mongoose sub-schema for `flags` in this story unless direct code evidence forces it; the current `Schema.Types.Mixed` contract already supports the optional Copilot session id field.
+5. [ ] Reuse `conversationId` as the Copilot session id throughout the default implementation path. Update both Mongoose-backed persistence and `server/src/chat/memoryPersistence.ts` so that direct reuse is stored and resumed deterministically in normal runtime and in test-mode memory persistence. Only introduce `conversation.flags.copilotSessionId` if direct code evidence from the installed SDK proves a separate stored id is required, and do not add a new nested Mongoose sub-schema for `flags` unless that fallback path truly forces it.
 6. [ ] Make resume failure explicit. If an existing persisted Copilot conversation cannot resume its expected session, return a clear error for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
 7. [ ] Add or update unit and integration tests so they prove Copilot event mapping, session creation, session resumption, resume failure, conversation persistence, concurrent-request protection on the same conversation id, and the server-side handling of Codex-only flags on Copilot requests.
 8. [ ] Update `design.md` with the chosen Copilot session identity rule, the Codex-only flag handling rule for Copilot requests, and the Copilot event-to-transcript mapping if those details are not obvious from the code. Update `README.md` only if user-facing chat behavior needs clarification. Update `projectStructure.md` if this task adds or removes files.
@@ -890,7 +890,7 @@ Add the server-side Copilot device-auth route that uses the documented device-lo
 #### Subtasks
 
 1. [ ] Add the Copilot device-auth backend route and utility code using the documented Copilot device-login flow. Register the new route in `server/src/index.ts`, and return the verification URL and one-time code as soon as they are available rather than waiting for the whole login to finish.
-2. [ ] Make readiness refresh explicit. After the external browser step completes, the server should expose a deterministic way for the UI to learn whether authentication is complete or has failed without guessing from raw output text. That same refresh path must also recognize already-authenticated Copilot states that came from documented env-token or `gh` fallback credentials rather than from the device flow route itself.
+2. [ ] Make readiness refresh explicit by reusing the shared auth contract state plus the existing provider-readiness surfaces the UI already consumes. After the external browser step completes, the UI should be able to learn whether authentication is complete or has failed without guessing from raw output text, and without adding a second Copilot-only polling route unless direct code evidence forces it. That same refresh path must also recognize already-authenticated Copilot states that came from documented env-token or `gh` fallback credentials rather than from the device flow route itself.
 3. [ ] Keep the auth storage location aligned with the shared Copilot home/config helper from Task 2, and make missing CLI, unavailable keychain, unwritable config directory, and failed login outcomes surface as clear reasons rather than generic route failures. If Copilot is already authenticated through env-token, stored login, or `gh` fallback, return the shared contract’s already-authenticated or unavailable-before-start state instead of forcing a redundant device-login flow.
 4. [ ] Add or update server unit and integration tests so they prove the new Copilot route returns verification details early, the new route is mounted correctly, and completion or failure is observable through the shared contract. Reuse the device-auth harness from Task 4 instead of inlining route behavior in each test.
 5. [ ] Update `openapi.json` for the new Copilot auth route path. Update `design.md` and `README.md` if they need new Copilot-auth-specific wording. Update `projectStructure.md` if this task adds or removes files.
@@ -911,7 +911,7 @@ Add the server-side Copilot device-auth route that uses the documented device-lo
 
 ---
 
-### Task 10. Add the client shared provider-auth test harness
+### Task 10. Extend the existing client provider-auth test fixtures
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -919,7 +919,7 @@ Add the server-side Copilot device-auth route that uses the documented device-lo
 
 #### Overview
 
-Create the dedicated client-side provider-auth harness so dialog and auth API tests can script Codex and Copilot auth states without duplicating fixtures in every test file. This task depends on Task 8 because the harness must target the real shared provider-auth contract instead of a guessed interim shape. This task is only about the harness and the proof that the harness itself can render or return expected success and failure states.
+Extend the existing client-side fetch-based auth fixtures so dialog and auth API tests can script Codex and Copilot auth states without duplicating raw responses in every test file. This task depends on Task 8 because the fixtures must target the real shared provider-auth contract instead of a guessed interim shape. This task is only about reusing and extending the current fixture layer, not about inventing a second client harness abstraction.
 
 #### Documentation Locations
 
@@ -929,21 +929,21 @@ Create the dedicated client-side provider-auth harness so dialog and auth API te
 
 #### Subtasks
 
-1. [ ] Add `client/src/test/support/mockProviderAuth.ts` with fixtures and helper functions for Codex and Copilot auth start, verification-ready, completion-pending, completed, failed, and unavailable-before-start states.
-2. [ ] Define one clear helper API so later client tests can request a named provider-auth scenario without rebuilding raw response objects in each test file.
-3. [ ] Update the existing client test bootstrap path so dialog and API tests can opt into the harness cleanly without affecting unrelated client tests.
-4. [ ] Add a dedicated harness-focused test file, such as `client/src/test/mockProviderAuth.test.ts`, that proves the harness can return a valid verification state and at least one explicit failure state without throwing unexpected shape errors.
-5. [ ] Update `projectStructure.md` to list the new client harness file and proof test. Update `design.md` only if the client test entry point needs brief explanation for future maintainers.
+1. [ ] Extend the existing fetch-based client test helpers, centered on `client/src/test/support/fetchMock.ts` and any current auth fixture utilities, so tests can request Codex and Copilot auth start, verification-ready, completion-pending, completed, failed, and unavailable-before-start states without rebuilding raw response objects in each file.
+2. [ ] Define one clear fixture API around those existing helpers so later client tests can request a named provider-auth scenario without adding a second test-support layer.
+3. [ ] Update the existing client test bootstrap path so dialog and API tests can opt into the extended fixtures cleanly without affecting unrelated client tests.
+4. [ ] Add or update a focused client test that proves the extended fetch-based fixtures can drive a valid verification state and at least one explicit failure state without throwing unexpected shape errors.
+5. [ ] Update `projectStructure.md` only if this task adds or removes files beyond the current helper locations. Update `design.md` only if the client test entry point needs brief explanation for future maintainers.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the server still compiles against any shared auth contract changes used by the client harness.
-2. [ ] Run `npm run build:summary:client` to prove the shared provider-auth client harness compiles.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the client test harness files.
+1. [ ] Run `npm run build:summary:server` to prove the server still compiles against any shared auth contract changes used by the client fixtures.
+2. [ ] Run `npm run build:summary:client` to prove the shared provider-auth client fixtures compile.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing client test helpers.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the dedicated client provider-auth harness test passes, including at least one explicit failure state.
+5. [ ] Run `npm run test:summary:client` and confirm the client provider-auth fixture proof passes, including at least one explicit failure state.
 
 #### Implementation notes
 
@@ -1002,13 +1002,13 @@ Teach the existing chat page to consume the new three-provider contract for prov
 
 #### Overview
 
-Update the existing client auth experience so the chat page uses one shared `Choose Authentication` dialog with `Codex Auth` and `Copilot Auth`, and so the UI consumes the shared provider-auth contract from Task 8 through the client harness from Task 10. This task depends on Tasks 9 and 10 and should not start earlier because the dialog would otherwise be built against a contract or fixture layer that does not exist yet. This task should stay focused on the dialog flow, not on provider or model selection, which belongs to Task 11.
+Update the existing client auth experience so the chat page uses one shared `Choose Authentication` dialog with `Codex Auth` and `Copilot Auth`, and so the UI consumes the shared provider-auth contract from Task 8 through the extended client fixtures from Task 10. This task depends on Tasks 9 and 10 and should not start earlier because the dialog would otherwise be built against a contract or fixture layer that does not exist yet. This task should stay focused on the dialog flow, not on provider or model selection, which belongs to Task 11.
 
 #### Documentation Locations
 
 - Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
 - Existing client auth files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/api/codex.ts`, `client/src/test/setupTests.ts`, `client/src/test/support/fetchMock.ts`, `client/src/test/support/userEvent.ts`, `client/src/test/codexDeviceAuthDialog.test.tsx`, `client/src/test/codexDeviceAuthApi.test.ts`, `client/src/test/agentsPage.agentChange.test.tsx`, and any current client auth API helper.
-- Shared auth contract files from Task 8: `common/src/api.ts`, the server auth routes, and any new client auth API wrapper added for provider-agnostic use.
+- Shared auth contract files from Task 8 and fixtures from Task 10: `common/src/api.ts`, the server auth routes, any new client auth API wrapper added for provider-agnostic use, and the extended fetch-based auth fixtures.
 - MUI dialog and button behavior references already used in this repository if a component API reminder is needed.
 
 #### Subtasks
@@ -1134,9 +1134,9 @@ Add the Docker and compose prerequisites that let the existing stack host Copilo
 #### Subtasks
 
 1. [ ] Update `server/Dockerfile` so the server image includes the Copilot runtime prerequisites and a writable `/app/copilot` path without changing the existing “copy source into the image and build there” model. Do not introduce a bind-mounted source tree.
-2. [ ] Update `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` so Copilot home is injected consistently and persisted through Docker-managed volumes or another container-managed writable directory when persistence is required. Do not add any new published ports, and do not hard-code Copilot credential secrets into committed compose or env files.
+2. [ ] Update `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` so Copilot home is injected consistently and persisted through one Docker-managed named-volume pattern wherever container persistence is required. Do not add any new published ports, and do not hard-code Copilot credential secrets into committed compose or env files.
 3. [ ] Update `.dockerignore` so repo-local Copilot auth files, session state, and runtime-home artifacts are excluded from the image build context just like other local runtime secrets. Keep only required application files in the build context.
-4. [ ] Add or update compose contract tests so they prove port stability, named volume usage, and the selected Copilot persistence rule under Docker.
+4. [ ] Add or update compose contract tests so they prove port stability, named-volume usage, and the selected single Copilot persistence rule under Docker.
 5. [ ] Update `README.md`, `design.md`, and `projectStructure.md` so they document the named-volume runtime persistence rule, the unchanged port map, and any Dockerfile or compose file additions made by this task.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
@@ -1155,7 +1155,7 @@ Add the Docker and compose prerequisites that let the existing stack host Copilo
 
 ---
 
-### Task 16. Add the higher-level Copilot fixture seam for integration, Cucumber, and e2e
+### Task 16. Extend existing integration, Cucumber, and e2e boot paths for fake Copilot scenarios
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -1163,31 +1163,31 @@ Add the Docker and compose prerequisites that let the existing stack host Copilo
 
 #### Overview
 
-Create the higher-level fake Copilot fixture seam that lets integration tests, Cucumber scenarios, and the Playwright-driven stack boot the application with deterministic Copilot availability, model responses, auth states, and streamed chat events. This task depends on Tasks 3, 4, and 10 for the lower-level fake surfaces it composes, and it must stay aligned with Task 15 before the wrapper-backed e2e stack is treated as complete. This task is about the reusable higher-level fixture itself, not about writing the full end-to-end story coverage yet.
+Extend the repository's existing integration, Cucumber, and Playwright boot paths so they can run named fake Copilot scenarios with deterministic availability, model responses, auth states, and streamed chat events. This task depends on Tasks 3 and 4 for the lower-level fake surfaces it composes, and it must stay aligned with Task 15 before the wrapper-backed e2e stack is treated as complete. This task is about extending the current boot paths, not about introducing a second cross-layer fixture abstraction or writing the full end-to-end story coverage yet.
 
 #### Documentation Locations
 
 - Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
 - Existing higher-level test support: `server/src/test/integration`, `server/src/test/support/wsClient.ts`, `server/src/test/steps`, `client/src/test/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and any app bootstrap or env-based test injection points already used in this repository.
-- Harnesses from earlier tasks: the fake Copilot SDK harness from Task 3, the fake device-auth harness from Task 4, and the client provider-auth harness from Task 10.
+- Harnesses from earlier tasks: the fake Copilot SDK harness from Task 3 and the fake device-auth harness from Task 4.
 
 #### Subtasks
 
-1. [ ] Add a reusable server-side fixture seam that can boot the app in test mode with fake Copilot provider readiness, fake model lists, fake chat streams, and fake auth states without touching production runtime defaults. Reuse the existing integration boot paths, websocket helpers, and mock transport helpers already used by the current chat and auth tests instead of introducing a second test startup stack.
-2. [ ] Define one clear configuration API or env-driven contract for the higher-level fixture seam so integration, Cucumber, and e2e tests can enable named Copilot scenarios instead of rebuilding bespoke setup code in each suite.
-3. [ ] Wire the higher-level fixture seam into the integration and e2e startup path so later tests can reuse it from `server/src/test/integration`, `server/src/test/steps`, and the Playwright wrapper-backed stack.
-4. [ ] Add at least one dedicated proof test that boots the application through the higher-level fixture seam and proves both a happy-path Copilot fixture and a deterministic fixture-driven error case can be executed and asserted cleanly.
-5. [ ] Update `projectStructure.md` to list any new higher-level fixture files and proof tests. Update `design.md` only if the fixture seam needs brief explanation for future maintainers.
+1. [ ] Extend the existing server-side integration and wrapper-backed boot paths so tests can enable fake Copilot provider readiness, fake model lists, fake chat streams, and fake auth states without touching production runtime defaults. Reuse the current integration boot paths, websocket helpers, and mock transport helpers instead of introducing a second test startup stack.
+2. [ ] Define one clear scenario-selection contract, using the repository's current env-driven or dependency-injection style, so integration, Cucumber, and e2e tests can enable named Copilot scenarios instead of rebuilding bespoke setup code in each suite.
+3. [ ] Wire that scenario selection into the existing integration and e2e startup path so later tests can reuse it from `server/src/test/integration`, `server/src/test/steps`, and the Playwright wrapper-backed stack.
+4. [ ] Add at least one dedicated proof test that boots the application through the extended existing boot path and proves both a happy-path Copilot scenario and a deterministic scenario-driven error case can be executed and asserted cleanly.
+5. [ ] Update `projectStructure.md` to list any new or changed higher-level support files and proof tests. Update `design.md` only if the boot-path extension needs brief explanation for future maintainers.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 16, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the higher-level Copilot fixture seam compiles with the server test bootstrap code.
-2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any fixture-driven auth or provider contracts.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the higher-level fixture seam.
+1. [ ] Run `npm run build:summary:server` to prove the extended higher-level boot path compiles with the server test bootstrap code.
+2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any scenario-driven auth or provider contracts.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing higher-level boot path.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` or the smallest existing integration-capable wrapper-backed test path that exercises the new proof test, and confirm the higher-level fixture seam passes at least one happy path and one explicit error case.
+5. [ ] Run `npm run test:summary:server:unit` or the smallest existing integration-capable wrapper-backed test path that exercises the new proof test, and confirm the extended boot path passes at least one happy path and one explicit error case.
 
 #### Implementation notes
 
@@ -1195,7 +1195,7 @@ Create the higher-level fake Copilot fixture seam that lets integration tests, C
 
 ---
 
-### Task 17. Extend Cucumber coverage to prove the Copilot story through the fake seam
+### Task 17. Extend Cucumber coverage to prove the Copilot story through fake Copilot scenarios
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -1203,17 +1203,17 @@ Create the higher-level fake Copilot fixture seam that lets integration tests, C
 
 #### Overview
 
-Use the fake Copilot seams to prove the new server-side provider behavior through the repository’s existing Cucumber layer. This task depends on Tasks 5, 6, 7, 9, 15, and 16 because the routes, auth backend, Docker-backed startup path, and higher-level fixture seam all need to exist first. This task is about expanding Cucumber coverage only, not changing the user-facing feature contract again.
+Use the fake Copilot seams to prove the new server-side provider behavior through the repository’s existing Cucumber layer. This task depends on Tasks 5, 6, 7, 9, 15, and 16 because the routes, auth backend, Docker-backed startup path, and extended higher-level boot path all need to exist first. This task is about expanding Cucumber coverage only, not changing the user-facing feature contract again.
 
 #### Documentation Locations
 
 - Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
 - Existing higher-level tests: `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_models.steps.ts`, and `server/src/test/steps/chat_stream.steps.ts`.
-- Existing support files: the higher-level fixture seam created in Task 16 and any current server-side BDD support files already used by this repository.
+- Existing support files: the extended higher-level boot-path support from Task 16 and any current server-side BDD support files already used by this repository.
 
 #### Subtasks
 
-1. [ ] Extend the Cucumber features and step definitions so they cover Copilot provider availability, Copilot model listing, Copilot chat streaming, and at least one clear resume or auth failure path through the higher-level fake Copilot seam from Task 16.
+1. [ ] Extend the Cucumber features and step definitions so they cover Copilot provider availability, Copilot model listing, Copilot chat streaming, and at least one clear resume or auth failure path through the named fake Copilot scenarios enabled by Task 16.
 2. [ ] Keep the automated proof path mock-backed. Do not add any default Cucumber test that depends on a live authenticated Copilot account or a manually pre-seeded runtime home.
 3. [ ] Reuse the repository’s current wrapper scripts and server-side test support files. If an extra helper file is needed, place it near the existing server support files instead of inventing an isolated test-only runtime path.
 4. [ ] Update `README.md` or `design.md` only if the server-side proof path needs explicit documentation for future maintainers. Update `projectStructure.md` if this task adds or removes files.
@@ -1234,7 +1234,7 @@ Use the fake Copilot seams to prove the new server-side provider behavior throug
 
 ---
 
-### Task 18. Extend Playwright coverage to prove the Copilot story through the fake seam
+### Task 18. Extend Playwright coverage to prove the Copilot story through fake Copilot scenarios
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -1242,13 +1242,13 @@ Use the fake Copilot seams to prove the new server-side provider behavior throug
 
 #### Overview
 
-Use the fake Copilot seams to prove the new user-facing provider behavior through the repository’s existing Playwright layer. This task depends on Tasks 5, 6, 7, 9, 11, 12, 15, and 16 because the routes, client behavior, auth dialog, Docker-backed startup path, and higher-level fixture seam all need to exist first. This task is about expanding Playwright coverage only, not changing the user-facing feature contract again.
+Use the fake Copilot seams to prove the new user-facing provider behavior through the repository’s existing Playwright layer. This task depends on Tasks 5, 6, 7, 9, 11, 12, 15, and 16 because the routes, client behavior, auth dialog, Docker-backed startup path, and extended higher-level boot path all need to exist first. This task is about expanding Playwright coverage only, not changing the user-facing feature contract again.
 
 #### Documentation Locations
 
 - Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
 - Existing higher-level tests: `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `e2e/chat-user-turn-ws.spec.ts`, and `e2e/env-runtime-config.spec.ts`.
-- Existing e2e support files: `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and the higher-level fixture seam created in Task 16.
+- Existing e2e support files: `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and the extended higher-level boot-path support created in Task 16.
 - Playwright documentation: Context7 `/microsoft/playwright`.
 
 #### Subtasks

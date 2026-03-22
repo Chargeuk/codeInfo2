@@ -17,8 +17,7 @@ logs
 *.tsbuildinfo
 **/*.tsbuildinfo
 
-# Never send Codex credentials in build context
-# Keep the checked-in runtime trees themselves in scope for Task 10 image baking;
-# only the credential files stay excluded from the build context.
+# Never send Codex credentials in build context.
+# The local repo may still contain runtime homes, but only credentials stay excluded here.
 codex/**/auth.json
 codex_agents/**/auth.json

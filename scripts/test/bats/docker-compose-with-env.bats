@@ -45,6 +45,17 @@ codeinfo2_run_compose_wrapper() {
   assert_failure
 }
 
+@test "compose wrapper rejects Docker Desktop versions earlier than 4.34 when host networking is required" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_TEST_DOCKER_INFO_JSON='{"OperatingSystem":"Docker Desktop","ServerVersion":"29.1.3"}' \
+    CODEINFO_TEST_DOCKER_SERVER_PLATFORM_NAME='Docker Desktop 4.33.2 (100000)'
+
+  assert_failure
+  assert_output --partial "Docker Desktop 4.33.2 does not provide the host-network support"
+}
+
 @test "compose wrapper blocks startup when a checked-in host port is already occupied" {
   codeinfo2_run_compose_wrapper \
     docker-compose.local.yml \

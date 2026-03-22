@@ -15,7 +15,14 @@ case "${1:-}" in
     ;;
   info)
     if [ "${2:-}" = "--format" ]; then
-      printf '%s\n' "${CODEINFO_TEST_DOCKER_INFO_JSON:-"{\"OperatingSystem\":\"Docker Engine - Community\",\"ServerVersion\":\"28.3.2\"}"}"
+      default_info_json='{"OperatingSystem":"Docker Engine - Community","ServerVersion":"28.3.2"}'
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_INFO_JSON:-$default_info_json}"
+      exit 0
+    fi
+    ;;
+  version)
+    if [ "${2:-}" = "--format" ]; then
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_SERVER_PLATFORM_NAME:-Docker Engine - Community}"
       exit 0
     fi
     ;;

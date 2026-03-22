@@ -188,10 +188,7 @@ function logCheckedInMcpContractLoaded(params: {
     chatPortVar: 'CODEINFO_CHAT_MCP_PORT',
     agentsPortVar: 'CODEINFO_AGENTS_MCP_PORT',
     playwrightUrlVar: 'CODEINFO_PLAYWRIGHT_MCP_URL',
-    legacyFallbackUsed: Boolean(
-      getUsableCodeinfoEnvValue('CODEINFO_MCP_PORT', env) &&
-        !getUsableCodeinfoEnvValue('CODEINFO_CHAT_MCP_PORT', env),
-    ),
+    legacyFallbackUsed: false,
   };
   console.info(T07_CHECKED_IN_MCP_CONTRACT_LOADED, payload);
   append({

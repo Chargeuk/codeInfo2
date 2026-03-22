@@ -365,6 +365,10 @@ docker_info_json() {
   docker_cmd info --format '{{json .}}' 2>/dev/null || true
 }
 
+docker_server_platform_name() {
+  docker_cmd version --format '{{.Server.Platform.Name}}' 2>/dev/null || true
+}
+
 docker_info_field() {
   local field_name="$1"
 
@@ -387,6 +391,12 @@ process.stdin.on("end", () => {
 ' "${field_name}"
 }
 
+docker_desktop_version() {
+  local platform_name
+  platform_name="$(docker_server_platform_name)"
+  printf '%s\n' "${platform_name}" | sed -nE 's/.*Docker Desktop ([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p'
+}
+
 ensure_host_network_environment_supported() {
   local compose_file_display="$1"
   local playwright_present="$2"
@@ -405,10 +415,10 @@ ensure_host_network_environment_supported() {
       ;;
   esac
 
-  local info_json operating_system server_version operating_system_lc
+  local info_json operating_system desktop_version operating_system_lc
   info_json="$(docker_info_json)"
   operating_system="$(printf '%s' "${info_json}" | docker_info_field "OperatingSystem")"
-  server_version="$(printf '%s' "${info_json}" | docker_info_field "ServerVersion")"
+  desktop_version="$(docker_desktop_version)"
   operating_system_lc="$(printf '%s' "${operating_system}" | tr '[:upper:]' '[:lower:]')"
 
   if [[ "${operating_system_lc}" == *"docker desktop"* ]]; then
@@ -423,10 +433,10 @@ ensure_host_network_environment_supported() {
         ;;
     esac
 
-    if [ -n "${server_version}" ]; then
+    if [ -n "${desktop_version}" ]; then
       local major minor
-      major="${server_version%%.*}"
-      minor="${server_version#*.}"
+      major="${desktop_version%%.*}"
+      minor="${desktop_version#*.}"
       minor="${minor%%.*}"
       if [[ "${major}" =~ ^[0-9]+$ ]] && [[ "${minor}" =~ ^[0-9]+$ ]]; then
         if [ "${major}" -lt 4 ] || { [ "${major}" -eq 4 ] && [ "${minor}" -lt 34 ]; }; then
@@ -434,7 +444,7 @@ ensure_host_network_environment_supported() {
             "${compose_file_display}" \
             "${playwright_present}" \
             "${checked_ports_csv}" \
-            "CODEINFO compose preflight failed for ${compose_file_display}: Docker Desktop ${server_version} does not provide the host-network support required by the checked-in compose workflow."
+            "CODEINFO compose preflight failed for ${compose_file_display}: Docker Desktop ${desktop_version} does not provide the host-network support required by the checked-in compose workflow."
         fi
       fi
     fi

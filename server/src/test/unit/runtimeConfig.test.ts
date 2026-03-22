@@ -1235,6 +1235,47 @@ describe('runtimeConfig Context7 overlay', () => {
     }
   });
 
+  it('does not report a legacy MCP fallback when only CODEINFO_MCP_PORT is set', async () => {
+    process.env.CODEINFO_SERVER_PORT = '6010';
+    delete process.env.CODEINFO_CHAT_MCP_PORT;
+    process.env.CODEINFO_MCP_PORT = '6011';
+    process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:8932/mcp/playwright';
+
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const infoLogs: unknown[][] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args);
+    });
+
+    try {
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        path.join(codexHome, 'config.toml'),
+      );
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.copyFile(
+        path.join(repoRoot, 'codex/chat/config.toml'),
+        path.join(codexHome, 'chat/config.toml'),
+      );
+
+      await resolveChatRuntimeConfig({ codexHome });
+
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as { legacyFallbackUsed?: boolean } | undefined;
+          return (
+            entry[0] === 'DEV-0000050:T07:checked_in_mcp_contract_loaded' &&
+            payload?.legacyFallbackUsed === false
+          );
+        }),
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('replaces MCP placeholder values in memory before validation', () => {
     process.env.CODEINFO_SERVER_PORT = '5510';
     process.env.CODEINFO_CHAT_MCP_PORT = '5511';

@@ -33,7 +33,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Without tasking up, please identify whether this story assumes any capability that does not yest exist in the relevant codebases. you MUST check for missing runtime seams, startup commands, HTTP listeners, readiness or health endpoints, environment variable injection paths, deployment mappings, test harnesses, and docker compose prerequisites. Use the code_info, deepwiki & context7 mcp tools, as well as internet searches where needed, and update the story to explicitly document any missing prerequisits. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+        "Without tasking up, please identify whether this story assumes any capability that does not yet exist in the relevant codebases. you MUST check for missing runtime seams, startup commands, HTTP listeners, readiness or health endpoints, environment variable injection paths, deployment mappings, test harnesses, and docker compose prerequisites. Use the code_info, deepwiki & context7 mcp tools, as well as internet searches where needed, and update the story to explicitly document any missing prerequisites. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
       ]
     },
     {

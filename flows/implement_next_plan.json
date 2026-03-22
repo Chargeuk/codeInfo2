@@ -182,7 +182,7 @@
         },
         {
           "type": "llm",
-          "label": "update new task testing",
+          "label": "Ensure Testing Steps Are Correct",
           "agentType": "planning_agent",
           "identifier": "planner",
           "markdownFile": "ensure_testing_steps_are_correct.md"

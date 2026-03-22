@@ -552,6 +552,7 @@ Make `copilot` a valid top-level chat provider everywhere the current repository
 #### Documentation Locations
 
 - OpenAPI Specification 3.1.0: `https://spec.openapis.org/oas/v3.1.0` for the canonical enum, request-body, and response-schema rules that `openapi.json` must keep matching.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with provider-ordering or shared-contract diagrams.
 - Zod documentation: `https://zod.dev/` for enum, literal, and schema-validation behavior when the shared provider contract adds `copilot`.
 - TypeScript Handbook union and literal types: `https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types` for the exact typing rules used by the expanded shared provider unions.
 
@@ -569,9 +570,11 @@ Standalone context for every subtask in this task: update `common/src/api.ts`, `
 8. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: assert the provider-list response uses the same ordered provider definition introduced in this task. Purpose: prove server provider surfaces consume the shared ordering instead of a second hard-coded list.
 9. [ ] Add a unit test in `server/src/test/unit/chat-unsupported-provider.test.ts`. Test type: unit. Description: send an actually unsupported chat provider name and confirm the route still rejects it. Purpose: preserve the negative contract while adding Copilot.
 10. [ ] Add a unit test in `server/src/test/unit/mcp-unsupported-provider.test.ts`. Test type: unit. Description: send an actually unsupported MCP provider name and confirm the route still rejects it. Purpose: keep non-chat provider validation strict after the shared enum change.
-11. [ ] Update `design.md` so it explains the new three-provider ordering rule and names the contract surfaces that now share it. Update `README.md` only if it currently documents chat providers or defaults in a way that would now be false. Update `projectStructure.md` only if this task adds or removes files.
-12. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 1, recording the task’s implementation notes, and listing the task commit hashes once they exist.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+11. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: explain the new three-provider ordering rule, name the contract surfaces that now share it, and add a Mermaid diagram if it helps show how the shared provider definition now feeds server and client behavior. Purpose: keep the architecture and contract narrative aligned with the shared provider change.
+12. [ ] Update `README.md` if it currently documents chat providers or defaults in a way that would now be false. Document name: `README.md`. Location: repository root. Description: correct any user-facing provider or default-provider wording touched by this task. Purpose: keep top-level usage documentation truthful.
+13. [ ] Update `projectStructure.md` only if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task. Purpose: keep the repository file map accurate.
+14. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 1, recording the task’s implementation notes, and listing the task commit hashes once they exist.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -601,6 +604,7 @@ Create the reusable server-side Copilot client seam that later route and chat ta
 
 - Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked SDK surface used here, especially `CopilotClient`, `start()`, `stop()`, `ping()`, `getAuthStatus()`, `listModels()`, `createSession(...)`, and `resumeSession(...)`.
 - DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked architecture pages covering connection management, sessions, lifecycle hooks, permissions, and persistence that explain how the runtime seam should be shaped.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with architecture diagrams.
 - GitHub Copilot product docs: `https://docs.github.com/en/copilot` for product-level runtime and authentication context that sits outside the Node SDK API reference.
 
 #### Subtasks
@@ -618,9 +622,10 @@ Standalone context for every subtask in this task: work in `server/package.json`
 9. [ ] Add a unit test in `server/src/test/unit/copilotConfig.test.ts`. Test type: unit. Description: resolve `CODEINFO_COPILOT_HOME` and the derived config path through the new helper. Purpose: prove runtime-home path resolution is centralized and deterministic.
 10. [ ] Add a unit test in `server/src/test/unit/copilotLifecycle.test.ts`. Test type: unit. Description: call `getAuthStatus()` through the seam and confirm the result is passed through unchanged. Purpose: prove later readiness and auth tasks can trust the shared runtime boundary.
 11. [ ] Add a unit test in `server/src/test/unit/copilotLifecycle.test.ts`. Test type: unit. Description: make the injected runtime throw during startup or status lookup and confirm the seam propagates a clear error. Purpose: prove error handling is explicit before higher-level route tasks depend on it.
-12. [ ] Update `design.md` only if the new lifecycle seam or Copilot home/config helper changes the repository architecture in a way a future junior developer would not infer from code alone. Update `projectStructure.md` to list any new source files created in this task.
-13. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+12. [ ] Update `design.md` if the new lifecycle seam or Copilot home/config helper changes the repository architecture in a way a future junior developer would not infer from code alone. Document name: `design.md`. Location: repository root. Description: describe the runtime seam, Copilot home helper, and any new lifecycle flow, and add Mermaid flowcharts or sequence diagrams if they help explain the runtime boundary. Purpose: keep architecture documentation in sync with the new server seam.
+13. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new lifecycle seam files, Copilot config helper, and any new test files added by this task after those files exist. Purpose: keep the repository file map accurate after file creation.
+14. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -662,9 +667,10 @@ Standalone context for every subtask in this task: add the fake under `server/sr
 4. [ ] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: instantiate the fake Copilot SDK harness with no scenario overrides and confirm the fake client boots successfully. Purpose: prove the harness itself is executable before downstream tests depend on it.
 5. [ ] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: script assistant or tool events and confirm the fake session emits them deterministically in the requested order. Purpose: prove later chat and stream tests can rely on the harness for repeatable event playback.
 6. [ ] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: script a startup or session error and confirm the harness surfaces the error exactly once. Purpose: prove failure-path scenarios are deterministic and inspectable.
-7. [ ] Update `projectStructure.md` to list the new harness file and its proof test. Update `design.md` only if the harness entry point needs one sentence of explanation for future maintainers.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+7. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot SDK harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding harness files.
+8. [ ] Update `design.md` only if the harness entry point needs one sentence of explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a brief note about how the fake Copilot SDK harness plugs into the runtime seam if that relationship is not obvious from code. Purpose: prevent future test-maintainer confusion.
+9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -705,9 +711,10 @@ Standalone context for every subtask in this task: add the fake auth support und
 3. [ ] Wire the harness into the server test bootstrap path so later auth route tests can choose the fake device-auth behavior explicitly without changing production code paths.
 4. [ ] Add a unit test in `server/src/test/unit/mockCopilotDeviceAuth.test.ts`. Test type: unit. Description: script a verification-ready device-auth response and confirm the harness returns the expected URL and one-time code. Purpose: prove the fake can drive the happy path for downstream route tests.
 5. [ ] Add a unit test in `server/src/test/unit/mockCopilotDeviceAuth.test.ts`. Test type: unit. Description: script a missing-CLI or explicit failure outcome and confirm the harness returns that failure deterministically. Purpose: prove error-path auth scenarios are reusable and stable.
-6. [ ] Update `projectStructure.md` to list the new auth harness file and proof test. Update `design.md` only if the harness entry point or fake auth phases need brief architectural clarification.
-7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+6. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot device-auth harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding auth harness files.
+7. [ ] Update `design.md` only if the harness entry point or fake auth phases need brief architectural clarification. Document name: `design.md`. Location: repository root. Description: add a brief explanation of the fake auth phases only if later maintainers would not infer them from the code and tests. Purpose: keep auth-harness architecture understandable.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -737,6 +744,7 @@ Wire the reusable Copilot seam into `GET /chat/providers` so Copilot appears in 
 
 - Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked readiness-related SDK calls such as `ping()` and `getAuthStatus()` that drive provider availability.
 - DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked lifecycle and auth-status architecture notes that help define stable readiness precedence.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with provider-readiness diagrams.
 - GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked credential and authentication context so provider readiness does not misclassify valid env-token or `gh`-backed states.
 
 #### Subtasks
@@ -751,9 +759,11 @@ Standalone context for every subtask in this task: update `server/src/routes/cha
 6. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: set an existing Copilot credential env var such as `COPILOT_GITHUB_TOKEN` and confirm Copilot surfaces as authenticated without requiring device auth. Purpose: prove the authenticated-via-env happy path.
 7. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: simulate stored login state or authenticated `gh` fallback and confirm the route still reports Copilot as authenticated. Purpose: prove non-env credential sources also satisfy the readiness contract.
 8. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: simulate startup or connectivity failure before auth succeeds and confirm the first blocking startup reason is surfaced. Purpose: prove the readiness precedence order is explicit and deterministic.
-9. [ ] Update `design.md` if the provider readiness precedence would otherwise only exist in tests. Update `README.md` only if it contains provider-list behavior that would now be inaccurate. Update `projectStructure.md` if this task adds or removes files.
-10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+9. [ ] Update `design.md` if the provider readiness precedence would otherwise only exist in tests. Document name: `design.md`. Location: repository root. Description: record the final readiness precedence order and availability-reason contract, and add a Mermaid diagram if it helps explain the readiness decision path. Purpose: keep architecture documentation aligned with provider readiness behavior.
+10. [ ] Update `README.md` only if it contains provider-list behavior that would now be inaccurate. Document name: `README.md`. Location: repository root. Description: correct any user-facing description of provider availability or provider ordering changed by this task. Purpose: keep top-level usage documentation truthful.
+11. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task after those changes land. Purpose: keep the repository file map accurate.
+12. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -783,6 +793,7 @@ Wire the reusable Copilot seam into `GET /chat/models` so Copilot model metadata
 
 - Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked `listModels()` response shape and model metadata fields that can be mapped safely into the repository contract.
 - DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked session and connection-management notes that explain where model discovery sits in the client lifecycle.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with model-discovery diagrams.
 - GitHub Copilot product docs: `https://docs.github.com/en/copilot` for product-level model and entitlement context that can affect why model lists are empty or unavailable.
 
 #### Subtasks
@@ -794,9 +805,11 @@ Standalone context for every subtask in this task: update `server/src/routes/cha
 3. [ ] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: simulate Copilot being unavailable before model discovery and confirm the route returns the expected unavailable-model behavior. Purpose: prove the model route stays aligned with provider readiness.
 4. [ ] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: return an empty model list from the fake Copilot seam and confirm the route handles it deterministically. Purpose: prove the empty-list corner case does not silently look like success.
 5. [ ] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: return verified model fields plus unknown extra fields and confirm only the supported fields are mapped into the shared response shape. Purpose: prove model mapping is strict without being brittle.
-6. [ ] Update `design.md` if the Copilot model-mapping contract would otherwise only exist in tests. Update `README.md` only if it contains model-list behavior that would now be inaccurate. Update `projectStructure.md` if this task adds or removes files.
-7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+6. [ ] Update `design.md` if the Copilot model-mapping contract would otherwise only exist in tests. Document name: `design.md`. Location: repository root. Description: describe the verified Copilot model-mapping rules and add a Mermaid diagram if it helps explain the model-discovery and mapping path. Purpose: keep architecture documentation aligned with model discovery behavior.
+7. [ ] Update `README.md` only if it contains model-list behavior that would now be inaccurate. Document name: `README.md`. Location: repository root. Description: correct any user-facing wording about model discovery or unavailable-model behavior touched by this task. Purpose: keep top-level usage documentation truthful.
+8. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task after those changes land. Purpose: keep the repository file map accurate.
+9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -826,6 +839,7 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 
 - Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked session create/resume, permission callback, event-stream, and hook behavior used by the real Copilot chat adapter.
 - DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked pages on sessions, permissions, event listeners, and persistence so the server adapter reuses the SDK lifecycle correctly.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with chat-flow diagrams.
 - Context7 Mongoose docs: `/automattic/mongoose/9.0.1` for the checked `Schema.Types.Mixed`, optional-field, and persistence-shape behavior used when storing Copilot session-related flags without over-modeling the schema.
 
 #### Subtasks
@@ -851,9 +865,11 @@ Standalone context for every subtask in this task: update `server/src/chat/facto
 17. [ ] Add an integration test in `server/src/test/integration/chat-copilot-lock.test.ts`. Test type: integration. Description: fire two turns at the same persisted Copilot conversation and confirm the existing conversation lock prevents concurrent mutation. Purpose: prove the concurrency corner case remains protected.
 18. [ ] Add an integration test in `server/src/test/integration/chat-copilot-fallback.test.ts`. Test type: integration. Description: request Copilot when the provider is unavailable and confirm the `/chat` route follows the shared fallback rule or returns the documented clear reason. Purpose: prove runtime fallback stays aligned with provider discovery.
 19. [ ] Add an integration test in `server/src/test/integration/chat-copilot-flags.test.ts`. Test type: integration. Description: send Codex-only flags on a Copilot request and confirm they are ignored with the documented warning behavior; if implementation adds any Copilot-only request field, also send it to non-Copilot providers and confirm it is ignored with warnings or rejected clearly. Purpose: prove cross-provider flag isolation in both directions.
-20. [ ] Update `design.md` with the chosen Copilot session identity rule, the Codex-only flag handling rule for Copilot requests, and the Copilot event-to-transcript mapping if those details are not obvious from the code. Update `README.md` only if user-facing chat behavior needs clarification. Update `projectStructure.md` if this task adds or removes files.
-21. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 7, recording implementation notes, and listing the task commit hashes once they exist.
-22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+20. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: document the chosen Copilot session identity rule, Codex-only flag handling, event-to-transcript mapping, and the create or resume chat flow, and add Mermaid diagrams for the request, stream, and resume paths when they clarify the flow. Purpose: keep architecture and flow documentation aligned with the implemented chat path.
+21. [ ] Update `README.md` only if user-facing chat behavior needs clarification. Document name: `README.md`. Location: repository root. Description: explain any user-visible Copilot chat behavior, errors, or warnings introduced by this task. Purpose: keep top-level usage documentation truthful.
+22. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: list any new chat adapter, route test, or helper files added by this task after those files are created. Purpose: keep the repository file map accurate after file creation.
+23. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 7, recording implementation notes, and listing the task commit hashes once they exist.
+24. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -883,6 +899,7 @@ Replace the current Codex-only auth contract with one shared provider-auth contr
 
 - OpenAPI Specification 3.1.0: `https://spec.openapis.org/oas/v3.1.0` for the shared provider-auth request and response schema rules that must stay in sync with `openapi.json`.
 - GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow` for the checked two-phase verification and polling model the shared auth contract has to represent.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with shared auth-flow diagrams.
 - GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked Copilot auth context so the shared contract can cover Copilot and Codex without baking in Codex-only wording.
 
 #### Subtasks
@@ -898,9 +915,11 @@ Standalone context for every subtask in this task: update `common/src/api.ts`, `
 7. [ ] Add a unit test in `server/src/test/unit/codexDeviceAuth.test.ts`. Test type: unit. Description: simulate an already-authenticated Codex runtime and confirm the shared contract returns already-authenticated state. Purpose: prove that state is part of the shared contract, not a Copilot-only branch.
 8. [ ] Add a unit test in `server/src/test/unit/codexDeviceAuth.test.ts`. Test type: unit. Description: force an auth failure and confirm the shared contract reports failed state. Purpose: prove failure remains observable through the shared contract.
 9. [ ] Add a unit test in `server/src/test/unit/codexDeviceAuth.test.ts`. Test type: unit. Description: simulate unavailable-before-start conditions and confirm the shared contract reports that state clearly. Purpose: prove the contract distinguishes pre-start unavailability from an in-flight failure.
-10. [ ] Update `design.md` and `README.md` if they currently describe only the Codex-specific auth shape or modal wording. Update `projectStructure.md` if this task adds or removes files.
-11. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+10. [ ] Update `design.md` if it currently describes only the Codex-specific auth shape or omits the shared provider-auth flow. Document name: `design.md`. Location: repository root. Description: describe the shared provider-auth state machine and add Mermaid auth-flow diagrams if they help show the two-phase contract. Purpose: keep architecture and auth-flow documentation aligned with the generalized contract.
+11. [ ] Update `README.md` if it currently describes only the Codex-specific auth shape or wording. Document name: `README.md`. Location: repository root. Description: correct any top-level auth wording that should now describe the shared provider-auth behavior. Purpose: keep user-facing documentation truthful.
+12. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this contract task after those changes land. Purpose: keep the repository file map accurate.
+13. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -930,6 +949,7 @@ Add the server-side Copilot device-auth route that uses the documented device-lo
 
 - GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow` for the checked verification URL, user-code, and completion-polling steps implemented by the Copilot auth backend.
 - Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked auth-status and runtime-home expectations that the Copilot route has to respect before starting device flow.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with Copilot device-auth flow diagrams.
 - OpenAPI Specification 3.1.0: `https://spec.openapis.org/oas/v3.1.0` for the new Copilot auth route schema and the shared provider-auth response contract it must expose.
 
 #### Subtasks
@@ -945,9 +965,12 @@ Standalone context for every subtask in this task: add the Copilot auth route al
 7. [ ] Add a unit test in `server/src/test/unit/copilotDeviceAuth.test.ts`. Test type: unit. Description: simulate stored login or authenticated `gh` fallback and confirm the route also short-circuits to already-authenticated state. Purpose: prove non-env authenticated paths are covered too.
 8. [ ] Add a unit test in `server/src/test/unit/copilotDeviceAuth.test.ts`. Test type: unit. Description: force missing-CLI or unwritable-config conditions and confirm the route surfaces a clear failure or unavailable-before-start reason. Purpose: prove infrastructure failures are observable.
 9. [ ] Add an integration test in `server/src/test/integration/copilot.device-auth.test.ts`. Test type: integration. Description: simulate keychain-unavailable but writable `CODEINFO_COPILOT_HOME` fallback and confirm auth can still persist through the documented config-home path. Purpose: prove the container-compatible fallback path works.
-10. [ ] Update `openapi.json` for the new Copilot auth route path. Update `design.md` and `README.md` if they need new Copilot-auth-specific wording. Update `projectStructure.md` if this task adds or removes files.
-11. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+10. [ ] Update `openapi.json` for the new Copilot auth route path so the shared provider-auth response contract and route schema stay in sync with the implementation.
+11. [ ] Update `design.md` if this task needs new Copilot-auth-specific wording. Document name: `design.md`. Location: repository root. Description: describe the Copilot device-auth flow, readiness refresh path, and fallback persistence behavior, and add Mermaid diagrams if they help explain the flow. Purpose: keep architecture and auth-flow documentation aligned with the backend route.
+12. [ ] Update `README.md` if this task needs new Copilot-auth-specific wording. Document name: `README.md`. Location: repository root. Description: explain any user-visible Copilot auth behavior or prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
+13. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: list the new Copilot auth route, utility, and test files after they are created. Purpose: keep the repository file map accurate after file creation.
+14. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -989,9 +1012,10 @@ Standalone context for every subtask in this task: stay inside the existing clie
 4. [ ] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request a verification-ready provider-auth fixture and confirm the helper returns the expected shared contract shape. Purpose: prove the happy-path fixture is reusable.
 5. [ ] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request an already-authenticated fixture and confirm the helper returns that shared contract shape without extra raw fields. Purpose: prove the extended fixture layer supports the new auth state cleanly.
 6. [ ] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request a failure fixture and confirm the helper returns the expected error-state shape without throwing unexpected serialization or parsing errors. Purpose: prove failure fixtures are stable for downstream dialog tests.
-7. [ ] Update `projectStructure.md` only if this task adds or removes files beyond the current helper locations. Update `design.md` only if the client test entry point needs brief explanation for future maintainers.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+7. [ ] Update `projectStructure.md` only if this task adds or removes files beyond the current helper locations. Document name: `projectStructure.md`. Location: repository root. Description: list any new fixture helper or proof-test files after they are created. Purpose: keep the repository file map accurate after file creation.
+8. [ ] Update `design.md` only if the client test entry point needs brief explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a short note about the shared provider-auth fixture entry point only if future maintainers would not infer it from the test code. Purpose: keep test architecture understandable.
+9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1020,6 +1044,7 @@ Teach the existing chat page to consume the new three-provider contract for prov
 #### Documentation Locations
 
 - Context7 Jest docs: `/jestjs/jest` for the checked client test-runner, assertion, and mock patterns used by the chat page Jest tests in this task.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with provider-selection flow diagrams.
 - React documentation: `https://react.dev/` for checked component-state guidance used by the chat page and provider-selection flow.
 - React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state` for the exact behavior this task preserves when provider or model changes should affect only the next send.
 - MUI 6.4.12 Select API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/select.md` for checked select value, disabled-state, and `onChange` behavior used by provider and model selectors.
@@ -1040,9 +1065,11 @@ Standalone context for every subtask in this task: update `client/src/hooks/useC
 9. [ ] Add a client test in `client/src/test/chatSendPayload.test.tsx`. Test type: client unit. Description: send a Copilot chat request and confirm Codex-only flags are omitted from the outgoing payload. Purpose: prove provider-specific payload isolation.
 10. [ ] Add a client test in `client/src/test/chatPage.provider.test.tsx`. Test type: client unit. Description: switch from Copilot back to Codex and confirm Codex-only banners and flags-panel behavior still render correctly. Purpose: prove Codex UI regressions are prevented.
 11. [ ] Add a client test in `client/src/test/chatPage.newConversation.test.tsx`. Test type: client unit. Description: change provider or model while viewing an existing conversation and confirm the next send starts a new conversation instead of mutating the current one. Purpose: prove next-send semantics are preserved.
-12. [ ] Update `design.md` only if the client bootstrap sequence or next-send behavior is now clearer when written down. Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Update `projectStructure.md` if this task adds or removes files.
-13. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 11, recording implementation notes, and listing the task commit hashes once they exist.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+12. [ ] Update `design.md` if the client bootstrap sequence or next-send behavior is now clearer when written down. Document name: `design.md`. Location: repository root. Description: document the provider-selection and next-send flow and add Mermaid diagrams if they help explain the client flow. Purpose: keep client-flow architecture documentation aligned with the implementation.
+13. [ ] Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Document name: `README.md`. Location: repository root. Description: correct any top-level wording about provider selection, disabled providers, or next-send conversation behavior. Purpose: keep user-facing documentation truthful.
+14. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new chat page test or helper files after they are created. Purpose: keep the repository file map accurate after file creation.
+15. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 11, recording implementation notes, and listing the task commit hashes once they exist.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1071,6 +1098,7 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 #### Documentation Locations
 
 - Context7 Jest docs: `/jestjs/jest` for the checked client test-runner, assertion, and mock patterns used by the shared auth dialog Jest tests in this task.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with shared authentication flow diagrams.
 - MUI 6.4.12 Dialog API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/dialog.md` for checked `open`, `onClose`, `aria-labelledby`, and `aria-describedby` behavior used by the shared auth dialog shell.
 - MUI 6.4.12 DialogTitle API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/dialog-title.md`, DialogContent API: `https://llms.mui.com/material-ui/6.4.12/api/dialog-content.md`, and DialogActions API: `https://llms.mui.com/material-ui/6.4.12/api/dialog-actions.md` for the checked internal dialog structure the repository already uses.
 - MUI 6.4.12 Button API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/button.md` and Stack API: `https://llms.mui.com/material-ui/6.4.12/api/stack.md` for checked button ordering, disabled/loading presentation, and simple vertical layout behavior.
@@ -1093,9 +1121,11 @@ Standalone context for every subtask in this task: update `client/src/components
 10. [ ] Add a client test in `client/src/test/chatPage.authRefresh.test.tsx`. Test type: client unit. Description: complete an auth flow and confirm the page refreshes provider readiness through the shared provider or model surfaces instead of stale local state. Purpose: prove completion refresh behavior.
 11. [ ] Add a client test in `client/src/test/agentsPage.authDialog.test.tsx`. Test type: client unit. Description: trigger re-authentication from the agents page and confirm the shared dialog still supports that existing flow. Purpose: preserve the agents-page regression path.
 12. [ ] Add a client test in `client/src/test/codexDeviceAuthDialog.test.tsx`. Test type: client unit. Description: run the Codex branch through the shared dialog and confirm the old Codex behavior still works. Purpose: prove the shared dialog did not break the existing provider.
-13. [ ] Update `README.md` and `design.md` if they describe the old Codex-only dialog wording or flow. Update `projectStructure.md` if this task adds or removes files, including any renamed dialog components or test helpers.
-14. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 12, recording implementation notes, and listing the task commit hashes once they exist.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+13. [ ] Update `README.md` if it describes the old Codex-only dialog wording or flow. Document name: `README.md`. Location: repository root. Description: correct any top-level wording about the shared `Choose Authentication` dialog and its supported providers. Purpose: keep user-facing documentation truthful.
+14. [ ] Update `design.md` if it describes the old Codex-only dialog wording or flow. Document name: `design.md`. Location: repository root. Description: document the shared auth dialog flow, provider-refresh behavior, and any Mermaid diagrams needed to show the UI auth flow clearly. Purpose: keep architecture and user-flow documentation aligned with the shared dialog.
+15. [ ] Update `projectStructure.md` if this task adds or removes files, including any renamed dialog components or test helpers. Document name: `projectStructure.md`. Location: repository root. Description: record any renamed or newly added dialog, page, or test files after those file operations are complete. Purpose: keep the repository file map accurate after file creation or rename work.
+16. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 12, recording implementation notes, and listing the task commit hashes once they exist.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1139,9 +1169,10 @@ Standalone context for every subtask in this task: update `client/src/components
 5. [ ] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render partial Copilot metadata with missing token fields and confirm the formatter omits those values cleanly. Purpose: prove the missing-token corner case.
 6. [ ] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render `null` and `undefined` Copilot usage values and confirm the formatter omits them instead of showing zero placeholders. Purpose: prove defensive rendering for partial SDK metadata.
 7. [ ] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render existing Codex or LM Studio transcript metadata and confirm current labels and values are unchanged. Purpose: prove no regression for existing providers.
-8. [ ] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Update `projectStructure.md` if this task adds or removes files.
-9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 13, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+8. [ ] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Document name: `design.md`. Location: repository root. Description: add a short note about partial metadata omission only if the formatter contract would be hard to infer from the tests and code alone. Purpose: keep rendering behavior understandable.
+9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new transcript test files after they are created. Purpose: keep the repository file map accurate after file creation.
+10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 13, recording implementation notes, and listing the task commit hashes once they exist.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1171,6 +1202,7 @@ Add the runtime env prerequisites that let the existing server and wrapper-backe
 
 - Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked runtime-home and auth-status expectations that the server env wiring must satisfy.
 - GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked credential precedence and runtime context around `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN`.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with runtime-env or health-flow diagrams.
 - Docker Compose environment-variable guidance: `https://docs.docker.com/compose/environment-variables/` for the checked rules on passing env values into the wrapper-backed container runtime.
 
 #### Subtasks
@@ -1183,9 +1215,11 @@ Standalone context for every subtask in this task: update `server/src/config/sta
 4. [ ] Add a unit test in `server/src/test/unit/runtimeConfig.test.ts`. Test type: unit. Description: set credential env vars in different combinations and confirm runtime loading preserves the documented Copilot credential precedence. Purpose: prove env loading does not mask higher-precedence credentials.
 5. [ ] Add a unit test in `server/src/test/unit/runtimeConfig.test.ts`. Test type: unit. Description: resolve the derived Copilot-home paths from the loaded env and confirm they match the shared helper contract. Purpose: prove home-path resolution is stable.
 6. [ ] Add an integration test in `server/src/test/integration/health.copilot-isolation.test.ts`. Test type: integration. Description: make Copilot missing, unauthenticated, or model-unavailable and confirm `/health` still returns process-level success. Purpose: prove Copilot readiness does not break server health.
-7. [ ] Update `README.md`, `design.md`, and `projectStructure.md` so they document the new env var and any runtime-config files changed by this task.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 14, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+7. [ ] Update `README.md`. Document name: `README.md`. Location: repository root. Description: document the new Copilot env var and any user-visible runtime prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
+8. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the runtime-env loading flow, `/health` isolation rule, and add Mermaid diagrams if they help explain the runtime flow. Purpose: keep architecture and runtime-flow documentation aligned with the implementation.
+9. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record any new runtime-config or health-isolation test files after they are created. Purpose: keep the repository file map accurate after file creation.
+10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 14, recording implementation notes, and listing the task commit hashes once they exist.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1214,6 +1248,7 @@ Add the Docker and compose prerequisites that let the existing stack host Copilo
 
 - Context7 Docker docs: `/docker/docs` for the checked Dockerfile and Compose behavior used when adding the Copilot runtime prerequisites without changing the repo’s image-build model.
 - Docker Compose volumes documentation: `https://docs.docker.com/reference/compose-file/volumes/` for the checked named-volume syntax and persistence rules used by the Copilot runtime home.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with Docker or persistence-flow diagrams.
 - GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked runtime-context details that explain why Copilot state needs writable persistent storage inside the containerized stack.
 
 #### Subtasks
@@ -1226,9 +1261,11 @@ Standalone context for every subtask in this task: update `server/Dockerfile`, `
 4. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm the existing published port contract is unchanged after Copilot wiring. Purpose: prove Docker changes do not shift network expectations.
 5. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm Copilot state uses the selected Docker-managed named volume. Purpose: prove the persistence mechanism is the documented one.
 6. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose and Docker ignore rules and confirm one single persistence rule is used while repo-local Copilot auth artifacts stay out of the build context. Purpose: prove container persistence and build-context exclusions are aligned.
-7. [ ] Update `README.md`, `design.md`, and `projectStructure.md` so they document the named-volume runtime persistence rule, the unchanged port map, and any Dockerfile or compose file additions made by this task.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+7. [ ] Update `README.md`. Document name: `README.md`. Location: repository root. Description: document the named-volume runtime persistence rule and any user-visible Docker prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
+8. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the Docker delivery and persistence flow, and add Mermaid diagrams if they help explain the container runtime path. Purpose: keep architecture and deployment-flow documentation aligned with the implementation.
+9. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record the new Docker contract test file and any other file additions after those files are created. Purpose: keep the repository file map accurate after file creation.
+10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1259,6 +1296,7 @@ Extend the repository's existing integration, Cucumber, and Playwright boot path
 - Context7 Playwright docs: `/microsoft/playwright` for the checked fixture, setup, and scenario-boot patterns used when extending the repository’s existing higher-level proof path.
 - Cucumber guides root: `https://cucumber.io/docs/guides/` for the official guides index that should be referenced alongside the specific Cucumber guidance used by this mixed proof task.
 - Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for the checked scenario and step-definition structure, and Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for keeping the higher-level boot-path logic out of step files.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with higher-level boot-path or scenario-selection diagrams.
 - Node.js test runner documentation: `https://nodejs.org/api/test.html` for the checked integration-proof pattern used by the dedicated boot-path smoke test.
 
 #### Subtasks
@@ -1270,9 +1308,10 @@ Standalone context for every subtask in this task: extend the existing higher-le
 3. [ ] Wire that scenario selection into the existing integration and e2e startup path so later tests can reuse it from `server/src/test/integration`, `server/src/test/steps`, and the Playwright wrapper-backed stack.
 4. [ ] Add an integration proof test in `server/src/test/integration/copilot.boot-path.test.ts`. Test type: integration. Description: boot the application through the extended higher-level path with a named happy-path Copilot scenario and assert the stack is usable. Purpose: prove the new scenario-selection path works end to end.
 5. [ ] Add an integration proof test in `server/src/test/integration/copilot.boot-path.test.ts`. Test type: integration. Description: boot the application through the same higher-level path with a named deterministic error scenario and assert the failure is surfaced cleanly. Purpose: prove the boot path can exercise negative scenarios too.
-6. [ ] Update `projectStructure.md` to list any new or changed higher-level support files and proof tests. Update `design.md` only if the boot-path extension needs brief explanation for future maintainers.
-7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 16, recording implementation notes, and listing the task commit hashes once they exist.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+6. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list any new higher-level support files and proof tests after those files are created. Purpose: keep the repository file map accurate after file creation.
+7. [ ] Update `design.md` if the boot-path extension needs explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the scenario-selection and higher-level boot flow, and add Mermaid diagrams if they help explain the path. Purpose: keep architecture and boot-flow documentation aligned with the implementation.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 16, recording implementation notes, and listing the task commit hashes once they exist.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1303,6 +1342,7 @@ Use the fake Copilot seams to prove the new server-side provider behavior throug
 - Cucumber guides root: `https://cucumber.io/docs/guides/` for the official guides index that should anchor the Cucumber references used by these feature tasks.
 - Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for the checked feature and step-definition structure used by the repository’s Copilot server-story scenarios.
 - Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for the checked rule that step definitions should stay thin and push logic into reusable support helpers.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with server-side proof-flow diagrams.
 - Node.js test runner documentation: `https://nodejs.org/api/test.html` for checked support-code patterns that sit alongside the Cucumber features in this repository.
 
 #### Subtasks
@@ -1315,9 +1355,11 @@ Standalone context for every subtask in this task: extend `server/src/test/featu
 4. [ ] Add a Cucumber scenario in `server/src/test/features/chat_stream.feature` with matching steps in `server/src/test/steps/chat_stream.steps.ts`. Test type: Cucumber. Description: trigger a resume or auth failure through the fake scenario and assert the server surfaces the documented error path. Purpose: prove one representative negative path at the BDD layer.
 5. [ ] Keep the automated proof path mock-backed. Do not add any default Cucumber test that depends on a live authenticated Copilot account or a manually pre-seeded runtime home.
 6. [ ] Reuse the repository’s current wrapper scripts and server-side test support files. If an extra helper file is needed, place it near the existing server support files instead of inventing an isolated test-only runtime path.
-7. [ ] Update `README.md` or `design.md` only if the server-side proof path needs explicit documentation for future maintainers. Update `projectStructure.md` if this task adds or removes files.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 17, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+7. [ ] Update `README.md` only if the server-side proof path needs explicit documentation for future maintainers. Document name: `README.md`. Location: repository root. Description: add any top-level notes needed to explain how the Copilot Cucumber proof path is exercised. Purpose: keep user-facing or contributor-facing documentation truthful.
+8. [ ] Update `design.md` only if the server-side proof path needs explicit documentation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the server-side BDD flow and add a Mermaid diagram if it helps explain the fake-scenario path from feature to server behavior. Purpose: keep proof-path architecture understandable.
+9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new feature or step-definition files after they are created. Purpose: keep the repository file map accurate after file creation.
+10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 17, recording implementation notes, and listing the task commit hashes once they exist.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1348,6 +1390,7 @@ Use the fake Copilot seams to prove the new user-facing provider behavior throug
 - Context7 Playwright docs: `/microsoft/playwright` for the checked fixture, `test.extend`, attachment, and end-to-end interaction patterns used by the Copilot browser proof.
 - Playwright introduction and guides: `https://playwright.dev/docs/intro` for the checked end-to-end runner behavior used by the repository wrappers and Docker-backed e2e stack.
 - Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for checked BDD wording conventions if shared scenario naming or phrasing needs to stay aligned across proof layers.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used if this task updates `design.md` with browser proof-flow diagrams.
 
 #### Subtasks
 
@@ -1359,9 +1402,11 @@ Standalone context for every subtask in this task: extend `e2e/chat-provider-his
 4. [ ] Add a Playwright test in `e2e/chat.spec.ts`. Test type: e2e. Description: open the shared auth dialog under a fake Copilot auth scenario and confirm the auth status surface is rendered without a real login. Purpose: prove the shared dialog is wired into the end-to-end path.
 5. [ ] Keep the automated proof path mock-backed. Do not add any default Playwright test that depends on a live authenticated Copilot account, a host browser opening from inside Docker, or a manually pre-seeded runtime home.
 6. [ ] Reuse the repository’s current wrapper scripts and e2e support files. If an extra helper file is needed, place it near the existing e2e support files instead of inventing an isolated test-only runtime path.
-7. [ ] Update `README.md` or `design.md` only if the Playwright proof path needs explicit documentation for future maintainers. Update `projectStructure.md` if this task adds or removes files.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 18, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+7. [ ] Update `README.md` only if the Playwright proof path needs explicit documentation for future maintainers. Document name: `README.md`. Location: repository root. Description: add any top-level notes needed to explain the Copilot Playwright proof path. Purpose: keep contributor-facing documentation truthful.
+8. [ ] Update `design.md` only if the Playwright proof path needs explicit documentation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the browser proof flow and add a Mermaid diagram if it helps explain the fake Copilot e2e path clearly. Purpose: keep proof-path architecture understandable.
+9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new Playwright spec or support files after they are created. Purpose: keep the repository file map accurate after file creation.
+10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 18, recording implementation notes, and listing the task commit hashes once they exist.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1393,6 +1438,7 @@ Run the final full proof path for Story `0000051`, verify the implemented behavi
 - Context7 Playwright docs: `/microsoft/playwright` for the checked browser-proof behavior and manual spot-check context used during final validation.
 - Context7 Jest docs: `/jestjs/jest` for the checked client-test runner behavior used by the final proof path.
 - Cucumber guides root: `https://cucumber.io/docs/guides/` for the official guides index that should anchor the Cucumber validation references used during final proof.
+- Context7 Mermaid docs: `/mermaid-js/mermaid` for the checked flowchart and sequence-diagram syntax that should be used when final `design.md` updates add Mermaid diagrams.
 - Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` and Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for the checked feature-writing and support-code conventions used by final server-side validation.
 
 #### Subtasks
@@ -1400,9 +1446,9 @@ Run the final full proof path for Story `0000051`, verify the implemented behavi
 Standalone context for every subtask in this task: use the repository wrappers plus `README.md`, `design.md`, `projectStructure.md`, and this plan file to verify every acceptance criterion is covered by code, docs, and proof. Final screenshots must be saved under `test-results/screenshots/` with names starting `0000051-19-`; follow [Acceptance Criteria](#acceptance-criteria), [Proof Path Readiness](#proof-path-readiness), and every completed task above.
 
 1. [ ] Re-read the full story and confirm every acceptance criterion is covered by a completed task, a committed code change, and at least one validation step. If anything is missing, record it in this task’s implementation notes before running final validation.
-2. [ ] Update `README.md` with any new commands, environment variables, runtime prerequisites, or Copilot behavior notes introduced by this story.
-3. [ ] Update `design.md` with the final Copilot architecture, provider ordering rule, auth flow, runtime-home handling, session identity choice, and any Mermaid diagrams needed to keep the design document truthful.
-4. [ ] Update `projectStructure.md` so every file added, removed, or renamed by Story `0000051` is reflected accurately.
+2. [ ] Update `README.md`. Document name: `README.md`. Location: repository root. Description: add any new commands, environment variables, runtime prerequisites, or Copilot behavior notes introduced by this story. Purpose: keep top-level usage and contributor documentation truthful at close-out.
+3. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: record the final Copilot architecture, provider ordering rule, auth flow, runtime-home handling, session identity choice, and any Mermaid diagrams needed to keep the design document truthful. Purpose: keep the repository architecture and flow documentation aligned with the completed story.
+4. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: reflect every file added, removed, or renamed by Story `0000051` after all earlier file operations and documentation updates are complete. Purpose: keep the repository file map accurate at story close-out.
 5. [ ] Create a pull request summary comment that explains all user-visible, server-side, client-side, Docker, and testing changes in this story. Save it in the repository location normally used for story summaries or PR planning notes if one already exists; otherwise add it to this plan task’s implementation notes.
 6. [ ] Use the Playwright MCP tools to manually check the implemented chat flow, provider selection, auth dialog, and transcript rendering, then save screenshots to `test-results/screenshots/` using names that start with `0000051-19-`.
 7. [ ] Update this plan file one final time by marking every completed checkbox, recording the final implementation notes, and listing the final task commit hashes once they exist.

@@ -22,7 +22,7 @@ When you have found the selected story:
 13. If `codeInfoStatus/flow-state/current-plan.json` does not exist, create it with that payload.
 14. If it already exists and already matches the selected `plan_path` and `additional_repositories`, leave it unchanged and do NOT rewrite it.
 15. If it already exists but the stored information is missing, stale, or otherwise different from the selected `plan_path` and `additional_repositories`, update the file in place so it matches the expected payload. Do NOT delete it first unless an in-place update is genuinely impossible.
-16. Treat the legacy shape `{ "plan_path": "..." }` as incomplete data. If that legacy file matches the selected plan, update it in place to the full canonical shape with `additional_repositories`.
+16. Treat any older or incomplete handoff format that still identifies the same selected plan as incomplete data. If the existing file communicates the same selected plan but omits explicit repository scope or otherwise uses an older format, update it in place to the full canonical shape with `additional_repositories`.
 17. This handoff file becomes the sole plan-selection source for every later step in the flow.
 18. Commit the handoff file only if you created it or changed its contents, and push if you can.
 

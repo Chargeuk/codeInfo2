@@ -5,7 +5,8 @@ Finish the current story review using ONLY the handoff file and findings file re
 ## Critical Rules
 
 - Do NOT rediscover review artifacts by timestamp.
-- First read `codeInfoStatus/flow-state/current-plan.json` and normalize only the canonical `plan_path` plus `additional_repositories`.
+- First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path` plus any `additional_repositories` in scope.
+- If the handoff does not explicitly identify any additional repositories, treat that as none.
 - Then read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit any plan.
 - If the review handoff is stale or incomplete, stop and say the review must be rerun. Do not edit any plan.
@@ -19,28 +20,9 @@ Finish the current story review using ONLY the handoff file and findings file re
 
 ## Scope And Inputs
 
-### Current-Plan Handoff Shapes
+### Current-Plan Scope Resolution
 
-- Legacy single-repository shape:
-
-```json
-{ "plan_path": "planning/<story-file>.md" }
-```
-
-- Single-plan multi-repository shape:
-
-```json
-{
-  "plan_path": "planning/<story-file>.md",
-  "additional_repositories": [
-    "/abs/path/to/repo-b"
-  ]
-}
-```
-
-### Current-Plan Normalization Rules
-
-- If the legacy single-repository shape is present, treat it as an empty `additional_repositories` list.
+- The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus every path in `additional_repositories`.
 
@@ -102,8 +84,6 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - test isolation.
 17. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
 18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
-19. The transient handoff file should not be treated as the durable artifact; once it has been consumed successfully, either remove it before committing or leave it untracked so later review passes do not rely on stale committed handoff state.
-
 ## Output Contract
 
 Produce the correct plan mutations for the findings outcome:
@@ -124,4 +104,4 @@ Before you finish this step, verify all of the following:
 - no allowed support file was reopened for anything other than spelling, grammar, or wording corrections;
 - the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope;
 - the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope;
-- durable artifacts are treated as commit-worthy and the transient handoff is not treated as the durable artifact.
+- durable artifacts are treated as commit-worthy and the current-plan handoff is not mistaken for the durable review artifact.

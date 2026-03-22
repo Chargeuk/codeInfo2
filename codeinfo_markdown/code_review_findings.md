@@ -5,7 +5,8 @@ Continue the current story review using ONLY the handoff file written by the pre
 ## Critical Rules
 
 - Do NOT discover the latest review artifact by timestamp.
-- First read `codeInfoStatus/flow-state/current-plan.json` and normalize only the canonical `plan_path` plus `additional_repositories`.
+- First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path` plus any `additional_repositories` in scope.
+- If the handoff does not explicitly identify any additional repositories, treat that as none.
 - Then read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit the plan.
 - If the review handoff checks fail, stop and say the review handoff is stale and must be regenerated. Do not edit the plan.
@@ -19,28 +20,9 @@ Continue the current story review using ONLY the handoff file written by the pre
 
 ## Scope And Inputs
 
-### Current-Plan Handoff Shapes
+### Current-Plan Scope Resolution
 
-- Legacy single-repository shape:
-
-```json
-{ "plan_path": "planning/<story-file>.md" }
-```
-
-- Single-plan multi-repository shape:
-
-```json
-{
-  "plan_path": "planning/<story-file>.md",
-  "additional_repositories": [
-    "/abs/path/to/repo-b"
-  ]
-}
-```
-
-### Current-Plan Normalization Rules
-
-- If the legacy single-repository shape is present, treat it as an empty `additional_repositories` list.
+- The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus every path in `additional_repositories`.
 

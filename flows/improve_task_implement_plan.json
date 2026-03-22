@@ -2,6 +2,11 @@
   "description": "Execute a plan until it is complete",
   "steps": [
     {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
+    },
+    {
       "type": "llm",
       "label": "Planner Select And Store Next Plan",
       "agentType": "planning_agent",
@@ -21,6 +26,11 @@
           ]
         }
       ]
+    },
+    {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
     },
     {
       "type": "startLoop",
@@ -87,6 +97,11 @@
       ]
     },
     {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
+    },
+    {
       "type": "llm",
       "label": "Refresh current plan handoff after planning",
       "agentType": "planning_agent",
@@ -108,6 +123,11 @@
       ]
     },
     {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
+    },
+    {
       "type": "command",
       "label": "Improve plan",
       "agentType": "planning_agent",
@@ -120,6 +140,11 @@
       "agentType": "planning_agent",
       "identifier": "planner",
       "markdownFile": "refresh_current_plan_handoff.md"
+    },
+    {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
     },
     {
       "type": "llm",
@@ -141,6 +166,11 @@
       "agentType": "tasking_agent",
       "identifier": "tasker",
       "commandName": "task_up"
+    },
+    {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
     },
     {
       "type": "llm",
@@ -182,6 +212,11 @@
       "label": "Main loop",
       "steps": [
         {
+          "type": "reingest",
+          "label": "Refresh current repository",
+          "target": "current"
+        },
+        {
           "type": "llm",
           "label": "Double check plan",
           "agentType": "coding_agent",
@@ -199,6 +234,11 @@
           "type": "startLoop",
           "label": "Execution loop",
           "steps": [
+            {
+              "type": "reingest",
+              "label": "Refresh current repository",
+              "target": "current"
+            },
             {
               "type": "llm",
               "label": "Explain Gotchas",
@@ -219,6 +259,11 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "reingest",
+              "label": "Refresh current repository",
+              "target": "current"
             },
             {
               "type": "llm",
@@ -270,6 +315,11 @@
               "markdownFile": "refresh_current_plan_handoff.md"
             },
             {
+              "type": "reingest",
+              "label": "Refresh current repository",
+              "target": "current"
+            },
+            {
               "type": "llm",
               "label": "Re-check plan after planner edits",
               "agentType": "coding_agent",
@@ -306,6 +356,11 @@
               "breakOn": "yes"
             }
           ]
+        },
+        {
+          "type": "reingest",
+          "label": "Refresh current repository",
+          "target": "current"
         },
         {
           "type": "llm",
@@ -353,6 +408,11 @@
       ]
     },
     {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
+    },
+    {
       "type": "llm",
       "label": "Create Final Summary",
       "agentType": "planning_agent",
@@ -372,6 +432,11 @@
           ]
         }
       ]
+    },
+    {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
     }
   ]
 }

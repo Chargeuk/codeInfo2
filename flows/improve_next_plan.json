@@ -2,6 +2,11 @@
   "description": "Research unknowns for the next plan",
   "steps": [
     {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
+    },
+    {
       "type": "llm",
       "label": "Planner Select And Store Next Plan",
       "agentType": "planning_agent",
@@ -106,6 +111,11 @@
           ]
         }
       ]
+    },
+    {
+      "type": "reingest",
+      "label": "Refresh current repository",
+      "target": "current"
     }
   ]
 }

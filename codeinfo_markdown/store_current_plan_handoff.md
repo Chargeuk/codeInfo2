@@ -1,4 +1,4 @@
-Please tell me the next plan that has not yet been fully executed. Determine this by finding the lowest indexed plan that either does NOT yet have tasks, or includes tasks that are not yet moved to the status of done/completed/complete, such as tasks marked todo or in_progress. planning files could be in a planning folder or somewhere else in the repository. Read the repository readme.md for guidance on where to find planning files (sometimes called spec or story files). Do NOT use code_info tools for this search.
+Please tell me the next plan that has not yet been fully executed. Determine this by finding the lowest indexed plan that either does NOT yet have tasks, or includes tasks that are not yet moved to the status of done/completed/complete, such as tasks marked todo or in_progress. planning files could be in a planning folder or somewhere else in the repository. Read the repository `AGENTS.md` for guidance on where to find planning files (sometimes called spec or story files). Do NOT use code_info tools for this search.
 
 When you have found the selected story:
 

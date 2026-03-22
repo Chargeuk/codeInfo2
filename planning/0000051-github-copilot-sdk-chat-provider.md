@@ -821,8 +821,8 @@ Teach the existing chat page to consume the new three-provider contract for prov
 #### Documentation Locations
 
 - Story planning in this file: `### Acceptance Criteria`, `## Implementation Ideas`, and `### Edge Cases and Failure Modes`.
-- Client files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/conversations.ts`, and any provider-selection helpers already used by the chat page.
-- Existing client tests: `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`.
+- Client files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `client/src/components/chat/CodexFlagsPanel.tsx`, `client/src/api/conversations.ts`, and any provider-selection helpers already used by the chat page.
+- Existing client tests: `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.codexBanners.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, `client/src/test/chatPage.flags.*.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`.
 - MUI references already used by this repository for controlled selection UI if behavior details are needed.
 
 #### Subtasks
@@ -830,11 +830,12 @@ Teach the existing chat page to consume the new three-provider contract for prov
 1. [ ] Update `client/src/hooks/useChatModel.ts` so the hook reads and preserves the shared provider order `codex`, `copilot`, `lmstudio`, handles disabled providers with reasons, and loads models for `copilot` through the existing `/chat/models` surface.
 2. [ ] Update `client/src/pages/ChatPage.tsx` so provider bootstrap and fallback follow the server contract instead of any remaining two-provider client-side shortcuts. Do not hide Copilot when it is unavailable; show it as unavailable with the surfaced reason.
 3. [ ] Preserve the existing rule that changing provider or model only affects the next send by starting a new conversation. Do not mutate the runtime provider or model in place for an already-persisted conversation.
-4. [ ] Keep existing Codex-only flags and UI controls Codex-only in this task. If the selected provider is Copilot, do not misapply Codex settings to the outgoing request payload.
-5. [ ] Add or update client tests so they prove provider ordering, provider fallback, disabled Copilot rendering, Copilot model loading, and next-send new-conversation behavior. Reuse existing chat page test harnesses instead of creating a second page test setup.
-6. [ ] Update `design.md` only if the client bootstrap sequence or next-send behavior is now clearer when written down. Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Update `projectStructure.md` if this task adds or removes files.
-7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+4. [ ] Keep existing Codex-only flags, defaults, and warning surfaces Codex-only in this task. When the selected provider is Copilot, hide or disable Codex-only UI such as `CodexFlagsPanel`, do not misapply Codex settings to the outgoing request payload, and preserve the existing Codex experience when the user switches back to Codex.
+5. [ ] Update any legacy provider-bootstrap handling or test fixtures in `useChatModel` and the chat page so three-provider provider-list responses are the normal path and any fallback-to-LM-Studio behavior remains an explicit degraded fallback rather than an accidental default that would hide Copilot.
+6. [ ] Add or update client tests so they prove provider ordering, provider fallback, disabled Copilot rendering, Copilot model loading, Codex-only banner and flags-panel behavior, and next-send new-conversation behavior. Reuse existing chat page test harnesses instead of creating a second page test setup.
+7. [ ] Update `design.md` only if the client bootstrap sequence or next-send behavior is now clearer when written down. Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Update `projectStructure.md` if this task adds or removes files.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -842,7 +843,7 @@ Teach the existing chat page to consume the new three-provider contract for prov
 2. [ ] Run `npm run build:summary:client` to prove the updated provider and model UI compiles.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client assets.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the provider-selection and model-loading client tests pass.
+5. [ ] Run `npm run test:summary:client` and confirm the provider-selection, model-loading, and Codex-only UI regression tests pass.
 
 #### Implementation notes
 

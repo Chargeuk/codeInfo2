@@ -22,3 +22,11 @@ codex_agents/**/auth.json
 codex_agents/**/sessions/
 logs/
 certs/task6-valid/*.key
+
+server/tmp-flows-cmd*/
+planning/**/*.png
+planning/**/*.jpg
+planning/**/*.jpeg
+planning/**/*.gif
+planning/**/*.bmp
+planning/**/*.svg

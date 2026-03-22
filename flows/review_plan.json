@@ -2,11 +2,6 @@
   "description": "Execute a plan until it is complete",
   "steps": [
     {
-      "type": "reingest",
-      "label": "Refresh current repository",
-      "target": "current"
-    },
-    {
       "type": "llm",
       "label": "Confirm current review scope",
       "agentType": "planning_agent",

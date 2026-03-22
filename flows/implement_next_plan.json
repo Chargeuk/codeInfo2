@@ -2,11 +2,6 @@
   "description": "Execute a plan until it is complete",
   "steps": [
     {
-      "type": "reingest",
-      "label": "Refresh current repository",
-      "target": "current"
-    },
-    {
       "type": "llm",
       "label": "Planner Select And Store Next Plan",
       "agentType": "planning_agent",
@@ -32,11 +27,6 @@
       "label": "Main loop",
       "steps": [
         {
-          "type": "reingest",
-          "label": "Refresh current repository",
-          "target": "current"
-        },
-        {
           "type": "llm",
           "label": "Double check plan",
           "agentType": "coding_agent",
@@ -54,11 +44,6 @@
           "type": "startLoop",
           "label": "Execution loop",
           "steps": [
-            {
-              "type": "reingest",
-              "label": "Refresh current repository",
-              "target": "current"
-            },
             {
               "type": "llm",
               "label": "Explain Gotchas",
@@ -79,11 +64,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "type": "reingest",
-              "label": "Refresh current repository",
-              "target": "current"
             },
             {
               "type": "llm",
@@ -173,11 +153,6 @@
           ]
         },
         {
-          "type": "reingest",
-          "label": "Refresh current repository",
-          "target": "current"
-        },
-        {
           "type": "llm",
           "label": "Review evidence gate",
           "agentType": "planning_agent",
@@ -242,11 +217,6 @@
           ]
         }
       ]
-    },
-    {
-      "type": "reingest",
-      "label": "Refresh current repository",
-      "target": "current"
     }
   ]
 }

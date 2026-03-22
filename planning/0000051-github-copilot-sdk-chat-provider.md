@@ -342,6 +342,64 @@ The harnesses above should then support the planned tests in these locations:
 
 The story should not plan a live Copilot login as part of the default automated suite. If a manual or opt-in smoke check is desired later, that should stay outside the default wrappers and outside this story's required harness baseline.
 
+## Feasibility Proof
+
+This story stays within the current repository. The feasibility proof below distinguishes which capabilities already exist, which prerequisite capabilities must be created before Copilot chat can work, and which implementation assumptions are currently invalid if we tried to wire Copilot in directly today.
+
+### Shared provider contracts
+
+- `Already existing capabilities`: the repository already has shared provider contracts, default-provider resolution, runtime selection, route validation, persistence validation, and OpenAPI contract surfaces. The relevant existing files are `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/conversation.ts`, `common/src/api.ts`, `common/src/lmstudio.ts`, and `openapi.json`.
+- `Missing prerequisite capabilities`: those shared contracts must first be expanded from two providers to three. That means adding `copilot` to the shared provider unions, route validators, persistence schema enums, request or response schemas, and OpenAPI enums before Copilot can be accepted consistently across the app.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the repo already has a provider-neutral contract surface. Right now the provider model is still hard-coded around `codex` and `lmstudio`, and `provider: "copilot"` would be rejected or mishandled in multiple layers.
+
+### Server Copilot runtime seam
+
+- `Already existing capabilities`: the repository already has a provider abstraction pattern in `server/src/chat/interfaces/ChatInterface.ts`, provider implementations in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and provider selection in `server/src/chat/factory.ts`.
+- `Missing prerequisite capabilities`: the repository does not yet have a Copilot runtime seam. Before route work can succeed, the story must add `@github/copilot-sdk`, create a reusable Copilot client lifecycle module, and introduce a `ChatInterfaceCopilot` implementation that owns client startup, session creation or resumption, model listing, event translation, and shutdown behavior.
+- `Assumptions that are currently invalid`: it is currently invalid to treat Copilot as a light variation of LM Studio or as a route-only change. Context7 and DeepWiki confirm that Copilot is session-based and event-driven, so it needs its own provider implementation rather than being squeezed into the LM Studio path.
+
+### Provider readiness and model routes
+
+- `Already existing capabilities`: the repository already has `/chat/providers` and `/chat/models` routes with readiness and model-list behavior for the current providers. Those surfaces live in `server/src/routes/chatProviders.ts` and `server/src/routes/chatModels.ts`.
+- `Missing prerequisite capabilities`: those routes need a Copilot readiness branch, a Copilot model-list branch, and one explicit three-provider ordering rule shared with runtime selection. The plan must treat that as prerequisite route work, not just as optional polish.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing provider ordering and fallback logic can naturally absorb a third provider. `server/src/config/chatDefaults.ts` still uses a two-provider alternate-provider rule, and `server/src/routes/chatProviders.ts` still builds a binary ordered list.
+
+### Chat execution and persistence
+
+- `Already existing capabilities`: the repository already has streaming chat execution, inflight tracking, conversation locks, conversation creation, turn persistence, and provider-specific persistence patterns. The main surfaces are `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `server/src/mongo/turn.ts`.
+- `Missing prerequisite capabilities`: the story must first add `copilot` to conversation storage enums and define one explicit conversation-to-Copilot-session identity rule. It must also add Copilot-specific event mapping and persist only verified Copilot usage or timing data.
+- `Assumptions that are currently invalid`: it is currently invalid to assume existing persistence can already store Copilot chat sessions. `server/src/mongo/conversation.ts` still constrains providers to `lmstudio | codex`, and silently creating a fresh Copilot session on resume failure would contradict the current plan's continuity requirement.
+
+### Shared auth flow
+
+- `Already existing capabilities`: the repository already has a device-auth pattern, backend route orchestration, parser utilities, shared API transport, and a chat-mounted auth dialog for Codex. The relevant files are `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `common/src/api.ts`, `client/src/api/codex.ts`, and `client/src/components/codex/CodexDeviceAuthDialog.tsx`.
+- `Missing prerequisite capabilities`: before Copilot auth can exist, the story must create a shared provider-auth contract, add a Copilot auth route and parser flow, and update the client auth dialog to support provider-specific actions with the new two-phase contract.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing auth flow is already shared. The route path, client API, response types, and modal copy are all Codex-specific today, so Copilot cannot simply be plugged into the current auth UI unchanged.
+
+### Client provider and model UI
+
+- `Already existing capabilities`: the repository already has provider and model bootstrap logic in `client/src/hooks/useChatModel.ts`, provider-sensitive chat behavior in `client/src/pages/ChatPage.tsx`, and transcript metadata formatting in `client/src/components/chat/chatTranscriptFormatting.ts`.
+- `Missing prerequisite capabilities`: the client must first be updated to understand a three-provider world, including provider ordering, provider availability reasons, shared auth refresh behavior, and Copilot metadata handling that does not assume Codex-only defaults.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the current client is fully provider-neutral. Some state and formatting behavior is generic, but the existing flow still treats Codex as the only special provider and falls back to effectively binary provider handling.
+
+### Docker, environment, and runtime wiring
+
+- `Already existing capabilities`: the repository already has startup env loading, compose-based runtime wiring, Docker image builds, Codex home resolution, and contract-style tests around compose and runtime config. The relevant files are `server/src/config/startupEnv.ts`, `server/src/config/codexConfig.ts`, `server/Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, and `.dockerignore`.
+- `Missing prerequisite capabilities`: the story must first add `CODEINFO_COPILOT_HOME` through startup env loading, env files, compose files, Docker runtime setup, and build-context exclusions. It must also add a concrete Copilot SDK and CLI availability path in the server runtime image.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing runtime already has a parallel Copilot home or Copilot binary path. The repository only wires Codex home today, and there are no existing Copilot env vars, mounts, or dependencies.
+
+### Automated testing
+
+- `Already existing capabilities`: the repository already has unit, integration, Cucumber, and Playwright layers, plus strong current coverage for provider ordering, model routes, Codex auth, runtime config, and transcript UI behavior. Examples include `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `client/src/test/chatPage.provider.test.tsx`, and `e2e/env-runtime-config.spec.ts`.
+- `Missing prerequisite capabilities`: the story must first add the Copilot-specific harnesses already documented in `## Test Harnesses`, especially a fake Copilot SDK seam and a shared provider-auth fixture. Existing test layers are present, but they are not yet capable of deterministic Copilot coverage.
+- `Assumptions that are currently invalid`: it is currently invalid to assume the existing tests will pass after Copilot is introduced without deliberate updates. Many tests and OpenAPI assertions are still explicitly bound to the two-provider contract and Codex-only auth route.
+
+### Feasibility conclusion
+
+- `Already existing capabilities`: this repository already has enough architectural shape to support a Copilot provider story without cross-repository work. The provider abstraction, route structure, persistence model, auth pattern, Docker workflow, and test layers are all present.
+- `Missing prerequisite capabilities`: Copilot support is still blocked on explicit prerequisite work in shared contracts, a Copilot runtime seam, a shared provider-auth contract, Copilot env and Docker wiring, and Copilot-ready test harnesses.
+- `Assumptions that are currently invalid`: the story must not be executed as if Copilot were only a new enum value plus a few route branches. Today that assumption is false in contracts, persistence, auth, runtime wiring, and tests, and the plan should continue to treat those as prerequisite implementation areas that must land before end-to-end Copilot chat can be expected to work.
+
 ## Questions
 
 - No Further Questions

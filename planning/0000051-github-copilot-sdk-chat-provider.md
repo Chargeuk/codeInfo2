@@ -386,13 +386,21 @@ The repository already has the wrapper scripts needed for the main proof categor
 
 Those wrappers make the proof path realistic for this story, but only after the Copilot-specific prerequisites below have been implemented. Without these prerequisites, the wrappers themselves may run, but they will not be capable of proving the Copilot behavior this story promises.
 
+The current repository also already fixes the discovery locations those wrappers use, so any new proof file in this story must land in the correct location or the wrapper will never execute it:
+
+- `npm run test:summary:server:unit` only discovers `server/src/test/unit/*.test.ts`, `server/src/test/integration/*.test.ts`, and `server/src/test/mcp2/**/*.test.ts`.
+- `npm run test:summary:server:cucumber` only discovers `server/src/test/features/**/*.feature` plus `server/src/test/steps/**/*.ts`.
+- `npm run test:summary:client` only discovers `client/src/test/**/*.test.(ts|tsx)`.
+- `npm run test:summary:e2e` only discovers Playwright specs under `e2e/`.
+
 ### Prerequisites Before Each Proof Stage
 
 - `Before server and client build proof`: add the Copilot provider enums, shared contracts, shared auth contract, and the `@github/copilot-sdk` dependency so the server and client builds can compile the new Copilot code paths successfully.
+- `Before early main-stack startup proof`: make the Copilot home helper and readiness paths tolerate the pre-Task-14 env state by resolving a deterministic default home instead of treating missing `CODEINFO_COPILOT_HOME` as fatal. Otherwise the repeated `npm run compose:up` regression checks in earlier tasks would stop being meaningful before Docker and env wiring have been implemented.
 - `Before server unit and integration proof`: add the Copilot runtime seam, Copilot provider registration, Copilot route branches, and the fake Copilot SDK or auth harnesses described in `## Test Harnesses`. The server test wrappers already exist, but Copilot-specific scenarios will not be runnable until those seams exist.
 - `Before Cucumber proof`: extend the existing feature and step definitions to use the fake Copilot seam. The Cucumber wrapper already exists, but it cannot currently exercise Copilot paths because the feature files and support code are still Codex and LM Studio oriented.
-- `Before compose build proof`: add Copilot runtime delivery to the server image, including the SDK package, the Copilot CLI delivery strategy, writable `/app/copilot` support, and `.dockerignore` updates so the container build can actually produce a Copilot-capable runtime.
-- `Before e2e proof`: add `CODEINFO_COPILOT_HOME` to startup env loading, env files, compose files, and the app runtime; then ensure the existing e2e mock mode can drive a fake available Copilot provider plus fake Copilot chat and auth states. The current Playwright wrapper is already usable, but it depends on deterministic mock-backed behavior to prove Copilot without a real login.
+- `Before compose build proof`: add Copilot runtime delivery to the server image, including the SDK package, the Copilot CLI delivery strategy, writable `/app/copilot` support, `.dockerignore` updates, and the `compose:build:summary` runtime-asset marker update so the wrapper can actually prove that Copilot delivery was baked into the image instead of only reporting the pre-Copilot asset set.
+- `Before e2e proof`: add `CODEINFO_COPILOT_HOME` to startup env loading, env files, compose files, and the app runtime; then wire the named Copilot scenario selector through `.env.e2e`, `docker-compose.e2e.yml`, and the `npm run test:summary:e2e` wrapper-backed stack so the existing e2e mock mode can drive a fake available Copilot provider plus fake Copilot chat and auth states. The current Playwright wrapper is already usable, but it depends on deterministic mock-backed behavior to prove Copilot without a real login.
 - `Before any real-runtime smoke check`: if a live Copilot smoke check is ever used, it must come after the default wrapper-backed proof path, and it must be treated as optional or manual-only. The default proof path for this story remains mock-backed and wrapper-driven.
 
 ### Realistic Proof Order
@@ -402,7 +410,7 @@ Those wrappers make the proof path realistic for this story, but only after the 
 - `Behavioral BDD proof`: run `npm run test:summary:server:cucumber` after the Copilot feature scenarios and step definitions are wired to the same deterministic harnesses.
 - `Client proof`: run `npm run test:summary:client` after the shared auth dialog, provider bootstrap flow, and transcript rendering changes can be driven through the updated shared contract fixtures.
 - `Container proof`: run `npm run compose:build:summary` after Copilot CLI delivery, writable Copilot home handling, and compose env wiring have been added to the images and compose files.
-- `End-to-end proof`: run `npm run test:summary:e2e` only after the fake Copilot seam is available through the e2e stack so the wrapper can prove provider selection, auth refresh, and streaming transcript behavior without depending on a real Copilot account.
+- `End-to-end proof`: run `npm run test:summary:e2e` only after the fake Copilot seam is available through the e2e stack so the wrapper can prove provider selection, auth refresh, and streaming transcript behavior without depending on a real Copilot account. This wrapper already performs the compose-e2e build, up, test, and down sequence internally, so the story should treat that e2e wrapper path as the real end-to-end proof surface rather than pretending the main `compose:up` stack is enough.
 
 ### Proof Constraints To Keep In The Story
 
@@ -620,7 +628,7 @@ Documentation handoff for every numbered subtask in this task: when assigning an
 Implementation starter pattern for every subtask in this task: mirror the repository’s current config-helper style in `server/src/config/codexConfig.ts` and the existing chat interface boundaries in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`; add the Copilot seam in the same style, but keep it injectable rather than global.
 
 1. [ ] Add the Copilot SDK dependency to `server/package.json` and update the matching lockfile entries so the server workspace can compile against the official SDK types. Do not add a second package manager or ad hoc install script.
-2. [ ] Add or reuse a dedicated Copilot runtime-home helper module alongside `server/src/config/codexConfig.ts` so runtime code and auth code can resolve `CODEINFO_COPILOT_HOME`, the Copilot config directory, and any file-store paths through one shared implementation instead of scattered env lookups.
+2. [ ] Add or reuse a dedicated Copilot runtime-home helper module alongside `server/src/config/codexConfig.ts` so runtime code and auth code can resolve `CODEINFO_COPILOT_HOME`, the Copilot config directory, and any file-store paths through one shared implementation instead of scattered env lookups. Until Task 14 lands, this helper must also provide a deterministic non-fatal default so the earlier `npm run compose:up` startup checks remain runnable.
 3. [ ] Create a reusable Copilot lifecycle module under `server/src/chat` or `server/src/providers` that owns `start()`, `stop()`, `ping()`, `getAuthStatus()`, `listModels()`, `createSession(...)`, and `resumeSession(...)` through one injectable seam. Make it consume the shared Copilot home/config helper from the previous step, keep route code out of this module, and make sure session creation and resumption both have access to the resolved `configDir` value derived from `CODEINFO_COPILOT_HOME`.
 4. [ ] Add `server/src/chat/interfaces/ChatInterfaceCopilot.ts` with a minimal adapter shape that later tasks can extend for real chat execution. At the end of this task the adapter can still be incomplete, but the class or module should compile and expose the intended dependency boundary cleanly, including any session-level configuration the SDK requires on both create and resume.
 5. [ ] Make the new Copilot seam injectable in the server test environment without affecting production behavior. Reuse the repository’s existing test-support pattern instead of adding a one-off global mutable singleton.
@@ -1316,15 +1324,17 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 1. [ ] Update `server/Dockerfile` so the server image includes the Copilot runtime prerequisites and a writable `/app/copilot` path without changing the existing “copy source into the image and build there” model. Do not introduce a bind-mounted source tree.
 2. [ ] Update `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` so Copilot home is injected consistently and persisted through one Docker-managed named-volume pattern wherever container persistence is required. Do not add any new published ports, and do not hard-code Copilot credential secrets into committed compose or env files.
 3. [ ] Update `.dockerignore` so repo-local Copilot auth files, session state, and runtime-home artifacts are excluded from the image build context just like other local runtime secrets. Keep only required application files in the build context.
-4. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm the existing published port contract is unchanged after Copilot wiring. Purpose: prove Docker changes do not shift network expectations.
-5. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm Copilot state uses the selected Docker-managed named volume. Purpose: prove the persistence mechanism is the documented one.
-6. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose and Docker ignore rules and confirm one single persistence rule is used while repo-local Copilot auth artifacts stay out of the build context. Purpose: prove container persistence and build-context exclusions are aligned.
-7. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm services that need Copilot state inject `CODEINFO_COPILOT_HOME=/app/copilot` consistently. Purpose: prove the Docker env contract matches the planned container runtime path.
-8. [ ] Update `README.md`. Document name: `README.md`. Location: repository root. Description: document the named-volume runtime persistence rule and any user-visible Docker prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
-9. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the Docker delivery and persistence flow, and add Mermaid diagrams if they help explain the container runtime path. Purpose: keep architecture and deployment-flow documentation aligned with the implementation.
-10. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record the new Docker contract test file and any other file additions after those files are created. Purpose: keep the repository file map accurate after file creation.
-11. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+4. [ ] Update `scripts/compose-build-summary.mjs` so the wrapper’s runtime-asset proof includes the new Copilot runtime root and does not keep reporting a pre-Copilot image asset set after this task lands. Keep the wrapper output format stable while extending the runtime-asset marker to include `/app/copilot`.
+5. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm the existing published port contract is unchanged after Copilot wiring. Purpose: prove Docker changes do not shift network expectations.
+6. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm Copilot state uses the selected Docker-managed named volume. Purpose: prove the persistence mechanism is the documented one.
+7. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose and Docker ignore rules and confirm one single persistence rule is used while repo-local Copilot auth artifacts stay out of the build context. Purpose: prove container persistence and build-context exclusions are aligned.
+8. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect the compose config and confirm services that need Copilot state inject `CODEINFO_COPILOT_HOME=/app/copilot` consistently. Purpose: prove the Docker env contract matches the planned container runtime path.
+9. [ ] Add a unit test in `server/src/test/unit/copilot-compose-contract.test.ts`. Test type: unit. Description: inspect `scripts/compose-build-summary.mjs` and confirm the runtime-asset marker now includes the Copilot runtime root. Purpose: prove the wrapper-backed compose build proof can actually detect the new Copilot delivery path.
+10. [ ] Update `README.md`. Document name: `README.md`. Location: repository root. Description: document the named-volume runtime persistence rule and any user-visible Docker prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
+11. [ ] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the Docker delivery and persistence flow, and add Mermaid diagrams if they help explain the container runtime path. Purpose: keep architecture and deployment-flow documentation aligned with the implementation.
+12. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record the new Docker contract test file and any other file additions after those files are created. Purpose: keep the repository file map accurate after file creation.
+13. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
@@ -1332,7 +1342,7 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any env-exposed shared types.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build succeeds with the new Copilot Docker wiring.
 4. [ ] Run `npm run compose:up`, confirm the stack starts with the unchanged port contract, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the compose contract tests pass.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilot-compose-contract.test.ts` and confirm the targeted compose contract tests pass before relying on the full wrapper-backed suite later in the story.
 
 #### Implementation notes
 
@@ -1368,20 +1378,21 @@ Implementation starter pattern for every subtask in this task: extend the reposi
 1. [ ] Extend the existing server-side integration and wrapper-backed boot paths so tests can enable fake Copilot provider readiness, fake model lists, fake chat streams, and fake auth states without touching production runtime defaults. Reuse the current integration boot paths, websocket helpers, and mock transport helpers instead of introducing a second test startup stack.
 2. [ ] Define one clear scenario-selection contract, using the repository's current env-driven or dependency-injection style, so integration, Cucumber, and e2e tests can enable named Copilot scenarios instead of rebuilding bespoke setup code in each suite.
 3. [ ] Wire that scenario selection into the existing integration and e2e startup path so later tests can reuse it from `server/src/test/integration`, `server/src/test/steps`, and the Playwright wrapper-backed stack.
-4. [ ] Add an integration proof test in `server/src/test/integration/copilot.boot-path.test.ts`. Test type: integration. Description: boot the application through the extended higher-level path with a named happy-path Copilot scenario and assert the stack is usable. Purpose: prove the new scenario-selection path works end to end.
-5. [ ] Add an integration proof test in `server/src/test/integration/copilot.boot-path.test.ts`. Test type: integration. Description: boot the application through the same higher-level path with a named deterministic error scenario and assert the failure is surfaced cleanly. Purpose: prove the boot path can exercise negative scenarios too.
-6. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list any new higher-level support files and proof tests after those files are created. Purpose: keep the repository file map accurate after file creation.
-7. [ ] Update `design.md` if the boot-path extension needs explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the scenario-selection and higher-level boot flow, and add Mermaid diagrams if they help explain the path. Purpose: keep architecture and boot-flow documentation aligned with the implementation.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 16, recording implementation notes, and listing the task commit hashes once they exist.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+4. [ ] Wire the same named Copilot scenario selector through the wrapper-backed e2e runtime path by updating the files that actually feed `npm run test:summary:e2e`, including `.env.e2e`, `docker-compose.e2e.yml`, and any required wrapper or runtime-config readers. The goal is that the Playwright wrapper can request the same named fake scenarios as integration and Cucumber without a manual shell export.
+5. [ ] Add an integration proof test in `server/src/test/integration/copilot.boot-path.test.ts`. Test type: integration. Description: boot the application through the extended higher-level path with a named happy-path Copilot scenario and assert the stack is usable. Purpose: prove the new scenario-selection path works end to end.
+6. [ ] Add an integration proof test in `server/src/test/integration/copilot.boot-path.test.ts`. Test type: integration. Description: boot the application through the same higher-level path with a named deterministic error scenario and assert the failure is surfaced cleanly. Purpose: prove the boot path can exercise negative scenarios too.
+7. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list any new higher-level support files and proof tests after those files are created. Purpose: keep the repository file map accurate after file creation.
+8. [ ] Update `design.md` if the boot-path extension needs explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the scenario-selection and higher-level boot flow, and add Mermaid diagrams if they help explain the path. Purpose: keep architecture and boot-flow documentation aligned with the implementation.
+9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 16, recording implementation notes, and listing the task commit hashes once they exist.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` to prove the extended higher-level boot path compiles with the server test bootstrap code.
 2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any scenario-driven auth or provider contracts.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing higher-level boot path.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` or the smallest existing integration-capable wrapper-backed test path that exercises the new proof test, and confirm the extended boot path passes at least one happy path and one explicit error case.
+4. [ ] Run `npm run compose:e2e:up`, confirm the e2e stack starts with the named Copilot scenario path available, then run `npm run compose:e2e:down`.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` and confirm the targeted boot-path proof passes at least one happy path and one explicit error case.
 
 #### Implementation notes
 
@@ -1481,7 +1492,7 @@ Implementation starter pattern for every subtask in this task: follow the existi
 1. [ ] Run `npm run build:summary:server` to prove the server still compiles for the Playwright-backed stack.
 2. [ ] Run `npm run build:summary:client` to prove the Playwright-targeted client changes still compile.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated e2e support.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+4. [ ] Run `npm run compose:e2e:up`, confirm the e2e stack starts with the named Copilot scenario path available, then run `npm run compose:e2e:down`.
 5. [ ] Run `npm run test:summary:e2e` and confirm the Copilot Playwright coverage passes through the wrapper-driven stack.
 
 #### Implementation notes

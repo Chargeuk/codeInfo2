@@ -3,20 +3,6 @@
   "steps": [
     {
       "type": "llm",
-      "label": "Clear stale current plan handoff",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Please read AGENTS.md and follow its instructions. Then delete `codeInfoStatus/flow-state/current-plan.json` if it already exists so this flow cannot inherit stale active-plan state from an earlier run. Do not fail if the file is missing, and do not create a replacement in this step. If you deleted it, commit the change and then, if you can, push."
-          ]
-        }
-      ]
-    },
-    {
-      "type": "llm",
       "label": "Planner Select And Store Next Plan",
       "agentType": "planning_agent",
       "identifier": "planner",

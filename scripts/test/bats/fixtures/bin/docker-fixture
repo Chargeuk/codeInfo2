@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ -n "${CODEINFO_TEST_DOCKER_FIXTURE_LOG:-}" ]; then
+  printf '%s\n' "$*" >>"${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+fi
+
+case "${1:-}" in
+  context)
+    if [ "${2:-}" = "inspect" ]; then
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_CONTEXT_ENDPOINT:-unix:///missing.sock}"
+      exit 0
+    fi
+    ;;
+  info)
+    if [ "${2:-}" = "--format" ]; then
+      default_info_json='{"OperatingSystem":"Docker Engine - Community","ServerVersion":"28.3.2"}'
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_INFO_JSON:-$default_info_json}"
+      exit 0
+    fi
+    ;;
+  version)
+    if [ "${2:-}" = "--format" ]; then
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_SERVER_PLATFORM_NAME:-Docker Engine - Community}"
+      exit 0
+    fi
+    ;;
+  compose)
+    shift
+    compose_args=" $* "
+    if [[ "${compose_args}" == *" config --format json "* ]]; then
+      if [ -z "${CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON:-}" ]; then
+        echo "docker-fixture: CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON is required for compose config" >&2
+        exit 1
+      fi
+      cat "${CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON}"
+      exit 0
+    fi
+
+    printf '%s\n' "${CODEINFO_TEST_DOCKER_COMPOSE_STDOUT:-fake compose execution}"
+    exit "${CODEINFO_TEST_DOCKER_COMPOSE_EXIT_CODE:-0}"
+    ;;
+  run)
+    if [ -n "${CODEINFO_TEST_DOCKER_RUN_STDERR:-}" ]; then
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_RUN_STDERR}" >&2
+    fi
+    if [ -n "${CODEINFO_TEST_DOCKER_RUN_EXIT_CODE:-}" ]; then
+      exit "${CODEINFO_TEST_DOCKER_RUN_EXIT_CODE}"
+    fi
+    occupied_ports=",${CODEINFO_TEST_DOCKER_HOST_OCCUPIED_PORTS:-},"
+    port="${@: -1}"
+    if [[ "${occupied_ports}" == *,"${port}",* ]]; then
+      exit 0
+    fi
+    exit 1
+    ;;
+esac
+
+echo "docker-fixture: unsupported invocation: $*" >&2
+exit 1

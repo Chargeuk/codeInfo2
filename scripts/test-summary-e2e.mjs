@@ -16,6 +16,7 @@ import {
   createSummaryLogStream,
   createSummaryWrapperProtocol,
   runLoggedCommand,
+  writeLogLine,
 } from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
@@ -40,6 +41,10 @@ const options = {
   files: [],
   grep: undefined,
 };
+
+const defaultBrowserBaseUrl = 'http://host.docker.internal:6001';
+const defaultApiBaseUrl = 'http://host.docker.internal:6010';
+const defaultMcpControlUrl = 'http://host.docker.internal:8932/mcp';
 
 for (let i = 0; i < args.length; i += 1) {
   const arg = args[i];
@@ -151,6 +156,17 @@ const collectSummary = (report) => {
   };
 
   walkSuites(report?.suites ?? []);
+  if (passed + failed === 0) {
+    const expected = Number(report?.stats?.expected ?? 0);
+    const unexpected = Number(report?.stats?.unexpected ?? 0);
+    const flaky = Number(report?.stats?.flaky ?? 0);
+    return {
+      total: expected + unexpected + flaky,
+      passed: expected,
+      failed: unexpected + flaky,
+      failingNames: [...failingNames],
+    };
+  }
   return {
     total: passed + failed,
     passed,
@@ -175,11 +191,19 @@ if (options.grep) {
   playwrightArgs.push('--grep', options.grep);
 }
 
+const e2eRuntimeConfig = {
+  browserBaseUrl: process.env.E2E_BASE_URL ?? defaultBrowserBaseUrl,
+  apiBaseUrl: process.env.E2E_API_URL ?? defaultApiBaseUrl,
+  mcpControlUrl: process.env.E2E_MCP_CONTROL_URL ?? defaultMcpControlUrl,
+  useMockChat: process.env.E2E_USE_MOCK_CHAT ?? 'true',
+};
+
 let testExitCode = 1;
 let summary = { total: 0, passed: 0, failed: 0, failingNames: [] };
 let setupFailed = false;
 let teardownFailed = false;
 let parseFailed = false;
+let task13MarkerLine = '';
 
 try {
   const buildResult = await runLoggedCommand({
@@ -209,6 +233,13 @@ try {
         cmd: 'npm',
         args: ['run', 'e2e:test', '--', '--reporter=json', ...playwrightArgs],
         cwd: rootDir,
+        env: {
+          ...process.env,
+          E2E_BASE_URL: e2eRuntimeConfig.browserBaseUrl,
+          E2E_API_URL: e2eRuntimeConfig.apiBaseUrl,
+          E2E_MCP_CONTROL_URL: e2eRuntimeConfig.mcpControlUrl,
+          E2E_USE_MOCK_CHAT: e2eRuntimeConfig.useMockChat,
+        },
         logStream,
         protocol,
         phase: 'test',
@@ -243,6 +274,16 @@ try {
   if (downResult.code !== 0) {
     teardownFailed = true;
   }
+  if (!setupFailed && !teardownFailed && testExitCode === 0) {
+    const markerPayload = {
+      browserBaseUrl: e2eRuntimeConfig.browserBaseUrl,
+      mcpControlUrl: e2eRuntimeConfig.mcpControlUrl,
+      baseUrlMatchesMcp:
+        e2eRuntimeConfig.browserBaseUrl === e2eRuntimeConfig.mcpControlUrl,
+    };
+    task13MarkerLine = `DEV-0000050:T13:e2e_host_network_config_verified ${JSON.stringify(markerPayload)}`;
+    writeLogLine(logStream, task13MarkerLine);
+  }
   await new Promise((resolve) => logStream.end(resolve));
 }
 
@@ -258,6 +299,10 @@ if (setupFailed) {
 if (teardownFailed && !summary.failingNames.includes('e2e teardown failed')) {
   summary.failed += 1;
   summary.failingNames.push('e2e teardown failed');
+}
+
+if (task13MarkerLine) {
+  console.log(task13MarkerLine);
 }
 
 console.log(`[e2e] tests run: ${summary.total}`);

@@ -2,8 +2,8 @@ import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
-const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
+const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 

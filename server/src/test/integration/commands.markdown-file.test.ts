@@ -18,6 +18,7 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
+import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 
 class CapturingChat extends ChatInterface {
@@ -107,6 +108,26 @@ const writeCommandFile = async (params: {
       {
         Description: 'markdown command',
         items: params.items,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+};
+
+const writeFlowFile = async (params: {
+  flowsRoot: string;
+  flowName: string;
+  steps: unknown[];
+}) => {
+  await fs.mkdir(params.flowsRoot, { recursive: true });
+  await fs.writeFile(
+    path.join(params.flowsRoot, `${params.flowName}.json`),
+    JSON.stringify(
+      {
+        description: 'markdown flow',
+        steps: params.steps,
       },
       null,
       2,
@@ -478,6 +499,194 @@ test('runAgentCommand persists nested markdown lookup summaries into turn runtim
     memoryTurns.delete(conversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('runAgentCommand skips whitespace-only markdown-backed direct commands', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-markdown-file-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  const messages: string[] = [];
+  const conversationId = 'commands-markdown-empty-skip';
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(agentHome, 'commands'),
+      commandName: 'empty-markdown',
+      items: [{ type: 'message', role: 'user', markdownFile: 'blank.md' }],
+    });
+    await writeMarkdownFile({
+      repoRoot: codeInfo2Root,
+      relativePath: 'blank.md',
+      content: ' \n\t ',
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'empty-markdown',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new CapturingChat(messages),
+    });
+
+    assert.deepEqual(messages, []);
+    assert.deepEqual(memoryTurns.get(conversationId) ?? [], []);
+  } finally {
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('runAgentCommand does not create synthetic tool-result payloads when empty markdown is skipped', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-markdown-file-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  const conversationId = 'commands-markdown-empty-no-toolcalls';
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(agentHome, 'commands'),
+      commandName: 'empty-markdown-no-toolcalls',
+      items: [{ type: 'message', role: 'user', markdownFile: 'toolcalls.md' }],
+    });
+    await writeMarkdownFile({
+      repoRoot: codeInfo2Root,
+      relativePath: 'toolcalls.md',
+      content: '\n',
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'empty-markdown-no-toolcalls',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new CapturingChat([]),
+    });
+
+    const turns = memoryTurns.get(conversationId) ?? [];
+    assert.equal(turns.length, 0);
+    assert.equal(
+      turns.some((turn) => turn.toolCalls !== null),
+      false,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun skips whitespace-only markdown-backed flow steps through the shared seam', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flows-markdown-file-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const flowsRoot = path.join(codeInfo2Root, 'flows');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const conversationId = 'flows-markdown-empty-skip';
+  const messages: string[] = [];
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.FLOWS_DIR = flowsRoot;
+
+  try {
+    await writeAgentScaffold({
+      agentsHome,
+      agentName: 'coding_agent',
+      codexHome,
+    });
+    await writeFlowFile({
+      flowsRoot,
+      flowName: 'empty-markdown-flow',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          markdownFile: 'blank-flow.md',
+        },
+      ],
+    });
+    await writeMarkdownFile({
+      repoRoot: codeInfo2Root,
+      relativePath: 'blank-flow.md',
+      content: ' \n ',
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({ repos: [], lockedModelId: null }) as never,
+    });
+
+    await startFlowRun({
+      flowName: 'empty-markdown-flow',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new CapturingChat(messages),
+      listIngestedRepositories: async () =>
+        ({ repos: [], lockedModelId: null }) as never,
+    });
+
+    assert.deepEqual(messages, []);
+    assert.deepEqual(memoryTurns.get(conversationId) ?? [], []);
+  } finally {
+    __resetMarkdownFileResolverDepsForTests();
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

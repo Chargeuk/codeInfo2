@@ -488,7 +488,7 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 ### 7. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 193d83d, 963c9a5
 
 #### Overview

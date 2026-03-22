@@ -308,7 +308,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: AST language enum + extension routing
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: e884dca, bdf3108
 
 #### Overview
@@ -449,7 +449,7 @@ Expand the AST language type and extension routing so ingest and tool validation
 
 ### 2. Server: Tree-sitter grammar dependencies + parser wiring
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 275cb6c, 3d402cb
 
 #### Overview
@@ -573,7 +573,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 
 ### 3. Server: AST query assets + parser tests
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 3143f36, d92eff1
 
 #### Overview
@@ -750,7 +750,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 
 ### 4. Server: Ingest AST indexing coverage + logging
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: bc509af
 
 #### Overview
@@ -897,7 +897,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 
 ### 5. Final verification + acceptance criteria
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 4f7efaf, 482ad1f
 
 #### Overview

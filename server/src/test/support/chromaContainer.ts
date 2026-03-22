@@ -73,7 +73,9 @@ async function ensureContainer() {
 
     // Set CODEINFO_CHROMA_URL directly to the mapped host:port (compose binds 8100->8000)
     process.env.CODEINFO_CHROMA_URL = 'http://host.docker.internal:8100';
-    console.log(`[chroma-compose] CODEINFO_CHROMA_URL set to ${process.env.CODEINFO_CHROMA_URL}`);
+    console.log(
+      `[chroma-compose] CODEINFO_CHROMA_URL set to ${process.env.CODEINFO_CHROMA_URL}`,
+    );
 
     environment = env;
     return env;

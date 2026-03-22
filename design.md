@@ -4807,6 +4807,43 @@ flowchart TD
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `CODEINFO_HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
 - `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score` (distance), and `modelId`; file summaries report the lowest distance per file. The response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
+
+## Story 0000050 Task 3: shared re-ingest target orchestration
+
+- Task 3 adds one shared orchestration seam in `server/src/ingest/reingestExecution.ts` above the strict single-repository `runReingestRepository(...)` service.
+- Request modes now resolve like this before strict execution starts:
+  - explicit `sourceId` tries the existing repository selector first and falls back to the original selector when no canonical match is found, so the strict service still owns the final validation categories;
+  - `target: "current"` uses the already-threaded owner for the current surface:
+    - direct command: command file repository;
+    - top-level flow step: flow file repository;
+    - nested flow-owned command item: command file repository, not the parent flow owner;
+  - `target: "all"` resolves the currently ingested repositories in ascending canonical container-path order and executes them sequentially.
+- The shared orchestration result stays intentionally intermediate for Task 3:
+  - single-target runs return `{ kind: "single", targetMode, requestedSelector, resolvedSourceId, outcome }`;
+  - batch runs return `{ kind: "batch", targetMode: "all", requestedSelector: null, repositories }`;
+  - each batch repository item keeps `sourceId`, `resolvedRepositoryId`, normalized `outcome`, lower-level `status` and `completionMode`, counts, `runId`, `errorCode`, and `errorMessage`.
+- `target: "all"` keeps running after per-repository failures. A strict-service validation refusal or terminal error becomes one failed repository item in the ordered batch result rather than aborting the remainder of the run.
+- The shared helper emits `DEV-0000050:T03:reingest_targets_resolved` before strict execution begins so manual proof can confirm `surface`, `targetMode`, `requestedSelector`, `resolvedCount`, and the ordered `resolvedPaths`.
+
+```mermaid
+flowchart TD
+    A[Reingest request] --> B{Request mode}
+    B -->|sourceId| C[Try repositorySelector]
+    B -->|current| D{Owner path available?}
+    B -->|all| E[List ingested repos]
+    C --> F[Resolve one canonical path]
+    D -->|no| G[Fail fast before strict service]
+    D -->|yes| H{Owner repo currently ingested?}
+    H -->|no| I[Return clear pre-start NOT_FOUND]
+    H -->|yes| F
+    E --> J[Sort by canonical container path]
+    J --> K[Run strict service sequentially]
+    K --> L[Collect ordered repository outcomes]
+    F --> M[Run strict service once]
+    M --> N[Single intermediate result]
+    L --> O[Batch intermediate result]
+```
+
 - Retrieval cutoff: results are filtered to distance `<= CODEINFO_RETRIEVAL_DISTANCE_CUTOFF` (default `1.4`, lower is better) unless `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`. If nothing passes the cutoff, the server falls back to the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results (default `2`, lowest distance with original-order tie-breaks). Summaries are rebuilt from the filtered set so file counts align with what the tool returns.
 - Payload caps + dedupe: the server de-dupes VectorSearch results per `repo + relPath` (duplicate `chunkId` or identical chunk text), keeps the 2 lowest-distance chunks per file, then truncates chunk text to `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default `5000`) and enforces total payload size `CODEINFO_TOOL_MAX_CHARS` (default `40000`). Summaries reflect the capped results.
 - Citation rendering: the client renders citations exactly as returned by the server; there is no client-side dedupe in this story.
@@ -4830,7 +4867,246 @@ flowchart LR
   D --> T[Top 2 by distance]
   T --> X[Truncate chunks]
   X --> M[Apply total cap]
-  M --> O[Return capped results]
+    M --> O[Return capped results]
+```
+
+## Story 0000050 Task 4: re-ingest transcript payload lifecycle
+
+- Task 4 keeps the existing synthetic-turn and `Turn.toolCalls` persistence channel, but it widens the re-ingest tool payload contract so transcript readers can distinguish richer single-target metadata from one true batch result.
+- `server/src/chat/reingestToolResult.ts` now owns two payload shapes:
+  - `reingest_step_result` for `sourceId` and `current` single-target runs;
+  - `reingest_step_batch_result` for one `target: "all"` batch run.
+- The single payload stays backward compatible on `sourceId` while adding `targetMode`, `requestedSelector`, `resolvedRepositoryId`, normalized `outcome`, and `completionMode`.
+- The batch payload stores one ordered `repositories` array plus a precomputed `summary` object, so later readers and validation paths do not need to recompute counts or reconstruct ordering from multiple synthetic turns.
+- `server/src/chat/reingestStepLifecycle.ts` still persists one user turn and one assistant turn for a re-ingest action, but batch runs now summarize the whole batch in those synthetic turns rather than pretending they were a single-repository result.
+- Older stored single-result payloads remain readable because the lifecycle parser normalizes omitted optional fields from the mixed `toolCalls` payload instead of assuming the latest nested shape is always present.
+- The Task 4 persistence proof marker is `DEV-0000050:T04:reingest_payload_persisted`, emitted after assistant-turn persistence with `payloadKind`, `targetMode`, `repositoryCount`, and `conversationId`.
+
+```mermaid
+sequenceDiagram
+    participant Exec as Re-ingest execution
+    participant Builder as reingestToolResult.ts
+    participant Lifecycle as reingestStepLifecycle.ts
+    participant Persist as Turn.toolCalls
+    participant Reader as Transcript readers
+
+    Exec->>Builder: single result or batch result
+    alt single target
+        Builder->>Lifecycle: reingest_step_result
+    else target: all
+        Builder->>Lifecycle: reingest_step_batch_result
+    end
+    Lifecycle->>Lifecycle: build synthetic user/assistant text
+    Lifecycle->>Persist: assistant turn with toolCalls.calls[0]
+    Lifecycle-->>Lifecycle: DEV-0000050:T04:reingest_payload_persisted
+    Persist->>Reader: stored mixed payload
+    Reader->>Reader: normalize older single-result payloads if fields are omitted
+```
+
+## Story 0000050 Task 5: blank-markdown skip seam
+
+- Task 5 keeps markdown repository resolution and hard-failure handling in `server/src/flows/markdownFileResolver.ts`, but it adds one shared post-resolution preparation seam so direct commands, top-level flow `llm.markdownFile` steps, and flow-owned command markdown items all inherit the same empty-content decision.
+- The new preparation seam resolves the markdown file first, preserves all existing missing/traversal/read/decode failures unchanged, and only then checks `content.trim().length === 0`.
+- Whitespace-only content now produces a skip result instead of an instruction string, and that skip path emits the proof marker `DEV-0000050:T05:markdown_step_skipped` with `surface`, `markdownFile`, `resolvedPath`, and `reason: "empty_markdown"` plus any available command or flow context.
+- Because the skip happens before agent execution or synthetic re-ingest persistence, blank markdown does not fabricate user turns, assistant turns, or tool-call payloads. Successful non-empty markdown continues to flow through the existing command/flow instruction lifecycles unchanged.
+
+```mermaid
+flowchart TD
+  A[Resolve markdown reference] --> B{Path valid and inside codeinfo_markdown?}
+  B -- no --> C[Throw existing traversal/absolute-path error]
+  B -- yes --> D[Try repository candidates in shared order]
+  D --> E{Readable file found?}
+  E -- no --> F[Throw existing not-found error]
+  E -- yes --> G{Read or decode failed?}
+  G -- yes --> H[Throw existing read or UTF-8 error]
+  G -- no --> I[Trim resolved markdown content]
+  I --> J{Content empty after trim?}
+  J -- yes --> K[Emit DEV-0000050:T05:markdown_step_skipped]
+  K --> L[Return shared skip result]
+  J -- no --> M[Return shared instruction result]
+  L --> N[Caller skips execution and persists nothing]
+  M --> O[Caller executes normal command or flow instruction path]
+```
+
+## Story 0000050 Task 6: shared MCP placeholder normalization
+
+- Task 6 introduces `server/src/config/mcpEndpoints.ts` as the runtime-owned MCP endpoint contract. It resolves `${CODEINFO_SERVER_PORT}`, `${CODEINFO_CHAT_MCP_PORT}`, `${CODEINFO_AGENTS_MCP_PORT}`, and the direct `CODEINFO_PLAYWRIGHT_MCP_URL` token before downstream runtime consumers see an effective endpoint.
+- `server/src/config/runtimeConfig.ts` stays the upstream placeholder-replacement layer for checked-in TOML config, but it now delegates required MCP values to that shared contract so chat runtime loading, agent runtime loading, and checked-in config normalization cannot drift.
+- `server/src/config/codexConfig.ts`, `server/src/providers/mcpStatus.ts`, and `server/src/index.ts` now consume the same endpoint contract for base-config seeding, provider-status probing, and startup reporting. That removes the old `MCP_URL` or generic-localhost bypass and keeps classic `/mcp`, chat MCP, and agents MCP intentionally separate.
+- `CODEINFO_PLAYWRIGHT_MCP_URL` remains a full-URL override instead of a derived localhost placeholder. Its precedence is explicit: if the checked-in runtime config asks for the Playwright token, the runtime injects that full override URL instead of trying to infer a Playwright control channel from the chat/base MCP port contract.
+- The shared proof seam for later manual validation is `DEV-0000050:T06:mcp_endpoints_normalized`, emitted from the endpoint contract after the effective classic/chat/agents/Playwright values have been materialized.
+
+```mermaid
+flowchart LR
+  Env["process.env"] --> Contract["mcpEndpoints.ts"]
+  CheckedIn["checked-in TOML placeholders"] --> RuntimeNormalize["runtimeConfig.ts"]
+  Contract --> RuntimeNormalize
+  Contract --> BaseSeed["codexConfig.ts seed and rewrite"]
+  Contract --> Status["mcpStatus.ts probe"]
+  Contract --> Startup["index.ts startup reporting"]
+  Contract --> BindPorts["config.ts -> mcp2/server.ts and mcpAgents/server.ts"]
+  RuntimeNormalize --> Chat["chat runtime config"]
+  RuntimeNormalize --> Agents["agent runtime config"]
+  Contract --> Classic["classicMcpUrl = localhost:CODEINFO_SERVER_PORT/mcp"]
+  Contract --> ChatMcp["chatMcpUrl = localhost:CODEINFO_CHAT_MCP_PORT/mcp"]
+  Contract --> AgentsMcp["agentsMcpUrl = localhost:CODEINFO_AGENTS_MCP_PORT/mcp"]
+  Contract --> Playwright["playwrightMcpUrl = CODEINFO_PLAYWRIGHT_MCP_URL"]
+  Playwright --> Override["full URL override wins"]
+  RuntimeNormalize --> Failure["unresolved required placeholder -> clear failure"]
+  Contract --> Marker["DEV-0000050:T06:mcp_endpoints_normalized"]
+```
+
+## Story 0000050 Task 10: image-baked runtime asset packaging
+
+- Task 10 keeps the existing root build context and checked-in `server/Dockerfile`, but it changes the runtime stage so the server image carries the checked-in runtime trees that the host-network model will need after bind mounts are removed.
+- The baked runtime asset roots are:
+  - `/app/codex`
+  - `/app/codex_agents`
+  - `/app/flows`
+  - `/app/flows-sandbox`
+  - `/fixtures`
+  - `/data`
+- The root `.dockerignore` still excludes only credential files such as `codex/**/auth.json` and `codex_agents/**/auth.json`, so the checked-in runtime trees remain available to the build context without broadly re-opening unrelated files.
+- The client packaging path stays unchanged in this task because no checked-in client-only runtime tree was identified; Task 10 is intentionally limited to the server image and the proof marker in the compose-build summary path.
+- `scripts/compose-build-summary.mjs` now emits `DEV-0000050:T10:image_runtime_assets_baked` after a successful compose build so later runtime-proof tasks can confirm the image-baked asset contract without introducing a bespoke build wrapper.
+
+```mermaid
+flowchart TD
+    A[Repository root build context] --> B[.dockerignore keeps auth.json excluded]
+    B --> C[server/Dockerfile runtime stage]
+    C --> D[/app/codex]
+    C --> E[/app/codex_agents]
+    C --> F[/app/flows]
+    C --> G[/app/flows-sandbox]
+    C --> H[/fixtures]
+    C --> I[/data]
+    D --> J[codeinfo2-server image]
+    E --> J
+    F --> J
+    G --> J
+    H --> J
+    I --> J
+    J --> K[scripts/compose-build-summary.mjs]
+    K --> L[DEV-0000050:T10:image_runtime_assets_baked]
+```
+
+## Story 0000050 Task 11: final host-network runtime topology
+
+- Task 11 moves every checked-in `server` service and the existing checked-in `playwright-mcp` services onto `network_mode: host`, so those processes now bind their real host-visible ports directly instead of relying on Compose port translation.
+- The preserved host-visible server port matrix is:
+  - main stack: `5010`, `5011`, `5012`
+  - local stack: `5510`, `5511`, `5512`
+  - e2e stack: `6010`, `6011`, `6012`
+- The preserved Playwright and browser-debug split is:
+  - main `playwright-mcp`: `8932`
+  - local `playwright-mcp`: `8931`
+  - local Chromium CDP: `9222`
+- The host-networked runtime no longer bind-mounts checked-in runtime trees such as `codex/`, `codex_agents/`, `flows/`, `flows-sandbox/`, or `e2e/fixtures/`. The remaining deliberate mounts are limited to host-visible logs, the external ingest/workdir bind, the host Codex auth-copy source, the local Docker socket where Testcontainers still needs it, corp certs, and Docker-managed named volumes for generated Playwright output.
+- `server/src/index.ts` now emits `DEV-0000050:T11:host_network_runtime_ready` from compose-provided runtime metadata so startup logs can prove the active compose file, bound server ports, Playwright port, and zero checked-in source/config bind mounts.
+
+```mermaid
+flowchart TD
+    subgraph Main["docker-compose.yml"]
+        MainClient[client :5001 bridge port]
+        MainServer[server host network :5010/:5011/:5012]
+        MainPw[playwright-mcp host network :8932]
+    end
+    subgraph Local["docker-compose.local.yml"]
+        LocalClient[client :5501 bridge port]
+        LocalServer[server host network :5510/:5511/:5512]
+        LocalCdp[chromium CDP :9222]
+        LocalPw[playwright-mcp host network :8931]
+    end
+    subgraph E2E["docker-compose.e2e.yml"]
+        E2EClient[client :6001 bridge port]
+        E2EServer[server host network :6010/:6011/:6012]
+    end
+    MainServer --> MainMarker[DEV-0000050:T11:host_network_runtime_ready]
+    LocalServer --> MainMarker
+    E2EServer --> MainMarker
+    MainServer --> Allowed[Allowed mounts: logs, host ingest/workdir, /host/codex, corp certs]
+    LocalServer --> LocalAllowed[Allowed local extras: docker.sock plus logs/host ingest/workdir/host codex/corp certs]
+    MainPw --> PwVolume[named volume: playwright-output-main]
+    LocalPw --> LocalPwVolume[named volume: playwright-output-local]
+```
+
+## Story 0000050 Task 12: main-stack host-network proof wrapper
+
+- Task 12 adds one reusable probe helper in `server/src/test/support/hostNetworkMainProbe.mjs` plus one checked-in wrapper entry point in `scripts/test-summary-host-network-main.mjs`, so the live main-stack proof path reuses the repository's shared heartbeat, saved-log, and final-guidance wrapper contract.
+- The wrapper probes the four fixed main-stack MCP surfaces independently:
+  - classic MCP on `5010` via `/mcp`
+  - chat MCP on `5011`
+  - agents MCP on `5012`
+  - Playwright MCP on `8932` via `/mcp`
+- The helper keeps the environment-sensitive host selection in one place. When the wrapper runs inside a containerized agent workspace it defaults to `host.docker.internal`; otherwise it probes `127.0.0.1`. Explicit endpoint overrides remain available for tests and diagnosis.
+- `server/src/test/unit/test-summary-host-network-main.test.ts` covers three outcomes without a live stack:
+  - all endpoints reachable
+  - one endpoint unavailable as a controlled failure
+  - failure output remains inspectable rather than collapsing into a generic crash
+- The wrapper emits `DEV-0000050:T12:main_stack_probe_completed` with per-surface reachability fields plus the overall result so later manual validation can prove the reusable main-stack probe saw the expected host-network listeners.
+
+```mermaid
+flowchart TD
+    ComposeUp[npm run compose:up] --> Wrapper[scripts/test-summary-host-network-main.mjs]
+    Wrapper --> Helper[server/src/test/support/hostNetworkMainProbe.mjs]
+    Helper --> Classic[classic MCP :5010 /mcp]
+    Helper --> Chat[chat MCP :5011]
+    Helper --> Agents[agents MCP :5012]
+    Helper --> Playwright[Playwright MCP :8932 /mcp]
+    Classic --> Marker[DEV-0000050:T12:main_stack_probe_completed]
+    Chat --> Marker
+    Agents --> Marker
+    Playwright --> Marker
+    Helper --> UnitTests[server/src/test/unit/test-summary-host-network-main.test.ts]
+```
+
+## Story 0000050 final contract summary
+
+- Re-ingest requests now support three explicit target modes across commands, flow steps, and flow-owned command items:
+  - `sourceId: "<selector>"`
+  - `target: "current"`
+  - `target: "all"`
+- The shared orchestration seam in `server/src/ingest/reingestExecution.ts` resolves those requests into one intermediate result family before persistence:
+  - single target: `{ kind: "single", targetMode, requestedSelector, resolvedSourceId, outcome }`
+  - batch target: `{ kind: "batch", targetMode: "all", requestedSelector: null, repositories, summary }`
+- Persisted transcript payloads stay on one synthetic user turn plus one synthetic assistant turn, with `reingest_step_result` for single-target runs and `reingest_step_batch_result` for ordered `target: "all"` runs.
+- Blank markdown remains a repository-resolution feature, not a transcript feature. Missing, traversal, decode, and read failures still fail the step, while whitespace-only markdown now exits through the explicit Task 5 skip seam and does not fabricate turns or tool-call payloads.
+- The final runtime contract keeps four distinct host-visible surfaces:
+  - REST plus classic `/mcp` on `CODEINFO_SERVER_PORT`
+  - dedicated chat MCP on `CODEINFO_CHAT_MCP_PORT`
+  - dedicated agents MCP on `CODEINFO_AGENTS_MCP_PORT`
+  - Playwright control on the full URL `CODEINFO_PLAYWRIGHT_MCP_URL`
+- Host-network Compose is validated, but browser navigation and Playwright control remain intentionally split. Chrome DevTools `9222` is a separate CDP/manual-debug surface and not a replacement for Playwright MCP.
+- Final proof is wrapper-first: build/test summaries, compose build, compose up, the checked-in main-stack host-network probe wrapper, saved screenshots in `playwright-output-local/`, and the runtime marker `DEV-0000050:T14:story_validation_completed`.
+
+```mermaid
+flowchart TD
+    Request["reingest request"] --> Mode{sourceId | current | all}
+    Mode --> Resolve["reingestExecution.ts resolves targets"]
+    Resolve --> Single["kind=single"]
+    Resolve --> Batch["kind=batch"]
+    Single --> PersistSingle["reingest_step_result"]
+    Batch --> PersistBatch["reingest_step_batch_result + summary"]
+    PersistSingle --> Transcript["synthetic user + assistant turns"]
+    PersistBatch --> Transcript
+    Markdown["markdownFile resolution"] --> Blank{trimmed content empty?}
+    Blank -->|yes| Skip["DEV-0000050:T05:markdown_step_skipped"]
+    Blank -->|no| Transcript
+    Skip --> NoTurns["no turns or tool payloads persisted"]
+```
+
+```mermaid
+flowchart LR
+    Build["summary wrappers"] --> ComposeBuild["npm run compose:build:summary"]
+    ComposeBuild --> ComposeUp["npm run compose:up"]
+    ComposeUp --> Rest["REST + classic /mcp : CODEINFO_SERVER_PORT"]
+    ComposeUp --> ChatMcp["chat MCP : CODEINFO_CHAT_MCP_PORT"]
+    ComposeUp --> AgentsMcp["agents MCP : CODEINFO_AGENTS_MCP_PORT"]
+    ComposeUp --> Playwright["Playwright MCP : CODEINFO_PLAYWRIGHT_MCP_URL"]
+    ComposeUp --> Cdp["Chrome DevTools :9222 (manual only)"]
+    Playwright --> Probe["npm run test:summary:host-network:main"]
+    Probe --> Screens["playwright-output-local/0000050-14-*.png"]
+    Screens --> Marker["DEV-0000050:T14:story_validation_completed"]
 ```
 
 ### ChatInterface event buffering & persistence
@@ -4866,7 +5142,7 @@ flowchart TD
 
 ### MCP v2 JSON-RPC (port 5011)
 
-- A second JSON-RPC server listens on `CODEINFO_MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
+- A second JSON-RPC server listens on `CODEINFO_CHAT_MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
 - MCP v2 tools now include `codebase_question` and `reingest_repository`.
 - `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
 - Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
@@ -4948,8 +5224,21 @@ sequenceDiagram
 - Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns), validates raw outbound payload preservation (leading/trailing whitespace + multiline newlines), and asserts whitespace-only submit does not dispatch `POST /chat`; it skips automatically when `/chat/models` is unreachable/empty.
 - Playwright test `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks `POST /chat` (202) + `/ws` transcript events, and asserts citations render `repo/relPath` plus host path. The question is “What does main.txt say about the project?” with the expected answer text “This is the ingest test fixture for CodeInfo2.”
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
-- Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
+- Uses `E2E_BASE_URL` to override the client URL; the checked-in host-network default is `http://host.docker.internal:6001`.
+- The checked-in e2e proof path keeps browser navigation and MCP control separate after the host-network cutover:
+  - browser navigation uses `E2E_BASE_URL` and Playwright `use.baseURL` with the host-visible client address
+  - client runtime API calls still resolve through `E2E_API_URL` / `VITE_CODEINFO_API_URL` against the host-visible server address
+  - Playwright MCP control stays on the separate `E2E_MCP_CONTROL_URL` / `CODEINFO_PLAYWRIGHT_MCP_URL` host-visible endpoint and must not collapse onto the browser base URL
 - Dedicated e2e stack: `docker-compose.e2e.yml` runs client (6001), server (6010), and Chroma (8800) with an isolated `chroma-e2e-data` volume and a mounted fixture repo at `/fixtures`. Scripts `compose:e2e:*` wrap build/up/down. Ingest e2e specs (`e2e/ingest.spec.ts`) exercise happy path, cancel, re-embed, and remove; they auto-skip when LM Studio/models are unavailable.
+
+```mermaid
+flowchart LR
+  EnvFile[".env.e2e host-visible values"] --> Wrapper["scripts/test-summary-e2e.mjs"]
+  Wrapper --> Browser["E2E_BASE_URL -> Playwright baseURL -> http://host.docker.internal:6001"]
+  Wrapper --> Api["E2E_API_URL -> client runtime API base -> http://host.docker.internal:6010"]
+  Wrapper --> Mcp["E2E_MCP_CONTROL_URL -> Playwright MCP control -> http://host.docker.internal:8932/mcp"]
+  Browser -. separate contract .-> Mcp
+```
 
 ### Ingest BDD (Testcontainers)
 

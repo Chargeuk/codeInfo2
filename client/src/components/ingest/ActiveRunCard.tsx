@@ -7,8 +7,8 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
 import { useEffect, useMemo } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { createLogger } from '../../logging';
 
 export type ActiveRunCardProps = {

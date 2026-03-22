@@ -1,3 +1,4 @@
+import { resolveBrowserHostApiBaseUrl } from '../config/apiBaseUrl';
 import {
   getApiBaseUrl,
   getApiBaseUrlBlockingIssue,
@@ -8,7 +9,6 @@ import {
   INVALID_EXPLICIT_API_BASE_URL,
   resetClientRuntimeConfigLogForTests,
 } from '../config/runtimeConfig';
-import { resolveBrowserHostApiBaseUrl } from '../config/apiBaseUrl';
 
 describe('baseUrl env rename', () => {
   const legacyClientEnv = (...parts: string[]) => ['VITE', ...parts].join('_');

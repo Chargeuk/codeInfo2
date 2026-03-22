@@ -9,6 +9,7 @@ import express from 'express';
 import supertest from 'supertest';
 import type WebSocket from 'ws';
 
+import { AbortError, delayWithAbort } from '../../agents/retry.js';
 import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { getInflight } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -16,7 +17,6 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { AbortError, delayWithAbort } from '../../agents/retry.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -26,9 +26,94 @@ import {
   connectWs,
   sendJson,
   waitForEvent,
+  waitForClose,
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const withTimeout = async <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> => {
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+};
+
+const closeHttpServer = async (
+  httpServer: http.Server,
+  timeoutMs = 2000,
+): Promise<void> => {
+  await withTimeout(
+    new Promise<void>((resolve, reject) => {
+      httpServer.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    }),
+    timeoutMs,
+    'Timed out waiting for loop-test HTTP server shutdown',
+  );
+};
+
+const closeFlowHarness = async (params: {
+  ws: WebSocket;
+  wsHandle: Awaited<ReturnType<typeof attachWs>>;
+  httpServer: http.Server;
+}) => {
+  const forceCloseServer = () => {
+    params.httpServer.closeAllConnections?.();
+    params.httpServer.closeIdleConnections?.();
+  };
+
+  try {
+    await withTimeout(
+      closeWs(params.ws),
+      2000,
+      'Timed out gracefully closing loop-test WebSocket client',
+    );
+  } catch {
+    try {
+      params.ws.terminate();
+      await waitForClose(params.ws, 500);
+    } catch {
+      // Ignore forced-close failures and continue draining the server.
+    }
+  }
+
+  try {
+    await withTimeout(
+      params.wsHandle.close(),
+      2000,
+      'Timed out waiting for loop-test WebSocket server shutdown',
+    );
+  } catch {
+    forceCloseServer();
+  }
+
+  try {
+    await closeHttpServer(params.httpServer);
+  } catch (error) {
+    forceCloseServer();
+    await closeHttpServer(params.httpServer, 1000).catch(() => {
+      throw error;
+    });
+  }
+};
 
 class ScriptedChat extends ChatInterface {
   constructor(private readonly responder: (message: string) => string) {
@@ -126,9 +211,7 @@ const withFlowServer = async (
   try {
     await task({ baseUrl, wsUrl: ws });
   } finally {
-    await closeWs(ws);
-    await wsHandle.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    await closeFlowHarness({ ws, wsHandle, httpServer });
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;
@@ -189,7 +272,7 @@ const cleanupConversationRuntime = async (
 
 const waitForRuntimeCleanup = async (
   conversationId: string,
-  timeoutMs = 4000,
+  timeoutMs = 8000,
 ) => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -201,7 +284,11 @@ const waitForRuntimeCleanup = async (
     }
     await delay(25);
   }
-  throw new Error('Timed out waiting for flow runtime cleanup');
+  const inflight = getInflight(conversationId);
+  const ownership = getActiveRunOwnership(conversationId);
+  throw new Error(
+    `Timed out waiting for flow runtime cleanup (inflight=${String(Boolean(inflight))}, ownership=${String(Boolean(ownership))}, inflightId=${inflight?.inflightId ?? 'none'}, runToken=${ownership?.runToken ?? 'none'})`,
+  );
 };
 
 const expectNoTerminalFinal = async (

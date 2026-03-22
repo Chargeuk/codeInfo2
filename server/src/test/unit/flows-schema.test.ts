@@ -240,6 +240,38 @@ describe('flow schema (v1)', () => {
     });
   });
 
+  test('reingest steps parse with target current', () => {
+    const json = JSON.stringify({
+      description: 'Sample flow',
+      steps: [{ type: 'reingest', target: 'current' }],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    assert.deepEqual(parsed.flow.steps[0], {
+      type: 'reingest',
+      target: 'current',
+    });
+  });
+
+  test('reingest steps parse with target all', () => {
+    const json = JSON.stringify({
+      description: 'Sample flow',
+      steps: [{ type: 'reingest', target: 'all' }],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    assert.deepEqual(parsed.flow.steps[0], {
+      type: 'reingest',
+      target: 'all',
+    });
+  });
+
   test('reingest-only flows parse successfully', () => {
     const json = JSON.stringify({
       description: 'Reingest only flow',
@@ -251,6 +283,36 @@ describe('flow schema (v1)', () => {
 
     const parsed = parseFlowFile(json);
     assert.equal(parsed.ok, true);
+  });
+
+  test('reingest steps reject sourceId and target together', () => {
+    const json = JSON.stringify({
+      description: 'Sample flow',
+      steps: [{ type: 'reingest', sourceId: '/tmp/repo', target: 'current' }],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest steps reject unsupported target values', () => {
+    const json = JSON.stringify({
+      description: 'Sample flow',
+      steps: [{ type: 'reingest', target: 'latest' }],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest steps reject whitespace-only sourceId values', () => {
+    const json = JSON.stringify({
+      description: 'Sample flow',
+      steps: [{ type: 'reingest', sourceId: '   ' }],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
   });
 
   test('type discriminator keeps reingest steps distinct from llm instruction fields', () => {

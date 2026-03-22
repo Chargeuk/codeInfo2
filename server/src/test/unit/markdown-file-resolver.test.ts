@@ -5,8 +5,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 
 import {
+  DEV_0000050_T05_MARKDOWN_STEP_SKIPPED,
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
+  prepareMarkdownInstruction,
   resolveMarkdownFile,
 } from '../../flows/markdownFileResolver.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
@@ -281,6 +283,86 @@ describe('resolveMarkdownFile', () => {
     assert.equal(content, 'Café, mañana, 東京, &amp;');
   });
 
+  test('marks newline-only markdown for skip after trimming line breaks', async () => {
+    const resolvedPath = await ensureMarkdownFile(
+      harness.codeInfo2Root,
+      'newline-only.md',
+      '\n\n',
+    );
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    const prepared = await prepareMarkdownInstruction({
+      surface: 'command',
+      commandName: 'newline-command',
+      itemIndex: 0,
+      markdownFile: 'newline-only.md',
+    });
+
+    assert.deepEqual(prepared, {
+      kind: 'skip',
+      lookupSummary: {
+        selectedRepositoryPath: path.resolve(harness.codeInfo2Root),
+        fallbackUsed: false,
+        workingRepositoryAvailable: false,
+      },
+      markdownFile: 'newline-only.md',
+      reason: 'empty_markdown',
+      resolvedPath,
+      resolvedSourceId: path.resolve(harness.codeInfo2Root),
+    });
+  });
+
+  test('marks space-only markdown for skip after trimming spaces', async () => {
+    await ensureMarkdownFile(harness.codeInfo2Root, 'spaces-only.md', '   ');
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    const prepared = await prepareMarkdownInstruction({
+      surface: 'command',
+      commandName: 'spaces-command',
+      itemIndex: 1,
+      markdownFile: 'spaces-only.md',
+    });
+
+    assert.equal(prepared.kind, 'skip');
+    assert.equal(prepared.reason, 'empty_markdown');
+    assert.equal(prepared.markdownFile, 'spaces-only.md');
+  });
+
+  test('emits the documented empty-markdown skip log contract', async () => {
+    const resolvedPath = await ensureMarkdownFile(
+      harness.codeInfo2Root,
+      'skip-log.md',
+      ' \n\t ',
+    );
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    await prepareMarkdownInstruction({
+      surface: 'flow',
+      markdownFile: 'skip-log.md',
+      flowName: 'empty-markdown-flow',
+      stepIndex: 3,
+    });
+
+    const logs = query({ text: DEV_0000050_T05_MARKDOWN_STEP_SKIPPED });
+    assert.equal(logs.length, 1);
+    assert.deepEqual(logs[0]?.context, {
+      surface: 'flow',
+      markdownFile: 'skip-log.md',
+      resolvedPath,
+      reason: 'empty_markdown',
+      commandName: null,
+      itemIndex: null,
+      flowName: 'empty-markdown-flow',
+      stepIndex: 3,
+    });
+  });
+
   test('preserves caller-supplied other-repository order even when labels only differ by case', async () => {
     await ensureMarkdownFile(harness.repoTwo, 'tie.md', 'first path');
     await ensureMarkdownFile(harness.repoThree, 'tie.md', 'second path');
@@ -440,6 +522,23 @@ describe('resolveMarkdownFile', () => {
     );
   });
 
+  test('keeps missing markdown files as hard failures instead of skip cases', async () => {
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    await assert.rejects(
+      () =>
+        prepareMarkdownInstruction({
+          surface: 'command',
+          commandName: 'missing-command',
+          itemIndex: 0,
+          markdownFile: 'missing.md',
+        }),
+      /was not found in any codeinfo_markdown repository candidate/,
+    );
+  });
+
   test('fails fast when a higher-priority repository file cannot be read', async () => {
     const blockedPath = await ensureMarkdownFile(
       harness.repoOne,
@@ -518,6 +617,42 @@ describe('resolveMarkdownFile', () => {
     );
   });
 
+  test('keeps permission-denied markdown reads as hard failures instead of skip cases', async () => {
+    const blockedPath = await ensureMarkdownFile(
+      harness.repoOne,
+      'permission-hard-fail.md',
+      'source file',
+    );
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({ id: 'Flow Repo', containerPath: harness.repoOne }),
+          ],
+        }) as never,
+      readFile: async (filePath) => {
+        if (path.resolve(filePath.toString()) === path.resolve(blockedPath)) {
+          const error = new Error('permission denied') as NodeJS.ErrnoException;
+          error.code = 'EACCES';
+          throw error;
+        }
+        return fs.readFile(filePath);
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        prepareMarkdownInstruction({
+          surface: 'flow',
+          flowName: 'permission-flow',
+          stepIndex: 2,
+          markdownFile: 'permission-hard-fail.md',
+          flowSourceId: harness.repoOne,
+        }),
+      /permission denied/,
+    );
+  });
+
   test('fails fast on invalid UTF-8 in a higher-priority repository without falling through', async () => {
     await ensureMarkdownFile(
       harness.repoOne,
@@ -551,6 +686,37 @@ describe('resolveMarkdownFile', () => {
     );
   });
 
+  test('keeps invalid UTF-8 markdown content as a hard failure instead of skip', async () => {
+    await ensureMarkdownFile(
+      harness.repoOne,
+      'invalid-utf8-hard-fail.md',
+      Uint8Array.from([0xc3, 0x28]),
+    );
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({
+              id: 'Owner Repo',
+              containerPath: harness.repoOne,
+            }),
+          ],
+        }) as never,
+    });
+
+    await assert.rejects(
+      () =>
+        prepareMarkdownInstruction({
+          surface: 'command',
+          commandName: 'utf8-command',
+          itemIndex: 2,
+          markdownFile: 'invalid-utf8-hard-fail.md',
+          sourceId: harness.repoOne,
+        }),
+      /Invalid UTF-8 markdown content/,
+    );
+  });
+
   test('rejects empty markdownFile paths before reading files', async () => {
     let readCalls = 0;
     __setMarkdownFileResolverDepsForTests({
@@ -578,6 +744,19 @@ describe('resolveMarkdownFile', () => {
   test('rejects parent-directory traversal in markdownFile paths', async () => {
     await assert.rejects(
       () => resolveMarkdownFile({ markdownFile: '../escape.md' }),
+      /must not use parent-directory traversal/,
+    );
+  });
+
+  test('keeps traversal attempts as hard failures instead of skip cases', async () => {
+    await assert.rejects(
+      () =>
+        prepareMarkdownInstruction({
+          surface: 'command',
+          commandName: 'traversal-command',
+          itemIndex: 3,
+          markdownFile: '../escape.md',
+        }),
       /must not use parent-directory traversal/,
     );
   });

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
 test('Logs page shows a streamed sample log', async ({ page }) => {
   try {

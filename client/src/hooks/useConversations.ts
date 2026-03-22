@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 import {
   parseConversationSummary,
   updateConversationWorkingFolder as updateConversationWorkingFolderApi,
   type ConversationApiSummary,
 } from '../api/conversations';
-import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
 
 const serverBase = getApiBaseUrl();
@@ -233,7 +233,8 @@ export function useConversations(params?: {
         }
         const data = (await res.json()) as ApiResponse;
         const items = (Array.isArray(data.items) ? data.items : []).map(
-          (item) => normalizeConversationSummary(parseConversationSummary(item)),
+          (item) =>
+            normalizeConversationSummary(parseConversationSummary(item)),
         );
         setHasMore(Boolean(data.nextCursor));
         cursorRef.current = data.nextCursor;

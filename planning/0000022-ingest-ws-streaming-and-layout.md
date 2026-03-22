@@ -1539,7 +1539,7 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 ### 6. Client: switch Ingest page to WS-only run UI (no last-run summary)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **d5d37d1, c04f817**
 
 #### Overview
@@ -1778,7 +1778,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 ### 7. Client: full-width Ingest layout
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **eaaacae, 9bfc9a0**
 
 #### Overview

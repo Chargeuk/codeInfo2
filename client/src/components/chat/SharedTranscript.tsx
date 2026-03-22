@@ -237,7 +237,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       }
 
       syncScrollMetrics();
-    }, [conversationId, conversationKey, surface, syncScrollMetrics]);
+    }, [conversationKey, syncScrollMetrics]);
 
     const handleSharedTranscriptScroll = useCallback<
       UIEventHandler<HTMLDivElement>
@@ -357,11 +357,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
     useLayoutEffect(() => {
       const transcriptElement = transcriptContainerRef.current;
-      if (
-        transcriptElement &&
-        openHistoryAtTopRef.current &&
-        !turnsLoading
-      ) {
+      if (transcriptElement && openHistoryAtTopRef.current && !turnsLoading) {
         initialHistoryOpenHandledRef.current = true;
         openHistoryAtTopRef.current = false;
         transcriptElement.scrollTop = 0;

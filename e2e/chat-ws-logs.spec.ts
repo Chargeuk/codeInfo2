@@ -3,7 +3,7 @@ import { installMockChatWs } from './support/mockChatWs';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
 test('Logs page shows chat WS client log lines after transcript events', async ({
   page,

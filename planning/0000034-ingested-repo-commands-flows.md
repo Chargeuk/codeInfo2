@@ -118,7 +118,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: Ingested agent command discovery + list contract
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: c964fec
 
 #### Overview
@@ -290,7 +290,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 
 ### 2. Server: Agent command run sourceId support (REST + MCP)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 6eb6dd7, 5097f0c
 
 #### Overview
@@ -432,7 +432,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
 
 ### 3. Server: Ingested flow discovery + list contract
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: c5d170d, c8fe2ed
 
 #### Overview
@@ -570,7 +570,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 
 ### 4. Server: Flow run sourceId support
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 59a93c7, a879dc2
 
 #### Overview
@@ -687,7 +687,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 
 ### 5. Client: Agents commands dropdown + run payload sourceId
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: ea9d0e8
 
 #### Overview
@@ -811,7 +811,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 
 ### 6. Client: Flows dropdown + run payload sourceId
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: eb22ef5, c8fe2ed, 702ffb3
 
 #### Overview
@@ -936,7 +936,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 
 ### 7. Final verification + documentation + PR summary
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: aed077e, 7f139ef, de6d433
 
 #### Overview

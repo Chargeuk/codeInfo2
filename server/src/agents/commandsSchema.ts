@@ -28,12 +28,32 @@ const AgentCommandMessageItemSchema = z.union([
   AgentCommandMessageMarkdownFileItemSchema,
 ]);
 
-const AgentCommandReingestItemSchema = z
+const AgentCommandReingestSourceIdItemSchema = z
   .object({
     type: z.literal('reingest'),
     sourceId: trimmedNonEmptyString,
   })
   .strict();
+
+const AgentCommandReingestCurrentTargetItemSchema = z
+  .object({
+    type: z.literal('reingest'),
+    target: z.literal('current'),
+  })
+  .strict();
+
+const AgentCommandReingestAllTargetItemSchema = z
+  .object({
+    type: z.literal('reingest'),
+    target: z.literal('all'),
+  })
+  .strict();
+
+const AgentCommandReingestItemSchema = z.union([
+  AgentCommandReingestSourceIdItemSchema,
+  AgentCommandReingestCurrentTargetItemSchema,
+  AgentCommandReingestAllTargetItemSchema,
+]);
 
 const AgentCommandItemSchema = z.union([
   AgentCommandMessageItemSchema,

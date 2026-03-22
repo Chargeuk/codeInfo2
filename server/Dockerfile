@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22-slim AS deps
+# `node:22-slim` floated to 22.22.1 and started breaking the pinned
+# `tree-sitter@0.21.1` native rebuild during `npm ci`. Pin the image to the
+# repo's validated 22.21.1 patch level until the tree-sitter stack is upgraded.
+FROM node:22.21.1-slim AS deps
 WORKDIR /app
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
@@ -23,7 +26,7 @@ RUN set -eu; \
       echo "[CODEINFO][T03_BUILD][deps] npm registry override disabled"; \
       npm ci --workspaces --include-workspace-root --no-audit --no-fund; \
     fi
-FROM node:22-slim AS build
+FROM node:22.21.1-slim AS build
 WORKDIR /app
 ENV HUSKY=0
 COPY --from=deps /app/node_modules /app/node_modules
@@ -39,7 +42,7 @@ COPY common ./common
 COPY server ./server
 RUN npm run build --workspace common && npm run build --workspace server
 
-FROM node:22-slim AS runtime
+FROM node:22.21.1-slim AS runtime
 ARG HOME
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
@@ -174,6 +177,12 @@ COPY --from=build /app/server/src/ast/queries ./src/ast/queries
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
+COPY codex /app/codex
+COPY codex_agents /app/codex_agents
+COPY flows /app/flows
+COPY flows-sandbox /app/flows-sandbox
+COPY e2e/fixtures /fixtures
+COPY e2e/fixtures/repo /data
 
 # Set Playwright to use the browsers installed during build.
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright

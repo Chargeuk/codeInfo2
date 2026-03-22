@@ -4,6 +4,9 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it, mock } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+import { parse } from 'dotenv';
 
 import {
   ensureCodexConfigSeeded,
@@ -11,12 +14,14 @@ import {
   getCodexConfigPathForHome,
   getCodexHome,
 } from '../../config/codexConfig.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
   ensureChatRuntimeConfigBootstrapped,
   loadRuntimeConfigSnapshot,
   mergeProjectsFromBaseIntoRuntime,
   mergeRuntimeConfigWithBaseConfig,
   minimizeBaseConfigToProjectsOnly,
+  normalizeCodeinfoRuntimeConfigPlaceholders,
   normalizeContext7RuntimeConfig,
   normalizeRuntimeConfig,
   readAndNormalizeRuntimeTomlConfig,
@@ -28,6 +33,15 @@ import {
 } from '../../config/runtimeConfig.js';
 
 const originalContext7ApiKey = process.env.CODEINFO_CONTEXT7_API_KEY;
+const originalServerPort = process.env.CODEINFO_SERVER_PORT;
+const originalChatMcpPort = process.env.CODEINFO_CHAT_MCP_PORT;
+const originalLegacyMcpPort = process.env.CODEINFO_MCP_PORT;
+const originalAgentsMcpPort = process.env.CODEINFO_AGENTS_MCP_PORT;
+const originalPlaywrightMcpUrl = process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../..',
+);
 
 afterEach(() => {
   mock.restoreAll();
@@ -35,6 +49,31 @@ afterEach(() => {
     delete process.env.CODEINFO_CONTEXT7_API_KEY;
   } else {
     process.env.CODEINFO_CONTEXT7_API_KEY = originalContext7ApiKey;
+  }
+  if (originalServerPort === undefined) {
+    delete process.env.CODEINFO_SERVER_PORT;
+  } else {
+    process.env.CODEINFO_SERVER_PORT = originalServerPort;
+  }
+  if (originalChatMcpPort === undefined) {
+    delete process.env.CODEINFO_CHAT_MCP_PORT;
+  } else {
+    process.env.CODEINFO_CHAT_MCP_PORT = originalChatMcpPort;
+  }
+  if (originalLegacyMcpPort === undefined) {
+    delete process.env.CODEINFO_MCP_PORT;
+  } else {
+    process.env.CODEINFO_MCP_PORT = originalLegacyMcpPort;
+  }
+  if (originalAgentsMcpPort === undefined) {
+    delete process.env.CODEINFO_AGENTS_MCP_PORT;
+  } else {
+    process.env.CODEINFO_AGENTS_MCP_PORT = originalAgentsMcpPort;
+  }
+  if (originalPlaywrightMcpUrl === undefined) {
+    delete process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
+  } else {
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL = originalPlaywrightMcpUrl;
   }
 });
 
@@ -919,6 +958,369 @@ describe('runtimeConfig merge and validation', () => {
 });
 
 describe('runtimeConfig Context7 overlay', () => {
+  it('resolves CODEINFO_SERVER_PORT placeholders through the shared runtime path', () => {
+    process.env.CODEINFO_SERVER_PORT = '6510';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        ingest: {
+          url: 'http://localhost:${CODEINFO_SERVER_PORT}/mcp',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      ingest: { url: 'http://localhost:6510/mcp' },
+    });
+  });
+
+  it('resolves CODEINFO_CHAT_MCP_PORT placeholders through the shared runtime path', () => {
+    process.env.CODEINFO_CHAT_MCP_PORT = '6511';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        code_info: {
+          command: 'npx',
+          args: [
+            '-y',
+            'mcp-remote',
+            'http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp',
+          ],
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      code_info: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6511/mcp'],
+      },
+    });
+  });
+
+  it('resolves CODEINFO_AGENTS_MCP_PORT placeholders through the shared runtime path', () => {
+    process.env.CODEINFO_AGENTS_MCP_PORT = '6512';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        agents: {
+          url: 'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      agents: { url: 'http://localhost:6512/mcp' },
+    });
+  });
+
+  it('resolves CODEINFO_PLAYWRIGHT_MCP_URL through the shared runtime path', () => {
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:8931/mcp/playwright';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        playwright: {
+          url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      playwright: { url: 'http://localhost:8931/mcp/playwright' },
+    });
+  });
+
+  it('prefers the full Playwright MCP URL override over derived localhost contract values', () => {
+    process.env.CODEINFO_CHAT_MCP_PORT = '6511';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:8931/mcp/playwright';
+
+    const endpoints = resolveCodeinfoMcpEndpointContract();
+
+    assert.equal(endpoints.chatMcpUrl, 'http://localhost:6511/mcp');
+    assert.equal(
+      endpoints.playwrightMcpUrl,
+      'http://localhost:8931/mcp/playwright',
+    );
+    assert.notEqual(endpoints.playwrightMcpUrl, endpoints.chatMcpUrl);
+  });
+
+  it('fails clearly when a required MCP placeholder remains unresolved', () => {
+    delete process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
+
+    assert.throws(
+      () =>
+        normalizeCodeinfoRuntimeConfigPlaceholders({
+          mcp_servers: {
+            playwright: {
+              url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+            },
+          },
+        }),
+      /Unresolved required MCP placeholder CODEINFO_PLAYWRIGHT_MCP_URL/u,
+    );
+  });
+
+  it('normalizes the checked-in example config through the migrated placeholder contract', async () => {
+    const configPath = path.join(repoRoot, 'config.toml.example');
+    const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
+      required: true,
+    });
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(parsed!, {
+      CODEINFO_SERVER_PORT: '6010',
+      CODEINFO_CHAT_MCP_PORT: '6011',
+      CODEINFO_AGENTS_MCP_PORT: '6012',
+      CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8932/mcp',
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      context7: {
+        command: 'npx',
+        args: [
+          '-y',
+          '@upstash/context7-mcp',
+          '--api-key',
+          'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866',
+        ],
+        startup_timeout_sec: 20,
+      },
+      mui: {
+        command: 'npx',
+        args: ['-y', '@mui/mcp@latest'],
+      },
+      deepwiki: {
+        url: 'https://mcp.deepwiki.com/mcp',
+        startup_timeout_sec: 20,
+      },
+      chrome_devtools: {
+        command: 'npx',
+        args: [
+          '-y',
+          'chrome-devtools-mcp@latest',
+          '--browser-url=http://127.0.0.1:9222',
+        ],
+        startup_timeout_sec: 20,
+      },
+      code_info: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6010/mcp'],
+        startup_timeout_sec: 60,
+      },
+    });
+  });
+
+  it('resolves checked-in chat MCP placeholders from CODEINFO_CHAT_MCP_PORT', async () => {
+    const configPath = path.join(
+      repoRoot,
+      'codex_agents/tasking_agent/config.toml',
+    );
+    const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
+      required: true,
+    });
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(parsed!, {
+      CODEINFO_CHAT_MCP_PORT: '6511',
+      CODEINFO_AGENTS_MCP_PORT: '6512',
+      CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8931/mcp',
+    });
+
+    assert.deepEqual(
+      (normalized.mcp_servers as Record<string, unknown>).code_info,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6511/mcp'],
+        startup_timeout_sec: 60,
+        tool_timeout_sec: 1800,
+      },
+    );
+  });
+
+  it('resolves checked-in root .env.e2e MCP placeholders from the wrapper env file shape', async () => {
+    const envText = await fs.readFile(path.join(repoRoot, '.env.e2e'), 'utf8');
+    const env = parse(envText);
+    const parsed = await readAndNormalizeRuntimeTomlConfig(
+      path.join(repoRoot, 'codex/chat/config.toml'),
+      { required: true },
+    );
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(
+      parsed!,
+      env as NodeJS.ProcessEnv,
+    );
+
+    assert.deepEqual(
+      (normalized.mcp_servers as Record<string, unknown>).code_info,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6010/mcp'],
+        startup_timeout_sec: 60,
+      },
+    );
+  });
+
+  it('does not let legacy CODEINFO_MCP_PORT satisfy checked-in chat MCP placeholders', async () => {
+    const parsed = await readAndNormalizeRuntimeTomlConfig(
+      path.join(repoRoot, 'codex_agents/tasking_agent/config.toml'),
+      { required: true },
+    );
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(parsed!, {
+      CODEINFO_MCP_PORT: '6511',
+      CODEINFO_AGENTS_MCP_PORT: '6512',
+      CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8931/mcp',
+    });
+
+    assert.deepEqual(
+      (normalized.mcp_servers as Record<string, unknown>).code_info,
+      {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5011/mcp'],
+        startup_timeout_sec: 60,
+        tool_timeout_sec: 1800,
+      },
+    );
+  });
+
+  it('logs the checked-in MCP contract marker when chat runtime config loads', async () => {
+    process.env.CODEINFO_SERVER_PORT = '6010';
+    process.env.CODEINFO_CHAT_MCP_PORT = '6011';
+    process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:8932/mcp/playwright';
+
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const infoLogs: unknown[][] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args);
+    });
+
+    try {
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        path.join(codexHome, 'config.toml'),
+      );
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.copyFile(
+        path.join(repoRoot, 'codex/chat/config.toml'),
+        path.join(codexHome, 'chat/config.toml'),
+      );
+
+      await resolveChatRuntimeConfig({ codexHome });
+
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as
+            | {
+                configPath?: string;
+                chatPortVar?: string;
+                agentsPortVar?: string;
+                playwrightUrlVar?: string;
+                legacyFallbackUsed?: boolean;
+              }
+            | undefined;
+          return (
+            entry[0] === 'DEV-0000050:T07:checked_in_mcp_contract_loaded' &&
+            payload?.configPath === path.join(codexHome, 'chat/config.toml') &&
+            payload.chatPortVar === 'CODEINFO_CHAT_MCP_PORT' &&
+            payload.agentsPortVar === 'CODEINFO_AGENTS_MCP_PORT' &&
+            payload.playwrightUrlVar === 'CODEINFO_PLAYWRIGHT_MCP_URL' &&
+            payload.legacyFallbackUsed === false
+          );
+        }),
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('does not report a legacy MCP fallback when only CODEINFO_MCP_PORT is set', async () => {
+    process.env.CODEINFO_SERVER_PORT = '6010';
+    delete process.env.CODEINFO_CHAT_MCP_PORT;
+    process.env.CODEINFO_MCP_PORT = '6011';
+    process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
+      'http://localhost:8932/mcp/playwright';
+
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const infoLogs: unknown[][] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args);
+    });
+
+    try {
+      await fs.copyFile(
+        path.join(repoRoot, 'config.toml.example'),
+        path.join(codexHome, 'config.toml'),
+      );
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.copyFile(
+        path.join(repoRoot, 'codex/chat/config.toml'),
+        path.join(codexHome, 'chat/config.toml'),
+      );
+
+      await resolveChatRuntimeConfig({ codexHome });
+
+      assert(
+        infoLogs.some((entry) => {
+          const payload = entry[1] as { legacyFallbackUsed?: boolean } | undefined;
+          return (
+            entry[0] === 'DEV-0000050:T07:checked_in_mcp_contract_loaded' &&
+            payload?.legacyFallbackUsed === false
+          );
+        }),
+      );
+    } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('replaces MCP placeholder values in memory before validation', () => {
+    process.env.CODEINFO_SERVER_PORT = '5510';
+    process.env.CODEINFO_CHAT_MCP_PORT = '5511';
+    process.env.CODEINFO_AGENTS_MCP_PORT = '5512';
+    process.env.CODEINFO_PLAYWRIGHT_MCP_URL = 'http://localhost:8931/mcp';
+
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
+      mcp_servers: {
+        code_info: {
+          command: 'npx',
+          args: [
+            '-y',
+            'mcp-remote',
+            'http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp',
+          ],
+        },
+        ingest: {
+          url: 'http://localhost:${CODEINFO_SERVER_PORT}/mcp',
+        },
+        agents: {
+          url: 'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
+        },
+        playwright: {
+          url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.mcp_servers, {
+      code_info: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:5511/mcp'],
+      },
+      ingest: {
+        url: 'http://localhost:5510/mcp',
+      },
+      agents: {
+        url: 'http://localhost:5512/mcp',
+      },
+      playwright: {
+        url: 'http://localhost:8931/mcp',
+      },
+    });
+  });
+
   it('replaces REPLACE_WITH_CONTEXT7_API_KEY in memory from CODEINFO_CONTEXT7_API_KEY', () => {
     process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
 

@@ -50,18 +50,27 @@ const buildRepoEntry = (params: {
   lastError: null,
 });
 
+const listDefaultReingestRepos = async () => ({
+  repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' })],
+  lockedModelId: null,
+});
+
 const buildReingestSuccess = (
   overrides: Partial<{
     status: 'completed' | 'cancelled' | 'error';
     errorCode: string | null;
     sourceId: string;
     runId: string;
+    resolvedRepositoryId: string | null;
+    completionMode: 'reingested' | 'skipped' | null;
   }> = {},
 ) => ({
   status: 'completed' as const,
   operation: 'reembed' as const,
   runId: 'run-123',
   sourceId: '/repo/source-a',
+  resolvedRepositoryId: 'repo-a',
+  completionMode: 'reingested' as const,
   durationMs: 100,
   files: 3,
   chunks: 7,
@@ -919,6 +928,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-then-message',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         seenInstructions.push(params.instruction);
         messageAttempts += 1;
@@ -960,7 +970,7 @@ describe('agent commands runner (v1)', () => {
         ok: true,
         value: buildReingestSuccess({ status: 'completed' }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -968,14 +978,24 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single'
+              ? execution.outcome.status
+              : 'completed',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),
@@ -992,6 +1012,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-completed',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1000,6 +1021,153 @@ describe('agent commands runner (v1)', () => {
 
     assert.deepEqual(lifecycleStatuses, ['completed']);
     assert.deepEqual(messageSteps, [2]);
+  });
+
+  test('target all reingest carries batch execution metadata and ordered per-repository outcomes', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-all-batch',
+      jsonText: JSON.stringify({
+        Description: 'Reingest all',
+        items: [
+          { type: 'reingest', target: 'all' },
+          { type: 'message', role: 'user', content: ['after'] },
+        ],
+      }),
+    });
+
+    const reingestCalls: string[] = [];
+    const lifecycleCalls: string[] = [];
+    const messageSteps: number[] = [];
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        reingestCalls.push(sourceId ?? '(missing)');
+        if (sourceId === '/repo/a') {
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId,
+              resolvedRepositoryId: 'repo-a',
+            }),
+          };
+        }
+        if (sourceId === '/repo/b') {
+          return {
+            ok: false,
+            error: buildReingestError({
+              message: 'BUSY',
+              code: 'BUSY',
+              fieldMessage:
+                'reingest is currently locked by another ingest operation',
+            }),
+          };
+        }
+        return {
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId,
+            resolvedRepositoryId: 'repo-c',
+            completionMode: 'skipped',
+          }),
+        };
+      },
+      runReingestStepLifecycle: async (params) => {
+        lifecycleCalls.push(params.command.name);
+      },
+    });
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'reingest-all-batch',
+      initialModelId: 'agent-model-1',
+      source: 'REST',
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({ id: 'repo-c', containerPath: '/repo/c' }),
+          buildRepoEntry({ id: 'repo-a', containerPath: '/repo/a' }),
+          buildRepoEntry({ id: 'repo-b', containerPath: '/repo/b' }),
+        ],
+        lockedModelId: null,
+      }),
+      runAgentInstructionUnlocked: async (params) => {
+        messageSteps.push(params.command?.stepIndex ?? -1);
+        return { modelId: 'agent-model-1' };
+      },
+    });
+
+    assert.deepEqual(reingestCalls, ['/repo/a', '/repo/b', '/repo/c']);
+    assert.deepEqual(lifecycleCalls, ['reingest-all-batch']);
+    assert.deepEqual(messageSteps, [2]);
+
+    const resolutionLog = query({
+      text: 'DEV-0000050:T03:reingest_targets_resolved',
+    }).find(
+      (entry) =>
+        entry.context?.targetMode === 'all' &&
+        entry.context?.surface === 'command',
+    );
+    assert.deepEqual(resolutionLog?.context?.resolvedPaths, [
+      '/repo/a',
+      '/repo/b',
+      '/repo/c',
+    ]);
+
+    const batchLog = query({
+      text: 'DEV-0000045:T9:direct_command_reingest_recorded',
+    }).find(
+      (entry) =>
+        entry.context?.targetMode === 'all' &&
+        entry.context?.commandName === 'reingest-all-batch',
+    );
+    assert.equal(batchLog?.context?.requestedSelector, null);
+    assert.equal(batchLog?.context?.repositoryCount, 3);
+    assert.deepEqual(batchLog?.context?.repositories, [
+      {
+        sourceId: '/repo/a',
+        resolvedRepositoryId: 'repo-a',
+        outcome: 'reingested',
+        status: 'completed',
+        completionMode: 'reingested',
+        runId: 'run-123',
+        files: 3,
+        chunks: 7,
+        embedded: 7,
+        errorCode: null,
+        errorMessage: null,
+      },
+      {
+        sourceId: '/repo/b',
+        resolvedRepositoryId: 'repo-b',
+        outcome: 'failed',
+        status: 'error',
+        completionMode: null,
+        runId: null,
+        files: 0,
+        chunks: 0,
+        embedded: 0,
+        errorCode: 'BUSY',
+        errorMessage:
+          'reingest is currently locked by another ingest operation',
+      },
+      {
+        sourceId: '/repo/c',
+        resolvedRepositoryId: 'repo-c',
+        outcome: 'skipped',
+        status: 'completed',
+        completionMode: 'skipped',
+        runId: 'run-123',
+        files: 3,
+        chunks: 7,
+        embedded: 7,
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
   });
 
   test('terminal cancelled reingest outcomes remain non-fatal once started', async () => {
@@ -1026,7 +1194,7 @@ describe('agent commands runner (v1)', () => {
         ok: true,
         value: buildReingestSuccess({ status: 'cancelled' }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -1034,14 +1202,22 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single' ? execution.outcome.status : 'error',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),
@@ -1058,6 +1234,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-cancelled',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1095,7 +1272,7 @@ describe('agent commands runner (v1)', () => {
           errorCode: 'WAIT_TIMEOUT',
         }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -1103,14 +1280,22 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single' ? execution.outcome.status : 'error',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),
@@ -1127,6 +1312,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-error',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1157,7 +1343,7 @@ describe('agent commands runner (v1)', () => {
         ok: true,
         value: buildReingestSuccess({ status: 'completed' }),
       }),
-      buildReingestToolResult: ({ callId, outcome }) => ({
+      buildReingestToolResult: ({ callId, execution }) => ({
         type: 'tool-result',
         callId,
         name: 'reingest_repository',
@@ -1165,14 +1351,24 @@ describe('agent commands runner (v1)', () => {
         result: {
           kind: 'reingest_step_result',
           stepType: 'reingest',
-          sourceId: outcome.sourceId,
-          status: outcome.status,
-          operation: outcome.operation,
-          runId: outcome.runId,
-          files: outcome.files,
-          chunks: outcome.chunks,
-          embedded: outcome.embedded,
-          errorCode: outcome.errorCode,
+          sourceId:
+            execution.kind === 'single' ? execution.outcome.sourceId : '',
+          status:
+            execution.kind === 'single'
+              ? execution.outcome.status
+              : 'completed',
+          operation:
+            execution.kind === 'single'
+              ? execution.outcome.operation
+              : 'reembed',
+          runId:
+            execution.kind === 'single' ? execution.outcome.runId : 'run-batch',
+          files: execution.kind === 'single' ? execution.outcome.files : 0,
+          chunks: execution.kind === 'single' ? execution.outcome.chunks : 0,
+          embedded:
+            execution.kind === 'single' ? execution.outcome.embedded : 0,
+          errorCode:
+            execution.kind === 'single' ? execution.outcome.errorCode : null,
         },
         error: null,
       }),
@@ -1189,6 +1385,7 @@ describe('agent commands runner (v1)', () => {
       commandName: 'reingest-skipped-normalized',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async () => ({ modelId: 'agent-model-1' }),
     });
 
@@ -1231,6 +1428,7 @@ describe('agent commands runner (v1)', () => {
       initialModelId: 'agent-model-1',
       source: 'REST',
       signal: controller.signal,
+      listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async (params) => {
         messageSteps.push(params.command?.stepIndex ?? -1);
         return { modelId: 'agent-model-1' };
@@ -1281,6 +1479,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-bad-source',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => {
             messageCalls += 1;
             return { modelId: 'agent-model-1' };
@@ -1334,6 +1533,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-missing-source',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => {
             messageCalls += 1;
             return { modelId: 'agent-model-1' };
@@ -1387,6 +1587,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-busy',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => {
             messageCalls += 1;
             return { modelId: 'agent-model-1' };
@@ -1435,6 +1636,7 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-format-fallback',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => ({
             modelId: 'agent-model-1',
           }),
@@ -1475,11 +1677,45 @@ describe('agent commands runner (v1)', () => {
           commandName: 'reingest-throws',
           initialModelId: 'agent-model-1',
           source: 'REST',
+          listIngestedRepositories: listDefaultReingestRepos,
           runAgentInstructionUnlocked: async () => ({
             modelId: 'agent-model-1',
           }),
         }),
       /unexpected reingest failure/,
+    );
+  });
+
+  test('direct command reingest surfaces selector-listing outages instead of INVALID_SOURCE_ID fallback', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-selector-outage',
+      jsonText: JSON.stringify({
+        Description: 'Reingest selector outage',
+        items: [{ type: 'reingest', sourceId: 'Repo Selected' }],
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-selector-outage',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          listIngestedRepositories: async () => {
+            throw new Error('ingested repository listing unavailable');
+          },
+          runAgentInstructionUnlocked: async () => ({
+            modelId: 'agent-model-1',
+          }),
+        }),
+      /ingested repository listing unavailable/,
     );
   });
 

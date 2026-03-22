@@ -72,7 +72,11 @@ test('optional renamed CODEINFO env keys stay absent and defaults can still reso
   const serverRoot = createServerRoot();
   const targetEnv: Record<string, string | undefined> = {};
 
-  writeEnvFile(serverRoot, '.env', ['CODEINFO_SERVER_PORT=5010', ''].join('\n'));
+  writeEnvFile(
+    serverRoot,
+    '.env',
+    ['CODEINFO_SERVER_PORT=5010', ''].join('\n'),
+  );
 
   const result = loadStartupEnv({ serverRoot, targetEnv });
   const resolutions = resolveCodeinfoEnvResolutions({
@@ -107,7 +111,7 @@ test('runtime server env rename inventory is surfaced through startup env resolu
       'CODEINFO_SERVER_PORT=5510',
       'CODEINFO_MONGO_URI=mongodb://example/db',
       'CODEINFO_CHROMA_URL=http://example:8000',
-      'CODEINFO_MCP_PORT=5511',
+      'CODEINFO_CHAT_MCP_PORT=5511',
       'CODEINFO_AGENTS_MCP_PORT=5512',
       'CODEINFO_HOST_INGEST_DIR=/host/base',
       'CODEINFO_OPENAI_INGEST_MAX_RETRIES=8',
@@ -125,7 +129,7 @@ test('runtime server env rename inventory is surfaced through startup env resolu
     'CODEINFO_SERVER_PORT',
     'CODEINFO_MONGO_URI',
     'CODEINFO_CHROMA_URL',
-    'CODEINFO_MCP_PORT',
+    'CODEINFO_CHAT_MCP_PORT',
     'CODEINFO_AGENTS_MCP_PORT',
     'CODEINFO_HOST_INGEST_DIR',
     'CODEINFO_OPENAI_INGEST_MAX_RETRIES',
@@ -144,6 +148,35 @@ test('runtime server env rename inventory is surfaced through startup env resolu
       true,
     );
   }
+});
+
+test('runtime startup env resolution also surfaces CODEINFO_CHAT_MCP_PORT when it is defined', () => {
+  const serverRoot = createServerRoot();
+  const targetEnv: Record<string, string | undefined> = {};
+
+  writeEnvFile(
+    serverRoot,
+    '.env',
+    ['CODEINFO_CHAT_MCP_PORT=6511', ''].join('\n'),
+  );
+
+  const result = loadStartupEnv({ serverRoot, targetEnv });
+  const resolutions = resolveCodeinfoEnvResolutions({
+    env: targetEnv,
+    loadResult: result,
+  });
+
+  assert.equal(targetEnv.CODEINFO_CHAT_MCP_PORT, '6511');
+  assert.equal(
+    resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_MCP_PORT')
+      ?.defined,
+    true,
+  );
+  assert.equal(
+    resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_MCP_PORT')
+      ?.source,
+    'server/.env',
+  );
 });
 
 test('runtime pre-seeded renamed CODEINFO values override file defaults', () => {

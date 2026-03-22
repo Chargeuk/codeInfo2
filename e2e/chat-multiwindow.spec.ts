@@ -14,7 +14,7 @@ type Turn = {
   createdAt: string;
 };
 
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 
 test('cross-tab follow-up creates a new assistant bubble in passive window', async ({

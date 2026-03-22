@@ -205,9 +205,7 @@ describe('Codex model reasoning effort flag payloads', () => {
     ).toEqual(['Minimal']);
   });
 
-  it(
-    'omits reasoning effort for LM Studio, forwards selected value for Codex, and resets to default',
-    async () => {
+  it('omits reasoning effort for LM Studio, forwards selected value for Codex, and resets to default', async () => {
     const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const chatBodies: Record<string, unknown>[] = [];
@@ -313,64 +311,56 @@ describe('Codex model reasoning effort flag payloads', () => {
       infoSpy.mockRestore();
       errorSpy.mockRestore();
     }
-    },
-    10000,
-  );
+  }, 10000);
 
-  it(
-    'emits only supported reasoning values and falls back to model default before send',
-    async () => {
-      const chatBodies: Record<string, unknown>[] = [];
-      mockProvidersWithBodies(chatBodies);
+  it('emits only supported reasoning values and falls back to model default before send', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockProvidersWithBodies(chatBodies);
 
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
-      await userEvent.click(providerSelect);
-      const codexOption = await screen.findByRole('option', {
-        name: /openai codex/i,
-      });
-      await userEvent.click(codexOption);
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
 
-      await ensureCodexFlagsPanelExpanded();
+    await ensureCodexFlagsPanelExpanded();
 
-      const reasoningSelect = await screen.findByRole('combobox', {
-        name: /reasoning effort/i,
-      });
-      await userEvent.click(reasoningSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /xhigh/i }),
-      );
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await userEvent.click(reasoningSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /xhigh/i }),
+    );
 
-      const modelSelect = await screen.findByRole('combobox', { name: /model/i });
-      await userEvent.click(modelSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /gpt-5.2/i }),
-      );
-      await waitFor(() =>
-        expect(reasoningSelect).toHaveTextContent(/minimal/i),
-      );
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await userEvent.click(modelSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /gpt-5.2/i }),
+    );
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
 
-      const input = await screen.findByTestId('chat-input');
-      const sendButton = await screen.findByTestId('chat-send');
-      await userEvent.clear(input);
-      await userEvent.type(input, 'Validate fallback payload');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await act(async () => {
-        await userEvent.click(sendButton);
-      });
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Validate fallback payload');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
 
-      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-      const payload = chatBodies.at(-1) ?? {};
-      expect(payload.provider).toBe('codex');
-      expect(payload.model).toBe('gpt-5.2');
-      expect(payload.modelReasoningEffort).toBe('minimal');
-    },
-    10000,
-  );
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+    const payload = chatBodies.at(-1) ?? {};
+    expect(payload.provider).toBe('codex');
+    expect(payload.model).toBe('gpt-5.2');
+    expect(payload.modelReasoningEffort).toBe('minimal');
+  }, 10000);
 
   it('keeps single-option capability models valid for UI and payload', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -421,127 +411,117 @@ describe('Codex model reasoning effort flag payloads', () => {
     expect((chatBodies.at(-1) ?? {}).modelReasoningEffort).toBe('minimal');
   });
 
-  it(
-    'applies capability-driven reasoning to the next-send model after an active run is hidden',
-    async () => {
-      const chatBodies: Record<string, unknown>[] = [];
-      mockProvidersWithBodies(chatBodies);
+  it('applies capability-driven reasoning to the next-send model after an active run is hidden', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockProvidersWithBodies(chatBodies);
 
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /openai codex/i }),
-      );
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
 
-      await ensureCodexFlagsPanelExpanded();
+    await ensureCodexFlagsPanelExpanded();
 
-      const modelSelect = await screen.findByRole('combobox', {
-        name: /model/i,
-      });
-      await waitFor(() =>
-        expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
-      );
+    const modelSelect = await screen.findByRole('combobox', {
+      name: /model/i,
+    });
+    await waitFor(() =>
+      expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
+    );
 
-      const input = await screen.findByTestId('chat-input');
-      const sendButton = await screen.findByTestId('chat-send');
-      await userEvent.clear(input);
-      await userEvent.type(input, 'keep codex running');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await act(async () => {
-        await userEvent.click(sendButton);
-      });
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'keep codex running');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
 
-      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-      expect((chatBodies.at(-1) ?? {}).model).toBe('gpt-5.1-codex-max');
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+    expect((chatBodies.at(-1) ?? {}).model).toBe('gpt-5.1-codex-max');
 
-      await userEvent.click(modelSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /gpt-5.2/i }),
-      );
+    await userEvent.click(modelSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /gpt-5.2/i }),
+    );
 
-      const reasoningSelect = await screen.findByRole('combobox', {
-        name: /reasoning effort/i,
-      });
-      await waitFor(() =>
-        expect(reasoningSelect).toHaveTextContent(/minimal/i),
-      );
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
 
-      await userEvent.clear(input);
-      await userEvent.type(input, 'use the next-send model');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await act(async () => {
-        await userEvent.click(sendButton);
-      });
+    await userEvent.clear(input);
+    await userEvent.type(input, 'use the next-send model');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
 
-      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-      const payload = chatBodies.at(-1) ?? {};
-      expect(payload.model).toBe('gpt-5.2');
-      expect(payload.modelReasoningEffort).toBe('minimal');
-    },
-    10000,
-  );
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+    const payload = chatBodies.at(-1) ?? {};
+    expect(payload.model).toBe('gpt-5.2');
+    expect(payload.modelReasoningEffort).toBe('minimal');
+  }, 10000);
 
-  it(
-    'sends non-standard runtime reasoning values when model capabilities allow them',
-    async () => {
-      const chatBodies: Record<string, unknown>[] = [];
-      mockProvidersWithBodies(chatBodies, {
-        codexDefaults: {
-          sandboxMode: 'workspace-write',
-          approvalPolicy: 'on-failure',
-          modelReasoningEffort: 'high',
-          networkAccessEnabled: true,
-          webSearchEnabled: true,
+  it('sends non-standard runtime reasoning values when model capabilities allow them', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockProvidersWithBodies(chatBodies, {
+      codexDefaults: {
+        sandboxMode: 'workspace-write',
+        approvalPolicy: 'on-failure',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: true,
+      },
+      codexModels: [
+        {
+          key: 'gpt-5.3-experimental',
+          displayName: 'gpt-5.3-experimental',
+          type: 'codex',
+          supportedReasoningEfforts: ['turbo-max'],
+          defaultReasoningEffort: 'turbo-max',
         },
-        codexModels: [
-          {
-            key: 'gpt-5.3-experimental',
-            displayName: 'gpt-5.3-experimental',
-            type: 'codex',
-            supportedReasoningEfforts: ['turbo-max'],
-            defaultReasoningEffort: 'turbo-max',
-          },
-        ],
-      });
+      ],
+    });
 
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /openai codex/i }),
-      );
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
 
-      await ensureCodexFlagsPanelExpanded();
-      const reasoningSelect = await screen.findByRole('combobox', {
-        name: /reasoning effort/i,
-      });
-      await waitFor(() =>
-        expect(reasoningSelect).toHaveTextContent(/turbo-max/i),
-      );
+    await ensureCodexFlagsPanelExpanded();
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() =>
+      expect(reasoningSelect).toHaveTextContent(/turbo-max/i),
+    );
 
-      const input = await screen.findByTestId('chat-input');
-      const sendButton = await screen.findByTestId('chat-send');
-      await userEvent.clear(input);
-      await userEvent.type(input, 'non-standard reasoning');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await act(async () => {
-        await userEvent.click(sendButton);
-      });
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'non-standard reasoning');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
 
-      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-      expect((chatBodies.at(-1) ?? {}).modelReasoningEffort).toBe('turbo-max');
-    },
-    10000,
-  );
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+    expect((chatBodies.at(-1) ?? {}).modelReasoningEffort).toBe('turbo-max');
+  }, 10000);
 
   it('logs deterministic T17 error and omits invalid reasoning payload when capabilities are empty', async () => {
     const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});

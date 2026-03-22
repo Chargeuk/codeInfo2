@@ -188,6 +188,68 @@ describe('agent command schema (v1)', () => {
     });
   });
 
+  test('reingest items parse with target current', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', target: 'current' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    assert.deepEqual(parsed.command.items[0], {
+      type: 'reingest',
+      target: 'current',
+    });
+  });
+
+  test('reingest items parse with target all', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', target: 'all' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    assert.deepEqual(parsed.command.items[0], {
+      type: 'reingest',
+      target: 'all',
+    });
+  });
+
+  test('reingest items reject sourceId and target together', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', sourceId: '/tmp/repo', target: 'current' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest items reject unsupported target values', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', target: 'latest' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest items reject whitespace-only sourceId values', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', sourceId: '   ' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
   test('empty markdownFile returns ok: false', () => {
     const json = JSON.stringify({
       Description: 'A command',

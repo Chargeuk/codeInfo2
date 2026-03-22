@@ -29,10 +29,9 @@ startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:5010/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_SERVER_PORT}/mcp"]
 startup_timeout_sec = 60
 
 [mcp_servers.MCP_DOCKER]
 command = 'docker'
 args = ['mcp', 'gateway', 'run']
-

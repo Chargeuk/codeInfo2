@@ -108,11 +108,23 @@ const result = await runLoggedCommand({
   phase: 'compose_build',
   bannerPrefix: '',
 });
-
-await new Promise((resolve) => logStream.end(resolve));
-
 const parsed = parseComposeBuildSummary(result.output);
 const status = result.code === 0 ? 'passed' : 'failed';
+const runtimeAssetRoots = [
+  '/app/codex',
+  '/app/codex_agents',
+  '/app/flows',
+  '/app/flows-sandbox',
+  '/fixtures',
+  '/data',
+];
+const imageRuntimeAssetsBakedMarker = `DEV-0000050:T10:image_runtime_assets_baked ${JSON.stringify(
+  {
+    imageName: 'codeinfo2-server',
+    runtimeAssetRoots,
+    sourceBindMountRequired: false,
+  },
+)}`;
 const passedLabel =
   parsed.passedCount > 0 ? String(parsed.passedCount) : 'unknown';
 const failedLabel =
@@ -126,12 +138,18 @@ const ambiguousCounts = passedLabel === 'unknown' || failedLabel === 'unknown';
 console.log(`[compose:build] status: ${status}`);
 console.log(`[compose:build] items passed: ${passedLabel}`);
 console.log(`[compose:build] items failed: ${failedLabel}`);
+if (status === 'passed') {
+  logStream.write(`${imageRuntimeAssetsBakedMarker}\n`);
+  console.log(imageRuntimeAssetsBakedMarker);
+}
 if (parsed.failedNames.length > 0) {
   console.log('[compose:build] failed items:');
   for (const name of parsed.failedNames) {
     console.log(`- ${name}`);
   }
 }
+
+await new Promise((resolve) => logStream.end(resolve));
 
 protocol.emitFinal({
   status,

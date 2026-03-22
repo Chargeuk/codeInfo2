@@ -263,15 +263,18 @@ test('chat validation accepts a valid working_folder', async () => {
   );
   tempDirs.push(workingFolder);
 
-  const result = await validateChatRequest({
-    model: 'gpt-5.2-codex',
-    message: 'hello',
-    conversationId: 'chat-working-folder-valid',
-    provider: 'codex',
-    working_folder: workingFolder,
-  }, {
-    knownRepositoryPathsState: knownRepositoryPathsAvailable([workingFolder]),
-  });
+  const result = await validateChatRequest(
+    {
+      model: 'gpt-5.2-codex',
+      message: 'hello',
+      conversationId: 'chat-working-folder-valid',
+      provider: 'codex',
+      working_folder: workingFolder,
+    },
+    {
+      knownRepositoryPathsState: knownRepositoryPathsAvailable([workingFolder]),
+    },
+  );
 
   assert.equal(result.working_folder, workingFolder);
 });

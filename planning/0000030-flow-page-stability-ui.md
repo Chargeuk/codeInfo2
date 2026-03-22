@@ -117,7 +117,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 
 ### 1. Server: Validate customTitle on flow run requests
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 446d42a
 
 #### Overview
@@ -276,7 +276,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 
 ### 2. Server: Apply customTitle to flow conversation titles
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 0577321
 
 #### Overview
@@ -441,7 +441,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 
 ### 3. Server: Fix chat-only conversation filtering for agent + flow
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 13940d5
 
 #### Overview
@@ -581,7 +581,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 
 ### 4. Client: Preserve flowName on WS upserts
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 1145b1c
 
 #### Overview
@@ -733,7 +733,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 
 ### 5. Client: Add working-folder picker to Flows page
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 04c0462
 
 #### Overview
@@ -894,7 +894,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 
 ### 6. Client: Add flow info popover
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: f7d3b16
 
 #### Overview
@@ -1067,7 +1067,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 
 ### 7. Client: Add custom title input UI
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 180f17b
 
 #### Overview
@@ -1217,7 +1217,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
 
 ### 8. Client: Send customTitle in flow run payload
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: d3ac82c
 
 #### Overview
@@ -1374,7 +1374,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 
 ### 9. Client: Add “New Flow” reset action
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 9994e62, 9481b41
 
 #### Overview
@@ -1532,7 +1532,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 
 ### 10. Final Task: Validate, document, and summarize
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: 3e81722, e4c1a56
 
 #### Overview

@@ -1,0 +1,20 @@
+{
+  "services": {
+    "server": {
+      "image": "codeinfo2-server-local",
+      "network_mode": "host"
+    },
+    "playwright-mcp": {
+      "image": "codeinfo2-playwright-mcp-local",
+      "network_mode": "host"
+    },
+    "client": {
+      "ports": [
+        {
+          "published": "5501",
+          "target": 5001
+        }
+      ]
+    }
+  }
+}

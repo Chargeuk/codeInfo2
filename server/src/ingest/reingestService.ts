@@ -90,6 +90,8 @@ export type ReingestSuccess = {
   operation: 'reembed';
   runId: string;
   sourceId: string;
+  resolvedRepositoryId: string | null;
+  completionMode: 'reingested' | 'skipped' | null;
   durationMs: number;
   files: number;
   chunks: number;
@@ -371,6 +373,24 @@ function logValidationResult(
   });
 }
 
+function logNormalizedResult(
+  appendLog: (entry: Parameters<typeof append>[0]) => unknown,
+  result: ReingestSuccess,
+) {
+  appendLog({
+    level: 'info',
+    source: 'server',
+    timestamp: new Date().toISOString(),
+    message: 'DEV-0000050:T02:reingest_strict_result_normalized',
+    context: {
+      sourceId: result.sourceId,
+      resolvedRepositoryId: result.resolvedRepositoryId,
+      status: result.status,
+      completionMode: result.completionMode,
+    },
+  });
+}
+
 export async function runReingestRepository(
   args: unknown,
   deps: ReingestServiceDeps = {},
@@ -424,6 +444,10 @@ export async function runReingestRepository(
     return { ok: false, error: err };
   }
 
+  const selectedRepo = repos.repos.find(
+    (repo) => normalizePosixPath(repo.containerPath) === normalizedSourceId,
+  );
+
   try {
     const requestStartedAt = Date.now();
     const runId = await runReembed(normalizedSourceId, {
@@ -459,6 +483,7 @@ export async function runReingestRepository(
     };
 
     let terminalStatus: ReingestTerminalStatus = 'error';
+    let completionMode: ReingestSuccess['completionMode'] = null;
     let errorCode: string | null = null;
     if (waitResult.reason === 'timeout') {
       terminalStatus = 'error';
@@ -470,8 +495,10 @@ export async function runReingestRepository(
       terminalStatus = 'cancelled';
     } else if (waitResult.status?.state === 'completed') {
       terminalStatus = 'completed';
+      completionMode = 'reingested';
     } else if (waitResult.status?.state === 'skipped') {
       terminalStatus = 'completed';
+      completionMode = 'skipped';
     } else if (waitResult.status?.state === 'error') {
       terminalStatus = 'error';
       errorCode = waitResult.status.error?.error ?? 'INGEST_ERROR';
@@ -485,6 +512,8 @@ export async function runReingestRepository(
       operation: 'reembed',
       runId,
       sourceId: normalizedSourceId,
+      resolvedRepositoryId: selectedRepo?.id ?? null,
+      completionMode,
       durationMs: Math.max(0, Date.now() - requestStartedAt),
       files: lastKnownCounts.files,
       chunks: lastKnownCounts.chunks,
@@ -502,6 +531,7 @@ export async function runReingestRepository(
         errorCode: success.errorCode,
       },
     });
+    logNormalizedResult(appendLog, success);
     logValidationResult(appendLog, {
       kind: 'success',
       sourceId: normalizedSourceId,

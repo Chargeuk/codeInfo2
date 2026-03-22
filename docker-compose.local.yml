@@ -16,17 +16,19 @@ services:
     group_add:
       # Allow non-root user to access /var/run/docker.sock for Testcontainers.
       - '${CODEINFO_DOCKER_SOCK_GID:-0}'
-    ports:
-      - '5510:5010'
-      - '5511:5011'
-      - '5512:5012'
-      - '9222:9222'
-    networks:
-      - internal
+    network_mode: host
     env_file:
       - server/.env
       - server/.env.local
     environment:
+      - CODEINFO_SERVER_PORT=5510
+      - CODEINFO_CHAT_MCP_PORT=5511
+      - CODEINFO_AGENTS_MCP_PORT=5512
+      - CODEINFO_PLAYWRIGHT_MCP_URL=http://host.docker.internal:8931/mcp
+      - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.local.yml
+      - CODEINFO_RUNTIME_SERVER_PORTS=5510,5511,5512
+      - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8931
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4
       - HOME=${HOME}
       - TMP=${HOME}/tmp
       - TEMP=${HOME}/tmp
@@ -41,8 +43,6 @@ services:
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8200
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
-      - CODEINFO_MCP_PORT=5011 # Codex-only MCP JSON-RPC port
-      - CODEINFO_AGENTS_MCP_PORT=5012
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
@@ -56,21 +56,21 @@ services:
       - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
-      - ${CODEINFO_HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
-      - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
-      - ./codex:${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
       - ./flows:/app/flows
+      - ./flows-sandbox:/app/flows-sandbox
+      - ${CODEINFO_HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
+      - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - "${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro"
+      - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
     depends_on:
       chroma:
         condition: service_started
       mongo:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5010/health']
+      test: ['CMD', 'curl', '-f', 'http://localhost:5510/health']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -187,6 +187,7 @@ services:
     container_name: codeinfo2-playwright-mcp-local
     image: mcr.microsoft.com/playwright/mcp:latest
     user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
+    network_mode: host
     entrypoint: ['node', 'cli.js']
     command:
       [
@@ -202,12 +203,8 @@ services:
         '--allowed-hosts',
         '*',
       ]
-    ports:
-      - '8931:8931'
     volumes:
       - ./playwright-output-local:/tmp/playwright-output
-    networks:
-      - internal
     extra_hosts:
       - 'host.docker.internal:host-gateway'
 

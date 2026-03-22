@@ -53,7 +53,7 @@ Read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from t
 - `review_pass_id`
 - `evidence_file`
 - `findings_file`
-- `repos` entries
+- `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, and `head_commit`
 
 still match the normalized review scope and current repository state for every selected repository.
 

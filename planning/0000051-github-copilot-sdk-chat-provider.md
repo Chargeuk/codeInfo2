@@ -569,12 +569,12 @@ Create the dedicated fake Copilot SDK harness for server tests so unit, integrat
 
 - Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
 - Runtime seam from Task 2: any new Copilot lifecycle module and `server/src/chat/interfaces/ChatInterfaceCopilot.ts`.
-- Existing fake harness patterns: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, and any existing server test dependency-injection helpers.
+- Existing fake harness patterns: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, `server/src/test/support/wsClient.ts`, `server/src/test/unit/chat-factory.test.ts`, `server/src/test/unit/chat-stream-bridge.test.ts`, and any existing server test dependency-injection helpers.
 - Existing test files that will later consume the harness: `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/features/chat_stream.feature`.
 
 #### Subtasks
 
-1. [ ] Add `server/src/test/support/mockCopilotSdk.ts` with a fake client and fake session model that can script `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, `resumeSession(...)`, streamed assistant events, tool events, and deterministic failures.
+1. [ ] Add `server/src/test/support/mockCopilotSdk.ts` by mirroring the structure and ergonomics of `server/src/test/support/mockLmStudioSdk.ts`. The fake client and fake session model must be able to script `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, `resumeSession(...)`, streamed assistant events, tool events, and deterministic failures without introducing a brand new mocking style.
 2. [ ] Define one clear scripting API for the harness so later tests can queue success and failure cases without mutating hidden globals. Document the helper names in comments where a junior developer would otherwise have to reverse-engineer them from call sites.
 3. [ ] Wire the harness into the server test bootstrap path created in Task 2 so unit, integration, and Cucumber tests can opt into the fake Copilot runtime without affecting production runtime wiring.
 4. [ ] Add a dedicated harness-focused unit test file, such as `server/src/test/unit/mockCopilotSdk.test.ts`, that proves the harness can be instantiated, emit scripted events, and surface a scripted error case in a deterministic way.
@@ -609,13 +609,13 @@ Create the dedicated fake Copilot device-auth harness for server tests so auth r
 #### Documentation Locations
 
 - Story planning in this file: `## Test Harnesses`, `### Acceptance Criteria`, and `### Feasibility Proof`.
-- Existing auth utilities: `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, and any auth route bootstrap files.
-- Existing test patterns: `server/src/test/unit/codexDeviceAuth.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, and the server test dependency-injection support used by this repository.
+- Existing auth utilities: `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `server/src/utils/singleFlight.ts`, `server/src/agents/authSeed.ts`, and any auth route bootstrap files.
+- Existing test patterns: `server/src/test/unit/codexDeviceAuth.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`, `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, and the server test dependency-injection support used by this repository.
 
 #### Subtasks
 
 1. [ ] Add `server/src/test/support/mockCopilotDeviceAuth.ts` with reusable fixtures and helpers for verification URL parsing, one-time code parsing, completion-pending state, completion success, CLI-missing, expired code, and generic failure cases.
-2. [ ] Define one clear harness API that later tests can call to request each auth outcome deterministically. Keep raw fixture strings and parser helpers in the harness instead of scattering them across route tests.
+2. [ ] Define one clear harness API that later tests can call to request each auth outcome deterministically. Keep raw fixture strings and parser helpers in the harness instead of scattering them across route tests, and mirror the existing Codex route’s single-flight plus completion-side-effect phases so later tests exercise the same shape the production auth flow already uses.
 3. [ ] Wire the harness into the server test bootstrap path so later auth route tests can choose the fake device-auth behavior explicitly without changing production code paths.
 4. [ ] Add a dedicated harness-focused unit test file, such as `server/src/test/unit/mockCopilotDeviceAuth.test.ts`, that proves the harness can emit a successful verification payload and at least one explicit failure or missing-CLI case.
 5. [ ] Update `projectStructure.md` to list the new auth harness file and proof test. Update `design.md` only if the harness entry point or fake auth phases need brief architectural clarification.
@@ -693,14 +693,14 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 #### Documentation Locations
 
 - Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Edge Cases and Failure Modes`, and `### Proof Path Readiness`.
-- Chat execution files: `server/src/routes/chat.ts`, `server/src/chat/factory.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/memoryPersistence.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `server/src/mongo/turn.ts`.
+- Chat execution files: `server/src/routes/chat.ts`, `server/src/chat/factory.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/chatStreamBridge.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/ws/server.ts`, `server/src/chat/memoryPersistence.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `server/src/mongo/turn.ts`.
 - Existing chat tests: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`, and `server/src/test/features/chat_cancellation.feature`.
 
 #### Subtasks
 
 1. [ ] Update `server/src/chat/factory.ts` so the chat factory can construct the Copilot chat adapter through the reusable seam added in Task 2. Keep the existing Codex and LM Studio branches unchanged except where the shared provider contract already required updates.
-2. [ ] Finish `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so it can create and resume Copilot sessions, register any required permission or tool handlers, and translate Copilot events into the existing `ChatInterface` event model. Allow permissions by default for this story.
-3. [ ] Update `server/src/routes/chat.ts` so `provider: "copilot"` is accepted, uses the shared runtime-selection contract, replaces the remaining binary `codex` versus `lmstudio` branches with provider-neutral logic, and streams Copilot output back through the existing transcript transport without introducing a new websocket or HTTP transport.
+2. [ ] Finish `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so it can create and resume Copilot sessions, register any required permission or tool handlers, and translate Copilot events into the existing `ChatInterface` event model. Route streamed output through the existing `chatStreamBridge` and websocket publishing path instead of inventing a second transport. Allow permissions by default for this story.
+3. [ ] Update `server/src/routes/chat.ts` so `provider: "copilot"` is accepted, uses the shared runtime-selection contract, replaces the remaining binary `codex` versus `lmstudio` branches with provider-neutral logic, and reuses the existing inflight registry, conversation lock, and transcript transport flow without introducing a new websocket or HTTP transport.
 4. [ ] Keep Codex-only request flags server-side. When a Copilot request arrives with Codex-specific flags, ignore them safely or return the documented warning behavior for this repository, but do not reinterpret them as Copilot settings or let them silently change Copilot execution semantics.
 5. [ ] Choose one session identity strategy and implement it consistently: either reuse `conversationId` as the Copilot session id or persist a separate `conversation.flags.copilotSessionId`. Update both Mongo-backed persistence and `server/src/chat/memoryPersistence.ts` so the chosen strategy is stored and resumed deterministically in normal runtime and in test-mode memory persistence.
 6. [ ] Make resume failure explicit. If an existing persisted Copilot conversation cannot resume its expected session, return a clear error for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
@@ -781,7 +781,7 @@ Create the dedicated client-side provider-auth harness so dialog and auth API te
 #### Documentation Locations
 
 - Story planning in this file: `## Test Harnesses`, `### Acceptance Criteria`, and `### Feasibility Proof`.
-- Existing client test support: `client/src/test/support/fetchMock.ts`, `client/src/test/support/mockWebSocket.ts`, and any current auth-related client test helpers.
+- Existing client test support: `client/src/test/setupTests.ts`, `client/src/test/support/fetchMock.ts`, `client/src/test/support/mockWebSocket.ts`, `client/src/test/support/userEvent.ts`, and any current auth-related client test helpers.
 - Existing client auth tests: `client/src/test/codexDeviceAuthApi.test.ts`, `client/src/test/codexDeviceAuthDialog.test.tsx`, and any provider-loading tests that later refresh auth state.
 
 #### Subtasks
@@ -864,7 +864,7 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 #### Documentation Locations
 
 - Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
-- Existing client auth files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/api/codex.ts`, `client/src/test/codexDeviceAuthDialog.test.tsx`, `client/src/test/codexDeviceAuthApi.test.ts`, `client/src/test/agentsPage.agentChange.test.tsx`, and any current client auth API helper.
+- Existing client auth files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/api/codex.ts`, `client/src/test/setupTests.ts`, `client/src/test/support/fetchMock.ts`, `client/src/test/support/userEvent.ts`, `client/src/test/codexDeviceAuthDialog.test.tsx`, `client/src/test/codexDeviceAuthApi.test.ts`, `client/src/test/agentsPage.agentChange.test.tsx`, and any current client auth API helper.
 - Shared auth contract files from Task 7: `common/src/api.ts`, the server auth routes, and any new client auth API wrapper added for provider-agnostic use.
 - MUI dialog and button behavior references already used in this repository if a component API reminder is needed.
 
@@ -990,12 +990,12 @@ Create the higher-level fake Copilot fixture seam that lets integration tests, C
 #### Documentation Locations
 
 - Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
-- Existing higher-level test support: `server/src/test/integration`, `server/src/test/steps`, `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and any app bootstrap or env-based test injection points already used in this repository.
+- Existing higher-level test support: `server/src/test/integration`, `server/src/test/support/wsClient.ts`, `server/src/test/steps`, `client/src/test/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and any app bootstrap or env-based test injection points already used in this repository.
 - Harnesses from earlier tasks: the fake Copilot SDK harness from Task 3, the fake device-auth harness from Task 4, and the client provider-auth harness from Task 8.
 
 #### Subtasks
 
-1. [ ] Add a reusable server-side fixture seam that can boot the app in test mode with fake Copilot provider readiness, fake model lists, fake chat streams, and fake auth states without touching production runtime defaults.
+1. [ ] Add a reusable server-side fixture seam that can boot the app in test mode with fake Copilot provider readiness, fake model lists, fake chat streams, and fake auth states without touching production runtime defaults. Reuse the existing integration boot paths, websocket helpers, and mock transport helpers already used by the current chat and auth tests instead of introducing a second test startup stack.
 2. [ ] Define one clear configuration API or env-driven contract for the higher-level fixture seam so integration, Cucumber, and e2e tests can enable named Copilot scenarios instead of rebuilding bespoke setup code in each suite.
 3. [ ] Wire the higher-level fixture seam into the integration and e2e startup path so later tests can reuse it from `server/src/test/integration`, `server/src/test/steps`, and the Playwright wrapper-backed stack.
 4. [ ] Add at least one dedicated proof test that boots the application through the higher-level fixture seam and proves both a happy-path Copilot fixture and a deterministic fixture-driven error case can be executed and asserted cleanly.

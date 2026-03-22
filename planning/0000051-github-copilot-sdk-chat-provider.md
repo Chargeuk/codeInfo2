@@ -368,6 +368,44 @@ The harnesses above should then support the planned tests in these locations:
 
 The story should not plan a live Copilot login as part of the default automated suite. If a manual or opt-in smoke check is desired later, that should stay outside the default wrappers and outside this story's required harness baseline.
 
+## Proof Path Readiness
+
+The repository already has the wrapper scripts needed for the main proof categories this story will use. Those existing wrappers are:
+
+- `npm run build:summary:server`
+- `npm run build:summary:client`
+- `npm run compose:build:summary`
+- `npm run test:summary:server:unit`
+- `npm run test:summary:server:cucumber`
+- `npm run test:summary:client`
+- `npm run test:summary:e2e`
+
+Those wrappers make the proof path realistic for this story, but only after the Copilot-specific prerequisites below have been implemented. Without these prerequisites, the wrappers themselves may run, but they will not be capable of proving the Copilot behavior this story promises.
+
+### Prerequisites Before Each Proof Stage
+
+- `Before server and client build proof`: add the Copilot provider enums, shared contracts, shared auth contract, and the `@github/copilot-sdk` dependency so the server and client builds can compile the new Copilot code paths successfully.
+- `Before server unit and integration proof`: add the Copilot runtime seam, Copilot provider registration, Copilot route branches, and the fake Copilot SDK or auth harnesses described in `## Test Harnesses`. The server test wrappers already exist, but Copilot-specific scenarios will not be runnable until those seams exist.
+- `Before Cucumber proof`: extend the existing feature and step definitions to use the fake Copilot seam. The Cucumber wrapper already exists, but it cannot currently exercise Copilot paths because the feature files and support code are still Codex and LM Studio oriented.
+- `Before compose build proof`: add Copilot runtime delivery to the server image, including the SDK package, the Copilot CLI delivery strategy, writable `/app/copilot` support, and `.dockerignore` updates so the container build can actually produce a Copilot-capable runtime.
+- `Before e2e proof`: add `CODEINFO_COPILOT_HOME` to startup env loading, env files, compose files, and the app runtime; then ensure the existing e2e mock mode can drive a fake available Copilot provider plus fake Copilot chat and auth states. The current Playwright wrapper is already usable, but it depends on deterministic mock-backed behavior to prove Copilot without a real login.
+- `Before any real-runtime smoke check`: if a live Copilot smoke check is ever used, it must come after the default wrapper-backed proof path, and it must be treated as optional or manual-only. The default proof path for this story remains mock-backed and wrapper-driven.
+
+### Realistic Proof Order
+
+- `Contract-first proof`: run `npm run build:summary:server` and `npm run build:summary:client` after the shared provider enums, auth contract, OpenAPI updates, and client or server type consumers have been updated.
+- `Harness-backed server proof`: run `npm run test:summary:server:unit` once the fake Copilot SDK and auth harnesses exist and the server routes, persistence, and provider logic can exercise Copilot deterministically.
+- `Behavioral BDD proof`: run `npm run test:summary:server:cucumber` after the Copilot feature scenarios and step definitions are wired to the same deterministic harnesses.
+- `Client proof`: run `npm run test:summary:client` after the shared auth dialog, provider bootstrap flow, and transcript rendering changes can be driven through the updated shared contract fixtures.
+- `Container proof`: run `npm run compose:build:summary` after Copilot CLI delivery, writable Copilot home handling, and compose env wiring have been added to the images and compose files.
+- `End-to-end proof`: run `npm run test:summary:e2e` only after the fake Copilot seam is available through the e2e stack so the wrapper can prove provider selection, auth refresh, and streaming transcript behavior without depending on a real Copilot account.
+
+### Proof Constraints To Keep In The Story
+
+- The story must not claim that a Copilot proof step is runnable only because a generic wrapper exists. Copilot-specific proof becomes valid only when the required Copilot seams, env wiring, and test fixtures have been added first.
+- The story must not rely on ad hoc raw commands for its primary proof path. The existing summary wrappers are already present in the repository and should remain the default proof route once the Copilot-specific prerequisites are in place.
+- The story must not require a real authenticated Copilot account for the default proof path. If the proof path needs live credentials to pass, then the plan is still missing prerequisite mock or harness work and is not yet realistic.
+
 ## Feasibility Proof
 
 This story stays within the current repository. The feasibility proof below distinguishes which capabilities already exist, which prerequisite capabilities must be created before Copilot chat can work, and which implementation assumptions are currently invalid if we tried to wire Copilot in directly today.

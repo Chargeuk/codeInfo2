@@ -67,6 +67,12 @@ RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
+# Add HashiCorp's official GPG key and apt repository for Terraform CLI.
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg
+RUN echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com \
+  $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+
 # Install Docker CLI + Compose plugin
 RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
 
@@ -88,6 +94,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     procps \
     iproute2 \
     dnsutils \
+    diffutils \
     openssl \
     openssh-client \
     python3 \
@@ -100,6 +107,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     vim-tiny \
     nano \
     rsync \
+    terraform \
     tzdata \
     chromium \
     && rm -rf /var/lib/apt/lists/*
@@ -177,7 +185,6 @@ COPY --from=build /app/server/src/ast/queries ./src/ast/queries
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
-COPY codex /app/codex
 COPY codex_agents /app/codex_agents
 COPY flows /app/flows
 COPY flows-sandbox /app/flows-sandbox
@@ -192,6 +199,9 @@ RUN npx playwright install chromium
 
 # Use the forwarder for any user inside the container.
 RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
+
+# Prepare the mutable Codex home even when the gitignored repo-local directory is absent.
+RUN mkdir -p /app/codex && chmod 777 /app/codex
 
 # Make HOME and all subfolders read/write for all users
 RUN chmod -R 777 "${HOME}"

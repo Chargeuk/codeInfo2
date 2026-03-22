@@ -157,7 +157,7 @@ Corporate certificate directory requirements:
 - Install CLI (host): `npm install -g @openai/codex` and log in.
 - Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
-- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from the canonical in-code base template on first start. Edit `./codex/config.toml` after seeding to add MCP servers or overrides.
+- Codex home: `CODEINFO_CODEX_HOME=./codex`; the runtime seeds the canonical base template on first start. `docker-compose.local.yml` live-mounts repo `./codex` to `/app/codex` for local editing, while the main and e2e stacks use the image-prepared `/app/codex` home and still seed `config.toml` at startup when it is missing.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
@@ -214,7 +214,7 @@ codex_agents/<agentName>/
 - Agent defaults: `codex_agents/<agentName>/config.toml` is the source of truth for agent execution defaults (e.g. `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, and web-search/network feature toggles). The UI does not provide model/provider selection for agents.
 - Server-owned defaults: the server still sets `workingDirectory=/data` (or `CODEX_WORKDIR`) and `skipGitRepoCheck:true` for agent runs.
 - Auth seeding: on each agent discovery read, if `codex_agents/<agentName>/auth.json` is missing but the primary Codex home (`CODEINFO_CODEX_HOME`) has `auth.json`, the server will best-effort copy it into the agent folder. It never overwrites existing agent auth, and `auth.json` must never be committed.
-- Docker/Compose: `docker-compose.yml` mounts `./codex_agents` → `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` so agents are discoverable in containers.
+- Docker/Compose: local compose live-mounts `./codex_agents` → `/app/codex_agents` (rw) so agent configs can be edited while the stack is running. Main and e2e still read the checked-in agent configs from the image and set `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
 - Agents MCP (port 5012): JSON-RPC endpoint on `http://localhost:5012` (exposed by Compose).
 
 ## Features at a Glance
@@ -435,6 +435,7 @@ Host-network prerequisites:
 - `host.docker.internal` must resolve from both the host and the containerized agent/browser tooling
 - repositories that need to be visible to Codex and runtime folder pickers must live under `${HOME}/Documents/dev`
 - host Codex auth must be available through `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` so the server container can seed `/app/codex/auth.json`
+- `docker-compose.local.yml` intentionally keeps a local-development overlay for `./codex`, `./codex_agents`, `./flows`, and `./flows-sandbox` so those runtime trees can be edited live while the host-networked local stack is running. The main and e2e stacks remain image-baked.
 
 Wrapper-first validation flow:
 
@@ -488,6 +489,7 @@ During the manual proof pass, use the running UI at `http://host.docker.internal
 ## Quick Commands
 
 - Start stack: `npm run compose:local`
+- Local compose live-mounts `codex/`, `codex_agents/`, `flows/`, and `flows-sandbox/` so edits to those trees are visible immediately in the running local server container.
 - Client dev server: `npm run dev --workspace client`
 - Server dev server: `npm run dev --workspace server`
 - Client tests: `npm run test --workspace client`

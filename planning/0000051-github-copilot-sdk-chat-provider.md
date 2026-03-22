@@ -1019,6 +1019,7 @@ Teach the existing chat page to consume the new three-provider contract for prov
 
 #### Documentation Locations
 
+- Context7 Jest docs: `/jestjs/jest` for the checked client test-runner, assertion, and mock patterns used by the chat page Jest tests in this task.
 - React documentation: `https://react.dev/` for checked component-state guidance used by the chat page and provider-selection flow.
 - React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state` for the exact behavior this task preserves when provider or model changes should affect only the next send.
 - MUI 6.4.12 Select API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/select.md` for checked select value, disabled-state, and `onChange` behavior used by provider and model selectors.
@@ -1069,6 +1070,7 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 
 #### Documentation Locations
 
+- Context7 Jest docs: `/jestjs/jest` for the checked client test-runner, assertion, and mock patterns used by the shared auth dialog Jest tests in this task.
 - MUI 6.4.12 Dialog API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/dialog.md` for checked `open`, `onClose`, `aria-labelledby`, and `aria-describedby` behavior used by the shared auth dialog shell.
 - MUI 6.4.12 DialogTitle API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/dialog-title.md`, DialogContent API: `https://llms.mui.com/material-ui/6.4.12/api/dialog-content.md`, and DialogActions API: `https://llms.mui.com/material-ui/6.4.12/api/dialog-actions.md` for the checked internal dialog structure the repository already uses.
 - MUI 6.4.12 Button API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/button.md` and Stack API: `https://llms.mui.com/material-ui/6.4.12/api/stack.md` for checked button ordering, disabled/loading presentation, and simple vertical layout behavior.
@@ -1121,6 +1123,7 @@ Update the existing transcript formatting path so partial Copilot usage and timi
 
 #### Documentation Locations
 
+- Context7 Jest docs: `/jestjs/jest` for the checked client test-runner, assertion, and render patterns used by the transcript Jest tests in this task.
 - React conditional rendering guidance: `https://react.dev/learn/conditional-rendering` for the checked pattern of omitting missing metadata instead of rendering misleading placeholder values.
 - React documentation: `https://react.dev/` for checked component-rendering context around transcript metadata display.
 - Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked usage and timing metadata variability that makes partial Copilot transcript fields a real case to support.
@@ -1254,6 +1257,7 @@ Extend the repository's existing integration, Cucumber, and Playwright boot path
 #### Documentation Locations
 
 - Context7 Playwright docs: `/microsoft/playwright` for the checked fixture, setup, and scenario-boot patterns used when extending the repository’s existing higher-level proof path.
+- Cucumber guides root: `https://cucumber.io/docs/guides/` for the official guides index that should be referenced alongside the specific Cucumber guidance used by this mixed proof task.
 - Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for the checked scenario and step-definition structure, and Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for keeping the higher-level boot-path logic out of step files.
 - Node.js test runner documentation: `https://nodejs.org/api/test.html` for the checked integration-proof pattern used by the dedicated boot-path smoke test.
 
@@ -1296,6 +1300,7 @@ Use the fake Copilot seams to prove the new server-side provider behavior throug
 
 #### Documentation Locations
 
+- Cucumber guides root: `https://cucumber.io/docs/guides/` for the official guides index that should anchor the Cucumber references used by these feature tasks.
 - Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for the checked feature and step-definition structure used by the repository’s Copilot server-story scenarios.
 - Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for the checked rule that step definitions should stay thin and push logic into reusable support helpers.
 - Node.js test runner documentation: `https://nodejs.org/api/test.html` for checked support-code patterns that sit alongside the Cucumber features in this repository.
@@ -1387,6 +1392,7 @@ Run the final full proof path for Story `0000051`, verify the implemented behavi
 - Context7 Docker docs: `/docker/docs` for the checked container and compose behavior that final validation must exercise through the repository wrappers.
 - Context7 Playwright docs: `/microsoft/playwright` for the checked browser-proof behavior and manual spot-check context used during final validation.
 - Context7 Jest docs: `/jestjs/jest` for the checked client-test runner behavior used by the final proof path.
+- Cucumber guides root: `https://cucumber.io/docs/guides/` for the official guides index that should anchor the Cucumber validation references used during final proof.
 - Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` and Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for the checked feature-writing and support-code conventions used by final server-side validation.
 
 #### Subtasks

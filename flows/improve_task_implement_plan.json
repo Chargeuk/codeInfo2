@@ -88,6 +88,13 @@
     },
     {
       "type": "llm",
+      "label": "Refresh current plan handoff after planning",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
+    },
+    {
+      "type": "llm",
       "label": "Push",
       "agentType": "planning_agent",
       "identifier": "planner",
@@ -106,6 +113,13 @@
       "agentType": "planning_agent",
       "identifier": "planner",
       "commandName": "improve_plan"
+    },
+    {
+      "type": "llm",
+      "label": "Refresh current plan handoff after improve plan",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
     },
     {
       "type": "llm",
@@ -141,6 +155,13 @@
           ]
         }
       ]
+    },
+    {
+      "type": "llm",
+      "label": "Refresh current plan handoff after tasking",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
     },
     {
       "type": "llm",
@@ -243,6 +264,13 @@
             },
             {
               "type": "llm",
+              "label": "Refresh current plan handoff after planner edits",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "refresh_current_plan_handoff.md"
+            },
+            {
+              "type": "llm",
               "label": "Re-check plan after planner edits",
               "agentType": "coding_agent",
               "identifier": "coder",
@@ -299,6 +327,13 @@
           "agentType": "planning_agent",
           "identifier": "planner",
           "markdownFile": "review_disposition.md"
+        },
+        {
+          "type": "llm",
+          "label": "Refresh current plan handoff after review",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "refresh_current_plan_handoff.md"
         },
         {
           "type": "llm",

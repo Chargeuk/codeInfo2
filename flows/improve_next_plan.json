@@ -88,6 +88,13 @@
     },
     {
       "type": "llm",
+      "label": "Refresh current plan handoff after planning",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "refresh_current_plan_handoff.md"
+    },
+    {
+      "type": "llm",
       "label": "Push",
       "agentType": "planning_agent",
       "identifier": "planner",

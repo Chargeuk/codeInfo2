@@ -127,6 +127,7 @@ Modified files (implementation traceability):
 - `codeinfo_markdown/external_review_findings.md`
 - `codeinfo_markdown/external_review_disposition.md`
 - `codeinfo_markdown/screenshot_test_tasks.md`
+- `codeinfo_markdown/refresh_current_plan_handoff.md`
 - `codeinfo_markdown/store_current_plan_handoff.md`
 - `codeinfo_markdown/subtasks_for_linting.md`
 - `codex_agents/planning_agent/commands/create_new_story.json`

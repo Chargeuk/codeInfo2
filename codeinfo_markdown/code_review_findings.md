@@ -5,9 +5,9 @@ Continue the current story review using ONLY the handoff file written by the pre
 ## Critical Rules
 
 - Do NOT discover the latest review artifact by timestamp.
-- First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path`, then extract repository paths from `additional_repositories`.
+- Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and determine the canonical `plan_path`, then extract repository paths from `additional_repositories` and re-open the exact relative `plan_path` from disk.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
-- Then read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number.
+- Then re-read `codeInfoStatus/reviews/<story-number>-current-review.json` from disk, derived from the shared story number.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit the plan.
 - If the review handoff checks fail, stop and say the review handoff is stale and must be regenerated. Do not edit the plan.
 - If the handoff is valid, perform the actual review against the planned work and the branch diff for every repository in scope.
@@ -42,7 +42,10 @@ Treat each stored `resolved_base_branch` as the already-resolved review base cho
 Before doing findings work, validate all of the following:
 
 - the canonical plan exists;
+- the current repository branch state still matches the canonical plan story number, re-checked directly from git, for example with `git branch --show-current`;
 - every repository in scope is still on a branch whose story number matches the canonical plan filename;
+- every additional repository branch state was re-checked directly from git, for example with `git -C <repo_root> branch --show-current`;
+- the current repository HEAD and each additional repository HEAD were re-checked directly from git, for example with `git log --oneline -1` or `git -C <repo_root> log --oneline -1`;
 - the review handoff still matches the normalized current-plan scope and current repository state.
 
 If the current-plan checks fail, stop and say the current-plan handoff is stale and must be regenerated.

@@ -548,6 +548,7 @@ This story stays within the current repository. No additional repository is invo
 # Tasks
 
 Junior developer execution rule for this story: no numbered subtask in this section is standalone by itself. When assigning a numbered subtask, always include that task’s `Standalone context for every subtask in this task`, that task’s `Documentation Locations`, and that task’s `Implementation starter pattern for every subtask in this task`, because this story is written for developers who may only read one task block in isolation.
+Repository ownership rule for this story: the `Additional Repositories` section is `- No Additional Repositories`, so every task in this story belongs to `Current Repository`, and every numbered subtask, numbered testing step, and Task 19 close-out validation step also belongs to `Current Repository`. No numbered item in this story may be reassigned to another repository unless the story handoff and `Additional Repositories` section are updated first.
 
 ### Task 1. Expand the shared three-provider chat contracts and ordered defaults
 

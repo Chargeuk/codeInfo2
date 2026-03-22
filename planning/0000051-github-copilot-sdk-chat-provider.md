@@ -309,6 +309,39 @@ The chosen modal direction for this story is:
 - `Likely tests`: add coverage for three-provider defaulting and fallback, `provider: "copilot"` validation, Copilot event mapping, Copilot streaming and persistence in the chat route, shared auth early-return behavior, resume failure handling, provider and model selection in the client, and transcript formatting when Copilot usage or timing fields are partially missing.
 - `Implementation constraint`: do not use this story to refactor agents or flows to become provider-agnostic. The later agent-support story can build on the chat integration patterns proven here.
 
+## Test Harnesses
+
+The story does require new test harness support, but it does not require a brand new test runner or a new test category. The existing repository already has unit, integration, Cucumber, and Playwright e2e layers. What is missing is a deterministic Copilot-ready harness inside those existing layers so the planned Copilot tests can run without a real GitHub login, a live Copilot CLI session, or flaky external state.
+
+Repository evidence for this conclusion:
+
+- Current server test support already includes `server/src/test/support/mockLmStudioSdk.ts` plus container helpers in `server/src/test/support/chromaContainer.ts` and `server/src/test/support/mongoContainer.ts`, but there is no Copilot equivalent.
+- Current provider and execution tests are still Codex or LM Studio oriented, for example `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chat-interface-codex.test.ts`, `server/src/test/integration/chat-codex.test.ts`, and `server/src/test/integration/codex.device-auth.test.ts`.
+- Current client test support includes generic fetch and websocket helpers under `client/src/test/support`, and transcript measurement support in `client/src/test/support/transcriptMeasurementHarness.ts`, but there is no shared provider-auth fixture or Copilot session fixture.
+- Current e2e coverage already exercises chat and runtime config through Playwright, for example `e2e/chat-provider-history.spec.ts`, `e2e/chat-codex-mcp.spec.ts`, `e2e/chat-codex-trust.spec.ts`, and `e2e/env-runtime-config.spec.ts`, but there is no deterministic Copilot provider fixture yet.
+
+External research that shapes the harness design:
+
+- Context7 and DeepWiki both show the Node SDK centered around a long-lived `CopilotClient` with `start()`, `stop()`, `createSession(...)`, `resumeSession(...)`, `listModels()`, and streaming session events such as `assistant.message_delta` and `session.idle`.
+- DeepWiki also shows the SDK project using lower-level mocking around the request layer and replay-style e2e infrastructure. For this repository, the simpler fit is to add a local fake client seam that plugs into the existing server test structure rather than introducing the SDK's own replay proxy stack into this story.
+
+The harnesses that should be added are:
+
+- `Server Copilot SDK fake harness`: add `server/src/test/support/mockCopilotSdk.ts`. This should expose a deterministic fake `CopilotClient` and fake session objects for unit, integration, and Cucumber-backed route tests. The fake should let tests script `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, `resumeSession(...)`, auth or readiness results, and emitted session events such as `assistant.message_delta`, `assistant.message`, `session.idle`, tool events, and failure paths.
+- `Server Copilot auth CLI harness`: add `server/src/test/support/mockCopilotDeviceAuth.ts`. This should provide reusable fake outputs for the planned Copilot device-login route, including verification URL and one-time code parsing, delayed completion, declined or expired codes, missing CLI cases, and readiness-refresh outcomes. The current Codex auth tests inline these behaviors, but Copilot will need a reusable harness because the story explicitly adds two-phase auth behavior and provider-specific readiness refresh.
+- `Client shared provider-auth harness`: add `client/src/test/support/mockProviderAuth.ts`. This should let client tests drive the shared `Choose Authentication` dialog with Codex and Copilot response fixtures, including early verification details, later completion refresh, loading states, and provider-specific failure messages. Existing fetch mocks are not enough on their own because this story changes the auth contract from one Codex-specific response shape to a shared provider-auth shape.
+- `Playwright and server integration Copilot fixture seam`: add a reusable Copilot fixture path that can be enabled by e2e and integration tests without a real login. The simplest place is to extend the server test support area with the fake SDK above and expose it through test-only dependency injection so Playwright specs and integration tests can boot the app with a fake available Copilot provider, fake model list, and scripted chat stream. This should be wired for use from `server/src/test/integration`, `server/src/test/steps`, and the existing Playwright suite under `e2e/`.
+
+The harnesses above should then support the planned tests in these locations:
+
+- `server/src/test/unit`: provider ordering, validator changes, Copilot model mapping, readiness precedence, chat adapter event translation, usage and timing field handling, and resume-failure behavior.
+- `server/src/test/integration`: `/chat/providers`, `/chat/models`, `POST /chat`, conversation persistence, and the new Copilot device-auth route.
+- `server/src/test/features` and `server/src/test/steps`: extend the existing chat model and chat stream features so Copilot can be exercised with deterministic streamed events and deterministic unavailable or unauthenticated cases.
+- `client/src/test`: shared auth dialog behavior, provider selection and model loading, next-send new-conversation behavior, and transcript formatting for partial Copilot metadata.
+- `e2e/`: provider availability, provider-history behavior, auth refresh behavior, and transcript rendering using the same fake Copilot backend seam rather than a real login.
+
+The story should not plan a live Copilot login as part of the default automated suite. If a manual or opt-in smoke check is desired later, that should stay outside the default wrappers and outside this story's required harness baseline.
+
 ## Questions
 
 - No Further Questions

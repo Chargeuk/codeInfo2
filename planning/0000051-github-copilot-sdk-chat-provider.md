@@ -1134,14 +1134,10 @@ Implementation starter pattern for every subtask in this task: extend the existi
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18, and 19. Before the Copilot env wiring, Docker delivery, and fake-scenario plumbing land, those layers would only prove the pre-Copilot stack and would not give meaningful proof for this task's client behavior.
 
 1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof steps below.
-5. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
-6. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the story behavior and nearby regressions, and confirm the debug console shows no logged errors.
-7. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 
@@ -1202,14 +1198,10 @@ Implementation starter pattern for every subtask in this task: preserve the exis
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18, and 19. Before the Copilot env wiring, Docker delivery, and fake-scenario plumbing land, those layers would only prove the pre-Copilot stack and would not give meaningful proof for this task's shared dialog behavior.
 
 1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof steps below.
-5. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
-6. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the shared dialog behavior, surrounding regressions, and that the debug console shows no logged errors.
-7. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 
@@ -1257,14 +1249,10 @@ Implementation starter pattern for every subtask in this task: harden the existi
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18, and 19. Before the Copilot env wiring, Docker delivery, and fake-scenario plumbing land, those layers would only prove the pre-Copilot stack and would not give meaningful proof for this task's transcript rendering behavior.
 
 1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof steps below.
-5. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
-6. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the transcript behavior and that the debug console shows no logged errors.
-7. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 

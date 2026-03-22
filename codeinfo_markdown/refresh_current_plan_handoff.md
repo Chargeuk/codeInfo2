@@ -7,10 +7,12 @@ Use fresh disk reads and current git state, not conversational memory. At minimu
 3. Re-check current repository branch state from git, for example with `git branch --show-current` or an equivalent direct git command.
 4. Re-derive repository scope from the plan file's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`. If the plan has no such section, treat it as `- No Additional Repositories`.
 5. Treat the current repository as implicit and always in scope. If it also appears in `Additional Repositories`, treat that as redundant and ignore it.
-6. For each additional repository now in scope, re-check its current git branch directly from disk, for example with `git -C <repo_root> branch --show-current` or an equivalent direct git command.
-7. Ensure the current repository and every additional repository in scope are on branches whose story numbers match the selected plan filename. If an additional repository is newly in scope and does not yet have a matching-story branch, create or reuse one safely without overwriting local changes. If this step creates a branch, remember what branch or ref it was created from so it can be recorded as `branched_from`.
-8. If switching branches in any repository would overwrite local changes, stop and say repository branch setup is blocked by local changes instead of forcing the checkout.
-9. Build the refreshed canonical handoff payload using:
+6. If an additional repository path is missing, invalid, unreadable, or ambiguously mapped from the plan, stop and say the current-plan handoff must be regenerated.
+7. Before touching any newly added additional repository in this step, read that repository's `AGENTS.md` and follow its repository-specific workflow rules.
+8. For each additional repository now in scope, re-check its current git branch directly from disk, for example with `git -C <repo_root> branch --show-current` or an equivalent direct git command.
+9. Ensure the current repository and every additional repository in scope are on branches whose story numbers match the selected plan filename. If an additional repository is newly in scope and does not yet have a matching-story branch, create or reuse one safely without overwriting local changes. If this step creates a branch, remember what branch or ref it was created from so it can be recorded as `branched_from`.
+10. If switching branches in any repository would overwrite local changes, stop and say repository branch setup is blocked by local changes instead of forcing the checkout.
+11. Build the refreshed canonical handoff payload using:
 
 ```json
 {
@@ -25,10 +27,10 @@ Use fresh disk reads and current git state, not conversational memory. At minimu
 }
 ```
 
-10. Preserve any existing `branched_from` value for the current repository or an additional repository that remains in scope, unless this refresh step itself created that branch and can replace it with a new concrete value.
-11. Remove a repository entry, and any associated `branched_from`, only when that repository is no longer in scope.
-12. If the refreshed handoff meaning is unchanged and there are no new `branched_from` values to add, leave `codeInfoStatus/flow-state/current-plan.json` untouched.
-13. Otherwise, update `codeInfoStatus/flow-state/current-plan.json` in place to the refreshed canonical payload. Do NOT delete it first unless an in-place update is genuinely impossible.
-14. Commit `codeInfoStatus/flow-state/current-plan.json` only if it changed in this step. Do NOT push in this step.
+12. Preserve any existing `branched_from` value for the current repository or an additional repository that remains in scope, unless this refresh step itself created that branch and can replace it with a new concrete value.
+13. Remove a repository entry, and any associated `branched_from`, only when that repository is no longer in scope.
+14. If the refreshed handoff meaning is unchanged and there are no new `branched_from` values to add, leave `codeInfoStatus/flow-state/current-plan.json` untouched.
+15. Otherwise, update `codeInfoStatus/flow-state/current-plan.json` in place to the refreshed canonical payload. Do NOT delete it first unless an in-place update is genuinely impossible.
+16. Commit `codeInfoStatus/flow-state/current-plan.json` only if it changed in this step. Do NOT push in this step.
 
 Report whether the handoff scope changed or stayed the same, and whether any new repository branches had to be created.

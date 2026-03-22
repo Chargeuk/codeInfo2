@@ -153,6 +153,10 @@ The chosen modal direction for this story is:
 - Replacing the existing Codex or LM Studio integrations.
 - Changing ingestion providers or other non-chat provider systems in this story.
 
+### Additional Repositories
+
+- No Additional Repositories
+
 ### Questions
 
 - No Further Questions

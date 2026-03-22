@@ -49,6 +49,7 @@ Finish the current story review using ONLY the handoff file and findings file re
 Read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number, and verify that its:
 
 - `story_id`
+- `plan_path`
 - `review_pass_id`
 - `evidence_file`
 - `findings_file`
@@ -61,8 +62,9 @@ still match the normalized review scope and current repository state for every s
 Before deciding disposition, validate all of the following:
 
 - the canonical plan exists;
+- the canonical plan filename story number still matches the shared story branch;
 - every repository in scope is still on the shared story branch;
-- the review handoff is complete and still matches the normalized review scope and current repository state.
+- the review handoff is complete and still matches the normalized review scope, canonical `plan_path`, and current repository state.
 
 If the current-plan checks fail, stop and say the current-plan handoff is stale and must be regenerated.
 
@@ -86,6 +88,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - the branch-vs-base checks performed across all repositories in scope;
     - the acceptance-evidence checks performed;
     - the files inspected;
+    - why each repository in scope remains complete;
     - why the story remains complete.
 14. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
 15. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
@@ -116,8 +119,8 @@ If this review mutates plans, include the durable review artifacts in the result
 Before you finish this step, verify all of the following:
 
 - the current-plan handoff and review handoff still match the current repository state;
-- every affected repository has been reflected correctly in the canonical plan updates;
-- cross-repository findings produced explicit sequencing in the canonical plan;
+- every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership;
+- cross-repository findings produced explicit sequencing in the canonical plan and final validation;
 - no allowed support file was reopened for anything other than spelling, grammar, or wording corrections;
 - the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope;
 - the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope;

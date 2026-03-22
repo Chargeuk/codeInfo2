@@ -77,7 +77,7 @@ Couple of sentences of what this task achieves and why it is needed. Each task s
 
 - Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
 - Task Status: __to_do__
-- Git Commits: **to_do**
+- Git Commits: __to_do__
 
 #### Overview
 

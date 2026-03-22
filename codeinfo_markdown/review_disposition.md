@@ -106,4 +106,4 @@ Before you finish this step, verify all of the following:
 - no allowed support file was reopened for anything other than spelling, grammar, or wording corrections;
 - the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope;
 - the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope;
-- durable artifacts are treated as commit-worthy and the current-plan handoff is not mistaken for the durable review artifact.
+- durable artifacts are treated as commit-worthy, the current-plan handoff is not mistaken for the durable review artifact, and the review handoff remains transient workflow state rather than the durable artifact.

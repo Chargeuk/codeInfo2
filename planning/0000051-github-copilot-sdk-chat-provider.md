@@ -67,7 +67,7 @@ The user also wants Copilot home-directory handling to mirror the existing Codex
 
 This is intentionally about config and state location, not about changing the project working directory. The Copilot home should be treated like a runtime home, while Copilot's working directory for chat should still point at the actual codebase location the model is meant to operate on.
 
-Authentication also needs to be described carefully for this story. The existing product already has a shared Codex authentication popup and a backend route that shells out to `codex login --device-auth`, parses the returned verification URL and user code, and displays that output in the UI. Follow-up Copilot SDK and Copilot CLI research now shows a documented GitHub OAuth device-flow path for Copilot as well, using `copilot login` and the interactive `/login` command. The documented flow gives the user a one-time code and the GitHub device-login URL so the user can complete authentication in a normal browser.
+Authentication also needs to be described carefully for this story. The existing product already has a Codex authentication popup dialog and a backend route that shells out to `codex login --device-auth`, parses the returned verification URL and user code, and displays that output in the UI. Follow-up Copilot SDK and Copilot CLI research now shows a documented GitHub OAuth device-flow path for Copilot as well, using `copilot login` and the interactive `/login` command. The documented flow gives the user a one-time code and the GitHub device-login URL so the user can complete authentication in a normal browser.
 
 That makes a Copilot auth flow possible even when this product is running inside Docker images that cannot launch a browser themselves. The container only needs to start the Copilot login command and surface the verification URL and code in the UI. The user can then open the GitHub device-login page in their own browser outside the container, enter the code, and finish authentication there.
 
@@ -100,7 +100,6 @@ The chosen modal direction for this story is:
 - The implementation removes the current binary alternate-provider assumptions rather than adding a second special case for Copilot.
 - This story does not add a new provider-specific default-model configuration source for Copilot or LM Studio analogous to Codex `codex/chat/config.toml`.
 - If Copilot participates in default-provider or default-model bootstrap for chat, it does so through the existing shared chat-default path rather than through a new Copilot-specific config file, user preference store, or dedicated UI.
-- `GET /chat/providers` can report Copilot availability with a clear reason when the Copilot SDK or Copilot CLI is unavailable, unauthenticated, or otherwise unusable.
 - Copilot readiness reporting keeps `available`, `toolsAvailable`, and warnings distinct, and evaluates blocking readiness in a deterministic order so the surfaced provider `reason` is stable across provider listing, model loading, auth refresh, and chat execution.
 - `GET /chat/models?provider=copilot` returns Copilot model entries mapped into the existing chat-model response shape.
 - Copilot model entries preserve useful reasoning metadata when the SDK exposes it.

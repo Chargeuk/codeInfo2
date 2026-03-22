@@ -551,9 +551,9 @@ Make `copilot` a valid top-level chat provider everywhere the current repository
 
 #### Documentation Locations
 
-- OpenAPI Specification: `https://spec.openapis.org/oas/v3.1.0`
-- Zod documentation for enum and schema validation behavior: `https://zod.dev/`
-- TypeScript Handbook union and literal-type guidance: `https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types`
+- OpenAPI Specification 3.1.0: `https://spec.openapis.org/oas/v3.1.0` for the canonical enum, request-body, and response-schema rules that `openapi.json` must keep matching.
+- Zod documentation: `https://zod.dev/` for enum, literal, and schema-validation behavior when the shared provider contract adds `copilot`.
+- TypeScript Handbook union and literal types: `https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types` for the exact typing rules used by the expanded shared provider unions.
 
 #### Subtasks
 
@@ -595,9 +595,9 @@ Create the reusable server-side Copilot client seam that later route and chat ta
 
 #### Documentation Locations
 
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
-- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
-- GitHub Copilot documentation root for runtime and auth context: `https://docs.github.com/en/copilot`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked SDK surface used here, especially `CopilotClient`, `start()`, `stop()`, `ping()`, `getAuthStatus()`, `listModels()`, `createSession(...)`, and `resumeSession(...)`.
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked architecture pages covering connection management, sessions, lifecycle hooks, permissions, and persistence that explain how the runtime seam should be shaped.
+- GitHub Copilot product docs: `https://docs.github.com/en/copilot` for product-level runtime and authentication context that sits outside the Node SDK API reference.
 
 #### Subtasks
 
@@ -639,9 +639,9 @@ Create the dedicated fake Copilot SDK harness for server tests so unit, integrat
 
 #### Documentation Locations
 
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
-- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
-- Node.js test runner documentation: `https://nodejs.org/api/test.html`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked session, event, model-list, and error-shape behavior that the fake SDK harness has to mirror closely enough for repository tests.
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked repository architecture notes on sessions, events, permissions, and test-support patterns that help keep the fake aligned with real SDK behavior.
+- Node.js test runner documentation: `https://nodejs.org/api/test.html` for the `node:test` patterns used by the dedicated harness proof tests in this repository.
 
 #### Subtasks
 
@@ -681,9 +681,9 @@ Create the dedicated fake Copilot device-auth harness for server tests so auth r
 
 #### Documentation Locations
 
-- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow`
-- GitHub Copilot documentation root for auth context: `https://docs.github.com/en/copilot`
-- Node.js test runner documentation: `https://nodejs.org/api/test.html`
+- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow` for the checked verification URL, user code, and polling phases the fake device-auth harness must model.
+- GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked Copilot sign-in and product-auth context that explains why the harness needs already-authenticated, pending, and failure outcomes.
+- Node.js test runner documentation: `https://nodejs.org/api/test.html` for the `node:test` patterns used by the dedicated harness proof tests in this repository.
 
 #### Subtasks
 
@@ -723,9 +723,9 @@ Wire the reusable Copilot seam into `GET /chat/providers` so Copilot appears in 
 
 #### Documentation Locations
 
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
-- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
-- GitHub Copilot documentation root for auth and readiness context: `https://docs.github.com/en/copilot`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked readiness-related SDK calls such as `ping()` and `getAuthStatus()` that drive provider availability.
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked lifecycle and auth-status architecture notes that help define stable readiness precedence.
+- GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked credential and authentication context so provider readiness does not misclassify valid env-token or `gh`-backed states.
 
 #### Subtasks
 
@@ -765,9 +765,9 @@ Wire the reusable Copilot seam into `GET /chat/models` so Copilot model metadata
 
 #### Documentation Locations
 
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
-- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
-- GitHub Copilot documentation root for model-list context: `https://docs.github.com/en/copilot`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked `listModels()` response shape and model metadata fields that can be mapped safely into the repository contract.
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked session and connection-management notes that explain where model discovery sits in the client lifecycle.
+- GitHub Copilot product docs: `https://docs.github.com/en/copilot` for product-level model and entitlement context that can affect why model lists are empty or unavailable.
 
 #### Subtasks
 
@@ -806,9 +806,9 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 
 #### Documentation Locations
 
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
-- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
-- Context7 Mongoose docs: `/automattic/mongoose/9.0.1`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked session create/resume, permission callback, event-stream, and hook behavior used by the real Copilot chat adapter.
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk` for the checked pages on sessions, permissions, event listeners, and persistence so the server adapter reuses the SDK lifecycle correctly.
+- Context7 Mongoose docs: `/automattic/mongoose/9.0.1` for the checked `Schema.Types.Mixed`, optional-field, and persistence-shape behavior used when storing Copilot session-related flags without over-modeling the schema.
 
 #### Subtasks
 
@@ -851,9 +851,9 @@ Replace the current Codex-only auth contract with one shared provider-auth contr
 
 #### Documentation Locations
 
-- OpenAPI Specification: `https://spec.openapis.org/oas/v3.1.0`
-- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow`
-- GitHub Copilot documentation root for auth context: `https://docs.github.com/en/copilot`
+- OpenAPI Specification 3.1.0: `https://spec.openapis.org/oas/v3.1.0` for the shared provider-auth request and response schema rules that must stay in sync with `openapi.json`.
+- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow` for the checked two-phase verification and polling model the shared auth contract has to represent.
+- GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked Copilot auth context so the shared contract can cover Copilot and Codex without baking in Codex-only wording.
 
 #### Subtasks
 
@@ -893,9 +893,9 @@ Add the server-side Copilot device-auth route that uses the documented device-lo
 
 #### Documentation Locations
 
-- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow`
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
-- OpenAPI Specification: `https://spec.openapis.org/oas/v3.1.0`
+- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow` for the checked verification URL, user-code, and completion-polling steps implemented by the Copilot auth backend.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked auth-status and runtime-home expectations that the Copilot route has to respect before starting device flow.
+- OpenAPI Specification 3.1.0: `https://spec.openapis.org/oas/v3.1.0` for the new Copilot auth route schema and the shared provider-auth response contract it must expose.
 
 #### Subtasks
 
@@ -935,9 +935,9 @@ Extend the existing client-side fetch-based auth fixtures so dialog and auth API
 
 #### Documentation Locations
 
-- Context7 Jest docs: `/jestjs/jest`
-- Testing Library documentation: `https://testing-library.com/docs/`
-- React documentation root: `https://react.dev/`
+- Context7 Jest docs: `/jestjs/jest` for the checked mock, assertion, and async-test patterns used by the client fixture proof tests.
+- Testing Library documentation: `https://testing-library.com/docs/` for the checked render and user-facing assertion style used by the repository’s client tests.
+- React documentation: `https://react.dev/` for checked component-state and render-cycle context when extending the existing client auth test helpers around React components.
 
 #### Subtasks
 
@@ -977,9 +977,10 @@ Teach the existing chat page to consume the new three-provider contract for prov
 
 #### Documentation Locations
 
-- React documentation root: `https://react.dev/`
-- React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state`
-- MUI MCP docs for the repository Material UI version's form controls and button behavior
+- React documentation: `https://react.dev/` for checked component-state guidance used by the chat page and provider-selection flow.
+- React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state` for the exact behavior this task preserves when provider or model changes should affect only the next send.
+- MUI 6.4.12 Select API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/select.md` for checked select value, disabled-state, and `onChange` behavior used by provider and model selectors.
+- MUI 6.4.12 FormControl API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/form-control.md` for checked wrapper, disabled, error, and layout behavior around the existing selection controls.
 
 #### Subtasks
 
@@ -1021,9 +1022,11 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 
 #### Documentation Locations
 
-- MUI MCP docs for the repository Material UI version's `Dialog`, `DialogTitle`, `DialogContent`, `DialogActions`, `Button`, and `Stack` pages
-- React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state`
-- React documentation root: `https://react.dev/`
+- MUI 6.4.12 Dialog API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/dialog.md` for checked `open`, `onClose`, `aria-labelledby`, and `aria-describedby` behavior used by the shared auth dialog shell.
+- MUI 6.4.12 DialogTitle API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/dialog-title.md`, DialogContent API: `https://llms.mui.com/material-ui/6.4.12/api/dialog-content.md`, and DialogActions API: `https://llms.mui.com/material-ui/6.4.12/api/dialog-actions.md` for the checked internal dialog structure the repository already uses.
+- MUI 6.4.12 Button API via MUI MCP: `https://llms.mui.com/material-ui/6.4.12/api/button.md` and Stack API: `https://llms.mui.com/material-ui/6.4.12/api/stack.md` for checked button ordering, disabled/loading presentation, and simple vertical layout behavior.
+- React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state` for the exact rule this task relies on when provider-specific dialog output should reset only intentionally.
+- React documentation: `https://react.dev/` for checked component rendering and state-flow context around the shared dialog.
 
 #### Subtasks
 
@@ -1065,9 +1068,9 @@ Update the existing transcript formatting path so partial Copilot usage and timi
 
 #### Documentation Locations
 
-- React conditional rendering guidance: `https://react.dev/learn/conditional-rendering`
-- React documentation root: `https://react.dev/`
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- React conditional rendering guidance: `https://react.dev/learn/conditional-rendering` for the checked pattern of omitting missing metadata instead of rendering misleading placeholder values.
+- React documentation: `https://react.dev/` for checked component-rendering context around transcript metadata display.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked usage and timing metadata variability that makes partial Copilot transcript fields a real case to support.
 
 #### Subtasks
 
@@ -1107,9 +1110,9 @@ Add the runtime env prerequisites that let the existing server and wrapper-backe
 
 #### Documentation Locations
 
-- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
-- GitHub Copilot documentation root for runtime and auth context: `https://docs.github.com/en/copilot`
-- Docker environment-variable guidance: `https://docs.docker.com/compose/environment-variables/`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk` for the checked runtime-home and auth-status expectations that the server env wiring must satisfy.
+- GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked credential precedence and runtime context around `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN`.
+- Docker Compose environment-variable guidance: `https://docs.docker.com/compose/environment-variables/` for the checked rules on passing env values into the wrapper-backed container runtime.
 
 #### Subtasks
 
@@ -1147,9 +1150,9 @@ Add the Docker and compose prerequisites that let the existing stack host Copilo
 
 #### Documentation Locations
 
-- Context7 Docker docs: `/docker/docs`
-- Docker Compose volumes documentation: `https://docs.docker.com/reference/compose-file/volumes/`
-- GitHub Copilot documentation root for runtime context: `https://docs.github.com/en/copilot`
+- Context7 Docker docs: `/docker/docs` for the checked Dockerfile and Compose behavior used when adding the Copilot runtime prerequisites without changing the repo’s image-build model.
+- Docker Compose volumes documentation: `https://docs.docker.com/reference/compose-file/volumes/` for the checked named-volume syntax and persistence rules used by the Copilot runtime home.
+- GitHub Copilot product docs: `https://docs.github.com/en/copilot` for checked runtime-context details that explain why Copilot state needs writable persistent storage inside the containerized stack.
 
 #### Subtasks
 
@@ -1189,9 +1192,9 @@ Extend the repository's existing integration, Cucumber, and Playwright boot path
 
 #### Documentation Locations
 
-- Context7 Playwright docs: `/microsoft/playwright`
-- Cucumber guides: `https://cucumber.io/docs/guides/`
-- Node.js test runner documentation: `https://nodejs.org/api/test.html`
+- Context7 Playwright docs: `/microsoft/playwright` for the checked fixture, setup, and scenario-boot patterns used when extending the repository’s existing higher-level proof path.
+- Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for the checked scenario and step-definition structure, and Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for keeping the higher-level boot-path logic out of step files.
+- Node.js test runner documentation: `https://nodejs.org/api/test.html` for the checked integration-proof pattern used by the dedicated boot-path smoke test.
 
 #### Subtasks
 
@@ -1231,9 +1234,9 @@ Use the fake Copilot seams to prove the new server-side provider behavior throug
 
 #### Documentation Locations
 
-- Cucumber guides: `https://cucumber.io/docs/guides/`
-- Context7 Playwright docs: `/microsoft/playwright`
-- Node.js test runner documentation: `https://nodejs.org/api/test.html`
+- Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for the checked feature and step-definition structure used by the repository’s Copilot server-story scenarios.
+- Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for the checked rule that step definitions should stay thin and push logic into reusable support helpers.
+- Node.js test runner documentation: `https://nodejs.org/api/test.html` for checked support-code patterns that sit alongside the Cucumber features in this repository.
 
 #### Subtasks
 
@@ -1272,9 +1275,9 @@ Use the fake Copilot seams to prove the new user-facing provider behavior throug
 
 #### Documentation Locations
 
-- Context7 Playwright docs: `/microsoft/playwright`
-- Playwright documentation root: `https://playwright.dev/docs/intro`
-- Cucumber guides for BDD wording if needed by shared steps: `https://cucumber.io/docs/guides/`
+- Context7 Playwright docs: `/microsoft/playwright` for the checked fixture, `test.extend`, attachment, and end-to-end interaction patterns used by the Copilot browser proof.
+- Playwright introduction and guides: `https://playwright.dev/docs/intro` for the checked end-to-end runner behavior used by the repository wrappers and Docker-backed e2e stack.
+- Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` for checked BDD wording conventions if shared scenario naming or phrasing needs to stay aligned across proof layers.
 
 #### Subtasks
 
@@ -1313,10 +1316,10 @@ Run the final full proof path for Story `0000051`, verify the implemented behavi
 
 #### Documentation Locations
 
-- Context7 Docker docs: `/docker/docs`
-- Context7 Playwright docs: `/microsoft/playwright`
-- Context7 Jest docs: `/jestjs/jest`
-- Cucumber guides: `https://cucumber.io/docs/guides/`
+- Context7 Docker docs: `/docker/docs` for the checked container and compose behavior that final validation must exercise through the repository wrappers.
+- Context7 Playwright docs: `/microsoft/playwright` for the checked browser-proof behavior and manual spot-check context used during final validation.
+- Context7 Jest docs: `/jestjs/jest` for the checked client-test runner behavior used by the final proof path.
+- Cucumber 10-minute tutorial: `https://cucumber.io/docs/guides/10-minute-tutorial/` and Cucumber testable architecture guide: `https://cucumber.io/docs/guides/testable-architecture/` for the checked feature-writing and support-code conventions used by final server-side validation.
 
 #### Subtasks
 

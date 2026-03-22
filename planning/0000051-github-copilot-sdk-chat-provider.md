@@ -466,4 +466,477 @@ This story stays within the current repository. The feasibility proof below dist
 
 ## Questions
 
-- No Further Questions
+# Tasks
+
+### Task 1. Expand the shared three-provider chat contracts and ordered defaults
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Make `copilot` a valid top-level chat provider everywhere the current repository defines shared provider ids, request validation, persistence enums, ordered fallback, and OpenAPI enums. This task is intentionally contract-first so later backend and frontend tasks can build on one consistent three-provider surface instead of adding more two-provider exceptions.
+
+#### Documentation Locations
+
+- Story requirements in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Schema and Contracts Matrix`, and `### Feasibility Proof`.
+- Shared contract files: `common/src/api.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/conversation.ts`, and `openapi.json`.
+- Existing server contract tests: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chat-unsupported-provider.test.ts`, and `server/src/test/unit/mcp-unsupported-provider.test.ts`.
+- Architecture and repo docs to update if this task changes public behavior wording: `design.md`, `README.md`, and `projectStructure.md`.
+
+#### Subtasks
+
+1. [ ] Re-read this story’s `Acceptance Criteria`, `Message Contracts and Storage Shapes`, and `Feasibility Proof` sections and write down the exact shared provider ordering rule for this task: `codex`, then `copilot`, then `lmstudio`. Do not start editing until that rule is written into your own working notes because every file in this task must follow it.
+2. [ ] Update `common/src/api.ts` so every shared chat provider union, request shape, response shape, and conversation summary type that currently assumes only `codex` and `lmstudio` accepts `copilot` as well. Keep the auth contract out of scope for this task unless a shared provider enum must be reused there later.
+3. [ ] Update `server/src/config/chatDefaults.ts` so the default-provider and fallback-selection helpers use one explicit ordered provider list instead of a binary alternate-provider rule. Do not add a second Copilot special case; replace the two-provider assumption directly.
+4. [ ] Update `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, and `server/src/mongo/conversation.ts` so `provider: "copilot"` is accepted consistently in request validation, REST validation, and Mongo storage enums. Preserve backward compatibility for existing `codex` and `lmstudio` records.
+5. [ ] Update `openapi.json` so every relevant request and response enum that currently lists only `codex` and `lmstudio` includes `copilot` in the same top-level provider role. Make sure the generated contract names and enum descriptions still match the implemented server behavior.
+6. [ ] Add or update focused unit tests in `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chat-unsupported-provider.test.ts`, and `server/src/test/unit/mcp-unsupported-provider.test.ts` so they prove the new ordered fallback contract and the new provider acceptance behavior. Add one negative test that still rejects an actually unsupported provider name.
+7. [ ] Update `design.md` so it explains the new three-provider ordering rule and names the contract surfaces that now share it. Update `README.md` only if it currently documents chat providers or defaults in a way that would now be false. Update `projectStructure.md` only if this task adds or removes files.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 1, recording the task’s implementation notes, and listing the task commit hashes once they exist.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the server still compiles after the shared contract and validator changes.
+2. [ ] Run `npm run build:summary:client` to prove the client and shared workspace still compile against the expanded provider unions.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated shared contracts.
+4. [ ] Run `npm run compose:up`, confirm the stack starts without contract-related startup failures, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite still passes with the new three-provider contract surface.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 2. Add the reusable Copilot runtime seam and fake Copilot test harnesses
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Create the reusable server-side Copilot client seam and the deterministic fake harnesses that later tasks will depend on. This task is intentionally about the runtime boundary and testability only; it should not yet wire Copilot into the public routes.
+
+#### Documentation Locations
+
+- Story planning in this file: `## Implementation Ideas`, `## Test Harnesses`, `### Missing Runtime and Deployment Prerequisites`, and `### Feasibility Proof`.
+- Existing provider abstraction files: `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/chat/factory.ts`.
+- Existing test harness patterns: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, `server/src/test/support/chromaContainer.ts`, and `client/src/test/support/fetchMock.ts`.
+- Server workspace package and runtime setup: `server/package.json` and any existing Copilot-related install or runtime docs already checked into the repository.
+
+#### Subtasks
+
+1. [ ] Add the Copilot SDK dependency to `server/package.json` and update the matching lockfile entries so the server workspace can compile against the official SDK types. Do not add a second package manager or ad hoc install script.
+2. [ ] Create a reusable Copilot lifecycle module under `server/src/chat` or `server/src/providers` that owns `start()`, `stop()`, `listModels()`, `createSession(...)`, and `resumeSession(...)` through one injectable seam. Keep route code out of this module.
+3. [ ] Add `server/src/chat/interfaces/ChatInterfaceCopilot.ts` with a minimal adapter shape that later tasks can extend for real chat execution. At the end of this task the adapter can still be incomplete, but the class or module should compile and expose the intended dependency boundary cleanly.
+4. [ ] Add `server/src/test/support/mockCopilotSdk.ts` so tests can script deterministic startup, model listing, session creation, session resumption, event emission, and failure cases without a real Copilot login.
+5. [ ] Add `server/src/test/support/mockCopilotDeviceAuth.ts` so later auth tests can reuse deterministic device-flow parsing, pending completion, completion success, CLI-missing, and failure outputs instead of duplicating setup in each test.
+6. [ ] Make the new Copilot seam injectable in the server test environment without affecting production behavior. Reuse the repository’s existing test-support pattern instead of adding a one-off global mutable singleton.
+7. [ ] Add or update unit tests around the new lifecycle module and fake harnesses so they prove start or stop behavior, error propagation, and deterministic fake event scripting. Keep these tests isolated from public route behavior, which belongs in later tasks.
+8. [ ] Update `design.md` only if the new lifecycle seam changes the repository architecture in a way a future junior developer would not infer from code alone. Update `projectStructure.md` to list any new source or support files created in this task.
+9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the new Copilot runtime seam and harness files compile.
+2. [ ] Run `npm run build:summary:client` to prove shared workspace compilation still passes after any new shared imports or type changes.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the SDK dependency.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the new lifecycle and harness tests pass.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 3. Expose Copilot readiness and model listing on the server
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Wire the reusable Copilot seam into `GET /chat/providers` and `GET /chat/models` so Copilot appears in the provider list with deterministic availability reasons and returns model metadata through the existing shared response shape. This task should stop at provider readiness and model discovery; it should not yet execute chat turns.
+
+#### Documentation Locations
+
+- Story planning in this file: `### Acceptance Criteria`, `### Edge Cases and Failure Modes`, and `### Feasibility Proof` sections for provider readiness and model routes.
+- Route files: `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/config/chatDefaults.ts`.
+- Shared model and provider shapes: `common/src/api.ts` and any Copilot seam files created in Task 2.
+- Existing route tests and BDD files: `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts`.
+
+#### Subtasks
+
+1. [ ] Update `server/src/routes/chatProviders.ts` so the provider payload includes Copilot in the ordered list `codex`, `copilot`, `lmstudio`, even when Copilot is unavailable. Keep `available`, `toolsAvailable`, warnings, and the surfaced `reason` distinct.
+2. [ ] Implement one explicit readiness precedence rule in the Copilot readiness path and document it in code comments if the ordering would otherwise be hard to follow. The surfaced `reason` must be stable across provider listing, model loading, auth refresh, and chat execution.
+3. [ ] Update `server/src/routes/chatModels.ts` so `GET /chat/models?provider=copilot` calls the new Copilot seam and maps only verified Copilot model fields into the existing response shape. Do not synthesize token or timing metadata that the SDK does not actually expose.
+4. [ ] Keep the route behavior deterministic when Copilot is unavailable, unauthenticated, returns no usable models, or returns model fields the repository does not yet understand. Unknown fields should be ignored safely, not treated as fatal errors.
+5. [ ] Add or update unit tests in `server/src/test/unit/chatProviders.test.ts` and a new or renamed Copilot model route test file so they prove provider ordering, unavailable reasons, empty model lists, and Copilot model mapping behavior.
+6. [ ] Extend `server/src/test/features/chat_models.feature` and `server/src/test/steps/chat_models.steps.ts` so the Cucumber layer can exercise Copilot availability and Copilot model listing through the fake seam introduced in Task 2.
+7. [ ] Update `design.md` if the provider readiness precedence or model-mapping contract would otherwise only exist in tests. Update `README.md` only if it contains provider-list or model-list behavior that would now be inaccurate. Update `projectStructure.md` if this task adds or removes files.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the provider and model routes compile with the new Copilot branch.
+2. [ ] Run `npm run build:summary:client` to prove the shared provider and model response shapes still compile on the client side.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new route wiring.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the route-level Copilot provider and model tests pass.
+6. [ ] Run `npm run test:summary:server:cucumber` and confirm the updated `chat_models` feature coverage passes with the fake Copilot seam.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 4. Add Copilot chat execution, streaming, and conversation persistence
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement the actual Copilot chat turn path on the server so `POST /chat` can create or resume a Copilot session, stream transcript events into the existing bridge, and persist the conversation deterministically. This task is intentionally backend-only because the frontend should not consume Copilot chat until the server contract and persistence behavior are working.
+
+#### Documentation Locations
+
+- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Edge Cases and Failure Modes`, and `### Proof Path Readiness`.
+- Chat execution files: `server/src/routes/chat.ts`, `server/src/chat/factory.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `server/src/mongo/turn.ts`.
+- Existing chat tests: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`, and `server/src/test/features/chat_cancellation.feature`.
+
+#### Subtasks
+
+1. [ ] Update `server/src/chat/factory.ts` so the chat factory can construct the Copilot chat adapter through the reusable seam added in Task 2. Keep the existing Codex and LM Studio branches unchanged except where the shared provider contract already required updates.
+2. [ ] Finish `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so it can create and resume Copilot sessions, register any required permission or tool handlers, and translate Copilot events into the existing `ChatInterface` event model. Allow permissions by default for this story.
+3. [ ] Update `server/src/routes/chat.ts` so `provider: "copilot"` is accepted, uses the shared runtime-selection contract, and streams Copilot output back through the existing transcript transport without introducing a new websocket or HTTP transport.
+4. [ ] Choose one session identity strategy and implement it consistently: either reuse `conversationId` as the Copilot session id or persist a separate `conversation.flags.copilotSessionId`. Update `server/src/mongo/conversation.ts` and any repo helpers so the chosen strategy is stored and resumed deterministically.
+5. [ ] Make resume failure explicit. If an existing persisted Copilot conversation cannot resume its expected session, return a clear error for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
+6. [ ] Add or update unit and integration tests so they prove Copilot event mapping, session creation, session resumption, resume failure, conversation persistence, and concurrent-request protection on the same conversation id.
+7. [ ] Extend `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`, and any related chat cancellation feature files so the BDD layer exercises a Copilot chat stream through the fake seam. Cover at least one happy path and one deterministic failure path.
+8. [ ] Update `design.md` with the chosen Copilot session identity rule and the Copilot event-to-transcript mapping if those details are not obvious from the code. Update `README.md` only if user-facing chat behavior needs clarification. Update `projectStructure.md` if this task adds or removes files.
+9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the full Copilot chat path compiles.
+2. [ ] Run `npm run build:summary:client` to prove the shared workspace still compiles after any chat contract updates.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the server chat changes.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot chat adapter and persistence tests pass.
+6. [ ] Run `npm run test:summary:server:cucumber` and confirm the updated Copilot chat stream features pass.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 5. Generalize the auth contract and add the Copilot device-auth backend
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Replace the current Codex-only auth contract with a shared provider-auth contract, then add the server-side Copilot device-auth route that uses the documented device-login flow and returns verification details early. This task remains server-first so the frontend can consume one settled contract in the next task instead of chasing backend changes.
+
+#### Documentation Locations
+
+- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Missing Runtime and Deployment Prerequisites`, and `### Edge Cases and Failure Modes`.
+- Existing auth files: `common/src/api.ts`, `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `client/src/api/conversations.ts`, and any auth-related route registration files.
+- Existing auth tests: `server/src/test/unit/codexDeviceAuth.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, `client/src/test/codexDeviceAuthApi.test.ts`, and `client/src/test/codexDeviceAuthDialog.test.tsx`.
+
+#### Subtasks
+
+1. [ ] Update `common/src/api.ts` so the shared auth contract can represent provider id, verification URL, one-time code, early verification-ready state, completion-pending state, completed state, failed state, and unavailable-before-start state. Keep the contract generic enough for Codex and Copilot without exposing BYOK provider details.
+2. [ ] Refactor the existing Codex auth route and utilities so they use the new shared provider-auth contract without changing Codex behavior. Preserve the current ability to return verification details early while completion continues separately.
+3. [ ] Add the Copilot device-auth backend route and utility code using the documented Copilot device-login flow. Return the verification URL and one-time code as soon as they are available rather than waiting for the whole login to finish.
+4. [ ] Make readiness refresh explicit. After the external browser step completes, the server should expose a deterministic way for the UI to learn whether authentication is complete or has failed without guessing from raw output text.
+5. [ ] Keep the auth storage location aligned with `CODEINFO_COPILOT_HOME`, and make missing CLI, unavailable keychain, unwritable config directory, and failed login outcomes surface as clear reasons rather than generic route failures.
+6. [ ] Add or update server unit and integration tests so they prove the shared Codex contract still works, the new Copilot route returns verification details early, and completion or failure is observable through the new contract. Reuse `mockCopilotDeviceAuth.ts` instead of inlining route behavior in each test.
+7. [ ] Update `openapi.json` for the new shared auth contract and any new auth route path. Update `design.md` and `README.md` if they currently describe only the Codex-specific auth shape or modal wording. Update `projectStructure.md` if this task adds or removes files.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the shared auth contract and new backend route compile.
+2. [ ] Run `npm run build:summary:client` to prove the shared auth types still compile on the client side before the UI task starts.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new auth route and utilities are added.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the auth unit tests pass.
+6. [ ] Run `npm run test:summary:server:cucumber` if any auth-related feature coverage is added or updated as part of this task.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 6. Update client provider and model selection for the three-provider contract
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Teach the existing chat page to consume the new three-provider contract for provider ordering, provider availability, model loading, and next-send conversation semantics. This task must not change the shared auth dialog yet; it should only update the provider and model selection flow that depends on the backend contracts completed in Tasks 1, 3, and 5.
+
+#### Documentation Locations
+
+- Story planning in this file: `### Acceptance Criteria`, `## Implementation Ideas`, and `### Edge Cases and Failure Modes`.
+- Client files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/conversations.ts`, and any provider-selection helpers already used by the chat page.
+- Existing client tests: `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`.
+- MUI references already used by this repository for controlled selection UI if behavior details are needed.
+
+#### Subtasks
+
+1. [ ] Update `client/src/hooks/useChatModel.ts` so the hook reads and preserves the shared provider order `codex`, `copilot`, `lmstudio`, handles disabled providers with reasons, and loads models for `copilot` through the existing `/chat/models` surface.
+2. [ ] Update `client/src/pages/ChatPage.tsx` so provider bootstrap and fallback follow the server contract instead of any remaining two-provider client-side shortcuts. Do not hide Copilot when it is unavailable; show it as unavailable with the surfaced reason.
+3. [ ] Preserve the existing rule that changing provider or model only affects the next send by starting a new conversation. Do not mutate the runtime provider or model in place for an already-persisted conversation.
+4. [ ] Keep existing Codex-only flags and UI controls Codex-only in this task. If the selected provider is Copilot, do not misapply Codex settings to the outgoing request payload.
+5. [ ] Add or update client tests so they prove provider ordering, provider fallback, disabled Copilot rendering, Copilot model loading, and next-send new-conversation behavior. Reuse existing chat page test harnesses instead of creating a second page test setup.
+6. [ ] Update `design.md` only if the client bootstrap sequence or next-send behavior is now clearer when written down. Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Update `projectStructure.md` if this task adds or removes files.
+7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove server compilation still passes against the client-consuming contract.
+2. [ ] Run `npm run build:summary:client` to prove the updated provider and model UI compiles.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client assets.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:client` and confirm the provider-selection and model-loading client tests pass.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 7. Replace the Codex-only auth dialog with the shared Choose Authentication flow
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Update the existing client auth experience so the chat page uses one shared `Choose Authentication` dialog with `Codex Auth` and `Copilot Auth`, and so the UI consumes the shared provider-auth contract from Task 5. This task should stay focused on the dialog flow, not on provider or model selection, which belongs to Task 6.
+
+#### Documentation Locations
+
+- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
+- Existing client auth files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/test/codexDeviceAuthDialog.test.tsx`, `client/src/test/codexDeviceAuthApi.test.ts`, and any current client auth API helper.
+- Shared auth contract files from Task 5: `common/src/api.ts`, the server auth routes, and any new client auth API wrapper added for provider-agnostic use.
+- MUI dialog and button behavior references already used in this repository if a component API reminder is needed.
+
+#### Subtasks
+
+1. [ ] Replace or rename the current Codex-specific dialog component so the client exposes one shared `Choose Authentication` dialog with `Codex Auth` first, `Copilot Auth` second, and `Close` in the bottom-right action area.
+2. [ ] Generalize the client auth API layer so the dialog can start either provider’s auth flow and render the shared provider-auth response shape. Remove any client-only assumption that auth responses are Codex raw output.
+3. [ ] Render verification URL, one-time code, loading state, completion-pending state, completion success, and failure state below the shared auth buttons without replacing the overall dialog structure.
+4. [ ] Refresh provider readiness after auth completion using the shared provider and model surfaces instead of guessing from stale local state. Keep current Codex behavior working while adding Copilot behavior through the same contract.
+5. [ ] Add or update client tests so they prove the shared dialog layout, provider button ordering, early verification display, completion refresh, and provider-specific failure handling. Add at least one regression test that proves the Codex path still works.
+6. [ ] Update `README.md` and `design.md` if they describe the old Codex-only dialog wording or flow. Update `projectStructure.md` if this task adds or removes files, including any renamed dialog components or test helpers.
+7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 7, recording implementation notes, and listing the task commit hashes once they exist.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the shared auth contract still compiles end to end.
+2. [ ] Run `npm run build:summary:client` to prove the new dialog and client auth code compile.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client auth assets.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:client` and confirm the shared auth dialog tests pass.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 8. Harden transcript metadata rendering for partial Copilot usage and timing fields
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Update the existing transcript formatting path so partial Copilot usage and timing metadata render cleanly without placeholder zeros or misleading labels. This task is intentionally narrow: it should improve shared transcript formatting without rewriting the rest of the chat page.
+
+#### Documentation Locations
+
+- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
+- Client transcript files: `client/src/components/chat/chatTranscriptFormatting.ts`, the chat page rendering code that consumes it, and any transcript test harness files under `client/src/test/support`.
+- Existing transcript tests: `client/src/test/chatPage.stream.test.tsx`, `client/src/test/chatPage.reasoning.test.tsx`, `client/src/test/transcriptTestHarness.test.ts`, and any other client transcript rendering tests that already assert token or timing details.
+
+#### Subtasks
+
+1. [ ] Update `client/src/components/chat/chatTranscriptFormatting.ts` so missing or `null` token and timing sub-values are omitted rather than rendered as `0` or other misleading placeholders.
+2. [ ] Keep existing Codex and LM Studio metadata rendering stable. This task should only broaden the formatter enough to handle partial Copilot metadata safely, not relabel or redesign the existing transcript details.
+3. [ ] Review any transcript rendering code that assumes every provider sends the same metadata fields and narrow those assumptions to the fields that are actually present. Ignore unknown Copilot metadata fields safely.
+4. [ ] Add or update client tests so they cover partial Copilot metadata, missing timing fields, missing token fields, and existing Codex or LM Studio regression behavior. Reuse the existing transcript measurement and websocket test harnesses.
+5. [ ] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Update `projectStructure.md` if this task adds or removes files.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove shared contract compilation still passes.
+2. [ ] Run `npm run build:summary:client` to prove the updated transcript formatter compiles.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the transcript UI changes.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:client` and confirm the transcript formatting tests pass.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 9. Wire Copilot runtime delivery, environment injection, and Docker persistence
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add the runtime and deployment prerequisites that let the existing server and compose stack host Copilot safely: `CODEINFO_COPILOT_HOME`, Copilot CLI delivery, writable runtime storage, Docker-managed persistence, and build-context exclusions. This task must keep the repository’s image-build model intact and must not introduce host source bind mounts for application code.
+
+#### Documentation Locations
+
+- Story planning in this file: `### Acceptance Criteria`, `### Missing Runtime and Deployment Prerequisites`, `## Proof Path Readiness`, and `### Feasibility Proof`.
+- Runtime config files: `server/src/config/startupEnv.ts`, `server/.env`, `server/.env.local`, and `server/.env.e2e`.
+- Docker and compose files: `server/Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `.dockerignore`, and any compose contract tests such as `server/src/test/unit/runtimeConfig.test.ts`.
+- Docker documentation: Context7 `/docker/docs` for image build contexts, env injection, and named volume behavior if a syntax reminder is needed.
+
+#### Subtasks
+
+1. [ ] Update `server/src/config/startupEnv.ts` and the server env files so `CODEINFO_COPILOT_HOME` is loaded in development, local Docker, and e2e in the same style as `CODEINFO_CODEX_HOME`. Keep the development default repo-local and the container path `/app/copilot`.
+2. [ ] Update `server/Dockerfile` so the server image includes the Copilot runtime prerequisites and a writable `/app/copilot` path without changing the existing “copy source into the image and build there” model. Do not introduce a bind-mounted source tree.
+3. [ ] Update `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` so Copilot home is injected consistently and persisted through Docker-managed volumes or another container-managed writable directory when persistence is required. Do not add any new published ports.
+4. [ ] Update `.dockerignore` so repo-local Copilot auth files, session state, and runtime-home artifacts are excluded from the image build context just like other local runtime secrets. Keep only required application files in the build context.
+5. [ ] Make sure `/health` remains a process-level health check and does not start failing just because the Copilot CLI is missing, Copilot is unauthenticated, or Copilot models are unavailable. Copilot readiness belongs on the chat provider and model surfaces only.
+6. [ ] Add or update runtime and compose contract tests so they prove env injection, port stability, named volume usage, and Copilot-home path resolution. Reuse the existing runtime config test patterns instead of adding an unrelated test harness.
+7. [ ] Update `README.md`, `design.md`, and `projectStructure.md` so they document the new env var, the named-volume runtime persistence rule, the unchanged port map, and any Dockerfile or compose file additions made by this task.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the runtime config code compiles.
+2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any updated env-exposed shared types.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build succeeds with the new Copilot runtime wiring.
+4. [ ] Run `npm run compose:up`, confirm the stack starts with the unchanged port contract, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the runtime config or compose contract tests pass.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 10. Extend Cucumber and Playwright coverage to prove the Copilot story through the fake seam
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Use the fake Copilot seam to prove the new provider behavior end to end across the repository’s existing higher-level test layers. This task is about expanding coverage, not changing the user-facing feature contract again.
+
+#### Documentation Locations
+
+- Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
+- Existing higher-level tests: `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/steps/chat_stream.steps.ts`, `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `e2e/chat-user-turn-ws.spec.ts`, and `e2e/env-runtime-config.spec.ts`.
+- Existing e2e support files: `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and any server-side test injection hooks created in earlier tasks.
+- Playwright documentation: Context7 `/microsoft/playwright`.
+
+#### Subtasks
+
+1. [ ] Extend the Cucumber features and step definitions so they cover Copilot provider availability, Copilot model listing, Copilot chat streaming, and at least one clear resume or auth failure path through the fake Copilot seam.
+2. [ ] Extend the Playwright suite so it proves the chat page can show Copilot in provider history, start a Copilot-backed conversation, render streamed Copilot output, and surface Copilot auth status through the shared dialog without using a real login.
+3. [ ] Keep the automated proof path mock-backed. Do not add any default test that depends on a live authenticated Copilot account, a host browser opening from inside Docker, or a manually pre-seeded runtime home.
+4. [ ] Reuse the repository’s current wrapper scripts and test support files. If an extra helper file is needed, place it near the existing support files instead of inventing an isolated test-only runtime path.
+5. [ ] Update `README.md` or `design.md` only if the higher-level proof path needs explicit documentation for future maintainers. Update `projectStructure.md` if this task adds or removes files.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the updated Cucumber support code compiles.
+2. [ ] Run `npm run build:summary:client` to prove the Playwright-targeted client changes still compile.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated higher-level test support.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:cucumber` and confirm the updated Copilot feature scenarios pass.
+6. [ ] Run `npm run test:summary:e2e` and confirm the Copilot Playwright coverage passes through the wrapper-driven stack.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 11. Run final validation and close out Story 0000051
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Run the final full proof path for Story `0000051`, verify the implemented behavior against the acceptance criteria, update the remaining repository documentation, and prepare the story close-out notes. This task must use the repository wrappers and must include a manual Playwright spot check with screenshots saved under `test-results/screenshots/`.
+
+#### Documentation Locations
+
+- Story acceptance and close-out sections in this file: `### Acceptance Criteria`, `## Proof Path Readiness`, and all Task sections above.
+- Docker and Compose documentation: Context7 `/docker/docs`.
+- Playwright documentation: Context7 `/microsoft/playwright`.
+- Jest documentation: Context7 `/jestjs/jest`.
+- Cucumber guidance: https://cucumber.io/docs/guides/
+- Repository docs to update: `README.md`, `design.md`, `projectStructure.md`, and `planning/0000051-github-copilot-sdk-chat-provider.md`.
+
+#### Subtasks
+
+1. [ ] Re-read the full story and confirm every acceptance criterion is covered by a completed task, a committed code change, and at least one validation step. If anything is missing, record it in this task’s implementation notes before running final validation.
+2. [ ] Update `README.md` with any new commands, environment variables, runtime prerequisites, or Copilot behavior notes introduced by this story.
+3. [ ] Update `design.md` with the final Copilot architecture, provider ordering rule, auth flow, runtime-home handling, session identity choice, and any Mermaid diagrams needed to keep the design document truthful.
+4. [ ] Update `projectStructure.md` so every file added, removed, or renamed by Story `0000051` is reflected accurately.
+5. [ ] Create a pull request summary comment that explains all user-visible, server-side, client-side, Docker, and testing changes in this story. Save it in the repository location normally used for story summaries or PR planning notes if one already exists; otherwise add it to this plan task’s implementation notes.
+6. [ ] Use the Playwright MCP tools to manually check the implemented chat flow, provider selection, auth dialog, and transcript rendering, then save screenshots to `test-results/screenshots/` using names that start with `0000051-11-`.
+7. [ ] Update this plan file one final time by marking every completed checkbox, recording the final implementation notes, and listing the final task commit hashes once they exist.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before closing the story.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the final server build passes.
+2. [ ] Run `npm run build:summary:client` and confirm the final client build passes.
+3. [ ] Run `npm run compose:build:summary` and confirm the final clean Docker image build passes.
+4. [ ] Run `npm run compose:up`, confirm the stack starts cleanly, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes.
+6. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber suite passes.
+7. [ ] Run `npm run test:summary:client` and confirm the full client test suite passes.
+8. [ ] Run `npm run test:summary:e2e` and confirm the full end-to-end suite passes.
+9. [ ] Use the Playwright MCP tools for a final manual verification pass and save the required screenshots to `test-results/screenshots/`.
+
+#### Implementation notes
+
+- No implementation notes yet.

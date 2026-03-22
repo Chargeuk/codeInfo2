@@ -3,7 +3,7 @@
   "steps": [
     {
       "type": "llm",
-      "label": "Clear stale current plan handoff",
+      "label": "Confirm current review scope",
       "agentType": "planning_agent",
       "identifier": "planner",
       "messages": [

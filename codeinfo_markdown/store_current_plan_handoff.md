@@ -17,7 +17,7 @@ When you have found the selected story:
 ```
 
 10. If the plan says `- No Additional Repositories`, use an empty `additional_repositories` array.
-11. The current repository is implicit and MUST NOT be listed inside `additional_repositories`.
+11. The current repository is implicit. If it also appears inside `additional_repositories`, treat that as redundant and omit that entry from the canonical handoff payload.
 12. Do not use absolute paths for `plan_path`.
 13. If `codeInfoStatus/flow-state/current-plan.json` does not exist, create it with that payload.
 14. If it already exists and already matches the selected `plan_path` and `additional_repositories`, leave it unchanged and do NOT rewrite it.

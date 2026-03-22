@@ -24,7 +24,7 @@ This should only be started once all the above sections are clear and understood
 ## Additional Repositories
 
 - If this story needs work outside the current repository, list each additional repository as ``- `<alias>`: /abs/path/to/repository``.
-- The current repository is always implicit and must not be listed here.
+- The current repository is always implicit. If it is also listed here, treat that as redundant and remove or ignore it when the plan is updated.
 - If no extra repositories are needed, write exactly `- No Additional Repositories`.
 
 # Tasks

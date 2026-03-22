@@ -7,7 +7,7 @@ Start the 3-step review sequence for the current story. This step is the evidenc
 - First read `codeInfoStatus/flow-state/current-plan.json` and treat it as the SOLE source of review scope for this flow.
 - Support both the legacy shape `{ "plan_path": "planning/<story-file>.md" }` and the newer shape `{ "plan_path": "planning/<story-file>.md", "additional_repositories": ["/abs/path/to/repo-b"] }`.
 - If the legacy shape is present, treat it as an empty `additional_repositories` list.
-- The current repository is the canonical plan host and is implicitly in scope. It must not appear inside `additional_repositories`.
+- The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it for review scope.
 - Use ONLY the repositories defined by the current repository plus `additional_repositories`. Do not invent additional repositories or plan files.
 - If any handoff validation rule fails, stop and say the current-plan handoff is stale and must be regenerated.
 - For multi-repository stories, you MUST gather cross-repository integration evidence rather than treating each repository in isolation.

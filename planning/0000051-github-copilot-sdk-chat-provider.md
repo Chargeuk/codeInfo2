@@ -592,12 +592,13 @@ Implementation starter pattern for every subtask in this task: mirror the reposi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the server still compiles after the shared contract and validator changes.
-2. [ ] Run `npm run build:summary:client` to prove the client and shared workspace still compile against the expanded provider unions.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated shared contracts.
-4. [ ] Run `npm run compose:up`, confirm the stack starts without contract-related startup failures, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite still passes with the new three-provider contract surface.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+5. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -648,12 +649,10 @@ Implementation starter pattern for every subtask in this task: mirror the reposi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the new Copilot runtime seam compiles.
-2. [ ] Run `npm run build:summary:client` to prove shared workspace compilation still passes after any new shared imports or type changes.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the SDK dependency.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the new lifecycle seam and Copilot home/config helper tests pass.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -698,12 +697,10 @@ Implementation starter pattern for every subtask in this task: copy the scenario
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the fake Copilot SDK harness compiles with the server test support code.
-2. [ ] Run `npm run build:summary:client` to prove shared workspace compilation still passes after any harness-related type imports.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the server test harness files.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the dedicated fake Copilot SDK harness test passes, including at least one scripted error case.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -747,12 +744,10 @@ Implementation starter pattern for every subtask in this task: mirror the two-ph
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the fake Copilot device-auth harness compiles with the server test support code.
-2. [ ] Run `npm run build:summary:client` to prove shared workspace compilation still passes after any harness-related type imports.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the auth harness files.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the dedicated fake Copilot device-auth harness test passes, including at least one explicit error case.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -801,12 +796,11 @@ Implementation starter pattern for every subtask in this task: keep the existing
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the provider readiness route compiles with the new Copilot branch.
-2. [ ] Run `npm run build:summary:client` to prove the shared provider response shape still compiles on the client side.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new provider readiness wiring.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the route-level Copilot provider readiness tests pass, including an existing-credential happy path and an unauthenticated or startup-failure path.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -852,12 +846,11 @@ Implementation starter pattern for every subtask in this task: extend the curren
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the Copilot model route compiles with the new branch.
-2. [ ] Run `npm run build:summary:client` to prove the shared model response shapes still compile on the client side.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new model-route wiring.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the route-level Copilot model tests pass.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -918,12 +911,12 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the full Copilot chat path compiles.
-2. [ ] Run `npm run build:summary:client` to prove the shared workspace still compiles after any chat contract updates.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the server chat changes.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot chat adapter, persistence, fallback, permission-handler, stream-edge, and Codex-only-flag handling tests pass.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -976,12 +969,12 @@ Implementation starter pattern for every subtask in this task: start from the cu
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the shared auth contract changes compile.
-2. [ ] Run `npm run build:summary:client` to prove the shared auth types still compile on the client side before the UI task starts.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the shared auth contract changes.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the shared-contract auth unit tests pass, including the already-authenticated and unavailable-before-start states.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -1035,12 +1028,10 @@ Implementation starter pattern for every subtask in this task: mirror the route 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the new Copilot backend route compiles.
-2. [ ] Run `npm run build:summary:client` to prove the shared auth types still compile on the client side before the UI task starts.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the new Copilot auth route and utilities are added.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the Copilot auth unit tests pass, including already-authenticated short-circuit, early verification, and explicit failure-path coverage.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -1085,12 +1076,10 @@ Implementation starter pattern for every subtask in this task: stay inside the e
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the server still compiles against any shared auth contract changes used by the client fixtures.
-2. [ ] Run `npm run build:summary:client` to prove the shared provider-auth client fixtures compile.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing client test helpers.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the client provider-auth fixture proof passes, including already-authenticated and explicit failure-state coverage.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -1144,12 +1133,15 @@ Implementation starter pattern for every subtask in this task: extend the existi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove server compilation still passes against the client-consuming contract.
-2. [ ] Run `npm run build:summary:client` to prove the updated provider and model UI compiles.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client assets.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the provider-selection, model-loading, disabled-provider-reason, and Codex-only UI regression tests pass.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof steps below.
+5. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+6. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the story behavior and nearby regressions, and confirm the debug console shows no logged errors.
+7. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 
@@ -1209,12 +1201,15 @@ Implementation starter pattern for every subtask in this task: preserve the exis
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the shared auth contract still compiles end to end.
-2. [ ] Run `npm run build:summary:client` to prove the new dialog and client auth code compile.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated client auth assets.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the shared auth dialog tests pass, including already-authenticated, unavailable-before-start, and existing agents-page re-authenticate regression coverage.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof steps below.
+5. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+6. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the shared dialog behavior, surrounding regressions, and that the debug console shows no logged errors.
+7. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 
@@ -1261,12 +1256,15 @@ Implementation starter pattern for every subtask in this task: harden the existi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove shared contract compilation still passes.
-2. [ ] Run `npm run build:summary:client` to prove the updated transcript formatter compiles.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after the transcript UI changes.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:client` and confirm the transcript formatting tests pass.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof steps below.
+5. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+6. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the transcript behavior and that the debug console shows no logged errors.
+7. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 
@@ -1313,11 +1311,10 @@ Implementation starter pattern for every subtask in this task: copy the existing
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the runtime config code compiles.
-2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any updated env-exposed shared types.
-3. [ ] Run `npm run compose:up`, confirm the stack starts with the unchanged port contract, then run `npm run compose:down`.
-4. [ ] Run `npm run test:summary:server:unit` and confirm the runtime config and `/health` isolation tests pass.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -1367,12 +1364,13 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the server still compiles with the Docker delivery changes.
-2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any env-exposed shared types.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build succeeds with the new Copilot Docker wiring.
-4. [ ] Run `npm run compose:up`, confirm the stack starts with the unchanged port contract, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilot-compose-contract.test.ts` and confirm the targeted compose contract tests pass before relying on the full wrapper-backed suite later in the story.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
+5. [ ] Run `npm run compose:down` after the Docker delivery proof finishes.
 
 #### Implementation notes
 
@@ -1419,12 +1417,14 @@ Implementation starter pattern for every subtask in this task: extend the reposi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the extended higher-level boot path compiles with the server test bootstrap code.
-2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any scenario-driven auth or provider contracts.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after extending the existing higher-level boot path.
-4. [ ] Run `npm run compose:e2e:up`, confirm the e2e stack starts with the named Copilot scenario path available, then run `npm run compose:e2e:down`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` and confirm the targeted boot-path proof passes at least one happy path and one explicit error case.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+5. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+6. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -1472,12 +1472,10 @@ Implementation starter pattern for every subtask in this task: preserve the curr
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the updated Cucumber support code compiles.
-2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any shared test-contract changes touched by the Cucumber work.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated server-side test support.
-4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:cucumber` and confirm the updated Copilot feature scenarios pass.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -1524,12 +1522,13 @@ Implementation starter pattern for every subtask in this task: follow the existi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the server still compiles for the Playwright-backed stack.
-2. [ ] Run `npm run build:summary:client` to prove the Playwright-targeted client changes still compile.
-3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds with the updated e2e support.
-4. [ ] Run `npm run compose:e2e:up`, confirm the e2e stack starts with the named Copilot scenario path available, then run `npm run compose:e2e:down`.
-5. [ ] Run `npm run test:summary:e2e` and confirm the Copilot Playwright coverage passes through the wrapper-driven stack.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof step below.
+4. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the story behavior, nearby regressions, and that the debug console shows no logged errors.
+5. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 
@@ -1574,16 +1573,18 @@ Implementation starter pattern for every subtask in this task: reuse the reposit
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the final server build passes.
-2. [ ] Run `npm run build:summary:client` and confirm the final client build passes.
-3. [ ] Run `npm run compose:build:summary` and confirm the final clean Docker image build passes.
-4. [ ] Run `npm run compose:up`, confirm the stack starts cleanly, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes.
-6. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber suite passes.
-7. [ ] Run `npm run test:summary:client` and confirm the full client test suite passes.
-8. [ ] Run `npm run test:summary:e2e` and confirm the full end-to-end suite passes.
-9. [ ] Use the Playwright MCP tools for a final manual verification pass and save the required screenshots to `test-results/screenshots/`.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before closing the story.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+5. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+6. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+7. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+8. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the manual browser verification below.
+9. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` for final story verification, save the required screenshots under `test-results/screenshots/`, and confirm the debug console shows no logged errors.
+10. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 

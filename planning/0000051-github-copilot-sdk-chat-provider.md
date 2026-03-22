@@ -511,7 +511,7 @@ Make `copilot` a valid top-level chat provider everywhere the current repository
 
 ---
 
-### Task 2. Add the reusable Copilot runtime seam and fake Copilot test harnesses
+### Task 2. Add the reusable Copilot runtime seam
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -519,35 +519,33 @@ Make `copilot` a valid top-level chat provider everywhere the current repository
 
 #### Overview
 
-Create the reusable server-side Copilot client seam and the deterministic fake harnesses that later tasks will depend on. This task is intentionally about the runtime boundary and testability only; it should not yet wire Copilot into the public routes.
+Create the reusable server-side Copilot client seam that later route and chat tasks will depend on. This task is intentionally about the runtime boundary only; it should not yet add the fake harnesses, and it should not yet wire Copilot into the public routes.
 
 #### Documentation Locations
 
 - Story planning in this file: `## Implementation Ideas`, `## Test Harnesses`, `### Missing Runtime and Deployment Prerequisites`, and `### Feasibility Proof`.
 - Existing provider abstraction files: `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/chat/factory.ts`.
-- Existing test harness patterns: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, `server/src/test/support/chromaContainer.ts`, and `client/src/test/support/fetchMock.ts`.
+- Existing provider and dependency-injection patterns in tests: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, `server/src/test/support/chromaContainer.ts`, and any server test bootstrap helpers already used by the repository.
 - Server workspace package and runtime setup: `server/package.json` and any existing Copilot-related install or runtime docs already checked into the repository.
 
 #### Subtasks
 
 1. [ ] Add the Copilot SDK dependency to `server/package.json` and update the matching lockfile entries so the server workspace can compile against the official SDK types. Do not add a second package manager or ad hoc install script.
-2. [ ] Create a reusable Copilot lifecycle module under `server/src/chat` or `server/src/providers` that owns `start()`, `stop()`, `listModels()`, `createSession(...)`, and `resumeSession(...)` through one injectable seam. Keep route code out of this module.
+2. [ ] Create a reusable Copilot lifecycle module under `server/src/chat` or `server/src/providers` that owns `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, and `resumeSession(...)` through one injectable seam. Keep route code out of this module.
 3. [ ] Add `server/src/chat/interfaces/ChatInterfaceCopilot.ts` with a minimal adapter shape that later tasks can extend for real chat execution. At the end of this task the adapter can still be incomplete, but the class or module should compile and expose the intended dependency boundary cleanly.
-4. [ ] Add `server/src/test/support/mockCopilotSdk.ts` so tests can script deterministic startup, model listing, session creation, session resumption, event emission, and failure cases without a real Copilot login.
-5. [ ] Add `server/src/test/support/mockCopilotDeviceAuth.ts` so later auth tests can reuse deterministic device-flow parsing, pending completion, completion success, CLI-missing, and failure outputs instead of duplicating setup in each test.
-6. [ ] Make the new Copilot seam injectable in the server test environment without affecting production behavior. Reuse the repository’s existing test-support pattern instead of adding a one-off global mutable singleton.
-7. [ ] Add or update unit tests around the new lifecycle module and fake harnesses so they prove start or stop behavior, error propagation, and deterministic fake event scripting. Keep these tests isolated from public route behavior, which belongs in later tasks.
-8. [ ] Update `design.md` only if the new lifecycle seam changes the repository architecture in a way a future junior developer would not infer from code alone. Update `projectStructure.md` to list any new source or support files created in this task.
-9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+4. [ ] Make the new Copilot seam injectable in the server test environment without affecting production behavior. Reuse the repository’s existing test-support pattern instead of adding a one-off global mutable singleton.
+5. [ ] Add or update unit tests around the new lifecycle module so they prove startup, shutdown, dependency injection, and error propagation. Keep these tests isolated from fake-harness behavior, which belongs in the later harness tasks.
+6. [ ] Update `design.md` only if the new lifecycle seam changes the repository architecture in a way a future junior developer would not infer from code alone. Update `projectStructure.md` to list any new source files created in this task.
+7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` to prove the new Copilot runtime seam and harness files compile.
+1. [ ] Run `npm run build:summary:server` to prove the new Copilot runtime seam compiles.
 2. [ ] Run `npm run build:summary:client` to prove shared workspace compilation still passes after any new shared imports or type changes.
 3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the SDK dependency.
 4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
-5. [ ] Run `npm run test:summary:server:unit` and confirm the new lifecycle and harness tests pass.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the new lifecycle seam tests pass.
 
 #### Implementation notes
 
@@ -555,7 +553,88 @@ Create the reusable server-side Copilot client seam and the deterministic fake h
 
 ---
 
-### Task 3. Expose Copilot readiness and model listing on the server
+### Task 3. Add the server fake Copilot SDK harness
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Create the dedicated fake Copilot SDK harness for server tests so unit, integration, and BDD layers can script Copilot startup, model discovery, session resumption, streaming events, and deterministic failure cases without a real Copilot account. This task is only about the harness and the proof that the harness itself can run and surface scripted errors.
+
+#### Documentation Locations
+
+- Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
+- Runtime seam from Task 2: any new Copilot lifecycle module and `server/src/chat/interfaces/ChatInterfaceCopilot.ts`.
+- Existing fake harness patterns: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, and any existing server test dependency-injection helpers.
+- Existing test files that will later consume the harness: `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/features/chat_stream.feature`.
+
+#### Subtasks
+
+1. [ ] Add `server/src/test/support/mockCopilotSdk.ts` with a fake client and fake session model that can script `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, `resumeSession(...)`, streamed assistant events, tool events, and deterministic failures.
+2. [ ] Define one clear scripting API for the harness so later tests can queue success and failure cases without mutating hidden globals. Document the helper names in comments where a junior developer would otherwise have to reverse-engineer them from call sites.
+3. [ ] Wire the harness into the server test bootstrap path created in Task 2 so unit, integration, and Cucumber tests can opt into the fake Copilot runtime without affecting production runtime wiring.
+4. [ ] Add a dedicated harness-focused unit test file, such as `server/src/test/unit/mockCopilotSdk.test.ts`, that proves the harness can be instantiated, emit scripted events, and surface a scripted error case in a deterministic way.
+5. [ ] Update `projectStructure.md` to list the new harness file and its proof test. Update `design.md` only if the harness entry point needs one sentence of explanation for future maintainers.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the fake Copilot SDK harness compiles with the server test support code.
+2. [ ] Run `npm run build:summary:client` to prove shared workspace compilation still passes after any harness-related type imports.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the server test harness files.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the dedicated fake Copilot SDK harness test passes, including at least one scripted error case.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 4. Add the server fake Copilot device-auth harness
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Create the dedicated fake Copilot device-auth harness for server tests so auth routes can prove verification-code parsing, completion polling, missing CLI behavior, and failure outcomes without depending on a real external login. This task is only about the auth harness and the proof that the harness itself can run and expose deterministic errors.
+
+#### Documentation Locations
+
+- Story planning in this file: `## Test Harnesses`, `### Acceptance Criteria`, and `### Feasibility Proof`.
+- Existing auth utilities: `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, and any auth route bootstrap files.
+- Existing test patterns: `server/src/test/unit/codexDeviceAuth.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, and the server test dependency-injection support used by this repository.
+
+#### Subtasks
+
+1. [ ] Add `server/src/test/support/mockCopilotDeviceAuth.ts` with reusable fixtures and helpers for verification URL parsing, one-time code parsing, completion-pending state, completion success, CLI-missing, expired code, and generic failure cases.
+2. [ ] Define one clear harness API that later tests can call to request each auth outcome deterministically. Keep raw fixture strings and parser helpers in the harness instead of scattering them across route tests.
+3. [ ] Wire the harness into the server test bootstrap path so later auth route tests can choose the fake device-auth behavior explicitly without changing production code paths.
+4. [ ] Add a dedicated harness-focused unit test file, such as `server/src/test/unit/mockCopilotDeviceAuth.test.ts`, that proves the harness can emit a successful verification payload and at least one explicit failure or missing-CLI case.
+5. [ ] Update `projectStructure.md` to list the new auth harness file and proof test. Update `design.md` only if the harness entry point or fake auth phases need brief architectural clarification.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the fake Copilot device-auth harness compiles with the server test support code.
+2. [ ] Run `npm run build:summary:client` to prove shared workspace compilation still passes after any harness-related type imports.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the auth harness files.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` and confirm the dedicated fake Copilot device-auth harness test passes, including at least one explicit error case.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 5. Expose Copilot readiness and model listing on the server
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -569,7 +648,7 @@ Wire the reusable Copilot seam into `GET /chat/providers` and `GET /chat/models`
 
 - Story planning in this file: `### Acceptance Criteria`, `### Edge Cases and Failure Modes`, and `### Feasibility Proof` sections for provider readiness and model routes.
 - Route files: `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/config/chatDefaults.ts`.
-- Shared model and provider shapes: `common/src/api.ts` and any Copilot seam files created in Task 2.
+- Shared model and provider shapes: `common/src/api.ts`, `common/src/lmstudio.ts`, and any Copilot seam files created in Tasks 2 and 3.
 - Existing route tests and BDD files: `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts`.
 
 #### Subtasks
@@ -579,9 +658,9 @@ Wire the reusable Copilot seam into `GET /chat/providers` and `GET /chat/models`
 3. [ ] Update `server/src/routes/chatModels.ts` so `GET /chat/models?provider=copilot` calls the new Copilot seam and maps only verified Copilot model fields into the existing response shape. Do not synthesize token or timing metadata that the SDK does not actually expose.
 4. [ ] Keep the route behavior deterministic when Copilot is unavailable, unauthenticated, returns no usable models, or returns model fields the repository does not yet understand. Unknown fields should be ignored safely, not treated as fatal errors.
 5. [ ] Add or update unit tests in `server/src/test/unit/chatProviders.test.ts` and a new or renamed Copilot model route test file so they prove provider ordering, unavailable reasons, empty model lists, and Copilot model mapping behavior.
-6. [ ] Extend `server/src/test/features/chat_models.feature` and `server/src/test/steps/chat_models.steps.ts` so the Cucumber layer can exercise Copilot availability and Copilot model listing through the fake seam introduced in Task 2.
+6. [ ] Extend `server/src/test/features/chat_models.feature` and `server/src/test/steps/chat_models.steps.ts` so the Cucumber layer can exercise Copilot availability and Copilot model listing through the fake seam introduced in Task 3.
 7. [ ] Update `design.md` if the provider readiness precedence or model-mapping contract would otherwise only exist in tests. Update `README.md` only if it contains provider-list or model-list behavior that would now be inaccurate. Update `projectStructure.md` if this task adds or removes files.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -599,7 +678,7 @@ Wire the reusable Copilot seam into `GET /chat/providers` and `GET /chat/models`
 
 ---
 
-### Task 4. Add Copilot chat execution, streaming, and conversation persistence
+### Task 6. Add Copilot chat execution, streaming, and conversation persistence
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -624,9 +703,9 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 5. [ ] Choose one session identity strategy and implement it consistently: either reuse `conversationId` as the Copilot session id or persist a separate `conversation.flags.copilotSessionId`. Update `server/src/mongo/conversation.ts` and any repo helpers so the chosen strategy is stored and resumed deterministically.
 6. [ ] Make resume failure explicit. If an existing persisted Copilot conversation cannot resume its expected session, return a clear error for that conversation instead of silently creating a fresh Copilot session behind the same transcript.
 7. [ ] Add or update unit and integration tests so they prove Copilot event mapping, session creation, session resumption, resume failure, conversation persistence, concurrent-request protection on the same conversation id, and the server-side handling of Codex-only flags on Copilot requests.
-8. [ ] Extend `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`, and any related chat cancellation feature files so the BDD layer exercises a Copilot chat stream through the fake seam. Cover at least one happy path and one deterministic failure path.
+8. [ ] Extend `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`, and any related chat cancellation feature files so the BDD layer exercises a Copilot chat stream through the fake seam from Task 3. Cover at least one happy path and one deterministic failure path.
 9. [ ] Update `design.md` with the chosen Copilot session identity rule, the Codex-only flag handling rule for Copilot requests, and the Copilot event-to-transcript mapping if those details are not obvious from the code. Update `README.md` only if user-facing chat behavior needs clarification. Update `projectStructure.md` if this task adds or removes files.
-10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
+10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -644,7 +723,7 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 
 ---
 
-### Task 5. Generalize the auth contract and add the Copilot device-auth backend
+### Task 7. Generalize the auth contract and add the Copilot device-auth backend
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -667,9 +746,9 @@ Replace the current Codex-only auth contract with a shared provider-auth contrac
 3. [ ] Add the Copilot device-auth backend route and utility code using the documented Copilot device-login flow. Return the verification URL and one-time code as soon as they are available rather than waiting for the whole login to finish.
 4. [ ] Make readiness refresh explicit. After the external browser step completes, the server should expose a deterministic way for the UI to learn whether authentication is complete or has failed without guessing from raw output text.
 5. [ ] Keep the auth storage location aligned with `CODEINFO_COPILOT_HOME`, and make missing CLI, unavailable keychain, unwritable config directory, and failed login outcomes surface as clear reasons rather than generic route failures.
-6. [ ] Add or update server unit and integration tests so they prove the shared Codex contract still works, the new Copilot route returns verification details early, and completion or failure is observable through the new contract. Reuse `mockCopilotDeviceAuth.ts` instead of inlining route behavior in each test.
+6. [ ] Add or update server unit and integration tests so they prove the shared Codex contract still works, the new Copilot route returns verification details early, and completion or failure is observable through the new contract. Reuse the device-auth harness from Task 4 instead of inlining route behavior in each test.
 7. [ ] Update `openapi.json` for the new shared auth contract and any new auth route path. Update `design.md` and `README.md` if they currently describe only the Codex-specific auth shape or modal wording. Update `projectStructure.md` if this task adds or removes files.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 7, recording implementation notes, and listing the task commit hashes once they exist.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -687,7 +766,7 @@ Replace the current Codex-only auth contract with a shared provider-auth contrac
 
 ---
 
-### Task 6. Update client provider and model selection for the three-provider contract
+### Task 8. Add the client shared provider-auth test harness
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -695,7 +774,47 @@ Replace the current Codex-only auth contract with a shared provider-auth contrac
 
 #### Overview
 
-Teach the existing chat page to consume the new three-provider contract for provider ordering, provider availability, model loading, and next-send conversation semantics. This task must not change the shared auth dialog yet; it should only update the provider and model selection flow that depends on the backend contracts completed in Tasks 1, 3, and 5.
+Create the dedicated client-side provider-auth harness so dialog and auth API tests can script Codex and Copilot auth states without duplicating fixtures in every test file. This task is only about the harness and the proof that the harness itself can render or return expected success and failure states.
+
+#### Documentation Locations
+
+- Story planning in this file: `## Test Harnesses`, `### Acceptance Criteria`, and `### Feasibility Proof`.
+- Existing client test support: `client/src/test/support/fetchMock.ts`, `client/src/test/support/mockWebSocket.ts`, and any current auth-related client test helpers.
+- Existing client auth tests: `client/src/test/codexDeviceAuthApi.test.ts`, `client/src/test/codexDeviceAuthDialog.test.tsx`, and any provider-loading tests that later refresh auth state.
+
+#### Subtasks
+
+1. [ ] Add `client/src/test/support/mockProviderAuth.ts` with fixtures and helper functions for Codex and Copilot auth start, verification-ready, completion-pending, completed, failed, and unavailable-before-start states.
+2. [ ] Define one clear helper API so later client tests can request a named provider-auth scenario without rebuilding raw response objects in each test file.
+3. [ ] Update the existing client test bootstrap path so dialog and API tests can opt into the harness cleanly without affecting unrelated client tests.
+4. [ ] Add a dedicated harness-focused test file, such as `client/src/test/mockProviderAuth.test.ts`, that proves the harness can return a valid verification state and at least one explicit failure state without throwing unexpected shape errors.
+5. [ ] Update `projectStructure.md` to list the new client harness file and proof test. Update `design.md` only if the client test entry point needs brief explanation for future maintainers.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the server still compiles against any shared auth contract changes used by the client harness.
+2. [ ] Run `npm run build:summary:client` to prove the shared provider-auth client harness compiles.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the client test harness files.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:client` and confirm the dedicated client provider-auth harness test passes, including at least one explicit failure state.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 9. Update client provider and model selection for the three-provider contract
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Teach the existing chat page to consume the new three-provider contract for provider ordering, provider availability, model loading, and next-send conversation semantics. This task must not change the shared auth dialog yet; it should only update the provider and model selection flow that depends on the backend contracts completed in Tasks 1, 5, and 7.
 
 #### Documentation Locations
 
@@ -712,7 +831,7 @@ Teach the existing chat page to consume the new three-provider contract for prov
 4. [ ] Keep existing Codex-only flags and UI controls Codex-only in this task. If the selected provider is Copilot, do not misapply Codex settings to the outgoing request payload.
 5. [ ] Add or update client tests so they prove provider ordering, provider fallback, disabled Copilot rendering, Copilot model loading, and next-send new-conversation behavior. Reuse existing chat page test harnesses instead of creating a second page test setup.
 6. [ ] Update `design.md` only if the client bootstrap sequence or next-send behavior is now clearer when written down. Update `README.md` only if user-facing provider behavior changed in a way the docs already describe. Update `projectStructure.md` if this task adds or removes files.
-7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -729,7 +848,7 @@ Teach the existing chat page to consume the new three-provider contract for prov
 
 ---
 
-### Task 7. Replace the Codex-only auth dialog with the shared Choose Authentication flow
+### Task 10. Replace the Codex-only auth dialog with the shared Choose Authentication flow
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -737,13 +856,13 @@ Teach the existing chat page to consume the new three-provider contract for prov
 
 #### Overview
 
-Update the existing client auth experience so the chat page uses one shared `Choose Authentication` dialog with `Codex Auth` and `Copilot Auth`, and so the UI consumes the shared provider-auth contract from Task 5. This task should stay focused on the dialog flow, not on provider or model selection, which belongs to Task 6.
+Update the existing client auth experience so the chat page uses one shared `Choose Authentication` dialog with `Codex Auth` and `Copilot Auth`, and so the UI consumes the shared provider-auth contract from Task 7 through the client harness from Task 8. This task should stay focused on the dialog flow, not on provider or model selection, which belongs to Task 9.
 
 #### Documentation Locations
 
 - Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
 - Existing client auth files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/test/codexDeviceAuthDialog.test.tsx`, `client/src/test/codexDeviceAuthApi.test.ts`, and any current client auth API helper.
-- Shared auth contract files from Task 5: `common/src/api.ts`, the server auth routes, and any new client auth API wrapper added for provider-agnostic use.
+- Shared auth contract files from Task 7: `common/src/api.ts`, the server auth routes, and any new client auth API wrapper added for provider-agnostic use.
 - MUI dialog and button behavior references already used in this repository if a component API reminder is needed.
 
 #### Subtasks
@@ -754,7 +873,7 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 4. [ ] Refresh provider readiness after auth completion using the shared provider and model surfaces instead of guessing from stale local state. Keep current Codex behavior working while adding Copilot behavior through the same contract.
 5. [ ] Add or update client tests so they prove the shared dialog layout, provider button ordering, early verification display, completion refresh, and provider-specific failure handling. Add at least one regression test that proves the Codex path still works.
 6. [ ] Update `README.md` and `design.md` if they describe the old Codex-only dialog wording or flow. Update `projectStructure.md` if this task adds or removes files, including any renamed dialog components or test helpers.
-7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 7, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -771,7 +890,7 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 
 ---
 
-### Task 8. Harden transcript metadata rendering for partial Copilot usage and timing fields
+### Task 11. Harden transcript metadata rendering for partial Copilot usage and timing fields
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -794,7 +913,7 @@ Update the existing transcript formatting path so partial Copilot usage and timi
 3. [ ] Review any transcript rendering code that assumes every provider sends the same metadata fields and narrow those assumptions to the fields that are actually present. Ignore unknown Copilot metadata fields safely.
 4. [ ] Add or update client tests so they cover partial Copilot metadata, missing timing fields, missing token fields, and existing Codex or LM Studio regression behavior. Reuse the existing transcript measurement and websocket test harnesses.
 5. [ ] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Update `projectStructure.md` if this task adds or removes files.
-6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 11, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -811,7 +930,7 @@ Update the existing transcript formatting path so partial Copilot usage and timi
 
 ---
 
-### Task 9. Wire Copilot runtime delivery, environment injection, and Docker persistence
+### Task 12. Wire Copilot runtime delivery, environment injection, and Docker persistence
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -837,7 +956,7 @@ Add the runtime and deployment prerequisites that let the existing server and co
 5. [ ] Make sure `/health` remains a process-level health check and does not start failing just because the Copilot CLI is missing, Copilot is unauthenticated, or Copilot models are unavailable. Copilot readiness belongs on the chat provider and model surfaces only.
 6. [ ] Add or update runtime and compose contract tests so they prove env injection, port stability, named volume usage, and Copilot-home path resolution. Reuse the existing runtime config test patterns instead of adding an unrelated test harness.
 7. [ ] Update `README.md`, `design.md`, and `projectStructure.md` so they document the new env var, the named-volume runtime persistence rule, the unchanged port map, and any Dockerfile or compose file additions made by this task.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 9, recording implementation notes, and listing the task commit hashes once they exist.
+8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 12, recording implementation notes, and listing the task commit hashes once they exist.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -854,7 +973,7 @@ Add the runtime and deployment prerequisites that let the existing server and co
 
 ---
 
-### Task 10. Extend Cucumber and Playwright coverage to prove the Copilot story through the fake seam
+### Task 13. Add the higher-level Copilot fixture seam for integration, Cucumber, and e2e
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -862,23 +981,63 @@ Add the runtime and deployment prerequisites that let the existing server and co
 
 #### Overview
 
-Use the fake Copilot seam to prove the new provider behavior end to end across the repository’s existing higher-level test layers. This task is about expanding coverage, not changing the user-facing feature contract again.
+Create the higher-level fake Copilot fixture seam that lets integration tests, Cucumber scenarios, and the Playwright-driven stack boot the application with deterministic Copilot availability, model responses, auth states, and streamed chat events. This task is about the reusable higher-level fixture itself, not about writing the full end-to-end story coverage yet.
+
+#### Documentation Locations
+
+- Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
+- Existing higher-level test support: `server/src/test/integration`, `server/src/test/steps`, `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and any app bootstrap or env-based test injection points already used in this repository.
+- Harnesses from earlier tasks: the fake Copilot SDK harness from Task 3, the fake device-auth harness from Task 4, and the client provider-auth harness from Task 8.
+
+#### Subtasks
+
+1. [ ] Add a reusable server-side fixture seam that can boot the app in test mode with fake Copilot provider readiness, fake model lists, fake chat streams, and fake auth states without touching production runtime defaults.
+2. [ ] Define one clear configuration API or env-driven contract for the higher-level fixture seam so integration, Cucumber, and e2e tests can enable named Copilot scenarios instead of rebuilding bespoke setup code in each suite.
+3. [ ] Wire the higher-level fixture seam into the integration and e2e startup path so later tests can reuse it from `server/src/test/integration`, `server/src/test/steps`, and the Playwright wrapper-backed stack.
+4. [ ] Add at least one dedicated proof test that boots the application through the higher-level fixture seam and proves both a happy-path Copilot fixture and a deterministic fixture-driven error case can be executed and asserted cleanly.
+5. [ ] Update `projectStructure.md` to list any new higher-level fixture files and proof tests. Update `design.md` only if the fixture seam needs brief explanation for future maintainers.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 13, recording implementation notes, and listing the task commit hashes once they exist.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` to prove the higher-level Copilot fixture seam compiles with the server test bootstrap code.
+2. [ ] Run `npm run build:summary:client` to prove the client still compiles against any fixture-driven auth or provider contracts.
+3. [ ] Run `npm run compose:build:summary` to prove the clean Docker image build still succeeds after adding the higher-level fixture seam.
+4. [ ] Run `npm run compose:up`, confirm the stack starts, then run `npm run compose:down`.
+5. [ ] Run `npm run test:summary:server:unit` or the smallest existing integration-capable wrapper-backed test path that exercises the new proof test, and confirm the higher-level fixture seam passes at least one happy path and one explicit error case.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 14. Extend Cucumber and Playwright coverage to prove the Copilot story through the fake seam
+
+- Repository Name: Current Repository
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Use the fake Copilot seams to prove the new provider behavior end to end across the repository’s existing higher-level test layers. This task is about expanding coverage, not changing the user-facing feature contract again.
 
 #### Documentation Locations
 
 - Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
 - Existing higher-level tests: `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/steps/chat_stream.steps.ts`, `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `e2e/chat-user-turn-ws.spec.ts`, and `e2e/env-runtime-config.spec.ts`.
-- Existing e2e support files: `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and any server-side test injection hooks created in earlier tasks.
+- Existing e2e support files: `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and the higher-level fixture seam created in Task 13.
 - Playwright documentation: Context7 `/microsoft/playwright`.
 
 #### Subtasks
 
-1. [ ] Extend the Cucumber features and step definitions so they cover Copilot provider availability, Copilot model listing, Copilot chat streaming, and at least one clear resume or auth failure path through the fake Copilot seam.
+1. [ ] Extend the Cucumber features and step definitions so they cover Copilot provider availability, Copilot model listing, Copilot chat streaming, and at least one clear resume or auth failure path through the higher-level fake Copilot seam from Task 13.
 2. [ ] Extend the Playwright suite so it proves the chat page can show Copilot in provider history, start a Copilot-backed conversation, render streamed Copilot output, and surface Copilot auth status through the shared dialog without using a real login.
 3. [ ] Keep the automated proof path mock-backed. Do not add any default test that depends on a live authenticated Copilot account, a host browser opening from inside Docker, or a manually pre-seeded runtime home.
 4. [ ] Reuse the repository’s current wrapper scripts and test support files. If an extra helper file is needed, place it near the existing support files instead of inventing an isolated test-only runtime path.
 5. [ ] Update `README.md` or `design.md` only if the higher-level proof path needs explicit documentation for future maintainers. Update `projectStructure.md` if this task adds or removes files.
-6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 14, recording implementation notes, and listing the task commit hashes once they exist.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before moving on.
 
 #### Testing
@@ -896,7 +1055,7 @@ Use the fake Copilot seam to prove the new provider behavior end to end across t
 
 ---
 
-### Task 11. Run final validation and close out Story 0000051
+### Task 15. Run final validation and close out Story 0000051
 
 - Repository Name: Current Repository
 - Task Status: __to_do__
@@ -922,7 +1081,7 @@ Run the final full proof path for Story `0000051`, verify the implemented behavi
 3. [ ] Update `design.md` with the final Copilot architecture, provider ordering rule, auth flow, runtime-home handling, session identity choice, and any Mermaid diagrams needed to keep the design document truthful.
 4. [ ] Update `projectStructure.md` so every file added, removed, or renamed by Story `0000051` is reflected accurately.
 5. [ ] Create a pull request summary comment that explains all user-visible, server-side, client-side, Docker, and testing changes in this story. Save it in the repository location normally used for story summaries or PR planning notes if one already exists; otherwise add it to this plan task’s implementation notes.
-6. [ ] Use the Playwright MCP tools to manually check the implemented chat flow, provider selection, auth dialog, and transcript rendering, then save screenshots to `test-results/screenshots/` using names that start with `0000051-11-`.
+6. [ ] Use the Playwright MCP tools to manually check the implemented chat flow, provider selection, auth dialog, and transcript rendering, then save screenshots to `test-results/screenshots/` using names that start with `0000051-15-`.
 7. [ ] Update this plan file one final time by marking every completed checkbox, recording the final implementation notes, and listing the final task commit hashes once they exist.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`, fixing any issues in the files touched by this task before closing the story.
 

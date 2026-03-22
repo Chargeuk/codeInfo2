@@ -551,10 +551,9 @@ Make `copilot` a valid top-level chat provider everywhere the current repository
 
 #### Documentation Locations
 
-- Story requirements in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Schema and Contracts Matrix`, and `### Feasibility Proof`.
-- Shared contract files: `common/src/api.ts`, `common/src/lmstudio.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/conversation.ts`, and `openapi.json`.
-- Existing server contract tests: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chat-unsupported-provider.test.ts`, and `server/src/test/unit/mcp-unsupported-provider.test.ts`.
-- Architecture and repo docs to update if this task changes public behavior wording: `design.md`, `README.md`, and `projectStructure.md`.
+- OpenAPI Specification: `https://spec.openapis.org/oas/v3.1.0`
+- Zod documentation for enum and schema validation behavior: `https://zod.dev/`
+- TypeScript Handbook union and literal-type guidance: `https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types`
 
 #### Subtasks
 
@@ -596,11 +595,9 @@ Create the reusable server-side Copilot client seam that later route and chat ta
 
 #### Documentation Locations
 
-- Story planning in this file: `## Implementation Ideas`, `## Test Harnesses`, `### Missing Runtime and Deployment Prerequisites`, and `### Feasibility Proof`.
-- Existing provider abstraction files: `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/chat/factory.ts`.
-- Existing runtime-home helper pattern: `server/src/config/codexConfig.ts`.
-- Existing provider and dependency-injection patterns in tests: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, `server/src/test/support/chromaContainer.ts`, and any server test bootstrap helpers already used by the repository.
-- Server workspace package and runtime setup: `server/package.json` and any existing Copilot-related install or runtime docs already checked into the repository.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
+- GitHub Copilot documentation root for runtime and auth context: `https://docs.github.com/en/copilot`
 
 #### Subtasks
 
@@ -642,10 +639,9 @@ Create the dedicated fake Copilot SDK harness for server tests so unit, integrat
 
 #### Documentation Locations
 
-- Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
-- Runtime seam from Task 2: any new Copilot lifecycle module and `server/src/chat/interfaces/ChatInterfaceCopilot.ts`.
-- Existing fake harness patterns: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/support/mongoContainer.ts`, `server/src/test/support/wsClient.ts`, `server/src/test/unit/chat-factory.test.ts`, `server/src/test/unit/chat-stream-bridge.test.ts`, and any existing server test dependency-injection helpers.
-- Existing test files that will later consume the harness: `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/features/chat_stream.feature`.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
+- Node.js test runner documentation: `https://nodejs.org/api/test.html`
 
 #### Subtasks
 
@@ -685,9 +681,9 @@ Create the dedicated fake Copilot device-auth harness for server tests so auth r
 
 #### Documentation Locations
 
-- Story planning in this file: `## Test Harnesses`, `### Acceptance Criteria`, and `### Feasibility Proof`.
-- Existing auth utilities: `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `server/src/utils/singleFlight.ts`, `server/src/agents/authSeed.ts`, and any auth route bootstrap files.
-- Existing test patterns: `server/src/test/unit/codexDeviceAuth.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`, `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, and the server test dependency-injection support used by this repository.
+- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow`
+- GitHub Copilot documentation root for auth context: `https://docs.github.com/en/copilot`
+- Node.js test runner documentation: `https://nodejs.org/api/test.html`
 
 #### Subtasks
 
@@ -727,10 +723,9 @@ Wire the reusable Copilot seam into `GET /chat/providers` so Copilot appears in 
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Edge Cases and Failure Modes`, and `### Feasibility Proof` sections for provider readiness.
-- Route files: `server/src/routes/chatProviders.ts` and `server/src/config/chatDefaults.ts`.
-- Shared provider shapes: `common/src/api.ts`, `common/src/lmstudio.ts`, and any Copilot seam files created in Tasks 2 and 3.
-- Existing route tests: `server/src/test/unit/chatProviders.test.ts` and any provider-readiness unit coverage already present in the repository.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
+- GitHub Copilot documentation root for auth and readiness context: `https://docs.github.com/en/copilot`
 
 #### Subtasks
 
@@ -770,10 +765,9 @@ Wire the reusable Copilot seam into `GET /chat/models` so Copilot model metadata
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Edge Cases and Failure Modes`, and `### Feasibility Proof` sections for model routes.
-- Route files: `server/src/routes/chatModels.ts` and `server/src/config/chatDefaults.ts`.
-- Shared model shapes: `common/src/api.ts`, `common/src/lmstudio.ts`, and any Copilot seam files created in Tasks 2 and 3.
-- Existing route tests: `server/src/test/unit/chatModels.codex.test.ts` and any route-focused Copilot model tests added in this task.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
+- GitHub Copilot documentation root for model-list context: `https://docs.github.com/en/copilot`
 
 #### Subtasks
 
@@ -812,9 +806,9 @@ Implement the actual Copilot chat turn path on the server so `POST /chat` can cr
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Edge Cases and Failure Modes`, and `### Proof Path Readiness`.
-- Chat execution files: `server/src/routes/chat.ts`, `server/src/chat/factory.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/chatStreamBridge.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/ws/server.ts`, `server/src/chat/memoryPersistence.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, and `server/src/mongo/turn.ts`.
-- Existing chat tests: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`, and any route-level Copilot chat tests added in this task.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- DeepWiki GitHub Copilot SDK repository docs: `github/copilot-sdk`
+- Context7 Mongoose docs: `/automattic/mongoose/9.0.1`
 
 #### Subtasks
 
@@ -857,9 +851,9 @@ Replace the current Codex-only auth contract with one shared provider-auth contr
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
-- Existing auth files: `common/src/api.ts`, `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `client/src/api/codex.ts`, and any shared auth-related route helpers.
-- Existing auth tests: `server/src/test/unit/codexDeviceAuth.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, `client/src/test/codexDeviceAuthApi.test.ts`, and `client/src/test/codexDeviceAuthDialog.test.tsx`.
+- OpenAPI Specification: `https://spec.openapis.org/oas/v3.1.0`
+- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow`
+- GitHub Copilot documentation root for auth context: `https://docs.github.com/en/copilot`
 
 #### Subtasks
 
@@ -899,9 +893,9 @@ Add the server-side Copilot device-auth route that uses the documented device-lo
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, `### Missing Runtime and Deployment Prerequisites`, and `### Edge Cases and Failure Modes`.
-- Existing auth files: `server/src/routes/codexDeviceAuth.ts`, `server/src/utils/codexDeviceAuth.ts`, `server/src/index.ts`, and any auth-related route registration files.
-- Existing auth tests: `server/src/test/unit/codexDeviceAuth.test.ts`, `server/src/test/integration/codex.device-auth.test.ts`, and any new Copilot auth tests added in this task.
+- GitHub OAuth device flow documentation: `https://docs.github.com/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- OpenAPI Specification: `https://spec.openapis.org/oas/v3.1.0`
 
 #### Subtasks
 
@@ -941,9 +935,9 @@ Extend the existing client-side fetch-based auth fixtures so dialog and auth API
 
 #### Documentation Locations
 
-- Story planning in this file: `## Test Harnesses`, `### Acceptance Criteria`, and `### Feasibility Proof`.
-- Existing client test support: `client/src/test/setupTests.ts`, `client/src/test/support/fetchMock.ts`, `client/src/test/support/mockWebSocket.ts`, `client/src/test/support/userEvent.ts`, and any current auth-related client test helpers.
-- Existing client auth tests: `client/src/test/codexDeviceAuthApi.test.ts`, `client/src/test/codexDeviceAuthDialog.test.tsx`, and any provider-loading tests that later refresh auth state.
+- Context7 Jest docs: `/jestjs/jest`
+- Testing Library documentation: `https://testing-library.com/docs/`
+- React documentation root: `https://react.dev/`
 
 #### Subtasks
 
@@ -983,10 +977,9 @@ Teach the existing chat page to consume the new three-provider contract for prov
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `## Implementation Ideas`, and `### Edge Cases and Failure Modes`.
-- Client files: `client/src/hooks/useChatModel.ts`, `client/src/pages/ChatPage.tsx`, `client/src/components/chat/CodexFlagsPanel.tsx`, `client/src/api/conversations.ts`, and any provider-selection helpers already used by the chat page.
-- Existing client tests: `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.codexBanners.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, `client/src/test/chatPage.flags.*.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`.
-- MUI references already used by this repository for controlled selection UI if behavior details are needed.
+- React documentation root: `https://react.dev/`
+- React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state`
+- MUI MCP docs for the repository Material UI version's form controls and button behavior
 
 #### Subtasks
 
@@ -1028,10 +1021,9 @@ Update the existing client auth experience so the chat page uses one shared `Cho
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
-- Existing client auth files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/api/codex.ts`, `client/src/test/setupTests.ts`, `client/src/test/support/fetchMock.ts`, `client/src/test/support/userEvent.ts`, `client/src/test/codexDeviceAuthDialog.test.tsx`, `client/src/test/codexDeviceAuthApi.test.ts`, `client/src/test/agentsPage.agentChange.test.tsx`, and any current client auth API helper.
-- Shared auth contract files from Task 8 and fixtures from Task 10: `common/src/api.ts`, the server auth routes, any new client auth API wrapper added for provider-agnostic use, and the extended fetch-based auth fixtures.
-- MUI dialog and button behavior references already used in this repository if a component API reminder is needed.
+- MUI MCP docs for the repository Material UI version's `Dialog`, `DialogTitle`, `DialogContent`, `DialogActions`, `Button`, and `Stack` pages
+- React state preservation and reset guidance: `https://react.dev/learn/preserving-and-resetting-state`
+- React documentation root: `https://react.dev/`
 
 #### Subtasks
 
@@ -1073,9 +1065,9 @@ Update the existing transcript formatting path so partial Copilot usage and timi
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Message Contracts and Storage Shapes`, and `### Edge Cases and Failure Modes`.
-- Client transcript files: `client/src/components/chat/chatTranscriptFormatting.ts`, the chat page rendering code that consumes it, and any transcript test harness files under `client/src/test/support`.
-- Existing transcript tests: `client/src/test/chatPage.stream.test.tsx`, `client/src/test/chatPage.reasoning.test.tsx`, `client/src/test/transcriptTestHarness.test.ts`, and any other client transcript rendering tests that already assert token or timing details.
+- React conditional rendering guidance: `https://react.dev/learn/conditional-rendering`
+- React documentation root: `https://react.dev/`
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
 
 #### Subtasks
 
@@ -1115,9 +1107,9 @@ Add the runtime env prerequisites that let the existing server and wrapper-backe
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Missing Runtime and Deployment Prerequisites`, and `### Feasibility Proof`.
-- Runtime config files: `server/src/config/startupEnv.ts`, `server/src/config/codexConfig.ts`, any new shared Copilot home/config helper introduced in Task 2, `server/.env`, `server/.env.local`, and `server/.env.e2e`.
-- Existing runtime config tests: `server/src/test/unit/runtimeConfig.test.ts` and any startup-env contract tests already present in this repository.
+- Context7 GitHub Copilot SDK docs: `/github/copilot-sdk`
+- GitHub Copilot documentation root for runtime and auth context: `https://docs.github.com/en/copilot`
+- Docker environment-variable guidance: `https://docs.docker.com/compose/environment-variables/`
 
 #### Subtasks
 
@@ -1155,9 +1147,9 @@ Add the Docker and compose prerequisites that let the existing stack host Copilo
 
 #### Documentation Locations
 
-- Story planning in this file: `### Acceptance Criteria`, `### Missing Runtime and Deployment Prerequisites`, `## Proof Path Readiness`, and `### Feasibility Proof`.
-- Docker and compose files: `server/Dockerfile`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `.dockerignore`, and any compose contract tests such as `server/src/test/unit/runtimeConfig.test.ts`.
-- Docker documentation: Context7 `/docker/docs` for image build contexts, env injection, and named volume behavior if a syntax reminder is needed.
+- Context7 Docker docs: `/docker/docs`
+- Docker Compose volumes documentation: `https://docs.docker.com/reference/compose-file/volumes/`
+- GitHub Copilot documentation root for runtime context: `https://docs.github.com/en/copilot`
 
 #### Subtasks
 
@@ -1197,9 +1189,9 @@ Extend the repository's existing integration, Cucumber, and Playwright boot path
 
 #### Documentation Locations
 
-- Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
-- Existing higher-level test support: `server/src/test/integration`, `server/src/test/support/wsClient.ts`, `server/src/test/steps`, `client/src/test/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and any app bootstrap or env-based test injection points already used in this repository.
-- Harnesses from earlier tasks: the fake Copilot SDK harness from Task 3 and the fake device-auth harness from Task 4.
+- Context7 Playwright docs: `/microsoft/playwright`
+- Cucumber guides: `https://cucumber.io/docs/guides/`
+- Node.js test runner documentation: `https://nodejs.org/api/test.html`
 
 #### Subtasks
 
@@ -1239,9 +1231,9 @@ Use the fake Copilot seams to prove the new server-side provider behavior throug
 
 #### Documentation Locations
 
-- Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
-- Existing higher-level tests: `server/src/test/features/chat_models.feature`, `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_models.steps.ts`, and `server/src/test/steps/chat_stream.steps.ts`.
-- Existing support files: the extended higher-level boot-path support from Task 16 and any current server-side BDD support files already used by this repository.
+- Cucumber guides: `https://cucumber.io/docs/guides/`
+- Context7 Playwright docs: `/microsoft/playwright`
+- Node.js test runner documentation: `https://nodejs.org/api/test.html`
 
 #### Subtasks
 
@@ -1280,10 +1272,9 @@ Use the fake Copilot seams to prove the new user-facing provider behavior throug
 
 #### Documentation Locations
 
-- Story planning in this file: `## Test Harnesses`, `## Proof Path Readiness`, and `### Feasibility Proof`.
-- Existing higher-level tests: `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `e2e/chat-user-turn-ws.spec.ts`, and `e2e/env-runtime-config.spec.ts`.
-- Existing e2e support files: `e2e/support/mockChatWs.ts`, `client/src/test/support/mockWebSocket.ts`, and the extended higher-level boot-path support created in Task 16.
-- Playwright documentation: Context7 `/microsoft/playwright`.
+- Context7 Playwright docs: `/microsoft/playwright`
+- Playwright documentation root: `https://playwright.dev/docs/intro`
+- Cucumber guides for BDD wording if needed by shared steps: `https://cucumber.io/docs/guides/`
 
 #### Subtasks
 
@@ -1322,12 +1313,10 @@ Run the final full proof path for Story `0000051`, verify the implemented behavi
 
 #### Documentation Locations
 
-- Story acceptance and close-out sections in this file: `### Acceptance Criteria`, `## Proof Path Readiness`, and all Task sections above.
-- Docker and Compose documentation: Context7 `/docker/docs`.
-- Playwright documentation: Context7 `/microsoft/playwright`.
-- Jest documentation: Context7 `/jestjs/jest`.
-- Cucumber guidance: https://cucumber.io/docs/guides/
-- Repository docs to update: `README.md`, `design.md`, `projectStructure.md`, and `planning/0000051-github-copilot-sdk-chat-provider.md`.
+- Context7 Docker docs: `/docker/docs`
+- Context7 Playwright docs: `/microsoft/playwright`
+- Context7 Jest docs: `/jestjs/jest`
+- Cucumber guides: `https://cucumber.io/docs/guides/`
 
 #### Subtasks
 

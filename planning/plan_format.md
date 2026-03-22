@@ -105,7 +105,7 @@ task overview.
 ### [N]. Final Task Title
 
 - Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
-- status: **to_do**
+- Task Status: **to_do**
 - Git Commits: **to_do**
 
 #### Overview

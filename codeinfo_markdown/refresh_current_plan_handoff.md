@@ -16,7 +16,7 @@ Use fresh disk reads and current git state, not conversational memory. At minimu
 
 ```json
 {
-  "plan_path": "planning/<story-file>.md",
+  "plan_path": "<relative path to the selected story/spec file>",
   "branched_from": "<optional current-repo source branch or ref>",
   "additional_repositories": [
     {

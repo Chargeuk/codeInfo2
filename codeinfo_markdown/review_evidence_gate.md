@@ -52,7 +52,7 @@ Before doing review work, validate all of the following:
 - the canonical `plan_path` exists in the current repository;
 - the story number in the current repository branch name matches the canonical plan filename;
 - every additional repository path exists and is readable;
-- every additional repository is on the same story branch, or the review stops because the scope is stale;
+- every additional repository is checked out to the same shared story branch as the current repository, and that branch story number matches the canonical plan filename; otherwise the review stops because the scope is stale;
 - no additional repository duplicates the current repository path.
 
 If any of those checks fail, stop and say the current-plan handoff is stale and must be regenerated.
@@ -122,7 +122,7 @@ For each repository in review scope, resolve the review base branch from Git's c
 15. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
 16. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
 17. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-18. Record the per-repository HEAD short SHA values and resolved base branches separately in the evidence summary and handoff.
+18. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 
@@ -141,10 +141,13 @@ The handoff file MUST contain at least:
 - `evidence_file`
 - `findings_file` set to `null`
 - a `repos` array where each entry contains at least:
+  - `repo_alias`
   - `repo_root`
   - `branch`
   - `resolved_base_branch`
   - `head_commit`
+
+Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the canonical plan already defines a clearer repository name.
 
 This handoff file is the ONLY review file the next step may use. Do not rely on timestamps or `latest file` discovery. Treat the handoff file as transient workflow state, not as the durable review artifact.
 
@@ -156,6 +159,8 @@ Before you finish this step, verify all of the following:
 - the canonical plan exists in the current repository;
 - every repository in scope is on the correct story branch;
 - every repository was reviewed against its resolved base branch;
+- the generated review handoff `plan_path` matches the canonical plan path;
+- every repository in scope has a stable alias recorded in the handoff;
 - every acceptance criterion has a proof source or an explicit weak/missing-proof note;
 - cross-repository evidence was added when the story spans multiple repositories;
 - the top 3 risky helpers/functions were named;

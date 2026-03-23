@@ -813,10 +813,10 @@ Mandatory isolation note for every numbered subtask below: if a junior developer
 Documentation handoff for every numbered subtask in this task: when assigning any one numbered subtask from this task, copy the exact bullet list from this task’s `Documentation Locations` section into the handoff so the developer has the readiness and auth-status references visible during implementation.
 Implementation starter pattern for every subtask in this task: keep the existing provider-entry payload shape already returned by `server/src/routes/chatProviders.ts`; add a Copilot branch and stable readiness precedence inside that route instead of creating a second provider-list structure.
 
-1. [ ] Update `server/src/routes/chatProviders.ts` so the provider payload includes Copilot in the ordered list `codex`, `copilot`, `lmstudio`, even when Copilot is unavailable. Keep `available`, `toolsAvailable`, warnings, and the surfaced `reason` distinct.
+1. [x] Update `server/src/routes/chatProviders.ts` so the provider payload includes Copilot in the ordered list `codex`, `copilot`, `lmstudio`, even when Copilot is unavailable. Keep `available`, `toolsAvailable`, warnings, and the surfaced `reason` distinct.
 2. [ ] Implement one explicit readiness precedence rule in the Copilot readiness path and document it in code comments if the ordering would otherwise be hard to follow. The surfaced `reason` must be stable across provider listing, auth refresh, and chat execution, and it must respect the documented Copilot CLI credential precedence so existing env-token or `gh`-fallback authentication is treated as authenticated rather than as unauthenticated. Reuse the repository logger or route-debug pattern to record the blocking readiness stage and the surfaced reason without logging raw CLI output, token-like values, or other secrets, and use the exact acceptance log line `story.0000051.task05.readiness_evaluated` so manual verification can confirm the stable readiness result.
 3. [ ] Keep the route behavior deterministic when Copilot is unavailable, authenticated via env-token or `gh` fallback, or unauthenticated. Unknown warning details should be ignored safely, not treated as fatal errors.
-4. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: call the provider-list route and confirm Copilot is present in the ordered list `codex`, `copilot`, `lmstudio` even when unavailable. Purpose: prove the provider remains visible and ordered correctly.
+4. [x] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: call the provider-list route and confirm Copilot is present in the ordered list `codex`, `copilot`, `lmstudio` even when unavailable. Purpose: prove the provider remains visible and ordered correctly.
 5. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: simulate an unauthenticated Copilot runtime and confirm the route returns the expected blocking `reason` while keeping `available`, `toolsAvailable`, and warnings distinct. Purpose: prove readiness precedence for the main unavailable path.
 6. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: set an existing Copilot credential env var such as `COPILOT_GITHUB_TOKEN` and confirm Copilot surfaces as authenticated without requiring device auth. Purpose: prove the authenticated-via-env happy path.
 7. [ ] Add a unit test in `server/src/test/unit/chatProviders.test.ts`. Test type: unit. Description: simulate stored login state or authenticated `gh` fallback and confirm the route still reports Copilot as authenticated. Purpose: prove non-env credential sources also satisfy the readiness contract.
@@ -839,7 +839,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Task 1 (`7a56b651`) already completed the contract-baseline slice of this task by keeping Copilot visible in `server/src/routes/chatProviders.ts` with the ordered list `codex`, `copilot`, `lmstudio`, and by adding the matching ordered-provider route proof in `server/src/test/unit/chatProviders.test.ts`.
+- The full readiness task is still incomplete because runtime-backed readiness precedence, authenticated-via-env or `gh` states, secret-safe readiness logging, and the remaining readiness-path tests have not landed yet.
 
 ---
 

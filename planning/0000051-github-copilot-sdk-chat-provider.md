@@ -1558,7 +1558,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **in_progress**
-- Git Commits: **to_do**
+- Git Commits: `ccbf3969`
 
 #### Overview
 
@@ -1614,6 +1614,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run build:summary:server` first failed on Task 16 fake boot-path type drift, so I aligned the mock auth-file-store return shape and Copilot SDK model/auth fixtures with the real server contracts; the rerun then passed cleanly with zero warnings.
 - `npm run build:summary:client` passed cleanly on the first wrapper run with zero warnings, which confirmed the Task 16 e2e scenario selector wiring did not break the client build path.
 - **BLOCKER** Testing step 3 (`npm run test:summary:server:unit`) did not reach a terminal pass/fail summary within the documented wrapper budget. I started the wrapper at `2026-03-23T10:25:30Z` and continued polling through `2026-03-23T10:38:30Z`; it only emitted healthy `agent_action: wait` heartbeats while `log_size_bytes` grew from `194915` to `1321156`, so I could not honestly mark the step complete. I did not open the live log because the wrapper still reported `do_not_read_log: true`. The missing capability is a terminal wrapper result for the full server-unit run; this task should remain in progress and the wrapper behavior should be diagnosed before continuing to the remaining Task 16 proof steps rather than splitting or reordering the task.
+- Recorded blocker checkpoint commit `ccbf3969` after the shared fake-scenario plumbing, docs, and plan updates were saved so the next loop can resume from a stable Task 16 in-progress state.
 
 ---
 

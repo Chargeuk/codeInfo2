@@ -1,4 +1,8 @@
-import type { ChatProviderInfo } from '@codeinfo2/common';
+import {
+  ORDERED_CHAT_PROVIDER_CONTRACT,
+  ORDERED_CHAT_PROVIDER_IDS,
+  type ChatProviderInfo,
+} from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import {
@@ -6,6 +10,7 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  ORDERED_CHAT_PROVIDERS,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
@@ -13,6 +18,7 @@ import {
   toChatResolutionSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
@@ -20,6 +26,7 @@ import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
+const TASK1_LOG_MARKER = 'story.0000051.task01.provider_contract_applied';
 const toWebSocketUrl = (value: string) => {
   if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
   if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
@@ -89,6 +96,11 @@ export function createChatProvidersRouter({
         models: capabilities.models.map((entry) => entry.model),
         reason: codex.reason ?? 'codex unavailable',
       },
+      copilot: {
+        available: false,
+        models: [],
+        reason: 'copilot unavailable',
+      },
       lmstudio: {
         available: lmstudioModels.length > 0,
         models: lmstudioModels,
@@ -97,6 +109,13 @@ export function createChatProvidersRouter({
     });
 
     const providerMap: Record<ChatDefaultProvider, ChatProviderInfo> = {
+      copilot: {
+        id: 'copilot',
+        label: 'GitHub Copilot',
+        available: false,
+        toolsAvailable: false,
+        reason: 'copilot unavailable',
+      },
       lmstudio: {
         id: 'lmstudio',
         label: 'LM Studio',
@@ -114,11 +133,25 @@ export function createChatProvidersRouter({
     };
     const orderedIds: ChatDefaultProvider[] = [
       runtimeSelection.executionProvider,
-      runtimeSelection.executionProvider === 'codex' ? 'lmstudio' : 'codex',
+      ...ORDERED_CHAT_PROVIDERS.filter(
+        (id) => id !== runtimeSelection.executionProvider,
+      ),
     ];
     const providers: ChatProviderInfo[] = orderedIds.map(
       (id) => providerMap[id],
     );
+
+    append({
+      level: 'info',
+      message: TASK1_LOG_MARKER,
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        orderedProviderContract: ORDERED_CHAT_PROVIDER_CONTRACT,
+        orderedProviderIds: [...ORDERED_CHAT_PROVIDER_IDS],
+        surface: '/chat/providers',
+      },
+    });
 
     baseLogger.info(
       {
@@ -127,10 +160,13 @@ export function createChatProvidersRouter({
         executionProvider: runtimeSelection.executionProvider,
         executionModel: runtimeSelection.executionModel,
         fallbackApplied: runtimeSelection.fallbackApplied,
+        orderedProviderContract: ORDERED_CHAT_PROVIDER_CONTRACT,
         provider: 'codex',
         available: codex.available,
         toolsAvailable: codex.available && mcp.available,
         codexReason: codex.reason,
+        copilotAvailable: false,
+        copilotReason: 'copilot unavailable',
         mcpAvailable: mcp.available,
         mcpReason: mcp.reason,
         lmstudioAvailable: lmstudioModels.length > 0,
@@ -155,6 +191,7 @@ export function createChatProvidersRouter({
       requested_provider: runtimeSelection.requestedProvider,
       requested_model: runtimeSelection.requestedModel,
       resolved_model: runtimeSelection.executionModel,
+      ordered_provider_contract: ORDERED_CHAT_PROVIDER_CONTRACT,
       model_source:
         requestedDefaults.provider === 'codex'
           ? toChatResolutionSource(

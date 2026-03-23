@@ -182,7 +182,6 @@ function logCheckedInMcpContractLoaded(params: {
   configPath: string;
   env?: NodeJS.ProcessEnv;
 }) {
-  const env = params.env ?? process.env;
   const payload = {
     configPath: params.configPath,
     chatPortVar: 'CODEINFO_CHAT_MCP_PORT',

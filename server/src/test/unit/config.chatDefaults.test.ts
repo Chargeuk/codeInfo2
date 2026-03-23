@@ -5,8 +5,10 @@ import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 
 import {
+  ORDERED_CHAT_PROVIDERS,
   resolveChatDefaults,
   resolveCodexChatDefaults,
+  resolveRuntimeProviderSelection,
 } from '../../config/chatDefaults.js';
 import { ensureChatRuntimeConfigBootstrapped } from '../../config/runtimeConfig.js';
 
@@ -54,6 +56,34 @@ test('explicit values win', () => {
   assert.equal(result.model, 'request-model');
   assert.equal(result.providerSource, 'request');
   assert.equal(result.modelSource, 'request');
+});
+
+test('shared provider order is codex, copilot, lmstudio and fallback follows that order', () => {
+  assert.deepEqual(ORDERED_CHAT_PROVIDERS, ['codex', 'copilot', 'lmstudio']);
+
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    codex: {
+      available: false,
+      models: [],
+      reason: 'codex unavailable',
+    },
+    copilot: {
+      available: false,
+      models: [],
+      reason: 'copilot unavailable',
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'lmstudio');
+  assert.equal(result.executionModel, 'qwen2.5');
+  assert.equal(result.fallbackApplied, true);
 });
 
 test('env values apply when explicit values are missing', () => {

@@ -86,6 +86,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - test isolation.
 17. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
 18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
+
 ## Output Contract
 
 Produce the correct plan mutations for the findings outcome:

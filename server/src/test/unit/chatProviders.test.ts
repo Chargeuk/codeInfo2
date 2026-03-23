@@ -164,13 +164,52 @@ test('providers route orders lmstudio first when codex default is unavailable an
       .get('/chat/providers')
       .expect(200);
 
-    assert.equal(res.body.providers[0].id, 'lmstudio');
+    assert.deepEqual(
+      res.body.providers.map((provider: { id: string }) => provider.id),
+      ['lmstudio', 'codex', 'copilot'],
+    );
     assert.equal(res.body.providers[0].available, true);
-    assert.equal(res.body.providers[1].id, 'codex');
     assert.equal(res.body.providers[1].available, false);
     assert.equal(res.body.providers[1].reason, 'CODE_INFO_LLM_UNAVAILABLE');
+    assert.equal(res.body.providers[2].available, false);
+    assert.equal(res.body.providers[2].reason, 'copilot unavailable');
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route keeps copilot visible in the shared provider order when unavailable', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.3-codex');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.deepEqual(
+      res.body.providers.map((provider: { id: string }) => provider.id),
+      ['codex', 'copilot', 'lmstudio'],
+    );
+    assert.equal(res.body.providers[1].available, false);
+    assert.equal(res.body.providers[1].toolsAvailable, false);
+    assert.equal(res.body.providers[1].reason, 'copilot unavailable');
   } finally {
     await stopServer(server);
   }
@@ -262,11 +301,15 @@ test('providers route keeps codex first when lmstudio has no selectable model', 
       .get('/chat/providers')
       .expect(200);
 
-    assert.equal(res.body.providers[0].id, 'codex');
+    assert.deepEqual(
+      res.body.providers.map((provider: { id: string }) => provider.id),
+      ['codex', 'copilot', 'lmstudio'],
+    );
     assert.equal(res.body.providers[0].available, true);
-    assert.equal(res.body.providers[1].id, 'lmstudio');
     assert.equal(res.body.providers[1].available, false);
-    assert.equal(res.body.providers[1].reason, 'lmstudio unavailable');
+    assert.equal(res.body.providers[1].reason, 'copilot unavailable');
+    assert.equal(res.body.providers[2].available, false);
+    assert.equal(res.body.providers[2].reason, 'lmstudio unavailable');
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {

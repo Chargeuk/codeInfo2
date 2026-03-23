@@ -454,6 +454,19 @@ test('non-Codex provider emits warnings for Codex-only flags', async () => {
   );
 });
 
+test('chat request validation accepts copilot as a legal provider', async () => {
+  const result = await validateChatRequest({
+    model: 'gpt-4o-mini',
+    message: 'hello from copilot',
+    conversationId: 'copilot-valid',
+    provider: 'copilot',
+  });
+
+  assert.equal(result.provider, 'copilot');
+  assert.equal(result.model, 'gpt-4o-mini');
+  assert.deepEqual(result.codexFlags, {});
+});
+
 test('whitespace-only message is rejected with exact contract message', async () => {
   await assert.rejects(
     async () =>

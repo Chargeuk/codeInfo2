@@ -1264,7 +1264,9 @@ describe('runtimeConfig Context7 overlay', () => {
 
       assert(
         infoLogs.some((entry) => {
-          const payload = entry[1] as { legacyFallbackUsed?: boolean } | undefined;
+          const payload = entry[1] as
+            | { legacyFallbackUsed?: boolean }
+            | undefined;
           return (
             entry[0] === 'DEV-0000050:T07:checked_in_mcp_contract_loaded' &&
             payload?.legacyFallbackUsed === false

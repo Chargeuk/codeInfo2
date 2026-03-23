@@ -299,6 +299,11 @@ export function createChatRouter({
       requestedProvider,
       requestedModel,
       codex: codexState,
+      copilot: {
+        available: false,
+        models: [],
+        reason: 'copilot unavailable',
+      },
       lmstudio: {
         available: lmstudioAvailable,
         models: lmstudioModels,

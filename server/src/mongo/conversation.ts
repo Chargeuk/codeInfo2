@@ -2,7 +2,7 @@ import mongoose, { type HydratedDocument, type Model } from 'mongoose';
 
 const { Schema, model, models } = mongoose;
 
-export type ConversationProvider = 'lmstudio' | 'codex';
+export type ConversationProvider = 'lmstudio' | 'codex' | 'copilot';
 export type ConversationSource = 'REST' | 'MCP';
 
 export interface Conversation {
@@ -25,7 +25,11 @@ export type ConversationDocument = HydratedDocument<Conversation>;
 const conversationSchema = new Schema<Conversation>(
   {
     _id: { type: String, required: true },
-    provider: { type: String, enum: ['lmstudio', 'codex'], required: true },
+    provider: {
+      type: String,
+      enum: ['lmstudio', 'codex', 'copilot'],
+      required: true,
+    },
     model: { type: String, required: true },
     title: { type: String, required: true },
     agentName: { type: String },

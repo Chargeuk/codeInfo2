@@ -1,3 +1,5 @@
+import type { ChatProviderId } from './api.js';
+
 export type LmStudioModel = {
   modelKey: string;
   displayName: string;
@@ -56,7 +58,7 @@ export type CodexDefaults = {
 };
 
 export type ChatProviderInfo = {
-  id: string;
+  id: ChatProviderId;
   label: string;
   available: boolean;
   toolsAvailable: boolean;
@@ -64,7 +66,7 @@ export type ChatProviderInfo = {
 };
 
 export type ChatModelsResponse = {
-  provider: string;
+  provider: ChatProviderId;
   available: boolean;
   toolsAvailable: boolean;
   models: ChatModelInfo[];

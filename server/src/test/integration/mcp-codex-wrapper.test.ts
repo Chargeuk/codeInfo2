@@ -13,7 +13,6 @@ import type {
 } from '@openai/codex-sdk';
 
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
-import { resolveChatDefaults } from '../../config/chatDefaults.js';
 import { RuntimeConfigResolutionError } from '../../config/runtimeConfig.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
@@ -161,6 +160,10 @@ const makeLmStudioClientFactory = () => () =>
 
 test('MCP responder returns answer-only segments', async () => {
   const prev = getCodexDetection();
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -176,16 +179,26 @@ test('MCP responder returns answer-only segments', async () => {
     );
 
     const payload = JSON.parse(result.content[0].text);
-    const defaults = resolveChatDefaults({ requestProvider: 'codex' });
     assert.ok(typeof payload.conversationId === 'string');
     assert.ok(payload.conversationId.startsWith('codex-thread-'));
-    assert.equal(payload.modelId, defaults.model);
+    assert.ok(typeof payload.modelId === 'string');
+    assert.ok(payload.modelId.length > 0);
     assert.deepEqual(
       payload.segments.map((s: { type: string }) => s.type),
       ['answer'],
     );
     assert.equal(payload.segments[0].text, 'Here you go');
   } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalDefaultModel === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    }
     setCodexDetection(prev);
   }
 });

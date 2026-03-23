@@ -81,7 +81,7 @@ export function useChatModel() {
         legacyBootstrapRef.current = true;
         const list: ChatProviderInfo[] = [
           {
-            id: 'lmstudio',
+            id: 'lmstudio' as const,
             label: 'LM Studio',
             available: true,
             toolsAvailable: true,
@@ -108,7 +108,7 @@ export function useChatModel() {
         ? (data.providers ?? [])
         : [
             {
-              id: 'lmstudio',
+              id: 'lmstudio' as const,
               label: 'LM Studio',
               available: true,
               toolsAvailable: true,

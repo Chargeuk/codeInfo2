@@ -3,6 +3,24 @@ import type { VersionInfo } from './versionInfo.js';
 
 type HttpError = Error & { status?: number; body?: unknown };
 
+export const ORDERED_CHAT_PROVIDER_IDS = [
+  'codex',
+  'copilot',
+  'lmstudio',
+] as const;
+
+export type ChatProviderId = (typeof ORDERED_CHAT_PROVIDER_IDS)[number];
+
+export const DEFAULT_CHAT_PROVIDER_ID: ChatProviderId =
+  ORDERED_CHAT_PROVIDER_IDS[0];
+
+export const ORDERED_CHAT_PROVIDER_CONTRACT =
+  ORDERED_CHAT_PROVIDER_IDS.join('>');
+
+export function isChatProviderId(value: string): value is ChatProviderId {
+  return ORDERED_CHAT_PROVIDER_IDS.includes(value as ChatProviderId);
+}
+
 export type CodexDeviceAuthRequest = Record<string, never>;
 
 export type CodexDeviceAuthSuccessResponse = {

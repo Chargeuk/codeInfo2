@@ -56,7 +56,7 @@ const listConversationsQuerySchema = z
 
 const createConversationSchema = z
   .object({
-    provider: z.enum(['lmstudio', 'codex']),
+    provider: z.enum(['lmstudio', 'codex', 'copilot']),
     model: z.string().min(1),
     title: z.string().min(1).optional(),
     flags: z.record(z.unknown()).optional(),

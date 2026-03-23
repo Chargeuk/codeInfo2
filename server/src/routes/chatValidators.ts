@@ -1,3 +1,4 @@
+import { ORDERED_CHAT_PROVIDER_IDS, isChatProviderId } from '@codeinfo2/common';
 import type {
   ApprovalMode,
   ModelReasoningEffort,
@@ -19,7 +20,7 @@ import {
 import { baseLogger } from '../logger.js';
 import { validateRequestedWorkingFolder } from '../workingFolders/state.js';
 
-type Provider = 'codex' | 'lmstudio';
+type Provider = (typeof ORDERED_CHAT_PROVIDER_IDS)[number];
 
 export type ChatRequestBody = {
   model?: unknown;
@@ -134,6 +135,7 @@ export const modelReasoningEfforts = [
 ] as const satisfies readonly ModelReasoningEffort[];
 
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
+const PROVIDER_VALIDATION_MESSAGE = `provider must be one of: ${ORDERED_CHAT_PROVIDER_IDS.join(', ')}`;
 
 export async function validateChatRequest(
   body: ChatRequestBody | unknown,
@@ -184,11 +186,11 @@ export async function validateChatRequest(
   let requestedProvider: Provider | undefined;
   if (rawProvider !== undefined) {
     if (typeof rawProvider !== 'string' || rawProvider.trim().length === 0) {
-      throw new ChatValidationError('provider must be "codex" or "lmstudio"');
+      throw new ChatValidationError(PROVIDER_VALIDATION_MESSAGE);
     }
     const normalizedProvider = rawProvider.trim();
-    if (normalizedProvider !== 'codex' && normalizedProvider !== 'lmstudio') {
-      throw new ChatValidationError('provider must be "codex" or "lmstudio"');
+    if (!isChatProviderId(normalizedProvider)) {
+      throw new ChatValidationError(PROVIDER_VALIDATION_MESSAGE);
     }
     requestedProvider = normalizedProvider as Provider;
   }

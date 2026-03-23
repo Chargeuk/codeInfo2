@@ -76,8 +76,8 @@ Couple of sentences of what this task achieves and why it is needed. Each task s
 ### Task 2. Task Two Title
 
 - Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -105,8 +105,8 @@ task overview.
 ### [N]. Final Task Title
 
 - Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 

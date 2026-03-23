@@ -207,7 +207,7 @@ async function getConversation(
 
 async function ensureConversation(
   conversationId: string,
-  provider: 'codex' | 'lmstudio',
+  provider: ChatDefaultProvider,
   model: string,
   title: string,
   flags?: Record<string, unknown>,
@@ -368,6 +368,11 @@ export async function runCodebaseQuestion(
     requestedProvider,
     requestedModel,
     codex: codexState,
+    copilot: {
+      available: false,
+      models: [],
+      reason: 'copilot unavailable',
+    },
     lmstudio: {
       available: lmstudioModels.length > 0,
       models: lmstudioModels,
@@ -539,7 +544,7 @@ export async function runCodebaseQuestion(
 
   const resolvedConversationId =
     conversationId ??
-    `${executionProvider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
+    `${executionProvider}-thread-${Date.now()}`;
 
   const inflightId = crypto.randomUUID();
 
@@ -550,7 +555,7 @@ export async function runCodebaseQuestion(
   const conversationFlags =
     executionProvider === 'codex'
       ? { ...(existingFlags ?? {}), ...threadOpts }
-      : sanitizeFlagsForProvider('lmstudio', existingFlags);
+      : sanitizeFlagsForProvider(executionProvider, existingFlags);
 
   await ensureConversation(
     resolvedConversationId,

@@ -11,6 +11,23 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000051 Task 1 three-provider contract baseline
+
+- Shared chat provider ordering is now one explicit contract: `codex`, then `copilot`, then `lmstudio`.
+- That ordered definition is intended to feed shared common types, server default-provider parsing, runtime fallback ordering, request validation, conversation persistence enums, provider-list ordering, and OpenAPI enum publishing from one source instead of separate hard-coded arrays.
+- During the contract-first phase of Story 51, Copilot is present in the provider list as a top-level provider id even before readiness and model wiring land. The temporary contract is visible-but-unavailable, which keeps server and client ordering aligned without pretending Copilot runtime support is already complete.
+
+```mermaid
+flowchart LR
+  SharedOrder["ORDERED_CHAT_PROVIDER_IDS<br/>codex -> copilot -> lmstudio"]
+  SharedOrder --> CommonTypes["common/src/api.ts + common/src/lmstudio.ts"]
+  SharedOrder --> Defaults["server/src/config/chatDefaults.ts"]
+  SharedOrder --> Validation["server/src/routes/chatValidators.ts"]
+  SharedOrder --> Persistence["conversation enums + REST validation"]
+  SharedOrder --> Providers["/chat/providers ordering"]
+  SharedOrder --> OpenAPI["openapi.json enums"]
+```
+
 ## Story 0000049 Task 1 shared Chat transcript boundary
 
 - `client/src/pages/ChatPage.tsx` still owns the Chat page shell, model/provider controls, `ConversationList`, and `CodexFlagsPanel`.

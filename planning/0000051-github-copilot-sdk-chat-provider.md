@@ -869,7 +869,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 #### Implementation notes
 
 - Task 1 (`7a56b651`) already completed the contract-baseline slice of this task by keeping Copilot visible in `server/src/routes/chatProviders.ts` with the ordered list `codex`, `copilot`, `lmstudio`, and by adding the matching ordered-provider route proof in `server/src/test/unit/chatProviders.test.ts`.
-- The full readiness task is still incomplete because runtime-backed readiness precedence, authenticated-via-env or `gh` states, secret-safe readiness logging, and the remaining readiness-path tests have not landed yet.
+- The earlier contract-only baseline for this task has now been superseded by the runtime-backed readiness implementation, auth-source handling, secret-safe readiness logging, and the remaining readiness-path tests that landed in `c0303d10`.
 - Added `server/src/providers/copilotReadiness.ts` so `/chat/providers` now uses one documented readiness-precedence resolver instead of a hardcoded Copilot placeholder branch.
 - The readiness resolver now evaluates Copilot in the planned order of connectivity, authentication, model-list success, and tool-surface availability, and it emits `story.0000051.task05.readiness_evaluated` with only secret-safe blocking-stage context.
 - Updated `server/src/routes/chatProviders.ts` to consume the shared readiness result, including env-token and `gh`-fallback auth handling, while keeping Copilot visible in the ordered provider list.

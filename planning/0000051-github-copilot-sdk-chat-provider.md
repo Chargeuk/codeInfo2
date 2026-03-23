@@ -763,8 +763,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 4. Add the server fake Copilot device-auth harness
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `cd830996`
 
 #### Overview
 
@@ -790,7 +790,7 @@ Implementation starter pattern for every subtask in this task: mirror the two-ph
 5. [x] Add a unit test in `server/src/test/unit/mockCopilotDeviceAuth.test.ts`. Test type: unit. Description: script a missing-CLI or explicit failure outcome and confirm the harness returns that failure deterministically. Purpose: prove error-path auth scenarios are reusable and stable.
 6. [x] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot device-auth harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding auth harness files.
 7. [x] Update `design.md` only if the harness entry point or fake auth phases need brief architectural clarification. Document name: `design.md`. Location: repository root. Description: add a brief explanation of the fake auth phases only if later maintainers would not infer them from the code and tests. Purpose: keep auth-harness architecture understandable.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
+8. [x] Update this plan file after implementation by marking the completed checkboxes for Task 4, recording implementation notes, and listing the task commit hashes once they exist.
 9. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 10. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
@@ -814,6 +814,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run format:check` initially reported Prettier drift in the new auth harness and the previously landed fake SDK harness, so I ran `npm run format`; the follow-up `npm run format:check` then passed cleanly.
 - `npm run build:summary:server` passed cleanly after the auth harness landed, which confirmed the new support file, proof tests, and doc updates all compile together in the server workspace.
 - `npm run test:summary:server:unit` passed cleanly with `1390/1390`, which confirmed the fake device-auth harness and its proof tests integrate cleanly with the full server unit and integration suite.
+- Recorded the Task 4 implementation commit hash after the wrapper proof passed and marked the task complete so the later Copilot auth backend work can depend on a checked-in fake auth seam.
 
 ---
 

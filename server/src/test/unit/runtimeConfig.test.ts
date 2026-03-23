@@ -14,6 +14,13 @@ import {
   getCodexConfigPathForHome,
   getCodexHome,
 } from '../../config/codexConfig.js';
+import {
+  buildCopilotClientOptions,
+  getCopilotConfigDir,
+  getCopilotStatePathForHome,
+  resolveCopilotCredentialSource,
+  resolveCopilotHome,
+} from '../../config/copilotConfig.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
   ensureChatRuntimeConfigBootstrapped,
@@ -31,6 +38,7 @@ import {
   type RuntimeConfigResolutionError,
   validateRuntimeConfig,
 } from '../../config/runtimeConfig.js';
+import { loadStartupEnv } from '../../config/startupEnv.js';
 
 const originalContext7ApiKey = process.env.CODEINFO_CONTEXT7_API_KEY;
 const originalServerPort = process.env.CODEINFO_SERVER_PORT;
@@ -75,6 +83,131 @@ afterEach(() => {
   } else {
     process.env.CODEINFO_PLAYWRIGHT_MCP_URL = originalPlaywrightMcpUrl;
   }
+});
+
+describe('copilot runtime env wiring', () => {
+  it('loads CODEINFO_COPILOT_HOME for development, local docker override, and e2e modes', async () => {
+    const serverRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-startup-env-'),
+    );
+    const targetEnv: Record<string, string | undefined> = {};
+
+    try {
+      await fs.writeFile(
+        path.join(serverRoot, '.env'),
+        'CODEINFO_COPILOT_HOME=../copilot\n',
+        'utf8',
+      );
+      await fs.writeFile(
+        path.join(serverRoot, '.env.local'),
+        'CODEINFO_COPILOT_HOME=/app/copilot\n',
+        'utf8',
+      );
+
+      const localDockerLoaded = loadStartupEnv({
+        serverRoot,
+        targetEnv,
+      });
+      const checkedInDevEnv = await fs.readFile(
+        path.join(repoRoot, 'server/.env'),
+        'utf8',
+      );
+      const checkedInE2eEnv = await fs.readFile(
+        path.join(repoRoot, 'server/.env.e2e'),
+        'utf8',
+      );
+
+      assert.equal(targetEnv.CODEINFO_COPILOT_HOME, '/app/copilot');
+      assert.equal(
+        localDockerLoaded.valueSources.CODEINFO_COPILOT_HOME,
+        'server/.env.local',
+      );
+      assert.match(checkedInDevEnv, /^CODEINFO_COPILOT_HOME=\.\.\/copilot$/m);
+      assert.match(checkedInE2eEnv, /^CODEINFO_COPILOT_HOME=\/app\/copilot$/m);
+    } finally {
+      await fs.rm(serverRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves an optional explicit Copilot CLI path override without making it mandatory', () => {
+    const withCliPath = buildCopilotClientOptions({
+      env: {
+        CODEINFO_COPILOT_HOME: './tmp/copilot-home',
+        CODEINFO_COPILOT_CLI_PATH: '/opt/copilot/bin/copilot',
+      },
+    });
+    const withoutCliPath = buildCopilotClientOptions({
+      env: {
+        CODEINFO_COPILOT_HOME: './tmp/copilot-home',
+      },
+    });
+
+    assert.equal(withCliPath.clientOptions.cliPath, '/opt/copilot/bin/copilot');
+    assert.equal(withCliPath.cliPathOverride, 'present');
+    assert.equal(withCliPath.cliMode, 'cliPath');
+    assert.equal(withoutCliPath.clientOptions.cliPath, undefined);
+    assert.equal(withoutCliPath.cliPathOverride, 'absent');
+    assert.equal(withoutCliPath.cliMode, 'path');
+  });
+
+  it('preserves documented Copilot credential precedence during runtime loading', () => {
+    assert.equal(
+      resolveCopilotCredentialSource({
+        GITHUB_TOKEN: 'github-token',
+      }),
+      'GITHUB_TOKEN',
+    );
+    assert.equal(
+      resolveCopilotCredentialSource({
+        GH_TOKEN: 'gh-token',
+        GITHUB_TOKEN: 'github-token',
+      }),
+      'GH_TOKEN',
+    );
+    assert.equal(
+      resolveCopilotCredentialSource({
+        COPILOT_GITHUB_TOKEN: 'copilot-token',
+        GH_TOKEN: 'gh-token',
+        GITHUB_TOKEN: 'github-token',
+      }),
+      'COPILOT_GITHUB_TOKEN',
+    );
+    assert.equal(resolveCopilotCredentialSource({}), 'none');
+  });
+
+  it('resolves derived Copilot home paths through the shared helper contract', async () => {
+    const serverRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-startup-paths-'),
+    );
+    const targetEnv: Record<string, string | undefined> = {};
+    const expectedHome = path.join(serverRoot, 'copilot-home');
+
+    try {
+      await fs.writeFile(
+        path.join(serverRoot, '.env'),
+        `CODEINFO_COPILOT_HOME=${expectedHome}\n`,
+        'utf8',
+      );
+
+      loadStartupEnv({
+        serverRoot,
+        targetEnv,
+      });
+
+      const copilotHome = resolveCopilotHome(undefined, targetEnv);
+      assert.equal(copilotHome, expectedHome);
+      assert.equal(
+        getCopilotConfigDir(targetEnv),
+        path.join(copilotHome, 'config'),
+      );
+      assert.equal(
+        getCopilotStatePathForHome(copilotHome, 'auth.json'),
+        path.join(copilotHome, 'config', 'auth.json'),
+      );
+    } finally {
+      await fs.rm(serverRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('runtimeConfig normalization', () => {

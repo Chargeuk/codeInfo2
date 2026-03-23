@@ -95,6 +95,40 @@ Story notes:
 - The new `server/src/utils/copilotDeviceAuth.ts` utility owns Copilot login spawning, verification parsing, sanitized failure handling, and completion mapping, while `server/src/config/copilotConfig.ts` now also provides a writable config-dir check for the Copilot auth path.
 - The proof lands in one focused router unit file plus one integration file that covers early verification, completion refresh, env-token and `gh` short-circuit behavior, writable-home fallback, single-flight reuse, and secret-safe task-marker logging.
 
+## Story 0000051 Task 14 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/health.copilot-isolation.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/.env`
+- `server/.env.e2e`
+- `server/.env.local`
+- `server/src/config/copilotConfig.ts`
+- `server/src/config/startupEnv.ts`
+- `server/src/index.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
+Story notes:
+
+- Task 14 extends the shared startup env inventory with `CODEINFO_COPILOT_HOME` and the optional `CODEINFO_COPILOT_CLI_PATH`, keeping Copilot runtime-home resolution on the same `CODEINFO_*` startup path as the rest of the server config.
+- The shared Copilot config helper now resolves CLI-path override state and credential-env precedence in one place, so startup logging, readiness, auth, and future Docker wiring do not need separate Copilot env parsing rules.
+- `server/src/test/integration/health.copilot-isolation.test.ts` is the focused proof file that keeps `/health` process-only while Copilot readiness fails for connectivity, authentication, or model-list reasons on `/chat/providers`.
+
 ## Story 0000051 Task 7 structural change ledger
 
 Added files:

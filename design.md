@@ -104,10 +104,28 @@ sequenceDiagram
     UI->>Route: repeat POST while user completes browser step
     alt still waiting
       Route-->>UI: completion_pending
-    else auth detected complete
+  else auth detected complete
       Route-->>UI: completed
     end
   end
+```
+
+## Story 0000051 Task 14 Copilot runtime env contract
+
+- `server/src/config/startupEnv.ts` now treats `CODEINFO_COPILOT_HOME` and the optional `CODEINFO_COPILOT_CLI_PATH` as first-class startup env inputs alongside the existing renamed `CODEINFO_*` server env family, so local development, local Docker overrides, and e2e can all resolve the same Copilot runtime contract through one loader.
+- `server/src/config/copilotConfig.ts` now resolves three pieces of runtime state together: the final Copilot home, the derived SDK `configDir`, and whether the runtime is using default `PATH` discovery or an explicit CLI-path override. The helper also preserves the documented credential precedence for `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` by passing those env vars through unchanged.
+- `server/src/index.ts` emits `story.0000051.task14.runtime_config_loaded` during startup with only secret-safe runtime context: the resolved Copilot home path and whether a CLI-path override is present or absent.
+- `/health` remains a process-level route and does not consult Copilot readiness. Connectivity, authentication, and model-list failures for Copilot continue to surface only through `/chat/providers` and `/chat/models`.
+
+```mermaid
+flowchart LR
+  Startup["server startup"] --> Env["startupEnv.ts<br/>load .env then .env.local"]
+  Env --> Helper["copilotConfig.ts<br/>resolve home + optional cliPath"]
+  Helper --> Marker["story.0000051.task14.runtime_config_loaded"]
+  Helper --> Runtime["CopilotLifecycle / auth route / readiness"]
+  Runtime --> ProviderSurface["/chat/providers + /chat/models"]
+  Startup --> Health["/health"]
+  Health --> ProcessOnly["status + uptime + mongoConnected only"]
 ```
 
 ## Story 0000051 Task 6 Copilot model mapping baseline

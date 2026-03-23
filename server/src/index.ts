@@ -11,6 +11,7 @@ import {
   DEV_0000040_T10_CODEX_SDK_GUARD,
   validateAndLogCodexSdkUpgrade,
 } from './config/codexSdkUpgrade.js';
+import { buildCopilotClientOptions } from './config/copilotConfig.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
@@ -70,6 +71,9 @@ import { attachWs, type WsServerHandle } from './ws/server.js';
 const startupEnvLoad = ensureStartupEnvLoaded();
 const codeinfoEnvResolutions = resolveCodeinfoEnvResolutions({
   loadResult: startupEnvLoad,
+});
+const copilotRuntimeConfig = buildCopilotClientOptions({
+  env: process.env,
 });
 ensureCodexConfigSeeded();
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
@@ -134,6 +138,24 @@ append({
   source: 'server',
   context: {
     envs: codeinfoEnvResolutions,
+  },
+});
+baseLogger.info(
+  {
+    event: 'story.0000051.task14.runtime_config_loaded',
+    copilotHome: copilotRuntimeConfig.copilotHome,
+    cliPathOverride: copilotRuntimeConfig.cliPathOverride,
+  },
+  'story.0000051.task14.runtime_config_loaded',
+);
+append({
+  level: 'info',
+  message: 'story.0000051.task14.runtime_config_loaded',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    copilotHome: copilotRuntimeConfig.copilotHome,
+    cliPathOverride: copilotRuntimeConfig.cliPathOverride,
   },
 });
 const flowAndCommandRetries = getFlowAndCommandRetries();

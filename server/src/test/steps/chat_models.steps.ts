@@ -24,6 +24,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 
 const TASK17_LOG_MARKER = 'story.0000051.task17.cucumber_scenarios_registered';
 
@@ -31,6 +32,17 @@ let server: Server | null = null;
 let baseUrl = '';
 let response: { status: number; body: unknown | null } | null = null;
 let namedCopilotScenarioServer: StartedNamedCopilotScenarioServer | null = null;
+
+function createUnavailableCopilotLifecycle() {
+  return createMockCopilotSdkHarness({
+    name: 'cucumber-chat-models-copilot-auth-required',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'user',
+      statusMessage: 'login required',
+    },
+  }).createLifecycle();
+}
 
 function isNamedCopilotScenario(name: string): name is NamedCopilotScenario {
   return (NAMED_COPILOT_SCENARIOS as readonly string[]).includes(name);
@@ -50,6 +62,7 @@ async function startLegacyModelsServer() {
     createChatModelsRouter({
       clientFactory: () =>
         new MockLMStudioClient() as unknown as LMStudioClient,
+      copilotRuntimeFactory: createUnavailableCopilotLifecycle,
     }),
   );
   app.use(
@@ -57,6 +70,7 @@ async function startLegacyModelsServer() {
     createChatProvidersRouter({
       clientFactory: () =>
         new MockLMStudioClient() as unknown as LMStudioClient,
+      copilotRuntimeFactory: createUnavailableCopilotLifecycle,
     }),
   );
   app.use('/logs', createLogsRouter());

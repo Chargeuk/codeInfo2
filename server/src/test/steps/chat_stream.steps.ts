@@ -31,6 +31,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   closeWs,
   connectWs,
@@ -72,6 +73,17 @@ const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForScenario: string | null = null;
 let namedCopilotScenarioServer: StartedNamedCopilotScenarioServer | null = null;
 
+function createUnavailableCopilotLifecycle() {
+  return createMockCopilotSdkHarness({
+    name: 'cucumber-chat-stream-copilot-auth-required',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'user',
+      statusMessage: 'login required',
+    },
+  }).createLifecycle();
+}
+
 function isNamedCopilotScenario(name: string): name is NamedCopilotScenario {
   return (NAMED_COPILOT_SCENARIOS as readonly string[]).includes(name);
 }
@@ -106,6 +118,7 @@ async function startLegacyChatStreamServer() {
     createChatRouter({
       clientFactory: () =>
         new MockLMStudioClient() as unknown as LMStudioClient,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
     }),
   );
 

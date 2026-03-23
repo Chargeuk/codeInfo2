@@ -20,7 +20,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Shared auth is now one provider-auth contract with a stable state vocabulary: `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, and `unavailable_before_start`. The shared `Choose Authentication` dialog renders both `Codex Auth` and `Copilot Auth` without changing the surrounding MUI dialog shell.
 - Runtime-home handling mirrors Codex closely while remaining independent from the chat working directory:
   - development default: `CODEINFO_COPILOT_HOME=../copilot`
-  - compose-backed runtime: `CODEINFO_COPILOT_HOME=/app/copilot`
+  - local compose runtime: `CODEINFO_COPILOT_HOME=/app/copilot` backed by repo-root `./copilot`
+  - main and e2e compose runtimes: `CODEINFO_COPILOT_HOME=/app/copilot` backed by `copilot-data`
   - optional CLI override: `CODEINFO_COPILOT_CLI_PATH`
   - default launch rule when unset: normal `PATH` lookup
 - Session identity remains compatibility-safe and deterministic. Copilot chat reuses `conversationId` directly as `sessionId`; the story does not introduce a separate persisted Copilot session id field in the normal path.
@@ -35,7 +36,7 @@ flowchart LR
   CopilotChat --> Runtime["CopilotLifecycle<br/>cliPath override or PATH"]
   AuthAPI --> Runtime
   Runtime --> CopilotHome["CODEINFO_COPILOT_HOME<br/>../copilot or /app/copilot"]
-  CopilotHome --> Docker["copilot-data named volume in compose-backed runtimes"]
+  CopilotHome --> Docker["Local compose: ./copilot bind mount<br/>Main + e2e: copilot-data named volume"]
 ```
 
 ## Story 0000051 scope guardrails
@@ -188,7 +189,7 @@ flowchart LR
 ## Story 0000051 Task 15 Copilot Docker delivery and persistence
 
 - `server/Dockerfile` now bakes the GitHub Copilot CLI into the existing server image build and prepares `/app/copilot` as a writable runtime home alongside `/app/codex`, without changing the repository's copy-source-into-image build model.
-- `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` now all inject `CODEINFO_COPILOT_HOME=/app/copilot` and mount the same logical `copilot-data` named-volume pattern at that path. Compose project scoping keeps the actual Docker volume names distinct per stack while the contract stays the same in code.
+- `docker-compose.yml` and `docker-compose.e2e.yml` keep the Docker-managed `copilot-data` named-volume pattern at `/app/copilot`, while `docker-compose.local.yml` now bind-mounts the repo-root `./copilot` folder there after wrapper bootstrap seeds `copilot/config.json` when it is missing.
 - `.dockerignore` now excludes repo-local Copilot runtime homes so local auth or session artifacts are never sent into the Docker build context, and `scripts/compose-build-summary.mjs` now treats `/app/copilot` as part of the baked runtime asset set.
 - The container contract is intentionally narrow: no new published ports, no external Copilot listener, and no host source bind mount of application code beyond the existing local-development overlays.
 
@@ -198,7 +199,7 @@ flowchart LR
   Ignore --> Image["server/Dockerfile<br/>install @github/copilot<br/>prepare /app/copilot"]
   Image --> Compose["compose env + volume wiring"]
   Compose --> Main["docker-compose.yml<br/>copilot-data -> /app/copilot"]
-  Compose --> Local["docker-compose.local.yml<br/>copilot-data -> /app/copilot"]
+  Compose --> Local["docker-compose.local.yml<br/>./copilot -> /app/copilot"]
   Compose --> E2E["docker-compose.e2e.yml<br/>copilot-data -> /app/copilot"]
   Main --> Runtime["entrypoint marker<br/>story.0000051.task15.container_contract_ready"]
   Local --> Runtime

@@ -242,9 +242,13 @@ export async function runCopilotDeviceAuth(params?: {
   );
 
   return new Promise((resolve) => {
-    const child = spawnFn(command, ['login', '--config-dir', resolved.copilotHome], {
-      env: resolved.clientOptions.env,
-    });
+    const child = spawnFn(
+      command,
+      ['login', '--config-dir', resolved.configDir],
+      {
+        env: resolved.clientOptions.env,
+      },
+    );
     let stdout = '';
     let stderr = '';
     let resolvedInitial = false;

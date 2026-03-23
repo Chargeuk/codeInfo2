@@ -142,12 +142,13 @@ Modified files (implementation traceability):
 - `server/Dockerfile`
 - `server/entrypoint.sh`
 - `server/npm-global.txt`
+- `scripts/docker-compose-with-env.sh`
 
 Story notes:
 
 - Task 15 extends the existing container contract so the server image now includes the GitHub Copilot CLI, prepares `/app/copilot`, and keeps the image-baked source model intact.
-- All compose variants now inject `CODEINFO_COPILOT_HOME=/app/copilot` and mount the same logical `copilot-data` named-volume pattern at that runtime path without changing the published application ports.
-- The new `server/src/test/unit/copilot-compose-contract.test.ts` file is the focused proof for unchanged ports, named-volume persistence, Docker-ignore alignment, `/app/copilot` env injection, and the compose-build runtime asset marker.
+- Main and e2e compose still inject `CODEINFO_COPILOT_HOME=/app/copilot` with the `copilot-data` named-volume pattern, while local compose now bind-mounts the repo-root `./copilot` folder there after wrapper bootstrap seeds `copilot/config.json`.
+- The new `server/src/test/unit/copilot-compose-contract.test.ts` file is the focused proof for unchanged ports, local bind-mount vs main/e2e named-volume persistence, Docker-ignore alignment, `/app/copilot` env injection, and the compose-build runtime asset marker.
 
 ## Story 0000051 Task 12 structural change ledger
 

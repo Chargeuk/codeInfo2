@@ -196,13 +196,10 @@ describe('copilot runtime env wiring', () => {
 
       const copilotHome = resolveCopilotHome(undefined, targetEnv);
       assert.equal(copilotHome, expectedHome);
-      assert.equal(
-        getCopilotConfigDir(targetEnv),
-        path.join(copilotHome, 'config'),
-      );
+      assert.equal(getCopilotConfigDir(targetEnv), copilotHome);
       assert.equal(
         getCopilotStatePathForHome(copilotHome, 'auth.json'),
-        path.join(copilotHome, 'config', 'auth.json'),
+        path.join(copilotHome, 'auth.json'),
       );
     } finally {
       await fs.rm(serverRoot, { recursive: true, force: true });

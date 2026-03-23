@@ -115,7 +115,7 @@ function depsFromHarness(
 ): Parameters<typeof createCopilotDeviceAuthRouter>[0] {
   return {
     getCopilotHome: () => '/tmp/copilot-home',
-    getCopilotConfigDirForHome: (home: string) => `${home}/config`,
+    getCopilotConfigDirForHome: (home: string) => home,
     ensureCopilotAuthFileStore: async (configDir: string) => ({
       changed: false,
       configDir,
@@ -129,7 +129,7 @@ function depsFromHarness(
       diagnostics: {
         homeDir: undefined,
         copilotHome: '/tmp/copilot-home',
-        configDir: '/tmp/copilot-home/config',
+        configDir: '/tmp/copilot-home',
         compatPath: undefined,
         copilotHomeExists: false,
         configDirExists: false,
@@ -140,7 +140,7 @@ function depsFromHarness(
     inspectCopilotAuthLocations: async () => ({
       homeDir: undefined,
       copilotHome: '/tmp/copilot-home',
-      configDir: '/tmp/copilot-home/config',
+      configDir: '/tmp/copilot-home',
       compatPath: undefined,
       copilotHomeExists: false,
       configDirExists: false,
@@ -222,16 +222,27 @@ describe('POST /copilot/device-auth integration behavior', () => {
       const app = buildApp(
         depsFromHarness(harness, {
           getCopilotHome: () => tempRoot,
-          getCopilotConfigDirForHome: (home: string) =>
-            path.join(home, 'config'),
+          getCopilotConfigDirForHome: (home: string) => home,
           ensureCopilotAuthFileStore,
+          ensureCopilotPlaintextTokenStorage: async (home: string) => {
+            const configPath = path.join(home, 'config.json');
+            await fs.writeFile(
+              configPath,
+              JSON.stringify({ store_token_plaintext: true }, null, 2),
+              'utf8',
+            );
+            return {
+              changed: true,
+              configPath,
+            };
+          },
         }),
       );
 
       const res = await supertest(app).post('/copilot/device-auth').send({});
       assert.equal(res.status, 200);
       assert.equal(res.body.state, 'verification_ready');
-      await fs.access(path.join(tempRoot, 'config'));
+      await fs.access(path.join(tempRoot, 'config.json'));
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

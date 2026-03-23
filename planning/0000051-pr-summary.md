@@ -2,7 +2,7 @@
 
 ## What Changed
 
-Story 51 adds GitHub Copilot as a third chat provider across the shared server, client, contract, Docker, and proof layers without broadening execution scope beyond chat. The finished implementation preserves the existing Codex and LM Studio flows, normalizes provider ordering to `codex`, then `copilot`, then `lmstudio`, adds a shared provider-auth contract and `Choose Authentication` dialog, and delivers one consistent Copilot runtime-home and Docker persistence contract.
+Story 51 adds GitHub Copilot as a third chat provider across the shared server, client, contract, Docker, and proof layers without broadening execution scope beyond chat. The finished implementation preserves the existing Codex and LM Studio flows, normalizes provider ordering to `codex`, then `copilot`, then `lmstudio`, adds a shared provider-auth contract and `Choose Authentication` dialog, and now delivers one truthful Copilot runtime-home contract: repo-root `./copilot` for local compose and `/app/copilot` as the mounted in-container path.
 
 Review follow-up: Story 51 was reopened once for a contract-level repair after review `0000051-review-20260323T153158Z-a71881ed`. Task 21 now closes that gap by making `/copilot/device-auth` honor `CODEINFO_COPILOT_CLI_PATH` for both availability checks and the spawned login command, with direct proof for the `PATH`-missing plus override-present deployment case.
 
@@ -11,7 +11,7 @@ Review follow-up: Story 51 was reopened once for a contract-level repair after r
 - Tasks 1 through 6 extended the shared provider, readiness, model-list, request-validation, OpenAPI, and runtime seams from a two-provider world into a three-provider contract with deterministic Copilot visibility and stable unavailable reasons.
 - Tasks 7 through 9 added real Copilot chat execution, deterministic session reuse, shared auth-contract normalization, and the Copilot device-auth backend while keeping existing Codex and LM Studio transport and persistence contracts intact.
 - Tasks 10 through 13 finished the client-side provider, auth, and transcript work, including provider-aware auth fixtures, ordered provider/model selection, the shared `Choose Authentication` dialog, and omission-safe partial Copilot transcript metadata rendering.
-- Tasks 14 and 15 finalized runtime-env and Docker delivery, including `CODEINFO_COPILOT_HOME`, the optional `CODEINFO_COPILOT_CLI_PATH`, the `/app/copilot` container contract, and the `copilot-data` named-volume persistence pattern.
+- Tasks 14 and 15 finalized runtime-env and Docker delivery, including `CODEINFO_COPILOT_HOME`, the optional `CODEINFO_COPILOT_CLI_PATH`, and the `/app/copilot` container contract. Task 24 then repaired the local Docker persistence shape so local compose now uses the repo-root `./copilot` folder while main and e2e keep the `copilot-data` named-volume pattern.
 - Tasks 16 through 18 finished higher-level proof with one shared fake Copilot scenario catalog across integration, Cucumber, and Playwright, then extended server-side BDD and browser coverage to prove the Copilot story end to end.
 - Task 19 repairs the final manual-proof contract so the real main stack stays responsible for unavailable/auth-required checks while the fake Copilot happy-path manual proof stays on the already-supported e2e stack.
 - Task 20 completes final traceability, scope audit, documentation, wrapper-backed validation, repaired manual browser verification, and closeout.
@@ -55,4 +55,4 @@ Review follow-up: Story 51 was reopened once for a contract-level repair after r
 
 - Provider ordering and fallback are now one shared three-provider contract. Any later work that reintroduces binary alternate-provider logic will regress chat bootstrap and availability behavior.
 - The shared auth dialog and provider-auth contract now serve both Codex and Copilot. Future auth work must extend that shared contract rather than adding another provider-specific modal or response family.
-- Copilot runtime state now depends on `CODEINFO_COPILOT_HOME` and the `/app/copilot` container contract. Future Docker or env work must preserve credential precedence and keep `/health` isolated from Copilot readiness.
+- Copilot runtime state now depends on `CODEINFO_COPILOT_HOME` and the `/app/copilot` container contract. Future Docker or env work must preserve the local repo-root `./copilot` bind mount for local compose, keep the main/e2e `copilot-data` named-volume pattern truthful, preserve credential precedence, and keep `/health` isolated from Copilot readiness.

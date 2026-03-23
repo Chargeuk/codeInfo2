@@ -17,8 +17,7 @@ logs
 *.tsbuildinfo
 **/*.tsbuildinfo
 
-# Never send Codex credentials in build context.
-# The local repo may still contain runtime homes, but only credentials stay excluded here.
+# Never send local runtime homes or credentials in build context.
 codex/**
 copilot/**
 server/copilot/**

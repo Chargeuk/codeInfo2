@@ -52,6 +52,13 @@ export type CopilotAuthHomeCompatibilityResult = {
   error?: string;
 };
 
+function hasExplicitConfiguredCopilotHome(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const configuredHome = env.CODEINFO_COPILOT_HOME;
+  return typeof configuredHome === 'string' && configuredHome.trim().length > 0;
+}
+
 export function resolveCopilotHome(
   overrideHome?: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -62,14 +69,14 @@ export function resolveCopilotHome(
 }
 
 export function getCopilotConfigDirForHome(copilotHome: string): string {
-  return path.join(copilotHome, 'config');
+  return path.resolve(copilotHome);
 }
 
 export function getCopilotStatePathForHome(
   copilotHome: string,
   ...segments: string[]
 ): string {
-  return path.join(getCopilotConfigDirForHome(copilotHome), ...segments);
+  return path.join(path.resolve(copilotHome), ...segments);
 }
 
 export function getCopilotHome(env: NodeJS.ProcessEnv = process.env): string {
@@ -322,6 +329,16 @@ export async function ensureCopilotAuthHomeCompatibility(
   }
 
   if (!initialDiagnostics.compatPath) {
+    return {
+      action: 'none',
+      diagnostics: initialDiagnostics,
+    };
+  }
+
+  if (
+    hasExplicitConfiguredCopilotHome(env) &&
+    initialDiagnostics.compatStatus === 'missing'
+  ) {
     return {
       action: 'none',
       diagnostics: initialDiagnostics,

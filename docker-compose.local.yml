@@ -57,7 +57,7 @@ services:
       - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
-      - copilot-data:/app/copilot
+      - ./copilot:/app/copilot
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
       - ./flows:/app/flows
@@ -214,7 +214,6 @@ networks:
   internal:
 
 volumes:
-  copilot-data:
   chroma-data:
   mongo_data:
     external: false

@@ -95,23 +95,27 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   assert.match(e2eZipkin, /'9511:9411'/u);
 });
 
-test('compose contract persists Copilot state with the Docker-managed named volume pattern', () => {
+test('compose contract keeps local Copilot state on the repo bind mount while main and e2e stay on named volumes', () => {
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
   const e2eCompose = readRepoFile('docker-compose.e2e.yml');
 
-  for (const compose of [mainCompose, localCompose, e2eCompose]) {
+  for (const compose of [mainCompose, e2eCompose]) {
     const serverBlock = getServiceBlock(compose, 'server');
     assert.match(serverBlock, /copilot-data:\/app\/copilot/u);
     assert.doesNotMatch(serverBlock, /\.\/copilot:\/app\/copilot/u);
   }
 
   assert.match(mainCompose, /^  copilot-data:$/mu);
-  assert.match(localCompose, /^  copilot-data:$/mu);
   assert.match(e2eCompose, /^  copilot-data:$/mu);
+
+  const localServer = getServiceBlock(localCompose, 'server');
+  assert.match(localServer, /\.\/copilot:\/app\/copilot/u);
+  assert.doesNotMatch(localServer, /copilot-data:\/app\/copilot/u);
+  assert.doesNotMatch(localCompose, /^  copilot-data:$/mu);
 });
 
-test('dockerignore excludes repo-local Copilot runtime artifacts while compose keeps one persistence rule', () => {
+test('dockerignore excludes repo-local Copilot runtime artifacts while local compose uses the repo bind mount', () => {
   const dockerignore = readRepoFile('.dockerignore');
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
@@ -120,11 +124,15 @@ test('dockerignore excludes repo-local Copilot runtime artifacts while compose k
   assert.match(dockerignore, /^copilot\/\*\*$/mu);
   assert.match(dockerignore, /^server\/copilot\/\*\*$/mu);
 
-  for (const compose of [mainCompose, localCompose, e2eCompose]) {
+  for (const compose of [mainCompose, e2eCompose]) {
     const serverBlock = getServiceBlock(compose, 'server');
     assert.match(serverBlock, /copilot-data:\/app\/copilot/u);
     assert.doesNotMatch(serverBlock, /\.\/copilot:\/app\/copilot/u);
   }
+
+  const localServer = getServiceBlock(localCompose, 'server');
+  assert.match(localServer, /\.\/copilot:\/app\/copilot/u);
+  assert.doesNotMatch(localServer, /copilot-data:\/app\/copilot/u);
 });
 
 test('compose services that need Copilot state inject CODEINFO_COPILOT_HOME=/app/copilot consistently', () => {
@@ -141,4 +149,15 @@ test('compose services that need Copilot state inject CODEINFO_COPILOT_HOME=/app
 test('compose build summary runtime asset marker includes /app/copilot', () => {
   const composeBuildSummary = readRepoFile('scripts/compose-build-summary.mjs');
   assert.match(composeBuildSummary, /['"]\/app\/copilot['"]/u);
+});
+
+test('compose wrapper bootstraps the repo-root Copilot home for local runs without overwriting existing state', () => {
+  const composeWrapper = readRepoFile('scripts/docker-compose-with-env.sh');
+
+  assert.match(composeWrapper, /"\$\{repo_root\}\/copilot"/u);
+  assert.match(
+    composeWrapper,
+    /printf '\{\\n  "store_token_plaintext": true\\n\}\\n' > "\$\{copilot_config_path\}"/u,
+  );
+  assert.match(composeWrapper, /\[ ! -e "\$\{copilot_config_path\}" \]/u);
 });

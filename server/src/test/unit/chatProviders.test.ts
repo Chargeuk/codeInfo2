@@ -78,6 +78,16 @@ async function startServer(params: {
   }) => Promise<CodexCapabilityResolution>;
   copilotHarness?: MockCopilotSdkHarness;
 }) {
+  const copilotHarness =
+    params.copilotHarness ??
+    createMockCopilotSdkHarness({
+      name: 'unit-default-copilot-auth-required',
+      authStatus: {
+        isAuthenticated: false,
+        authType: 'user',
+        statusMessage: 'login required',
+      },
+    });
   const app = express();
   app.use(express.json());
 
@@ -94,9 +104,7 @@ async function startServer(params: {
     createChatProvidersRouter({
       clientFactory: params.clientFactory,
       codexCapabilityResolver: params.codexCapabilityResolver,
-      copilotRuntimeFactory: params.copilotHarness
-        ? () => params.copilotHarness!.createLifecycle()
-        : undefined,
+      copilotRuntimeFactory: () => copilotHarness.createLifecycle(),
     }),
   );
 

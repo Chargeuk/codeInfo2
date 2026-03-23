@@ -21,8 +21,8 @@ test('resolves CODEINFO_COPILOT_HOME and derives the config path centrally', () 
   const authPath = getCopilotStatePathForHome(home, 'auth.json');
 
   assert.equal(home, path.resolve('./tmp/copilot-home'));
-  assert.equal(configDir, path.join(home, 'config'));
-  assert.equal(authPath, path.join(home, 'config', 'auth.json'));
+  assert.equal(configDir, home);
+  assert.equal(authPath, path.join(home, 'auth.json'));
 });
 
 test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath together', () => {
@@ -40,7 +40,36 @@ test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath toget
   assert.equal(resolved.cliMode, 'cliPath');
 });
 
-test('creates a ~/.copilot compatibility symlink when HOME differs from the configured copilot home', async () => {
+test('keeps an explicitly configured CODEINFO_COPILOT_HOME as the primary contract without creating a ~/.copilot symlink', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-config-'),
+  );
+
+  try {
+    const env = {
+      HOME: path.join(tempRoot, 'home'),
+      CODEINFO_COPILOT_HOME: path.join(tempRoot, 'mounted-copilot-home'),
+    };
+    const copilotHome = env.CODEINFO_COPILOT_HOME;
+
+    const compatibility = await ensureCopilotAuthHomeCompatibility(
+      copilotHome,
+      env,
+    );
+    const diagnostics = await inspectCopilotAuthLocations(copilotHome, env);
+
+    assert.equal(compatibility.action, 'none');
+    assert.equal(diagnostics.compatStatus, 'missing');
+    assert.equal(diagnostics.compatPath, path.join(env.HOME, '.copilot'));
+    await assert.rejects(fs.promises.lstat(diagnostics.compatPath), {
+      code: 'ENOENT',
+    });
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('can still create a ~/.copilot compatibility symlink as fallback when no explicit home is configured', async () => {
   const tempRoot = await fs.promises.mkdtemp(
     path.join(process.cwd(), 'tmp-copilot-config-'),
   );

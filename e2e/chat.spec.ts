@@ -188,26 +188,49 @@ test('chat streams end-to-end', async ({ page }) => {
 
   await page.goto(`${baseUrl}/chat`);
 
+  const providerSelect = page.getByRole('combobox', { name: /Provider/i });
+  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  if (useMockChat) {
+    const selectedProviderText =
+      (await providerSelect.textContent())?.trim() ?? '';
+    if (!selectedProviderText.includes('LM Studio')) {
+      await providerSelect.click();
+      await page.getByRole('option', { name: 'LM Studio' }).click();
+      await expect(providerSelect).toHaveText(/LM Studio/, {
+        timeout: 5000,
+      });
+    }
+  }
+
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
-  await modelSelect.click();
+  if (useMockChat) {
+    await expect(modelSelect).toHaveText(selectedModel.displayName, {
+      timeout: 20000,
+    });
+  } else {
+    const selectedModelText = (await modelSelect.textContent())?.trim() ?? '';
+    if (!selectedModelText.includes(selectedModel.displayName)) {
+      await modelSelect.click();
 
-  const option = page.getByRole('option', {
-    name: selectedModel.displayName,
-    exact: false,
-  });
-  const menuItem = page.getByRole('menuitem', {
-    name: selectedModel.displayName,
-    exact: false,
-  });
-  try {
-    await option.first().click({ timeout: 5000 });
-  } catch {
-    await menuItem.first().click({ timeout: 5000 });
+      const option = page.getByRole('option', {
+        name: selectedModel.displayName,
+        exact: false,
+      });
+      const menuItem = page.getByRole('menuitem', {
+        name: selectedModel.displayName,
+        exact: false,
+      });
+      try {
+        await option.first().click({ timeout: 5000 });
+      } catch {
+        await menuItem.first().click({ timeout: 5000 });
+      }
+    }
+    await expect(modelSelect).toHaveText(selectedModel.displayName, {
+      timeout: 5000,
+    });
   }
-  await expect(modelSelect).toHaveText(selectedModel.displayName, {
-    timeout: 5000,
-  });
 
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');

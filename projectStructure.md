@@ -1,5 +1,38 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 2 structural change ledger
+
+Added files:
+
+- `server/src/chat/copilotLifecycle.ts`
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts`
+- `server/src/config/copilotConfig.ts`
+- `server/src/test/unit/copilotConfig.test.ts`
+- `server/src/test/unit/copilotLifecycle.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `package-lock.json`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/package.json`
+- `server/src/chat/factory.ts`
+
+Story notes:
+
+- Task 2 adds the first reusable Copilot runtime seam and keeps it injectable so later fake-runtime tasks can plug into the same boundary instead of introducing a second test-only path.
+- The shared Copilot config helper now centralizes `CODEINFO_COPILOT_HOME`, the derived SDK `configDir`, and the `COPILOT_HOME` process env override with a temporary non-fatal default until the later env-wiring task lands.
+- The minimal `ChatInterfaceCopilot` adapter is intentionally not the full chat implementation yet; it exists to pin down create/resume session config and the explicit `cliPath` versus `PATH` launch rule before provider routes start consuming Copilot publicly.
+
 ## Story 0000050 Task 16 structural change ledger
 
 Added files:

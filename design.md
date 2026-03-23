@@ -11,6 +11,23 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000051 Task 2 Copilot runtime seam baseline
+
+- `server/src/config/copilotConfig.ts` is the new shared Copilot home/config helper. It resolves `CODEINFO_COPILOT_HOME` with a temporary non-fatal fallback of `./copilot`, derives the SDK `configDir`, and centralizes the `COPILOT_HOME` environment override that later auth and runtime tasks will reuse.
+- `server/src/chat/copilotLifecycle.ts` is the injectable runtime seam around `@github/copilot-sdk` `CopilotClient`. It owns `start()`, `stop()`, `ping()`, `getAuthStatus()`, `listModels()`, `createSession(...)`, and `resumeSession(...)` so later routes do not construct Copilot clients ad hoc.
+- The runtime launch rule is explicit already: if the app supplies a configured `cliPath`, the seam passes that to the SDK; otherwise it relies on normal process `PATH` discovery. Task 2 does not introduce an external Copilot server contract.
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts` is only the minimal adapter boundary for now. It prepares create/resume session config with `approveAll` plus the resolved `configDir`, but real streamed chat execution is still deferred to later Story 51 tasks.
+
+```mermaid
+flowchart LR
+  Startup["Task 14 env wiring later"] --> Helper["copilotConfig.ts<br/>resolve home + configDir"]
+  Helper --> Seam["copilotLifecycle.ts<br/>injectable CopilotClient seam"]
+  Seam --> PathMode["cliPath override"]
+  Seam --> DefaultMode["PATH discovery"]
+  Seam --> Adapter["ChatInterfaceCopilot.ts<br/>minimal create/resume boundary"]
+  Adapter -. later .-> Routes["provider readiness / models / chat tasks"]
+```
+
 ## Story 0000051 Task 1 three-provider contract baseline
 
 - Shared chat provider ordering is now one explicit contract: `codex`, then `copilot`, then `lmstudio`.

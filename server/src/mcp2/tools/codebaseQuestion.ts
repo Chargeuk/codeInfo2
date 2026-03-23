@@ -543,8 +543,7 @@ export async function runCodebaseQuestion(
   chat.on('error', (ev) => responder.handle(ev));
 
   const resolvedConversationId =
-    conversationId ??
-    `${executionProvider}-thread-${Date.now()}`;
+    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
 
   const inflightId = crypto.randomUUID();
 

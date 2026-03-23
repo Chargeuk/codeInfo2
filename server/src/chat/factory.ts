@@ -1,11 +1,16 @@
 import { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { createLmStudioTools } from '../lmstudio/tools.js';
+import {
+  CopilotLifecycle,
+  type CopilotLifecycleOptions,
+} from './copilotLifecycle.js';
 import { ChatInterface } from './interfaces/ChatInterface.js';
 import {
   ChatInterfaceCodex,
   type CodexLike,
 } from './interfaces/ChatInterfaceCodex.js';
+import { ChatInterfaceCopilot } from './interfaces/ChatInterfaceCopilot.js';
 import { ChatInterfaceLMStudio } from './interfaces/ChatInterfaceLMStudio.js';
 
 export class UnsupportedProviderError extends Error {
@@ -23,6 +28,11 @@ type ProviderFactory = (deps?: {
   toolFactory?: (opts: Record<string, unknown>) => {
     tools: ReadonlyArray<unknown>;
   };
+  copilotLifecycle?: CopilotLifecycle;
+  copilotClientFactory?: CopilotLifecycleOptions['clientFactory'];
+  copilotHome?: string;
+  copilotCliPath?: string;
+  copilotCwd?: string;
 }) => ChatInterface;
 
 const defaultLmStudioClientFactory = (baseUrl: string) =>
@@ -30,6 +40,16 @@ const defaultLmStudioClientFactory = (baseUrl: string) =>
 
 const providerMap: Record<string, ProviderFactory> = {
   codex: (deps) => new ChatInterfaceCodex(deps?.codexFactory),
+  copilot: (deps) =>
+    new ChatInterfaceCopilot(
+      deps?.copilotLifecycle ??
+        new CopilotLifecycle({
+          clientFactory: deps?.copilotClientFactory,
+          copilotHome: deps?.copilotHome,
+          cliPath: deps?.copilotCliPath,
+          cwd: deps?.copilotCwd,
+        }),
+    ),
   lmstudio: (deps) =>
     new ChatInterfaceLMStudio(
       deps?.clientFactory ?? defaultLmStudioClientFactory,
@@ -45,6 +65,11 @@ export function getChatInterface(
     toolFactory?: (opts: Record<string, unknown>) => {
       tools: ReadonlyArray<unknown>;
     };
+    copilotLifecycle?: CopilotLifecycle;
+    copilotClientFactory?: CopilotLifecycleOptions['clientFactory'];
+    copilotHome?: string;
+    copilotCliPath?: string;
+    copilotCwd?: string;
   },
 ): ChatInterface {
   const factory = providerMap[provider];

@@ -706,8 +706,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 3. Add the server fake Copilot SDK harness
 
 - Repository Name: Current Repository
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `9a7e5afc`
 
 #### Overview
 
@@ -734,7 +734,7 @@ Implementation starter pattern for every subtask in this task: copy the scenario
 6. [x] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: script a startup or session error and confirm the harness surfaces the error exactly once. Purpose: prove failure-path scenarios are deterministic and inspectable.
 7. [x] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot SDK harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding harness files.
 8. [x] Update `design.md` only if the harness entry point needs one sentence of explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a brief note about how the fake Copilot SDK harness plugs into the runtime seam if that relationship is not obvious from code. Purpose: prevent future test-maintainer confusion.
-9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
+9. [x] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
 10. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 11. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
@@ -756,6 +756,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run format:check` required the mandated `npm run format` pass; Prettier normalized the two new harness files and the follow-up check then passed cleanly.
 - `npm run build:summary:server` initially failed on Copilot SDK type mismatches in the new harness; narrowing the fake session event discriminants and driving the proof test through `session.sendAndWait(...)` fixed the build, and the wrapper then passed cleanly.
 - `npm run test:summary:server:unit` passed cleanly with `1388/1388`, confirming the new fake SDK harness stays compatible with the full server unit and integration suite.
+- Recorded the Task 3 implementation commit hash after the full proof passed and marked the task complete so downstream Copilot readiness work can depend on the shared fake harness.
 
 ---
 

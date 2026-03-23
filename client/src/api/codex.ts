@@ -1,7 +1,4 @@
-import type {
-  CodexDeviceAuthResponse as SharedCodexDeviceAuthResponse,
-  CodexDeviceAuthSuccessResponse,
-} from '@codeinfo2/common';
+import type { CodexDeviceAuthSuccessResponse } from '@codeinfo2/common';
 
 import { createLogger } from '../logging/logger';
 import { getApiBaseUrl } from './baseUrl';

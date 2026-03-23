@@ -200,6 +200,53 @@ test('OpenAPI /codex/device-auth schema enforces empty request and shared provid
   );
 });
 
+test('OpenAPI /copilot/device-auth schema enforces empty request and shared provider-auth responses', () => {
+  const openapi = readOpenApi();
+  const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
+    '/copilot/device-auth'
+  ] as Record<string, unknown> | undefined;
+  assert.ok(schema, 'missing /copilot/device-auth schema');
+
+  const post = (schema?.post ?? null) as Record<string, unknown> | null;
+  assert.ok(post, 'missing /copilot/device-auth post schema');
+
+  const requestSchema = (((
+    (
+      ((post?.requestBody as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(requestSchema, 'missing /copilot/device-auth request schema');
+  assert.equal(requestSchema.type, 'object');
+  assert.equal(requestSchema.additionalProperties, false);
+
+  const responses = (post?.responses ?? {}) as Record<string, unknown>;
+  const successSchema = (((
+    (
+      ((responses['200'] as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(successSchema, 'missing 200 response schema');
+  const successOneOf = (successSchema.oneOf ?? null) as
+    | Record<string, unknown>[]
+    | null;
+  assert.ok(successOneOf && successOneOf.length >= 4, 'missing auth oneOf');
+
+  const providerEnums = successOneOf.map((entry) => {
+    return ((
+      (entry.properties as Record<string, unknown>)?.provider as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+  });
+  assert.ok(providerEnums.every((values) => values.includes('copilot')));
+});
+
 test('OpenAPI /chat/models schema includes codex capability fields', () => {
   const openapi = readOpenApi();
   const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[

@@ -75,6 +75,41 @@ flowchart LR
 - The precedence rule is explicit and ordered: connectivity first, authentication second, model-list success third, and tool-surface availability last. The first blocking stage owns the surfaced `reason`, and the resolver logs only secret-safe stage, auth-source, and model-count context through `story.0000051.task05.readiness_evaluated`.
 - Existing credential sources are treated as real readiness inputs before an in-app device flow exists. In Task 5 that means `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` count as authenticated readiness, while SDK-reported `gh-cli` auth also counts as authenticated without forcing device auth.
 
+## Story 0000051 Task 9 Copilot device-auth backend baseline
+
+- `server/src/routes/copilotDeviceAuth.ts` is the Copilot sibling to the existing Codex auth route. It preserves the same strict `{}` request body, reuses shared-home single-flight behavior, and returns shared provider-auth states instead of a Copilot-only polling or raw-output contract.
+- `server/src/utils/copilotDeviceAuth.ts` owns the Copilot CLI login spawn, early verification parsing, secret-safe normalization, and completion-result mapping. The route emits `story.0000051.task09.device_auth_state_emitted` only with provider/state context, while the utility keeps failure-path diagnostics sanitized.
+- Repeated `POST /copilot/device-auth` calls are the refresh path for this story. The first successful call returns verification details early, overlapping calls reuse the in-flight login and see `completion_pending`, and later calls observe `completed` once the auth flow is done without introducing a second Copilot-only polling route.
+- Existing auth sources remain first-class. If `GITHUB_TOKEN`, `GH_TOKEN`, or `COPILOT_GITHUB_TOKEN` are already present, or if the runtime reports logged-in-user or `gh-cli` auth, the route short-circuits to `already_authenticated` instead of starting a redundant device flow.
+- Copilot config persistence stays aligned with `server/src/config/copilotConfig.ts`. The route verifies the derived config directory is writable before starting auth so missing CLI, connectivity failure, or unwritable-home conditions return a clear `unavailable_before_start` reason instead of a generic 500.
+
+```mermaid
+sequenceDiagram
+  participant UI as Shared auth dialog
+  participant Route as POST /copilot/device-auth
+  participant Runtime as CopilotLifecycle/getAuthStatus
+  participant CLI as copilot login
+
+  UI->>Route: {} start or refresh request
+  Route->>Route: validate empty body + resolve CODEINFO_COPILOT_HOME
+  Route->>Runtime: getAuthStatus (or env-token short-circuit)
+  alt already authenticated
+    Route-->>UI: already_authenticated
+  else unavailable before start
+    Route-->>UI: unavailable_before_start
+  else start device flow
+    Route->>CLI: copilot login
+    CLI-->>Route: verification URL + one-time code
+    Route-->>UI: verification_ready
+    UI->>Route: repeat POST while user completes browser step
+    alt still waiting
+      Route-->>UI: completion_pending
+    else auth detected complete
+      Route-->>UI: completed
+    end
+  end
+```
+
 ## Story 0000051 Task 6 Copilot model mapping baseline
 
 - `GET /chat/models?provider=copilot` now reuses `resolveCopilotReadiness(...)` before attempting model discovery so `/chat/models` and `/chat/providers` surface the same blocking-stage reasons.

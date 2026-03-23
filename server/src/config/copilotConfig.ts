@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import type { CopilotClientOptions } from '@github/copilot-sdk';
 
@@ -40,6 +41,24 @@ export function getCopilotConfigDir(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   return getCopilotConfigDirForHome(getCopilotHome(env));
+}
+
+export async function ensureCopilotAuthFileStore(configDir: string): Promise<{
+  changed: boolean;
+  configDir: string;
+}> {
+  try {
+    await fs.promises.mkdir(configDir, { recursive: true });
+    const probePath = path.join(configDir, '.codeinfo-write-test');
+    await fs.promises.writeFile(probePath, 'ok', 'utf8');
+    await fs.promises.rm(probePath, { force: true });
+    return {
+      changed: true,
+      configDir,
+    };
+  } catch {
+    throw new Error('copilot config persistence unavailable');
+  }
 }
 
 export function buildCopilotClientOptions(params?: {

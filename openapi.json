@@ -458,6 +458,144 @@
         }
       }
     },
+    "/copilot/device-auth": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Copilot device auth shared state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["copilot"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["verification_ready"]
+                        },
+                        "verificationUrl": {
+                          "type": "string"
+                        },
+                        "userCode": {
+                          "type": "string"
+                        },
+                        "displayOutput": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "provider",
+                        "state",
+                        "verificationUrl",
+                        "userCode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["copilot"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["completion_pending"]
+                        },
+                        "verificationUrl": {
+                          "type": "string"
+                        },
+                        "userCode": {
+                          "type": "string"
+                        },
+                        "displayOutput": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["provider", "state"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["copilot"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["completed", "already_authenticated"]
+                        }
+                      },
+                      "required": ["provider", "state"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["copilot"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["failed", "unavailable_before_start"]
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "displayOutput": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["provider", "state", "reason"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": ["invalid_request"]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "message"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ingest/roots": {
       "get": {
         "responses": {

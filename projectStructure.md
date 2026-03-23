@@ -1,5 +1,39 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 9 structural change ledger
+
+Added files:
+
+- `server/src/routes/copilotDeviceAuth.ts`
+- `server/src/test/integration/copilot.device-auth.test.ts`
+- `server/src/test/unit/copilotDeviceAuth.test.ts`
+- `server/src/utils/copilotDeviceAuth.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `openapi.json`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/config/copilotConfig.ts`
+- `server/src/index.ts`
+- `server/src/test/unit/openapi.contract.test.ts`
+
+Story notes:
+
+- Task 9 adds the real `POST /copilot/device-auth` backend route as the Copilot sibling to the existing Codex auth route, keeping the strict empty-body contract, shared auth-state vocabulary, and shared-home single-flight behavior instead of inventing a Copilot-only polling API.
+- The new `server/src/utils/copilotDeviceAuth.ts` utility owns Copilot login spawning, verification parsing, sanitized failure handling, and completion mapping, while `server/src/config/copilotConfig.ts` now also provides a writable config-dir check for the Copilot auth path.
+- The proof lands in one focused router unit file plus one integration file that covers early verification, completion refresh, env-token and `gh` short-circuit behavior, writable-home fallback, single-flight reuse, and secret-safe task-marker logging.
+
 ## Story 0000051 Task 7 structural change ledger
 
 Added files:

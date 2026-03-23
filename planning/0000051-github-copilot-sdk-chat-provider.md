@@ -1363,7 +1363,8 @@ Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18,
 
 - Repository Name: Current Repository
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits:
+  - `023e5061` DEV-[51] - Harden partial Copilot transcript metadata
 
 #### Overview
 
@@ -1392,7 +1393,7 @@ Implementation starter pattern for every subtask in this task: harden the existi
 7. [x] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render existing Codex or LM Studio transcript metadata and confirm current labels and values are unchanged. Purpose: prove no regression for existing providers.
 8. [x] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Document name: `design.md`. Location: repository root. Description: add a short note about partial metadata omission only if the formatter contract would be hard to infer from the tests and code alone. Purpose: keep rendering behavior understandable.
 9. [x] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new transcript test files after they are created. Purpose: keep the repository file map accurate after file creation.
-10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 13, recording implementation notes, and listing the task commit hashes once they exist.
+10. [x] Update this plan file after implementation by marking the completed checkboxes for Task 13, recording implementation notes, and listing the task commit hashes once they exist.
 11. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 12. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 

@@ -14,12 +14,14 @@ import {
   type CopilotLifecycleOptions,
 } from '../chat/copilotLifecycle.js';
 import {
+  ensureCopilotAuthHomeCompatibility,
   ensureCopilotAuthFileStore,
   getCopilotConfigDirForHome,
   getCopilotHome,
+  inspectCopilotAuthLocations,
   resolveCopilotCliPath,
 } from '../config/copilotConfig.js';
-import { resolveLogConfig } from '../logger.js';
+import { baseLogger, resolveLogConfig } from '../logger.js';
 import { hasCopilotEnvToken } from '../providers/copilotReadiness.js';
 import {
   createCopilotAlreadyAuthenticatedResponse,
@@ -28,6 +30,7 @@ import {
   createCopilotFailedResponse,
   createCopilotUnavailableBeforeStartResponse,
   runCopilotDeviceAuth,
+  type CopilotDeviceAuthCompletion,
   type CopilotDeviceAuthCompletionPending,
   type CopilotDeviceAuthResultWithCompletion,
   type CopilotDeviceAuthState,
@@ -50,6 +53,8 @@ type Deps = {
   getCopilotHome: typeof getCopilotHome;
   getCopilotConfigDirForHome: typeof getCopilotConfigDirForHome;
   ensureCopilotAuthFileStore: typeof ensureCopilotAuthFileStore;
+  ensureCopilotAuthHomeCompatibility?: typeof ensureCopilotAuthHomeCompatibility;
+  inspectCopilotAuthLocations?: typeof inspectCopilotAuthLocations;
   runCopilotDeviceAuth: typeof runCopilotDeviceAuth;
   resolveCopilotCli: typeof resolveCopilotCli;
   createRuntime: (options: CopilotLifecycleOptions) => Runtime;
@@ -62,6 +67,15 @@ type Deps = {
 const invalidRequestBodyMessage = 'request body must be an empty JSON object';
 const invalidRequestTooLargeMessage = 'request body exceeds maximum size';
 const invalidRequestJsonMessage = 'request body must be valid JSON';
+const reusableAuthMissingMessage =
+  'copilot login completed but reusable authentication was not detected';
+
+function logCopilotAuthDiagnostics(
+  tag: string,
+  context: Record<string, unknown>,
+): void {
+  baseLogger.info(context, tag);
+}
 
 function resolveCopilotCli(
   env: NodeJS.ProcessEnv = process.env,
@@ -135,11 +149,20 @@ function toDeviceAuthResponseState(
 async function resolveExistingAuthState(params: {
   deps: Deps;
   copilotHome: string;
+  reason: string;
 }): Promise<{
   state: 'already_authenticated' | 'unauthenticated';
   reason?: string;
 }> {
+  const diagnostics = await (
+    params.deps.inspectCopilotAuthLocations ?? inspectCopilotAuthLocations
+  )(params.copilotHome, params.deps.env);
   if (hasCopilotEnvToken(params.deps.env ?? process.env)) {
+    logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_runtime_check', {
+      reason: params.reason,
+      authStatus: 'env-token',
+      diagnostics,
+    });
     return { state: 'already_authenticated' };
   }
 
@@ -159,10 +182,24 @@ async function resolveExistingAuthState(params: {
   try {
     await runtime.start();
     const authStatus = await runtime.getAuthStatus();
+    logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_runtime_check', {
+      reason: params.reason,
+      authStatus: {
+        isAuthenticated: authStatus.isAuthenticated,
+        authType: authStatus.authType,
+        statusMessage: authStatus.statusMessage,
+      },
+      diagnostics,
+    });
     return authStatus.isAuthenticated
       ? { state: 'already_authenticated' }
       : { state: 'unauthenticated' };
   } catch {
+    logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_runtime_check', {
+      reason: params.reason,
+      authStatus: 'runtime-error',
+      diagnostics,
+    });
     return {
       state: 'unauthenticated',
       reason: 'copilot connectivity unavailable',
@@ -172,11 +209,37 @@ async function resolveExistingAuthState(params: {
   }
 }
 
+async function resolveDeviceAuthCompletionState(params: {
+  deps: Deps;
+  copilotHome: string;
+  result: CopilotDeviceAuthCompletion['result'];
+}): Promise<CopilotDeviceAuthCompletion['result']> {
+  if (params.result.state !== 'completed') {
+    return params.result;
+  }
+
+  const authState = await resolveExistingAuthState({
+    deps: params.deps,
+    copilotHome: params.copilotHome,
+    reason: 'post-device-auth-completion',
+  });
+
+  if (authState.state === 'already_authenticated') {
+    return params.result;
+  }
+
+  return createCopilotFailedResponse(
+    authState.reason ?? reusableAuthMissingMessage,
+  );
+}
+
 export function createCopilotDeviceAuthRouter(
   deps: Deps = {
     getCopilotHome,
     getCopilotConfigDirForHome,
     ensureCopilotAuthFileStore,
+    ensureCopilotAuthHomeCompatibility,
+    inspectCopilotAuthLocations,
     runCopilotDeviceAuth,
     resolveCopilotCli,
     createRuntime: (options) => new CopilotLifecycle(options),
@@ -227,6 +290,15 @@ export function createCopilotDeviceAuthRouter(
 
     const targetCopilotHome = deps.getCopilotHome(deps.env);
     const targetConfigDir = deps.getCopilotConfigDirForHome(targetCopilotHome);
+    const compatibility = await (
+      deps.ensureCopilotAuthHomeCompatibility ?? ensureCopilotAuthHomeCompatibility
+    )(targetCopilotHome, deps.env);
+
+    logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_home_alignment', {
+      action: compatibility.action,
+      error: compatibility.error,
+      diagnostics: compatibility.diagnostics,
+    });
 
     try {
       await deps.ensureCopilotAuthFileStore(targetConfigDir);
@@ -246,6 +318,7 @@ export function createCopilotDeviceAuthRouter(
         const existingAuth = await resolveExistingAuthState({
           deps,
           copilotHome: targetCopilotHome,
+          reason: 'cached-completion-pending-refresh',
         });
         if (existingAuth.state === 'already_authenticated') {
           const completed = createCopilotCompletedResponse();
@@ -287,6 +360,7 @@ export function createCopilotDeviceAuthRouter(
     const existingAuth = await resolveExistingAuthState({
       deps,
       copilotHome: targetCopilotHome,
+      reason: 'pre-device-auth-start',
     });
     if (existingAuth.state === 'already_authenticated') {
       return res.status(200).json(createCopilotAlreadyAuthenticatedResponse());
@@ -323,8 +397,13 @@ export function createCopilotDeviceAuthRouter(
           deviceAuthStateByHome.set(targetCopilotHome, responseState);
         }
 
-        void deviceAuth.completion.then(({ result }) => {
-          deviceAuthStateByHome.set(targetCopilotHome, result);
+        void deviceAuth.completion.then(async ({ result }) => {
+          const verifiedResult = await resolveDeviceAuthCompletionState({
+            deps,
+            copilotHome: targetCopilotHome,
+            result,
+          });
+          deviceAuthStateByHome.set(targetCopilotHome, verifiedResult);
         });
 
         return responseState;

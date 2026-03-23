@@ -1,4 +1,8 @@
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
+import {
+  getCopilotHome,
+  inspectCopilotAuthLocations,
+} from '../config/copilotConfig.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 
@@ -93,6 +97,11 @@ export async function resolveCopilotReadiness(
 ): Promise<CopilotReadinessResult> {
   const runtime = options.createRuntime?.() ?? new CopilotLifecycle();
   const envHasToken = hasCopilotEnvToken(options.env);
+  const copilotHome = getCopilotHome(options.env);
+  const diagnostics = await inspectCopilotAuthLocations(
+    copilotHome,
+    options.env,
+  );
   let started = false;
 
   try {
@@ -109,6 +118,13 @@ export async function resolveCopilotReadiness(
         models: [],
         authSource: envHasToken ? 'env-token' : 'unauthenticated',
       };
+      baseLogger.info(
+        {
+          authDiagnostics: diagnostics,
+          blockingStage: result.blockingStage,
+        },
+        'DEV-0000051:T5:copilot_auth_runtime_diagnostics',
+      );
       logReadiness(result);
       return result;
     }
@@ -116,6 +132,7 @@ export async function resolveCopilotReadiness(
     const authStatus = await runtime.getAuthStatus().catch(() => ({
       isAuthenticated: false,
       authType: 'unknown',
+      statusMessage: undefined,
     }));
     const authSource: CopilotReadinessAuthSource = envHasToken
       ? 'env-token'
@@ -124,6 +141,17 @@ export async function resolveCopilotReadiness(
           ? 'gh-cli'
           : 'sdk-status'
         : 'unauthenticated';
+    baseLogger.info(
+      {
+        authDiagnostics: diagnostics,
+        authStatus: {
+          isAuthenticated: authStatus.isAuthenticated,
+          authType: authStatus.authType,
+          statusMessage: authStatus.statusMessage,
+        },
+      },
+      'DEV-0000051:T5:copilot_auth_runtime_diagnostics',
+    );
 
     if (!envHasToken && !authStatus.isAuthenticated) {
       const result: CopilotReadinessResult = {

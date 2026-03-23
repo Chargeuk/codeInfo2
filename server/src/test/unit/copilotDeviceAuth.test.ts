@@ -59,6 +59,29 @@ function withDeps(
       changed: false,
       configDir,
     }),
+    ensureCopilotAuthHomeCompatibility: async () => ({
+      action: 'none',
+      diagnostics: {
+        homeDir: undefined,
+        copilotHome: '/tmp/copilot-home',
+        configDir: '/tmp/copilot-home/config',
+        compatPath: undefined,
+        copilotHomeExists: false,
+        configDirExists: false,
+        compatPathExists: false,
+        compatStatus: 'missing_home',
+      },
+    }),
+    inspectCopilotAuthLocations: async () => ({
+      homeDir: undefined,
+      copilotHome: '/tmp/copilot-home',
+      configDir: '/tmp/copilot-home/config',
+      compatPath: undefined,
+      copilotHomeExists: false,
+      configDirExists: false,
+      compatPathExists: false,
+      compatStatus: 'missing_home',
+    }),
     runCopilotDeviceAuth: async () =>
       buildDeviceAuthResult(verificationReadyResult()),
     resolveCopilotCli: () => ({ available: true }),
@@ -228,6 +251,29 @@ describe('POST /copilot/device-auth unit behavior', () => {
       (firstCallArgs[0] as { cliPath?: string } | undefined)?.cliPath,
       '/opt/copilot/bin/copilot',
     );
+  });
+
+  test('device-auth completion is downgraded to failed when post-login auth status stays unauthenticated', async () => {
+    const app = buildApp(
+      withDeps({
+        env: { HOME: '/tmp/test-home' },
+      }),
+    );
+    const res = await supertest(app).post('/copilot/device-auth').send({});
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.state, 'verification_ready');
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const second = await supertest(app).post('/copilot/device-auth').send({});
+
+    assert.equal(second.status, 200);
+    assert.deepEqual(second.body, {
+      provider: 'copilot',
+      state: 'failed',
+      reason: 'copilot login completed but reusable authentication was not detected',
+    });
   });
 });
 

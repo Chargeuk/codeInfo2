@@ -6,6 +6,8 @@ import { describe, it, mock } from 'node:test';
 
 import { baseLogger } from '../../logger.js';
 import {
+  createCodexAlreadyAuthenticatedResponse,
+  createCodexUnavailableBeforeStartResponse,
   parseCodexDeviceAuthOutput,
   resolveCodexDeviceAuthResult,
   runCodexDeviceAuth,
@@ -21,19 +23,18 @@ describe('codexDeviceAuth', () => {
 
     const result = parseCodexDeviceAuthOutput(stdout);
 
-    assert.equal(result.ok, true);
-    if (result.ok) {
-      assert.equal(result.rawOutput, stdout);
-    }
+    assert.equal(result.state, 'verification_ready');
+    assert.equal(result.provider, 'codex');
+    assert.equal(result.verificationUrl, 'https://example.com/device');
+    assert.equal(result.userCode, 'ABCD-EFGH');
+    assert.equal(result.displayOutput, stdout);
   });
 
   it('returns an error when stdout is missing required fields', () => {
     const result = parseCodexDeviceAuthOutput('Missing fields');
 
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.equal(result.message, 'device auth output not recognized');
-    }
+    assert.equal(result.state, 'failed');
+    assert.equal(result.reason, 'device auth output not recognized');
   });
 
   it('parses ANSI-colored device-auth output', () => {
@@ -45,15 +46,13 @@ describe('codexDeviceAuth', () => {
 
     const result = parseCodexDeviceAuthOutput(stdout);
 
-    assert.equal(result.ok, true);
-    if (result.ok) {
-      assert.equal(
-        result.rawOutput,
-        'Open https://example.com/device and enter code ABCD-EFGH.\n' +
-          'Code expires in 900 seconds.\n' +
-          'Use codex device auth to continue.',
-      );
-    }
+    assert.equal(result.state, 'verification_ready');
+    assert.equal(
+      result.displayOutput,
+      'Open https://example.com/device and enter code ABCD-EFGH.\n' +
+        'Code expires in 900 seconds.\n' +
+        'Use codex device auth to continue.',
+    );
   });
 
   it('does not match code inside the word codex', () => {
@@ -62,10 +61,8 @@ describe('codexDeviceAuth', () => {
 
     const result = parseCodexDeviceAuthOutput(stdout);
 
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.equal(result.message, 'device auth output not recognized');
-    }
+    assert.equal(result.state, 'failed');
+    assert.equal(result.reason, 'device auth output not recognized');
   });
 
   it('reports non-zero exit codes as failures', () => {
@@ -75,10 +72,8 @@ describe('codexDeviceAuth', () => {
       stderr: '',
     });
 
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.equal(result.message, 'device auth command failed');
-    }
+    assert.equal(result.state, 'failed');
+    assert.equal(result.reason, 'device auth command failed');
   });
 
   it('surfaces expired/declined device code errors', () => {
@@ -88,10 +83,8 @@ describe('codexDeviceAuth', () => {
       stderr: 'device code expired',
     });
 
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.equal(result.message, 'device code expired or was declined');
-    }
+    assert.equal(result.state, 'failed');
+    assert.equal(result.reason, 'device code expired or was declined');
   });
 
   it('resolves completion after the CLI process closes', async () => {
@@ -110,13 +103,11 @@ describe('codexDeviceAuth', () => {
     );
 
     const result = await runPromise;
-    assert.equal(result.ok, true);
-    if (result.ok) {
-      assert.equal(
-        result.rawOutput,
-        'Open https://example.com/device and enter code ABCD-EFGH.\n',
-      );
-    }
+    assert.equal(result.state, 'verification_ready');
+    assert.equal(
+      result.displayOutput,
+      'Open https://example.com/device and enter code ABCD-EFGH.\n',
+    );
 
     let completionResolved = false;
     const completionPromise = result.completion.then((completion) => {
@@ -131,7 +122,7 @@ describe('codexDeviceAuth', () => {
 
     const completion = await completionPromise;
     assert.equal(completion.exitCode, 0);
-    assert.equal(completion.result.ok, true);
+    assert.equal(completion.result.state, 'completed');
   });
 
   it('logs sanitized diagnostics only on device-auth parse failure', async () => {
@@ -154,10 +145,8 @@ describe('codexDeviceAuth', () => {
       child.emit('close', 1);
 
       const result = await runPromise;
-      assert.equal(result.ok, false);
-      if (!result.ok) {
-        assert.equal(result.message, 'device auth command failed');
-      }
+      assert.equal(result.state, 'failed');
+      assert.equal(result.reason, 'device auth command failed');
 
       const warning = warnEntries.find((entry) => 'stdoutSample' in entry);
       assert.ok(warning);
@@ -167,5 +156,33 @@ describe('codexDeviceAuth', () => {
     } finally {
       warnMock.mock.restore();
     }
+  });
+
+  it('returns already-authenticated as part of the shared provider-auth contract', () => {
+    const result = createCodexAlreadyAuthenticatedResponse();
+
+    assert.deepEqual(result, {
+      provider: 'codex',
+      state: 'already_authenticated',
+    });
+  });
+
+  it('reports forced auth failures through the shared provider-auth contract', () => {
+    const result = parseCodexDeviceAuthOutput(
+      'device auth output not recognized',
+    );
+
+    assert.equal(result.state, 'failed');
+    assert.equal(result.reason, 'device auth output not recognized');
+  });
+
+  it('reports unavailable-before-start distinctly from in-flight failures', () => {
+    const result = createCodexUnavailableBeforeStartResponse('codex not found');
+
+    assert.deepEqual(result, {
+      provider: 'codex',
+      state: 'unavailable_before_start',
+      reason: 'codex not found',
+    });
   });
 });

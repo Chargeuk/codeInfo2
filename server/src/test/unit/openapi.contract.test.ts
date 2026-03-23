@@ -95,7 +95,7 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
   });
 });
 
-test('OpenAPI /codex/device-auth schema enforces empty request and deterministic 200/400/503 responses', () => {
+test('OpenAPI /codex/device-auth schema enforces empty request and shared provider-auth responses', () => {
   const openapi = readOpenApi();
   const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
     '/codex/device-auth'
@@ -133,14 +133,56 @@ test('OpenAPI /codex/device-auth schema enforces empty request and deterministic
     )['application/json'] as Record<string, unknown>
   )?.schema ?? null) as Record<string, unknown> | null)!;
   assert.ok(successSchema, 'missing 200 response schema');
-  assert.deepEqual(successSchema.required, ['status', 'rawOutput']);
-  assert.deepEqual(
-    (successSchema.properties as Record<string, unknown>).status,
-    {
-      type: 'string',
-      enum: ['ok'],
-    },
-  );
+  const successOneOf = (successSchema.oneOf ?? null) as
+    | Record<string, unknown>[]
+    | null;
+  assert.ok(successOneOf && successOneOf.length >= 4, 'missing auth oneOf');
+
+  const verificationReadySchema = successOneOf.find((entry) => {
+    const stateEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).state as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return stateEnum.includes('verification_ready');
+  });
+  assert.ok(verificationReadySchema, 'missing verification_ready schema');
+  assert.deepEqual(verificationReadySchema?.required, [
+    'provider',
+    'state',
+    'verificationUrl',
+    'userCode',
+  ]);
+
+  const pendingSchema = successOneOf.find((entry) => {
+    const stateEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).state as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return stateEnum.includes('completion_pending');
+  });
+  assert.ok(pendingSchema, 'missing completion_pending schema');
+
+  const completedSchema = successOneOf.find((entry) => {
+    const stateEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).state as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return stateEnum.includes('completed');
+  });
+  assert.ok(completedSchema, 'missing completed schema');
+
+  const unavailableSchema = successOneOf.find((entry) => {
+    const stateEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).state as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return stateEnum.includes('unavailable_before_start');
+  });
+  assert.ok(unavailableSchema, 'missing unavailable_before_start schema');
 
   const invalidRequestSchema = (((
     (
@@ -155,21 +197,6 @@ test('OpenAPI /codex/device-auth schema enforces empty request and deterministic
   assert.deepEqual(
     (invalidRequestSchema.properties as Record<string, unknown>).error,
     { type: 'string', enum: ['invalid_request'] },
-  );
-
-  const unavailableSchema = (((
-    (
-      ((responses['503'] as Record<string, unknown>)?.content ?? {}) as Record<
-        string,
-        unknown
-      >
-    )['application/json'] as Record<string, unknown>
-  )?.schema ?? null) as Record<string, unknown> | null)!;
-  assert.ok(unavailableSchema, 'missing 503 response schema');
-  assert.deepEqual(unavailableSchema.required, ['error', 'reason']);
-  assert.deepEqual(
-    (unavailableSchema.properties as Record<string, unknown>).error,
-    { type: 'string', enum: ['codex_unavailable'] },
   );
 });
 

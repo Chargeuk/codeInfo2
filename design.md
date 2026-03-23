@@ -3358,7 +3358,10 @@ flowchart TD
 - Canonical contract (Task 10+): the client calls `POST /codex/device-auth` with a strict empty JSON object body (`{}`).
 - Selector fields are rejected deterministically: any `target`/`agentName` fields return `400 invalid_request`.
 - `codex login --device-auth` executes once per shared-home key using single-flight dedupe and shared `CODEX_HOME` semantics.
-- Successful completion returns `200 { status: "ok", rawOutput }`; failures normalize to `400 invalid_request` or `503 codex_unavailable`.
+- The shared provider-auth contract is now two-phase:
+  - first response can be `verification_ready` with `verificationUrl`, `userCode`, and optional `displayOutput`;
+  - follow-up refreshes can return `completion_pending`, `completed`, `already_authenticated`, `failed`, or `unavailable_before_start`.
+- Invalid JSON or non-empty request bodies still normalize to `400 invalid_request`, but runtime auth outcomes stay on the shared auth-state contract.
 - Post-success side effects are deterministic and non-destructive: discover agents, propagate auth copy compatibility, refresh codex detection.
 
 ```mermaid
@@ -3372,8 +3375,8 @@ sequenceDiagram
   API->>API: validate strict empty object
   API->>SF: getOrCreate(shared-home key)
   SF->>CLI: codex login --device-auth (CODEX_HOME=Home)
-  CLI-->>API: completion output
-  API-->>UI: 200 {status:"ok", rawOutput}
+  CLI-->>API: verification details + completion state
+  API-->>UI: 200 {provider:"codex", state:"verification_ready", verificationUrl, userCode}
 ```
 
 ### Auth compatibility and file-safety guards (Task 9)
@@ -6149,9 +6152,9 @@ flowchart TD
 
 - Client-side device-auth API consumption now assumes one strict request/response contract:
   - request body: `{}`
-  - success (`200`): `{ status: 'ok', rawOutput: string }`
+  - shared auth success (`200`): `{ provider: 'codex', state, ...sharedAuthFields }`
   - invalid request (`400`): `{ error: 'invalid_request', message: string }`
-  - unavailable (`503`): `{ error: 'codex_unavailable', reason: string }`
+- Shared auth states are `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, and `unavailable_before_start`.
 - Target-specific client response handling was removed from the API helper path, and request serialization remains strict even when legacy UI target controls are still visible.
 - Deterministic Task 14 client log markers are emitted from API consumption:
   - `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`
@@ -6165,8 +6168,8 @@ sequenceDiagram
 
   UI->>API: call with {}
   API->>Route: POST {} (application/json)
-  Route-->>API: 200 {status:"ok", rawOutput}
-  API-->>UI: success {status:"ok", rawOutput}
+  Route-->>API: 200 {provider:"codex", state, ...sharedAuthFields}
+  API-->>UI: success {provider:"codex", state, ...sharedAuthFields}
   API->>API: emit T14 success log
 ```
 
@@ -6174,8 +6177,8 @@ sequenceDiagram
 flowchart TD
   A[postCodexDeviceAuth] --> B[POST {}]
   B --> C{HTTP ok?}
-  C -->|Yes| D{status == 'ok' and rawOutput is non-empty string?}
-  D -->|Yes| E[Return success payload]
+  C -->|Yes| D{provider == 'codex' and state is valid?}
+  D -->|Yes| E[Return shared auth payload]
   D -->|No| F[Throw invalid success shape error + T14 error log]
   C -->|No| G[Parse error payload]
   G --> H[Prefer message then reason fallback]
@@ -6329,9 +6332,9 @@ flowchart TD
   - canonical keys win when canonical and alias keys are both present.
 - Device-auth contract remains strict and shared-home based:
   - request: `POST /codex/device-auth` with `{}` only.
-  - success: `200 { status: "ok", rawOutput }`.
+  - success: `200 { provider: "codex", state, ...sharedAuthFields }`.
   - invalid request: `400 { error: "invalid_request", message }`.
-  - unavailable: `503 { error: "codex_unavailable", reason }`.
+  - runtime auth failures and unavailable-before-start states stay on the shared provider-auth state machine instead of a second HTTP error contract.
 - Reasoning-effort options are capability-driven:
   - model payload includes `supportedReasoningEfforts` and `defaultReasoningEffort`.
   - UI renders from those fields only and resets stale/invalid selections to the model default.
@@ -6390,8 +6393,8 @@ sequenceDiagram
   UI->>API: POST {}
   API->>API: validate strict empty body
   API->>CLI: run with shared CODEX_HOME
-  CLI-->>API: rawOutput
-  API-->>UI: 200 {status:"ok", rawOutput}
+  CLI-->>API: verification details + completion state
+  API-->>UI: 200 {provider:"codex", state, ...sharedAuthFields}
   API->>SE: discover agents + propagate auth copy + refresh shared-home detection
 ```
 

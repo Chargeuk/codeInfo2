@@ -20,22 +20,101 @@
         },
         "responses": {
           "200": {
-            "description": "Codex device auth completed",
+            "description": "Codex device auth shared state",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": ["ok"]
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["codex"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["verification_ready"]
+                        },
+                        "verificationUrl": {
+                          "type": "string"
+                        },
+                        "userCode": {
+                          "type": "string"
+                        },
+                        "displayOutput": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "provider",
+                        "state",
+                        "verificationUrl",
+                        "userCode"
+                      ],
+                      "additionalProperties": false
                     },
-                    "rawOutput": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["codex"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["completion_pending"]
+                        },
+                        "verificationUrl": {
+                          "type": "string"
+                        },
+                        "userCode": {
+                          "type": "string"
+                        },
+                        "displayOutput": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["provider", "state"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["codex"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["completed", "already_authenticated"]
+                        }
+                      },
+                      "required": ["provider", "state"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": ["codex"]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": ["failed", "unavailable_before_start"]
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "displayOutput": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["provider", "state", "reason"],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": ["status", "rawOutput"],
-                  "additionalProperties": false
+                  ]
                 }
               }
             }
@@ -56,27 +135,6 @@
                     }
                   },
                   "required": ["error", "message"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Codex unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "enum": ["codex_unavailable"]
-                    },
-                    "reason": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["error", "reason"],
                   "additionalProperties": false
                 }
               }

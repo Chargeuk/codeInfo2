@@ -17,7 +17,13 @@ import {
 } from '../config/codexConfig.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
-import { runCodexDeviceAuth } from '../utils/codexDeviceAuth.js';
+import {
+  createCodexAlreadyAuthenticatedResponse,
+  createCodexCompletionPendingResponse,
+  createCodexUnavailableBeforeStartResponse,
+  runCodexDeviceAuth,
+  type CodexDeviceAuthState,
+} from '../utils/codexDeviceAuth.js';
 import { getOrCreateSingleFlight } from '../utils/singleFlight.js';
 
 type Deps = {
@@ -33,8 +39,6 @@ type Deps = {
 
 type DeviceAuthBody = Record<string, unknown>;
 
-const deviceAuthOutputError = 'device auth output not recognized';
-const deviceAuthExpiredError = 'device code expired or was declined';
 const invalidRequestBodyMessage = 'request body must be an empty JSON object';
 const invalidRequestTooLargeMessage = 'request body exceeds maximum size';
 const invalidRequestJsonMessage = 'request body must be valid JSON';
@@ -46,11 +50,6 @@ const T11_SUCCESS_LOG =
   '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success';
 const T11_ERROR_LOG =
   '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=error';
-
-const deviceAuthInFlightByHome = new Map<
-  string,
-  Promise<Awaited<ReturnType<typeof runCodexDeviceAuth>>>
->();
 
 function resolveCodexCli(): { available: boolean; reason?: string } {
   try {
@@ -78,6 +77,17 @@ function parseDeviceAuthBody(body: unknown): DeviceAuthBody {
   return candidate;
 }
 
+function toDeviceAuthResponseState(
+  state: CodexDeviceAuthState,
+): CodexDeviceAuthState {
+  if ('completion' in state) {
+    const { completion, ...response } = state;
+    void completion;
+    return response;
+  }
+  return state;
+}
+
 export function createCodexDeviceAuthRouter(
   deps: Deps = {
     discoverAgents,
@@ -91,6 +101,11 @@ export function createCodexDeviceAuthRouter(
   },
 ) {
   const router = Router();
+  const deviceAuthInFlightByHome = new Map<
+    string,
+    Promise<Awaited<ReturnType<typeof runCodexDeviceAuth>>>
+  >();
+  const deviceAuthStateByHome = new Map<string, CodexDeviceAuthState>();
   const { maxClientBytes } = resolveLogConfig();
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
   router.use(
@@ -152,15 +167,18 @@ export function createCodexDeviceAuthRouter(
       baseLogger.warn(
         {
           requestId,
-          status: 503,
-          error: 'codex_unavailable',
+          state: 'unavailable_before_start',
           reason: cliStatus.reason,
         },
         'DEV-0000031:T2:codex_device_auth_request_failed',
       );
       return res
-        .status(503)
-        .json({ error: 'codex_unavailable', reason: cliStatus.reason });
+        .status(200)
+        .json(
+          createCodexUnavailableBeforeStartResponse(
+            cliStatus.reason ?? 'codex not found',
+          ),
+        );
     }
 
     const targetCodexHome = deps.getCodexHome();
@@ -180,10 +198,27 @@ export function createCodexDeviceAuthRouter(
         },
         'DEV-0000031:T10:codex_device_auth_persist_failed',
       );
-      return res.status(503).json({
-        error: 'codex_unavailable',
-        reason: 'codex config persistence unavailable',
-      });
+      return res
+        .status(200)
+        .json(
+          createCodexUnavailableBeforeStartResponse(
+            'codex config persistence unavailable',
+          ),
+        );
+    }
+
+    const cachedState = deviceAuthStateByHome.get(targetCodexHome);
+    if (cachedState) {
+      return res.status(200).json(cachedState);
+    }
+
+    const refreshedDetection = deps.refreshCodexDetection();
+    if (
+      refreshedDetection.available &&
+      refreshedDetection.authPresent &&
+      refreshedDetection.configPresent
+    ) {
+      return res.status(200).json(createCodexAlreadyAuthenticatedResponse());
     }
 
     const singleFlightKey = `device-auth:${targetCodexHome}`;
@@ -194,6 +229,16 @@ export function createCodexDeviceAuthRouter(
         const deviceAuth = await deps.runCodexDeviceAuth({
           codexHome: undefined,
         });
+        const responseState = toDeviceAuthResponseState(deviceAuth);
+
+        if (responseState.state === 'verification_ready') {
+          deviceAuthStateByHome.set(
+            targetCodexHome,
+            createCodexCompletionPendingResponse(responseState),
+          );
+        } else {
+          deviceAuthStateByHome.set(targetCodexHome, responseState);
+        }
 
         void deviceAuth.completion
           .then(async ({ exitCode, result }) => {
@@ -204,7 +249,12 @@ export function createCodexDeviceAuthRouter(
               'DEV-0000031:T10:codex_device_auth_completed',
             );
 
-            if (!result.ok || (exitCode !== null && exitCode !== 0)) {
+            deviceAuthStateByHome.set(targetCodexHome, result);
+
+            if (
+              result.state !== 'completed' ||
+              (exitCode !== null && exitCode !== 0)
+            ) {
               console.error(T11_ERROR_LOG, {
                 code: 'completion_unsuccessful',
                 exitCode,
@@ -261,52 +311,34 @@ export function createCodexDeviceAuthRouter(
     );
 
     const deviceAuth = await deviceAuthPromise;
-
-    if (!deviceAuth.ok) {
-      const statusCode =
-        deviceAuth.message === deviceAuthOutputError ||
-        deviceAuth.message === deviceAuthExpiredError
-          ? 400
-          : 503;
-      const errorPayload =
-        statusCode === 400
-          ? { error: 'invalid_request', message: deviceAuth.message }
-          : {
-              error: 'codex_unavailable',
-              reason: deviceAuth.message || 'codex device auth failed',
-            };
-      console.error(T10_ERROR_LOG, {
-        code: errorPayload.error,
-      });
-
-      baseLogger.warn(
-        {
-          requestId,
-          status: statusCode,
-          error: errorPayload.error,
-        },
-        'DEV-0000031:T2:codex_device_auth_request_failed',
-      );
-      return res.status(statusCode).json(errorPayload);
-    }
+    const responseState = toDeviceAuthResponseState(deviceAuth);
     console.info(T10_SUCCESS_LOG, {
-      status: 'ok',
-      hasRawOutput: Boolean(deviceAuth.rawOutput),
+      state: responseState.state,
+      hasDisplayOutput: Boolean(
+        'displayOutput' in responseState
+          ? responseState.displayOutput
+          : undefined,
+      ),
     });
 
     baseLogger.info(
       {
         requestId,
-        hasRawOutput: Boolean(deviceAuth.rawOutput),
-        rawOutputLength: deviceAuth.rawOutput.length,
+        state: responseState.state,
+        hasDisplayOutput: Boolean(
+          'displayOutput' in responseState
+            ? responseState.displayOutput
+            : undefined,
+        ),
+        displayOutputLength:
+          'displayOutput' in responseState
+            ? (responseState.displayOutput?.length ?? 0)
+            : 0,
       },
       'DEV-0000031:T2:codex_device_auth_request_completed',
     );
 
-    return res.status(200).json({
-      status: 'ok',
-      rawOutput: deviceAuth.rawOutput,
-    });
+    return res.status(200).json(responseState);
   });
 
   return router;

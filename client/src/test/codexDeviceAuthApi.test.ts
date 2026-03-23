@@ -24,8 +24,12 @@ describe('Codex device-auth API helper', () => {
   it('serializes request body as strict empty object', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
-        status: 'ok',
-        rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+        provider: 'codex',
+        state: 'verification_ready',
+        verificationUrl: 'https://example.com/device',
+        userCode: 'ABCD-EFGH',
+        displayOutput:
+          'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
     );
 
@@ -45,14 +49,22 @@ describe('Codex device-auth API helper', () => {
   it('parses strict 200 success shape', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
-        status: 'ok',
-        rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+        provider: 'codex',
+        state: 'verification_ready',
+        verificationUrl: 'https://example.com/device',
+        userCode: 'ABCD-EFGH',
+        displayOutput:
+          'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
     );
 
     await expect(postCodexDeviceAuth()).resolves.toEqual({
-      status: 'ok',
-      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://example.com/device',
+      userCode: 'ABCD-EFGH',
+      displayOutput:
+        'Open https://example.com/device and enter code ABCD-EFGH.',
     });
   });
 
@@ -74,29 +86,34 @@ describe('Codex device-auth API helper', () => {
     });
   });
 
-  it('parses deterministic 503 codex_unavailable response', async () => {
+  it('parses deterministic 200 unavailable-before-start response', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse(
         {
-          error: 'codex_unavailable',
+          provider: 'codex',
+          state: 'unavailable_before_start',
           reason: 'codex missing',
         },
-        { status: 503 },
+        { status: 200 },
       ),
     );
 
-    await expect(postCodexDeviceAuth()).rejects.toMatchObject({
-      status: 503,
-      message: 'codex missing',
-      error: 'codex_unavailable',
+    await expect(postCodexDeviceAuth()).resolves.toEqual({
+      provider: 'codex',
+      state: 'unavailable_before_start',
+      reason: 'codex missing',
     });
   });
 
   it('emits deterministic T14 success log for valid contract consumption', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
-        status: 'ok',
-        rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+        provider: 'codex',
+        state: 'verification_ready',
+        verificationUrl: 'https://example.com/device',
+        userCode: 'ABCD-EFGH',
+        displayOutput:
+          'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
     );
 
@@ -107,7 +124,7 @@ describe('Codex device-auth API helper', () => {
       '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success',
       expect.objectContaining({
         status: 200,
-        responseStatus: 'ok',
+        responseState: 'verification_ready',
       }),
     );
     expect(logSpy).toHaveBeenCalledWith(
@@ -115,7 +132,7 @@ describe('Codex device-auth API helper', () => {
       '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success',
       expect.objectContaining({
         status: 200,
-        responseStatus: 'ok',
+        responseState: 'verification_ready',
       }),
     );
   });

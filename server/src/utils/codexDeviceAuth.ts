@@ -1,27 +1,70 @@
 import { spawn } from 'node:child_process';
 
 import { buildCodexOptions, resolveCodexHome } from '../config/codexConfig.js';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { truncateText } from './truncateText.js';
 
-export type CodexDeviceAuthSuccess = {
-  ok: true;
-  rawOutput: string;
+const TASK8_LOG_MARKER = 'story.0000051.task08.auth_contract_normalized';
+
+export type CodexDeviceAuthVerificationReady = {
+  provider: 'codex';
+  state: 'verification_ready';
+  verificationUrl: string;
+  userCode: string;
+  displayOutput?: string;
+};
+
+export type CodexDeviceAuthCompletionPending = {
+  provider: 'codex';
+  state: 'completion_pending';
+  verificationUrl?: string;
+  userCode?: string;
+  displayOutput?: string;
+};
+
+export type CodexDeviceAuthCompleted = {
+  provider: 'codex';
+  state: 'completed';
+};
+
+export type CodexDeviceAuthAlreadyAuthenticated = {
+  provider: 'codex';
+  state: 'already_authenticated';
 };
 
 export type CodexDeviceAuthFailure = {
-  ok: false;
-  message: string;
+  provider: 'codex';
+  state: 'failed';
+  reason: string;
+  displayOutput?: string;
+};
+
+export type CodexDeviceAuthUnavailableBeforeStart = {
+  provider: 'codex';
+  state: 'unavailable_before_start';
+  reason: string;
 };
 
 export type CodexDeviceAuthResult =
-  | CodexDeviceAuthSuccess
-  | CodexDeviceAuthFailure;
+  | CodexDeviceAuthVerificationReady
+  | CodexDeviceAuthAlreadyAuthenticated
+  | CodexDeviceAuthFailure
+  | CodexDeviceAuthUnavailableBeforeStart;
 
 export type CodexDeviceAuthCompletion = {
   exitCode: number | null;
-  result: CodexDeviceAuthResult;
+  result:
+    | CodexDeviceAuthCompleted
+    | CodexDeviceAuthAlreadyAuthenticated
+    | CodexDeviceAuthFailure
+    | CodexDeviceAuthUnavailableBeforeStart;
 };
+
+export type CodexDeviceAuthState =
+  | CodexDeviceAuthResult
+  | CodexDeviceAuthCompletionPending
+  | CodexDeviceAuthCompletion['result'];
 
 export type CodexDeviceAuthResultWithCompletion = CodexDeviceAuthResult & {
   completion: Promise<CodexDeviceAuthCompletion>;
@@ -44,6 +87,89 @@ const userCodeRedactRegex =
   /\b(?:user\s*code|code)\b\s*[:=\-]?\s*[A-Z0-9-]{6,}/gi;
 const expiredStderrRegex = /(expired|declined)/i;
 
+function normalizeCodexAuthResponse<
+  T extends { provider: 'codex'; state: string },
+>(response: T): T {
+  const context = {
+    provider: response.provider,
+    state: response.state,
+  };
+  append({
+    level: 'info',
+    message: TASK8_LOG_MARKER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
+  });
+  baseLogger.info(context, TASK8_LOG_MARKER);
+  return response;
+}
+
+export function createCodexVerificationReadyResponse(params: {
+  verificationUrl: string;
+  userCode: string;
+  displayOutput: string;
+}): CodexDeviceAuthVerificationReady {
+  return normalizeCodexAuthResponse({
+    provider: 'codex',
+    state: 'verification_ready',
+    verificationUrl: params.verificationUrl,
+    userCode: params.userCode,
+    displayOutput: params.displayOutput,
+  });
+}
+
+export function createCodexCompletionPendingResponse(
+  source: Pick<
+    CodexDeviceAuthVerificationReady,
+    'verificationUrl' | 'userCode' | 'displayOutput'
+  >,
+): CodexDeviceAuthCompletionPending {
+  return normalizeCodexAuthResponse({
+    provider: 'codex',
+    state: 'completion_pending',
+    verificationUrl: source.verificationUrl,
+    userCode: source.userCode,
+    displayOutput: source.displayOutput,
+  });
+}
+
+export function createCodexCompletedResponse(): CodexDeviceAuthCompleted {
+  return normalizeCodexAuthResponse({
+    provider: 'codex',
+    state: 'completed',
+  });
+}
+
+export function createCodexAlreadyAuthenticatedResponse(): CodexDeviceAuthAlreadyAuthenticated {
+  return normalizeCodexAuthResponse({
+    provider: 'codex',
+    state: 'already_authenticated',
+  });
+}
+
+export function createCodexFailedResponse(
+  reason: string,
+  displayOutput?: string,
+): CodexDeviceAuthFailure {
+  return normalizeCodexAuthResponse({
+    provider: 'codex',
+    state: 'failed',
+    reason,
+    displayOutput,
+  });
+}
+
+export function createCodexUnavailableBeforeStartResponse(
+  reason: string,
+): CodexDeviceAuthUnavailableBeforeStart {
+  return normalizeCodexAuthResponse({
+    provider: 'codex',
+    state: 'unavailable_before_start',
+    reason,
+  });
+}
+
 export function parseCodexDeviceAuthOutput(
   stdout: string,
 ): CodexDeviceAuthResult {
@@ -53,25 +179,45 @@ export function parseCodexDeviceAuthOutput(
   const userCode = userCodeMatch?.[1];
 
   if (!verificationUrl || !userCode) {
-    return { ok: false, message: deviceAuthErrorMessage };
+    return createCodexFailedResponse(deviceAuthErrorMessage);
   }
 
-  return {
-    ok: true,
-    rawOutput: normalized,
-  };
+  return createCodexVerificationReadyResponse({
+    verificationUrl,
+    userCode,
+    displayOutput: normalized,
+  });
 }
 
 export function resolveCodexDeviceAuthResult(
   summary: CodexDeviceAuthRunSummary,
-): CodexDeviceAuthResult {
+): CodexDeviceAuthCompletion['result'] {
   const normalizedStderr = stripAnsi(summary.stderr);
   if (normalizedStderr && expiredStderrRegex.test(normalizedStderr)) {
-    return { ok: false, message: deviceAuthExpiredMessage };
+    return createCodexFailedResponse(deviceAuthExpiredMessage);
   }
 
   if (summary.exitCode && summary.exitCode !== 0) {
-    return { ok: false, message: deviceAuthExitMessage };
+    return createCodexFailedResponse(deviceAuthExitMessage);
+  }
+
+  const parsed = parseCodexDeviceAuthOutput(summary.stdout);
+  if (parsed.state === 'verification_ready') {
+    return createCodexCompletedResponse();
+  }
+  return parsed;
+}
+
+function resolveInitialCodexDeviceAuthResult(
+  summary: CodexDeviceAuthRunSummary,
+): CodexDeviceAuthResult {
+  const normalizedStderr = stripAnsi(summary.stderr);
+  if (normalizedStderr && expiredStderrRegex.test(normalizedStderr)) {
+    return createCodexFailedResponse(deviceAuthExpiredMessage);
+  }
+
+  if (summary.exitCode && summary.exitCode !== 0) {
+    return createCodexFailedResponse(deviceAuthExitMessage);
   }
 
   return parseCodexDeviceAuthOutput(summary.stdout);
@@ -105,7 +251,7 @@ export async function runCodexDeviceAuth(params?: {
       completionResolved = true;
       const result = resolveCodexDeviceAuthResult(summary);
       baseLogger.info(
-        { exitCode: summary.exitCode, ok: result.ok },
+        { exitCode: summary.exitCode, state: result.state },
         'DEV-0000031:T10:codex_device_auth_cli_completed',
       );
       resolveCompletion({ exitCode: summary.exitCode, result });
@@ -117,15 +263,16 @@ export async function runCodexDeviceAuth(params?: {
     ) => {
       if (resolved) return;
       resolved = true;
-      const result = resolvedResult ?? resolveCodexDeviceAuthResult(summary);
+      const result =
+        resolvedResult ?? resolveInitialCodexDeviceAuthResult(summary);
 
-      if (result.ok) {
+      if (result.state === 'verification_ready') {
         baseLogger.info(
           {
-            hasRawOutput: Boolean(result.rawOutput),
-            rawOutputLength: result.rawOutput.length,
-            hasVerificationUrl: verificationUrlRegex.test(result.rawOutput),
-            hasUserCode: userCodeRegex.test(result.rawOutput),
+            hasDisplayOutput: Boolean(result.displayOutput),
+            displayOutputLength: result.displayOutput?.length ?? 0,
+            hasVerificationUrl: Boolean(result.verificationUrl),
+            hasUserCode: Boolean(result.userCode),
           },
           'DEV-0000031:T1:codex_device_auth_cli_parsed',
         );
@@ -137,7 +284,10 @@ export async function runCodexDeviceAuth(params?: {
         baseLogger.warn(
           {
             exitCode: summary.exitCode,
-            error: result.message,
+            error:
+              'reason' in result
+                ? result.reason
+                : 'codex already authenticated',
             stdoutSample: stdoutSample || undefined,
           },
           'DEV-0000031:T1:codex_device_auth_cli_failed',
@@ -151,7 +301,7 @@ export async function runCodexDeviceAuth(params?: {
       stdout += String(chunk);
       if (resolved) return;
       const parsed = parseCodexDeviceAuthOutput(stdout);
-      if (parsed.ok) {
+      if (parsed.state === 'verification_ready') {
         finalize({ exitCode: null, stdout, stderr }, parsed);
       }
     });
@@ -159,7 +309,7 @@ export async function runCodexDeviceAuth(params?: {
       stderr += String(chunk);
       if (resolved) return;
       const parsed = parseCodexDeviceAuthOutput(stdout);
-      if (parsed.ok) {
+      if (parsed.state === 'verification_ready') {
         finalize({ exitCode: null, stdout, stderr }, parsed);
       }
     });

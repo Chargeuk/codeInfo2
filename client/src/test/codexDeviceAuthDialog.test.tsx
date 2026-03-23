@@ -71,16 +71,24 @@ describe('CodexDeviceAuthDialog', () => {
 
     await waitFor(() => expect(startButton).toBeDisabled());
     resolvePromise?.({
-      status: 'ok',
-      rawOutput: 'Open https://example.com/device and enter code HOLD-CODE.',
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://example.com/device',
+      userCode: 'HOLD-CODE',
+      displayOutput:
+        'Open https://example.com/device and enter code HOLD-CODE.',
     });
   });
 
   it('renders raw output with linkified URLs on success', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
-      status: 'ok',
-      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://example.com/device',
+      userCode: 'ABCD-EFGH',
+      displayOutput:
+        'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
     renderDialog();
@@ -89,23 +97,29 @@ describe('CodexDeviceAuthDialog', () => {
       screen.getByRole('button', { name: /start device auth/i }),
     );
 
-    const link = await screen.findByRole('link', {
+    const links = await screen.findAllByRole('link', {
       name: 'https://example.com/device',
     });
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', 'https://example.com/device');
-    expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', 'noreferrer');
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    expect(links[0]).toHaveAttribute('href', 'https://example.com/device');
+    expect(links[0]).toHaveAttribute('target', '_blank');
+    expect(links[0]).toHaveAttribute('rel', 'noreferrer');
     const outputBlock = screen.getByText(/Open/i);
     expect(outputBlock.closest('pre')).not.toBeNull();
-    expect(screen.getByText(/ABCD-EFGH/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/ABCD-EFGH/i, { selector: 'code' }),
+    ).toBeInTheDocument();
   });
 
   it('renders raw output inside a read-only block', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
-      status: 'ok',
-      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://example.com/device',
+      userCode: 'ABCD-EFGH',
+      displayOutput:
+        'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
     renderDialog();
@@ -158,8 +172,12 @@ describe('CodexDeviceAuthDialog', () => {
   it('sends no request payload for shared auth flow', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
-      status: 'ok',
-      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://example.com/device',
+      userCode: 'ABCD-EFGH',
+      displayOutput:
+        'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
     renderDialog();
@@ -215,8 +233,12 @@ describe('CodexDeviceAuthDialog', () => {
         new Error('invalid_request: request body must be {}'),
       )
       .mockResolvedValueOnce({
-        status: 'ok',
-        rawOutput: 'Open https://example.com/device and enter code RETRY-CODE.',
+        provider: 'codex',
+        state: 'verification_ready',
+        verificationUrl: 'https://example.com/device',
+        userCode: 'RETRY-CODE',
+        displayOutput:
+          'Open https://example.com/device and enter code RETRY-CODE.',
       });
 
     renderDialog();
@@ -226,15 +248,21 @@ describe('CodexDeviceAuthDialog', () => {
     expect(await screen.findByText(/invalid_request/i)).toBeInTheDocument();
 
     await user.click(start);
-    expect(await screen.findByText(/RETRY-CODE/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/RETRY-CODE/i, { selector: 'code' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/invalid_request/i)).toBeNull();
   });
 
   it('emits T15 success log on successful shared auth flow', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
-      status: 'ok',
-      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://example.com/device',
+      userCode: 'ABCD-EFGH',
+      displayOutput:
+        'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
     renderDialog({ source: 'agents' });
@@ -246,7 +274,10 @@ describe('CodexDeviceAuthDialog', () => {
       expect(logSpy).toHaveBeenCalledWith(
         'info',
         '[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success',
-        { source: 'agents' },
+        expect.objectContaining({
+          source: 'agents',
+          state: 'verification_ready',
+        }),
       ),
     );
   });

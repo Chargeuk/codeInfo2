@@ -159,6 +159,7 @@ Corporate certificate directory requirements:
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
 - Codex home: `CODEINFO_CODEX_HOME=./codex`; the runtime seeds the canonical base template on first start. `docker-compose.local.yml` live-mounts repo `./codex` to `/app/codex` for local editing, while the main and e2e stacks use the image-prepared `/app/codex` home and still seed `config.toml` at startup when it is missing.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
+- Shared auth contract: `POST /codex/device-auth` still requires `{}` and now returns provider-auth states instead of a raw-output-only success payload. The Codex path can return `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, or `unavailable_before_start`, with `verificationUrl`, `userCode`, and optional `displayOutput` included only when relevant.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
   - `@openai/codex-sdk` is pinned at `0.107.0` in `server/package.json`.

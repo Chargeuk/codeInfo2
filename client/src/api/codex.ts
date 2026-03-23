@@ -132,13 +132,22 @@ export async function postCodexDeviceAuth(): Promise<CodexDeviceAuthResponse> {
   });
 
   const data = (await res.json()) as Record<string, unknown>;
-  const status = data.status;
-  const rawOutput = data.rawOutput;
+  const provider = data.provider;
+  const state = data.state;
+
+  const validStates = [
+    'verification_ready',
+    'completion_pending',
+    'completed',
+    'already_authenticated',
+    'failed',
+    'unavailable_before_start',
+  ] as const;
 
   if (
-    status !== 'ok' ||
-    typeof rawOutput !== 'string' ||
-    rawOutput.length < 1
+    provider !== 'codex' ||
+    typeof state !== 'string' ||
+    !validStates.includes(state as (typeof validStates)[number])
   ) {
     log('error', T14_ERROR_LOG, {
       status: res.status,
@@ -153,19 +162,12 @@ export async function postCodexDeviceAuth(): Promise<CodexDeviceAuthResponse> {
 
   log('info', T14_SUCCESS_LOG, {
     status: res.status,
-    responseStatus: status,
+    responseState: state,
   });
   log('info', T26_SUCCESS_LOG, {
     status: res.status,
-    responseStatus: status,
+    responseState: state,
   });
 
-  const response: SharedCodexDeviceAuthResponse = {
-    status: 'ok',
-    rawOutput,
-  };
-  return {
-    status: response.status,
-    rawOutput: response.rawOutput,
-  };
+  return data as CodexDeviceAuthResponse;
 }

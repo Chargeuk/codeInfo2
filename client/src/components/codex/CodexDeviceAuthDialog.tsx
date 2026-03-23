@@ -59,6 +59,33 @@ function linkifyRawOutput(value: string): ReactNode[] {
   return nodes.length > 0 ? nodes : [value];
 }
 
+function describeCodexAuthState(result: CodexDeviceAuthResponse): {
+  tone: 'success' | 'info' | 'warning' | 'error';
+  message?: string;
+} {
+  switch (result.state) {
+    case 'verification_ready':
+      return { tone: 'info' };
+    case 'completion_pending':
+      return {
+        tone: 'info',
+        message:
+          'Authentication is still pending. Finish the browser step, then refresh again if needed.',
+      };
+    case 'completed':
+      return { tone: 'success', message: 'Authentication completed.' };
+    case 'already_authenticated':
+      return {
+        tone: 'success',
+        message: 'Codex is already authenticated for this runtime.',
+      };
+    case 'failed':
+      return { tone: 'error', message: result.reason };
+    case 'unavailable_before_start':
+      return { tone: 'warning', message: result.reason };
+  }
+}
+
 export default function CodexDeviceAuthDialog({
   open,
   onClose,
@@ -98,11 +125,28 @@ export default function CodexDeviceAuthDialog({
 
     try {
       const response = await postCodexDeviceAuth();
+      const described = describeCodexAuthState(response);
+
+      if (described.tone === 'error' || described.tone === 'warning') {
+        setErrorMessage(described.message ?? 'Device auth failed.');
+        log('error', 'DEV-0000031:T6:codex_device_auth_dialog_error', {
+          message: described.message ?? 'Device auth failed.',
+          source,
+          state: response.state,
+        });
+        log('error', T15_ERROR_LOG, {
+          message: described.message ?? 'Device auth failed.',
+          source,
+        });
+        return;
+      }
+
       setResult(response);
       log('info', 'DEV-0000031:T6:codex_device_auth_dialog_success', {
         source,
+        state: response.state,
       });
-      log('info', T15_SUCCESS_LOG, { source });
+      log('info', T15_SUCCESS_LOG, { source, state: response.state });
       onSuccess?.(response);
     } catch (error) {
       const message =
@@ -140,30 +184,70 @@ export default function CodexDeviceAuthDialog({
 
           {result ? (
             <Stack spacing={1.5}>
-              <Typography variant="subtitle2" fontWeight={600}>
-                Device auth output
-              </Typography>
-              <Box
-                sx={{
-                  borderRadius: 1,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  p: 1.5,
-                }}
-              >
-                <Typography
-                  component="pre"
-                  variant="body2"
-                  sx={{
-                    fontFamily: 'monospace',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    m: 0,
-                  }}
-                >
-                  {linkifyRawOutput(result.rawOutput)}
-                </Typography>
-              </Box>
+              {describeCodexAuthState(result).message ? (
+                <Alert severity={describeCodexAuthState(result).tone}>
+                  {describeCodexAuthState(result).message}
+                </Alert>
+              ) : null}
+
+              {'verificationUrl' in result && result.verificationUrl ? (
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Verification URL
+                  </Typography>
+                  <Link
+                    href={result.verificationUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    underline="always"
+                  >
+                    {result.verificationUrl}
+                  </Link>
+                </Stack>
+              ) : null}
+
+              {'userCode' in result && result.userCode ? (
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    One-time code
+                  </Typography>
+                  <Typography
+                    component="code"
+                    sx={{ fontFamily: 'monospace', fontSize: '0.95rem' }}
+                  >
+                    {result.userCode}
+                  </Typography>
+                </Stack>
+              ) : null}
+
+              {'displayOutput' in result && result.displayOutput ? (
+                <>
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Device auth output
+                  </Typography>
+                  <Box
+                    sx={{
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      p: 1.5,
+                    }}
+                  >
+                    <Typography
+                      component="pre"
+                      variant="body2"
+                      sx={{
+                        fontFamily: 'monospace',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        m: 0,
+                      }}
+                    >
+                      {linkifyRawOutput(result.displayOutput)}
+                    </Typography>
+                  </Box>
+                </>
+              ) : null}
             </Stack>
           ) : null}
         </Stack>

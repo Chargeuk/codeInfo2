@@ -10,6 +10,12 @@ import type {
   CodexDeviceAuthCompletion,
   CodexDeviceAuthResult,
   CodexDeviceAuthResultWithCompletion,
+  CodexDeviceAuthVerificationReady,
+} from '../../utils/codexDeviceAuth.js';
+import {
+  createCodexCompletedResponse,
+  createCodexFailedResponse,
+  createCodexVerificationReadyResponse,
 } from '../../utils/codexDeviceAuth.js';
 
 function buildApp(deps?: Parameters<typeof createCodexDeviceAuthRouter>[0]) {
@@ -19,6 +25,13 @@ function buildApp(deps?: Parameters<typeof createCodexDeviceAuthRouter>[0]) {
 }
 
 const defaultDetection: CodexDetection = {
+  available: false,
+  authPresent: false,
+  configPresent: true,
+  reason: 'auth missing',
+};
+
+const availableDetection: CodexDetection = {
   available: true,
   authPresent: true,
   configPresent: true,
@@ -28,12 +41,32 @@ type DeviceAuthResult = CodexDeviceAuthResultWithCompletion;
 
 function buildDeviceAuthResult(
   result: CodexDeviceAuthResult,
-  exitCode = result.ok ? 0 : 1,
+  completionResult:
+    | CodexDeviceAuthCompletion['result']
+    | undefined = result.state === 'verification_ready'
+    ? createCodexCompletedResponse()
+    : result,
+  exitCode = completionResult.state === 'completed' ||
+  completionResult.state === 'already_authenticated'
+    ? 0
+    : 1,
 ): DeviceAuthResult {
   return {
     ...result,
-    completion: Promise.resolve({ exitCode, result }),
+    completion: Promise.resolve({ exitCode, result: completionResult }),
   };
+}
+
+function verificationReadyResult(
+  overrides?: Partial<CodexDeviceAuthVerificationReady>,
+): CodexDeviceAuthVerificationReady {
+  return createCodexVerificationReadyResponse({
+    verificationUrl: overrides?.verificationUrl ?? 'https://device.test/verify',
+    userCode: overrides?.userCode ?? 'CODE-123',
+    displayOutput:
+      overrides?.displayOutput ??
+      'Open https://device.test/verify and enter code CODE-123.',
+  });
 }
 
 function withDeps(
@@ -50,10 +83,7 @@ function withDeps(
     }),
     getCodexConfigPathForHome: (home: string) => `${home}/config.toml`,
     runCodexDeviceAuth: async () =>
-      buildDeviceAuthResult({
-        ok: true,
-        rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
-      }),
+      buildDeviceAuthResult(verificationReadyResult()),
     resolveCodexCli: () => ({ available: true }),
     ...overrides,
   };
@@ -67,11 +97,7 @@ describe('POST /codex/device-auth', () => {
         withDeps({
           runCodexDeviceAuth: async (params) => {
             receivedHome = params?.codexHome;
-            return buildDeviceAuthResult({
-              ok: true,
-              rawOutput:
-                'Open https://device.test/verify and enter code CODE-123.',
-            });
+            return buildDeviceAuthResult(verificationReadyResult());
           },
         }),
       ),
@@ -80,12 +106,76 @@ describe('POST /codex/device-auth', () => {
       .send({});
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.status, 'ok');
-    assert.equal(
-      res.body.rawOutput,
-      'Open https://device.test/verify and enter code CODE-123.',
-    );
+    assert.deepEqual(res.body, {
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://device.test/verify',
+      userCode: 'CODE-123',
+      displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
+    });
     assert.equal(receivedHome, undefined);
+  });
+
+  test('keeps the shared auth flow pending after verification details are returned', async () => {
+    let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
+    const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    const app = buildApp(
+      withDeps({
+        runCodexDeviceAuth: async () => ({
+          ...verificationReadyResult(),
+          completion,
+        }),
+      }),
+    );
+
+    const first = await supertest(app).post('/codex/device-auth').send({});
+    const second = await supertest(app).post('/codex/device-auth').send({});
+
+    assert.equal(first.status, 200);
+    assert.equal(first.body.state, 'verification_ready');
+    assert.equal(second.status, 200);
+    assert.deepEqual(second.body, {
+      provider: 'codex',
+      state: 'completion_pending',
+      verificationUrl: 'https://device.test/verify',
+      userCode: 'CODE-123',
+      displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
+    });
+
+    resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
+  });
+
+  test('returns completed after the shared auth flow finishes', async () => {
+    let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
+    const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    let refreshCalls = 0;
+    const app = buildApp(
+      withDeps({
+        refreshCodexDetection: () => {
+          refreshCalls += 1;
+          return refreshCalls === 1 ? defaultDetection : availableDetection;
+        },
+        runCodexDeviceAuth: async () => ({
+          ...verificationReadyResult(),
+          completion,
+        }),
+      }),
+    );
+
+    await supertest(app).post('/codex/device-auth').send({}).expect(200);
+    resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const refreshed = await supertest(app).post('/codex/device-auth').send({});
+    assert.equal(refreshed.status, 200);
+    assert.deepEqual(refreshed.body, {
+      provider: 'codex',
+      state: 'completed',
+    });
   });
 
   test('selector fields are rejected with 400 invalid_request', async () => {
@@ -134,7 +224,7 @@ describe('POST /codex/device-auth', () => {
     }
   });
 
-  test('codex unavailable returns 503 codex_unavailable payload', async () => {
+  test('codex unavailable returns unavailable-before-start shared auth state', async () => {
     const res = await supertest(
       buildApp(
         withDeps({
@@ -151,32 +241,54 @@ describe('POST /codex/device-auth', () => {
       .post('/codex/device-auth')
       .send({});
 
-    assert.equal(res.status, 503);
+    assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
-      error: 'codex_unavailable',
+      provider: 'codex',
+      state: 'unavailable_before_start',
       reason: 'codex not found',
     });
   });
 
-  test('device-auth parse error returns 400 invalid_request', async () => {
+  test('device-auth parse error returns failed shared auth state', async () => {
     const res = await supertest(
       buildApp(
         withDeps({
           runCodexDeviceAuth: async () =>
-            buildDeviceAuthResult({
-              ok: false,
-              message: 'device auth output not recognized',
-            }),
+            buildDeviceAuthResult(
+              createCodexFailedResponse('device auth output not recognized'),
+            ),
         }),
       ),
     )
       .post('/codex/device-auth')
       .send({});
 
-    assert.equal(res.status, 400);
+    assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
-      error: 'invalid_request',
-      message: 'device auth output not recognized',
+      provider: 'codex',
+      state: 'failed',
+      reason: 'device auth output not recognized',
+    });
+  });
+
+  test('already-authenticated runtimes return the shared already-authenticated state', async () => {
+    const res = await supertest(
+      buildApp(
+        withDeps({
+          refreshCodexDetection: () => availableDetection,
+          runCodexDeviceAuth: async () => {
+            throw new Error('should not run');
+          },
+        }),
+      ),
+    )
+      .post('/codex/device-auth')
+      .send({});
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, {
+      provider: 'codex',
+      state: 'already_authenticated',
     });
   });
 
@@ -209,14 +321,15 @@ describe('POST /codex/device-auth', () => {
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
       resolveCompletion = resolve;
     });
-    const successResult = {
-      ok: true,
-      rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
-    } as const satisfies CodexDeviceAuthResult;
+    const successResult = verificationReadyResult();
     const propagateAgentAuthFromPrimary = mock.fn(async () => ({
       agentCount: 1,
     }));
-    const refreshCodexDetection = mock.fn(() => defaultDetection);
+    let refreshCalls = 0;
+    const refreshCodexDetection = mock.fn(() => {
+      refreshCalls += 1;
+      return refreshCalls === 1 ? defaultDetection : availableDetection;
+    });
 
     const res = await supertest(
       buildApp(
@@ -234,14 +347,15 @@ describe('POST /codex/device-auth', () => {
       .send({});
 
     assert.equal(res.status, 200);
+    assert.equal(res.body.state, 'verification_ready');
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 0);
-    assert.equal(refreshCodexDetection.mock.calls.length, 0);
+    assert.equal(refreshCodexDetection.mock.calls.length, 1);
 
-    resolveCompletion({ exitCode: 0, result: successResult });
+    resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
     await new Promise((resolve) => setImmediate(resolve));
 
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 1);
-    assert.equal(refreshCodexDetection.mock.calls.length, 1);
+    assert.equal(refreshCodexDetection.mock.calls.length, 2);
   });
 
   test('overlapping requests reuse one auth run and keep side effects idempotent', async () => {
@@ -253,15 +367,15 @@ describe('POST /codex/device-auth', () => {
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
       resolveCompletion = resolve;
     });
-    const successResult = {
-      ok: true,
-      rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
-    } as const satisfies CodexDeviceAuthResult;
+    const successResult = verificationReadyResult();
     const runCodexDeviceAuth = mock.fn(async () => runPromise);
     const propagateAgentAuthFromPrimary = mock.fn(async () => ({
       agentCount: 2,
     }));
-    const refreshCodexDetection = mock.fn(() => defaultDetection);
+    let authCompleted = false;
+    const refreshCodexDetection = mock.fn(() =>
+      authCompleted ? availableDetection : defaultDetection,
+    );
     const app = buildApp(
       withDeps({
         runCodexDeviceAuth,
@@ -288,16 +402,24 @@ describe('POST /codex/device-auth', () => {
     const [resA, resB] = await Promise.all([reqA, reqB]);
     assert.equal(resA.status, 200);
     assert.equal(resB.status, 200);
+    assert.deepEqual(resA.body, {
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://device.test/verify',
+      userCode: 'CODE-123',
+      displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
+    });
     assert.deepEqual(resA.body, resB.body);
     assert.equal(runCodexDeviceAuth.mock.calls.length, 1);
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 0);
-    assert.equal(refreshCodexDetection.mock.calls.length, 0);
+    assert.equal(refreshCodexDetection.mock.calls.length, 2);
 
-    resolveCompletion({ exitCode: 0, result: successResult });
+    authCompleted = true;
+    resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
     await new Promise((resolve) => setImmediate(resolve));
 
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 1);
-    assert.equal(refreshCodexDetection.mock.calls.length, 1);
+    assert.equal(refreshCodexDetection.mock.calls.length, 3);
   });
 
   test('emits deterministic T10 success log for strict contract happy path', async () => {
@@ -348,27 +470,22 @@ describe('POST /codex/device-auth', () => {
         buildApp(
           withDeps({
             runCodexDeviceAuth: async () =>
-              buildDeviceAuthResult({
-                ok: false,
-                message: `${secretLikeToken} device auth command failed`,
-              }),
+              buildDeviceAuthResult(
+                createCodexFailedResponse(
+                  `${secretLikeToken} device auth command failed`,
+                ),
+              ),
           }),
         ),
       )
         .post('/codex/device-auth')
         .send({});
 
-      assert.equal(res.status, 503);
+      assert.equal(res.status, 200);
       const loggedLines = errorMock.mock.calls
         .map((call) => call.arguments.map(String).join(' '))
         .join('\n');
       assert.equal(loggedLines.includes(secretLikeToken), false);
-      assert.equal(
-        loggedLines.includes(
-          '[DEV-0000037][T10] event=device_auth_contract_validated result=error',
-        ),
-        true,
-      );
     } finally {
       errorMock.mock.restore();
     }
@@ -379,15 +496,17 @@ describe('POST /codex/device-auth', () => {
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
       resolveCompletion = resolve;
     });
-    const successResult = {
-      ok: true,
-      rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
-    } as const satisfies CodexDeviceAuthResult;
+    const successResult = verificationReadyResult();
+    let refreshCalls = 0;
     const infoMock = mock.method(console, 'info', () => {});
     try {
       const res = await supertest(
         buildApp(
           withDeps({
+            refreshCodexDetection: () => {
+              refreshCalls += 1;
+              return refreshCalls === 1 ? defaultDetection : availableDetection;
+            },
             runCodexDeviceAuth: async () => ({
               ...successResult,
               completion,
@@ -399,7 +518,10 @@ describe('POST /codex/device-auth', () => {
         .send({});
       assert.equal(res.status, 200);
 
-      resolveCompletion({ exitCode: 0, result: successResult });
+      resolveCompletion({
+        exitCode: 0,
+        result: createCodexCompletedResponse(),
+      });
       await new Promise((resolve) => setImmediate(resolve));
 
       const successCall = infoMock.mock.calls.find(
@@ -422,16 +544,15 @@ describe('POST /codex/device-auth', () => {
         buildApp(
           withDeps({
             runCodexDeviceAuth: async () =>
-              buildDeviceAuthResult({
-                ok: false,
-                message: 'device auth command failed',
-              }),
+              buildDeviceAuthResult(
+                createCodexFailedResponse('device auth command failed'),
+              ),
           }),
         ),
       )
         .post('/codex/device-auth')
         .send({});
-      assert.equal(res.status, 503);
+      assert.equal(res.status, 200);
       await new Promise((resolve) => setImmediate(resolve));
       const errorCall = errorMock.mock.calls.find(
         (call) =>

@@ -1,45 +1,101 @@
 # Overview
 
-You are a going to work with a user to document additional scope and requirement details about one of the plans to be worked on.
+You are going to work with a user to document additional scope and requirement details about one of the plans to be worked on.
+
+The goal is not just to find good questions. The goal is to write questions that a normal human can understand quickly.
+
+## Core Principle
+
+Do the deep technical thinking yourself, but phrase questions for the user in plain English.
+
+The user-facing question should be short and easy to answer.
+The detailed reasoning should live under `Why this matters`, `Best Answer`, and `Where this answer came from`.
+
+## Question Writing Rules
+
+When writing questions for the user:
+
+1. Write for a non-expert reader first.
+2. Keep each question to one decision only.
+3. Keep the question itself short. Aim for 25 words or fewer.
+4. Prefer concrete wording over abstract wording.
+5. Prefer `Should X happen, or should Y happen?` wording when possible.
+6. Avoid unnecessary jargon.
+7. If a technical term is necessary, either:
+   - use a term already present in the plan; or
+   - define it in a few simple words.
+8. Put detail in the supporting bullets, not in the question sentence.
+9. Ask at most 3 questions in a round, and only ask the highest-value questions.
+10. If an example would make the question clearer, include a one-line example in the `Why this matters` or `Best Answer` bullet, not in the question itself unless absolutely necessary.
+
+## Question Format
+
+Every open question added to the plan must use this structure:
+
+1. `<short, plain-English question>`
+   - Why this is important: `<one short explanation of why the decision matters>`
+   - Best Answer: `<recommended answer, why it is the best answer, and what evidence supports it>`
+   - Where this answer came from: `<repo evidence first, then external evidence if used>`
+
+Bad example:
+
+`When plan_scope continues past per-repository failures, should the overall re-ingest tool result still be marked as an error, or should it be treated as success-with-warnings?`
+
+Better example:
+
+`If one repository fails but the others finish, should the whole re-ingest show as failed or completed with warnings?`
 
 ## Where Are We Working?
 
-The FIRST thing you MUST do is clarify with the user what story you are working with them on to improve the scope.
+The first thing you must do is clarify which story file the user wants to improve.
 
-1. Ask the user to provide you with the absolute or relative path. Remember what they tell you as all the additional steps will be based on this answer. If the user just provides the name of a file, or if the path is incorrect, then try to find the file without using the code_info mcp tool within the codebase. If you still can't find it, perhaps it is in another codebase - so use the code_info mcp tool to find it.
-2. When they have provided you with the file, you must read it and check if you understand it. Think about what it describes and see if you can see gaps in the requirements or scope, or it is missing corner cases that should be documented.
-3. Consider that we prefer to resolve issues upstream rather than patching downstream so that patches do not need to be applied to multiple places. Given this, if the changes required due to a library we are importing which we control (eg: it is available from the code_info mcp tools) then ask if the user wants to make the required changes there.
+1. Ask the user for the absolute or relative path.
+2. If the user only gives a filename, or the path is incorrect, try to find the file inside the current codebase without using the `code_info` MCP tool first.
+3. If you still cannot find it, use the `code_info` MCP tool to look across related repositories.
+4. Once you have the file, read it carefully and decide whether you understand it.
+5. Look for missing requirements, missing corner cases, missing examples, unclear language, or decisions that are still ambiguous.
+6. Prefer solving issues upstream rather than patching them downstream in multiple places. If the likely fix belongs in a library or shared repository that we control, ask the user whether they want that upstream change considered too.
 
-## Scope and Requirement Questions
+## Scope And Requirement Questions
 
-You are a going to work with a user to document additional scope and requirement details about the plan they should have already told you that they want to work on. This will require you to work through the following points:
+When you identify useful gaps:
 
-1. When you have determined these gaps, please extend the existing `## Questions` section in the document OR create a new `## Questions` section, by adding your list of numbered questions.
-2. For each question you add, you should add a bullet point explaining WHY the question is important.
-3. For each question you add, perform a thorough search using the code_info mcp tool to see if you can find how similar questions have been answered or implemented accross all ingested repositories as the answer may lie there.
-4. THEN perform a second search using deepwiki, context7 and web searches for answers to the question - perhaps finding other people who have hit the question and see how they handles it.
-5. Prioritising the results from code_info, as a new Best Answer bullet point to each of the question, that provides what you think the answer should be, why you think this is the best answer, and Where you got the information from that made you think this is the best option.
-6. Commit all your question changes.
+1. Extend the existing `## Questions` section in the document, or create one if it does not exist.
+2. Add only the most important unanswered questions. Do not flood the user with every possible edge case.
+3. For each question:
+   - add a `Why this is important` bullet;
+   - search with the `code_info` MCP tool first for local or related-repo precedent;
+   - then search with DeepWiki, Context7, and web search for supporting evidence;
+   - add a `Best Answer` bullet that prioritizes local repo evidence over external evidence;
+   - add a `Where this answer came from` bullet that names the main sources.
+4. Commit the question changes.
 
-- Once all Questions follow the above structure, output the written questions to the user an your response, and indicate that this information has been committed to. the file.
-- You will then work with the user to answer these questions.
+After that:
 
-## Scope and Requirement Answers
+- write the questions back to the user in your response;
+- keep the question sentence simple and readable;
+- tell the user the file was updated and committed;
+- then work with the user to answer the questions.
 
-For each answer that the user provides for one of your questions, you must:
+## Scope And Requirement Answers
 
-1. Add it to a '## Decisions' section immediately after the '## Questions' section (you will need to create it if it doesn't already exist).
-2. Each decision should be added as an item within a numbered list under the '## Decisions' section.
-3. The decision should have bullet points that indicate:
-   - The question being addressed,
-   - WHY the question matters,
-   - WHAT the answer is.
-   - WHERE the answer came from
-   - WHY it is the best answer to the question.
-4. In addition to adding the answer to the '## Decisions' section, you MUST update all other sections of the plan where appropriate based on the information from the answer, including description, acceptance, out of scope, etc...
-5. You MUST ALSO remove answered questions from the '## Questions' section, but never actually remove the '## Questions' section heading (in case more questions are added later).
-6. Then commit the change.
+For each answer that the user provides:
+
+1. Add it to a `## Decisions` section immediately after `## Questions`. Create the section if it does not already exist.
+2. Each decision should be a numbered list item.
+3. Each decision should include bullets for:
+   - The question being addressed
+   - Why the question matters
+   - What the answer is
+   - Where the answer came from
+   - Why it is the best answer
+4. Update all other relevant sections of the plan based on the answer, including description, acceptance criteria, out of scope, implementation ideas, and any examples that need changing.
+5. Remove answered questions from `## Questions`, but never remove the `## Questions` heading itself.
+6. Commit the change.
 
 ## Completion
 
-Once all your original questgions have been answered, you may be able to think of some more. If that is the case, then you should repeat this process. Otherwise, thank the user for their input.
+Once all of your original questions have been answered, decide whether any more high-value questions remain.
+
+- If yes, repeat the process with another small round of clear, plain-English questions.
+- If no, thank the user for their input.

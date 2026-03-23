@@ -821,8 +821,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 5. Expose Copilot readiness on the server
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `c0303d10`
 
 #### Overview
 
@@ -854,7 +854,7 @@ Implementation starter pattern for every subtask in this task: keep the existing
 10. [x] Update `design.md` if the provider readiness precedence would otherwise only exist in tests. Document name: `design.md`. Location: repository root. Description: record the final readiness precedence order, availability-reason contract, and the safe blocking-stage observability rule, and add a Mermaid diagram if it helps explain the readiness decision path. Purpose: keep architecture documentation aligned with provider readiness behavior.
 11. [x] Update `README.md` only if it contains provider-list behavior that would now be inaccurate. Document name: `README.md`. Location: repository root. Description: correct any user-facing description of provider availability or provider ordering changed by this task. Purpose: keep top-level usage documentation truthful.
 12. [x] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task after those changes land. Purpose: keep the repository file map accurate.
-13. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
+13. [x] Update this plan file after implementation by marking the completed checkboxes for Task 5, recording implementation notes, and listing the task commit hashes once they exist.
 14. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 15. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
@@ -882,6 +882,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run build:summary:server` initially failed on implicit `any` parameters in the new readiness-log assertions inside `chatProviders.test.ts`; adding explicit `unknown` types fixed the compile, and the rerun passed cleanly.
 - `npm run test:summary:server:unit` initially surfaced three stale provider-route expectations that still asserted the old placeholder Copilot reason; after updating those assertions to the new auth-required readiness contract, the targeted `chatProviders` run passed and the full wrapper passed cleanly with `1395/1395`.
 - `npm run test:summary:server:cucumber` passed cleanly with `71/71`, which confirmed the readiness changes did not regress the existing server-side BDD coverage.
+- Recorded the Task 5 implementation commit hash after the wrapper proof passed and marked the task complete so the later Copilot model and auth work can reuse the shared readiness precedence contract.
 
 ---
 

@@ -28,6 +28,12 @@ flowchart LR
   Adapter -. later .-> Routes["provider readiness / models / chat tasks"]
 ```
 
+## Story 0000051 Task 3 fake Copilot SDK harness baseline
+
+- `server/src/test/support/mockCopilotSdk.ts` is the scenario-driven fake runtime that plugs into the Task 2 lifecycle seam instead of creating a separate testing-only provider abstraction.
+- The harness entry point is `createMockCopilotSdkHarness(...)`, which returns one isolated scenario instance with `createClientFactory()` and `createLifecycle()` helpers so unit, integration, and later Cucumber tests can opt into the fake without mutating production globals.
+- The fake session model is intentionally event-oriented. It can replay assistant-message deltas, final assistant messages, tool execution lifecycle events, idle markers, and session errors in deterministic order so later readiness and chat tasks can build on one stable mock runtime contract.
+
 ## Story 0000051 Task 1 three-provider contract baseline
 
 - Shared chat provider ordering is now one explicit contract: `codex`, then `copilot`, then `lmstudio`.

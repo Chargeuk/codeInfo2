@@ -1,5 +1,32 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/test/support/mockCopilotSdk.ts`
+- `server/src/test/unit/mockCopilotSdk.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 3 adds the first dedicated fake Copilot runtime harness as a sibling to the existing LM Studio mock support instead of introducing another mocking framework.
+- The harness is instance-scoped through `createMockCopilotSdkHarness(...)`, which exposes `createClientFactory()` and `createLifecycle()` helpers so later tests can plug into the Task 2 runtime seam without changing production wiring.
+- The proof file focuses on boot success, deterministic event playback, and explicit startup or session failures, which gives later readiness and chat tasks a stable fake runtime surface to extend.
+
 ## Story 0000051 Task 2 structural change ledger
 
 Added files:

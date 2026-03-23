@@ -706,7 +706,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 3. Add the server fake Copilot SDK harness
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview
@@ -726,28 +726,36 @@ Mandatory isolation note for every numbered subtask below: if a junior developer
 Documentation handoff for every numbered subtask in this task: when assigning any one numbered subtask from this task, copy the exact bullet list from this task’s `Documentation Locations` section into the handoff so the developer has the SDK event and test-runner references available while building the fake.
 Implementation starter pattern for every subtask in this task: copy the scenario-driven fake style already used in `server/src/test/support/mockLmStudioSdk.ts`; the Copilot harness should look like the next sibling of that file rather than a brand new mocking framework.
 
-1. [ ] Add `server/src/test/support/mockCopilotSdk.ts` by mirroring the structure and ergonomics of `server/src/test/support/mockLmStudioSdk.ts`. The fake client and fake session model must be able to script `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, `resumeSession(...)`, streamed assistant events, tool events, and deterministic failures without introducing a brand new mocking style. When a named fake SDK scenario is selected, emit the secret-safe acceptance log line `story.0000051.task03.fake_sdk_scenario_selected` so final manual verification can confirm which fake SDK scenario was active.
-2. [ ] Define one clear scripting API for the harness so later tests can queue success and failure cases without mutating hidden globals. Document the helper names in comments where a junior developer would otherwise have to reverse-engineer them from call sites.
-3. [ ] Wire the harness into the server test bootstrap path created in Task 2 so unit, integration, and Cucumber tests can opt into the fake Copilot runtime without affecting production runtime wiring.
-4. [ ] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: instantiate the fake Copilot SDK harness with no scenario overrides and confirm the fake client boots successfully. Purpose: prove the harness itself is executable before downstream tests depend on it.
-5. [ ] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: script assistant or tool events and confirm the fake session emits them deterministically in the requested order. Purpose: prove later chat and stream tests can rely on the harness for repeatable event playback.
-6. [ ] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: script a startup or session error and confirm the harness surfaces the error exactly once. Purpose: prove failure-path scenarios are deterministic and inspectable.
-7. [ ] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot SDK harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding harness files.
-8. [ ] Update `design.md` only if the harness entry point needs one sentence of explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a brief note about how the fake Copilot SDK harness plugs into the runtime seam if that relationship is not obvious from code. Purpose: prevent future test-maintainer confusion.
+1. [x] Add `server/src/test/support/mockCopilotSdk.ts` by mirroring the structure and ergonomics of `server/src/test/support/mockLmStudioSdk.ts`. The fake client and fake session model must be able to script `start()`, `stop()`, `ping()`, `listModels()`, `createSession(...)`, `resumeSession(...)`, streamed assistant events, tool events, and deterministic failures without introducing a brand new mocking style. When a named fake SDK scenario is selected, emit the secret-safe acceptance log line `story.0000051.task03.fake_sdk_scenario_selected` so final manual verification can confirm which fake SDK scenario was active.
+2. [x] Define one clear scripting API for the harness so later tests can queue success and failure cases without mutating hidden globals. Document the helper names in comments where a junior developer would otherwise have to reverse-engineer them from call sites.
+3. [x] Wire the harness into the server test bootstrap path created in Task 2 so unit, integration, and Cucumber tests can opt into the fake Copilot runtime without affecting production runtime wiring.
+4. [x] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: instantiate the fake Copilot SDK harness with no scenario overrides and confirm the fake client boots successfully. Purpose: prove the harness itself is executable before downstream tests depend on it.
+5. [x] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: script assistant or tool events and confirm the fake session emits them deterministically in the requested order. Purpose: prove later chat and stream tests can rely on the harness for repeatable event playback.
+6. [x] Add a unit test in `server/src/test/unit/mockCopilotSdk.test.ts`. Test type: unit. Description: script a startup or session error and confirm the harness surfaces the error exactly once. Purpose: prove failure-path scenarios are deterministic and inspectable.
+7. [x] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new fake Copilot SDK harness file and its proof test after both files are created. Purpose: keep the repository file map accurate after adding harness files.
+8. [x] Update `design.md` only if the harness entry point needs one sentence of explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a brief note about how the fake Copilot SDK harness plugs into the runtime seam if that relationship is not obvious from code. Purpose: prevent future test-maintainer confusion.
 9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 3, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
-11. [ ] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
+10. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
+11. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Added `server/src/test/support/mockCopilotSdk.ts` as the scenario-driven fake Copilot runtime, including deterministic `start`, `stop`, `ping`, `listModels`, `createSession`, `resumeSession`, scripted session events, and the Task 3 acceptance marker `story.0000051.task03.fake_sdk_scenario_selected`.
+- Added `createMockCopilotSdkHarness(...)` as the explicit scripting API so each test gets an isolated scenario instance instead of relying on hidden global runtime state.
+- Wired the fake into the Task 2 seam by exposing `createLifecycle()` and `createClientFactory()` helpers that feed the existing injectable `CopilotLifecycle` without changing production runtime wiring.
+- Added unit coverage in `server/src/test/unit/mockCopilotSdk.test.ts` for harness boot success, deterministic assistant and tool event ordering, and explicit startup/session failures.
+- Updated `design.md` and `projectStructure.md` to document the fake harness entry point and the exact files added by Task 3.
+- `npm run lint` passed cleanly on the first run after the harness landed, so the new fake support files did not need any lint-specific cleanup.
+- `npm run format:check` required the mandated `npm run format` pass; Prettier normalized the two new harness files and the follow-up check then passed cleanly.
+- `npm run build:summary:server` initially failed on Copilot SDK type mismatches in the new harness; narrowing the fake session event discriminants and driving the proof test through `session.sendAndWait(...)` fixed the build, and the wrapper then passed cleanly.
+- `npm run test:summary:server:unit` passed cleanly with `1388/1388`, confirming the new fake SDK harness stays compatible with the full server unit and integration suite.
 
 ---
 

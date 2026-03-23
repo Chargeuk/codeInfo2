@@ -12,6 +12,7 @@ import {
   validateAndLogCodexSdkUpgrade,
 } from './config/codexSdkUpgrade.js';
 import { buildCopilotClientOptions } from './config/copilotConfig.js';
+import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
@@ -75,6 +76,7 @@ const codeinfoEnvResolutions = resolveCodeinfoEnvResolutions({
 const copilotRuntimeConfig = buildCopilotClientOptions({
   env: process.env,
 });
+const fakeCopilotRuntimeSeam = createFakeCopilotRuntimeSeamFromEnv(process.env);
 ensureCodexConfigSeeded();
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
 const codexSdkGuardAccepted = validateAndLogCodexSdkUpgrade(
@@ -282,11 +284,49 @@ app.get('/info', (_req, res) => {
 });
 
 app.use('/logs', createLogsRouter());
-app.use('/chat', createChatRouter({ clientFactory }));
-app.use('/chat', createChatProvidersRouter({ clientFactory }));
-app.use('/chat', createChatModelsRouter({ clientFactory }));
+app.use(
+  '/chat',
+  createChatRouter({
+    clientFactory,
+    ...(fakeCopilotRuntimeSeam
+      ? {
+          copilotLifecycleFactory:
+            fakeCopilotRuntimeSeam.createCopilotLifecycle,
+        }
+      : {}),
+  }),
+);
+app.use(
+  '/chat',
+  createChatProvidersRouter({
+    clientFactory,
+    ...(fakeCopilotRuntimeSeam
+      ? {
+          copilotRuntimeFactory:
+            fakeCopilotRuntimeSeam.createCopilotReadinessRuntime,
+        }
+      : {}),
+  }),
+);
+app.use(
+  '/chat',
+  createChatModelsRouter({
+    clientFactory,
+    ...(fakeCopilotRuntimeSeam
+      ? {
+          copilotRuntimeFactory:
+            fakeCopilotRuntimeSeam.createCopilotReadinessRuntime,
+        }
+      : {}),
+  }),
+);
 app.use('/codex', createCodexDeviceAuthRouter());
-app.use('/copilot', createCopilotDeviceAuthRouter());
+app.use(
+  '/copilot',
+  createCopilotDeviceAuthRouter(
+    fakeCopilotRuntimeSeam?.createDeviceAuthRouterDeps(),
+  ),
+);
 app.use('/', createAgentsRouter());
 app.use('/', createAgentsRunRouter());
 app.use('/agents', createAgentsCommandsRouter());

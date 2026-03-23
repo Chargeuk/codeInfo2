@@ -15,6 +15,7 @@ Review follow-up: Story 51 was reopened once for a contract-level repair after r
 - Tasks 16 through 18 finished higher-level proof with one shared fake Copilot scenario catalog across integration, Cucumber, and Playwright, then extended server-side BDD and browser coverage to prove the Copilot story end to end.
 - Task 19 repairs the final manual-proof contract so the real main stack stays responsible for unavailable/auth-required checks while the fake Copilot happy-path manual proof stays on the already-supported e2e stack.
 - Task 20 completes final traceability, scope audit, documentation, wrapper-backed validation, repaired manual browser verification, and closeout.
+- Task 22 reopens the story only to repair the missing compose-e2e runtime seam: `npm run compose:e2e:up` now has a repository-owned path to honor `CODEINFO_FAKE_COPILOT_SCENARIO`, emit `story.0000051.task16.fake_scenario_booted` from the live runtime, and expose the fake Copilot contract on `6001` without browser-side mock reinjection.
 
 ## Traceability And Scope Audit
 

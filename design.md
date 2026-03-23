@@ -54,10 +54,10 @@ flowchart LR
 
 ## Story 0000051 Task 16 fake Copilot boot-path baseline
 
-- `server/src/test/support/copilotScenarioCatalog.ts` is now the single named-scenario catalog for the higher-level Copilot proof path. It defines the reusable scenario ids and keeps readiness, auth, model, and stream behavior aligned across integration and later browser proof without introducing a second fixture vocabulary.
+- `server/src/copilot/fake/copilotScenarioCatalog.ts` is now the single named-scenario catalog for the higher-level Copilot proof path. It defines the reusable scenario ids and keeps readiness, auth, model, and stream behavior aligned across integration, the compose-e2e runtime seam, and later browser proof without introducing a second fixture vocabulary.
 - `server/src/test/support/copilotBootPath.ts` is the new higher-level server boot helper. It composes the existing fake Copilot SDK harness and fake Copilot device-auth harness into a real Express + websocket test stack that exposes `/chat`, `/chat/providers`, `/chat/models`, and `/copilot/device-auth` together.
 - The wrapper-backed e2e path now carries `E2E_COPILOT_SCENARIO` end to end through `.env.e2e`, `docker-compose.e2e.yml`, and `scripts/test-summary-e2e.mjs`, while `e2e/support/copilotFakeScenario.ts` keeps the Playwright-side mock path on the same named scenario contract.
-- `story.0000051.task16.fake_scenario_booted` is the acceptance marker for this layer. It records only the selected scenario name and the active surface (`integration`, `cucumber`, or `e2e`) so later proof tasks can confirm the right boot path was active without logging prompt or credential material.
+- `story.0000051.task16.fake_scenario_booted` is the acceptance marker for this layer. It records only the selected scenario name and the active surface (`integration`, `cucumber`, `e2e`, or `compose-e2e`) so later proof tasks can confirm the right boot path was active without logging prompt or credential material.
 
 ```mermaid
 flowchart LR

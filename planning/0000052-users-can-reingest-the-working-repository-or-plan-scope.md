@@ -43,7 +43,7 @@ Because `plan_scope` can touch more than one repository, it should behave like a
 
 This story should reuse the existing batch transcript payload shape that already exists for multi-repository re-ingest. `plan_scope` is still a batch re-ingest of multiple repositories, so it should travel through the same general payload contract rather than inventing a second special-purpose batch result. The runtime should extend that existing shape by allowing `targetMode: "plan_scope"` and by populating the same ordered `repositories` array and `summary` counts already used by the current batch path.
 
-Best-effort execution is important for `plan_scope`. If the handoff file cannot be read well enough to produce additional repository scope, the batch should still continue with the working repository and log a warning. If some additional repository entries are invalid or not currently ingested, they should be skipped with warnings while the remaining usable repositories still run. Those skipped-at-resolution repositories should be surfaced through warnings, structured logs, and step metadata rather than being inserted into the attempted-repository batch payload. If a repository begins re-ingest and later reaches a failed terminal outcome, that warning should be recorded but the batch must continue through the rest of the resolved repository list instead of stopping early.
+Best-effort execution is important for `plan_scope`. If the handoff file cannot be read well enough to produce additional repository scope, the batch should still continue with the working repository and log a warning. If some additional repository entries are invalid or not currently ingested, they should be skipped with warnings while the remaining usable repositories still run. Those skipped-at-resolution repositories should be surfaced through warnings, structured logs, and step metadata rather than being inserted into the attempted-repository batch payload. If a repository begins re-ingest and later reaches a failed terminal outcome, that warning should be recorded but the batch must continue through the rest of the resolved repository list instead of stopping early. When that happens, the overall `plan_scope` batch should be reported as completed with warnings rather than as a hard error, because the batch itself still finished its full ordered pass.
 
 ### Acceptance Criteria
 
@@ -72,6 +72,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - If the working repository also appears inside `additional_repositories`, it is treated as redundant and ignored there.
 - Existing re-ingest blocking semantics remain intact for both new targets: the step waits for terminal outcomes before continuing.
 - `target: "plan_scope"` does not abort the batch when one attempted repository reaches a failed terminal re-ingest outcome; it continues through the rest of the resolved repository list and records warnings for failures.
+- When a `plan_scope` batch starts successfully and completes its full ordered pass, the overall tool result is reported as success-with-warnings rather than as a hard error, even if some repositories in the batch failed.
 - `target: "plan_scope"` records one structured batch result payload covering all repositories it attempted, rather than emitting unrelated single-repository transcript items.
 - `target: "plan_scope"` reuses the existing batch transcript payload shape used by multi-repository re-ingest, rather than introducing a second plan-scope-only batch payload.
 - The batch result for `target: "plan_scope"` contains the ordered list of repositories attempted and the terminal outcome for each repository.
@@ -80,6 +81,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - Logs and structured runtime metadata clearly distinguish `sourceId`, `working`, and `plan_scope` target modes.
 - Logs also make it clear when `plan_scope` had to fall back to the working repository only, skip unusable additional repositories, or continue after repository-level failures.
 - Warning text, structured logs, and step metadata make skipped-at-resolution repositories visible even though they are not part of the attempted-repository batch payload.
+- Warning-oriented assistant text and UI status make it clear when `plan_scope` completed with some repository failures, without treating the whole batch as a hard error.
 - Unsupported target values, including the removed `current` literal, fail through the normal invalid-target validation path rather than a special backwards-compatibility branch.
 - MCP `reingest_repository` remains on its explicit `sourceId` contract and does not gain `working` or `plan_scope` semantics in this story.
 - API validation, docs, tests, and planning references are updated so `current` is no longer presented as a supported re-ingest target.
@@ -100,10 +102,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 
 ### Questions
 
-1. When `plan_scope` continues past per-repository failures, should the overall re-ingest tool result still be marked as an error, or should it be treated as success-with-warnings?
-   - Why this is important: the current batch re-ingest path marks the whole tool result as `error` whenever any repository lands in the `failed` summary bucket, which could make a best-effort `plan_scope` run look like a hard failure in the UI even though the batch intentionally continued and completed the rest of its work.
-   - Best Answer: `plan_scope` should be treated as success-with-warnings when the batch starts successfully and completes its ordered repository pass, even if some repositories fail within that pass. Per-repository failures should still be visible in the batch payload summary, assistant-turn wording, and structured logs, but the overall batch should not be marked as a hard error unless the batch cannot start at all. This is the best answer because the story already commits to "do not crash or stop or fail" batch behavior, while the current `summary.failed > 0 => error` rule was designed before that product decision. Local repo evidence shows the current stage decision is centralized in the re-ingest tool-result builder, and external MCP guidance also distinguishes successful tool calls with structured results from true protocol-level failures.
-   - Where this answer came from: `server/src/chat/reingestToolResult.ts`, where `toToolStage(...)` currently flips any batch with `summary.failed > 0` to `error`; `server/src/chat/reingestStepLifecycle.ts`, which already renders user-facing batch summary text from counts; the current story decisions and acceptance criteria requiring best-effort continuation with warnings; repo precedent from `code_info` on keeping warnings in logs/metadata instead of aborting the step; and MCP TypeScript SDK / Model Context Protocol docs showing that recoverable tool execution problems are reported inside normal tool results rather than as protocol-level failures.
+- No Further Questions
 
 ## Decisions
 
@@ -142,6 +141,13 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
    - Where the answer came from: direct user answer in this planning conversation, accepting the previously documented best answer.
    - Why it is the best answer: it preserves the existing batch payload contract, matches the current execution flow that only records attempted repositories, and keeps scope-discovery warnings separate from terminal re-ingest outcomes.
 
+6. Report completed `plan_scope` batches with repository failures as success-with-warnings.
+   - Question being addressed: When `plan_scope` continues past per-repository failures, should the overall re-ingest tool result still be marked as an error, or should it be treated as success-with-warnings?
+   - Why the question matters: this decides whether a best-effort batch that completed its full repository pass looks like a hard failure in the UI and transcript, or like a completed run that needs attention.
+   - What the answer is: treat a `plan_scope` batch as success-with-warnings when the batch starts successfully and completes its full ordered pass, even if some repositories in that batch fail. Keep the failed counts and warning details visible, but do not mark the whole batch as a hard error unless the batch itself cannot start.
+   - Where the answer came from: direct user answer in this planning conversation, agreeing with the previously documented best answer.
+   - Why it is the best answer: it matches the story's best-effort continuation rule, keeps the overall batch status aligned with the fact that the run completed, and still preserves visibility of failed repositories through counts, warning text, and logs.
+
 ## Implementation Ideas
 
 - Replace the current owner-based `current` target in the command and flow schemas with `working` and `plan_scope`, while keeping explicit `sourceId` support.
@@ -157,6 +163,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - Keep `working` as a single-repository execution path and `plan_scope` as a batch orchestration path that records the existing structured batch result shape with `targetMode: "plan_scope"`, while continuing through later repositories when one attempted re-ingest fails.
 - Update direct command execution, dedicated flow re-ingest steps, and flow-command re-ingest items together so all three surfaces share the same target semantics.
 - Let unsupported targets, including removed `current`, fail through the normal invalid-target schema or validation path instead of a dedicated compatibility branch.
+- Update the re-ingest tool-result and lifecycle reporting so completed `plan_scope` batches with failed repositories are surfaced as warning-style completions rather than hard errors, while still preserving failed counts and warning details.
 - Update logs, tool-result payloads, and persisted step metadata so the selected target mode and resolved repository list are obvious during debugging, including when unusable handoff data forces `plan_scope` to fall back to the working repository only, skip specific repositories, or continue after repository-level failures.
 - Add tests for:
   - schema acceptance and rejection of `working`, `plan_scope`, and removed `current`;
@@ -167,4 +174,5 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   - `plan_scope` with multiple repositories and duplicate entries;
   - malformed handoff-file scenarios that prove the step continues with only the working repository;
   - partially invalid repository lists that prove bad entries are skipped while good entries still run, and that skipped-at-resolution repositories are visible through warnings/metadata rather than the attempted batch payload;
-  - multi-repository batches where one repository fails and later repositories still continue.
+  - multi-repository batches where one repository fails and later repositories still continue;
+  - completed `plan_scope` batches with failed repositories that are reported as warning-style completions rather than hard errors.

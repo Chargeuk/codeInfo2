@@ -46,7 +46,7 @@ Story 51 adds GitHub Copilot as a third chat provider across the shared server, 
   - `npm run compose:e2e:up`
   - `npm run compose:e2e:down`
   - `npm run compose:down`
-- Manual Playwright proof for final closeout is captured under `playwright-output-local/0000051-20-*` and is split across the repaired proof surfaces: the main stack for provider ordering plus shared auth dialog state, and the e2e fake-scenario stack for Copilot conversation state, transcript-metadata state when visible, and a nearby Codex regression check.
+- Manual browser proof for final closeout is captured under `playwright-output-local/0000051-20-*` and is split across the repaired proof surfaces: Playwright MCP on the main stack for provider ordering plus shared auth dialog state, and Chrome DevTools MCP on the e2e fake-scenario stack for Copilot conversation state, transcript-metadata state when visible, and a nearby Codex regression check.
 
 ## Highest-Risk Compatibility Changes
 

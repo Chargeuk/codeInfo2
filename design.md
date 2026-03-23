@@ -5316,7 +5316,7 @@ flowchart TD
   - dedicated chat MCP on `CODEINFO_CHAT_MCP_PORT`
   - dedicated agents MCP on `CODEINFO_AGENTS_MCP_PORT`
   - Playwright control on the full URL `CODEINFO_PLAYWRIGHT_MCP_URL`
-- Host-network Compose is validated, but browser navigation and Playwright control remain intentionally split. Chrome DevTools `9222` is a separate CDP/manual-debug surface and not a replacement for Playwright MCP.
+- Host-network Compose is validated, but browser navigation and Playwright control remain intentionally split. Chrome DevTools `9222` remains a separate CDP/manual-debug surface rather than the default replacement for Playwright MCP, but Story 51's final fake-scenario proof explicitly allows it as the accepted browser surface when the checked-in HTTP Playwright MCP bridge is the blocked layer.
 - Final proof is wrapper-first: build/test summaries, compose build, compose up, the checked-in main-stack host-network probe wrapper, saved screenshots in `playwright-output-local/`, and the runtime marker `DEV-0000050:T14:story_validation_completed`.
 
 ```mermaid

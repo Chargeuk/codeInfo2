@@ -470,7 +470,7 @@ Wrapper-first validation flow:
 2. Start the validated main stack with `npm run compose:up`.
 3. Probe the live host-network listeners with `npm run test:summary:host-network:main`.
 4. Perform the real-stack manual Playwright-MCP proof against `http://host.docker.internal:5001` for unavailable/auth-required state and the shared auth dialog.
-5. Start the fake-scenario e2e stack with `npm run compose:e2e:up`, then perform the fake happy-path manual Playwright-MCP proof against `http://host.docker.internal:6001`.
+5. Start the fake-scenario e2e stack with `npm run compose:e2e:up`, then perform the fake happy-path manual Chrome-DevTools-MCP proof against `http://host.docker.internal:6001`. The checked-in e2e env contract already selects the named fake Copilot scenario there, so this final browser step should consume that running stack instead of re-injecting browser-side mocks.
 6. Stop the e2e stack with `npm run compose:e2e:down`, then stop the main stack with `npm run compose:down`.
 
 Evidence locations:

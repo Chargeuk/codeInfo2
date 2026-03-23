@@ -21,6 +21,10 @@ import {
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import {
+  resolveCopilotReadiness,
+  type CopilotReadinessRuntime,
+} from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
@@ -41,11 +45,13 @@ const isChatModel = (model: { type?: string; architecture?: string }) => {
 export function createChatProvidersRouter({
   clientFactory,
   codexCapabilityResolver = resolveCodexCapabilities,
+  copilotRuntimeFactory,
 }: {
   clientFactory: ClientFactory;
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
   }) => Promise<CodexCapabilityResolution>;
+  copilotRuntimeFactory?: () => CopilotReadinessRuntime;
 }) {
   const router = Router();
 
@@ -77,6 +83,13 @@ export function createChatProvidersRouter({
       }
     }
 
+    const copilot = await resolveCopilotReadiness({
+      createRuntime: copilotRuntimeFactory,
+      env: process.env,
+      toolsAvailable: mcp.available,
+      toolsReason: mcp.reason,
+    });
+
     const requestedDefaults = resolveChatDefaults({});
     const codexRequestedDefaults =
       requestedDefaults.provider === 'codex'
@@ -97,9 +110,9 @@ export function createChatProvidersRouter({
         reason: codex.reason ?? 'codex unavailable',
       },
       copilot: {
-        available: false,
-        models: [],
-        reason: 'copilot unavailable',
+        available: copilot.available,
+        models: copilot.models,
+        reason: copilot.reason,
       },
       lmstudio: {
         available: lmstudioModels.length > 0,
@@ -112,9 +125,9 @@ export function createChatProvidersRouter({
       copilot: {
         id: 'copilot',
         label: 'GitHub Copilot',
-        available: false,
-        toolsAvailable: false,
-        reason: 'copilot unavailable',
+        available: copilot.available,
+        toolsAvailable: copilot.toolsAvailable,
+        reason: copilot.reason,
       },
       lmstudio: {
         id: 'lmstudio',
@@ -165,8 +178,12 @@ export function createChatProvidersRouter({
         available: codex.available,
         toolsAvailable: codex.available && mcp.available,
         codexReason: codex.reason,
-        copilotAvailable: false,
-        copilotReason: 'copilot unavailable',
+        copilotAvailable: copilot.available,
+        copilotToolsAvailable: copilot.toolsAvailable,
+        copilotReason: copilot.reason,
+        copilotBlockingStage: copilot.blockingStage,
+        copilotAuthSource: copilot.authSource,
+        copilotModelCount: copilot.models.length,
         mcpAvailable: mcp.available,
         mcpReason: mcp.reason,
         lmstudioAvailable: lmstudioModels.length > 0,

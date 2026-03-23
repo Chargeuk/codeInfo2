@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
@@ -12,9 +12,15 @@ import request from 'supertest';
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
+import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+import { TASK5_LOG_MARKER } from '../../providers/copilotReadiness.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
+import {
+  createMockCopilotSdkHarness,
+  type MockCopilotSdkHarness,
+} from '../support/mockCopilotSdk.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
 
@@ -70,6 +76,7 @@ async function startServer(params: {
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
   }) => Promise<CodexCapabilityResolution>;
+  copilotHarness?: MockCopilotSdkHarness;
 }) {
   const app = express();
   app.use(express.json());
@@ -87,6 +94,9 @@ async function startServer(params: {
     createChatProvidersRouter({
       clientFactory: params.clientFactory,
       codexCapabilityResolver: params.codexCapabilityResolver,
+      copilotRuntimeFactory: params.copilotHarness
+        ? () => params.copilotHarness!.createLifecycle()
+        : undefined,
     }),
   );
 
@@ -172,7 +182,10 @@ test('providers route orders lmstudio first when codex default is unavailable an
     assert.equal(res.body.providers[1].available, false);
     assert.equal(res.body.providers[1].reason, 'CODE_INFO_LLM_UNAVAILABLE');
     assert.equal(res.body.providers[2].available, false);
-    assert.equal(res.body.providers[2].reason, 'copilot unavailable');
+    assert.equal(
+      res.body.providers[2].reason,
+      'copilot authentication required',
+    );
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
@@ -209,8 +222,274 @@ test('providers route keeps copilot visible in the shared provider order when un
     );
     assert.equal(res.body.providers[1].available, false);
     assert.equal(res.body.providers[1].toolsAvailable, false);
-    assert.equal(res.body.providers[1].reason, 'copilot unavailable');
+    assert.equal(
+      res.body.providers[1].reason,
+      'copilot authentication required',
+    );
   } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route surfaces unauthenticated Copilot with a stable blocking reason', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'copilot-gpt-5');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'unauthenticated',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'gh-cli',
+      statusMessage: 'login required',
+    },
+    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.providers[0].id, 'codex');
+    assert.equal(res.body.providers[1].id, 'copilot');
+    assert.equal(res.body.providers[1].available, false);
+    assert.equal(res.body.providers[1].toolsAvailable, false);
+    assert.equal(
+      res.body.providers[1].reason,
+      'copilot authentication required',
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route treats Copilot env-token authentication as ready without device auth', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'copilot-gpt-5');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('COPILOT_GITHUB_TOKEN', 'ghu_test_token_value');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'env-token-auth',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'gh-cli',
+      statusMessage: 'login required',
+    },
+    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.providers[0].id, 'copilot');
+    assert.equal(res.body.providers[0].available, true);
+    assert.equal(res.body.providers[0].toolsAvailable, true);
+    assert.equal(res.body.providers[0].reason, undefined);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route treats Copilot gh fallback authentication as ready', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'copilot-gpt-5');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'gh-cli-auth',
+    authStatus: {
+      isAuthenticated: true,
+      authType: 'gh-cli',
+      statusMessage: 'authenticated via gh',
+    },
+    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.providers[0].id, 'copilot');
+    assert.equal(res.body.providers[0].available, true);
+    assert.equal(res.body.providers[0].toolsAvailable, true);
+    assert.equal(res.body.providers[0].reason, undefined);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route surfaces the first startup-stage Copilot failure before later readiness checks', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'copilot-gpt-5');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('COPILOT_GITHUB_TOKEN', 'ghu_secret_value_that_must_not_log');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'startup-failure',
+    startError: new Error('ghu_secret_value_that_must_not_log startup failed'),
+    authStatus: {
+      isAuthenticated: true,
+      authType: 'gh-cli',
+    },
+    models: [],
+  });
+  const infoEntries: Array<Record<string, unknown>> = [];
+  const infoMock = mock.method(
+    baseLogger,
+    'info',
+    (entry: unknown, message: unknown) => {
+      if (message === TASK5_LOG_MARKER) {
+        infoEntries.push((entry ?? {}) as Record<string, unknown>);
+      }
+    },
+  );
+  const server = await startServer({
+    mcpAvailable: false,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.providers[0].id, 'codex');
+    assert.equal(res.body.providers[1].id, 'copilot');
+    assert.equal(res.body.providers[1].available, false);
+    assert.equal(
+      res.body.providers[1].reason,
+      'copilot connectivity unavailable',
+    );
+
+    const readinessLog = infoEntries.at(-1);
+    assert.ok(readinessLog);
+    assert.equal(readinessLog?.blockingStage, 'connectivity');
+    assert.equal(
+      readinessLog?.surfacedReason,
+      'copilot connectivity unavailable',
+    );
+    assert.equal(
+      JSON.stringify(readinessLog).includes(
+        'ghu_secret_value_that_must_not_log',
+      ),
+      false,
+    );
+  } finally {
+    infoMock.mock.restore();
+    await stopServer(server);
+  }
+});
+
+test('providers route logs model-stage precedence ahead of tool-surface failures without leaking token-like data', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'copilot-gpt-5');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('COPILOT_GITHUB_TOKEN', 'ghu_secret_value_that_must_not_log');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'model-stage-blocked',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'gh-cli',
+      statusMessage: 'login required',
+    },
+    models: [],
+  });
+  const infoEntries: Array<Record<string, unknown>> = [];
+  const infoMock = mock.method(
+    baseLogger,
+    'info',
+    (entry: unknown, message: unknown) => {
+      if (message === TASK5_LOG_MARKER) {
+        infoEntries.push((entry ?? {}) as Record<string, unknown>);
+      }
+    },
+  );
+  const server = await startServer({
+    mcpAvailable: false,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.providers[0].id, 'codex');
+    assert.equal(res.body.providers[1].id, 'copilot');
+    assert.equal(res.body.providers[1].available, false);
+    assert.equal(res.body.providers[1].toolsAvailable, false);
+    assert.equal(res.body.providers[1].reason, 'copilot models unavailable');
+
+    const readinessLog = infoEntries.at(-1);
+    assert.ok(readinessLog);
+    assert.equal(readinessLog?.blockingStage, 'models');
+    assert.equal(readinessLog?.surfacedReason, 'copilot models unavailable');
+    assert.equal(JSON.stringify(readinessLog).includes('ghu_secret'), false);
+  } finally {
+    infoMock.mock.restore();
     await stopServer(server);
   }
 });
@@ -307,7 +586,10 @@ test('providers route keeps codex first when lmstudio has no selectable model', 
     );
     assert.equal(res.body.providers[0].available, true);
     assert.equal(res.body.providers[1].available, false);
-    assert.equal(res.body.providers[1].reason, 'copilot unavailable');
+    assert.equal(
+      res.body.providers[1].reason,
+      'copilot authentication required',
+    );
     assert.equal(res.body.providers[2].available, false);
     assert.equal(res.body.providers[2].reason, 'lmstudio unavailable');
     assert.ok(res.body.codexDefaults);

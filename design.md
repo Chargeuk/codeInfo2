@@ -33,6 +33,12 @@ flowchart LR
 - `server/src/test/support/mockCopilotDeviceAuth.ts` is the reusable fake auth harness for Story 51. It mirrors the existing Codex two-phase auth shape by returning verification details early and then exposing deterministic completion-state playback separately.
 - The harness entry point is `createMockCopilotDeviceAuthHarness(...)`, which keeps auth scenarios instance-scoped and publishes `createRouteBindings()` so later Copilot auth route tests can inject fake `startDeviceAuth` and `readDeviceAuthState` callbacks without changing production router wiring.
 
+## Story 0000051 Task 5 Copilot readiness precedence baseline
+
+- `server/src/providers/copilotReadiness.ts` is the new shared readiness resolver for Story 51. It exists so `/chat/providers` and later Copilot model/auth surfaces can reuse one blocking-stage contract instead of making ad hoc Copilot availability decisions.
+- The precedence rule is explicit and ordered: connectivity first, authentication second, model-list success third, and tool-surface availability last. The first blocking stage owns the surfaced `reason`, and the resolver logs only secret-safe stage, auth-source, and model-count context through `story.0000051.task05.readiness_evaluated`.
+- Existing credential sources are treated as real readiness inputs before an in-app device flow exists. In Task 5 that means `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` count as authenticated readiness, while SDK-reported `gh-cli` auth also counts as authenticated without forcing device auth.
+
 ## Story 0000051 Task 3 fake Copilot SDK harness baseline
 
 - `server/src/test/support/mockCopilotSdk.ts` is the scenario-driven fake runtime that plugs into the Task 2 lifecycle seam instead of creating a separate testing-only provider abstraction.

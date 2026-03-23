@@ -1,5 +1,33 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 5 structural change ledger
+
+Added files:
+
+- `server/src/providers/copilotReadiness.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/routes/chatProviders.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+
+Story notes:
+
+- Task 5 introduces one shared Copilot readiness resolver so provider listing, later auth refresh, and later model discovery can reuse the same blocking-stage precedence instead of diverging into route-specific checks.
+- The resolver keeps the ordered provider contract intact while evaluating Copilot in the planned order of connectivity, authentication, model-list success, and tool-surface availability, with secret-safe readiness logging at the first blocking stage.
+- The route proof expands the existing `chatProviders` unit suite to cover unauthenticated, env-token, `gh` fallback, startup-failure, and model-versus-tools precedence behavior through the actual `/chat/providers` payload.
+
 ## Story 0000051 Task 4 structural change ledger
 
 Added files:

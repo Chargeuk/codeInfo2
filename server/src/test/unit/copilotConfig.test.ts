@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   buildCopilotClientOptions,
   ensureCopilotAuthHomeCompatibility,
+  ensureCopilotPlaintextTokenStorage,
   getCopilotConfigDirForHome,
   getCopilotStatePathForHome,
   inspectCopilotAuthLocations,
@@ -59,6 +60,31 @@ test('creates a ~/.copilot compatibility symlink when HOME differs from the conf
     assert.equal(compatibility.action, 'created_symlink');
     assert.equal(diagnostics.compatStatus, 'linked');
     assert.equal(diagnostics.compatPath, path.join(env.HOME, '.copilot'));
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('enables plaintext token storage without overwriting existing config keys', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-config-'),
+  );
+
+  try {
+    const configPath = path.join(tempRoot, 'config.json');
+    await fs.promises.writeFile(
+      configPath,
+      JSON.stringify({ firstLaunchAt: '2026-03-23T00:00:00.000Z' }, null, 2),
+      'utf8',
+    );
+
+    const result = await ensureCopilotPlaintextTokenStorage(tempRoot);
+    const parsed = JSON.parse(await fs.promises.readFile(configPath, 'utf8'));
+
+    assert.equal(result.changed, true);
+    assert.equal(result.configPath, configPath);
+    assert.equal(parsed.firstLaunchAt, '2026-03-23T00:00:00.000Z');
+    assert.equal(parsed.store_token_plaintext, true);
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }

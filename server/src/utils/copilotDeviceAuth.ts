@@ -242,7 +242,7 @@ export async function runCopilotDeviceAuth(params?: {
   );
 
   return new Promise((resolve) => {
-    const child = spawnFn(command, ['login'], {
+    const child = spawnFn(command, ['login', '--config-dir', resolved.copilotHome], {
       env: resolved.clientOptions.env,
     });
     let stdout = '';
@@ -258,6 +258,22 @@ export async function runCopilotDeviceAuth(params?: {
       if (completionResolved) return;
       completionResolved = true;
       const result = resolveCopilotDeviceAuthResult(summary);
+      if (result.state !== 'completed') {
+        baseLogger.warn(
+          {
+            exitCode: summary.exitCode,
+            state: result.state,
+            reason: 'reason' in result ? result.reason : undefined,
+            stderrSample:
+              truncateText(sanitizeDeviceAuthOutput(summary.stderr), 300) ||
+              undefined,
+            stdoutSample:
+              truncateText(sanitizeDeviceAuthOutput(summary.stdout), 300) ||
+              undefined,
+          },
+          'DEV-0000051:T9:copilot_device_auth_cli_completion_failed',
+        );
+      }
       resolveCompletion({ exitCode: summary.exitCode, result });
     };
 

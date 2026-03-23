@@ -16,6 +16,7 @@ import {
 import {
   ensureCopilotAuthHomeCompatibility,
   ensureCopilotAuthFileStore,
+  ensureCopilotPlaintextTokenStorage,
   getCopilotConfigDirForHome,
   getCopilotHome,
   inspectCopilotAuthLocations,
@@ -53,6 +54,7 @@ type Deps = {
   getCopilotHome: typeof getCopilotHome;
   getCopilotConfigDirForHome: typeof getCopilotConfigDirForHome;
   ensureCopilotAuthFileStore: typeof ensureCopilotAuthFileStore;
+  ensureCopilotPlaintextTokenStorage?: typeof ensureCopilotPlaintextTokenStorage;
   ensureCopilotAuthHomeCompatibility?: typeof ensureCopilotAuthHomeCompatibility;
   inspectCopilotAuthLocations?: typeof inspectCopilotAuthLocations;
   runCopilotDeviceAuth: typeof runCopilotDeviceAuth;
@@ -238,6 +240,7 @@ export function createCopilotDeviceAuthRouter(
     getCopilotHome,
     getCopilotConfigDirForHome,
     ensureCopilotAuthFileStore,
+    ensureCopilotPlaintextTokenStorage,
     ensureCopilotAuthHomeCompatibility,
     inspectCopilotAuthLocations,
     runCopilotDeviceAuth,
@@ -298,6 +301,16 @@ export function createCopilotDeviceAuthRouter(
       action: compatibility.action,
       error: compatibility.error,
       diagnostics: compatibility.diagnostics,
+    });
+
+    const plaintextStorage = await (
+      deps.ensureCopilotPlaintextTokenStorage ?? ensureCopilotPlaintextTokenStorage
+    )(targetCopilotHome);
+
+    logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_storage_mode', {
+      changed: plaintextStorage.changed,
+      configPath: plaintextStorage.configPath,
+      storageMode: 'plaintext',
     });
 
     try {

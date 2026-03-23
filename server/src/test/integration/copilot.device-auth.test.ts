@@ -120,6 +120,10 @@ function depsFromHarness(
       changed: false,
       configDir,
     }),
+    ensureCopilotPlaintextTokenStorage: async () => ({
+      changed: false,
+      configPath: '/tmp/copilot-home/config.json',
+    }),
     ensureCopilotAuthHomeCompatibility: async () => ({
       action: 'none',
       diagnostics: {

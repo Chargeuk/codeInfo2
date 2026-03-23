@@ -59,6 +59,10 @@ function withDeps(
       changed: false,
       configDir,
     }),
+    ensureCopilotPlaintextTokenStorage: async () => ({
+      changed: false,
+      configPath: '/tmp/copilot-home/config.json',
+    }),
     ensureCopilotAuthHomeCompatibility: async () => ({
       action: 'none',
       diagnostics: {
@@ -98,9 +102,9 @@ function withDeps(
   };
 }
 
-function createSpawnStub(commandCalls: string[]) {
-  return mock.fn((command: string) => {
-    commandCalls.push(command);
+function createSpawnStub(commandCalls: Array<{ command: string; args: string[] }>) {
+  return mock.fn((command: string, args?: string[]) => {
+    commandCalls.push({ command, args: args ?? [] });
     const child = new EventEmitter() as EventEmitter & {
       stdout: PassThrough;
       stderr: PassThrough;
@@ -279,7 +283,7 @@ describe('POST /copilot/device-auth unit behavior', () => {
 
 describe('runCopilotDeviceAuth', () => {
   test('uses the resolved CODEINFO_COPILOT_CLI_PATH when no explicit cliPath argument is provided', async () => {
-    const commandCalls: string[] = [];
+    const commandCalls: Array<{ command: string; args: string[] }> = [];
     const spawnFn = createSpawnStub(commandCalls);
 
     const result = await runCopilotDeviceAuth({
@@ -291,6 +295,11 @@ describe('runCopilotDeviceAuth', () => {
     });
 
     assert.equal(result.state, 'verification_ready');
-    assert.deepEqual(commandCalls, ['/opt/copilot/bin/copilot']);
+    assert.deepEqual(commandCalls, [
+      {
+        command: '/opt/copilot/bin/copilot',
+        args: ['login', '--config-dir', '/tmp/copilot-home'],
+      },
+    ]);
   });
 });

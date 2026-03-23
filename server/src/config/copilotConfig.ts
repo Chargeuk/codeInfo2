@@ -138,6 +138,54 @@ export async function ensureCopilotAuthFileStore(configDir: string): Promise<{
   }
 }
 
+export async function ensureCopilotPlaintextTokenStorage(
+  copilotHome: string,
+): Promise<{
+  changed: boolean;
+  configPath: string;
+}> {
+  const resolvedHome = path.resolve(copilotHome);
+  const configPath = path.join(resolvedHome, 'config.json');
+
+  await fs.promises.mkdir(resolvedHome, { recursive: true });
+
+  let currentConfig: Record<string, unknown> = {};
+  try {
+    const raw = await fs.promises.readFile(configPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      currentConfig = parsed as Record<string, unknown>;
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  if (currentConfig.store_token_plaintext === true) {
+    return {
+      changed: false,
+      configPath,
+    };
+  }
+
+  const nextConfig = {
+    ...currentConfig,
+    store_token_plaintext: true,
+  };
+
+  await fs.promises.writeFile(
+    configPath,
+    `${JSON.stringify(nextConfig, null, 2)}\n`,
+    'utf8',
+  );
+
+  return {
+    changed: true,
+    configPath,
+  };
+}
+
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
     await fs.promises.access(targetPath);

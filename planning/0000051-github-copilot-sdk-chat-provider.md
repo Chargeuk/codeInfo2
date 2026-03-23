@@ -1030,7 +1030,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits: `98de20b6`
 
 #### Overview
 
@@ -1065,7 +1065,7 @@ Implementation starter pattern for every subtask in this task: start from the cu
 13. [x] Update `design.md` if it currently describes only the Codex-specific auth shape or omits the shared provider-auth flow. Document name: `design.md`. Location: repository root. Description: describe the shared provider-auth state machine and add Mermaid auth-flow diagrams if they help show the two-phase contract. Purpose: keep architecture and auth-flow documentation aligned with the generalized contract.
 14. [x] Update `README.md` if it currently describes only the Codex-specific auth shape or wording. Document name: `README.md`. Location: repository root. Description: correct any top-level auth wording that should now describe the shared provider-auth behavior. Purpose: keep user-facing documentation truthful.
 15. [x] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this contract task after those changes land. Purpose: keep the repository file map accurate.
-16. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
+16. [x] Update this plan file after implementation by marking the completed checkboxes for Task 8, recording implementation notes, and listing the task commit hashes once they exist.
 17. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 18. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
@@ -1093,6 +1093,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run build:summary:client` initially failed because `client/src/api/codex.ts` was still exporting the broader shared route union that included invalid-request payloads; narrowing the client helper back to the success-state union fixed the dialog typecheck and the rerun passed cleanly.
 - `npm run test:summary:server:unit` initially found Codex auth regression drift in the new state-machine expectations, so I added the cached completion-pending and completed assertions, stripped `completion` from the route payload, and reran; the full server unit suite then passed with `1419/1419`.
 - `npm run test:summary:client` passed cleanly with `632/632` after the dialog tests were updated to the new verification URL plus one-time-code rendering and the stricter success-log payload.
+- Recorded implementation commit `98de20b6` after the full Task 8 wrapper proof passed, and this follow-up plan update commit exists only to lock that hash into the task ledger for downstream traceability.
 
 ---
 

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import type { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { describe, mock, test } from 'node:test';
+import { PassThrough } from 'node:stream';
 
 import express from 'express';
 import supertest from 'supertest';
@@ -11,6 +14,7 @@ import {
   type CopilotDeviceAuthCompletion,
   type CopilotDeviceAuthResult,
   type CopilotDeviceAuthResultWithCompletion,
+  runCopilotDeviceAuth,
 } from '../../utils/copilotDeviceAuth.js';
 
 function buildApp(deps?: Parameters<typeof createCopilotDeviceAuthRouter>[0]) {
@@ -69,6 +73,28 @@ function withDeps(
     env: {},
     ...overrides,
   };
+}
+
+function createSpawnStub(commandCalls: string[]) {
+  return mock.fn((command: string) => {
+    commandCalls.push(command);
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+
+    setImmediate(() => {
+      child.stdout.write(
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code ABCD-EFGH',
+      );
+      child.stdout.end();
+      child.emit('close', 0);
+    });
+
+    return child;
+  });
 }
 
 describe('POST /copilot/device-auth unit behavior', () => {
@@ -169,5 +195,56 @@ describe('POST /copilot/device-auth unit behavior', () => {
       state: 'unavailable_before_start',
       reason: 'copilot config persistence unavailable',
     });
+  });
+
+  test('CODEINFO_COPILOT_CLI_PATH keeps the route available when PATH lookup is unavailable', async () => {
+    const runCopilotDeviceAuth = mock.fn(async () =>
+      buildDeviceAuthResult(verificationReadyResult()),
+    );
+
+    const res = await supertest(
+      buildApp(
+        withDeps({
+          resolveCopilotCli: (env) => ({
+            available: true,
+            cliPath: env?.CODEINFO_COPILOT_CLI_PATH,
+          }),
+          runCopilotDeviceAuth,
+          env: {
+            CODEINFO_COPILOT_CLI_PATH: '/opt/copilot/bin/copilot',
+          },
+        }),
+      ),
+    )
+      .post('/copilot/device-auth')
+      .send({});
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.state, 'verification_ready');
+    assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
+    const firstCallArgs = runCopilotDeviceAuth.mock.calls[0]
+      ?.arguments as unknown[];
+    assert.equal(
+      (firstCallArgs[0] as { cliPath?: string } | undefined)?.cliPath,
+      '/opt/copilot/bin/copilot',
+    );
+  });
+});
+
+describe('runCopilotDeviceAuth', () => {
+  test('uses the resolved CODEINFO_COPILOT_CLI_PATH when no explicit cliPath argument is provided', async () => {
+    const commandCalls: string[] = [];
+    const spawnFn = createSpawnStub(commandCalls);
+
+    const result = await runCopilotDeviceAuth({
+      env: {
+        CODEINFO_COPILOT_HOME: '/tmp/copilot-home',
+        CODEINFO_COPILOT_CLI_PATH: '/opt/copilot/bin/copilot',
+      },
+      spawnFn: spawnFn as unknown as typeof spawn,
+    });
+
+    assert.equal(result.state, 'verification_ready');
+    assert.deepEqual(commandCalls, ['/opt/copilot/bin/copilot']);
   });
 });

@@ -1922,7 +1922,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 21. Fix Copilot device-auth CLI-path override handling
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: `**to_do**`
 
 #### Overview
@@ -1938,23 +1938,30 @@ Repair the server-side Copilot device-auth path so it honors the documented `COD
 
 #### Subtasks
 
-1. [ ] Update the Copilot device-auth availability path in `server/src/routes/copilotDeviceAuth.ts`. Test type: unit plus integration proof through the route. Description: replace the PATH-only `command -v copilot` gate with logic that honors the same resolved CLI-path contract used by the rest of the Copilot runtime. Purpose: stop `/copilot/device-auth` from rejecting a valid deployment that provides only `CODEINFO_COPILOT_CLI_PATH`.
-2. [ ] Update the Copilot device-auth launcher in `server/src/utils/copilotDeviceAuth.ts`. Test type: unit. Description: ensure the spawned login command uses the shared resolved CLI path from env or explicit override instead of hard-coding `copilot` whenever `params?.cliPath` is absent. Purpose: keep availability checks and runtime execution on one deterministic CLI-resolution contract.
-3. [ ] Extend direct proof in `server/src/test/unit/copilotDeviceAuth.test.ts` and any necessary nearby route or integration tests. Test type: unit and integration. Description: add the exact reviewed missing-proof case where normal `PATH` lookup is unavailable but `CODEINFO_COPILOT_CLI_PATH` is present and valid, and prove the route no longer returns `unavailable_before_start` for that configuration. Purpose: close the review gap with direct automated proof instead of relying only on runtime-config tests.
-4. [ ] Review `README.md` and `design.md` after the code fix. Document name: `README.md` and `design.md`. Location: repository root. Description: update wording only if the repaired implementation requires a more precise statement about how the route now honors the explicit Copilot CLI path. Purpose: keep the existing story contract truthful without broadening scope.
-5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 21, recording implementation notes, and listing the task commit hashes once they exist.
+1. [x] Update the Copilot device-auth availability path in `server/src/routes/copilotDeviceAuth.ts`. Test type: unit plus integration proof through the route. Description: replace the PATH-only `command -v copilot` gate with logic that honors the same resolved CLI-path contract used by the rest of the Copilot runtime. Purpose: stop `/copilot/device-auth` from rejecting a valid deployment that provides only `CODEINFO_COPILOT_CLI_PATH`.
+2. [x] Update the Copilot device-auth launcher in `server/src/utils/copilotDeviceAuth.ts`. Test type: unit. Description: ensure the spawned login command uses the shared resolved CLI path from env or explicit override instead of hard-coding `copilot` whenever `params?.cliPath` is absent. Purpose: keep availability checks and runtime execution on one deterministic CLI-resolution contract.
+3. [x] Extend direct proof in `server/src/test/unit/copilotDeviceAuth.test.ts` and any necessary nearby route or integration tests. Test type: unit and integration. Description: add the exact reviewed missing-proof case where normal `PATH` lookup is unavailable but `CODEINFO_COPILOT_CLI_PATH` is present and valid, and prove the route no longer returns `unavailable_before_start` for that configuration. Purpose: close the review gap with direct automated proof instead of relying only on runtime-config tests.
+4. [x] Review `README.md` and `design.md` after the code fix. Document name: `README.md` and `design.md`. Location: repository root. Description: update wording only if the repaired implementation requires a more precise statement about how the route now honors the explicit Copilot CLI path. Purpose: keep the existing story contract truthful without broadening scope.
+5. [x] Update this plan file after implementation by marking the completed checkboxes for Task 21, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt raw commands or targeted non-wrapper test runs unless wrapper maintenance or diagnosis requires them.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose with targeted wrapper runs only as needed, and then rerun the full wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, and then rerun the full wrapper.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose with targeted wrapper runs only as needed, and then rerun the full wrapper.
+3. [x] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, and then rerun the full wrapper.
 
 #### Implementation notes
 
-- `**to_do**`
+- Replaced the route-local PATH-only `command -v copilot` gate in `server/src/routes/copilotDeviceAuth.ts` with a resolver that first honors `CODEINFO_COPILOT_CLI_PATH`, validates that configured binary path, and then falls back to `PATH` lookup only when no override is present.
+- Updated `server/src/utils/copilotDeviceAuth.ts` so the spawned login command now uses the shared resolved CLI path from `buildCopilotClientOptions(...)` instead of ignoring the env-backed override unless a direct `cliPath` argument was passed manually.
+- Added direct proof in `server/src/test/unit/copilotDeviceAuth.test.ts` and `server/src/test/integration/copilot.device-auth.test.ts` for the reviewed `PATH`-missing plus `CODEINFO_COPILOT_CLI_PATH`-present case, including a unit check that the launcher actually spawns the resolved override path.
+- Reviewed `README.md` and `design.md` against the repaired behavior and did not need wording changes because both docs already describe the intended `CODEINFO_COPILOT_CLI_PATH` contract accurately; this task brings the route back into alignment with that existing documentation.
+- Testing step 1 complete: `npm run build:summary:server` passed with `warning_count: 0` after one quick test-typing cleanup in the new proof assertions, so the runtime fix and the new override-path coverage now compile cleanly together.
+- Testing step 2 complete: `npm run test:summary:server:unit` passed cleanly with `tests run: 1445`, `passed: 1445`, and `failed: 0`, so the reviewed CLI-path repair holds against the full server unit and integration baseline rather than only the focused route tests.
+- Testing step 3 complete: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `passed: 75`, and `failed: 0`, which confirms the focused device-auth repair did not regress the higher-level server feature coverage that Story 51 already established.
+- Task 21 closeout complete: the reviewed contract gap is now closed without broadening story scope, and the only remaining story work is Task 22’s full revalidation pass after this fix.
 
 ---
 

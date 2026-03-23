@@ -210,6 +210,47 @@ describe('POST /copilot/device-auth integration behavior', () => {
     }
   });
 
+  test('route honors CODEINFO_COPILOT_CLI_PATH when PATH discovery is unavailable', async () => {
+    const harness = createMockCopilotDeviceAuthHarness(
+      createVerificationReadyScenario(),
+    );
+    const runCopilotDeviceAuth = mock.fn(async () =>
+      toDeviceAuthResult(await harness.startDeviceAuth()),
+    );
+
+    const app = buildApp(
+      depsFromHarness(harness, {
+        env: {
+          CODEINFO_COPILOT_CLI_PATH: '/opt/copilot/bin/copilot',
+        },
+        resolveCopilotCli: (env) => ({
+          available: true,
+          cliPath: env?.CODEINFO_COPILOT_CLI_PATH,
+        }),
+        runCopilotDeviceAuth,
+      }),
+    );
+
+    const res = await supertest(app).post('/copilot/device-auth').send({});
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, {
+      provider: 'copilot',
+      state: 'verification_ready',
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'ABCD-EFGH',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code ABCD-EFGH',
+    });
+    assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
+    const firstCallArgs = runCopilotDeviceAuth.mock.calls[0]
+      ?.arguments as unknown[];
+    assert.equal(
+      (firstCallArgs[0] as { cliPath?: string } | undefined)?.cliPath,
+      '/opt/copilot/bin/copilot',
+    );
+  });
+
   test('concurrent auth-start requests share one single-flight attempt', async () => {
     let resolveRun!: (value: CopilotDeviceAuthResultWithCompletion) => void;
     const runPromise = new Promise<CopilotDeviceAuthResultWithCompletion>(

@@ -229,7 +229,7 @@ export async function runCopilotDeviceAuth(params?: {
     cliPath: params?.cliPath,
     env: params?.env,
   });
-  const command = params?.cliPath ?? 'copilot';
+  const command = resolved.cliPath ?? 'copilot';
   const spawnFn = params?.spawnFn ?? spawn;
 
   baseLogger.info(

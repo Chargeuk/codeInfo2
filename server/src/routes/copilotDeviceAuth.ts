@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { accessSync, constants } from 'node:fs';
 
 import {
   Router,
@@ -16,6 +17,7 @@ import {
   ensureCopilotAuthFileStore,
   getCopilotConfigDirForHome,
   getCopilotHome,
+  resolveCopilotCliPath,
 } from '../config/copilotConfig.js';
 import { resolveLogConfig } from '../logger.js';
 import { hasCopilotEnvToken } from '../providers/copilotReadiness.js';
@@ -61,7 +63,26 @@ const invalidRequestBodyMessage = 'request body must be an empty JSON object';
 const invalidRequestTooLargeMessage = 'request body exceeds maximum size';
 const invalidRequestJsonMessage = 'request body must be valid JSON';
 
-function resolveCopilotCli(): { available: boolean; reason?: string } {
+function resolveCopilotCli(
+  env: NodeJS.ProcessEnv = process.env,
+): { available: boolean; reason?: string; cliPath?: string } {
+  const configuredCliPath = resolveCopilotCliPath(undefined, env);
+  if (configuredCliPath) {
+    try {
+      accessSync(configuredCliPath, constants.X_OK);
+      return { available: true, cliPath: configuredCliPath };
+    } catch (error) {
+      return {
+        available: false,
+        cliPath: configuredCliPath,
+        reason:
+          error instanceof Error
+            ? error.message
+            : `${configuredCliPath} is not executable`,
+      };
+    }
+  }
+
   try {
     const detectedPath = execSync('command -v copilot', {
       encoding: 'utf8',
@@ -69,7 +90,7 @@ function resolveCopilotCli(): { available: boolean; reason?: string } {
     if (!detectedPath) {
       return { available: false, reason: 'copilot not found' };
     }
-    return { available: true };
+    return { available: true, cliPath: detectedPath };
   } catch (error) {
     return {
       available: false,
@@ -122,7 +143,7 @@ async function resolveExistingAuthState(params: {
     return { state: 'already_authenticated' };
   }
 
-  const cliStatus = params.deps.resolveCopilotCli();
+  const cliStatus = params.deps.resolveCopilotCli(params.deps.env);
   if (!cliStatus.available) {
     return {
       state: 'unauthenticated',
@@ -271,7 +292,7 @@ export function createCopilotDeviceAuthRouter(
       return res.status(200).json(createCopilotAlreadyAuthenticatedResponse());
     }
 
-    const cliStatus = deps.resolveCopilotCli();
+    const cliStatus = deps.resolveCopilotCli(deps.env);
     if (!cliStatus.available) {
       return res
         .status(200)
@@ -289,6 +310,7 @@ export function createCopilotDeviceAuthRouter(
       async () => {
         const deviceAuth = await deps.runCopilotDeviceAuth({
           copilotHome: targetCopilotHome,
+          cliPath: cliStatus.cliPath,
           env: deps.env,
         });
         const responseState = toDeviceAuthResponseState(deviceAuth);

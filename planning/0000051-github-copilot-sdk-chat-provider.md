@@ -1968,8 +1968,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 22. Wire the fake Copilot scenario into the compose e2e runtime
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: **in_progress**
+- Git Commits: `2f69785e`
 
 #### Overview
 

@@ -39,6 +39,26 @@ flowchart LR
 - The precedence rule is explicit and ordered: connectivity first, authentication second, model-list success third, and tool-surface availability last. The first blocking stage owns the surfaced `reason`, and the resolver logs only secret-safe stage, auth-source, and model-count context through `story.0000051.task05.readiness_evaluated`.
 - Existing credential sources are treated as real readiness inputs before an in-app device flow exists. In Task 5 that means `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` count as authenticated readiness, while SDK-reported `gh-cli` auth also counts as authenticated without forcing device auth.
 
+## Story 0000051 Task 6 Copilot model mapping baseline
+
+- `GET /chat/models?provider=copilot` now reuses `resolveCopilotReadiness(...)` before attempting model discovery so `/chat/models` and `/chat/providers` surface the same blocking-stage reasons.
+- The route maps only verified shared-contract fields from Copilot model discovery: `id -> key`, `name -> displayName`, plus `supportedReasoningEfforts` and `defaultReasoningEffort` when they are non-empty strings and the default is actually listed in the supported set.
+- Unsupported or non-contract Copilot fields are ignored safely instead of failing the route, and entries without a usable `id` or `name` are dropped. If all discovered entries are dropped, the route returns deterministic `copilot models unavailable`.
+- `story.0000051.task06.models_mapped` is emitted after the Copilot branch settles with the mapped model count, whether unsupported fields were ignored safely, and the blocking stage that owned the result.
+
+```mermaid
+flowchart TD
+  Request[GET /chat/models?provider=copilot] --> Readiness[resolveCopilotReadiness]
+  Readiness -->|not available| Unavailable[Return shared unavailable reason + empty models]
+  Readiness -->|available| Runtime[CopilotLifecycle.listModels]
+  Runtime --> Mapper[Strict shared-contract mapper]
+  Mapper -->|usable entries| Success[Return provider=copilot + mapped models]
+  Mapper -->|no usable entries| Empty[Return copilot models unavailable]
+  Unavailable --> Log[Emit task06 models_mapped marker]
+  Success --> Log
+  Empty --> Log
+```
+
 ## Story 0000051 Task 3 fake Copilot SDK harness baseline
 
 - `server/src/test/support/mockCopilotSdk.ts` is the scenario-driven fake runtime that plugs into the Task 2 lifecycle seam instead of creating a separate testing-only provider abstraction.

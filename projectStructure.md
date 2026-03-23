@@ -1,5 +1,33 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 6 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/chatModels.copilot.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/routes/chatModels.ts`
+
+Story notes:
+
+- Task 6 extends the shared `/chat/models` route with a Copilot branch that reuses the Task 5 readiness resolver before running model discovery, so provider readiness and model availability keep one blocking-stage contract.
+- Copilot model mapping stays strict to the shared response shape: the route keeps only verified `id`, `name`, and supported/default reasoning-effort fields, ignores unsupported SDK fields safely, and returns deterministic unavailable output when no usable entries remain.
+- The proof adds a focused `chatModels.copilot` unit suite that covers readiness-driven unavailability, empty model lists, and strict mapping with ignored extra fields.
+
 ## Story 0000051 Task 5 structural change ledger
 
 Added files:

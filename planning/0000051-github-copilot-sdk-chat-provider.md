@@ -889,7 +889,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 6. Expose Copilot model listing on the server
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -910,29 +910,37 @@ Mandatory isolation note for every numbered subtask below: if a junior developer
 Documentation handoff for every numbered subtask in this task: when assigning any one numbered subtask from this task, copy the exact bullet list from this task’s `Documentation Locations` section into the handoff so the developer has the verified SDK model-shape references in front of them.
 Implementation starter pattern for every subtask in this task: extend the current branch structure already used in `server/src/routes/chatModels.ts` for Codex and LM Studio; Copilot should map into the same response object shape and should ignore unsupported fields rather than introducing a Copilot-only model payload.
 
-1. [ ] Update `server/src/routes/chatModels.ts` so `GET /chat/models?provider=copilot` calls the new Copilot seam and maps only verified Copilot model fields into the existing response shape. Do not synthesize token or timing metadata that the SDK does not actually expose. Emit the secret-safe acceptance log line `story.0000051.task06.models_mapped` with context showing how many Copilot models were mapped and whether unsupported fields were ignored.
-2. [ ] Keep the route behavior deterministic when Copilot returns no usable models or returns model fields the repository does not yet understand. Unknown fields should be ignored safely, not treated as fatal errors.
-3. [ ] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: simulate Copilot being unavailable before model discovery and confirm the route returns the expected unavailable-model behavior. Purpose: prove the model route stays aligned with provider readiness.
-4. [ ] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: return an empty model list from the fake Copilot seam and confirm the route handles it deterministically. Purpose: prove the empty-list corner case does not silently look like success.
-5. [ ] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: return verified model fields plus unknown extra fields and confirm only the supported fields are mapped into the shared response shape. Purpose: prove model mapping is strict without being brittle.
-6. [ ] Update `design.md` if the Copilot model-mapping contract would otherwise only exist in tests. Document name: `design.md`. Location: repository root. Description: describe the verified Copilot model-mapping rules and add a Mermaid diagram if it helps explain the model-discovery and mapping path. Purpose: keep architecture documentation aligned with model discovery behavior.
-7. [ ] Update `README.md` only if it contains model-list behavior that would now be inaccurate. Document name: `README.md`. Location: repository root. Description: correct any user-facing wording about model discovery or unavailable-model behavior touched by this task. Purpose: keep top-level usage documentation truthful.
-8. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task after those changes land. Purpose: keep the repository file map accurate.
-9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
-11. [ ] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
+1. [x] Update `server/src/routes/chatModels.ts` so `GET /chat/models?provider=copilot` calls the new Copilot seam and maps only verified Copilot model fields into the existing response shape. Do not synthesize token or timing metadata that the SDK does not actually expose. Emit the secret-safe acceptance log line `story.0000051.task06.models_mapped` with context showing how many Copilot models were mapped and whether unsupported fields were ignored.
+2. [x] Keep the route behavior deterministic when Copilot returns no usable models or returns model fields the repository does not yet understand. Unknown fields should be ignored safely, not treated as fatal errors.
+3. [x] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: simulate Copilot being unavailable before model discovery and confirm the route returns the expected unavailable-model behavior. Purpose: prove the model route stays aligned with provider readiness.
+4. [x] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: return an empty model list from the fake Copilot seam and confirm the route handles it deterministically. Purpose: prove the empty-list corner case does not silently look like success.
+5. [x] Add a unit test in `server/src/test/unit/chatModels.copilot.test.ts`. Test type: unit. Description: return verified model fields plus unknown extra fields and confirm only the supported fields are mapped into the shared response shape. Purpose: prove model mapping is strict without being brittle.
+6. [x] Update `design.md` if the Copilot model-mapping contract would otherwise only exist in tests. Document name: `design.md`. Location: repository root. Description: describe the verified Copilot model-mapping rules and add a Mermaid diagram if it helps explain the model-discovery and mapping path. Purpose: keep architecture documentation aligned with model discovery behavior.
+7. [x] Update `README.md` only if it contains model-list behavior that would now be inaccurate. Document name: `README.md`. Location: repository root. Description: correct any user-facing wording about model discovery or unavailable-model behavior touched by this task. Purpose: keep top-level usage documentation truthful.
+8. [x] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any file additions, removals, or renames introduced by this task after those changes land. Purpose: keep the repository file map accurate.
+9. [x] Update this plan file after implementation by marking the completed checkboxes for Task 6, recording implementation notes, and listing the task commit hashes once they exist.
+10. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
+11. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+3. [x] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Added the `provider=copilot` branch in `server/src/routes/chatModels.ts`, wired it through the Copilot runtime seam, and emitted `story.0000051.task06.models_mapped` with mapped-count plus ignored-field context.
+- Added strict Copilot model mapping that only keeps verified shared-contract fields, drops unusable entries, and returns deterministic `copilot models unavailable` behavior instead of failing on unknown SDK fields.
+- Added `server/src/test/unit/chatModels.copilot.test.ts` to cover readiness-driven unavailability, empty model discovery, and strict mapping with extra-field ignore behavior through the real route payload.
+- Documented the Copilot model-mapping contract in `design.md`, corrected the top-level README note now that Copilot model discovery exists on the server, and logged the new unit test file in `projectStructure.md`.
+- `npm run lint` passed cleanly against the new Copilot model-route branch, tests, and docs without needing any follow-up fixes.
+- `npm run format:check` initially reported Prettier drift in the new route and Copilot model-route test, so I ran `npm run format`; the follow-up `npm run format:check` then passed cleanly.
+- `npm run build:summary:server` initially failed because the new Copilot route test used a direct `LMStudioClient` cast on a tiny stub; switching that helper to the repository’s usual `unknown as LMStudioClient` pattern fixed the compile, and the rerun passed cleanly.
+- `npm run test:summary:server:unit` passed cleanly with `1398/1398`, which proved the new Copilot model-route unit suite and the broader server unit/integration surface still line up.
+- `npm run test:summary:server:cucumber` passed cleanly with `71/71`, and I removed the generated `server/copilot` runtime artifacts afterward so the task could finish with a clean working tree before commit.
 
 ---
 

@@ -1,6 +1,8 @@
-import { type ChatModelsResponse } from '@codeinfo2/common';
+import { type ChatModelsResponse, type ChatModelInfo } from '@codeinfo2/common';
+import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
+import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -14,6 +16,10 @@ import {
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import {
+  resolveCopilotReadiness,
+  type CopilotReadinessRuntime,
+} from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
@@ -23,6 +29,15 @@ const TASK12_LOG_SUCCESS =
 const TASK12_LOG_ERROR =
   '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error';
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
+export const TASK6_LOG_MARKER = 'story.0000051.task06.models_mapped';
+
+const COPILOT_MODELS_REASON = 'copilot models unavailable';
+const VERIFIED_COPILOT_MODEL_FIELDS = new Set([
+  'id',
+  'name',
+  'supportedReasoningEfforts',
+  'defaultReasoningEffort',
+]);
 const scrubBaseUrl = (value: string) => {
   try {
     return new URL(value).origin;
@@ -50,14 +65,108 @@ const prioritizeModel = <T extends { key: string }>(
   return clone;
 };
 
+const normalizeString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const normalizeReasoningEfforts = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  const normalized = value
+    .map((entry) => normalizeString(entry))
+    .filter((entry): entry is string => entry !== undefined);
+
+  return [...new Set(normalized)];
+};
+
+const mapCopilotModels = (models: ModelInfo[]) => {
+  let ignoredUnsupportedFields = false;
+
+  const mapped = models.flatMap((model): ChatModelInfo[] => {
+    const key = normalizeString(model.id);
+    const displayName = normalizeString(model.name);
+
+    if (!key || !displayName) {
+      ignoredUnsupportedFields = true;
+      return [];
+    }
+
+    const supportedReasoningEfforts = normalizeReasoningEfforts(
+      model.supportedReasoningEfforts,
+    );
+    const defaultReasoningEffort = normalizeString(
+      model.defaultReasoningEffort,
+    );
+    const mappedModel: ChatModelInfo = {
+      key,
+      displayName,
+      type: 'copilot',
+    };
+
+    if (supportedReasoningEfforts.length > 0) {
+      mappedModel.supportedReasoningEfforts = supportedReasoningEfforts;
+      if (
+        defaultReasoningEffort &&
+        supportedReasoningEfforts.includes(defaultReasoningEffort)
+      ) {
+        mappedModel.defaultReasoningEffort = defaultReasoningEffort;
+      } else if (defaultReasoningEffort) {
+        ignoredUnsupportedFields = true;
+      }
+    } else if (defaultReasoningEffort) {
+      ignoredUnsupportedFields = true;
+    }
+
+    const unsupportedKeys = Object.keys(model).filter(
+      (field) => !VERIFIED_COPILOT_MODEL_FIELDS.has(field),
+    );
+    if (unsupportedKeys.length > 0) {
+      ignoredUnsupportedFields = true;
+    }
+
+    return [mappedModel];
+  });
+
+  return { mapped, ignoredUnsupportedFields };
+};
+
+const logCopilotModelMapping = (params: {
+  requestId?: string;
+  mappedModelCount: number;
+  ignoredUnsupportedFields: boolean;
+  blockingStage: string;
+}) => {
+  const context = {
+    requestId: params.requestId,
+    provider: 'copilot',
+    mappedModelCount: params.mappedModelCount,
+    ignoredUnsupportedFields: params.ignoredUnsupportedFields,
+    blockingStage: params.blockingStage,
+  };
+
+  append({
+    level: 'info',
+    message: TASK6_LOG_MARKER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    requestId: params.requestId,
+    context,
+  });
+  baseLogger.info(context, TASK6_LOG_MARKER);
+};
+
 export function createChatModelsRouter({
   clientFactory,
   codexCapabilityResolver = resolveCodexCapabilities,
+  copilotRuntimeFactory,
 }: {
   clientFactory: ClientFactory;
   codexCapabilityResolver?: (options: {
     consumer: 'chat_models' | 'chat_validation';
   }) => Promise<CodexCapabilityResolution>;
+  copilotRuntimeFactory?: () => CopilotReadinessRuntime;
 }) {
   const router = Router();
   const isChatModel = (model: { type?: string; architecture?: string }) => {
@@ -165,6 +274,87 @@ export function createChatModelsRouter({
       }
 
       return res.json(response);
+    }
+
+    if (provider === 'copilot') {
+      const mcp = await getMcpStatus();
+      const readiness = await resolveCopilotReadiness({
+        createRuntime: copilotRuntimeFactory,
+        env: process.env,
+        toolsAvailable: mcp.available,
+        toolsReason: mcp.reason,
+      });
+
+      if (!readiness.available) {
+        logCopilotModelMapping({
+          requestId,
+          mappedModelCount: 0,
+          ignoredUnsupportedFields: false,
+          blockingStage: readiness.blockingStage,
+        });
+        const response: ChatModelsResponse = {
+          provider: 'copilot',
+          available: false,
+          toolsAvailable: false,
+          reason: readiness.reason,
+          models: [],
+        };
+        return res.json(response);
+      }
+
+      const preferredDefaults = resolveChatDefaults({});
+      const preferredModel =
+        preferredDefaults.provider === 'copilot'
+          ? preferredDefaults.model
+          : undefined;
+      const runtime = copilotRuntimeFactory?.() ?? new CopilotLifecycle();
+      let started = false;
+
+      try {
+        await runtime.start();
+        started = true;
+
+        const rawModels = await runtime.listModels();
+        const { mapped, ignoredUnsupportedFields } =
+          mapCopilotModels(rawModels);
+        const prioritized = prioritizeModel(mapped, preferredModel);
+        const available = prioritized.length > 0;
+
+        logCopilotModelMapping({
+          requestId,
+          mappedModelCount: prioritized.length,
+          ignoredUnsupportedFields,
+          blockingStage: available ? readiness.blockingStage : 'models',
+        });
+
+        const response: ChatModelsResponse = {
+          provider: 'copilot',
+          available,
+          toolsAvailable: available ? readiness.toolsAvailable : false,
+          reason: available ? readiness.reason : COPILOT_MODELS_REASON,
+          models: prioritized,
+        };
+        return res.json(response);
+      } catch {
+        logCopilotModelMapping({
+          requestId,
+          mappedModelCount: 0,
+          ignoredUnsupportedFields: false,
+          blockingStage: 'models',
+        });
+        const response: ChatModelsResponse = {
+          provider: 'copilot',
+          available: false,
+          toolsAvailable: false,
+          reason: COPILOT_MODELS_REASON,
+          models: [],
+        };
+        return res.json(response);
+      } finally {
+        if (started) {
+          await runtime.stop().catch(() => []);
+        }
+      }
     }
 
     const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';

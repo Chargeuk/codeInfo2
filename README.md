@@ -221,6 +221,7 @@ codex_agents/<agentName>/
 
 - Chat workspace with provider/model selection, streaming responses, conversation history, and tool/citation rendering.
 - Shared chat provider ordering now uses one contract-first order across defaults and provider listing: `codex`, then `copilot`, then `lmstudio`. Copilot stays visible in provider lists even when unavailable, and the current server model route now returns Copilot model metadata only when readiness and verified model discovery succeed.
+- Copilot chat now runs through the same `/chat` transport and stop flow as the existing providers. New Copilot conversations reuse `conversationId` as the session id, follow-up turns resume that same session, unavailable Copilot requests follow the shared provider fallback rules, and resume mismatches fail clearly instead of silently switching to a fresh hidden session.
 - Agents workspace for running Codex agent instructions and reusable command macros with history and stop/resume controls.
 - Flows workspace to execute JSON-defined multi-step flows and resume interrupted runs.
   Previously rendered Flow assistant bubbles now stay visible while later steps stream because the client ignores stale earlier-step websocket transcript events instead of rebinding the active bubble.

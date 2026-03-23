@@ -1,5 +1,44 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 7 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/chat-copilot-fallback.test.ts`
+- `server/src/test/integration/chat-copilot-flags.test.ts`
+- `server/src/test/integration/chat-copilot-lock.test.ts`
+- `server/src/test/integration/chat-copilot-resume.test.ts`
+- `server/src/test/integration/chat-copilot-stop.test.ts`
+- `server/src/test/integration/chat-copilot.test.ts`
+- `server/src/test/integration/support/copilotChatHarness.ts`
+- `server/src/test/unit/chat-interface-copilot.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts`
+- `server/src/routes/chat.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/support/mockCopilotSdk.ts`
+- `server/src/test/unit/chat-stream-bridge.test.ts`
+
+Story notes:
+
+- Task 7 moves Copilot onto the real shared `/chat` execution path, so create, resume, fallback, warnings, websocket publishing, and stop handling now reuse the existing route, stream bridge, and inflight ownership model instead of a Copilot-only transport.
+- The session identity rule stays simple and explicit: `conversationId` doubles as the Copilot session id, resume failures stay visible instead of silently starting a fresh session, and Codex-only flags are ignored with the existing warning path rather than being reinterpreted for Copilot.
+- The proof adds focused unit coverage for adapter event mapping and stream-edge cases plus integration coverage for persistence/resume, explicit resume failure, lock protection, fallback, Codex-flag isolation, and shared stop-path behavior.
+
 ## Story 0000051 Task 6 structural change ledger
 
 Added files:

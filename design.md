@@ -11,6 +11,42 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000051 Task 7 Copilot chat execution baseline
+
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts` now owns the real Copilot chat adapter for Story 51. It creates or resumes sessions through the shared lifecycle seam, re-registers permissions, hooks, and tools on both paths, translates Copilot session events into the repository `ChatInterface` event model, and emits `story.0000051.task07.chat_turn_completed` only at clear terminal states.
+- The default session identity rule is direct reuse: `conversationId` is the Copilot session id in both create and resume paths. No extra `copilotSessionId` storage field is introduced in the normal path because the installed SDK does not require one.
+- `server/src/routes/chat.ts` now keeps Copilot on the shared `/chat` route instead of adding a second transport. Provider selection, fallback, warnings, inflight ownership, websocket publishing, and stop handling all stay on the existing chat path.
+- Codex-only flags remain Codex-only. Copilot requests ignore those fields through the existing validation-and-warning path, and stored conversation flags do not reinterpret Codex thread settings as Copilot session settings.
+- Resume failures stay explicit. If an existing Copilot-backed conversation cannot resume its expected session or cannot re-register resume-time dependencies, the assistant turn is finalized as a clear failed result instead of silently creating a fresh session behind the same transcript.
+
+```mermaid
+sequenceDiagram
+  participant Client as POST /chat
+  participant Route as chat.ts
+  participant Adapter as ChatInterfaceCopilot
+  participant SDK as CopilotLifecycle / SDK session
+  participant Bridge as chatStreamBridge
+
+  Client->>Route: provider=copilot, conversationId, message
+  Route->>Route: shared provider selection + warnings
+  Route->>Adapter: run(... resumeConversation? ...)
+  alt existing Copilot conversation
+    Adapter->>SDK: resumeSession(conversationId, config)
+    Adapter->>SDK: register permissions/hooks/tools again
+  else new Copilot conversation
+    Adapter->>SDK: createSession(sessionId=conversationId, config)
+    Adapter->>SDK: register permissions/hooks/tools
+  end
+  SDK-->>Adapter: assistant/tool/session events
+  Adapter-->>Bridge: thread/token/final/tool/error/complete events
+  Bridge-->>Client: shared websocket transcript updates
+  alt clear terminal success
+    Adapter-->>Route: completed
+  else abort or resume failure
+    Adapter-->>Route: stopped/failed explicitly
+  end
+```
+
 ## Story 0000051 Task 2 Copilot runtime seam baseline
 
 - `server/src/config/copilotConfig.ts` is the new shared Copilot home/config helper. It resolves `CODEINFO_COPILOT_HOME` with a temporary non-fatal fallback of `./copilot`, derives the SDK `configDir`, and centralizes the `COPILOT_HOME` environment override that later auth and runtime tasks will reuse.

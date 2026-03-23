@@ -1182,11 +1182,16 @@ test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', asyn
   );
 
   const conversationId = 'thread-lock';
-  const first = await request(app)
+  const first = request(app)
     .post('/chat')
     .send(buildCodexBody({ conversationId }))
-    .expect(202);
-  assert.equal(first.body.status, 'started');
+    .then((response) => {
+      assert.equal(response.status, 202);
+      assert.equal(response.body.status, 'started');
+      return response;
+    });
+
+  await new Promise((resolve) => setTimeout(resolve, 25));
 
   const second = await request(app)
     .post('/chat')
@@ -1195,5 +1200,6 @@ test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', asyn
   assert.equal(second.body.status, 'error');
   assert.equal(second.body.code, 'RUN_IN_PROGRESS');
 
+  await first;
   await waitForAssistantTurn(conversationId);
 });

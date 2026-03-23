@@ -11,6 +11,7 @@ import {
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
+import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
   abortInflight,
@@ -52,6 +53,8 @@ import {
 } from '../mongo/repo.js';
 import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
+import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
@@ -141,6 +144,7 @@ export function createChatRouter({
   codexCapabilityResolver = resolveCodexCapabilities,
   cleanupInflightFn = cleanupInflight,
   releaseConversationLockFn = releaseConversationLock,
+  copilotLifecycleFactory,
 }: {
   clientFactory: ClientFactory;
   codexFactory?: CodexFactory;
@@ -152,6 +156,7 @@ export function createChatRouter({
   }) => Promise<CodexCapabilityResolution>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
+  copilotLifecycleFactory?: () => CopilotLifecycle;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -272,6 +277,7 @@ export function createChatRouter({
       models: codexCapabilities.models.map((entry) => entry.model),
       reason: codexDetection.reason ?? 'codex unavailable',
     };
+    const mcp = await getMcpStatus();
 
     let lmstudioModels: string[] = [];
     let lmstudioReason: string | undefined;
@@ -295,14 +301,20 @@ export function createChatRouter({
         lmstudioReason = 'lmstudio unavailable';
       }
     }
+    const copilotReadiness = await resolveCopilotReadiness({
+      createRuntime: copilotLifecycleFactory,
+      env: process.env,
+      toolsAvailable: mcp.available,
+      toolsReason: mcp.reason,
+    });
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider,
       requestedModel,
       codex: codexState,
       copilot: {
-        available: false,
-        models: [],
-        reason: 'copilot unavailable',
+        available: copilotReadiness.available,
+        models: copilotReadiness.models,
+        reason: copilotReadiness.reason,
       },
       lmstudio: {
         available: lmstudioAvailable,
@@ -409,6 +421,8 @@ export function createChatRouter({
     };
 
     let existingConversation = await loadExistingConversation();
+    const shouldResumeCopilotSession =
+      existingConversation?.provider === 'copilot';
     let effectiveWorkingFolder = requestedWorkingFolder;
     try {
       if (!effectiveWorkingFolder && existingConversation) {
@@ -450,7 +464,7 @@ export function createChatRouter({
         const nextFlags =
           executionProvider === 'codex'
             ? { ...(currentFlags ?? {}), ...effectiveCodexFlags }
-            : sanitizeFlagsForProvider('lmstudio', currentFlags);
+            : sanitizeFlagsForProvider(executionProvider, currentFlags);
         if (effectiveWorkingFolder) {
           nextFlags.workingFolder = effectiveWorkingFolder;
         } else {
@@ -557,9 +571,7 @@ export function createChatRouter({
 
     if (runtimeSelection.unavailable) {
       const message =
-        requestedProvider === 'codex'
-          ? (codexState.reason ?? 'codex unavailable')
-          : 'lmstudio unavailable';
+        runtimeSelection.requestedReason ?? 'provider unavailable';
       return res.status(503).json({
         status: 'error',
         code: 'PROVIDER_UNAVAILABLE',
@@ -662,6 +674,12 @@ export function createChatRouter({
         clientFactory,
         codexFactory,
         toolFactory,
+        ...(executionProvider === 'copilot'
+          ? {
+              copilotLifecycle:
+                copilotLifecycleFactory?.() ?? new CopilotLifecycle(),
+            }
+          : {}),
       });
     } catch (err) {
       releaseConversationLockFn(conversationId, runToken);
@@ -769,6 +787,9 @@ export function createChatRouter({
             deferInflightCleanup: true,
             signal: getInflight(conversationId)?.abortController.signal,
             history: historyForRun,
+            ...(executionProvider === 'copilot'
+              ? { resumeConversation: shouldResumeCopilotSession }
+              : {}),
             source: 'REST',
           },
           conversationId,

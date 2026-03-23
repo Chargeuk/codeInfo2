@@ -2,12 +2,14 @@ import {
   type AssistantMessageEvent,
   type GetAuthStatusResponse,
   type ModelInfo,
+  type PermissionHandler,
   type ResumeSessionConfig,
   type SessionConfig,
   type SessionEvent,
   type SessionEventHandler,
   type SessionEventType,
 } from '@github/copilot-sdk';
+import type { CopilotSession } from '@github/copilot-sdk';
 import {
   CopilotLifecycle,
   type CopilotRuntimeClient,
@@ -32,6 +34,12 @@ export type MockCopilotSdkScenario = {
   resumeSessionEvents?: SessionEvent[];
   createSessionError?: Error;
   resumeSessionError?: Error;
+  createRegisterHooksError?: Error;
+  resumeRegisterHooksError?: Error;
+  createRegisterToolsError?: Error;
+  resumeRegisterToolsError?: Error;
+  sendError?: Error;
+  sendDelayMs?: number;
 };
 
 type MockCopilotHarnessState = {
@@ -40,6 +48,12 @@ type MockCopilotHarnessState = {
   stopCount: number;
   lastCreateSessionConfig?: SessionConfig;
   lastResumeSession?: { sessionId: string; config: ResumeSessionConfig };
+  createRegisterHooksCount: number;
+  resumeRegisterHooksCount: number;
+  createRegisterToolsCount: number;
+  resumeRegisterToolsCount: number;
+  lastRegisteredPermissionHandler?: PermissionHandler;
+  lastRegisteredHooks?: Parameters<CopilotSession['registerHooks']>[0];
   selectedScenario: string;
 };
 
@@ -183,10 +197,27 @@ class MockCopilotSession {
     Set<(event: SessionEvent) => void>
   >();
 
+  private readonly registerPhase: 'create' | 'resume';
+
+  private readonly scenario: MockCopilotSdkScenario;
+
+  private readonly state: MockCopilotHarnessState;
+
+  private readonly onEvent?: SessionEventHandler;
+
   constructor(
     readonly sessionId: string,
     private readonly scriptedEvents: SessionEvent[],
-  ) {}
+    registerPhase: 'create' | 'resume',
+    scenario: MockCopilotSdkScenario,
+    state: MockCopilotHarnessState,
+    onEvent?: SessionEventHandler,
+  ) {
+    this.registerPhase = registerPhase;
+    this.scenario = scenario;
+    this.state = state;
+    this.onEvent = onEvent;
+  }
 
   on<K extends SessionEventType>(
     eventType: K,
@@ -222,6 +253,7 @@ class MockCopilotSession {
       if (event.type === 'assistant.message') {
         lastAssistantMessage = event as AssistantMessageEvent;
       }
+      this.onEvent?.(event);
       this.handlers.forEach((registered) => registered(event));
       this.typedHandlers
         .get(event.type)
@@ -231,12 +263,58 @@ class MockCopilotSession {
   }
 
   async send(): Promise<string> {
+    if (this.scenario.sendError) throw this.scenario.sendError;
+    if (this.scenario.sendDelayMs) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.scenario.sendDelayMs),
+      );
+    }
     await this.emitScriptedEvents();
     return this.sessionId;
   }
 
   async sendAndWait(): Promise<AssistantMessageEvent | undefined> {
+    if (this.scenario.sendError) throw this.scenario.sendError;
+    if (this.scenario.sendDelayMs) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.scenario.sendDelayMs),
+      );
+    }
     return this.emitScriptedEvents();
+  }
+
+  registerTools(): void {
+    if (this.registerPhase === 'create') {
+      this.state.createRegisterToolsCount += 1;
+      if (this.scenario.createRegisterToolsError) {
+        throw this.scenario.createRegisterToolsError;
+      }
+      return;
+    }
+
+    this.state.resumeRegisterToolsCount += 1;
+    if (this.scenario.resumeRegisterToolsError) {
+      throw this.scenario.resumeRegisterToolsError;
+    }
+  }
+
+  registerPermissionHandler(handler?: PermissionHandler): void {
+    this.state.lastRegisteredPermissionHandler = handler;
+  }
+
+  registerHooks(hooks?: Parameters<CopilotSession['registerHooks']>[0]): void {
+    if (this.registerPhase === 'create') {
+      this.state.createRegisterHooksCount += 1;
+      if (this.scenario.createRegisterHooksError) {
+        throw this.scenario.createRegisterHooksError;
+      }
+    } else {
+      this.state.resumeRegisterHooksCount += 1;
+      if (this.scenario.resumeRegisterHooksError) {
+        throw this.scenario.resumeRegisterHooksError;
+      }
+    }
+    this.state.lastRegisteredHooks = hooks;
   }
 
   async disconnect(): Promise<void> {
@@ -268,6 +346,10 @@ export function createMockCopilotSdkHarness(
     started: false,
     startCount: 0,
     stopCount: 0,
+    createRegisterHooksCount: 0,
+    resumeRegisterHooksCount: 0,
+    createRegisterToolsCount: 0,
+    resumeRegisterToolsCount: 0,
     selectedScenario: scenario.name,
   };
 
@@ -287,6 +369,10 @@ export function createMockCopilotSdkHarness(
     return new MockCopilotSession(
       config.sessionId ?? 'mock-create-session',
       scenario.createSessionEvents ?? [],
+      'create',
+      scenario,
+      state,
+      config.onEvent,
     ) as unknown as Awaited<ReturnType<CopilotRuntimeClient['createSession']>>;
   };
 
@@ -299,6 +385,10 @@ export function createMockCopilotSdkHarness(
     return new MockCopilotSession(
       sessionId,
       scenario.resumeSessionEvents ?? [],
+      'resume',
+      scenario,
+      state,
+      config.onEvent,
     ) as unknown as Awaited<ReturnType<CopilotRuntimeClient['resumeSession']>>;
   };
 

@@ -1,5 +1,39 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 16 structural change ledger
+
+Added files:
+
+- `e2e/support/copilotFakeScenario.ts`
+- `server/src/test/integration/copilot.boot-path.test.ts`
+- `server/src/test/support/copilotBootPath.ts`
+- `server/src/test/support/copilotScenarioCatalog.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.env.e2e`
+- `design.md`
+- `docker-compose.e2e.yml`
+- `e2e/chat.spec.ts`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `scripts/test-summary-e2e.mjs`
+- `server/.env.e2e`
+
+Story notes:
+
+- Task 16 introduces one named fake Copilot scenario catalog instead of another cross-layer fixture stack, so integration helpers and the wrapper-backed e2e path can point at the same scenario ids for readiness, auth, model, and streaming behavior.
+- `server/src/test/support/copilotBootPath.ts` is the reusable higher-level server boot helper for later integration and Cucumber work. It composes the fake Copilot SDK harness and fake device-auth harness into real `/chat`, `/chat/providers`, `/chat/models`, `/copilot/device-auth`, and websocket surfaces.
+- `e2e/support/copilotFakeScenario.ts` plus the `.env.e2e` and `docker-compose.e2e.yml` updates add the wrapper-driven scenario selector to the Playwright path without changing the existing default mock-backed chat behavior yet.
+
 ## Story 0000051 Task 15 structural change ledger
 
 Added files:

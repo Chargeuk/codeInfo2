@@ -1,6 +1,8 @@
 import { mkdirSync } from 'fs';
+import type { ChatProviderInfo } from '@codeinfo2/common';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { logE2ECopilotScenarioBoot } from './support/copilotFakeScenario';
 import { installMockChatWs } from './support/mockChatWs';
 
 type ChatModel = { key: string; displayName: string; type?: string };
@@ -8,8 +10,32 @@ type ChatModel = { key: string; displayName: string; type?: string };
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
+const copilotScenario = useMockChat ? logE2ECopilotScenarioBoot() : null;
 const preferredChatModel = 'openai/gpt-oss-20b';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
+
+const buildMockProviders = (): ChatProviderInfo[] => {
+  const providers: ChatProviderInfo[] = [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+    },
+    {
+      id: 'codex',
+      label: 'OpenAI Codex',
+      available: false,
+      toolsAvailable: false,
+      reason: codexReason,
+    },
+  ];
+
+  const copilot = copilotScenario?.e2e.providers.find(
+    (provider) => provider.id === 'copilot',
+  );
+  return copilot ? [providers[1], copilot, providers[0]] : providers;
+};
 
 const skipIfUnreachable = async (page: Page) => {
   try {
@@ -43,27 +69,21 @@ test('chat streams end-to-end', async ({ page }) => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-            {
-              id: 'codex',
-              label: 'OpenAI Codex',
-              available: false,
-              toolsAvailable: false,
-              reason: codexReason,
-            },
-          ],
+          providers: buildMockProviders(),
         }),
       }),
     );
     await page.route('**/chat/models*', (route) => {
       const url = new URL(route.request().url());
       const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+      if (provider === 'copilot' && copilotScenario) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(copilotScenario.e2e.copilotModels),
+        });
+      }
 
       if (provider === 'codex') {
         return route.fulfill({
@@ -90,6 +110,18 @@ test('chat streams end-to-end', async ({ page }) => {
         }),
       });
     });
+    await page.route('**/copilot/device-auth', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          copilotScenario?.e2e.copilotAuthResponse ?? {
+            provider: 'copilot',
+            state: 'already_authenticated',
+          },
+        ),
+      }),
+    );
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') {

@@ -38,6 +38,7 @@ services:
       - CODEINFO_RUNTIME_ENV_FILE_SOURCE=${CODEINFO_RUNTIME_ENV_FILE_SOURCE:-}
       - CODEINFO_NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-}
       - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
+      - CODEINFO_FAKE_COPILOT_SCENARIO=${CODEINFO_FAKE_COPILOT_SCENARIO:-}
     volumes:
       - copilot-data:/app/copilot
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
@@ -79,6 +80,7 @@ services:
       - VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
       - VITE_CODEINFO_LOG_FORWARD_ENABLED=true
       - VITE_CODEINFO_LOG_MAX_BYTES=32768
+      - E2E_COPILOT_SCENARIO=${E2E_COPILOT_SCENARIO:-copilot-happy-path}
     depends_on:
       server:
         condition: service_healthy

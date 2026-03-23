@@ -11,6 +11,22 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000051 Task 16 fake Copilot boot-path baseline
+
+- `server/src/test/support/copilotScenarioCatalog.ts` is now the single named-scenario catalog for the higher-level Copilot proof path. It defines the reusable scenario ids and keeps readiness, auth, model, and stream behavior aligned across integration and later browser proof without introducing a second fixture vocabulary.
+- `server/src/test/support/copilotBootPath.ts` is the new higher-level server boot helper. It composes the existing fake Copilot SDK harness and fake Copilot device-auth harness into a real Express + websocket test stack that exposes `/chat`, `/chat/providers`, `/chat/models`, and `/copilot/device-auth` together.
+- The wrapper-backed e2e path now carries `E2E_COPILOT_SCENARIO` end to end through `.env.e2e`, `docker-compose.e2e.yml`, and `scripts/test-summary-e2e.mjs`, while `e2e/support/copilotFakeScenario.ts` keeps the Playwright-side mock path on the same named scenario contract.
+- `story.0000051.task16.fake_scenario_booted` is the acceptance marker for this layer. It records only the selected scenario name and the active surface (`integration`, `cucumber`, or `e2e`) so later proof tasks can confirm the right boot path was active without logging prompt or credential material.
+
+```mermaid
+flowchart LR
+  Catalog["copilotScenarioCatalog.ts<br/>named fake scenarios"] --> Integration["copilotBootPath.ts<br/>integration + future Cucumber server stack"]
+  Catalog --> E2E["e2e/support/copilotFakeScenario.ts<br/>wrapper-backed Playwright mock path"]
+  E2EEnv[".env.e2e + docker-compose.e2e.yml + test-summary-e2e.mjs"] --> E2E
+  Integration --> Routes["/chat, /chat/providers, /chat/models, /copilot/device-auth, /ws"]
+  E2E --> Browser["Playwright route mocks + WS mock server"]
+```
+
 ## Story 0000051 Task 7 Copilot chat execution baseline
 
 - `server/src/chat/interfaces/ChatInterfaceCopilot.ts` now owns the real Copilot chat adapter for Story 51. It creates or resumes sessions through the shared lifecycle seam, re-registers permissions, hooks, and tools on both paths, translates Copilot session events into the repository `ChatInterface` event model, and emits `story.0000051.task07.chat_turn_completed` only at clear terminal states.

@@ -2031,8 +2031,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 23. Re-run full Story 0000051 validation after the review fix and runtime-seam repair
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `50e6c9af`
 
 #### Overview
 
@@ -2049,7 +2049,7 @@ Revalidate the full Story `0000051` acceptance surface after Tasks 21 and 22 lan
 1. [x] Re-read the Story `0000051` acceptance criteria, the review evidence artifact, the review findings artifact, and the new Task 22 runtime-seam notes before rerunning validation. Purpose: make sure the final proof explicitly covers the original story contract, the reviewed CLI-path defect, and the repaired fake-scenario startup seam.
 2. [x] Confirm the Task 21 and Task 22 proofs cover their exact repaired edge cases directly. Test type: unit, integration, and wrapper-backed runtime proof already added in those tasks. Description: verify the repository now has direct proof for both `PATH`-missing plus `CODEINFO_COPILOT_CLI_PATH`-present behavior on `/copilot/device-auth` and env-driven fake-scenario activation on the compose e2e runtime. Purpose: close the two repaired proof gaps before broader regression validation.
 3. [x] Update `planning/0000051-pr-summary.md` if the final traceability summary needs short notes about the review-driven CLI-path fix and the new compose e2e runtime-seam repair. Document name: `planning/0000051-pr-summary.md`. Location: repository planning folder. Description: wording-only update if needed. Purpose: keep reviewer-facing summary truthful after the reopened repair sequence.
-4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 23, recording implementation notes, and listing the task commit hashes once they exist.
+4. [x] Update this plan file after implementation by marking the completed checkboxes for Task 23, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2087,3 +2087,4 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - Testing step 10 complete: `npm run compose:e2e:up` started the live `6001` fake-scenario stack cleanly, including a healthy `codeinfo2-server-e2e` container and a started `codeinfo2-client-e2e`, so the remaining manual browser proof can now validate the repaired compose-e2e runtime seam directly.
 - Testing step 11 complete: Chrome DevTools MCP verified the live `http://host.docker.internal:6001/chat` stack still exposes provider order `OpenAI Codex`, `GitHub Copilot`, and `LM Studio`, the server log marker `story.0000051.task16.fake_scenario_booted` for `scenario: 'copilot-happy-path'` and `surface: 'compose-e2e'` is present for this manual run, a Copilot chat turn returned the fake assistant text `Hello from fake Copilot`, the shared auth dialog reported `GitHub Copilot is already authenticated for this runtime.`, switching back to Codex restored the Codex-only controls, screenshots were saved under `playwright-output-local/0000051-23-e2e-*.png`, and Chrome DevTools reported no console `error` messages.
 - Testing step 12 complete: `npm run compose:e2e:down` and `npm run compose:down` both exited cleanly, so the final Story `0000051` validation closed with both the fake-scenario and main stacks torn down rather than left running after proof completion.
+- Subtask 4 complete: the Task 23 plan ledger now marks the full post-repair validation chain complete, records the final wrapper and manual proof notes, and lists the task commit hash so Story `0000051` closes with an auditable validation record instead of partial closeout state.

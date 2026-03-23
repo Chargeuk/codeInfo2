@@ -2126,7 +2126,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **in_progress**
-- Git Commits: `0ccdc380`
+- Git Commits: `0ccdc380`, `679cb576`
 
 #### Overview
 
@@ -2147,7 +2147,7 @@ Reopen Story `0000051` for one more local-Docker contract repair now that live r
 5. [x] Update `server/src/utils/copilotDeviceAuth.ts` and any closely related auth bootstrap code so `copilot login` uses the mounted Copilot home as `--config-dir`, and keep the plaintext-storage preparation and post-login verification aligned to that same mounted root. Purpose: make the now-proven local auth flow use the repo-local tool-home contract directly.
 6. [x] Narrow the existing compatibility-symlink or home-alignment fallback logic so it remains protective fallback behavior only and not the primary local-Docker contract once the new mount is in place. Purpose: reduce confusion and keep the steady-state behavior simpler.
 7. [x] Update `README.md`, `design.md`, `projectStructure.md`, and `planning/0000051-pr-summary.md` so the documented local Docker contract now says Copilot uses a gitignored repo-root `copilot/` folder, wrapper bootstrap, and `/app/copilot` bind mount in the same spirit as Codex. Purpose: keep documentation truthful after the contract repair.
-8. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 24, recording implementation notes, and listing the task commit hashes once they exist.
+8. [x] Update this plan file after implementation by marking the completed checkboxes for Task 24, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2171,6 +2171,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - Subtask 5 complete: `server/src/utils/copilotDeviceAuth.ts` now launches `copilot login --config-dir` with the shared resolved Copilot config root, and the integration proof now checks for root-level `config.json` bootstrap instead of a nested `config/` directory.
 - Subtask 6 complete: the Copilot home-compatibility helper now leaves an explicitly configured `CODEINFO_COPILOT_HOME` alone instead of creating a new `~/.copilot` symlink, while a no-explicit-home path still keeps the old symlink behavior available as a fallback.
 - Subtask 7 complete: `README.md`, `design.md`, `projectStructure.md`, `planning/0000051-pr-summary.md`, and the focused compose-contract test now all describe the repaired contract truthfully: local compose uses the repo-root `./copilot` bind mount plus wrapper bootstrap, while main and e2e keep the `copilot-data` named-volume path.
+- Subtask 8 complete: this plan ledger now records the completed Task 24 implementation and testing checkboxes that the repository evidence supports, includes the task-related commit hashes `0ccdc380` and `679cb576`, and keeps the task itself `in_progress` because the wrapper-versus-local-compose proof gap still blocks the remaining validation steps.
 - Testing step 1 complete: `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the local Copilot-home contract repair compiles without opening the saved log.
 - Testing step 2 complete: the first full `npm run test:summary:server:unit` run exposed environment-sensitive Copilot assumptions in older chat and provider tests, so I fixed those tests to pin Copilot unavailable unless the scenario explicitly exercises Copilot readiness, hardened one existing codex run-lock proof to avoid a timing race, reran focused wrappers for the touched files, and then reran the full wrapper cleanly with `tests run: 1452`, `passed: 1452`, `failed: 0`, and log `test-results/server-unit-tests-2026-03-23T23-03-32-888Z.log`.
 - Testing step 3 complete: the first `npm run test:summary:server:cucumber` run exposed the same local-Copilot leakage in the legacy LM Studio Cucumber servers, so I updated `chat_stream.steps.ts` and `chat_models.steps.ts` to pin Copilot unavailable unless a named Copilot scenario is explicitly selected, then reran the full wrapper cleanly with `tests run: 75`, `passed: 75`, `failed: 0`, and log `test-results/server-cucumber-tests-2026-03-23T23-19-42-751Z.log`.

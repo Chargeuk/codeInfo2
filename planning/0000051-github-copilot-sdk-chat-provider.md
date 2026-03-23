@@ -1288,7 +1288,8 @@ Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18,
 
 - Repository Name: Current Repository
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits:
+  - `2bae71ed` DEV-[51] - Add shared authentication dialog flow
 
 #### Overview
 
@@ -1330,7 +1331,7 @@ Implementation starter pattern for every subtask in this task: preserve the exis
 17. [x] Update `README.md` if it describes the old Codex-only dialog wording or flow. Document name: `README.md`. Location: repository root. Description: correct any top-level wording about the shared `Choose Authentication` dialog and its supported providers. Purpose: keep user-facing documentation truthful.
 18. [x] Update `design.md` if it describes the old Codex-only dialog wording or flow. Document name: `design.md`. Location: repository root. Description: document the shared auth dialog flow, provider-refresh behavior, the unchanged agents execution scope, and any Mermaid diagrams needed to show the UI auth flow clearly. Purpose: keep architecture and user-flow documentation aligned with the shared dialog.
 19. [x] Update `projectStructure.md` if this task adds or removes files, including any renamed dialog components or test helpers. Document name: `projectStructure.md`. Location: repository root. Description: record any renamed or newly added dialog, page, or test files after those file operations are complete. Purpose: keep the repository file map accurate after file creation or rename work.
-20. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 12, recording implementation notes, and listing the task commit hashes once they exist.
+20. [x] Update this plan file after implementation by marking the completed checkboxes for Task 12, recording implementation notes, and listing the task commit hashes once they exist.
 21. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 22. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 

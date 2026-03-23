@@ -11,11 +11,19 @@ import cors from 'cors';
 import express from 'express';
 import type WebSocket from 'ws';
 
-import { query, resetStore } from '../../logStore.js';
-import { createRequestLogger } from '../../logger.js';
+import { append as appendLog, query, resetStore } from '../../logStore.js';
+import { baseLogger, createRequestLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
+import {
+  startNamedCopilotScenarioServer,
+  type StartedNamedCopilotScenarioServer,
+} from '../support/copilotBootPath.js';
+import {
+  NAMED_COPILOT_SCENARIOS,
+  type NamedCopilotScenario,
+} from '../support/copilotScenarioCatalog.js';
 import {
   MockLMStudioClient,
   type MockScenario,
@@ -29,6 +37,8 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+
+const TASK17_LOG_MARKER = 'story.0000051.task17.cucumber_scenarios_registered';
 
 type ChatStartResponse = {
   status: 'started';
@@ -60,30 +70,29 @@ let errorResponse: { code?: string; message?: string } | null = null;
 let received: WsEvent[] = [];
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForScenario: string | null = null;
+let namedCopilotScenarioServer: StartedNamedCopilotScenarioServer | null = null;
 
-async function ensureWsSubscribed(conversationId: string) {
-  if (!ws) {
-    ws = await connectWs({ baseUrl });
-  }
-  sendJson(ws, { type: 'subscribe_conversation', conversationId });
+function isNamedCopilotScenario(name: string): name is NamedCopilotScenario {
+  return (NAMED_COPILOT_SCENARIOS as readonly string[]).includes(name);
 }
 
-Before(async () => {
-  resetStore();
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-  tempCodexHomeForScenario = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'chat-stream-codex-home-'),
-  );
-  await fs.mkdir(path.join(tempCodexHomeForScenario, 'chat'), {
-    recursive: true,
+function registerTask17Scenario(scenarioName: NamedCopilotScenario) {
+  const context = {
+    scenario: scenarioName,
+    surface: 'cucumber',
+    feature: 'chat_stream',
+  };
+  appendLog({
+    level: 'info',
+    message: TASK17_LOG_MARKER,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
   });
-  await fs.writeFile(
-    path.join(tempCodexHomeForScenario, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
-    'utf8',
-  );
-  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
+  baseLogger.info(context, TASK17_LOG_MARKER);
+}
 
+async function startLegacyChatStreamServer() {
   const app = express();
   app.use(cors());
   app.use(createRequestLogger());
@@ -114,6 +123,31 @@ Before(async () => {
       resolve();
     });
   });
+}
+
+async function ensureWsSubscribed(conversationId: string) {
+  if (!ws) {
+    ws = await connectWs({ baseUrl });
+  }
+  sendJson(ws, { type: 'subscribe_conversation', conversationId });
+}
+
+Before(async () => {
+  resetStore();
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  tempCodexHomeForScenario = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-stream-codex-home-'),
+  );
+  await fs.mkdir(path.join(tempCodexHomeForScenario, 'chat'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(tempCodexHomeForScenario, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
+  baseUrl = '';
 });
 
 After(async () => {
@@ -123,6 +157,11 @@ After(async () => {
   if (ws) {
     await closeWs(ws);
     ws = null;
+  }
+
+  if (namedCopilotScenarioServer) {
+    await namedCopilotScenarioServer.stop();
+    namedCopilotScenarioServer = null;
   }
 
   if (wsHandle) {
@@ -150,8 +189,18 @@ After(async () => {
   }
 });
 
-Given('chat stream scenario {string}', (name: string) => {
+Given('chat stream scenario {string}', async (name: string) => {
+  if (isNamedCopilotScenario(name)) {
+    namedCopilotScenarioServer = await startNamedCopilotScenarioServer({
+      scenarioName: name,
+    });
+    baseUrl = namedCopilotScenarioServer.baseUrl;
+    registerTask17Scenario(name);
+    return;
+  }
+
   startMock({ scenario: name as MockScenario });
+  await startLegacyChatStreamServer();
 });
 
 When('I POST to the chat endpoint with the chat request fixture', async () => {

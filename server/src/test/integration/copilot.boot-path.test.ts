@@ -103,10 +103,7 @@ test('named auth-required fake Copilot scenario surfaces the negative path clean
     );
     assert.ok(copilotProvider);
     assert.equal(copilotProvider.available, false);
-    assert.equal(
-      copilotProvider.reason,
-      'copilot authentication required',
-    );
+    assert.equal(copilotProvider.reason, 'copilot authentication required');
 
     const auth = await request(server.httpServer)
       .post('/copilot/device-auth')

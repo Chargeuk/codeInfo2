@@ -1,18 +1,21 @@
+import type {
+  ProviderAuthProviderId,
+  ProviderAuthResponseFor,
+} from '@codeinfo2/common';
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createProviderAuthFixture } from './support/fetchMock';
 
-type PostCodexDeviceAuth =
-  (typeof import('../api/codex'))['postCodexDeviceAuth'];
-type CodexDeviceAuthSuccessResponse = Awaited<ReturnType<PostCodexDeviceAuth>>;
+type PostProviderDeviceAuth =
+  (typeof import('../api/codex'))['postProviderDeviceAuth'];
 
-const postCodexDeviceAuth = jest.fn<PostCodexDeviceAuth>();
+const postProviderDeviceAuth = jest.fn<PostProviderDeviceAuth>();
 const logSpy = jest.fn();
 
 await jest.unstable_mockModule('../api/codex', async () => ({
   __esModule: true,
-  postCodexDeviceAuth,
+  postProviderDeviceAuth,
 }));
 
 await jest.unstable_mockModule('../logging/logger', async () => ({
@@ -24,15 +27,25 @@ const { default: CodexDeviceAuthDialog } = await import(
   '../components/codex/CodexDeviceAuthDialog'
 );
 
+function buildAuthResponse<TProvider extends ProviderAuthProviderId>(params: {
+  provider: TProvider;
+  state: Parameters<typeof createProviderAuthFixture<TProvider>>[0]['state'];
+  payload?: Partial<ProviderAuthResponseFor<TProvider>>;
+}) {
+  return createProviderAuthFixture(params).payload;
+}
+
 function renderDialog(props?: {
   open?: boolean;
   onClose?: () => void;
+  onSuccess?: (response: Awaited<ReturnType<PostProviderDeviceAuth>>) => void;
   source?: 'chat' | 'agents';
 }) {
   return render(
     <CodexDeviceAuthDialog
       open={props?.open ?? true}
       onClose={props?.onClose ?? jest.fn()}
+      onSuccess={props?.onSuccess}
       source={props?.source ?? 'chat'}
     />,
   );
@@ -40,288 +53,228 @@ function renderDialog(props?: {
 
 describe('CodexDeviceAuthDialog', () => {
   beforeEach(() => {
-    postCodexDeviceAuth.mockReset();
+    postProviderDeviceAuth.mockReset();
     logSpy.mockReset();
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
+  it('renders the shared layout with Codex Auth first, Copilot Auth second, and Close in the action row', () => {
+    renderDialog();
+
+    expect(
+      screen.getByRole('heading', { name: 'Choose Authentication' }),
+    ).toBeInTheDocument();
+
+    const buttons = screen
+      .getAllByRole('button')
+      .map((button) => button.textContent?.trim());
+    expect(buttons).toEqual(['Codex Auth', 'Copilot Auth', 'Close']);
   });
 
-  it('disables the start button while pending', async () => {
+  it('renders verification URL and one-time code below the shared buttons without replacing the outer dialog tree', async () => {
     const user = userEvent.setup();
-    let resolvePromise:
-      | ((value: CodexDeviceAuthSuccessResponse) => void)
-      | undefined;
-    postCodexDeviceAuth.mockImplementation(
-      () =>
-        new Promise<CodexDeviceAuthSuccessResponse>((resolve) => {
-          resolvePromise = resolve;
-        }),
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://github.com/login/device',
+          userCode: 'COPILOT-CODE',
+        },
+      }),
     );
 
     renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
 
-    const startButton = screen.getByRole('button', {
-      name: /start device auth/i,
-    });
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByRole('button', { name: 'Codex Auth' }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: 'Copilot Auth' }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('heading', { name: 'Choose Authentication' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Verification URL')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'https://github.com/login/device' }),
+    ).toHaveAttribute('href', 'https://github.com/login/device');
+    expect(
+      screen.getByText('COPILOT-CODE', { selector: 'code' }),
+    ).toBeInTheDocument();
+  });
 
-    await act(async () => {
-      await user.click(startButton);
-    });
+  it('renders already-authenticated state without relying on raw output blocks', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'already_authenticated',
+      }),
+    );
 
-    await waitFor(() => expect(startButton).toBeDisabled());
-    resolvePromise?.(
-      createProviderAuthFixture({
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
+    expect(
+      await screen.findByText(
+        'GitHub Copilot is already authenticated for this runtime.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Device auth output/i)).toBeNull();
+  });
+
+  it('renders unavailable-before-start states distinctly from general failures', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'unavailable_before_start',
+        payload: { reason: 'GitHub login required' },
+      }),
+    );
+
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
+    expect(
+      await screen.findByText('GitHub login required'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Status details')).toBeNull();
+  });
+
+  it('renders completion-pending state without collapsing back to the chooser view', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'completion_pending',
+        payload: {
+          verificationUrl: 'https://github.com/login/device',
+          userCode: 'COPILOT-CODE',
+          displayOutput: 'Authentication is still pending.',
+        },
+      }),
+    );
+
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
+    expect(
+      await screen.findByText(
+        'Authentication is still pending. Finish the browser step, then refresh again if needed.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Status details')).toBeInTheDocument();
+    expect(
+      screen.getByText('Authentication is still pending.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Codex Auth' }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders completed state distinctly from already-authenticated state', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'completed',
+      }),
+    );
+
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
+    expect(
+      await screen.findByText('GitHub Copilot authentication completed.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/already authenticated for this runtime/i),
+    ).toBeNull();
+  });
+
+  it('keeps the existing Codex branch working through the shared dialog', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
         provider: 'codex',
         state: 'verification_ready',
         payload: {
           verificationUrl: 'https://example.com/device',
-          userCode: 'HOLD-CODE',
-          displayOutput:
-            'Open https://example.com/device and enter code HOLD-CODE.',
+          userCode: 'CODEX-CODE',
         },
-      }).payload,
-    );
-  });
-
-  it('renders raw output with linkified URLs on success', async () => {
-    const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue(
-      createProviderAuthFixture({
-        provider: 'codex',
-        state: 'verification_ready',
-        payload: {
-          verificationUrl: 'https://example.com/device',
-          userCode: 'ABCD-EFGH',
-          displayOutput:
-            'Open https://example.com/device and enter code ABCD-EFGH.',
-        },
-      }).payload,
+      }),
     );
 
     renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Codex Auth' }));
 
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
-
-    const links = await screen.findAllByRole('link', {
-      name: 'https://example.com/device',
-    });
-    expect(links.length).toBeGreaterThanOrEqual(1);
-    expect(links[0]).toHaveAttribute('href', 'https://example.com/device');
-    expect(links[0]).toHaveAttribute('target', '_blank');
-    expect(links[0]).toHaveAttribute('rel', 'noreferrer');
-    const outputBlock = screen.getByText(/Open/i);
-    expect(outputBlock.closest('pre')).not.toBeNull();
+    expect(postProviderDeviceAuth).toHaveBeenCalledWith('codex');
+    expect(await screen.findByText('OpenAI Codex')).toBeInTheDocument();
     expect(
-      screen.getByText(/ABCD-EFGH/i, { selector: 'code' }),
+      screen.getByRole('link', { name: 'https://example.com/device' }),
+    ).toHaveAttribute('href', 'https://example.com/device');
+    expect(
+      screen.getByText('CODEX-CODE', { selector: 'code' }),
     ).toBeInTheDocument();
   });
 
-  it('renders raw output inside a read-only block', async () => {
+  it('emits the Task 12 render marker with secret-safe provider and auth-state context', async () => {
     const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue(
-      createProviderAuthFixture({
-        provider: 'codex',
-        state: 'verification_ready',
-        payload: {
-          verificationUrl: 'https://example.com/device',
-          userCode: 'ABCD-EFGH',
-          displayOutput:
-            'Open https://example.com/device and enter code ABCD-EFGH.',
-        },
-      }).payload,
-    );
-
-    renderDialog();
-
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
-
-    const output = await screen.findByText(/Open/i);
-    expect(output.closest('pre')).not.toBeNull();
-  });
-
-  it('shows error message and re-enables start after failure', async () => {
-    const user = userEvent.setup();
-    postCodexDeviceAuth.mockRejectedValue(
-      new Error('Enable device code login in ChatGPT settings'),
-    );
-
-    renderDialog();
-
-    const startButton = screen.getByRole('button', {
-      name: /start device auth/i,
-    });
-
-    await user.click(startButton);
-
-    expect(
-      await screen.findByText(/Enable device code login/i),
-    ).toBeInTheDocument();
-    expect(startButton).toBeEnabled();
-  });
-
-  it('invokes onClose after an error state', async () => {
-    const user = userEvent.setup();
-    const onClose = jest.fn();
-    postCodexDeviceAuth.mockRejectedValue(new Error('Device auth failed'));
-
-    renderDialog({ onClose });
-
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
-
-    await screen.findByText(/Device auth failed/i);
-    await user.click(screen.getByRole('button', { name: /close/i }));
-
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it('sends no request payload for shared auth flow', async () => {
-    const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue(
-      createProviderAuthFixture({
-        provider: 'codex',
-        state: 'verification_ready',
-        payload: {
-          verificationUrl: 'https://example.com/device',
-          userCode: 'ABCD-EFGH',
-          displayOutput:
-            'Open https://example.com/device and enter code ABCD-EFGH.',
-        },
-      }).payload,
-    );
-
-    renderDialog();
-
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
-
-    await waitFor(() => expect(postCodexDeviceAuth).toHaveBeenCalledWith());
-  });
-
-  it('does not render a target selector', () => {
-    renderDialog();
-    expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
-  });
-
-  it('renders deterministic invalid_request error state for 400 path', async () => {
-    const user = userEvent.setup();
-    postCodexDeviceAuth.mockRejectedValue(
-      new Error('invalid_request: request body must be {}'),
-    );
-
-    renderDialog();
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
-
-    expect(
-      await screen.findByText(/invalid_request: request body must be \{\}/i),
-    ).toBeInTheDocument();
-  });
-
-  it('renders deterministic codex_unavailable error state for 503 path', async () => {
-    const user = userEvent.setup();
-    postCodexDeviceAuth.mockRejectedValue(
-      new Error('codex_unavailable: Codex CLI unavailable'),
-    );
-
-    renderDialog();
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
-
-    expect(
-      await screen.findByText(/codex_unavailable: Codex CLI unavailable/i),
-    ).toBeInTheDocument();
-  });
-
-  it('retries successfully after an error state', async () => {
-    const user = userEvent.setup();
-    postCodexDeviceAuth
-      .mockRejectedValueOnce(
-        new Error('invalid_request: request body must be {}'),
-      )
-      .mockResolvedValueOnce(
-        createProviderAuthFixture({
-          provider: 'codex',
-          state: 'verification_ready',
-          payload: {
-            verificationUrl: 'https://example.com/device',
-            userCode: 'RETRY-CODE',
-            displayOutput:
-              'Open https://example.com/device and enter code RETRY-CODE.',
-          },
-        }).payload,
-      );
-
-    renderDialog();
-    const start = screen.getByRole('button', { name: /start device auth/i });
-
-    await user.click(start);
-    expect(await screen.findByText(/invalid_request/i)).toBeInTheDocument();
-
-    await user.click(start);
-    expect(
-      await screen.findByText(/RETRY-CODE/i, { selector: 'code' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/invalid_request/i)).toBeNull();
-  });
-
-  it('emits T15 success log on successful shared auth flow', async () => {
-    const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue(
-      createProviderAuthFixture({
-        provider: 'codex',
-        state: 'verification_ready',
-        payload: {
-          verificationUrl: 'https://example.com/device',
-          userCode: 'ABCD-EFGH',
-          displayOutput:
-            'Open https://example.com/device and enter code ABCD-EFGH.',
-        },
-      }).payload,
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'completed',
+      }),
     );
 
     renderDialog({ source: 'agents' });
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
 
     await waitFor(() =>
       expect(logSpy).toHaveBeenCalledWith(
         'info',
-        '[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success',
+        'story.0000051.task12.choose_auth_dialog_rendered',
         expect.objectContaining({
+          authStatus: 'completed',
           source: 'agents',
-          state: 'verification_ready',
+          visibleProviderBranch: 'copilot',
         }),
       ),
     );
   });
 
-  it('emits T15 error log on failure path', async () => {
+  it('only calls onSuccess when authentication finishes in a completed state', async () => {
     const user = userEvent.setup();
-    postCodexDeviceAuth.mockRejectedValue(new Error('codex_unavailable: down'));
+    const onSuccess = jest.fn();
 
-    renderDialog({ source: 'chat' });
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
+    postProviderDeviceAuth
+      .mockResolvedValueOnce(
+        buildAuthResponse({
+          provider: 'copilot',
+          state: 'verification_ready',
+        }),
+      )
+      .mockResolvedValueOnce(
+        buildAuthResponse({
+          provider: 'copilot',
+          state: 'completed',
+        }),
+      );
 
-    await waitFor(() =>
-      expect(logSpy).toHaveBeenCalledWith(
-        'error',
-        '[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=error',
-        { message: 'codex_unavailable: down', source: 'chat' },
-      ),
-    );
+    renderDialog({ onSuccess });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+    });
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
   });
 });

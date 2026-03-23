@@ -6750,3 +6750,22 @@ flowchart LR
   I --> J[Wrapper exports CODEINFO_COMPOSE_WORKFLOW, CODEINFO_INTERPOLATION_SOURCE, CODEINFO_RUNTIME_ENV_FILE_SOURCE]
   J --> K[server/entrypoint emits T02 env-source token]
 ```
+
+## Story 0000051 Task 12 - Shared Choose Authentication dialog flow
+
+- The client now uses one shared `Choose Authentication` dialog for in-app auth flows instead of a Codex-only modal.
+- The shared dialog keeps the existing MUI `Dialog` shell stable while swapping provider-specific auth state below the shared buttons, so verification-ready, pending, completed, already-authenticated, unavailable, and failed states do not replace the outer dialog tree.
+- Chat-page auth completion refreshes provider readiness through the existing provider/model fetch surfaces, while agents-page execution remains Codex-backed in this story even though the shared dialog can start either provider's auth flow.
+
+```mermaid
+flowchart TD
+  A[Open Choose Authentication dialog] --> B[Render Codex Auth button]
+  A --> C[Render Copilot Auth button]
+  B --> D[POST /codex/device-auth {}]
+  C --> E[POST /copilot/device-auth {}]
+  D --> F[Render shared provider-auth state below buttons]
+  E --> F
+  F --> G{completed or already_authenticated?}
+  G -->|Yes| H[Refresh provider readiness surfaces]
+  G -->|No| I[Keep dialog open with shared status view]
+```

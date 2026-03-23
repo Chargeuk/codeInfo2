@@ -23,22 +23,18 @@ await jest.unstable_mockModule('../logging/logger', async () => ({
   createLogger: jest.fn(() => logSpy),
 }));
 
-const { postCodexDeviceAuth } = await import('../api/codex');
+const { postCodexDeviceAuth, postProviderDeviceAuth } = await import(
+  '../api/codex'
+);
 
-describe('Codex device-auth API helper', () => {
-  it('serializes request body as strict empty object', async () => {
+describe('Provider device-auth API helper', () => {
+  it('keeps the Codex request body as a strict empty object', async () => {
     installProviderAuthFetchFixtures({
       mockFetch,
       fixtures: [
         createProviderAuthFixture({
           provider: 'codex',
           state: 'verification_ready',
-          payload: {
-            verificationUrl: 'https://example.com/device',
-            userCode: 'ABCD-EFGH',
-            displayOutput:
-              'Open https://example.com/device and enter code ABCD-EFGH.',
-          },
         }),
       ],
     });
@@ -56,34 +52,71 @@ describe('Codex device-auth API helper', () => {
     );
   });
 
-  it('parses strict 200 success shape', async () => {
+  it('accepts a Copilot verification-ready response through the generalized helper', async () => {
     installProviderAuthFetchFixtures({
       mockFetch,
       fixtures: [
         createProviderAuthFixture({
-          provider: 'codex',
+          provider: 'copilot',
           state: 'verification_ready',
           payload: {
-            verificationUrl: 'https://example.com/device',
-            userCode: 'ABCD-EFGH',
-            displayOutput:
-              'Open https://example.com/device and enter code ABCD-EFGH.',
+            verificationUrl: 'https://github.com/login/device',
+            userCode: 'COPILOT-CODE',
           },
         }),
       ],
     });
 
-    await expect(postCodexDeviceAuth()).resolves.toEqual({
-      provider: 'codex',
+    await expect(postProviderDeviceAuth('copilot')).resolves.toEqual({
+      provider: 'copilot',
       state: 'verification_ready',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'COPILOT-CODE',
       displayOutput:
-        'Open https://example.com/device and enter code ABCD-EFGH.',
+        'Open https://github.com/login/device and enter COPILOT-CODE.',
     });
   });
 
-  it('parses deterministic 400 invalid_request response', async () => {
+  it('preserves unavailable-before-start states as shared structured responses', async () => {
+    installProviderAuthFetchFixtures({
+      mockFetch,
+      fixtures: [
+        createProviderAuthFixture({
+          provider: 'copilot',
+          state: 'unavailable_before_start',
+          payload: { reason: 'GitHub login required' },
+        }),
+      ],
+    });
+
+    await expect(postProviderDeviceAuth('copilot')).resolves.toEqual({
+      provider: 'copilot',
+      state: 'unavailable_before_start',
+      reason: 'GitHub login required',
+    });
+  });
+
+  it('preserves failed states as shared structured responses instead of forcing Codex-only handling', async () => {
+    installProviderAuthFetchFixtures({
+      mockFetch,
+      fixtures: [
+        createProviderAuthFixture({
+          provider: 'copilot',
+          state: 'failed',
+          payload: { reason: 'copilot auth failed' },
+        }),
+      ],
+    });
+
+    await expect(postProviderDeviceAuth('copilot')).resolves.toEqual({
+      provider: 'copilot',
+      state: 'failed',
+      reason: 'copilot auth failed',
+      displayOutput: 'copilot auth failed',
+    });
+  });
+
+  it('still parses deterministic invalid_request responses for the Codex route', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse(
         {
@@ -101,89 +134,26 @@ describe('Codex device-auth API helper', () => {
     });
   });
 
-  it('parses deterministic 200 unavailable-before-start response', async () => {
+  it('emits success logs for a provider-aware response', async () => {
     installProviderAuthFetchFixtures({
       mockFetch,
       fixtures: [
         createProviderAuthFixture({
-          provider: 'codex',
-          state: 'unavailable_before_start',
-          payload: { reason: 'codex missing' },
-        }),
-      ],
-    });
-
-    await expect(postCodexDeviceAuth()).resolves.toEqual({
-      provider: 'codex',
-      state: 'unavailable_before_start',
-      reason: 'codex missing',
-    });
-  });
-
-  it('emits deterministic T14 success log for valid contract consumption', async () => {
-    installProviderAuthFetchFixtures({
-      mockFetch,
-      fixtures: [
-        createProviderAuthFixture({
-          provider: 'codex',
+          provider: 'copilot',
           state: 'verification_ready',
-          payload: {
-            verificationUrl: 'https://example.com/device',
-            userCode: 'ABCD-EFGH',
-            displayOutput:
-              'Open https://example.com/device and enter code ABCD-EFGH.',
-          },
         }),
       ],
     });
 
-    await postCodexDeviceAuth();
+    await postProviderDeviceAuth('copilot');
 
     expect(logSpy).toHaveBeenCalledWith(
       'info',
       '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success',
       expect.objectContaining({
-        status: 200,
+        provider: 'copilot',
         responseState: 'verification_ready',
-      }),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      'info',
-      '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success',
-      expect.objectContaining({
         status: 200,
-        responseState: 'verification_ready',
-      }),
-    );
-  });
-
-  it('emits deterministic T14 error log for invalid_request path', async () => {
-    mockFetch.mockResolvedValue(
-      mockJsonResponse(
-        {
-          error: 'invalid_request',
-          message: 'request body must be an empty JSON object',
-        },
-        { status: 400 },
-      ),
-    );
-
-    await expect(postCodexDeviceAuth()).rejects.toBeDefined();
-
-    expect(logSpy).toHaveBeenCalledWith(
-      'error',
-      '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error',
-      expect.objectContaining({
-        status: 400,
-        error: 'invalid_request',
-      }),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      'error',
-      '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error',
-      expect.objectContaining({
-        status: 400,
-        error: 'invalid_request',
       }),
     );
   });

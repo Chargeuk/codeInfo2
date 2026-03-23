@@ -995,11 +995,13 @@ export default function ChatPage() {
     setDeviceAuthOpen(false);
   };
 
-  const handleDeviceAuthSuccess = () => {
+  const handleDeviceAuthSuccess = (response: {
+    provider: 'codex' | 'copilot';
+  }) => {
     deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_success');
     void refreshProviders();
-    if (provider === 'codex') {
-      void refreshModels('codex');
+    if (provider === response.provider) {
+      void refreshModels(response.provider);
     }
   };
 

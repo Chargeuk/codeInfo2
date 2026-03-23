@@ -1,5 +1,38 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 12 structural change ledger
+
+Added files:
+
+- `client/src/test/agentsPage.authDialog.test.tsx`
+- `client/src/test/chatPage.authRefresh.test.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/api/codex.ts`
+- `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/codexDeviceAuthApi.test.ts`
+- `client/src/test/codexDeviceAuthDialog.test.tsx`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 12 keeps the existing dialog file path but converts it into the shared `Choose Authentication` flow, so current chat and agents consumers keep the same component entry point while gaining provider-aware auth state rendering.
+- The client auth API now has a provider-aware helper that still preserves the strict empty-body Codex route behavior and the shared provider-auth contract from Tasks 8 and 9.
+- The proof adds one chat refresh regression suite and one agents-page dialog regression suite in addition to refreshing the existing dialog and API tests around the shared auth flow.
+
 ## Story 0000051 Task 10 structural change ledger
 
 Added files:

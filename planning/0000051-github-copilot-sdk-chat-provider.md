@@ -1421,8 +1421,8 @@ Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18,
 ### Task 14. Wire Copilot runtime environment injection
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `ae16097d`
 
 #### Overview
 
@@ -1454,7 +1454,7 @@ Implementation starter pattern for every subtask in this task: copy the existing
 9. [x] Update `README.md`. Document name: `README.md`. Location: repository root. Description: document the new Copilot env var, the optional explicit Copilot CLI path override for local development, and any user-visible runtime prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
 10. [x] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the runtime-env loading flow, the explicit `cliPath` versus `PATH` rule, the `/health` isolation rule, and add Mermaid diagrams if they help explain the runtime flow. Purpose: keep architecture and runtime-flow documentation aligned with the implementation.
 11. [x] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record any new runtime-config or health-isolation test files after they are created. Purpose: keep the repository file map accurate after file creation.
-12. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 14, recording implementation notes, and listing the task commit hashes once they exist.
+12. [x] Update this plan file after implementation by marking the completed checkboxes for Task 14, recording implementation notes, and listing the task commit hashes once they exist.
 13. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 14. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 

@@ -22,8 +22,11 @@ test('named happy-path fake Copilot scenario boots the higher-level stack end to
   try {
     const providers = await request(server.httpServer).get('/chat/providers');
     assert.equal(providers.status, 200);
-    assert.equal(providers.body.providers[1]?.id, 'copilot');
-    assert.equal(providers.body.providers[1]?.available, true);
+    const copilotProvider = providers.body.providers.find(
+      (provider: { id?: string }) => provider.id === 'copilot',
+    );
+    assert.ok(copilotProvider);
+    assert.equal(copilotProvider.available, true);
 
     const models = await request(server.httpServer).get(
       '/chat/models?provider=copilot',
@@ -95,10 +98,13 @@ test('named auth-required fake Copilot scenario surfaces the negative path clean
   try {
     const providers = await request(server.httpServer).get('/chat/providers');
     assert.equal(providers.status, 200);
-    assert.equal(providers.body.providers[1]?.id, 'copilot');
-    assert.equal(providers.body.providers[1]?.available, false);
+    const copilotProvider = providers.body.providers.find(
+      (provider: { id?: string }) => provider.id === 'copilot',
+    );
+    assert.ok(copilotProvider);
+    assert.equal(copilotProvider.available, false);
     assert.equal(
-      providers.body.providers[1]?.reason,
+      copilotProvider.reason,
       'copilot authentication required',
     );
 

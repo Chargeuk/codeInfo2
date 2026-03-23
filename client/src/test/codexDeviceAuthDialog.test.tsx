@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createProviderAuthFixture } from './support/fetchMock';
 
 type PostCodexDeviceAuth =
   (typeof import('../api/codex'))['postCodexDeviceAuth'];
@@ -70,26 +71,34 @@ describe('CodexDeviceAuthDialog', () => {
     });
 
     await waitFor(() => expect(startButton).toBeDisabled());
-    resolvePromise?.({
-      provider: 'codex',
-      state: 'verification_ready',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'HOLD-CODE',
-      displayOutput:
-        'Open https://example.com/device and enter code HOLD-CODE.',
-    });
+    resolvePromise?.(
+      createProviderAuthFixture({
+        provider: 'codex',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://example.com/device',
+          userCode: 'HOLD-CODE',
+          displayOutput:
+            'Open https://example.com/device and enter code HOLD-CODE.',
+        },
+      }).payload,
+    );
   });
 
   it('renders raw output with linkified URLs on success', async () => {
     const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue({
-      provider: 'codex',
-      state: 'verification_ready',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
-      displayOutput:
-        'Open https://example.com/device and enter code ABCD-EFGH.',
-    });
+    postCodexDeviceAuth.mockResolvedValue(
+      createProviderAuthFixture({
+        provider: 'codex',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://example.com/device',
+          userCode: 'ABCD-EFGH',
+          displayOutput:
+            'Open https://example.com/device and enter code ABCD-EFGH.',
+        },
+      }).payload,
+    );
 
     renderDialog();
 
@@ -113,14 +122,18 @@ describe('CodexDeviceAuthDialog', () => {
 
   it('renders raw output inside a read-only block', async () => {
     const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue({
-      provider: 'codex',
-      state: 'verification_ready',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
-      displayOutput:
-        'Open https://example.com/device and enter code ABCD-EFGH.',
-    });
+    postCodexDeviceAuth.mockResolvedValue(
+      createProviderAuthFixture({
+        provider: 'codex',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://example.com/device',
+          userCode: 'ABCD-EFGH',
+          displayOutput:
+            'Open https://example.com/device and enter code ABCD-EFGH.',
+        },
+      }).payload,
+    );
 
     renderDialog();
 
@@ -171,14 +184,18 @@ describe('CodexDeviceAuthDialog', () => {
 
   it('sends no request payload for shared auth flow', async () => {
     const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue({
-      provider: 'codex',
-      state: 'verification_ready',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
-      displayOutput:
-        'Open https://example.com/device and enter code ABCD-EFGH.',
-    });
+    postCodexDeviceAuth.mockResolvedValue(
+      createProviderAuthFixture({
+        provider: 'codex',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://example.com/device',
+          userCode: 'ABCD-EFGH',
+          displayOutput:
+            'Open https://example.com/device and enter code ABCD-EFGH.',
+        },
+      }).payload,
+    );
 
     renderDialog();
 
@@ -232,14 +249,18 @@ describe('CodexDeviceAuthDialog', () => {
       .mockRejectedValueOnce(
         new Error('invalid_request: request body must be {}'),
       )
-      .mockResolvedValueOnce({
-        provider: 'codex',
-        state: 'verification_ready',
-        verificationUrl: 'https://example.com/device',
-        userCode: 'RETRY-CODE',
-        displayOutput:
-          'Open https://example.com/device and enter code RETRY-CODE.',
-      });
+      .mockResolvedValueOnce(
+        createProviderAuthFixture({
+          provider: 'codex',
+          state: 'verification_ready',
+          payload: {
+            verificationUrl: 'https://example.com/device',
+            userCode: 'RETRY-CODE',
+            displayOutput:
+              'Open https://example.com/device and enter code RETRY-CODE.',
+          },
+        }).payload,
+      );
 
     renderDialog();
     const start = screen.getByRole('button', { name: /start device auth/i });
@@ -256,14 +277,18 @@ describe('CodexDeviceAuthDialog', () => {
 
   it('emits T15 success log on successful shared auth flow', async () => {
     const user = userEvent.setup();
-    postCodexDeviceAuth.mockResolvedValue({
-      provider: 'codex',
-      state: 'verification_ready',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
-      displayOutput:
-        'Open https://example.com/device and enter code ABCD-EFGH.',
-    });
+    postCodexDeviceAuth.mockResolvedValue(
+      createProviderAuthFixture({
+        provider: 'codex',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://example.com/device',
+          userCode: 'ABCD-EFGH',
+          displayOutput:
+            'Open https://example.com/device and enter code ABCD-EFGH.',
+        },
+      }).payload,
+    );
 
     renderDialog({ source: 'agents' });
     await user.click(

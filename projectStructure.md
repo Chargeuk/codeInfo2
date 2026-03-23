@@ -1,5 +1,33 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 10 structural change ledger
+
+Added files:
+
+- `client/src/test/providerAuthFixtures.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/test/codexDeviceAuthApi.test.ts`
+- `client/src/test/codexDeviceAuthDialog.test.tsx`
+- `client/src/test/support/fetchMock.ts`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 10 extends the existing client fetch-mock support with named provider-auth fixtures instead of introducing a second client-only harness, so later auth tests can reuse the shared Task 8 and Task 9 contract directly.
+- The new fixture API is centered on `createProviderAuthFixture(...)` and `installProviderAuthFetchFixtures(...)`, which lets tests request named states like `copilot:verification_ready` while keeping bootstrap opt-in per test.
+- The proof adds one focused `providerAuthFixtures` client suite and updates the existing Codex auth API and dialog tests to consume the shared fixture builders without reintroducing legacy raw-output response literals.
+
 ## Story 0000051 Task 9 structural change ledger
 
 Added files:
@@ -1920,6 +1948,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- chatPage.mermaid.test.tsx ? assistant/user mermaid parity and malformed-fallback coverage
 |     |     |- codexDeviceAuthApi.test.ts ? codex device-auth API helper parsing + errors
 |     |     |- codexDeviceAuthDialog.test.tsx ? codex device-auth dialog states + copy actions
+|     |     |- providerAuthFixtures.test.ts ? shared provider-auth fixture builders plus named Codex/Copilot auth states
 |     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown
 |     |     |- agentsPage.descriptionPopover.test.tsx ? Agents page renders selected agent description markdown
 |     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state
@@ -2571,6 +2600,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - `client/src/test/chatPage.reasoning.test.tsx`
 - `client/src/test/codexDeviceAuthApi.test.ts`
 - `client/src/test/codexDeviceAuthDialog.test.tsx`
+- `client/src/test/providerAuthFixtures.test.ts`
 - `common/src/api.ts`
 - `common/src/fixtures/mockModels.ts`
 - `common/src/lmstudio.ts`

@@ -1165,7 +1165,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 10. Extend the existing client provider-auth test fixtures
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1185,28 +1185,34 @@ Mandatory isolation note for every numbered subtask below: if a junior developer
 Documentation handoff for every numbered subtask in this task: when assigning any one numbered subtask from this task, copy the exact bullet list from this task’s `Documentation Locations` section into the handoff so the developer has the Jest, Testing Library, and React references open while extending the fixtures.
 Implementation starter pattern for every subtask in this task: stay inside the existing fetch-mocking style used by `client/src/test/support/fetchMock.ts` and the current auth tests; add named provider-auth fixture builders in that same layer instead of inventing a second client-side harness.
 
-1. [ ] Extend the existing fetch-based client test helpers, centered on `client/src/test/support/fetchMock.ts` and any current auth fixture utilities, so tests can request Codex and Copilot auth start, verification-ready, completion-pending, completed, already-authenticated, failed, and unavailable-before-start states without rebuilding raw response objects in each file. When a named fixture is applied in the browser-backed scenario path, emit the secret-safe acceptance log line `story.0000051.task10.client_auth_fixture_applied` with context naming the fixture and provider.
-2. [ ] Define one clear fixture API around those existing helpers so later client tests can request a named provider-auth scenario without adding a second test-support layer.
-3. [ ] Update the existing client test bootstrap path so dialog and API tests can opt into the extended fixtures cleanly without affecting unrelated client tests.
-4. [ ] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request a verification-ready provider-auth fixture and confirm the helper returns the expected shared contract shape. Purpose: prove the happy-path fixture is reusable.
-5. [ ] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request an already-authenticated fixture and confirm the helper returns that shared contract shape without extra raw fields. Purpose: prove the extended fixture layer supports the new auth state cleanly.
-6. [ ] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request a failure fixture and confirm the helper returns the expected error-state shape without throwing unexpected serialization or parsing errors. Purpose: prove failure fixtures are stable for downstream dialog tests.
-7. [ ] Update `projectStructure.md` only if this task adds or removes files beyond the current helper locations. Document name: `projectStructure.md`. Location: repository root. Description: list any new fixture helper or proof-test files after they are created. Purpose: keep the repository file map accurate after file creation.
-8. [ ] Update `design.md` only if the client test entry point needs brief explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a short note about the shared provider-auth fixture entry point only if future maintainers would not infer it from the test code. Purpose: keep test architecture understandable.
-9. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
-10. [ ] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
-11. [ ] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
+1. [x] Extend the existing fetch-based client test helpers, centered on `client/src/test/support/fetchMock.ts` and any current auth fixture utilities, so tests can request Codex and Copilot auth start, verification-ready, completion-pending, completed, already-authenticated, failed, and unavailable-before-start states without rebuilding raw response objects in each file. When a named fixture is applied in the browser-backed scenario path, emit the secret-safe acceptance log line `story.0000051.task10.client_auth_fixture_applied` with context naming the fixture and provider.
+2. [x] Define one clear fixture API around those existing helpers so later client tests can request a named provider-auth scenario without adding a second test-support layer.
+3. [x] Update the existing client test bootstrap path so dialog and API tests can opt into the extended fixtures cleanly without affecting unrelated client tests.
+4. [x] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request a verification-ready provider-auth fixture and confirm the helper returns the expected shared contract shape. Purpose: prove the happy-path fixture is reusable.
+5. [x] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request an already-authenticated fixture and confirm the helper returns that shared contract shape without extra raw fields. Purpose: prove the extended fixture layer supports the new auth state cleanly.
+6. [x] Add a client test in `client/src/test/providerAuthFixtures.test.ts`. Test type: client unit. Description: request a failure fixture and confirm the helper returns the expected error-state shape without throwing unexpected serialization or parsing errors. Purpose: prove failure fixtures are stable for downstream dialog tests.
+7. [x] Update `projectStructure.md` only if this task adds or removes files beyond the current helper locations. Document name: `projectStructure.md`. Location: repository root. Description: list any new fixture helper or proof-test files after they are created. Purpose: keep the repository file map accurate after file creation.
+8. [x] Update `design.md` only if the client test entry point needs brief explanation for future maintainers. Document name: `design.md`. Location: repository root. Description: add a short note about the shared provider-auth fixture entry point only if future maintainers would not infer it from the test code. Purpose: keep test architecture understandable.
+9. [x] Update this plan file after implementation by marking the completed checkboxes for Task 10, recording implementation notes, and listing the task commit hashes once they exist.
+10. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
+11. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
 
-1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+1. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Extended `client/src/test/support/fetchMock.ts` with named provider-auth fixture builders plus an opt-in fetch installer, which kept Task 10 inside the existing fetch-mock layer instead of creating a second client harness.
+- The fixture API is `createProviderAuthFixture(...)` plus `installProviderAuthFetchFixtures(...)`, so later tests can ask for named states like `copilot:verification_ready` without rebuilding raw response payloads.
+- Updated `client/src/test/codexDeviceAuthApi.test.ts` and `client/src/test/codexDeviceAuthDialog.test.tsx` to opt into the shared fixture builders, which proved the new bootstrap path can be used selectively without changing unrelated client tests.
+- Added `client/src/test/providerAuthFixtures.test.ts` to prove reusable verification-ready, already-authenticated, and failed fixture states, including the task log marker on the browser-backed fetch path.
+- Updated `projectStructure.md` for the new `providerAuthFixtures` proof file; `design.md` did not need extra wording because the fixture entry point stays localized to `fetchMock.ts` and the focused proof file.
+- `npm run lint` passed on the first run, while `npm run format:check` initially flagged `client/src/test/support/fetchMock.ts`; running `npm run format` and then rerunning `npm run format:check` cleared the formatting drift.
+- Wrapper-backed proof passed cleanly with `npm run build:summary:client` and `npm run test:summary:client`, so the new fixture layer is covered both by focused fixture tests and the full client suite before Task 12 consumes it.
 
 ---
 

@@ -11,7 +11,8 @@ Story 51 adds GitHub Copilot as a third chat provider across the shared server, 
 - Tasks 10 through 13 finished the client-side provider, auth, and transcript work, including provider-aware auth fixtures, ordered provider/model selection, the shared `Choose Authentication` dialog, and omission-safe partial Copilot transcript metadata rendering.
 - Tasks 14 and 15 finalized runtime-env and Docker delivery, including `CODEINFO_COPILOT_HOME`, the optional `CODEINFO_COPILOT_CLI_PATH`, the `/app/copilot` container contract, and the `copilot-data` named-volume persistence pattern.
 - Tasks 16 through 18 finished higher-level proof with one shared fake Copilot scenario catalog across integration, Cucumber, and Playwright, then extended server-side BDD and browser coverage to prove the Copilot story end to end.
-- Task 19 completes final traceability, scope audit, documentation, wrapper-backed validation, manual browser verification, and closeout.
+- Task 19 repairs the final manual-proof contract so the real main stack stays responsible for unavailable/auth-required checks while the fake Copilot happy-path manual proof stays on the already-supported e2e stack.
+- Task 20 completes final traceability, scope audit, documentation, wrapper-backed validation, repaired manual browser verification, and closeout.
 
 ## Traceability And Scope Audit
 
@@ -26,7 +27,7 @@ Story 51 adds GitHub Copilot as a third chat provider across the shared server, 
   - no new external Copilot listener or published port
   - no replacement of Codex or LM Studio
   - no unrelated ingestion-provider changes
-- Final manual validation also confirms the story acceptance-log chain through `story.0000051.task01` to `story.0000051.task19`.
+- Final manual validation also confirms the story acceptance-log chain through `story.0000051.task01` to `story.0000051.task20`.
 
 ## Validation Summary
 
@@ -42,8 +43,10 @@ Story 51 adds GitHub Copilot as a third chat provider across the shared server, 
   - `npm run compose:build:summary`
   - `npm run test:summary:e2e`
   - `npm run compose:up`
+  - `npm run compose:e2e:up`
+  - `npm run compose:e2e:down`
   - `npm run compose:down`
-- Manual Playwright proof for final closeout is captured under `playwright-output-local/0000051-19-*` and includes provider selector state, shared auth dialog state, Copilot conversation state, transcript-metadata state when visible, and a nearby Codex regression check.
+- Manual Playwright proof for final closeout is captured under `playwright-output-local/0000051-20-*` and is split across the repaired proof surfaces: the main stack for provider ordering plus shared auth dialog state, and the e2e fake-scenario stack for Copilot conversation state, transcript-metadata state when visible, and a nearby Codex regression check.
 
 ## Highest-Risk Compatibility Changes
 

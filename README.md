@@ -469,8 +469,9 @@ Wrapper-first validation flow:
    - `npm run compose:build:summary`
 2. Start the validated main stack with `npm run compose:up`.
 3. Probe the live host-network listeners with `npm run test:summary:host-network:main`.
-4. Perform the manual Playwright-MCP proof against `http://host.docker.internal:5001`.
-5. Stop the stack with `npm run compose:down`.
+4. Perform the real-stack manual Playwright-MCP proof against `http://host.docker.internal:5001` for unavailable/auth-required state and the shared auth dialog.
+5. Start the fake-scenario e2e stack with `npm run compose:e2e:up`, then perform the fake happy-path manual Playwright-MCP proof against `http://host.docker.internal:6001`.
+6. Stop the e2e stack with `npm run compose:e2e:down`, then stop the main stack with `npm run compose:down`.
 
 Evidence locations:
 

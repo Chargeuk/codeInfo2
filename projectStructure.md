@@ -1,6 +1,6 @@
 ﻿# Project Structure (full tree)
 
-## Story 0000051 Task 19 structural change ledger
+## Story 0000051 Task 20 structural change ledger
 
 Added files:
 
@@ -23,8 +23,8 @@ Modified files (implementation traceability):
 
 Story notes:
 
-- Task 19 is the final closeout layer for Story 51. It adds the reviewer-facing PR summary, final traceability mapping, explicit scope-audit notes, and the last documentation sync for the completed Copilot chat-only story.
-- The final closeout keeps the repository footprint documentation-oriented unless final validation exposes a real contract gap, so the file map for Task 19 is intentionally narrow compared with earlier feature tasks.
+- Task 20 is the final closeout layer for Story 51. It adds the reviewer-facing PR summary, final traceability mapping, explicit scope-audit notes, and the last documentation sync for the completed Copilot chat-only story after Task 19 repairs the manual-proof contract.
+- The final closeout keeps the repository footprint documentation-oriented unless final validation exposes a real contract gap, so the file map for Task 20 is intentionally narrow compared with earlier feature tasks.
 
 ## Story 0000051 Task 18 structural change ledger
 

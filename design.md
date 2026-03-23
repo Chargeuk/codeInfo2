@@ -11,6 +11,47 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000051 final architecture closeout
+
+- Story `0000051` completes a chat-only third-provider integration for GitHub Copilot. The top-level product provider contract is now one ordered list shared by server defaults, client bootstrap, persistence enums, provider discovery, model loading, and OpenAPI: `codex`, then `copilot`, then `lmstudio`.
+- Provider and model changes continue to use the existing next-send semantics. A user-visible conversation is never silently switched in place to a different Copilot model or provider.
+- Copilot readiness stays off `/health`. The process health contract remains startup-plus-Mongo only, while Copilot readiness, unavailable reasons, and model-discovery state surface through `/chat/providers` and `/chat/models`.
+- The first Copilot story keeps the broader execution boundary intentionally narrow: Copilot is available only through chat. Agents, commands, and flows continue to use their current provider assumptions.
+- Shared auth is now one provider-auth contract with a stable state vocabulary: `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, and `unavailable_before_start`. The shared `Choose Authentication` dialog renders both `Codex Auth` and `Copilot Auth` without changing the surrounding MUI dialog shell.
+- Runtime-home handling mirrors Codex closely while remaining independent from the chat working directory:
+  - development default: `CODEINFO_COPILOT_HOME=../copilot`
+  - compose-backed runtime: `CODEINFO_COPILOT_HOME=/app/copilot`
+  - optional CLI override: `CODEINFO_COPILOT_CLI_PATH`
+  - default launch rule when unset: normal `PATH` lookup
+- Session identity remains compatibility-safe and deterministic. Copilot chat reuses `conversationId` directly as `sessionId`; the story does not introduce a separate persisted Copilot session id field in the normal path.
+
+```mermaid
+flowchart LR
+  UI["Chat page + shared Choose Authentication dialog"] --> ProviderAPI["/chat/providers + /chat/models"]
+  UI --> ChatAPI["POST /chat + websocket transcript bridge"]
+  UI --> AuthAPI["POST /copilot/device-auth<br/>POST /codex/device-auth"]
+  ProviderAPI --> Defaults["shared ordered provider contract<br/>codex -> copilot -> lmstudio"]
+  ChatAPI --> CopilotChat["ChatInterfaceCopilot<br/>conversationId == sessionId"]
+  CopilotChat --> Runtime["CopilotLifecycle<br/>cliPath override or PATH"]
+  AuthAPI --> Runtime
+  Runtime --> CopilotHome["CODEINFO_COPILOT_HOME<br/>../copilot or /app/copilot"]
+  CopilotHome --> Docker["copilot-data named volume in compose-backed runtimes"]
+```
+
+## Story 0000051 scope guardrails
+
+- In scope:
+  - shared three-provider chat contract
+  - Copilot provider visibility, readiness, model listing, chat execution, auth flow, transcript metadata, Docker delivery, and higher-level proof
+- Out of scope and intentionally still unchanged:
+  - Copilot agent, command, or flow execution
+  - Copilot BYOK provider-routing UI
+  - provider-specific default-model persistence for Copilot or LM Studio
+  - custom OAuth app management
+  - advanced Copilot permission controls in the chat UI
+  - in-place model switching for existing conversations
+  - any new external Copilot listener or published port
+
 ## Story 0000051 Task 16 fake Copilot boot-path baseline
 
 - `server/src/test/support/copilotScenarioCatalog.ts` is now the single named-scenario catalog for the higher-level Copilot proof path. It defines the reusable scenario ids and keeps readiness, auth, model, and stream behavior aligned across integration and later browser proof without introducing a second fixture vocabulary.

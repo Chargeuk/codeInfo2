@@ -1,5 +1,85 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 19 structural change ledger
+
+Added files:
+
+- `planning/0000051-pr-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 19 is the final closeout layer for Story 51. It adds the reviewer-facing PR summary, final traceability mapping, explicit scope-audit notes, and the last documentation sync for the completed Copilot chat-only story.
+- The final closeout keeps the repository footprint documentation-oriented unless final validation exposes a real contract gap, so the file map for Task 19 is intentionally narrow compared with earlier feature tasks.
+
+## Story 0000051 Task 18 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `e2e/chat-provider-history.spec.ts`
+- `e2e/chat-user-turn-ws.spec.ts`
+- `e2e/chat.spec.ts`
+- `e2e/support/copilotFakeScenario.ts`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+
+Story notes:
+
+- Task 18 finishes the browser-proof layer by extending the existing Playwright specs to cover Copilot provider visibility, Copilot happy-path send, Copilot websocket streaming, and the shared `Choose Authentication` dialog through the named fake-scenario contract from Task 16.
+- The Playwright coverage intentionally reuses the existing wrapper-backed boot path and selector style instead of introducing a second e2e harness.
+
+## Story 0000051 Task 17 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `server/src/test/features/chat_models.feature`
+- `server/src/test/features/chat_stream.feature`
+- `server/src/test/steps/chat_models.steps.ts`
+- `server/src/test/steps/chat_stream.steps.ts`
+
+Story notes:
+
+- Task 17 extends the existing server-side Cucumber feature and step files with named fake-scenario Copilot coverage for provider visibility, model listing, happy-path chat streaming, and representative streamed failure behavior.
+- The step layer stays thin and reuses the shared Task 16 scenario catalog rather than adding a Cucumber-only startup harness.
+
 ## Story 0000051 Task 16 structural change ledger
 
 Added files:

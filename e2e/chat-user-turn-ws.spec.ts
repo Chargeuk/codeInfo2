@@ -365,8 +365,7 @@ test('copilot websocket streaming renders streamed output in the transcript', as
   const thinkToggle = page.locator('[data-testid="think-toggle"]').first();
   await expect(thinkToggle).toBeVisible({ timeout: 10000 });
   await thinkToggle.click();
-  await expect(page.locator('[data-testid="think-content"]').first()).toContainText(
-    'copilot websocket trace',
-    { timeout: 10000 },
-  );
+  await expect(
+    page.locator('[data-testid="think-content"]').first(),
+  ).toContainText('copilot websocket trace', { timeout: 10000 });
 });

@@ -170,6 +170,19 @@ Corporate certificate directory requirements:
   - startup guard requires exact `0.107.0`; pre-release, lower, and higher versions are rejected.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
+## GitHub Copilot chat provider
+
+- Story `0000051` adds GitHub Copilot as a third chat-only provider alongside Codex and LM Studio. Provider ordering is now one shared contract everywhere the chat stack uses it: `codex`, then `copilot`, then `lmstudio`.
+- Copilot support is intentionally limited to chat in this story. Agents, commands, and flows still keep their existing Codex-oriented execution paths.
+- The runtime resolves `CODEINFO_COPILOT_HOME` in the same style as `CODEINFO_CODEX_HOME`:
+  - checked-in development default: `server/.env` uses `../copilot`
+  - compose-backed runtime override: `/app/copilot`
+  - persistence in Docker uses the named-volume contract `copilot-data`
+- The optional `CODEINFO_COPILOT_CLI_PATH` override can point the SDK at an explicit `copilot` binary. If it is unset, the runtime keeps normal `PATH` discovery.
+- Copilot readiness is surfaced through `/chat/providers` and `/chat/models`, not through `/health`. Missing CLI, missing auth, or missing model discovery keep Copilot visible with a stable disabled reason instead of failing server startup.
+- Shared auth now uses the `Choose Authentication` dialog for both Codex and Copilot. `POST /copilot/device-auth` uses the same provider-auth state vocabulary as Codex and returns device-flow verification details early so the browser step can finish outside the container.
+- Checked-in env files never hard-code Copilot credentials. Runtime auth precedence still honors `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, and authenticated `gh` fallback before device auth is required.
+
 ## REST Codex defaults behavior
 
 - REST chat capability surfaces now use one shared Codex-default resolver path.

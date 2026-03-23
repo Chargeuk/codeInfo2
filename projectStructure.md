@@ -1,5 +1,40 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 15 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/copilot-compose-contract.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.dockerignore`
+- `README.md`
+- `design.md`
+- `docker-compose.e2e.yml`
+- `docker-compose.local.yml`
+- `docker-compose.yml`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `scripts/compose-build-summary.mjs`
+- `server/Dockerfile`
+- `server/entrypoint.sh`
+- `server/npm-global.txt`
+
+Story notes:
+
+- Task 15 extends the existing container contract so the server image now includes the GitHub Copilot CLI, prepares `/app/copilot`, and keeps the image-baked source model intact.
+- All compose variants now inject `CODEINFO_COPILOT_HOME=/app/copilot` and mount the same logical `copilot-data` named-volume pattern at that runtime path without changing the published application ports.
+- The new `server/src/test/unit/copilot-compose-contract.test.ts` file is the focused proof for unchanged ports, named-volume persistence, Docker-ignore alignment, `/app/copilot` env injection, and the compose-build runtime asset marker.
+
 ## Story 0000051 Task 12 structural change ledger
 
 Added files:

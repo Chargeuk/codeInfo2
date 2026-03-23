@@ -208,5 +208,6 @@ fi
 echo "[CODEINFO][T08_DOCS_GUIDANCE_READY] section_heading=\"Corporate Registry and Certificate Overrides (Restricted Networks)\" canonical_vars=6 workflow_sources=2"
 echo "[CODEINFO][T09_INTERFACE_GUARD_STATUS] openapi_unchanged=true ws_shapes_unchanged=true mongo_shapes_unchanged=true deps_unchanged=true"
 echo "[CODEINFO][T10_FINAL_CLOSEOUT_READY] ac_total=23 wrappers_required=true manual_playwright_required=true"
+echo "story.0000051.task15.container_contract_ready {\"copilotHome\":\"${CODEINFO_COPILOT_HOME:-unset}\",\"copilotPersistence\":\"named_volume\",\"publishedPortsChanged\":false,\"serverPorts\":\"${CODEINFO_RUNTIME_SERVER_PORTS:-}\",\"playwrightPort\":\"${CODEINFO_RUNTIME_PLAYWRIGHT_PORT:-}\"}"
 
 drop_privileges_and_exec_node

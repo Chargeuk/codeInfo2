@@ -20,6 +20,8 @@ logs
 # Never send Codex credentials in build context.
 # The local repo may still contain runtime homes, but only credentials stay excluded here.
 codex/**
+copilot/**
+server/copilot/**
 codex_agents/**/sessions/**
 codex/**/auth.json
 codex_agents/**/auth.json

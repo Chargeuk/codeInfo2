@@ -128,6 +128,26 @@ flowchart LR
   Health --> ProcessOnly["status + uptime + mongoConnected only"]
 ```
 
+## Story 0000051 Task 15 Copilot Docker delivery and persistence
+
+- `server/Dockerfile` now bakes the GitHub Copilot CLI into the existing server image build and prepares `/app/copilot` as a writable runtime home alongside `/app/codex`, without changing the repository's copy-source-into-image build model.
+- `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` now all inject `CODEINFO_COPILOT_HOME=/app/copilot` and mount the same logical `copilot-data` named-volume pattern at that path. Compose project scoping keeps the actual Docker volume names distinct per stack while the contract stays the same in code.
+- `.dockerignore` now excludes repo-local Copilot runtime homes so local auth or session artifacts are never sent into the Docker build context, and `scripts/compose-build-summary.mjs` now treats `/app/copilot` as part of the baked runtime asset set.
+- The container contract is intentionally narrow: no new published ports, no external Copilot listener, and no host source bind mount of application code beyond the existing local-development overlays.
+
+```mermaid
+flowchart LR
+  BuildContext["repo build context"] --> Ignore[".dockerignore<br/>exclude repo-local Copilot homes"]
+  Ignore --> Image["server/Dockerfile<br/>install @github/copilot<br/>prepare /app/copilot"]
+  Image --> Compose["compose env + volume wiring"]
+  Compose --> Main["docker-compose.yml<br/>copilot-data -> /app/copilot"]
+  Compose --> Local["docker-compose.local.yml<br/>copilot-data -> /app/copilot"]
+  Compose --> E2E["docker-compose.e2e.yml<br/>copilot-data -> /app/copilot"]
+  Main --> Runtime["entrypoint marker<br/>story.0000051.task15.container_contract_ready"]
+  Local --> Runtime
+  E2E --> Runtime
+```
+
 ## Story 0000051 Task 6 Copilot model mapping baseline
 
 - `GET /chat/models?provider=copilot` now reuses `resolveCopilotReadiness(...)` before attempting model discovery so `/chat/models` and `/chat/providers` surface the same blocking-stage reasons.

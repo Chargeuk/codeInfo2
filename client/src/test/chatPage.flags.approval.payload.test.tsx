@@ -134,6 +134,14 @@ describe('Codex approval policy flag payloads', () => {
 
     const input = await screen.findByTestId('chat-input');
     const sendButton = await screen.findByTestId('chat-send');
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+
+    await user.click(providerSelect);
+    await user.click(
+      await screen.findByRole('option', { name: /^LM Studio$/i }),
+    );
 
     await waitFor(() => expect(input).toBeEnabled());
     await user.clear(input);
@@ -155,9 +163,6 @@ describe('Codex approval policy flag payloads', () => {
       await user.click(newConversationButton);
     });
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
     await user.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,

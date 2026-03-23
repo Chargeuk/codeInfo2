@@ -93,6 +93,72 @@ function mockChatProvidersFetch(options: {
 }
 
 describe('Chat provider selection (WS transport)', () => {
+  it('renders providers in codex, copilot, lmstudio order and shows the Copilot disabled reason', async () => {
+    const user = userEvent.setup();
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'copilot',
+          label: 'GitHub Copilot',
+          available: false,
+          toolsAvailable: false,
+          reason: 'GitHub login required',
+        },
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      modelsProvider: 'codex',
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await user.click(providerSelect);
+
+    const options = await screen.findAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      'OpenAI Codex',
+      'GitHub Copilot (unavailable: GitHub login required)',
+      'LM Studio',
+    ]);
+    expect(options[1]).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps Copilot visible during degraded provider fallback instead of hiding it', async () => {
+    const user = userEvent.setup();
+    mockChatProvidersFetch({
+      providers: [],
+      modelsProvider: 'lmstudio',
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+
+    await user.click(providerSelect);
+    expect(
+      await screen.findByRole('option', {
+        name: /github copilot \(unavailable: provider bootstrap fell back to lm studio only\.\)/i,
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('shows Codex as unavailable with guidance banner', async () => {
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
@@ -250,6 +316,153 @@ describe('Chat provider selection (WS transport)', () => {
         name: /re-authenticate \(device auth\)/i,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('restores Codex-only banners and flags after switching back from Copilot', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        const providerId = new URL(href, 'http://localhost').searchParams.get(
+          'provider',
+        );
+        if (providerId === 'copilot') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'copilot',
+              available: true,
+              toolsAvailable: true,
+              models: [
+                {
+                  key: 'copilot-chat',
+                  displayName: 'Copilot Chat',
+                  type: 'chat',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: ['Codex warning'],
+            models: [
+              {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+                supportedReasoningEfforts: ['high'],
+                defaultReasoningEffort: 'high',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByRole('button', {
+      name: /re-authenticate \(device auth\)/i,
+    });
+    expect(screen.getByTestId('codex-flags-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await user.click(providerSelect);
+    await user.click(
+      await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', {
+          name: /re-authenticate \(device auth\)/i,
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('codex-flags-panel')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('codex-warnings-banner'),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: /provider/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /^OpenAI Codex$/i }),
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: /re-authenticate \(device auth\)/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('codex-flags-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
   });
 
   it('keeps Provider/Model selects visible when models are empty', async () => {

@@ -281,6 +281,107 @@ describe('Chat page models list', () => {
     await waitFor(() => expect(select).toHaveTextContent('Mock Chat Model'));
   });
 
+  it('loads Copilot models from /chat/models when Copilot is selected', async () => {
+    const user = userEvent.setup();
+    const requestedProviders: string[] = [];
+
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (target.includes('/chat/models')) {
+          const providerId = new URL(
+            target,
+            'http://localhost',
+          ).searchParams.get('provider');
+          requestedProviders.push(providerId ?? 'missing');
+          if (providerId === 'copilot') {
+            return mockJsonResponse({
+              provider: 'copilot',
+              available: true,
+              toolsAvailable: true,
+              models: [
+                {
+                  key: 'copilot-chat',
+                  displayName: 'Copilot Chat',
+                  type: 'chat',
+                },
+              ],
+            });
+          }
+          return mockJsonResponse({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            models: [
+              {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+              },
+            ],
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5.1-codex-max/i,
+      ),
+    );
+
+    await user.click(providerSelect);
+    await user.click(
+      await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /copilot chat/i,
+      ),
+    );
+    expect(requestedProviders).toContain('copilot');
+  });
+
   it('renders capability-driven reasoning options for Codex defaults', async () => {
     mockFetch.mockImplementation(
       asFetchImplementation(async (url: RequestInfo | URL) => {

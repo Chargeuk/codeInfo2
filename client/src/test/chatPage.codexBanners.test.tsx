@@ -248,7 +248,9 @@ describe('Chat Codex banners', () => {
     expect(warningBanner).toHaveTextContent(/invalid codex_reasoning_effort/i);
 
     await userEvent.click(providerSelect);
-    const lmOption = await screen.findByRole('option', { name: /lm studio/i });
+    const lmOption = await screen.findByRole('option', {
+      name: /^LM Studio$/i,
+    });
     await userEvent.click(lmOption);
 
     expect(screen.queryByTestId('codex-warnings-banner')).toBeNull();

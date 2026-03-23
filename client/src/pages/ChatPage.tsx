@@ -643,10 +643,14 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!selectedConversation?.provider) return;
-    setProvider((currentProvider) =>
-      currentProvider === selectedConversation.provider
-        ? currentProvider
-        : selectedConversation.provider,
+    setProvider(
+      (currentProvider) =>
+        currentProvider === selectedConversation.provider
+          ? currentProvider
+          : selectedConversation.provider,
+      {
+        source: 'conversation-sync',
+      },
     );
   }, [selectedConversationProviderSyncKey, selectedConversation, setProvider]);
 
@@ -776,10 +780,14 @@ export default function ChatPage() {
     if (!models.some((model) => model.key === selectedConversation.model)) {
       return;
     }
-    setSelected((currentModel) =>
-      currentModel === selectedConversation.model
-        ? currentModel
-        : selectedConversation.model,
+    setSelected(
+      (currentModel) =>
+        currentModel === selectedConversation.model
+          ? currentModel
+          : selectedConversation.model,
+      {
+        source: 'conversation-sync',
+      },
     );
   }, [
     models,
@@ -943,7 +951,10 @@ export default function ChatPage() {
     const previousProvider = provider ?? null;
     const currentConversationId = activeConversationId ?? null;
     handleNewConversation({ reason: 'provider-change', nextProvider });
-    setProvider(nextProvider);
+    setProvider(nextProvider, {
+      nextSendOnly: true,
+      source: 'provider-change',
+    });
     log('info', 'DEV-0000046:T9:provider-next-send-updated', {
       previousProvider,
       nextProvider,
@@ -963,7 +974,10 @@ export default function ChatPage() {
     const previousModel = selected ?? null;
     const currentConversationId = activeConversationId ?? null;
     handleNewConversation({ reason: 'model-change' });
-    setSelected(nextModel);
+    setSelected(nextModel, {
+      nextSendOnly: true,
+      source: 'model-change',
+    });
     log('info', 'DEV-0000046:T10:model-next-send-updated', {
       previousModel,
       nextModel,
@@ -1020,13 +1034,17 @@ export default function ChatPage() {
       model: nextConversation?.model,
     });
     if (nextConversation?.provider && nextConversation.provider !== provider) {
-      setProvider(nextConversation.provider);
+      setProvider(nextConversation.provider, {
+        source: 'conversation-select',
+      });
     }
     if (
       nextConversation?.model &&
       models.some((model) => model.key === nextConversation.model)
     ) {
-      setSelected(nextConversation.model);
+      setSelected(nextConversation.model, {
+        source: 'conversation-select',
+      });
     }
     log('info', 'DEV-0000046:T7:sidebar-selection-navigation', {
       previousConversationId,
@@ -1472,7 +1490,11 @@ export default function ChatPage() {
                               disabled={!entry.available}
                             >
                               {entry.label}
-                              {!entry.available ? ' (unavailable)' : ''}
+                              {!entry.available
+                                ? entry.reason
+                                  ? ` (unavailable: ${entry.reason})`
+                                  : ' (unavailable)'
+                                : ''}
                             </MenuItem>
                           ))}
                         </TextField>

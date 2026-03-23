@@ -174,7 +174,7 @@ describe('Codex flags panel collapsed defaults', () => {
       expect(summaryButton).toHaveAttribute('aria-expanded', 'true'),
     );
 
-    await selectProvider(/lm studio/i);
+    await selectProvider(/^LM Studio$/i);
     await selectProvider(/openai codex/i);
 
     const newSummaryButton = await screen.findByRole('button', {

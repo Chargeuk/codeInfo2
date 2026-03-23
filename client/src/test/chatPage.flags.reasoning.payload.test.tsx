@@ -217,6 +217,14 @@ describe('Codex model reasoning effort flag payloads', () => {
 
       const input = await screen.findByTestId('chat-input');
       const sendButton = await screen.findByTestId('chat-send');
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /^LM Studio$/i }),
+      );
 
       await waitFor(() => expect(input).toBeEnabled());
       await userEvent.clear(input);
@@ -238,9 +246,6 @@ describe('Codex model reasoning effort flag payloads', () => {
         await userEvent.click(newConversationButton);
       });
 
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
       await userEvent.click(providerSelect);
       const codexOption = await screen.findByRole('option', {
         name: /openai codex/i,

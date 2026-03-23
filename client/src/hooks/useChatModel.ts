@@ -1,8 +1,14 @@
+import {
+  DEFAULT_CHAT_PROVIDER_ID,
+  ORDERED_CHAT_PROVIDER_IDS,
+  isChatProviderId,
+} from '@codeinfo2/common';
 import type {
   ChatModelInfo,
   ChatModelsResponse,
   CodexDefaults,
   ChatProviderInfo,
+  ChatProviderId,
 } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
@@ -11,6 +17,82 @@ import { normalizeReasoningCapabilityStrings } from '../utils/reasoningCapabilit
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
 const serverBase = getApiBaseUrl();
+const PROVIDER_LABELS: Record<ChatProviderId, string> = {
+  codex: 'OpenAI Codex',
+  copilot: 'GitHub Copilot',
+  lmstudio: 'LM Studio',
+};
+const DEGRADED_FALLBACK_REASON =
+  'Provider bootstrap fell back to LM Studio only.';
+
+type ProviderSelectionSource =
+  | 'provider-bootstrap'
+  | 'provider-fallback'
+  | 'provider-change'
+  | 'conversation-select'
+  | 'conversation-sync'
+  | 'legacy-bootstrap';
+
+type ModelSelectionSource =
+  | 'model-bootstrap'
+  | 'model-fallback'
+  | 'model-change'
+  | 'conversation-select'
+  | 'conversation-sync'
+  | 'legacy-bootstrap';
+
+type SelectionLogContext = {
+  chosenProvider: ChatProviderId;
+  chosenModel?: string;
+  nextSendOnly: boolean;
+  source: ProviderSelectionSource | ModelSelectionSource;
+  selectionType: 'provider' | 'model';
+};
+
+function logSelectionApplied(context: SelectionLogContext) {
+  console.info('story.0000051.task11.provider_selection_applied', context);
+}
+
+function buildProviderInfo(
+  id: ChatProviderId,
+  overrides: Partial<ChatProviderInfo> = {},
+): ChatProviderInfo {
+  return {
+    id,
+    label: PROVIDER_LABELS[id],
+    available: false,
+    toolsAvailable: false,
+    ...overrides,
+  };
+}
+
+function buildDegradedFallbackProviders(reason: string): ChatProviderInfo[] {
+  return ORDERED_CHAT_PROVIDER_IDS.map((id) =>
+    id === 'lmstudio'
+      ? buildProviderInfo(id, { available: true, toolsAvailable: true })
+      : buildProviderInfo(id, { reason }),
+  );
+}
+
+function normalizeProviders(list: ChatProviderInfo[]): ChatProviderInfo[] {
+  const provided = new Map<ChatProviderId, ChatProviderInfo>();
+
+  list.forEach((entry) => {
+    if (!isChatProviderId(entry.id)) {
+      return;
+    }
+    provided.set(entry.id, buildProviderInfo(entry.id, entry));
+  });
+
+  const missingReason = DEGRADED_FALLBACK_REASON;
+  return ORDERED_CHAT_PROVIDER_IDS.map(
+    (id) =>
+      provided.get(id) ??
+      buildProviderInfo(id, {
+        reason: missingReason,
+      }),
+  );
+}
 
 export type SelectedModelReasoningCapabilities = {
   supportedReasoningEfforts: string[];
@@ -21,6 +103,7 @@ export function useChatModel() {
   const providerControllerRef = useRef<AbortController | null>(null);
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
+  const providerRef = useRef<ChatProviderId | undefined>(undefined);
   const fallbackModels: ChatModelInfo[] = useMemo(
     () => [
       { key: 'fallback-model', displayName: 'Mock Chat Model', type: 'gguf' },
@@ -29,14 +112,16 @@ export function useChatModel() {
   );
 
   const [providers, setProviders] = useState<ChatProviderInfo[]>([]);
-  const [provider, setProvider] = useState<string | undefined>();
+  const [providerState, setProviderState] = useState<
+    ChatProviderId | undefined
+  >(undefined);
   const [providerStatus, setProviderStatus] = useState<Status>('idle');
   const [providerErrorMessage, setProviderErrorMessage] = useState<
     string | undefined
   >();
 
   const [models, setModels] = useState<ChatModelInfo[]>([]);
-  const [selected, setSelected] = useState<string | undefined>();
+  const [selected, setSelectedState] = useState<string | undefined>();
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [available, setAvailable] = useState<boolean>(true);
@@ -47,15 +132,82 @@ export function useChatModel() {
   >();
   const [codexWarnings, setCodexWarnings] = useState<string[] | undefined>();
 
+  useEffect(() => {
+    providerRef.current = providerState;
+  }, [providerState]);
+
   const pickProvider = useCallback(
     (list: ChatProviderInfo[]) => {
-      if (provider && list.some((p) => p.id === provider)) {
-        return provider;
+      if (providerState && list.some((p) => p.id === providerState)) {
+        return providerState;
       }
       const firstAvailable = list.find((p) => p.available);
-      return firstAvailable?.id ?? list[0]?.id;
+      return firstAvailable?.id ?? DEFAULT_CHAT_PROVIDER_ID;
     },
-    [provider],
+    [providerState],
+  );
+
+  const setProvider = useCallback(
+    (
+      nextValue:
+        | string
+        | undefined
+        | ((current: ChatProviderId | undefined) => string | undefined),
+      options?: {
+        nextSendOnly?: boolean;
+        source?: ProviderSelectionSource;
+      },
+    ) => {
+      setProviderState((current) => {
+        const resolved =
+          typeof nextValue === 'function' ? nextValue(current) : nextValue;
+        if (!resolved || !isChatProviderId(resolved)) {
+          return current;
+        }
+        if (resolved !== current) {
+          logSelectionApplied({
+            selectionType: 'provider',
+            chosenProvider: resolved,
+            nextSendOnly: Boolean(options?.nextSendOnly),
+            source: options?.source ?? 'provider-bootstrap',
+          });
+        }
+        return resolved;
+      });
+    },
+    [],
+  );
+
+  const setSelected = useCallback(
+    (
+      nextValue:
+        | string
+        | undefined
+        | ((current: string | undefined) => string | undefined),
+      options?: {
+        nextSendOnly?: boolean;
+        source?: ModelSelectionSource;
+      },
+    ) => {
+      setSelectedState((current) => {
+        const resolved =
+          typeof nextValue === 'function' ? nextValue(current) : nextValue;
+        if (!resolved) {
+          return current;
+        }
+        if (resolved !== current) {
+          logSelectionApplied({
+            selectionType: 'model',
+            chosenProvider: providerRef.current ?? DEFAULT_CHAT_PROVIDER_ID,
+            chosenModel: resolved,
+            nextSendOnly: Boolean(options?.nextSendOnly),
+            source: options?.source ?? 'model-bootstrap',
+          });
+        }
+        return resolved;
+      });
+    },
+    [],
   );
 
   const refreshProviders = useCallback(async () => {
@@ -79,66 +231,48 @@ export function useChatModel() {
       // Legacy compatibility: some callers still return the models array directly.
       if (Array.isArray(data)) {
         legacyBootstrapRef.current = true;
-        const list: ChatProviderInfo[] = [
-          {
-            id: 'lmstudio' as const,
-            label: 'LM Studio',
-            available: true,
-            toolsAvailable: true,
-          },
-        ];
+        const list = buildDegradedFallbackProviders(DEGRADED_FALLBACK_REASON);
         setProviders(list);
-        setProvider('lmstudio');
+        setProvider('lmstudio', { source: 'legacy-bootstrap' });
         setProviderReason(undefined);
         setAvailable(true);
         setToolsAvailable(true);
         setModels(data);
-        setSelected((prev) => {
-          if (prev && data.some((m) => m.key === prev)) {
-            return prev;
-          }
-          return data[0]?.key;
-        });
+        setSelected(
+          (prev) => {
+            if (prev && data.some((m) => m.key === prev)) {
+              return prev;
+            }
+            return data[0]?.key;
+          },
+          { source: 'legacy-bootstrap' },
+        );
         setStatus('success');
         setProviderStatus('success');
         return;
       }
 
-      const list = (data.providers ?? []).length
-        ? (data.providers ?? [])
-        : [
-            {
-              id: 'lmstudio' as const,
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-              reason: undefined,
-            },
-          ];
+      const list = normalizeProviders(data.providers ?? []);
       setProviders(list);
       const chosen = pickProvider(list);
-      setProvider(chosen);
+      setProvider(chosen, { source: 'provider-bootstrap' });
       const match = list.find((p) => p.id === chosen);
       setProviderReason(match?.reason);
       setProviderStatus('success');
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
-      const fallbackProviders: ChatProviderInfo[] = [
-        {
-          id: 'lmstudio',
-          label: 'LM Studio',
-          available: true,
-          toolsAvailable: true,
-          reason: (err as Error).message,
-        },
-      ];
+      const fallbackProviders = buildDegradedFallbackProviders(
+        (err as Error).message,
+      );
       setProviders(fallbackProviders);
-      setProvider('lmstudio');
+      setProvider('lmstudio', { source: 'provider-fallback' });
       setProviderReason((err as Error).message);
       setAvailable(true);
       setToolsAvailable(true);
       setModels(fallbackModels);
-      setSelected((prev) => prev ?? fallbackModels[0]?.key);
+      setSelected((prev) => prev ?? fallbackModels[0]?.key, {
+        source: 'model-fallback',
+      });
       setStatus('success');
       setProviderStatus('success');
       setProviderErrorMessage((err as Error).message);
@@ -147,12 +281,13 @@ export function useChatModel() {
         providerControllerRef.current = null;
       }
     }
-  }, [pickProvider, fallbackModels]);
+  }, [fallbackModels, pickProvider, setProvider, setSelected]);
 
   const refreshModels = useCallback(
-    async (targetProvider?: string) => {
-      const effectiveProvider = targetProvider ?? provider;
+    async (targetProvider?: ChatProviderId | string) => {
+      const effectiveProvider = targetProvider ?? providerState;
       if (!effectiveProvider) return;
+      if (!isChatProviderId(effectiveProvider)) return;
 
       modelsControllerRef.current?.abort();
       const controller = new AbortController();
@@ -230,12 +365,15 @@ export function useChatModel() {
           effectiveProvider === 'codex' ? data.codexWarnings : undefined,
         );
         setModels(models);
-        setSelected((prev) => {
-          if (prev && models.some((m) => m.key === prev)) {
-            return prev;
-          }
-          return models[0]?.key;
-        });
+        setSelected(
+          (prev) => {
+            if (prev && models.some((m) => m.key === prev)) {
+              return prev;
+            }
+            return models[0]?.key;
+          },
+          { source: 'model-bootstrap' },
+        );
         setStatus('success');
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
@@ -245,7 +383,9 @@ export function useChatModel() {
         setCodexDefaults(undefined);
         setCodexWarnings(undefined);
         setModels(fallbackModels);
-        setSelected((prev) => prev ?? fallbackModels[0]?.key);
+        setSelected((prev) => prev ?? fallbackModels[0]?.key, {
+          source: 'model-fallback',
+        });
         setStatus('success');
         setErrorMessage((err as Error).message);
       } finally {
@@ -254,7 +394,7 @@ export function useChatModel() {
         }
       }
     },
-    [provider, fallbackModels],
+    [providerState, fallbackModels, setSelected],
   );
 
   useEffect(() => {
@@ -266,14 +406,14 @@ export function useChatModel() {
   }, [refreshProviders]);
 
   useEffect(() => {
-    if (provider && !legacyBootstrapRef.current) {
-      void refreshModels(provider);
+    if (providerState && !legacyBootstrapRef.current) {
+      void refreshModels(providerState);
     }
-  }, [provider, refreshModels]);
+  }, [providerState, refreshModels]);
 
   const flags = useMemo(() => {
     const isLoading =
-      providerStatus === 'loading' || status === 'loading' || !provider;
+      providerStatus === 'loading' || status === 'loading' || !providerState;
     const isError = providerStatus === 'error' || status === 'error';
     const isEmpty =
       status === 'success' &&
@@ -281,12 +421,12 @@ export function useChatModel() {
       models.length === 0;
 
     return { isLoading, isError, isEmpty };
-  }, [models.length, provider, providerStatus, status]);
+  }, [models.length, providerState, providerStatus, status]);
 
   const selectedModelCapabilities = useMemo<
     SelectedModelReasoningCapabilities | undefined
   >(() => {
-    if (provider !== 'codex' || !selected) return undefined;
+    if (providerState !== 'codex' || !selected) return undefined;
     const selectedModel = models.find((model) => model.key === selected);
     if (!selectedModel) return undefined;
     if (selectedModel.type !== 'codex') return undefined;
@@ -303,11 +443,11 @@ export function useChatModel() {
       supportedReasoningEfforts: supported,
       defaultReasoningEffort,
     };
-  }, [models, provider, selected]);
+  }, [models, providerState, selected]);
 
   return {
     providers,
-    provider,
+    provider: providerState,
     setProvider,
     providerStatus,
     providerErrorMessage,

@@ -890,7 +890,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits: `35411115`
 
 #### Overview
 
@@ -941,6 +941,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run build:summary:server` initially failed because the new Copilot route test used a direct `LMStudioClient` cast on a tiny stub; switching that helper to the repository’s usual `unknown as LMStudioClient` pattern fixed the compile, and the rerun passed cleanly.
 - `npm run test:summary:server:unit` passed cleanly with `1398/1398`, which proved the new Copilot model-route unit suite and the broader server unit/integration surface still line up.
 - `npm run test:summary:server:cucumber` passed cleanly with `71/71`, and I removed the generated `server/copilot` runtime artifacts afterward so the task could finish with a clean working tree before commit.
+- Recorded implementation commit `35411115` in the task ledger so later Story 51 tasks can trace the model-route baseline back to the exact change set that introduced it.
 
 ---
 

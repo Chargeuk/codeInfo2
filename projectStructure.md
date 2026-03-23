@@ -1,5 +1,32 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 4 structural change ledger
+
+Added files:
+
+- `server/src/test/support/mockCopilotDeviceAuth.ts`
+- `server/src/test/unit/mockCopilotDeviceAuth.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 4 adds the reusable fake Copilot device-auth harness as the auth-side sibling to the fake Copilot SDK runtime harness instead of introducing route-specific inline fixtures.
+- The harness entry point is `createMockCopilotDeviceAuthHarness(...)`, which keeps scenarios instance-scoped and exposes `createRouteBindings()` so later Copilot auth route tests can inject fake start and completion callbacks without changing production wiring.
+- The proof file focuses on verification-ready parsing, deterministic completion-state playback, and reusable negative outcomes such as CLI-missing and generic auth failure.
+
 ## Story 0000051 Task 3 structural change ledger
 
 Added files:

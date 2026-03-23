@@ -55,11 +55,9 @@ const defaultModel = (overrides?: Partial<ModelInfo>): ModelInfo => ({
       max_context_window_tokens: 200000,
     },
   },
-  supportedReasoningEfforts: [
-    'low',
-    'medium',
-    'high',
-  ] satisfies Array<'low' | 'medium' | 'high' | 'xhigh'>,
+  supportedReasoningEfforts: ['low', 'medium', 'high'] satisfies Array<
+    'low' | 'medium' | 'high' | 'xhigh'
+  >,
   defaultReasoningEffort: 'medium',
   ...overrides,
 });

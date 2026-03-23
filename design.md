@@ -28,6 +28,11 @@ flowchart LR
   Adapter -. later .-> Routes["provider readiness / models / chat tasks"]
 ```
 
+## Story 0000051 Task 4 fake Copilot device-auth harness baseline
+
+- `server/src/test/support/mockCopilotDeviceAuth.ts` is the reusable fake auth harness for Story 51. It mirrors the existing Codex two-phase auth shape by returning verification details early and then exposing deterministic completion-state playback separately.
+- The harness entry point is `createMockCopilotDeviceAuthHarness(...)`, which keeps auth scenarios instance-scoped and publishes `createRouteBindings()` so later Copilot auth route tests can inject fake `startDeviceAuth` and `readDeviceAuthState` callbacks without changing production router wiring.
+
 ## Story 0000051 Task 3 fake Copilot SDK harness baseline
 
 - `server/src/test/support/mockCopilotSdk.ts` is the scenario-driven fake runtime that plugs into the Task 2 lifecycle seam instead of creating a separate testing-only provider abstraction.

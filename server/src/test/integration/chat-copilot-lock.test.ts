@@ -3,7 +3,22 @@ import test from 'node:test';
 
 import request from 'supertest';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
+
+async function waitForConversationLock(
+  conversationId: string,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getActiveRunOwnership(conversationId)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Timed out waiting for conversation lock: ${conversationId}`);
+}
 
 test('copilot chat keeps the existing conversation lock for concurrent turns', async () => {
   const server = await startCopilotChatServer({
@@ -25,7 +40,7 @@ test('copilot chat keeps the existing conversation lock for concurrent turns', a
       })
       .then((response) => response);
 
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForConversationLock(conversationId);
 
     const second = await request(server.httpServer).post('/chat').send({
       provider: 'copilot',

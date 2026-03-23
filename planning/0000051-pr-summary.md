@@ -4,6 +4,8 @@
 
 Story 51 adds GitHub Copilot as a third chat provider across the shared server, client, contract, Docker, and proof layers without broadening execution scope beyond chat. The finished implementation preserves the existing Codex and LM Studio flows, normalizes provider ordering to `codex`, then `copilot`, then `lmstudio`, adds a shared provider-auth contract and `Choose Authentication` dialog, and delivers one consistent Copilot runtime-home and Docker persistence contract.
 
+Review follow-up: Story 51 was reopened once for a contract-level repair after review `0000051-review-20260323T153158Z-a71881ed`. Task 21 now closes that gap by making `/copilot/device-auth` honor `CODEINFO_COPILOT_CLI_PATH` for both availability checks and the spawned login command, with direct proof for the `PATH`-missing plus override-present deployment case.
+
 ## Major Story Steps
 
 - Tasks 1 through 6 extended the shared provider, readiness, model-list, request-validation, OpenAPI, and runtime seams from a two-provider world into a three-provider contract with deterministic Copilot visibility and stable unavailable reasons.

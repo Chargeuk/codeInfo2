@@ -1638,8 +1638,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 17. Extend Cucumber coverage to prove the Copilot story through fake Copilot scenarios
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `b8102eea`
 
 #### Overview
 
@@ -1669,7 +1669,7 @@ Implementation starter pattern for every subtask in this task: preserve the curr
 7. [x] Update `README.md` only if the server-side proof path needs explicit documentation for future maintainers. Document name: `README.md`. Location: repository root. Description: add any top-level notes needed to explain how the Copilot Cucumber proof path is exercised. Purpose: keep user-facing or contributor-facing documentation truthful.
 8. [x] Update `design.md` only if the server-side proof path needs explicit documentation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the server-side BDD flow and add a Mermaid diagram if it helps explain the fake-scenario path from feature to server behavior. Purpose: keep proof-path architecture understandable.
 9. [x] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new feature or step-definition files after they are created. Purpose: keep the repository file map accurate after file creation.
-10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 17, recording implementation notes, and listing the task commit hashes once they exist.
+10. [x] Update this plan file after implementation by marking the completed checkboxes for Task 17, recording implementation notes, and listing the task commit hashes once they exist.
 11. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 12. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
@@ -1691,6 +1691,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run format:check` then flagged the updated Cucumber feature and step files plus the nearby Task 16 integration proof, so `npm run format` rewrote them and the rerun then passed cleanly.
 - `npm run build:summary:server` then passed cleanly with zero warnings, so the Task 17 Cucumber extensions stayed inside the existing server contract.
 - The first full `npm run test:summary:server:cucumber` run failed only in the new Copilot negative-path scenario because the auth-required fake scenario started a turn instead of returning a synchronous 503; a targeted rerun proved the correct higher-level negative surface was the existing `copilot-stream-error` scenario, and the final full rerun then passed cleanly with `tests run: 75`, `passed: 75`, `failed: 0`.
+- Recorded implementation commit `b8102eea` after the Copilot Cucumber scenarios, shared scenario registration marker, and wrapper-backed proof all landed, so Task 17 now has a stable traceability point for the next task handoff.
 
 ---
 

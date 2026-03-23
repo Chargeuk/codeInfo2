@@ -1698,8 +1698,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 18. Extend Playwright coverage to prove the Copilot story through fake Copilot scenarios
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: **completed**
+- Git Commits: `6d58090f`
 
 #### Overview
 
@@ -1719,32 +1719,48 @@ Mandatory isolation note for every numbered subtask below: if a junior developer
 Documentation handoff for every numbered subtask in this task: when assigning any one numbered subtask from this task, copy the exact bullet list from this task’s `Documentation Locations` section into the handoff so the developer has the Playwright and wording references open while editing browser tests.
 Implementation starter pattern for every subtask in this task: follow the existing Playwright spec style already present in `e2e/chat-provider-history.spec.ts`, `e2e/chat.spec.ts`, `e2e/chat-user-turn-ws.spec.ts`, and `e2e/env-runtime-config.spec.ts`; extend those same files with Copilot scenarios instead of creating a separate e2e suite.
 
-1. [ ] Add a Playwright test in `e2e/chat-provider-history.spec.ts`. Test type: e2e. Description: load the chat page with the fake Copilot scenario and confirm Copilot appears in provider history and selection UI. Purpose: prove the provider is visible end to end. Register the browser-proof scenarios through the shared scenario catalog and emit the secret-safe acceptance log line `story.0000051.task18.playwright_scenarios_registered` with context naming the Copilot Playwright scenarios.
-2. [ ] Add a Playwright test in `e2e/chat.spec.ts`. Test type: e2e. Description: start a new Copilot-backed conversation and confirm the page submits through the Copilot path successfully. Purpose: prove the main user-facing happy path.
-3. [ ] Add a Playwright test in `e2e/chat-user-turn-ws.spec.ts`. Test type: e2e. Description: run a Copilot chat turn that streams over websocket and confirm the streamed output renders in the chat transcript. Purpose: prove browser-visible streaming behavior.
-4. [ ] Add a Playwright test in `e2e/chat.spec.ts`. Test type: e2e. Description: open the shared auth dialog under a fake Copilot auth scenario and confirm the auth status surface is rendered without a real login. Purpose: prove the shared dialog is wired into the end-to-end path.
-5. [ ] Keep the automated proof path mock-backed. Do not add any default Playwright test that depends on a live authenticated Copilot account, a host browser opening from inside Docker, or a manually pre-seeded runtime home.
-6. [ ] Reuse the repository’s current wrapper scripts and e2e support files. If an extra helper file is needed, place it near the existing e2e support files instead of inventing an isolated test-only runtime path.
-7. [ ] Update `README.md` only if the Playwright proof path needs explicit documentation for future maintainers. Document name: `README.md`. Location: repository root. Description: add any top-level notes needed to explain the Copilot Playwright proof path. Purpose: keep contributor-facing documentation truthful.
-8. [ ] Update `design.md` only if the Playwright proof path needs explicit documentation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the browser proof flow and add a Mermaid diagram if it helps explain the fake Copilot e2e path clearly. Purpose: keep proof-path architecture understandable.
-9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new Playwright spec or support files after they are created. Purpose: keep the repository file map accurate after file creation.
-10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 18, recording implementation notes, and listing the task commit hashes once they exist.
-11. [ ] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
-12. [ ] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
+1. [x] Add a Playwright test in `e2e/chat-provider-history.spec.ts`. Test type: e2e. Description: load the chat page with the fake Copilot scenario and confirm Copilot appears in provider history and selection UI. Purpose: prove the provider is visible end to end. Register the browser-proof scenarios through the shared scenario catalog and emit the secret-safe acceptance log line `story.0000051.task18.playwright_scenarios_registered` with context naming the Copilot Playwright scenarios.
+2. [x] Add a Playwright test in `e2e/chat.spec.ts`. Test type: e2e. Description: start a new Copilot-backed conversation and confirm the page submits through the Copilot path successfully. Purpose: prove the main user-facing happy path.
+3. [x] Add a Playwright test in `e2e/chat-user-turn-ws.spec.ts`. Test type: e2e. Description: run a Copilot chat turn that streams over websocket and confirm the streamed output renders in the chat transcript. Purpose: prove browser-visible streaming behavior.
+4. [x] Add a Playwright test in `e2e/chat.spec.ts`. Test type: e2e. Description: open the shared auth dialog under a fake Copilot auth scenario and confirm the auth status surface is rendered without a real login. Purpose: prove the shared dialog is wired into the end-to-end path.
+5. [x] Keep the automated proof path mock-backed. Do not add any default Playwright test that depends on a live authenticated Copilot account, a host browser opening from inside Docker, or a manually pre-seeded runtime home.
+6. [x] Reuse the repository’s current wrapper scripts and e2e support files. If an extra helper file is needed, place it near the existing e2e support files instead of inventing an isolated test-only runtime path.
+7. [x] Update `README.md` only if the Playwright proof path needs explicit documentation for future maintainers. Document name: `README.md`. Location: repository root. Description: add any top-level notes needed to explain the Copilot Playwright proof path. Purpose: keep contributor-facing documentation truthful.
+8. [x] Update `design.md` only if the Playwright proof path needs explicit documentation for future maintainers. Document name: `design.md`. Location: repository root. Description: describe the browser proof flow and add a Mermaid diagram if it helps explain the fake Copilot e2e path clearly. Purpose: keep proof-path architecture understandable.
+9. [x] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new Playwright spec or support files after they are created. Purpose: keep the repository file map accurate after file creation.
+10. [x] Update this plan file after implementation by marking the completed checkboxes for Task 18, recording implementation notes, and listing the task commit hashes once they exist.
+11. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
+12. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
 
-1. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof step below.
-4. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the story behavior, nearby regressions, and that the debug console shows no logged errors. Save screenshots under `playwright-output-local` because `docker-compose.local.yml` maps that folder into the Playwright container output path. Capture and review at least one screenshot showing Copilot visible in the provider selector and one screenshot showing the shared `Choose Authentication` dialog or another visibly changed Copilot UI state that this task exercises, then confirm the GUI matches the expectations in Tasks 11 and 12 before moving on.
-5. [ ] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
+1. [x] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+3. [x] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the browser proof step below.
+4. [x] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the story behavior, nearby regressions, and that the debug console shows no logged errors. Save screenshots under `playwright-output-local` because `docker-compose.local.yml` maps that folder into the Playwright container output path. Capture and review at least one screenshot showing Copilot visible in the provider selector and one screenshot showing the shared `Choose Authentication` dialog or another visibly changed Copilot UI state that this task exercises, then confirm the GUI matches the expectations in Tasks 11 and 12 before moving on.
+5. [x] Run `npm run compose:down` after the wrapper-driven and manual browser checks finish.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Subtask 1 complete: added a Copilot conversation-history Playwright proof in `e2e/chat-provider-history.spec.ts` and registered the Task 18 scenario marker through the shared fake-scenario helper.
+- Subtask 2 complete: added a Copilot happy-path browser send proof in `e2e/chat.spec.ts` and asserted the outbound payload stays on provider `copilot` with model `copilot-gpt-5`.
+- Subtask 3 complete: added a Copilot websocket streaming Playwright proof in `e2e/chat-user-turn-ws.spec.ts` and verified the streamed output renders in the shared transcript.
+- Subtask 4 complete: added a fake-auth browser proof in `e2e/chat.spec.ts` that opens the shared `Choose Authentication` dialog and renders the Copilot verification URL and code without a real login.
+- Subtask 5 complete: kept every new Playwright proof on the named fake-scenario path so Task 18 stays mock-backed and does not depend on live Copilot auth or pre-seeded runtime state.
+- Subtask 6 complete: reused the existing e2e support path in `e2e/support/copilotFakeScenario.ts` and `e2e/support/mockChatWs.ts` instead of adding a separate browser harness.
+- Subtask 7 complete: no `README.md` update was needed because the existing wrapper-first e2e guidance still describes the Playwright proof path truthfully after Task 18.
+- Subtask 8 complete: no `design.md` update was needed because Task 18 extended the existing browser proof layer without changing the underlying proof-path architecture.
+- Subtask 9 complete: no `projectStructure.md` update was needed because Task 18 only extended existing Playwright specs and support files without creating or removing files.
+- Subtask 10 complete: updated Task 18 with the finished checkbox state, recorded the implementation/testing notes, and linked implementation commit `6d58090f`.
+- Subtask 11 complete: `npm run lint` passed against the updated Playwright specs and shared Task 18 scenario helper without requiring any additional lint fixes.
+- Subtask 12 complete: `npm run format` normalized the edited Playwright specs and the follow-up `npm run format:check` passed cleanly.
+- Testing step 1 complete: `npm run compose:build:summary` passed with both images built and the server image runtime assets still including `/app/copilot`.
+- Testing step 2 complete: the first full `npm run test:summary:e2e` run exposed one history-route stub mismatch and one Copilot websocket-thought assertion bug, targeted wrapper reruns proved both fixes, and the final full wrapper passed with log stats `expected: 49`, `skipped: 4`, `unexpected: 0`.
+- Testing step 3 complete: `npm run compose:up` started the main stack cleanly with `codeinfo2-server-1 Healthy`, `codeinfo2-client-1 Started`, and the Playwright MCP service available for manual browser verification.
+- Testing step 4 complete: the manual Playwright MCP check against `http://host.docker.internal:5001/chat` showed Copilot visible in the provider selector, the shared `Choose Authentication` dialog rendered the Copilot verification URL and code, screenshots were saved under `playwright-output-local`, and the browser console reported no error-level messages.
+- Testing step 5 complete: `npm run compose:down` removed the main stack cleanly after the wrapper-backed and manual Task 18 browser proof finished.
 
 ---
 

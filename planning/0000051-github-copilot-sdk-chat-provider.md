@@ -1903,3 +1903,100 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - Historical blocker record: before this repair, `mcp__playwright__browser_run_code` plus `route()` and `addInitScript()` retries timed out at the MCP boundary after 180 seconds even though the e2e stack had already booted the named fake Copilot scenario correctly. The research trail showed the missing capability was not another runtime seam inside Story 51; it was the over-specific proof-tool requirement in the task wording. That is why the repair changed the proof surface instead of inserting another runtime prerequisite task or retry loop.
 - Story repair note: the earlier Task 19 wording assumed the main compose stack on port `5001` could honor the named fake Copilot scenario selector. The researched blocker proof showed that assumption was false, so Task 19 now repairs the manual-proof contract and this Task 20 close-out no longer depends on a non-existent main-stack fake-scenario startup seam.
 - Historical blocker record: close-out checkpoint commit `f73a884e` captured the failed attempt to force `CODEINFO_FAKE_COPILOT_SCENARIO` through `server/.env.local`. That evidence remains useful as proof for the Task 19 story repair, but it is no longer the active plan shape for the remaining Task 20 manual validation work.
+
+---
+
+## Code Review Findings
+
+- Review pass `0000051-review-20260323T153158Z-a71881ed` found 1 `must_fix` finding in `current_repository`.
+- Evidence artifact: `codeInfoStatus/reviews/0000051-review-20260323T153158Z-a71881ed-evidence.md`.
+- Findings artifact: `codeInfoStatus/reviews/0000051-review-20260323T153158Z-a71881ed-findings.md`.
+- Review disposition: reopen Story `0000051` for one repository-local contract fix plus one fresh full revalidation task.
+- Finding summary:
+  - `current_repository` - `must_fix` - `plan_contract_issue`: the documented `CODEINFO_COPILOT_CLI_PATH` override is honored by shared Copilot runtime config resolution but not by `/copilot/device-auth`, which still performs PATH-only availability checks and still spawns plain `copilot` unless a direct function argument supplies `cliPath`.
+- Reopen rationale:
+  - This is an explicit story-contract regression, not a wording-only issue. Story `0000051` and its checked-in docs promise that `CODEINFO_COPILOT_CLI_PATH` is the supported path when `PATH` discovery is unreliable, so the canonical plan must reopen until the device-auth path follows that same contract and the route has direct proof for the `PATH`-missing plus override-present case.
+
+---
+
+### Task 21. Fix Copilot device-auth CLI-path override handling
+
+- Repository Name: Current Repository
+- Task Status: **to_do**
+- Git Commits: `**to_do**`
+
+#### Overview
+
+Repair the server-side Copilot device-auth path so it honors the documented `CODEINFO_COPILOT_CLI_PATH` contract everywhere the route checks CLI availability or launches the login command. This task depends on Tasks 9, 14, and 20 because the shared auth route, the Copilot startup-env contract, and the final story close-out all already exist and now need one focused correctness fix instead of another broad feature change. Keep this task scoped to the existing server implementation and its direct proof; do not reopen unrelated support files or broaden the auth surface beyond the reviewed defect.
+
+#### Documentation Locations
+
+- Findings artifact: `codeInfoStatus/reviews/0000051-review-20260323T153158Z-a71881ed-findings.md` for the exact defect statement, affected files, and proof gap that this task must close.
+- Evidence artifact: `codeInfoStatus/reviews/0000051-review-20260323T153158Z-a71881ed-evidence.md` for the reviewed base branch, risky helper list, and acceptance-proof map that still frame this fix.
+- Context7 Node.js docs: `/nodejs/node` for the checked `child_process.spawn` behavior and argument contract used by the device-auth launcher.
+- `README.md`, `design.md`, and this plan file for the already-documented `CODEINFO_COPILOT_CLI_PATH` contract that the implementation must now satisfy without changing the higher-level story scope.
+
+#### Subtasks
+
+1. [ ] Update the Copilot device-auth availability path in `server/src/routes/copilotDeviceAuth.ts`. Test type: unit plus integration proof through the route. Description: replace the PATH-only `command -v copilot` gate with logic that honors the same resolved CLI-path contract used by the rest of the Copilot runtime. Purpose: stop `/copilot/device-auth` from rejecting a valid deployment that provides only `CODEINFO_COPILOT_CLI_PATH`.
+2. [ ] Update the Copilot device-auth launcher in `server/src/utils/copilotDeviceAuth.ts`. Test type: unit. Description: ensure the spawned login command uses the shared resolved CLI path from env or explicit override instead of hard-coding `copilot` whenever `params?.cliPath` is absent. Purpose: keep availability checks and runtime execution on one deterministic CLI-resolution contract.
+3. [ ] Extend direct proof in `server/src/test/unit/copilotDeviceAuth.test.ts` and any necessary nearby route or integration tests. Test type: unit and integration. Description: add the exact reviewed missing-proof case where normal `PATH` lookup is unavailable but `CODEINFO_COPILOT_CLI_PATH` is present and valid, and prove the route no longer returns `unavailable_before_start` for that configuration. Purpose: close the review gap with direct automated proof instead of relying only on runtime-config tests.
+4. [ ] Review `README.md` and `design.md` after the code fix. Document name: `README.md` and `design.md`. Location: repository root. Description: update wording only if the repaired implementation requires a more precise statement about how the route now honors the explicit Copilot CLI path. Purpose: keep the existing story contract truthful without broadening scope.
+5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 21, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt raw commands unless wrapper maintenance or diagnosis requires them.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose with targeted wrapper runs only as needed, and then rerun the full wrapper.
+
+#### Implementation notes
+
+- `**to_do**`
+
+---
+
+### Task 22. Re-run full Story 0000051 validation after the review fix
+
+- Repository Name: Current Repository
+- Task Status: **to_do**
+- Git Commits: `**to_do**`
+
+#### Overview
+
+Revalidate the full Story `0000051` acceptance surface after Task 21 lands so the reopened story closes with fresh proof instead of relying on the pre-review Task 20 results alone. This task depends on Task 21 because the reviewed device-auth contract bug must be fixed first. The goal here is not to add new feature scope; it is to prove that the repaired Copilot auth path and the rest of the completed Copilot story still satisfy the acceptance criteria, wrapper contracts, and final manual browser checks together.
+
+#### Documentation Locations
+
+- Findings artifact: `codeInfoStatus/reviews/0000051-review-20260323T153158Z-a71881ed-findings.md` so the final validation explicitly rechecks the reviewed device-auth contract.
+- Evidence artifact: `codeInfoStatus/reviews/0000051-review-20260323T153158Z-a71881ed-evidence.md` for the acceptance-proof map and reviewed risky helpers that this revalidation must keep covered.
+- `README.md`, `design.md`, and `planning/0000051-pr-summary.md` for the final story contract and close-out wording that must remain truthful after the Task 21 fix.
+
+#### Subtasks
+
+1. [ ] Re-read the Story `0000051` acceptance criteria, the review evidence artifact, and the review findings artifact before rerunning validation. Purpose: make sure the final proof explicitly covers both the original story contract and the reviewed CLI-path defect.
+2. [ ] Confirm the Task 21 proof covers the exact reviewed edge case directly. Test type: unit or integration evidence already added in Task 21. Description: verify the repository now has direct automated proof for `PATH`-missing plus `CODEINFO_COPILOT_CLI_PATH`-present behavior on `/copilot/device-auth`. Purpose: close the specific review gap before broader regression validation.
+3. [ ] Update `planning/0000051-pr-summary.md` if the final traceability summary needs one short note about the review-driven CLI-path fix. Document name: `planning/0000051-pr-summary.md`. Location: repository planning folder. Description: wording-only update if needed. Purpose: keep reviewer-facing summary truthful after the reopened task sequence.
+4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 22, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+5. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+6. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+7. [ ] Run `npm run test:summary:e2e` using the wrapper only and allow up to 7 minutes. If `failed > 0` or setup or teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+8. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`. Keep the stack running for the real-stack manual browser verification below.
+9. [ ] With the main stack still available through `npm run compose:up`, use the Playwright MCP tools against `http://host.docker.internal:5001` to re-check ordered provider visibility, Copilot auth status rendering, and at least one `POST /copilot/device-auth` happy-path or unavailable/auth-required UI state that now depends on the repaired CLI-path contract. Save screenshots under `playwright-output-local` with names starting `0000051-22-main-`, inspect them yourself, and confirm the debug console shows no logged errors.
+10. [ ] Run `npm run compose:e2e:up`. If startup fails, rerun the same wrapper once to rule out a transient container-start issue, then inspect the terminal output and the existing e2e stack definitions in `docker-compose.e2e.yml` and `scripts/test-summary-e2e.mjs` before changing code. Keep the e2e stack running for the fake-scenario manual browser verification below.
+11. [ ] With the e2e stack still available through `npm run compose:e2e:up`, use the Chrome DevTools MCP tools against `http://host.docker.internal:6001` to re-check the fake Copilot happy path, shared auth dialog behavior when surfaced by the named scenario, and one nearby regression such as switching back to Codex without losing Codex-only UI behavior. Save screenshots under `playwright-output-local` with names starting `0000051-22-e2e-`, inspect them yourself, and confirm the debug console shows no logged errors.
+12. [ ] Run `npm run compose:e2e:down` and then `npm run compose:down` after the wrapper-driven and both manual browser checks finish.
+
+#### Implementation notes
+
+- `**to_do**`

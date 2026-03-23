@@ -1485,7 +1485,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **in_progress**
-- Git Commits: **to_do**
+- Git Commits:
+  - `e5471e10` DEV-[51] - Wire Copilot Docker contract
 
 #### Overview
 
@@ -1517,7 +1518,7 @@ Implementation starter pattern for every subtask in this task: mirror the existi
 10. [x] Update `README.md`. Document name: `README.md`. Location: repository root. Description: document the named-volume runtime persistence rule and any user-visible Docker prerequisites introduced by this task. Purpose: keep top-level usage documentation truthful.
 11. [x] Update `design.md`. Document name: `design.md`. Location: repository root. Description: describe the Docker delivery and persistence flow, and add Mermaid diagrams if they help explain the container runtime path. Purpose: keep architecture and deployment-flow documentation aligned with the implementation.
 12. [x] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: record the new Docker contract test file and any other file additions after those files are created. Purpose: keep the repository file map accurate after file creation.
-13. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
+13. [x] Update this plan file after implementation by marking the completed checkboxes for Task 15, recording implementation notes, and listing the task commit hashes once they exist.
 14. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 15. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
@@ -1543,6 +1544,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run format:check` also passed on the first run, so the Docker, compose, and documentation edits already matched the repository Prettier rules.
 - `npm run build:summary:server` passed on the first wrapper run with `warning_count: 0`, so the container-contract edits did not introduce any server compile drift before the heavier test and compose proof.
 - **BLOCKER** Testing step 2 (`npm run test:summary:server:unit`) did not reach a terminal pass/fail state. I ran the full wrapper once and monitored only the wrapper heartbeat as instructed; it stayed in `phase: test`, `status: running`, `agent_action: wait`, `do_not_read_log: true` from `2026-03-23T08:35:44Z` through `2026-03-23T09:03:44Z` while the reported log size kept growing from `0` bytes to `11482197` bytes. The missing capability is a reliable terminal result from the full server-unit wrapper for this suite, so I stopped there instead of pretending the proof passed or skipping ahead to the compose-backed steps. This task should stay in progress and the wrapper behavior should be diagnosed before continuing; I do not think the task needs to be split or reordered yet.
+- Recorded the Task 15 implementation commit hash in this plan after the blocker-state commit was created so the branch keeps a stable traceability point even though the task remains in progress.
 
 ---
 

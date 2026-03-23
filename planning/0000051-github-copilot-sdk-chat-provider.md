@@ -1362,7 +1362,7 @@ Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18,
 ### Task 13. Harden transcript metadata rendering for partial Copilot usage and timing fields
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1383,30 +1383,37 @@ Mandatory isolation note for every numbered subtask below: if a junior developer
 Documentation handoff for every numbered subtask in this task: when assigning any one numbered subtask from this task, copy the exact bullet list from this task’s `Documentation Locations` section into the handoff so the developer has the transcript-formatting and test references available while making the formatter stricter.
 Implementation starter pattern for every subtask in this task: harden the existing helper functions inside `client/src/components/chat/chatTranscriptFormatting.ts`; follow the current omission logic for missing timing fields and extend that same approach to Copilot usage or timing values instead of redesigning the transcript UI.
 
-1. [ ] Update `client/src/components/chat/chatTranscriptFormatting.ts` so missing or `null` token and timing sub-values are omitted rather than rendered as `0` or other misleading placeholders. Emit the secret-safe acceptance log line `story.0000051.task13.partial_metadata_rendered` when a partial Copilot transcript metadata block is rendered, with context listing which usage or timing fields were omitted safely.
-2. [ ] Keep existing Codex and LM Studio metadata rendering stable. This task should only broaden the formatter enough to handle partial Copilot metadata safely, not relabel or redesign the existing transcript details.
-3. [ ] Review any transcript rendering code that assumes every provider sends the same metadata fields and narrow those assumptions to the fields that are actually present. Ignore unknown Copilot metadata fields safely.
-4. [ ] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render partial Copilot metadata with missing timing fields and confirm no misleading placeholder timing values appear. Purpose: prove the missing-timing corner case.
-5. [ ] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render partial Copilot metadata with missing token fields and confirm the formatter omits those values cleanly. Purpose: prove the missing-token corner case.
-6. [ ] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render `null` and `undefined` Copilot usage values and confirm the formatter omits them instead of showing zero placeholders. Purpose: prove defensive rendering for partial SDK metadata.
-7. [ ] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render existing Codex or LM Studio transcript metadata and confirm current labels and values are unchanged. Purpose: prove no regression for existing providers.
-8. [ ] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Document name: `design.md`. Location: repository root. Description: add a short note about partial metadata omission only if the formatter contract would be hard to infer from the tests and code alone. Purpose: keep rendering behavior understandable.
-9. [ ] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new transcript test files after they are created. Purpose: keep the repository file map accurate after file creation.
+1. [x] Update `client/src/components/chat/chatTranscriptFormatting.ts` so missing or `null` token and timing sub-values are omitted rather than rendered as `0` or other misleading placeholders. Emit the secret-safe acceptance log line `story.0000051.task13.partial_metadata_rendered` when a partial Copilot transcript metadata block is rendered, with context listing which usage or timing fields were omitted safely.
+2. [x] Keep existing Codex and LM Studio metadata rendering stable. This task should only broaden the formatter enough to handle partial Copilot metadata safely, not relabel or redesign the existing transcript details.
+3. [x] Review any transcript rendering code that assumes every provider sends the same metadata fields and narrow those assumptions to the fields that are actually present. Ignore unknown Copilot metadata fields safely.
+4. [x] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render partial Copilot metadata with missing timing fields and confirm no misleading placeholder timing values appear. Purpose: prove the missing-timing corner case.
+5. [x] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render partial Copilot metadata with missing token fields and confirm the formatter omits those values cleanly. Purpose: prove the missing-token corner case.
+6. [x] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render `null` and `undefined` Copilot usage values and confirm the formatter omits them instead of showing zero placeholders. Purpose: prove defensive rendering for partial SDK metadata.
+7. [x] Add a client test in `client/src/test/sharedTranscript.proofContract.test.tsx`. Test type: client unit. Description: render existing Codex or LM Studio transcript metadata and confirm current labels and values are unchanged. Purpose: prove no regression for existing providers.
+8. [x] Update `design.md` only if the transcript metadata contract needs one sentence of clarification for future developers. Document name: `design.md`. Location: repository root. Description: add a short note about partial metadata omission only if the formatter contract would be hard to infer from the tests and code alone. Purpose: keep rendering behavior understandable.
+9. [x] Update `projectStructure.md` if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new transcript test files after they are created. Purpose: keep the repository file map accurate after file creation.
 10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 13, recording implementation notes, and listing the task commit hashes once they exist.
-11. [ ] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
-12. [ ] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
+11. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
+12. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below. Do not attempt to run raw build or test commands for this repository, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown counts.
 Defer wrapper-backed Docker and browser proof for this task to Tasks 15, 16, 18, and 19. Before the Copilot env wiring, Docker delivery, and fake-scenario plumbing land, those layers would only prove the pre-Copilot stack and would not give meaningful proof for this task's transcript rendering behavior. When Task 19 reaches the manual Playwright-MCP step, capture and review screenshots stored under `playwright-output-local` because `docker-compose.local.yml` maps that folder into the container runtime. For this task's visual proof, save one screenshot of a Copilot transcript entry whose partial timing or token metadata omits missing values cleanly, then check that image yourself to confirm the GUI does not show placeholder zeros or misleading empty labels.
 
-1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+1. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- The shared transcript formatter now omits missing Copilot token and timing sub-values instead of zero-filling them, and the transcript row emits the Task 13 marker once per rendered partial metadata shape with only omitted field names in context.
+- Existing Codex and LM Studio transcript labels remain unchanged because the formatter still renders all present values in the same order when metadata is complete.
+- Transcript rendering assumptions are now narrowed to fields that are actually present by threading provider identity into hydrated transcript messages and by making the omission logic field-aware instead of provider-agnostic zero-filling.
+- `client/src/test/sharedTranscript.proofContract.test.tsx` now covers partial Copilot timing, partial Copilot tokens, `null`/`undefined` usage values, and unchanged Codex rendering in one focused proof file.
+- `design.md` did not need extra clarification because the omission contract is explicit in the formatter and proof file, and `projectStructure.md` did not need an update because this task reused the existing transcript proof file without adding or removing files.
+- `npm run lint` and `npm run format:check` both passed on the first attempt after the formatter and transcript-row changes, so no auto-fix or formatting rerun was needed before wrapper-backed build and test proof.
+- `npm run build:summary:client` passed on the first wrapper run with `warning_count: 0`, so the formatter changes did not introduce new typecheck or build drift.
+- The first full `npm run test:summary:client` run caught one existing cached-token transcript expectation that still assumed the old parenthesized suffix form; updating that proof to the new omission-safe token line and rerunning the targeted test plus the full wrapper closed the regression cleanly at `644/644`.
 
 ---
 

@@ -82,6 +82,7 @@ export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  provider?: string;
   warnings?: string[];
   command?: {
     name: string;

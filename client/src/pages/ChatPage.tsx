@@ -1174,6 +1174,7 @@ export default function ChatPage() {
                 : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
+            provider: turn.provider,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus:
               turn.status === 'failed'

@@ -1477,7 +1477,9 @@ describe('Chat WS streaming UI', () => {
 
     const assistantBubble = await findBubbleByRole('assistant');
     const tokensLine = within(assistantBubble).getByTestId('bubble-tokens');
-    expect(tokensLine).toHaveTextContent('(cached 2)');
+    expect(tokensLine).toHaveTextContent(
+      'Tokens: in 10 · out 5 · total 15 · cached 2',
+    );
   });
 
   it('omits cached suffix when cached input tokens are missing', async () => {

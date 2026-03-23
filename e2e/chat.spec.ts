@@ -34,7 +34,7 @@ const buildMockProviders = (): ChatProviderInfo[] => {
   const copilot = copilotScenario?.e2e.providers.find(
     (provider) => provider.id === 'copilot',
   );
-  return copilot ? [providers[1], copilot, providers[0]] : providers;
+  return copilot ? [providers[0], providers[1], copilot] : providers;
 };
 
 const skipIfUnreachable = async (page: Page) => {
@@ -200,10 +200,10 @@ test('chat streams end-to-end', async ({ page }) => {
     name: selectedModel.displayName,
     exact: false,
   });
-  if (await option.count()) {
-    await option.click();
-  } else {
-    await menuItem.click();
+  try {
+    await option.first().click({ timeout: 5000 });
+  } catch {
+    await menuItem.first().click({ timeout: 5000 });
   }
   await expect(modelSelect).toHaveText(selectedModel.displayName, {
     timeout: 5000,

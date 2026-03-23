@@ -641,7 +641,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **completed**
-- Git Commits: **to_do**
+- Git Commits: `c30df23f`
 
 #### Overview
 
@@ -677,7 +677,7 @@ Implementation starter pattern for every subtask in this task: mirror the reposi
 14. [x] Add a unit test in `server/src/test/unit/copilotLifecycle.test.ts`. Test type: unit. Description: make the injected runtime throw during startup or status lookup and confirm the seam propagates a clear error. Purpose: prove error handling is explicit before higher-level route tasks depend on it.
 15. [x] Update `design.md` if the new lifecycle seam or Copilot home/config helper changes the repository architecture in a way a future junior developer would not infer from code alone. Document name: `design.md`. Location: repository root. Description: describe the runtime seam, Copilot home helper, the explicit `cliPath` versus `PATH` launch rule, and any new lifecycle flow, and add Mermaid flowcharts or sequence diagrams if they help explain the runtime boundary. Purpose: keep architecture documentation in sync with the new server seam.
 16. [x] Update `projectStructure.md`. Document name: `projectStructure.md`. Location: repository root. Description: list the new lifecycle seam files, Copilot config helper, and any new test files added by this task after those files exist. Purpose: keep the repository file map accurate after file creation.
-17. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
+17. [x] Update this plan file after implementation by marking the completed checkboxes for Task 2, recording implementation notes, and listing the task commit hashes once they exist.
 18. [x] Run `npm run lint`. If this check fails, first run `npm run lint:fix` to auto-fix any repository issues it can correct, then rerun `npm run lint`, and finally fix any remaining reported issues manually in this repository before moving on.
 19. [x] Run `npm run format:check`. If this check fails, first run `npm run format` to apply repository formatting automatically, then rerun `npm run format:check`, and finally fix any remaining reported issues manually in this repository before moving on.
 

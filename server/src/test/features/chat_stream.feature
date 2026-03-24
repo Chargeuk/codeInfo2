@@ -65,3 +65,17 @@ Feature: chat streaming endpoint
     When I POST to the chat endpoint with raw message "  provider fallback check  "
     Then the chat stream status code is 202
     And the user turn content is "  provider fallback check  "
+
+  Scenario: Copilot happy-path scenario streams a successful turn
+    Given chat stream scenario "copilot-happy-path"
+    When I POST to the chat endpoint with provider "copilot" and model "copilot-gpt-5"
+    Then the chat stream status code is 202
+    And the chat start response provider is "copilot"
+    And I can subscribe via WebSocket and receive an inflight snapshot and a final event
+    And the Copilot Cucumber registration log records scenario "copilot-happy-path"
+
+  Scenario: Copilot streamed failure scenario surfaces the documented error path
+    Given chat stream scenario "copilot-stream-error"
+    When I POST to the chat endpoint with provider "copilot" and model "copilot-gpt-5"
+    Then the chat stream status code is 202
+    And the WebSocket stream includes a failed final event "copilot fake scenario failed"

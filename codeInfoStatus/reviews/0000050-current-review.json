@@ -1,0 +1,23 @@
+{
+  "story_id": "0000050",
+  "review_mode": "single_repo",
+  "review_pass_id": "0000050-review-20260321T210157Z-56e07e11",
+  "evidence_file": "codeInfoStatus/reviews/0000050-review-20260321T210157Z-56e07e11-evidence.md",
+  "findings_file": "codeInfoStatus/reviews/0000050-review-20260321T210157Z-56e07e11-findings.md",
+  "disposition": "no_findings",
+  "counts": {
+    "must_fix": 0,
+    "should_fix": 0,
+    "optional_simplification": 0
+  },
+  "repos": [
+    {
+      "repo_id": "codeInfo2",
+      "repo_root": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2",
+      "plan_path": "planning/0000050-Portable-Reingest-Selectors-Current-All-Targets-And-Playwright-MCP-Host-Networking.md",
+      "branch": "feature/0000050-portable-reingest-selectors-host-networking",
+      "base_branch": "main",
+      "head_commit": "56e07e11"
+    }
+  ]
+}

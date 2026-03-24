@@ -11,6 +11,244 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000051 final architecture closeout
+
+- Story `0000051` completes a chat-only third-provider integration for GitHub Copilot. The top-level product provider contract is now one ordered list shared by server defaults, client bootstrap, persistence enums, provider discovery, model loading, and OpenAPI: `codex`, then `copilot`, then `lmstudio`.
+- Provider and model changes continue to use the existing next-send semantics. A user-visible conversation is never silently switched in place to a different Copilot model or provider.
+- Copilot readiness stays off `/health`. The process health contract remains startup-plus-Mongo only, while Copilot readiness, unavailable reasons, and model-discovery state surface through `/chat/providers` and `/chat/models`.
+- The first Copilot story keeps the broader execution boundary intentionally narrow: Copilot is available only through chat. Agents, commands, and flows continue to use their current provider assumptions.
+- Shared auth is now one provider-auth contract with a stable state vocabulary: `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, and `unavailable_before_start`. The shared `Choose Authentication` dialog renders both `Codex Auth` and `Copilot Auth` without changing the surrounding MUI dialog shell.
+- Runtime-home handling mirrors Codex closely while remaining independent from the chat working directory:
+  - development default: `CODEINFO_COPILOT_HOME=../copilot`
+  - local compose runtime: `CODEINFO_COPILOT_HOME=/app/copilot` backed by repo-root `./copilot`
+  - main and e2e compose runtimes: `CODEINFO_COPILOT_HOME=/app/copilot` backed by `copilot-data`
+  - optional CLI override: `CODEINFO_COPILOT_CLI_PATH`
+  - default launch rule when unset: normal `PATH` lookup
+- Session identity remains compatibility-safe and deterministic. Copilot chat reuses `conversationId` directly as `sessionId`; the story does not introduce a separate persisted Copilot session id field in the normal path.
+
+```mermaid
+flowchart LR
+  UI["Chat page + shared Choose Authentication dialog"] --> ProviderAPI["/chat/providers + /chat/models"]
+  UI --> ChatAPI["POST /chat + websocket transcript bridge"]
+  UI --> AuthAPI["POST /copilot/device-auth<br/>POST /codex/device-auth"]
+  ProviderAPI --> Defaults["shared ordered provider contract<br/>codex -> copilot -> lmstudio"]
+  ChatAPI --> CopilotChat["ChatInterfaceCopilot<br/>conversationId == sessionId"]
+  CopilotChat --> Runtime["CopilotLifecycle<br/>cliPath override or PATH"]
+  AuthAPI --> Runtime
+  Runtime --> CopilotHome["CODEINFO_COPILOT_HOME<br/>../copilot or /app/copilot"]
+  CopilotHome --> Docker["Local compose: ./copilot bind mount<br/>Main + e2e: copilot-data named volume"]
+```
+
+## Story 0000051 scope guardrails
+
+- In scope:
+  - shared three-provider chat contract
+  - Copilot provider visibility, readiness, model listing, chat execution, auth flow, transcript metadata, Docker delivery, and higher-level proof
+- Out of scope and intentionally still unchanged:
+  - Copilot agent, command, or flow execution
+  - Copilot BYOK provider-routing UI
+  - provider-specific default-model persistence for Copilot or LM Studio
+  - custom OAuth app management
+  - advanced Copilot permission controls in the chat UI
+  - in-place model switching for existing conversations
+  - any new external Copilot listener or published port
+
+## Story 0000051 Task 16 fake Copilot boot-path baseline
+
+- `server/src/copilot/fake/copilotScenarioCatalog.ts` is now the single named-scenario catalog for the higher-level Copilot proof path. It defines the reusable scenario ids and keeps readiness, auth, model, and stream behavior aligned across integration, the compose-e2e runtime seam, and later browser proof without introducing a second fixture vocabulary.
+- `server/src/test/support/copilotBootPath.ts` is the new higher-level server boot helper. It composes the existing fake Copilot SDK harness and fake Copilot device-auth harness into a real Express + websocket test stack that exposes `/chat`, `/chat/providers`, `/chat/models`, and `/copilot/device-auth` together.
+- The wrapper-backed e2e path now carries `E2E_COPILOT_SCENARIO` end to end through `.env.e2e`, `docker-compose.e2e.yml`, and `scripts/test-summary-e2e.mjs`, while `e2e/support/copilotFakeScenario.ts` keeps the Playwright-side mock path on the same named scenario contract.
+- `story.0000051.task16.fake_scenario_booted` is the acceptance marker for this layer. It records only the selected scenario name and the active surface (`integration`, `cucumber`, `e2e`, or `compose-e2e`) so later proof tasks can confirm the right boot path was active without logging prompt or credential material.
+
+```mermaid
+flowchart LR
+  Catalog["copilotScenarioCatalog.ts<br/>named fake scenarios"] --> Integration["copilotBootPath.ts<br/>integration + future Cucumber server stack"]
+  Catalog --> E2E["e2e/support/copilotFakeScenario.ts<br/>wrapper-backed Playwright mock path"]
+  E2EEnv[".env.e2e + docker-compose.e2e.yml + test-summary-e2e.mjs"] --> E2E
+  Integration --> Routes["/chat, /chat/providers, /chat/models, /copilot/device-auth, /ws"]
+  E2E --> Browser["Playwright route mocks + WS mock server"]
+```
+
+## Story 0000051 Task 7 Copilot chat execution baseline
+
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts` now owns the real Copilot chat adapter for Story 51. It creates or resumes sessions through the shared lifecycle seam, re-registers permissions, hooks, and tools on both paths, translates Copilot session events into the repository `ChatInterface` event model, and emits `story.0000051.task07.chat_turn_completed` only at clear terminal states.
+- The default session identity rule is direct reuse: `conversationId` is the Copilot session id in both create and resume paths. No extra `copilotSessionId` storage field is introduced in the normal path because the installed SDK does not require one.
+- `server/src/routes/chat.ts` now keeps Copilot on the shared `/chat` route instead of adding a second transport. Provider selection, fallback, warnings, inflight ownership, websocket publishing, and stop handling all stay on the existing chat path.
+- Codex-only flags remain Codex-only. Copilot requests ignore those fields through the existing validation-and-warning path, and stored conversation flags do not reinterpret Codex thread settings as Copilot session settings.
+- Resume failures stay explicit. If an existing Copilot-backed conversation cannot resume its expected session or cannot re-register resume-time dependencies, the assistant turn is finalized as a clear failed result instead of silently creating a fresh session behind the same transcript.
+
+```mermaid
+sequenceDiagram
+  participant Client as POST /chat
+  participant Route as chat.ts
+  participant Adapter as ChatInterfaceCopilot
+  participant SDK as CopilotLifecycle / SDK session
+  participant Bridge as chatStreamBridge
+
+  Client->>Route: provider=copilot, conversationId, message
+  Route->>Route: shared provider selection + warnings
+  Route->>Adapter: run(... resumeConversation? ...)
+  alt existing Copilot conversation
+    Adapter->>SDK: resumeSession(conversationId, config)
+    Adapter->>SDK: register permissions/hooks/tools again
+  else new Copilot conversation
+    Adapter->>SDK: createSession(sessionId=conversationId, config)
+    Adapter->>SDK: register permissions/hooks/tools
+  end
+  SDK-->>Adapter: assistant/tool/session events
+  Adapter-->>Bridge: thread/token/final/tool/error/complete events
+  Bridge-->>Client: shared websocket transcript updates
+  alt clear terminal success
+    Adapter-->>Route: completed
+  else abort or resume failure
+    Adapter-->>Route: stopped/failed explicitly
+  end
+```
+
+## Story 0000051 Task 2 Copilot runtime seam baseline
+
+- `server/src/config/copilotConfig.ts` is the new shared Copilot home/config helper. It resolves `CODEINFO_COPILOT_HOME` with a temporary non-fatal fallback of `./copilot`, derives the SDK `configDir`, and centralizes the `COPILOT_HOME` environment override that later auth and runtime tasks will reuse.
+- `server/src/chat/copilotLifecycle.ts` is the injectable runtime seam around `@github/copilot-sdk` `CopilotClient`. It owns `start()`, `stop()`, `ping()`, `getAuthStatus()`, `listModels()`, `createSession(...)`, and `resumeSession(...)` so later routes do not construct Copilot clients ad hoc.
+- The runtime launch rule is explicit already: if the app supplies a configured `cliPath`, the seam passes that to the SDK; otherwise it relies on normal process `PATH` discovery. Task 2 does not introduce an external Copilot server contract.
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts` is only the minimal adapter boundary for now. It prepares create/resume session config with `approveAll` plus the resolved `configDir`, but real streamed chat execution is still deferred to later Story 51 tasks.
+
+```mermaid
+flowchart LR
+  Startup["Task 14 env wiring later"] --> Helper["copilotConfig.ts<br/>resolve home + configDir"]
+  Helper --> Seam["copilotLifecycle.ts<br/>injectable CopilotClient seam"]
+  Seam --> PathMode["cliPath override"]
+  Seam --> DefaultMode["PATH discovery"]
+  Seam --> Adapter["ChatInterfaceCopilot.ts<br/>minimal create/resume boundary"]
+  Adapter -. later .-> Routes["provider readiness / models / chat tasks"]
+```
+
+## Story 0000051 Task 4 fake Copilot device-auth harness baseline
+
+- `server/src/test/support/mockCopilotDeviceAuth.ts` is the reusable fake auth harness for Story 51. It mirrors the existing Codex two-phase auth shape by returning verification details early and then exposing deterministic completion-state playback separately.
+- The harness entry point is `createMockCopilotDeviceAuthHarness(...)`, which keeps auth scenarios instance-scoped and publishes `createRouteBindings()` so later Copilot auth route tests can inject fake `startDeviceAuth` and `readDeviceAuthState` callbacks without changing production router wiring.
+
+## Story 0000051 Task 5 Copilot readiness precedence baseline
+
+- `server/src/providers/copilotReadiness.ts` is the new shared readiness resolver for Story 51. It exists so `/chat/providers` and later Copilot model/auth surfaces can reuse one blocking-stage contract instead of making ad hoc Copilot availability decisions.
+- The precedence rule is explicit and ordered: connectivity first, authentication second, model-list success third, and tool-surface availability last. The first blocking stage owns the surfaced `reason`, and the resolver logs only secret-safe stage, auth-source, and model-count context through `story.0000051.task05.readiness_evaluated`.
+- Existing credential sources are treated as real readiness inputs before an in-app device flow exists. In Task 5 that means `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` count as authenticated readiness, while SDK-reported `gh-cli` auth also counts as authenticated without forcing device auth.
+
+## Story 0000051 Task 9 Copilot device-auth backend baseline
+
+- `server/src/routes/copilotDeviceAuth.ts` is the Copilot sibling to the existing Codex auth route. It preserves the same strict `{}` request body, reuses shared-home single-flight behavior, and returns shared provider-auth states instead of a Copilot-only polling or raw-output contract.
+- `server/src/utils/copilotDeviceAuth.ts` owns the Copilot CLI login spawn, early verification parsing, secret-safe normalization, and completion-result mapping. The route emits `story.0000051.task09.device_auth_state_emitted` only with provider/state context, while the utility keeps failure-path diagnostics sanitized.
+- Repeated `POST /copilot/device-auth` calls are the refresh path for this story. The first successful call returns verification details early, overlapping calls reuse the in-flight login and see `completion_pending`, and later calls observe `completed` once the auth flow is done without introducing a second Copilot-only polling route.
+- Existing auth sources remain first-class. If `GITHUB_TOKEN`, `GH_TOKEN`, or `COPILOT_GITHUB_TOKEN` are already present, or if the runtime reports logged-in-user or `gh-cli` auth, the route short-circuits to `already_authenticated` instead of starting a redundant device flow.
+- Copilot config persistence stays aligned with `server/src/config/copilotConfig.ts`. The route verifies the derived config directory is writable before starting auth so missing CLI, connectivity failure, or unwritable-home conditions return a clear `unavailable_before_start` reason instead of a generic 500.
+
+```mermaid
+sequenceDiagram
+  participant UI as Shared auth dialog
+  participant Route as POST /copilot/device-auth
+  participant Runtime as CopilotLifecycle/getAuthStatus
+  participant CLI as copilot login
+
+  UI->>Route: {} start or refresh request
+  Route->>Route: validate empty body + resolve CODEINFO_COPILOT_HOME
+  Route->>Runtime: getAuthStatus (or env-token short-circuit)
+  alt already authenticated
+    Route-->>UI: already_authenticated
+  else unavailable before start
+    Route-->>UI: unavailable_before_start
+  else start device flow
+    Route->>CLI: copilot login
+    CLI-->>Route: verification URL + one-time code
+    Route-->>UI: verification_ready
+    UI->>Route: repeat POST while user completes browser step
+    alt still waiting
+      Route-->>UI: completion_pending
+  else auth detected complete
+      Route-->>UI: completed
+    end
+  end
+```
+
+## Story 0000051 Task 14 Copilot runtime env contract
+
+- `server/src/config/startupEnv.ts` now treats `CODEINFO_COPILOT_HOME` and the optional `CODEINFO_COPILOT_CLI_PATH` as first-class startup env inputs alongside the existing renamed `CODEINFO_*` server env family, so local development, local Docker overrides, and e2e can all resolve the same Copilot runtime contract through one loader.
+- `server/src/config/copilotConfig.ts` now resolves three pieces of runtime state together: the final Copilot home, the derived SDK `configDir`, and whether the runtime is using default `PATH` discovery or an explicit CLI-path override. The helper also preserves the documented credential precedence for `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` by passing those env vars through unchanged.
+- `server/src/index.ts` emits `story.0000051.task14.runtime_config_loaded` during startup with only secret-safe runtime context: the resolved Copilot home path and whether a CLI-path override is present or absent.
+- `/health` remains a process-level route and does not consult Copilot readiness. Connectivity, authentication, and model-list failures for Copilot continue to surface only through `/chat/providers` and `/chat/models`.
+
+```mermaid
+flowchart LR
+  Startup["server startup"] --> Env["startupEnv.ts<br/>load .env then .env.local"]
+  Env --> Helper["copilotConfig.ts<br/>resolve home + optional cliPath"]
+  Helper --> Marker["story.0000051.task14.runtime_config_loaded"]
+  Helper --> Runtime["CopilotLifecycle / auth route / readiness"]
+  Runtime --> ProviderSurface["/chat/providers + /chat/models"]
+  Startup --> Health["/health"]
+  Health --> ProcessOnly["status + uptime + mongoConnected only"]
+```
+
+## Story 0000051 Task 15 Copilot Docker delivery and persistence
+
+- `server/Dockerfile` now bakes the GitHub Copilot CLI into the existing server image build and prepares `/app/copilot` as a writable runtime home alongside `/app/codex`, without changing the repository's copy-source-into-image build model.
+- `docker-compose.yml` and `docker-compose.e2e.yml` keep the Docker-managed `copilot-data` named-volume pattern at `/app/copilot`, while `docker-compose.local.yml` now bind-mounts the repo-root `./copilot` folder there after wrapper bootstrap seeds `copilot/config.json` when it is missing.
+- `.dockerignore` now excludes repo-local Copilot runtime homes so local auth or session artifacts are never sent into the Docker build context, and `scripts/compose-build-summary.mjs` now treats `/app/copilot` as part of the baked runtime asset set.
+- The container contract is intentionally narrow: no new published ports, no external Copilot listener, and no host source bind mount of application code beyond the existing local-development overlays.
+
+```mermaid
+flowchart LR
+  BuildContext["repo build context"] --> Ignore[".dockerignore<br/>exclude repo-local Copilot homes"]
+  Ignore --> Image["server/Dockerfile<br/>install @github/copilot<br/>prepare /app/copilot"]
+  Image --> Compose["compose env + volume wiring"]
+  Compose --> Main["docker-compose.yml<br/>copilot-data -> /app/copilot"]
+  Compose --> Local["docker-compose.local.yml<br/>./copilot -> /app/copilot"]
+  Compose --> E2E["docker-compose.e2e.yml<br/>copilot-data -> /app/copilot"]
+  Main --> Runtime["entrypoint marker<br/>story.0000051.task15.container_contract_ready"]
+  Local --> Runtime
+  E2E --> Runtime
+```
+
+## Story 0000051 Task 6 Copilot model mapping baseline
+
+- `GET /chat/models?provider=copilot` now reuses `resolveCopilotReadiness(...)` before attempting model discovery so `/chat/models` and `/chat/providers` surface the same blocking-stage reasons.
+- The route maps only verified shared-contract fields from Copilot model discovery: `id -> key`, `name -> displayName`, plus `supportedReasoningEfforts` and `defaultReasoningEffort` when they are non-empty strings and the default is actually listed in the supported set.
+- Unsupported or non-contract Copilot fields are ignored safely instead of failing the route, and entries without a usable `id` or `name` are dropped. If all discovered entries are dropped, the route returns deterministic `copilot models unavailable`.
+- `story.0000051.task06.models_mapped` is emitted after the Copilot branch settles with the mapped model count, whether unsupported fields were ignored safely, and the blocking stage that owned the result.
+
+```mermaid
+flowchart TD
+  Request[GET /chat/models?provider=copilot] --> Readiness[resolveCopilotReadiness]
+  Readiness -->|not available| Unavailable[Return shared unavailable reason + empty models]
+  Readiness -->|available| Runtime[CopilotLifecycle.listModels]
+  Runtime --> Mapper[Strict shared-contract mapper]
+  Mapper -->|usable entries| Success[Return provider=copilot + mapped models]
+  Mapper -->|no usable entries| Empty[Return copilot models unavailable]
+  Unavailable --> Log[Emit task06 models_mapped marker]
+  Success --> Log
+  Empty --> Log
+```
+
+## Story 0000051 Task 3 fake Copilot SDK harness baseline
+
+- `server/src/test/support/mockCopilotSdk.ts` is the scenario-driven fake runtime that plugs into the Task 2 lifecycle seam instead of creating a separate testing-only provider abstraction.
+- The harness entry point is `createMockCopilotSdkHarness(...)`, which returns one isolated scenario instance with `createClientFactory()` and `createLifecycle()` helpers so unit, integration, and later Cucumber tests can opt into the fake without mutating production globals.
+- The fake session model is intentionally event-oriented. It can replay assistant-message deltas, final assistant messages, tool execution lifecycle events, idle markers, and session errors in deterministic order so later readiness and chat tasks can build on one stable mock runtime contract.
+
+## Story 0000051 Task 1 three-provider contract baseline
+
+- Shared chat provider ordering is now one explicit contract: `codex`, then `copilot`, then `lmstudio`.
+- That ordered definition is intended to feed shared common types, server default-provider parsing, runtime fallback ordering, request validation, conversation persistence enums, provider-list ordering, and OpenAPI enum publishing from one source instead of separate hard-coded arrays.
+- During the contract-first phase of Story 51, Copilot is present in the provider list as a top-level provider id even before readiness and model wiring land. The temporary contract is visible-but-unavailable, which keeps server and client ordering aligned without pretending Copilot runtime support is already complete.
+
+```mermaid
+flowchart LR
+  SharedOrder["ORDERED_CHAT_PROVIDER_IDS<br/>codex -> copilot -> lmstudio"]
+  SharedOrder --> CommonTypes["common/src/api.ts + common/src/lmstudio.ts"]
+  SharedOrder --> Defaults["server/src/config/chatDefaults.ts"]
+  SharedOrder --> Validation["server/src/routes/chatValidators.ts"]
+  SharedOrder --> Persistence["conversation enums + REST validation"]
+  SharedOrder --> Providers["/chat/providers ordering"]
+  SharedOrder --> OpenAPI["openapi.json enums"]
+```
+
 ## Story 0000049 Task 1 shared Chat transcript boundary
 
 - `client/src/pages/ChatPage.tsx` still owns the Chat page shell, model/provider controls, `ConversationList`, and `CodexFlagsPanel`.
@@ -3251,7 +3489,10 @@ flowchart TD
 - Canonical contract (Task 10+): the client calls `POST /codex/device-auth` with a strict empty JSON object body (`{}`).
 - Selector fields are rejected deterministically: any `target`/`agentName` fields return `400 invalid_request`.
 - `codex login --device-auth` executes once per shared-home key using single-flight dedupe and shared `CODEX_HOME` semantics.
-- Successful completion returns `200 { status: "ok", rawOutput }`; failures normalize to `400 invalid_request` or `503 codex_unavailable`.
+- The shared provider-auth contract is now two-phase:
+  - first response can be `verification_ready` with `verificationUrl`, `userCode`, and optional `displayOutput`;
+  - follow-up refreshes can return `completion_pending`, `completed`, `already_authenticated`, `failed`, or `unavailable_before_start`.
+- Invalid JSON or non-empty request bodies still normalize to `400 invalid_request`, but runtime auth outcomes stay on the shared auth-state contract.
 - Post-success side effects are deterministic and non-destructive: discover agents, propagate auth copy compatibility, refresh codex detection.
 
 ```mermaid
@@ -3265,8 +3506,8 @@ sequenceDiagram
   API->>API: validate strict empty object
   API->>SF: getOrCreate(shared-home key)
   SF->>CLI: codex login --device-auth (CODEX_HOME=Home)
-  CLI-->>API: completion output
-  API-->>UI: 200 {status:"ok", rawOutput}
+  CLI-->>API: verification details + completion state
+  API-->>UI: 200 {provider:"codex", state:"verification_ready", verificationUrl, userCode}
 ```
 
 ### Auth compatibility and file-safety guards (Task 9)
@@ -5076,7 +5317,7 @@ flowchart TD
   - dedicated chat MCP on `CODEINFO_CHAT_MCP_PORT`
   - dedicated agents MCP on `CODEINFO_AGENTS_MCP_PORT`
   - Playwright control on the full URL `CODEINFO_PLAYWRIGHT_MCP_URL`
-- Host-network Compose is validated, but browser navigation and Playwright control remain intentionally split. Chrome DevTools `9222` is a separate CDP/manual-debug surface and not a replacement for Playwright MCP.
+- Host-network Compose is validated, but browser navigation and Playwright control remain intentionally split. Chrome DevTools `9222` remains a separate CDP/manual-debug surface rather than the default replacement for Playwright MCP, but Story 51's final fake-scenario proof explicitly allows it as the accepted browser surface when the checked-in HTTP Playwright MCP bridge is the blocked layer.
 - Final proof is wrapper-first: build/test summaries, compose build, compose up, the checked-in main-stack host-network probe wrapper, saved screenshots in `playwright-output-local/`, and the runtime marker `DEV-0000050:T14:story_validation_completed`.
 
 ```mermaid
@@ -6042,9 +6283,9 @@ flowchart TD
 
 - Client-side device-auth API consumption now assumes one strict request/response contract:
   - request body: `{}`
-  - success (`200`): `{ status: 'ok', rawOutput: string }`
+  - shared auth success (`200`): `{ provider: 'codex', state, ...sharedAuthFields }`
   - invalid request (`400`): `{ error: 'invalid_request', message: string }`
-  - unavailable (`503`): `{ error: 'codex_unavailable', reason: string }`
+- Shared auth states are `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, and `unavailable_before_start`.
 - Target-specific client response handling was removed from the API helper path, and request serialization remains strict even when legacy UI target controls are still visible.
 - Deterministic Task 14 client log markers are emitted from API consumption:
   - `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`
@@ -6058,8 +6299,8 @@ sequenceDiagram
 
   UI->>API: call with {}
   API->>Route: POST {} (application/json)
-  Route-->>API: 200 {status:"ok", rawOutput}
-  API-->>UI: success {status:"ok", rawOutput}
+  Route-->>API: 200 {provider:"codex", state, ...sharedAuthFields}
+  API-->>UI: success {provider:"codex", state, ...sharedAuthFields}
   API->>API: emit T14 success log
 ```
 
@@ -6067,8 +6308,8 @@ sequenceDiagram
 flowchart TD
   A[postCodexDeviceAuth] --> B[POST {}]
   B --> C{HTTP ok?}
-  C -->|Yes| D{status == 'ok' and rawOutput is non-empty string?}
-  D -->|Yes| E[Return success payload]
+  C -->|Yes| D{provider == 'codex' and state is valid?}
+  D -->|Yes| E[Return shared auth payload]
   D -->|No| F[Throw invalid success shape error + T14 error log]
   C -->|No| G[Parse error payload]
   G --> H[Prefer message then reason fallback]
@@ -6222,9 +6463,9 @@ flowchart TD
   - canonical keys win when canonical and alias keys are both present.
 - Device-auth contract remains strict and shared-home based:
   - request: `POST /codex/device-auth` with `{}` only.
-  - success: `200 { status: "ok", rawOutput }`.
+  - success: `200 { provider: "codex", state, ...sharedAuthFields }`.
   - invalid request: `400 { error: "invalid_request", message }`.
-  - unavailable: `503 { error: "codex_unavailable", reason }`.
+  - runtime auth failures and unavailable-before-start states stay on the shared provider-auth state machine instead of a second HTTP error contract.
 - Reasoning-effort options are capability-driven:
   - model payload includes `supportedReasoningEfforts` and `defaultReasoningEffort`.
   - UI renders from those fields only and resets stale/invalid selections to the model default.
@@ -6283,8 +6524,8 @@ sequenceDiagram
   UI->>API: POST {}
   API->>API: validate strict empty body
   API->>CLI: run with shared CODEX_HOME
-  CLI-->>API: rawOutput
-  API-->>UI: 200 {status:"ok", rawOutput}
+  CLI-->>API: verification details + completion state
+  API-->>UI: 200 {provider:"codex", state, ...sharedAuthFields}
   API->>SE: discover agents + propagate auth copy + refresh shared-home detection
 ```
 
@@ -6604,4 +6845,23 @@ flowchart LR
   E2 --> I
   I --> J[Wrapper exports CODEINFO_COMPOSE_WORKFLOW, CODEINFO_INTERPOLATION_SOURCE, CODEINFO_RUNTIME_ENV_FILE_SOURCE]
   J --> K[server/entrypoint emits T02 env-source token]
+```
+
+## Story 0000051 Task 12 - Shared Choose Authentication dialog flow
+
+- The client now uses one shared `Choose Authentication` dialog for in-app auth flows instead of a Codex-only modal.
+- The shared dialog keeps the existing MUI `Dialog` shell stable while swapping provider-specific auth state below the shared buttons, so verification-ready, pending, completed, already-authenticated, unavailable, and failed states do not replace the outer dialog tree.
+- Chat-page auth completion refreshes provider readiness through the existing provider/model fetch surfaces, while agents-page execution remains Codex-backed in this story even though the shared dialog can start either provider's auth flow.
+
+```mermaid
+flowchart TD
+  A[Open Choose Authentication dialog] --> B[Render Codex Auth button]
+  A --> C[Render Copilot Auth button]
+  B --> D[POST /codex/device-auth {}]
+  C --> E[POST /copilot/device-auth {}]
+  D --> F[Render shared provider-auth state below buttons]
+  E --> F
+  F --> G{completed or already_authenticated?}
+  G -->|Yes| H[Refresh provider readiness surfaces]
+  G -->|No| I[Keep dialog open with shared status view]
 ```

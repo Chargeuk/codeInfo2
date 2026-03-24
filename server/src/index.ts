@@ -11,6 +11,8 @@ import {
   DEV_0000040_T10_CODEX_SDK_GUARD,
   validateAndLogCodexSdkUpgrade,
 } from './config/codexSdkUpgrade.js';
+import { buildCopilotClientOptions } from './config/copilotConfig.js';
+import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
@@ -45,6 +47,7 @@ import { createChatModelsRouter } from './routes/chatModels.js';
 import { createChatProvidersRouter } from './routes/chatProviders.js';
 import { createCodexDeviceAuthRouter } from './routes/codexDeviceAuth.js';
 import { createConversationsRouter } from './routes/conversations.js';
+import { createCopilotDeviceAuthRouter } from './routes/copilotDeviceAuth.js';
 import { createFlowsRouter } from './routes/flows.js';
 import { createFlowsRunRouter } from './routes/flowsRun.js';
 import { createIngestCancelRouter } from './routes/ingestCancel.js';
@@ -70,6 +73,10 @@ const startupEnvLoad = ensureStartupEnvLoaded();
 const codeinfoEnvResolutions = resolveCodeinfoEnvResolutions({
   loadResult: startupEnvLoad,
 });
+const copilotRuntimeConfig = buildCopilotClientOptions({
+  env: process.env,
+});
+const fakeCopilotRuntimeSeam = createFakeCopilotRuntimeSeamFromEnv(process.env);
 ensureCodexConfigSeeded();
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
 const codexSdkGuardAccepted = validateAndLogCodexSdkUpgrade(
@@ -133,6 +140,24 @@ append({
   source: 'server',
   context: {
     envs: codeinfoEnvResolutions,
+  },
+});
+baseLogger.info(
+  {
+    event: 'story.0000051.task14.runtime_config_loaded',
+    copilotHome: copilotRuntimeConfig.copilotHome,
+    cliPathOverride: copilotRuntimeConfig.cliPathOverride,
+  },
+  'story.0000051.task14.runtime_config_loaded',
+);
+append({
+  level: 'info',
+  message: 'story.0000051.task14.runtime_config_loaded',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    copilotHome: copilotRuntimeConfig.copilotHome,
+    cliPathOverride: copilotRuntimeConfig.cliPathOverride,
   },
 });
 const flowAndCommandRetries = getFlowAndCommandRetries();
@@ -259,10 +284,49 @@ app.get('/info', (_req, res) => {
 });
 
 app.use('/logs', createLogsRouter());
-app.use('/chat', createChatRouter({ clientFactory }));
-app.use('/chat', createChatProvidersRouter({ clientFactory }));
-app.use('/chat', createChatModelsRouter({ clientFactory }));
+app.use(
+  '/chat',
+  createChatRouter({
+    clientFactory,
+    ...(fakeCopilotRuntimeSeam
+      ? {
+          copilotLifecycleFactory:
+            fakeCopilotRuntimeSeam.createCopilotLifecycle,
+        }
+      : {}),
+  }),
+);
+app.use(
+  '/chat',
+  createChatProvidersRouter({
+    clientFactory,
+    ...(fakeCopilotRuntimeSeam
+      ? {
+          copilotRuntimeFactory:
+            fakeCopilotRuntimeSeam.createCopilotReadinessRuntime,
+        }
+      : {}),
+  }),
+);
+app.use(
+  '/chat',
+  createChatModelsRouter({
+    clientFactory,
+    ...(fakeCopilotRuntimeSeam
+      ? {
+          copilotRuntimeFactory:
+            fakeCopilotRuntimeSeam.createCopilotReadinessRuntime,
+        }
+      : {}),
+  }),
+);
 app.use('/codex', createCodexDeviceAuthRouter());
+app.use(
+  '/copilot',
+  createCopilotDeviceAuthRouter(
+    fakeCopilotRuntimeSeam?.createDeviceAuthRouterDeps(),
+  ),
+);
 app.use('/', createAgentsRouter());
 app.use('/', createAgentsRunRouter());
 app.use('/agents', createAgentsCommandsRouter());

@@ -237,6 +237,12 @@ async function startDraftRun() {
   render(<RouterProvider router={router} />);
 
   await screen.findByText('Codex conversation');
+  await selectProvider(user, /^LM Studio$/i);
+  await waitFor(() =>
+    expect(screen.getByTestId('provider-select')).toHaveTextContent(
+      /LM Studio/i,
+    ),
+  );
 
   const input = screen.getByTestId('chat-input');
   await user.type(input, 'Hello inflight');

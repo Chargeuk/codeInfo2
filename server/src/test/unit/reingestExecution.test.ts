@@ -3,8 +3,8 @@ import test from 'node:test';
 
 import { executeReingestRequest } from '../../ingest/reingestExecution.js';
 import { runReingestRepository } from '../../ingest/reingestService.js';
-import { append } from '../../logStore.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { append } from '../../logStore.js';
 
 const noopLog = (entry: Parameters<typeof append>[0]) => entry;
 

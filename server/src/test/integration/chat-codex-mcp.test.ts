@@ -25,6 +25,7 @@ import { createChatRouter } from '../../routes/chat.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { attachWs } from '../../ws/server.js';
+import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   closeWs,
   connectWs,
@@ -132,6 +133,17 @@ class MockThread {
 
     return { events: generator() };
   }
+}
+
+function createUnavailableCopilotLifecycle() {
+  return createMockCopilotSdkHarness({
+    name: 'integration-mcp-copilot-auth-required',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'user',
+      statusMessage: 'login required',
+    },
+  }).createLifecycle();
 }
 
 class MockCodex {
@@ -1057,7 +1069,13 @@ test('fallback from codex to lmstudio updates stored provider/model and clears s
         }),
       },
     } as unknown as LMStudioClient;
-    app.use('/chat', createChatRouter({ clientFactory: () => lmClient }));
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () => lmClient,
+        copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      }),
+    );
 
     const response = await request(app)
       .post('/chat')

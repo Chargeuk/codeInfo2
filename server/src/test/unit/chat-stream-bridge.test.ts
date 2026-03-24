@@ -22,6 +22,10 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanupInflight({ conversationId: 'bridge-conversation-1' });
+  cleanupInflight({ conversationId: 'bridge-conversation-delta' });
+  cleanupInflight({ conversationId: 'bridge-conversation-final-only' });
+  cleanupInflight({ conversationId: 'bridge-conversation-duplicate-final' });
+  cleanupInflight({ conversationId: 'bridge-conversation-partial-error' });
   resetStore();
 });
 
@@ -116,6 +120,146 @@ test('deferred finalization aligns stopped fallback with pending ok completion a
   assert.equal(alignmentLog.context?.preservedTiming, true);
 
   assert.equal(getInflight(conversationId)?.finalStatus, 'stopped');
+
+  bridge.cleanup();
+});
+
+test('delta-only output still finalizes once without duplicate transcript text', () => {
+  const conversationId = 'bridge-conversation-delta';
+  const inflightId = 'bridge-inflight-delta';
+  const chat = new BridgeTestChat();
+
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    chat,
+  });
+
+  chat.emit('token', { type: 'token', content: 'Hello ' });
+  chat.emit('token', { type: 'token', content: 'world' });
+  chat.emit('complete', {
+    type: 'complete',
+    threadId: conversationId,
+  });
+
+  const finalLog = query(
+    { text: 'chat.ws.server_publish_turn_final' },
+    20,
+  ).find((entry) => entry.context?.conversationId === conversationId);
+  assert.ok(finalLog);
+  assert.equal(finalLog.context?.status, 'ok');
+  assert.equal(getInflight(conversationId)?.assistantText, 'Hello world');
+
+  bridge.cleanup();
+});
+
+test('final-without-deltas still produces one final transcript update', () => {
+  const conversationId = 'bridge-conversation-final-only';
+  const inflightId = 'bridge-inflight-final-only';
+  const chat = new BridgeTestChat();
+
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    chat,
+  });
+
+  chat.emit('final', { type: 'final', content: 'Final without delta' });
+  chat.emit('complete', {
+    type: 'complete',
+    threadId: conversationId,
+  });
+
+  assert.equal(
+    getInflight(conversationId)?.assistantText,
+    'Final without delta',
+  );
+
+  bridge.cleanup();
+});
+
+test('repeated final-like events are deduplicated by the stream bridge', () => {
+  const conversationId = 'bridge-conversation-duplicate-final';
+  const inflightId = 'bridge-inflight-duplicate-final';
+  const chat = new BridgeTestChat();
+
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    chat,
+  });
+
+  chat.emit('final', { type: 'final', content: 'Hello world' });
+  chat.emit('final', { type: 'final', content: 'Hello world' });
+  chat.emit('complete', {
+    type: 'complete',
+    threadId: conversationId,
+  });
+
+  assert.equal(getInflight(conversationId)?.assistantText, 'Hello world');
+
+  bridge.cleanup();
+});
+
+test('session errors after partial output close the bridge cleanly', () => {
+  const conversationId = 'bridge-conversation-partial-error';
+  const inflightId = 'bridge-inflight-partial-error';
+  const chat = new BridgeTestChat();
+
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId,
+    inflightId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    chat,
+  });
+
+  chat.emit('token', { type: 'token', content: 'Partial output' });
+  chat.emit('error', {
+    type: 'error',
+    message: 'Copilot session failed',
+  });
+
+  const finalLog = query({ text: 'chat.stream.final' }, 20).find(
+    (entry) => entry.context?.conversationId === conversationId,
+  );
+  assert.ok(finalLog);
+  assert.equal(finalLog.context?.status, 'failed');
+  assert.equal(getInflight(conversationId)?.finalStatus, 'failed');
 
   bridge.cleanup();
 });

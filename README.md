@@ -160,12 +160,30 @@ Corporate certificate directory requirements:
 - Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
 - Codex home: `CODEINFO_CODEX_HOME=./codex`; the runtime seeds the canonical base template on first start. `docker-compose.local.yml` live-mounts repo `./codex` to `/app/codex` for local editing, while the main and e2e stacks use the image-prepared `/app/codex` home and still seed `config.toml` at startup when it is missing.
+- Copilot runtime home: `CODEINFO_COPILOT_HOME=../copilot` in checked-in server development defaults, with `/app/copilot` reserved as the container override path for compose-backed runtimes and e2e. The optional `CODEINFO_COPILOT_CLI_PATH` override can point the SDK at an explicit `copilot` binary when `PATH` discovery is not reliable; if it is unset, the runtime keeps the default `PATH` lookup.
+- Docker Copilot persistence: the local compose stack now bootstraps a gitignored repo-root `./copilot` folder, seeds `copilot/config.json` with plaintext token storage when missing, and bind-mounts that folder to `/app/copilot` so local auth survives restarts in the same visible way as `./codex`. The main and e2e compose stacks still use the Docker-managed `copilot-data` named-volume contract at `/app/copilot`. Published application ports stay unchanged.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
+- Shared auth contract: `POST /codex/device-auth` still requires `{}` and now returns provider-auth states instead of a raw-output-only success payload. The Codex path can return `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, or `unavailable_before_start`, with `verificationUrl`, `userCode`, and optional `displayOutput` included only when relevant.
+- Copilot auth contract: `POST /copilot/device-auth` uses the same strict `{}` request and the same shared provider-auth states. It returns verification details early, reuses the same route as the refresh path after the browser step, short-circuits to `already_authenticated` when env-token or logged-in-user auth is already available, and keeps Copilot-home persistence under `CODEINFO_COPILOT_HOME`.
+- Copilot credential precedence is runtime-owned, not committed-env-owned. Checked-in env files may set `CODEINFO_COPILOT_HOME` and the optional CLI-path override, but they do not replace or mask `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, or `gh` fallback. `/health` also stays process-only; Copilot readiness continues to surface through `/chat/providers` and `/chat/models` instead of server health.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
   - `@openai/codex-sdk` is pinned at `0.107.0` in `server/package.json`.
   - startup guard requires exact `0.107.0`; pre-release, lower, and higher versions are rejected.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
+
+## GitHub Copilot chat provider
+
+- Story `0000051` adds GitHub Copilot as a third chat-only provider alongside Codex and LM Studio. Provider ordering is now one shared contract everywhere the chat stack uses it: `codex`, then `copilot`, then `lmstudio`.
+- Copilot support is intentionally limited to chat in this story. Agents, commands, and flows still keep their existing Codex-oriented execution paths.
+- The runtime resolves `CODEINFO_COPILOT_HOME` in the same style as `CODEINFO_CODEX_HOME`:
+  - checked-in development default: `server/.env` uses `../copilot`
+  - local compose runtime override: `/app/copilot` backed by repo-root `./copilot`
+  - main and e2e compose runtimes: `/app/copilot` backed by the named-volume contract `copilot-data`
+- The optional `CODEINFO_COPILOT_CLI_PATH` override can point the SDK at an explicit `copilot` binary. If it is unset, the runtime keeps normal `PATH` discovery.
+- Copilot readiness is surfaced through `/chat/providers` and `/chat/models`, not through `/health`. Missing CLI, missing auth, or missing model discovery keep Copilot visible with a stable disabled reason instead of failing server startup.
+- Shared auth now uses the `Choose Authentication` dialog for both Codex and Copilot. `POST /copilot/device-auth` uses the same provider-auth state vocabulary as Codex and returns device-flow verification details early so the browser step can finish outside the container.
+- Checked-in env files never hard-code Copilot credentials. Runtime auth precedence still honors `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, and authenticated `gh` fallback before device auth is required.
 
 ## REST Codex defaults behavior
 
@@ -222,6 +240,8 @@ codex_agents/<agentName>/
 ## Features at a Glance
 
 - Chat workspace with provider/model selection, streaming responses, conversation history, and tool/citation rendering.
+- Shared chat provider ordering now uses one contract-first order across defaults and provider listing: `codex`, then `copilot`, then `lmstudio`. Copilot stays visible in provider lists even when unavailable, and the current server model route now returns Copilot model metadata only when readiness and verified model discovery succeed.
+- Copilot chat now runs through the same `/chat` transport and stop flow as the existing providers. New Copilot conversations reuse `conversationId` as the session id, follow-up turns resume that same session, unavailable Copilot requests follow the shared provider fallback rules, and resume mismatches fail clearly instead of silently switching to a fresh hidden session.
 - Agents workspace for running Codex agent instructions and reusable command macros with history and stop/resume controls.
 - Flows workspace to execute JSON-defined multi-step flows and resume interrupted runs.
   Previously rendered Flow assistant bubbles now stay visible while later steps stream because the client ignores stale earlier-step websocket transcript events instead of rebinding the active bubble.
@@ -451,8 +471,9 @@ Wrapper-first validation flow:
    - `npm run compose:build:summary`
 2. Start the validated main stack with `npm run compose:up`.
 3. Probe the live host-network listeners with `npm run test:summary:host-network:main`.
-4. Perform the manual Playwright-MCP proof against `http://host.docker.internal:5001`.
-5. Stop the stack with `npm run compose:down`.
+4. Perform the real-stack manual Playwright-MCP proof against `http://host.docker.internal:5001` for unavailable/auth-required state and the shared auth dialog.
+5. Start the fake-scenario e2e stack with `npm run compose:e2e:up`, then perform the fake happy-path manual Chrome-DevTools-MCP proof against `http://host.docker.internal:6001`. The checked-in e2e env contract already selects the named fake Copilot scenario there, so this final browser step should consume that running stack instead of re-injecting browser-side mocks.
+6. Stop the e2e stack with `npm run compose:e2e:down`, then stop the main stack with `npm run compose:down`.
 
 Evidence locations:
 

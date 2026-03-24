@@ -914,14 +914,17 @@ test('one successful device-auth flow unlocks shared auth reuse for agent, flow,
       }),
       getCodexConfigPathForHome: (home: string) => `${home}/config.toml`,
       runCodexDeviceAuth: async () => ({
-        ok: true,
-        rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
+        provider: 'codex',
+        state: 'verification_ready',
+        verificationUrl: 'https://device.test/verify',
+        userCode: 'CODE-123',
+        displayOutput:
+          'Open https://device.test/verify and enter code CODE-123.',
         completion: Promise.resolve({
           exitCode: 0,
           result: {
-            ok: true,
-            rawOutput:
-              'Open https://device.test/verify and enter code CODE-123.',
+            provider: 'codex',
+            state: 'completed',
           },
         }),
       }),

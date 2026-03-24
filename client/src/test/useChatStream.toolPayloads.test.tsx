@@ -148,6 +148,80 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
     });
   });
 
+  it('preserves the original tool name when a tool-result arrives with a blank name', async () => {
+    const onUpdate = jest.fn();
+
+    const conversationId = 'c-tool-name';
+    const events: ChatWsTranscriptEvent[] = [
+      {
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 1,
+        inflight: {
+          inflightId: 'i-tool-name',
+          assistantText: '',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      },
+      {
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 2,
+        inflightId: 'i-tool-name',
+        event: {
+          type: 'tool-request',
+          callId: 't-tool-name',
+          name: 'VectorSearch',
+          parameters: { query: 'hi' },
+        },
+      },
+      {
+        protocolVersion: 'v1',
+        type: 'tool_event',
+        conversationId,
+        seq: 3,
+        inflightId: 'i-tool-name',
+        event: {
+          type: 'tool-result',
+          callId: 't-tool-name',
+          name: '',
+          stage: 'success',
+          result: { ok: true },
+        },
+      },
+      {
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 4,
+        inflightId: 'i-tool-name',
+        status: 'ok',
+        threadId: null,
+      },
+    ];
+
+    render(
+      <Wrapper
+        conversationId={conversationId}
+        events={events}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.tools?.[0].name).toBe('VectorSearch');
+      expect(assistant?.tools?.[0].status).toBe('done');
+    });
+  });
+
   it('stores trimmed and full errors for tool failures', async () => {
     const onUpdate = jest.fn();
 

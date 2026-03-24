@@ -267,10 +267,34 @@ describe('Chat page models list', () => {
     expect(screen.queryByText(/Embedding Model/i)).toBeNull();
   });
 
-  it('surfaces an error alert when fetch fails', async () => {
-    mockFetch.mockImplementation(() => {
-      throw new Error('network down');
-    });
+  it('surfaces an error alert when model fetch fails without inventing fallback models', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (target.includes('/chat/models')) {
+          throw new Error('chat models down');
+        }
+        return mockJsonResponse({});
+      }),
+    );
 
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
@@ -278,7 +302,160 @@ describe('Chat page models list', () => {
     render(<RouterProvider router={router} />);
 
     const select = await screen.findByRole('combobox', { name: /model/i });
-    await waitFor(() => expect(select).toHaveTextContent('Mock Chat Model'));
+    expect(await screen.findAllByText(/chat models down/i)).not.toHaveLength(0);
+    await waitFor(() =>
+      expect(select).not.toHaveTextContent('Mock Chat Model'),
+    );
+    expect(screen.queryByText('Mock Chat Model')).toBeNull();
+  });
+
+  it('surfaces a contract error when a successful model payload is malformed', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'lmstudio',
+            available: true,
+            reason: 'missing required fields',
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const select = await screen.findByRole('combobox', { name: /model/i });
+    expect(
+      await screen.findAllByText(/malformed chat models response/i),
+    ).not.toHaveLength(0);
+    await waitFor(() =>
+      expect(select).not.toHaveTextContent(/mock chat model/i),
+    );
+    expect(screen.queryByText('Mock Chat Model')).toBeNull();
+  });
+
+  it('loads Copilot models from /chat/models when Copilot is selected', async () => {
+    const user = userEvent.setup();
+    const requestedProviders: string[] = [];
+
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (target.includes('/chat/models')) {
+          const providerId = new URL(
+            target,
+            'http://localhost',
+          ).searchParams.get('provider');
+          requestedProviders.push(providerId ?? 'missing');
+          if (providerId === 'copilot') {
+            return mockJsonResponse({
+              provider: 'copilot',
+              available: true,
+              toolsAvailable: true,
+              models: [
+                {
+                  key: 'copilot-chat',
+                  displayName: 'Copilot Chat',
+                  type: 'chat',
+                },
+              ],
+            });
+          }
+          return mockJsonResponse({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            models: [
+              {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+              },
+            ],
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5.1-codex-max/i,
+      ),
+    );
+
+    await user.click(providerSelect);
+    await user.click(
+      await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /copilot chat/i,
+      ),
+    );
+    expect(requestedProviders).toContain('copilot');
   });
 
   it('renders capability-driven reasoning options for Codex defaults', async () => {

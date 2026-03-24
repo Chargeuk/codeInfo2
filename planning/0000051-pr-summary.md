@@ -1,0 +1,62 @@
+# Story 0000051 PR Summary
+
+## What Changed
+
+Story 51 adds GitHub Copilot as a third chat provider across the shared server, client, contract, Docker, and proof layers without broadening execution scope beyond chat. The finished implementation preserves the existing Codex and LM Studio flows, normalizes provider ordering to `codex`, then `copilot`, then `lmstudio`, adds a shared provider-auth contract and `Choose Authentication` dialog, and now delivers one truthful Copilot runtime-home contract: repo-root `./copilot` for local compose and `/app/copilot` as the mounted in-container path.
+
+Review follow-up: Story 51 was reopened once for a contract-level repair after review `0000051-review-20260323T153158Z-a71881ed`. Task 21 now closes that gap by making `/copilot/device-auth` honor `CODEINFO_COPILOT_CLI_PATH` for both availability checks and the spawned login command, with direct proof for the `PATH`-missing plus override-present deployment case.
+
+Review-fix rerun: Story 51 was reopened again after review `0000051-review-20260324T114358Z-dc5df4a4` for four repo-local contract fixes. Tasks 27 through 30 repaired invalid `/chat/models` provider validation, truthful client bootstrap failure visibility, Copilot plaintext-storage auth failure mapping, and Copilot tool-name continuity, each with direct proof before the story-wide validation rerun in Task 31.
+
+Second review-fix rerun: Story 51 was reopened a third time after review `0000051-review-20260324T144346Z-6385e23c` for one client bootstrap contract repair, one Copilot config-artifact safety repair, and one prerequisite server-unit baseline restoration. Tasks 32 through 34 closed those gaps by rejecting malformed successful bootstrap payloads, switching Copilot plaintext bootstrap writes to a safe temp-file-and-rename path with deterministic malformed-state handling, and re-establishing a trustworthy full `npm run test:summary:server:unit` wrapper result before the final closeout rerun in Task 35.
+
+## Major Story Steps
+
+- Tasks 1 through 6 extended the shared provider, readiness, model-list, request-validation, OpenAPI, and runtime seams from a two-provider world into a three-provider contract with deterministic Copilot visibility and stable unavailable reasons.
+- Tasks 7 through 9 added real Copilot chat execution, deterministic session reuse, shared auth-contract normalization, and the Copilot device-auth backend while keeping existing Codex and LM Studio transport and persistence contracts intact.
+- Tasks 10 through 13 finished the client-side provider, auth, and transcript work, including provider-aware auth fixtures, ordered provider/model selection, the shared `Choose Authentication` dialog, and omission-safe partial Copilot transcript metadata rendering.
+- Tasks 14 and 15 finalized runtime-env and Docker delivery, including `CODEINFO_COPILOT_HOME`, the optional `CODEINFO_COPILOT_CLI_PATH`, and the `/app/copilot` container contract. Task 24 then repaired the local Docker persistence shape so local compose now uses the repo-root `./copilot` folder while main and e2e keep the `copilot-data` named-volume pattern.
+- Tasks 16 through 18 finished higher-level proof with one shared fake Copilot scenario catalog across integration, Cucumber, and Playwright, then extended server-side BDD and browser coverage to prove the Copilot story end to end.
+- Task 19 repairs the final manual-proof contract so the real main stack stays responsible for unavailable/auth-required checks while the fake Copilot happy-path manual proof stays on the already-supported e2e stack.
+- Task 20 completes final traceability, scope audit, documentation, wrapper-backed validation, repaired manual browser verification, and closeout.
+- Task 22 reopens the story only to repair the missing compose-e2e runtime seam: `npm run compose:e2e:up` now has a repository-owned path to honor `CODEINFO_FAKE_COPILOT_SCENARIO`, emit `story.0000051.task16.fake_scenario_booted` from the live runtime, and expose the fake Copilot contract on `6001` without browser-side mock reinjection.
+
+## Traceability And Scope Audit
+
+- Chat-only Copilot support is complete and verified across shared contracts, chat runtime execution, client selection, auth, transcript rendering, Docker delivery, and higher-level proof. The final proof path covers build, server unit/integration, server Cucumber, client tests, compose build, e2e, and manual browser verification.
+- Explicit out-of-scope boundaries were preserved:
+  - no Copilot agent, command, or flow execution
+  - no nested BYOK provider UI
+  - no new Copilot or LM Studio provider-specific default-model config source
+  - no custom OAuth application
+  - no advanced Copilot permission or settings UI
+  - no in-place model switching for existing conversations
+  - no new external Copilot listener or published port
+  - no replacement of Codex or LM Studio
+  - no unrelated ingestion-provider changes
+- Final manual validation also confirms the story acceptance-log chain through `story.0000051.task01` to `story.0000051.task20`.
+
+## Validation Summary
+
+- Full repository gates are part of final validation:
+  - `npm run lint`
+  - `npm run format:check`
+- Final wrapper-backed proof path:
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:server:cucumber`
+  - `npm run test:summary:client`
+  - `npm run compose:build:summary`
+  - `npm run test:summary:e2e`
+  - `npm run compose:up`
+  - `npm run compose:e2e:up`
+  - `npm run compose:e2e:down`
+  - `npm run compose:down`
+- Manual browser proof for final closeout is captured under `playwright-output-local/0000051-20-*` and is split across the repaired proof surfaces: Playwright MCP on the main stack for provider ordering plus shared auth dialog state, and Chrome DevTools MCP on the e2e fake-scenario stack for Copilot conversation state, transcript-metadata state when visible, and a nearby Codex regression check.
+
+## Highest-Risk Compatibility Changes
+
+- Provider ordering and fallback are now one shared three-provider contract. Any later work that reintroduces binary alternate-provider logic will regress chat bootstrap and availability behavior.
+- The shared auth dialog and provider-auth contract now serve both Codex and Copilot. Future auth work must extend that shared contract rather than adding another provider-specific modal or response family.
+- Copilot runtime state now depends on `CODEINFO_COPILOT_HOME` and the `/app/copilot` container contract. Future Docker or env work must preserve the local repo-root `./copilot` bind mount for local compose, keep the main/e2e `copilot-data` named-volume pattern truthful, preserve credential precedence, and keep `/health` isolated from Copilot readiness.

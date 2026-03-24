@@ -196,6 +196,7 @@ const e2eRuntimeConfig = {
   apiBaseUrl: process.env.E2E_API_URL ?? defaultApiBaseUrl,
   mcpControlUrl: process.env.E2E_MCP_CONTROL_URL ?? defaultMcpControlUrl,
   useMockChat: process.env.E2E_USE_MOCK_CHAT ?? 'true',
+  copilotScenario: process.env.E2E_COPILOT_SCENARIO ?? 'copilot-happy-path',
 };
 
 let testExitCode = 1;
@@ -239,6 +240,7 @@ try {
           E2E_API_URL: e2eRuntimeConfig.apiBaseUrl,
           E2E_MCP_CONTROL_URL: e2eRuntimeConfig.mcpControlUrl,
           E2E_USE_MOCK_CHAT: e2eRuntimeConfig.useMockChat,
+          E2E_COPILOT_SCENARIO: e2eRuntimeConfig.copilotScenario,
         },
         logStream,
         protocol,
@@ -280,6 +282,7 @@ try {
       mcpControlUrl: e2eRuntimeConfig.mcpControlUrl,
       baseUrlMatchesMcp:
         e2eRuntimeConfig.browserBaseUrl === e2eRuntimeConfig.mcpControlUrl,
+      copilotScenario: e2eRuntimeConfig.copilotScenario,
     };
     task13MarkerLine = `DEV-0000050:T13:e2e_host_network_config_verified ${JSON.stringify(markerPayload)}`;
     writeLogLine(logStream, task13MarkerLine);

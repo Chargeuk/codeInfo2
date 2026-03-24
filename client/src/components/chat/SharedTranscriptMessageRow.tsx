@@ -16,7 +16,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { memo, type ReactNode } from 'react';
+import { memo, type ReactNode, useEffect, useMemo, useRef } from 'react';
 import type {
   ChatMessage,
   ToolCall,
@@ -28,6 +28,7 @@ import {
   buildStepLine,
   buildTimingLine,
   buildUsageLine,
+  collectOmittedMetadataFields,
   formatBubbleTimestamp,
 } from './chatTranscriptFormatting';
 
@@ -82,6 +83,7 @@ function SharedTranscriptMessageRow({
   log,
   markdownLogSource = 'SharedTranscript',
 }: SharedTranscriptMessageRowProps) {
+  const partialMetadataLogKeyRef = useRef<string | null>(null);
   const alignSelf = message.role === 'user' ? 'flex-end' : 'flex-start';
   const isErrorBubble = message.kind === 'error';
   const isStatusBubble = message.kind === 'status';
@@ -94,6 +96,10 @@ function SharedTranscriptMessageRow({
     message.role === 'assistant' ? buildUsageLine(message.usage) : null;
   const timingLine =
     message.role === 'assistant' ? buildTimingLine(message.timing) : null;
+  const omittedMetadataFields = useMemo(
+    () => collectOmittedMetadataFields(message),
+    [message],
+  );
   const stepLine =
     message.role === 'assistant' ? buildStepLine(message.command) : null;
   const metadataColor = isUser ? 'inherit' : 'text.secondary';
@@ -118,6 +124,23 @@ function SharedTranscriptMessageRow({
   const segments = activeToolsAvailable
     ? baseSegments
     : baseSegments.filter((segment) => segment.kind === 'text');
+
+  useEffect(() => {
+    if ((!usageLine && !timingLine) || omittedMetadataFields.length === 0) {
+      return;
+    }
+
+    const logKey = `${message.id}:${omittedMetadataFields.join(',')}`;
+    if (partialMetadataLogKeyRef.current === logKey) {
+      return;
+    }
+    partialMetadataLogKeyRef.current = logKey;
+
+    log('info', 'story.0000051.task13.partial_metadata_rendered', {
+      messageId: message.id,
+      omittedFields: omittedMetadataFields,
+    });
+  }, [log, message.id, omittedMetadataFields, timingLine, usageLine]);
 
   return (
     <Stack

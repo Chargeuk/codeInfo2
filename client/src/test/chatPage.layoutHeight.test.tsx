@@ -230,6 +230,7 @@ describe('Chat transcript viewport height fill', () => {
     render(<RouterProvider router={router} />);
 
     await screen.findByTestId('codex-flags-panel');
+    await screen.findByTestId('chat-transcript');
 
     setViewportHeight(480);
     const { transcript, updateMetrics } = installTranscriptHeightMock(harness, {

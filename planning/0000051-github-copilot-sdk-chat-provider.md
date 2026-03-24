@@ -2524,8 +2524,9 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 31. Re-run full Story `0000051` validation after the review-fix tasks
 
 - Repository Name: Current Repository
-- Task Status: **in progress**
-- Git Commits: None yet.
+- Task Status: **completed**
+- Git Commits:
+  - `115381f6` — `DEV-[51] - rerun story 51 final validation`
 
 #### Overview
 
@@ -2542,7 +2543,7 @@ Run one fresh full-story validation after Tasks 27 through 30 land so Story `000
 1. [x] Re-read the Story `0000051` acceptance criteria, the review evidence artifact, the review findings artifact, and the completed Tasks 27 through 30 notes before rerunning validation. Purpose: make sure the final proof explicitly covers every reopened review finding and the original story contract together.
 2. [x] Confirm that each review-fix task added direct proof for its repaired edge case before broader regression validation starts. Purpose: avoid relying on the full-suite rerun alone for the exact defects the review found.
 3. [x] Update `planning/0000051-pr-summary.md` only if the reviewer-facing summary needs a short note about the reopened review-fix sequence and the final validation rerun. Purpose: keep closeout traceability truthful without broadening scope.
-4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 31, recording implementation notes, and listing the task commit hashes once they exist.
+4. [x] Update this plan file after implementation by marking the completed checkboxes for Task 31, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2575,3 +2576,4 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run compose:up` started the manual-validation stack cleanly again, with the server reaching healthy status before the final browser proof step.
 - Playwright MCP against `http://host.docker.internal:5001/chat` confirmed the final live-stack browser proof: the shared `Choose Authentication` dialog still opened from Chat, provider ordering stayed `codex > copilot (auth required) > lmstudio`, a nearby LM Studio selection still applied cleanly, and the browser console had no `error` entries.
 - `npm run compose:down` stopped and removed the full manual-validation stack cleanly, so the story-wide rerun now ends with the wrapper-backed environment torn down again.
+- Recorded task commit `115381f6` in the plan and marked Task 31 fully complete after the reviewer-facing summary refresh, full wrapper rerun, final Playwright MCP proof, and clean compose teardown all landed.

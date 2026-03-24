@@ -2319,8 +2319,9 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 27. Reject invalid `/chat/models` provider values instead of falling through to LM Studio
 
 - Repository Name: Current Repository
-- Task Status: **in progress**
-- Git Commits: None yet.
+- Task Status: **completed**
+- Git Commits:
+  - `d35c4afd` — `DEV-[51] - reject invalid chat model providers`
 
 #### Overview
 
@@ -2339,7 +2340,7 @@ Reopen Story `0000051` to close the review finding that `GET /chat/models` still
 3. [x] If the cleanest fix is to reuse or extract a shared provider parser, keep that change minimal and upstream rather than introducing route-local fallback logic. Purpose: preserve one contract gate for provider ids where practical.
 4. [x] Add or update direct automated proof in the server route tests so malformed provider query values are rejected while valid Codex, Copilot, and LM Studio requests still behave as before. Purpose: close the missing-proof gap named in the findings artifact.
 5. [x] Update `openapi.json` only if the repaired route behavior changes the documented `/chat/models` error contract. Purpose: keep docs truthful without broadening the work beyond the actual contract delta.
-6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 27, recording implementation notes, and listing the task commit hashes once they exist.
+6. [x] Update this plan file after implementation by marking the completed checkboxes for Task 27, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2360,6 +2361,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so no server build log inspection was needed.
 - `npm run test:summary:server:unit` passed cleanly with `1456` tests run and `0` failures, so no targeted rerun or log inspection was needed.
 - `npm run test:summary:server:cucumber` passed cleanly with `75` tests run and `0` failures, so no targeted rerun or log inspection was needed.
+- Recorded task commit `d35c4afd` in the plan and marked Task 27 complete after the route fix, proof, OpenAPI contract update, and wrapper-backed validation all landed.
 
 ### Task 28. Preserve real provider and model failure states in the chat bootstrap hook
 

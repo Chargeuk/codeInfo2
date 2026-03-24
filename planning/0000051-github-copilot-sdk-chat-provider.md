@@ -2591,8 +2591,9 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 32. Reject malformed successful provider and model payloads in the chat bootstrap hook
 
 - Repository Name: Current Repository
-- Task Status: **in progress**
-- Git Commits: None yet.
+- Task Status: **completed**
+- Git Commits:
+  - `b53cdf1c` — `DEV-[51] - reject malformed chat bootstrap payloads`
 
 #### Overview
 
@@ -2611,7 +2612,7 @@ Reopen Story `0000051` to close the review finding that `client/src/hooks/useCha
 3. [x] Update `client/src/hooks/useChatModel.ts` so `refreshModels()` treats malformed successful payloads as an error when required fields such as `models`, `available`, or `toolsAvailable` are missing or unusable, instead of coercing them into empty models and falsy booleans with `status: success`. Purpose: stop malformed model payloads from being normalized into a fake success path.
 4. [x] Keep the repaired contract succinct: validate the response shape before applying it, surface one clear error path, and do not add new fallback providers, synthetic reasons, or extra persistence just to hide malformed successful payloads. Purpose: repair contract truthfulness without broadening scope.
 5. [x] Add or update direct client tests to prove malformed successful provider and model payloads now surface an error state while the explicit legacy-array compatibility path and the existing clean-path bootstrap continue to work as intended. Purpose: close the missing-proof gap for this normalization-before-validate edge case.
-6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 32, recording implementation notes, and listing the task commit hashes once they exist.
+6. [x] Update this plan file after implementation by marking the completed checkboxes for Task 32, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2630,6 +2631,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - Added direct client proof in `client/src/test/chatPage.provider.test.tsx` and `client/src/test/chatPage.models.test.tsx` for malformed successful provider and model payloads, plus explicit legacy-array bootstrap coverage so the intended compatibility path still stays green.
 - `npm run build:summary:client` initially failed during typecheck because one new provider-shape guard still passed `unknown` into `isChatProviderId`; tightening that guard fixed the compile, and the rerun passed cleanly with `warning_count: 0`.
 - `npm run test:summary:client` passed cleanly with `tests run: 649`, `passed: 649`, and `failed: 0`, so the malformed-success contract checks and the surrounding client bootstrap surface stayed green in the full suite.
+- Recorded task commit `b53cdf1c` in the plan and marked Task 32 fully complete after the narrowed hook validation repair, direct malformed-success proof, and wrapper-backed client validation all landed.
 
 ### Task 33. Make Copilot plaintext-storage bootstrap writes safe against partial-write state
 

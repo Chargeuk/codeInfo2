@@ -2488,7 +2488,7 @@ Reopen Story `0000051` to close the review finding that Copilot tool completion 
 
 #### Testing
 
-Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw build or test commands, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
 1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
 2. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
@@ -2661,10 +2661,10 @@ Reopen Story `0000051` to close the review finding that `server/src/config/copil
 
 #### Testing
 
-Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper unless wrapper diagnosis is required after a wrapper failure.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
 1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts -- --file server/src/test/unit/copilotDeviceAuth.test.ts`. Use this targeted wrapper proof because the touched Task 33 contract lives in those two files and the unrelated full-suite baseline is restored separately by Task 34 below. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper reruns that keep the same file scope or add `--test-name <pattern>`, then rerun this same targeted wrapper.
+2. [x] Run `npm run test:summary:server:unit`. If the wrapper reports `failed`, reaches an unexpected non-terminal state, or still depends on the unrelated shared baseline issue documented below, inspect the exact printed log path under `test-results/server-unit-tests-*.log` only after the wrapper allows log inspection, diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts -- --file server/src/test/unit/copilotDeviceAuth.test.ts` or `npm run test:summary:server:unit -- --test-name <pattern>`, and then rerun the full wrapper or hand the remaining baseline restoration to Task 34 as documented in the implementation notes.
 
 #### Implementation notes
 
@@ -2708,11 +2708,10 @@ Restore a trustworthy full `npm run test:summary:server:unit` result before late
 
 #### Testing
 
-Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper unless wrapper diagnosis is required after a wrapper failure.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
 1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts`. Use this targeted wrapper proof first so the exact long-running loop-flow path can be repaired honestly before trusting the broader suite again. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper reruns that keep the same file scope or add `--test-name <pattern>`, then rerun this same targeted wrapper.
-3. [x] Run the full `npm run test:summary:server:unit`. If `failed > 0`, or if the wrapper reaches `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+2. [x] Run `npm run test:summary:server:unit`. If `failed > 0`, or if the wrapper reaches `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
@@ -2750,7 +2749,7 @@ Run one fresh full-story validation after Tasks 32 through 34 land so Story `000
 
 #### Testing
 
-Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run raw build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
 2. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.

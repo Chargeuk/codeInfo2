@@ -137,15 +137,40 @@ describe('Chat provider selection (WS transport)', () => {
     expect(options[1]).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('keeps Copilot visible during degraded provider fallback instead of hiding it', async () => {
+  it('keeps provider rows visible but unavailable when provider bootstrap fails', async () => {
     const user = userEvent.setup();
-    mockChatProvidersFetch({
-      providers: [],
-      modelsProvider: 'lmstudio',
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        throw new Error('provider bootstrap unavailable');
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
     });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
+
+    expect(
+      await screen.findAllByText(/provider bootstrap unavailable/i),
+    ).not.toHaveLength(0);
 
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
@@ -154,7 +179,12 @@ describe('Chat provider selection (WS transport)', () => {
     await user.click(providerSelect);
     expect(
       await screen.findByRole('option', {
-        name: /github copilot \(unavailable: provider bootstrap fell back to lm studio only\.\)/i,
+        name: /github copilot \(unavailable: provider bootstrap unavailable\)/i,
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      await screen.findByRole('option', {
+        name: /lm studio \(unavailable: provider bootstrap unavailable\)/i,
       }),
     ).toHaveAttribute('aria-disabled', 'true');
   });

@@ -267,10 +267,34 @@ describe('Chat page models list', () => {
     expect(screen.queryByText(/Embedding Model/i)).toBeNull();
   });
 
-  it('surfaces an error alert when fetch fails', async () => {
-    mockFetch.mockImplementation(() => {
-      throw new Error('network down');
-    });
+  it('surfaces an error alert when model fetch fails without inventing fallback models', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (target.includes('/chat/models')) {
+          throw new Error('chat models down');
+        }
+        return mockJsonResponse({});
+      }),
+    );
 
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
@@ -278,7 +302,11 @@ describe('Chat page models list', () => {
     render(<RouterProvider router={router} />);
 
     const select = await screen.findByRole('combobox', { name: /model/i });
-    await waitFor(() => expect(select).toHaveTextContent('Mock Chat Model'));
+    expect(await screen.findAllByText(/chat models down/i)).not.toHaveLength(0);
+    await waitFor(() =>
+      expect(select).not.toHaveTextContent('Mock Chat Model'),
+    );
+    expect(screen.queryByText('Mock Chat Model')).toBeNull();
   });
 
   it('loads Copilot models from /chat/models when Copilot is selected', async () => {

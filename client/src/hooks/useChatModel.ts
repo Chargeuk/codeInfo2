@@ -22,8 +22,6 @@ const PROVIDER_LABELS: Record<ChatProviderId, string> = {
   copilot: 'GitHub Copilot',
   lmstudio: 'LM Studio',
 };
-const DEGRADED_FALLBACK_REASON =
-  'Provider bootstrap fell back to LM Studio only.';
 
 type ProviderSelectionSource =
   | 'provider-bootstrap'
@@ -66,11 +64,17 @@ function buildProviderInfo(
   };
 }
 
-function buildDegradedFallbackProviders(reason: string): ChatProviderInfo[] {
+function buildUnavailableProviders(reason: string): ChatProviderInfo[] {
+  return ORDERED_CHAT_PROVIDER_IDS.map((id) =>
+    buildProviderInfo(id, { reason }),
+  );
+}
+
+function buildLegacyBootstrapProviders(): ChatProviderInfo[] {
   return ORDERED_CHAT_PROVIDER_IDS.map((id) =>
     id === 'lmstudio'
       ? buildProviderInfo(id, { available: true, toolsAvailable: true })
-      : buildProviderInfo(id, { reason }),
+      : buildProviderInfo(id),
   );
 }
 
@@ -84,13 +88,10 @@ function normalizeProviders(list: ChatProviderInfo[]): ChatProviderInfo[] {
     provided.set(entry.id, buildProviderInfo(entry.id, entry));
   });
 
-  const missingReason = DEGRADED_FALLBACK_REASON;
   return ORDERED_CHAT_PROVIDER_IDS.map(
     (id) =>
       provided.get(id) ??
-      buildProviderInfo(id, {
-        reason: missingReason,
-      }),
+      buildProviderInfo(id),
   );
 }
 
@@ -104,12 +105,6 @@ export function useChatModel() {
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
   const providerRef = useRef<ChatProviderId | undefined>(undefined);
-  const fallbackModels: ChatModelInfo[] = useMemo(
-    () => [
-      { key: 'fallback-model', displayName: 'Mock Chat Model', type: 'gguf' },
-    ],
-    [],
-  );
 
   const [providers, setProviders] = useState<ChatProviderInfo[]>([]);
   const [providerState, setProviderState] = useState<
@@ -142,7 +137,7 @@ export function useChatModel() {
         return providerState;
       }
       const firstAvailable = list.find((p) => p.available);
-      return firstAvailable?.id ?? DEFAULT_CHAT_PROVIDER_ID;
+      return firstAvailable?.id;
     },
     [providerState],
   );
@@ -161,7 +156,10 @@ export function useChatModel() {
       setProviderState((current) => {
         const resolved =
           typeof nextValue === 'function' ? nextValue(current) : nextValue;
-        if (!resolved || !isChatProviderId(resolved)) {
+        if (resolved === undefined) {
+          return undefined;
+        }
+        if (!isChatProviderId(resolved)) {
           return current;
         }
         if (resolved !== current) {
@@ -192,8 +190,8 @@ export function useChatModel() {
       setSelectedState((current) => {
         const resolved =
           typeof nextValue === 'function' ? nextValue(current) : nextValue;
-        if (!resolved) {
-          return current;
+        if (resolved === undefined) {
+          return undefined;
         }
         if (resolved !== current) {
           logSelectionApplied({
@@ -231,7 +229,7 @@ export function useChatModel() {
       // Legacy compatibility: some callers still return the models array directly.
       if (Array.isArray(data)) {
         legacyBootstrapRef.current = true;
-        const list = buildDegradedFallbackProviders(DEGRADED_FALLBACK_REASON);
+        const list = buildLegacyBootstrapProviders();
         setProviders(list);
         setProvider('lmstudio', { source: 'legacy-bootstrap' });
         setProviderReason(undefined);
@@ -261,27 +259,22 @@ export function useChatModel() {
       setProviderStatus('success');
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
-      const fallbackProviders = buildDegradedFallbackProviders(
-        (err as Error).message,
-      );
-      setProviders(fallbackProviders);
-      setProvider('lmstudio', { source: 'provider-fallback' });
-      setProviderReason((err as Error).message);
-      setAvailable(true);
-      setToolsAvailable(true);
-      setModels(fallbackModels);
-      setSelected((prev) => prev ?? fallbackModels[0]?.key, {
-        source: 'model-fallback',
-      });
-      setStatus('success');
-      setProviderStatus('success');
-      setProviderErrorMessage((err as Error).message);
+      const message = (err as Error).message;
+      setProviders(buildUnavailableProviders(message));
+      setProviderReason(message);
+      setAvailable(false);
+      setToolsAvailable(false);
+      setModels([]);
+      setSelected(undefined, { source: 'model-fallback' });
+      setStatus('error');
+      setProviderStatus('error');
+      setProviderErrorMessage(message);
     } finally {
       if (providerControllerRef.current === controller) {
         providerControllerRef.current = null;
       }
     }
-  }, [fallbackModels, pickProvider, setProvider, setSelected]);
+  }, [pickProvider, setProvider, setSelected]);
 
   const refreshModels = useCallback(
     async (targetProvider?: ChatProviderId | string) => {
@@ -377,24 +370,25 @@ export function useChatModel() {
         setStatus('success');
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
-        setAvailable(true);
-        setToolsAvailable(true);
-        setProviderReason((err as Error).message);
+        const message = (err as Error).message;
+        setAvailable(false);
+        setToolsAvailable(false);
+        setProviderReason(message);
         setCodexDefaults(undefined);
         setCodexWarnings(undefined);
-        setModels(fallbackModels);
-        setSelected((prev) => prev ?? fallbackModels[0]?.key, {
+        setModels([]);
+        setSelected(undefined, {
           source: 'model-fallback',
         });
-        setStatus('success');
-        setErrorMessage((err as Error).message);
+        setStatus('error');
+        setErrorMessage(message);
       } finally {
         if (modelsControllerRef.current === controller) {
           modelsControllerRef.current = null;
         }
       }
     },
-    [providerState, fallbackModels, setSelected],
+    [providerState, setSelected],
   );
 
   useEffect(() => {
@@ -406,10 +400,18 @@ export function useChatModel() {
   }, [refreshProviders]);
 
   useEffect(() => {
-    if (providerState && !legacyBootstrapRef.current) {
+    const selectedProvider = providerState
+      ? providers.find((entry) => entry.id === providerState)
+      : undefined;
+    if (
+      providerState &&
+      !legacyBootstrapRef.current &&
+      providerStatus === 'success' &&
+      selectedProvider?.available
+    ) {
       void refreshModels(providerState);
     }
-  }, [providerState, refreshModels]);
+  }, [providerState, providerStatus, providers, refreshModels]);
 
   const flags = useMemo(() => {
     const isLoading =

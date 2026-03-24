@@ -2366,7 +2366,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 28. Preserve real provider and model failure states in the chat bootstrap hook
 
 - Repository Name: Current Repository
-- Task Status: **todo**
+- Task Status: **completed**
 - Git Commits: None yet.
 
 #### Overview
@@ -2381,27 +2381,38 @@ Reopen Story `0000051` to remove the degraded bootstrap path in `client/src/hook
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence artifact, the review findings artifact, and the Story `0000051` acceptance criteria covering provider visibility, readiness fields, and deterministic fallback semantics. Purpose: keep the fix aligned to the planned contract instead of preserving the degraded-success workaround.
-2. [ ] Update `client/src/hooks/useChatModel.ts` so provider-fetch failures and model-fetch failures stay visible as real failures, keep ordered providers truthful, and stop manufacturing `available: true`, `toolsAvailable: true`, or fake fallback models after a failed network or server request. Purpose: make the chat bootstrap surface operational failures honestly.
-3. [ ] Adjust any direct `ChatPage` consumer logic only if the repaired hook state needs a small UI update to keep error banners, disabled providers, or selection state coherent without hiding the failure. Purpose: keep the consumer side minimal and contract-driven.
-4. [ ] Add or update direct client tests so the page keeps provider rows visible but unavailable on bootstrap failure, and so failed model loads remain observable instead of being replaced with a synthetic success state. Purpose: replace the current direct proof of the wrong behavior with direct proof of the repaired contract.
+1. [x] Re-read the review evidence artifact, the review findings artifact, and the Story `0000051` acceptance criteria covering provider visibility, readiness fields, and deterministic fallback semantics. Purpose: keep the fix aligned to the planned contract instead of preserving the degraded-success workaround.
+2. [x] Update `client/src/hooks/useChatModel.ts` so provider-fetch failures and model-fetch failures stay visible as real failures, keep ordered providers truthful, and stop manufacturing `available: true`, `toolsAvailable: true`, or fake fallback models after a failed network or server request. Purpose: make the chat bootstrap surface operational failures honestly.
+3. [x] Adjust any direct `ChatPage` consumer logic only if the repaired hook state needs a small UI update to keep error banners, disabled providers, or selection state coherent without hiding the failure. Purpose: keep the consumer side minimal and contract-driven.
+4. [x] Add or update direct client tests so the page keeps provider rows visible but unavailable on bootstrap failure, and so failed model loads remain observable instead of being replaced with a synthetic success state. Purpose: replace the current direct proof of the wrong behavior with direct proof of the repaired contract.
 5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 28, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw build or test commands, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run test:summary:e2e` and allow up to 7 minutes for a terminal result. If `failed > 0`, setup or teardown fails, or the wrapper reports unknown or ambiguous failure counts, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
-4. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, or item counts indicate failures or unknown totals in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-5. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
-6. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the repaired chat bootstrap behavior and at least one nearby regression path, and confirm the debug console shows no logged errors.
-7. [ ] Run `npm run compose:down` after the wrapper-backed and manual browser checks finish.
+1. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+3. [x] Run `npm run test:summary:e2e` and allow up to 7 minutes for a terminal result. If `failed > 0`, setup or teardown fails, or the wrapper reports unknown or ambiguous failure counts, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+4. [x] Run `npm run compose:build:summary`. If the wrapper reports `failed`, or item counts indicate failures or unknown totals in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+5. [x] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
+6. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the repaired chat bootstrap behavior and at least one nearby regression path, and confirm the debug console shows no logged errors.
+7. [x] Run `npm run compose:down` after the wrapper-backed and manual browser checks finish.
 
 #### Implementation notes
 
 - Added after review pass `0000051-review-20260324T114358Z-dc5df4a4` found that the chat bootstrap hook still turns real provider and model load failures into a synthetic LM Studio success path.
+- Re-read the Task 28 review findings, acceptance criteria, and current client hook/page/tests before editing so the repair stays focused on truthful failure visibility rather than another degraded-success fallback.
+- Updated `client/src/hooks/useChatModel.ts` so provider bootstrap failures now keep all provider rows visible but unavailable with the real failure reason, and model fetch failures now leave the hook in an error state with empty models instead of inventing an available LM Studio fallback and mock model.
+- Updated `client/src/pages/ChatPage.tsx` minimally so the provider selector is disabled only while provider bootstrap is loading, which keeps the repaired hook truthful without regressing the existing provider-order and layout interactions during model refreshes.
+- Replaced the direct proof of the wrong behavior in `client/src/test/chatPage.provider.test.tsx` and `client/src/test/chatPage.models.test.tsx` with assertions that provider/bootstrap failures stay visible as errors and no mock fallback model is synthesized after a failed model load.
+- `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, so no client build log inspection was needed.
+- `npm run test:summary:client` initially exposed stale layout and viewport tests that still relied on the old degraded bootstrap behavior or on transcript timing before model refresh settled; after updating those tests to bootstrap a real provider/model success path and wait for the transcript explicitly, the full client wrapper passed with `645` tests run and `0` failures.
+- `npm run test:summary:e2e` finished with `status: passed` but `agent_action: inspect_log` because the wrapper summary could not flatten Playwright JSON into scalar counts; inspecting `logs/test-summaries/e2e-tests-latest.log` confirmed the suite completed with `53` expected tests, `0` unexpected results, and a clean teardown.
+- `npm run compose:build:summary` passed cleanly with `2` items built and `0` failures, so no compose-build log inspection was needed before manual stack startup.
+- `npm run compose:up` started the manual-validation stack cleanly after the Mongo and server health gates passed, so no compose-log diagnosis was needed before the browser proof step.
+- Playwright MCP validation against `http://host.docker.internal:5001/chat` manually forced `/chat/providers` to return `503`, which left the real bootstrap error visible while all three ordered provider rows stayed present and disabled with the same failure reason and no mock fallback model; after restoring the live route, a clean-path check still showed the normal provider flow working, including switching to LM Studio and opening its real model list, and a fresh-tab console pass reported no `error` entries.
+- `npm run compose:down` stopped the manual-validation stack cleanly after the browser proof, so no post-run compose-log diagnosis or forced cleanup was needed.
 
 ### Task 29. Map Copilot plaintext-storage bootstrap failures into the shared auth failure contract
 

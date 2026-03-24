@@ -92,6 +92,7 @@ export default function ChatPage() {
     providers,
     provider,
     setProvider,
+    providerStatus,
     providerReason,
     available: providerAvailable,
     toolsAvailable,
@@ -1475,7 +1476,9 @@ export default function ChatPage() {
                           label="Provider"
                           value={provider ?? ''}
                           onChange={handleProviderChange}
-                          disabled={isLoading || providerLocked}
+                          disabled={
+                            providerStatus === 'loading' || providerLocked
+                          }
                           sx={{ minWidth: 220 }}
                           SelectProps={{ displayEmpty: true }}
                           slotProps={{

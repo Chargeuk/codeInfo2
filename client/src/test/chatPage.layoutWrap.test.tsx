@@ -388,6 +388,7 @@ describe('Chat page layout alignment', () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
+    setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
@@ -407,6 +408,7 @@ describe('Chat page layout alignment', () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
+    setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
@@ -426,6 +428,7 @@ describe('Chat page layout alignment', () => {
     window.innerWidth = 375;
     window.dispatchEvent(new Event('resize'));
 
+    setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
@@ -448,6 +451,7 @@ describe('Chat page layout alignment', () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
+    setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
@@ -483,6 +487,7 @@ describe('Chat page layout alignment', () => {
     window.innerWidth = 375;
     window.dispatchEvent(new Event('resize'));
 
+    setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
@@ -665,6 +670,7 @@ describe('Chat page layout alignment', () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
+    setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 

@@ -309,6 +309,54 @@ describe('Chat page models list', () => {
     expect(screen.queryByText('Mock Chat Model')).toBeNull();
   });
 
+  it('surfaces a contract error when a successful model payload is malformed', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'lmstudio',
+            available: true,
+            reason: 'missing required fields',
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const select = await screen.findByRole('combobox', { name: /model/i });
+    expect(
+      await screen.findAllByText(/malformed chat models response/i),
+    ).not.toHaveLength(0);
+    await waitFor(() =>
+      expect(select).not.toHaveTextContent(/mock chat model/i),
+    );
+    expect(screen.queryByText('Mock Chat Model')).toBeNull();
+  });
+
   it('loads Copilot models from /chat/models when Copilot is selected', async () => {
     const user = userEvent.setup();
     const requestedProviders: string[] = [];

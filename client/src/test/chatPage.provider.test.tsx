@@ -189,6 +189,104 @@ describe('Chat provider selection (WS transport)', () => {
     ).toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('surfaces a contract error when a successful provider payload is malformed', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ providerList: [] }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    expect(
+      await screen.findAllByText(/malformed chat providers response/i),
+    ).not.toHaveLength(0);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+
+    await user.click(providerSelect);
+    expect(
+      await screen.findByRole('option', {
+        name: /github copilot \(unavailable: malformed chat providers response\)/i,
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps the explicit legacy array bootstrap path working for provider bootstrap', async () => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => [
+            { key: 'legacy-model', displayName: 'Legacy Model', type: 'gguf' },
+          ],
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /provider/i }),
+      ).toHaveTextContent(/lm studio/i),
+    );
+    expect(screen.getByTestId('model-select')).toHaveTextContent(/legacy model/i);
+    expect(
+      screen.queryByText(/malformed chat providers response/i),
+    ).toBeNull();
+  });
+
   it('shows Codex as unavailable with guidance banner', async () => {
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();

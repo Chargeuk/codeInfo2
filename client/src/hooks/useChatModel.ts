@@ -78,6 +78,112 @@ function buildLegacyBootstrapProviders(): ChatProviderInfo[] {
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+function isChatModelInfo(value: unknown): value is ChatModelInfo {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    typeof value.key !== 'string' ||
+    typeof value.displayName !== 'string' ||
+    typeof value.type !== 'string'
+  ) {
+    return false;
+  }
+
+  if (
+    value.supportedReasoningEfforts !== undefined &&
+    !isStringArray(value.supportedReasoningEfforts)
+  ) {
+    return false;
+  }
+
+  if (
+    value.defaultReasoningEffort !== undefined &&
+    typeof value.defaultReasoningEffort !== 'string'
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isChatProviderInfo(value: unknown): value is ChatProviderInfo {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    isChatProviderId(value.id) &&
+    typeof value.label === 'string' &&
+    typeof value.available === 'boolean' &&
+    typeof value.toolsAvailable === 'boolean' &&
+    (value.reason === undefined || typeof value.reason === 'string')
+  );
+}
+
+function parseProvidersResponse(
+  payload: unknown,
+): { kind: 'legacy'; models: ChatModelInfo[] } | { kind: 'current'; providers: ChatProviderInfo[] } {
+  if (Array.isArray(payload)) {
+    if (!payload.every(isChatModelInfo)) {
+      throw new Error('Malformed chat providers response');
+    }
+
+    return {
+      kind: 'legacy',
+      models: payload,
+    };
+  }
+
+  if (!isRecord(payload) || !Array.isArray(payload.providers)) {
+    throw new Error('Malformed chat providers response');
+  }
+
+  if (!payload.providers.every(isChatProviderInfo)) {
+    throw new Error('Malformed chat providers response');
+  }
+
+  return {
+    kind: 'current',
+    providers: payload.providers,
+  };
+}
+
+function parseModelsResponse(payload: unknown): ChatModelsResponse {
+  if (!isRecord(payload)) {
+    throw new Error('Malformed chat models response');
+  }
+
+  if (
+    !Array.isArray(payload.models) ||
+    !payload.models.every(isChatModelInfo) ||
+    typeof payload.available !== 'boolean' ||
+    typeof payload.toolsAvailable !== 'boolean'
+  ) {
+    throw new Error('Malformed chat models response');
+  }
+
+  if (payload.reason !== undefined && typeof payload.reason !== 'string') {
+    throw new Error('Malformed chat models response');
+  }
+
+  if (
+    payload.codexWarnings !== undefined &&
+    !isStringArray(payload.codexWarnings)
+  ) {
+    throw new Error('Malformed chat models response');
+  }
+
+  return payload as ChatModelsResponse;
+}
+
 function normalizeProviders(list: ChatProviderInfo[]): ChatProviderInfo[] {
   const provided = new Map<ChatProviderId, ChatProviderInfo>();
 
@@ -222,26 +328,26 @@ export function useChatModel() {
       if (!res.ok) {
         throw new Error(`Failed to fetch chat providers (${res.status})`);
       }
-      const data = (await res.json()) as
-        | { providers?: ChatProviderInfo[] }
-        | ChatModelInfo[];
+      const payload = await res.json();
+      const data = parseProvidersResponse(payload);
 
       // Legacy compatibility: some callers still return the models array directly.
-      if (Array.isArray(data)) {
+      if (data.kind === 'legacy') {
         legacyBootstrapRef.current = true;
+        const legacyModels = data.models;
         const list = buildLegacyBootstrapProviders();
         setProviders(list);
         setProvider('lmstudio', { source: 'legacy-bootstrap' });
         setProviderReason(undefined);
         setAvailable(true);
         setToolsAvailable(true);
-        setModels(data);
+        setModels(legacyModels);
         setSelected(
           (prev) => {
-            if (prev && data.some((m) => m.key === prev)) {
+            if (prev && legacyModels.some((m) => m.key === prev)) {
               return prev;
             }
-            return data[0]?.key;
+            return legacyModels[0]?.key;
           },
           { source: 'legacy-bootstrap' },
         );
@@ -250,7 +356,8 @@ export function useChatModel() {
         return;
       }
 
-      const list = normalizeProviders(data.providers ?? []);
+      legacyBootstrapRef.current = false;
+      const list = normalizeProviders(data.providers);
       setProviders(list);
       const chosen = pickProvider(list);
       setProvider(chosen, { source: 'provider-bootstrap' });
@@ -300,8 +407,8 @@ export function useChatModel() {
           throw new Error(`Failed to fetch chat models (${res.status})`);
         }
 
-        const data = (await res.json()) as ChatModelsResponse;
-        const rawModels = Array.isArray(data.models) ? data.models : [];
+        const data = parseModelsResponse(await res.json());
+        const rawModels = data.models;
         const codexDefaultEffort =
           typeof data.codexDefaults?.modelReasoningEffort === 'string'
             ? data.codexDefaults.modelReasoningEffort

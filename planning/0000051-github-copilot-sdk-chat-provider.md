@@ -2591,7 +2591,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 32. Reject malformed successful provider and model payloads in the chat bootstrap hook
 
 - Repository Name: Current Repository
-- Task Status: **todo**
+- Task Status: **in progress**
 - Git Commits: None yet.
 
 #### Overview
@@ -2606,23 +2606,30 @@ Reopen Story `0000051` to close the review finding that `client/src/hooks/useCha
 
 #### Subtasks
 
-1. [ ] Re-read the latest review evidence and findings artifacts plus the Story `0000051` acceptance criteria around truthful failure visibility before editing the hook. Purpose: keep the repair tied to honest contract handling instead of another degraded-success workaround.
-2. [ ] Update `client/src/hooks/useChatModel.ts` so `refreshProviders()` treats any current-format successful response without a valid `providers` array as an error unless it matches the explicitly supported legacy array bootstrap shape. Purpose: stop malformed provider payloads from becoming a silent success state.
-3. [ ] Update `client/src/hooks/useChatModel.ts` so `refreshModels()` treats malformed successful payloads as an error when required fields such as `models`, `available`, or `toolsAvailable` are missing or unusable, instead of coercing them into empty models and falsy booleans with `status: success`. Purpose: stop malformed model payloads from being normalized into a fake success path.
-4. [ ] Keep the repaired contract succinct: validate the response shape before applying it, surface one clear error path, and do not add new fallback providers, synthetic reasons, or extra persistence just to hide malformed successful payloads. Purpose: repair contract truthfulness without broadening scope.
-5. [ ] Add or update direct client tests to prove malformed successful provider and model payloads now surface an error state while the explicit legacy-array compatibility path and the existing clean-path bootstrap continue to work as intended. Purpose: close the missing-proof gap for this normalization-before-validate edge case.
+1. [x] Re-read the latest review evidence and findings artifacts plus the Story `0000051` acceptance criteria around truthful failure visibility before editing the hook. Purpose: keep the repair tied to honest contract handling instead of another degraded-success workaround.
+2. [x] Update `client/src/hooks/useChatModel.ts` so `refreshProviders()` treats any current-format successful response without a valid `providers` array as an error unless it matches the explicitly supported legacy array bootstrap shape. Purpose: stop malformed provider payloads from becoming a silent success state.
+3. [x] Update `client/src/hooks/useChatModel.ts` so `refreshModels()` treats malformed successful payloads as an error when required fields such as `models`, `available`, or `toolsAvailable` are missing or unusable, instead of coercing them into empty models and falsy booleans with `status: success`. Purpose: stop malformed model payloads from being normalized into a fake success path.
+4. [x] Keep the repaired contract succinct: validate the response shape before applying it, surface one clear error path, and do not add new fallback providers, synthetic reasons, or extra persistence just to hide malformed successful payloads. Purpose: repair contract truthfulness without broadening scope.
+5. [x] Add or update direct client tests to prove malformed successful provider and model payloads now surface an error state while the explicit legacy-array compatibility path and the existing clean-path bootstrap continue to work as intended. Purpose: close the missing-proof gap for this normalization-before-validate edge case.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 32, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw build or test commands, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+1. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
 - Added after review pass `0000051-review-20260324T144346Z-6385e23c` found that the client bootstrap hook still normalizes malformed successful provider and model payloads into a green bootstrap state instead of surfacing a contract error.
+- Re-read the latest review findings plus the Story `0000051` truthful-failure acceptance criteria before editing `useChatModel.ts` so Task 32 stays focused on malformed-success payload handling instead of inventing another degraded-success fallback.
+- Updated `client/src/hooks/useChatModel.ts` so provider bootstrap now accepts only the explicit legacy model-array path or a current-format payload with a valid `providers` array; malformed successful provider objects now surface the same error path as fetch failures instead of being normalized into a green state.
+- Updated `client/src/hooks/useChatModel.ts` so model bootstrap validates the current response shape before applying it; malformed successful model payloads now throw one clear contract error instead of coercing missing `models`, `available`, or `toolsAvailable` fields into an empty-success state.
+- Kept the repair narrow by adding local response-shape validators rather than introducing new fallback providers, synthetic reasons, or extra persistence around the existing bootstrap hook.
+- Added direct client proof in `client/src/test/chatPage.provider.test.tsx` and `client/src/test/chatPage.models.test.tsx` for malformed successful provider and model payloads, plus explicit legacy-array bootstrap coverage so the intended compatibility path still stays green.
+- `npm run build:summary:client` initially failed during typecheck because one new provider-shape guard still passed `unknown` into `isChatProviderId`; tightening that guard fixed the compile, and the rerun passed cleanly with `warning_count: 0`.
+- `npm run test:summary:client` passed cleanly with `tests run: 649`, `passed: 649`, and `failed: 0`, so the malformed-success contract checks and the surrounding client bootstrap surface stayed green in the full suite.
 
 ### Task 33. Make Copilot plaintext-storage bootstrap writes safe against partial-write state
 

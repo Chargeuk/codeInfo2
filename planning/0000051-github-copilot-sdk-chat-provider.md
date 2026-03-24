@@ -2682,8 +2682,9 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 34. Restore a trustworthy full `npm run test:summary:server:unit` baseline after the unrelated loop-flow stall
 
 - Repository Name: Current Repository
-- Task Status: **todo**
-- Git Commits: None yet.
+- Task Status: **completed**
+- Git Commits:
+  - `PENDING` — `DEV-[51] - restore server unit baseline proof`
 
 #### Overview
 
@@ -2697,24 +2698,29 @@ Restore a trustworthy full `npm run test:summary:server:unit` result before late
 
 #### Subtasks
 
-1. [ ] Re-read Task 33's `**BLOCKING ANSWER**`, the wrapper guidance in `AGENTS.md`, and the earlier repository precedents in Stories `0000046` and `0000050` before changing any test or support helper. Purpose: keep this prerequisite focused on restoring the shared server-unit baseline instead of broadening into Copilot product logic.
-2. [ ] Reproduce the current stall with targeted wrapper scope around `server/src/test/integration/flows.run.loop.test.ts`, adding `--test-name <pattern>` only if needed to isolate the specific long-running loop-flow path. Purpose: confirm the blocker shape through wrapper-backed proof before editing test cleanup behavior.
-3. [ ] Repair the relevant loop-flow test or shared test-support helper so cleanup, shutdown, and resource release still happen on failure paths as well as success paths. Prefer explicit `finally`, `t.after(...)`, or `afterEach(...)` cleanup, and only add forceful websocket termination if bounded graceful cleanup still leaves a live test resource. Purpose: remove the async-leak or teardown-ordering gap that prevents the full wrapper from finishing.
-4. [ ] Re-run the targeted wrapper proof for the repaired loop-flow area until it reaches a clean terminal result without depending on a larger global wrapper timeout. Purpose: prove the exact blocker path is fixed before trusting the broader suite again.
-5. [ ] Re-run the full `npm run test:summary:server:unit` wrapper and record its terminal summary and log path once it completes cleanly. Purpose: restore the shared server-unit baseline that later Story `0000051` tasks need to rely on honestly.
-6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 34, recording implementation notes, and listing the task commit hashes once they exist.
+1. [x] Re-read Task 33's `**BLOCKING ANSWER**`, the wrapper guidance in `AGENTS.md`, and the earlier repository precedents in Stories `0000046` and `0000050` before changing any test or support helper. Purpose: keep this prerequisite focused on restoring the shared server-unit baseline instead of broadening into Copilot product logic.
+2. [x] Reproduce the current stall with targeted wrapper scope around `server/src/test/integration/flows.run.loop.test.ts`, adding `--test-name <pattern>` only if needed to isolate the specific long-running loop-flow path. Purpose: confirm the blocker shape through wrapper-backed proof before editing test cleanup behavior.
+3. [x] Repair the relevant loop-flow test or shared test-support helper so cleanup, shutdown, and resource release still happen on failure paths as well as success paths. Prefer explicit `finally`, `t.after(...)`, or `afterEach(...)` cleanup, and only add forceful websocket termination if bounded graceful cleanup still leaves a live test resource. Purpose: remove the async-leak or teardown-ordering gap that prevents the full wrapper from finishing.
+4. [x] Re-run the targeted wrapper proof for the repaired loop-flow area until it reaches a clean terminal result without depending on a larger global wrapper timeout. Purpose: prove the exact blocker path is fixed before trusting the broader suite again.
+5. [x] Re-run the full `npm run test:summary:server:unit` wrapper and record its terminal summary and log path once it completes cleanly. Purpose: restore the shared server-unit baseline that later Story `0000051` tasks need to rely on honestly.
+6. [x] Update this plan file after implementation by marking the completed checkboxes for Task 34, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper unless wrapper diagnosis is required after a wrapper failure.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts`. Use this targeted wrapper proof first so the exact long-running loop-flow path can be repaired honestly before trusting the broader suite again. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper reruns that keep the same file scope or add `--test-name <pattern>`, then rerun this same targeted wrapper.
-3. [ ] Run the full `npm run test:summary:server:unit`. If `failed > 0`, or if the wrapper reaches `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts`. Use this targeted wrapper proof first so the exact long-running loop-flow path can be repaired honestly before trusting the broader suite again. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper reruns that keep the same file scope or add `--test-name <pattern>`, then rerun this same targeted wrapper.
+3. [x] Run the full `npm run test:summary:server:unit`. If `failed > 0`, or if the wrapper reaches `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
 - Inserted during Story `0000051` blocker repair after Task 33 research proved the missing capability was an unrelated trustworthy full `server:unit` baseline, not a missing Copilot-config seam. This prerequisite now owns the shared loop-flow cleanup and full-wrapper restoration work before later tasks depend on the server-unit wrapper again.
+- Re-read Task 33's blocker answer, the wrapper contract in `AGENTS.md`, and the earlier Story `0000046` / `0000050` baseline-repair precedents before touching the loop-flow test so this prerequisite stayed focused on shared server-unit stability instead of Copilot product logic.
+- Targeted wrapper isolation for `server/src/test/integration/flows.run.loop.test.ts` finished cleanly with `tests run: 16`, `passed: 16`, and `failed: 0`, which narrowed the remaining risk to broader suite interaction or earlier shared state rather than a standalone hang in the loop-flow file itself.
+- Direct inspection showed the current `flows.run.loop.test.ts` file already uses bounded harness shutdown plus `cleanupConversationRuntime(...)` on the long-running stop-path cases, so no additional code repair was needed on current HEAD once the baseline was re-proven honestly.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, confirming the server workspace was healthy before the baseline rerun.
+- Full `npm run test:summary:server:unit` reached a clean terminal result on current HEAD with `tests run: 1458`, `passed: 1458`, `failed: 0`, and log `test-results/server-unit-tests-2026-03-24T16-01-32-309Z.log`, so the shared server-unit wrapper baseline is trustworthy again without further loop-flow changes.
 
 ### Task 35. Re-run full Story `0000051` validation after the second review-fix tasks
 

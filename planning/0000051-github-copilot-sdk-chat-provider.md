@@ -2577,3 +2577,128 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - Playwright MCP against `http://host.docker.internal:5001/chat` confirmed the final live-stack browser proof: the shared `Choose Authentication` dialog still opened from Chat, provider ordering stayed `codex > copilot (auth required) > lmstudio`, a nearby LM Studio selection still applied cleanly, and the browser console had no `error` entries.
 - `npm run compose:down` stopped and removed the full manual-validation stack cleanly, so the story-wide rerun now ends with the wrapper-backed environment torn down again.
 - Recorded task commit `115381f6` in the plan and marked Task 31 fully complete after the reviewer-facing summary refresh, full wrapper rerun, final Playwright MCP proof, and clean compose teardown all landed.
+
+## Code Review Findings
+
+- Review handoff `codeInfoStatus/reviews/0000051-current-review.json` remains aligned to Story `0000051`, canonical plan `planning/0000051-github-copilot-sdk-chat-provider.md`, branch `feature/0000051-github-copilot-sdk-chat-provider`, and reviewed HEAD `6385e23c`.
+- Durable review artifacts for this pass are `codeInfoStatus/reviews/0000051-review-20260324T144346Z-6385e23c-evidence.md` and `codeInfoStatus/reviews/0000051-review-20260324T144346Z-6385e23c-findings.md`. They must be committed alongside this reopened plan state and the eventual review-fix code so a human can inspect the full review trail later.
+- This review pass supersedes the earlier completed closeout above. The latest findings pass recorded two `should_fix` findings in the current repository, so Story `0000051` is reopened again.
+- Finding summary:
+  - `should_fix`: `client/src/hooks/useChatModel.ts` still normalizes malformed successful `/chat/providers` and `/chat/models` payloads into a success state instead of surfacing a contract error.
+  - `should_fix`: `server/src/config/copilotConfig.ts` still writes `copilot/config.json` in place without atomic-write or partial-write tolerance, so the new plaintext-storage path depends on a happy-path serialization convention.
+- Follow-up Tasks 32 through 34 below are the required disposition for this review. All work remains in the current repository, and no allowed support-file change is being reopened for anything other than the normal plan update itself.
+
+### Task 32. Reject malformed successful provider and model payloads in the chat bootstrap hook
+
+- Repository Name: Current Repository
+- Task Status: **todo**
+- Git Commits: None yet.
+
+#### Overview
+
+Reopen Story `0000051` to close the review finding that `client/src/hooks/useChatModel.ts` still treats malformed successful `/chat/providers` or `/chat/models` responses as a successful bootstrap. This task should make the hook validate the current response contract before applying it, surface a clear error when the successful payload shape is missing required fields, and preserve the existing legacy-array compatibility path only where it is still explicitly intended. Keep the fix narrow to truthful response-shape handling rather than introducing another fallback layer.
+
+#### Documentation Locations
+
+- `client/src/hooks/useChatModel.ts` because both `refreshProviders()` and `refreshModels()` currently coerce malformed successful payloads into default arrays, booleans, and a `success` state.
+- `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.models.test.tsx`, and any nearby hook-driven tests because this repair needs direct malformed-success payload proof, not just fetch-failure proof.
+- `client/src/pages/ChatPage.tsx` only if the repaired hook state needs a minimal consumer adjustment to keep banners or disabled selectors truthful after a contract error.
+
+#### Subtasks
+
+1. [ ] Re-read the latest review evidence and findings artifacts plus the Story `0000051` acceptance criteria around truthful failure visibility before editing the hook. Purpose: keep the repair tied to honest contract handling instead of another degraded-success workaround.
+2. [ ] Update `client/src/hooks/useChatModel.ts` so `refreshProviders()` treats any current-format successful response without a valid `providers` array as an error unless it matches the explicitly supported legacy array bootstrap shape. Purpose: stop malformed provider payloads from becoming a silent success state.
+3. [ ] Update `client/src/hooks/useChatModel.ts` so `refreshModels()` treats malformed successful payloads as an error when required fields such as `models`, `available`, or `toolsAvailable` are missing or unusable, instead of coercing them into empty models and falsy booleans with `status: success`. Purpose: stop malformed model payloads from being normalized into a fake success path.
+4. [ ] Keep the repaired contract succinct: validate the response shape before applying it, surface one clear error path, and do not add new fallback providers, synthetic reasons, or extra persistence just to hide malformed successful payloads. Purpose: repair contract truthfulness without broadening scope.
+5. [ ] Add or update direct client tests to prove malformed successful provider and model payloads now surface an error state while the explicit legacy-array compatibility path and the existing clean-path bootstrap continue to work as intended. Purpose: close the missing-proof gap for this normalization-before-validate edge case.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 32, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw build or test commands, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
+
+1. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+
+#### Implementation notes
+
+- Added after review pass `0000051-review-20260324T144346Z-6385e23c` found that the client bootstrap hook still normalizes malformed successful provider and model payloads into a green bootstrap state instead of surfacing a contract error.
+
+### Task 33. Make Copilot plaintext-storage bootstrap writes safe against partial-write state
+
+- Repository Name: Current Repository
+- Task Status: **todo**
+- Git Commits: None yet.
+
+#### Overview
+
+Reopen Story `0000051` to close the review finding that `server/src/config/copilotConfig.ts` still writes `copilot/config.json` in place and depends on a happy-path serialization convention. This task should make the plaintext-storage bootstrap path safe against partial-write or concurrent-observation state by using one explicit safe-write strategy or by adding an equally explicit partial-write tolerance strategy at the reader and writer boundary. Keep the fix narrow to the plaintext config artifact instead of broadening the auth route or Copilot config surface unnecessarily.
+
+#### Documentation Locations
+
+- `server/src/config/copilotConfig.ts` because `ensureCopilotPlaintextTokenStorage()` currently reads and writes `config.json` in place.
+- `server/src/routes/copilotDeviceAuth.ts` because it is the current caller that depends on this helper and currently converts write or parse failures into the shared `unavailable_before_start` response.
+- `server/src/test/unit/copilotConfig.test.ts`, `server/src/test/unit/copilotDeviceAuth.test.ts`, and any nearby auth-config tests because this lifecycle-sensitive persisted-artifact path needs direct proof beyond the current happy-path and `EACCES` cases.
+
+#### Subtasks
+
+1. [ ] Re-read the latest review evidence and findings artifacts plus the Story `0000051` persistence and auth-contract acceptance criteria before editing the config helper. Purpose: keep the repair focused on persisted-artifact safety rather than reopening broader auth behavior.
+2. [ ] Update `server/src/config/copilotConfig.ts` so `ensureCopilotPlaintextTokenStorage()` no longer depends on an in-place happy-path overwrite of `copilot/config.json`. Prefer one explicit safe-write strategy such as write-to-temp then rename, or an equally explicit paired reader and writer contract that tolerates transient in-progress state. Purpose: remove the partial-write hazard on the shared Copilot config artifact.
+3. [ ] Compare the repaired writer with its current reader and route consumers so malformed, partial, or contradictory `config.json` state is either repaired safely or rejected in one deterministic and observable way. Purpose: make the reader and writer pair explicit instead of relying on an unstated serialization convention.
+4. [ ] Keep the repair narrow and upstream: do not add new fallback config files, silent `{}` replacement of contradictory current-format state, or broad route-level retries unless direct evidence proves they are required. Purpose: preserve the shared auth contract while tightening the artifact-safety seam.
+5. [ ] Add or update direct automated proof covering at least one partial-write or malformed-state edge case for the plaintext-storage bootstrap path, plus the current clean path and unavailable-before-start failure contract. Purpose: close the current weak-proof area for this persisted-state change.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 33, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw server build or test commands unless wrapper diagnosis is required.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+
+#### Implementation notes
+
+- Added after review pass `0000051-review-20260324T144346Z-6385e23c` found that the new plaintext-storage bootstrap path still depends on a non-atomic in-place write of `copilot/config.json`, with only happy-path and explicit `EACCES` proof.
+
+### Task 34. Re-run full Story `0000051` validation after the second review-fix tasks
+
+- Repository Name: Current Repository
+- Task Status: **todo**
+- Git Commits: None yet.
+
+#### Overview
+
+Run one fresh full-story validation after Tasks 32 and 33 land so Story `0000051` closes again on top of the latest review findings rather than on the earlier pre-review validation state. This task should confirm that the shared provider contract, truthful client bootstrap behavior, Copilot auth persistence behavior, and the original Copilot chat, auth, persistence, and runtime-delivery proof all still behave correctly after the second review-fix sequence. Because the reopened fixes are confined to existing client bootstrap and server auth-config surfaces in the current repository, the default validation path here is the same wrapper-first full regression path used by the previous final validation task.
+
+#### Documentation Locations
+
+- The current Story `0000051` acceptance criteria, the latest review evidence and findings artifacts, and the completed Tasks 27 through 33 notes because this task must prove both review passes are now closed.
+- `client/src/hooks/useChatModel.ts`, `server/src/config/copilotConfig.ts`, and `server/src/routes/copilotDeviceAuth.ts` because those are the new repaired hotspots that now need final regression proof.
+- `package.json`, `scripts/summary-wrapper-protocol.mjs`, and `playwright.config.ts` because the final validation must still use the standard wrapper and test-routing path rather than a manual opt-in route.
+
+#### Subtasks
+
+1. [ ] Re-read the Story `0000051` acceptance criteria, the latest review evidence artifact, the latest review findings artifact, and the completed Tasks 32 and 33 notes before rerunning validation. Purpose: make sure the final proof explicitly covers the reopened review defects and the original story contract together.
+2. [ ] Confirm that each new review-fix task added direct proof for its repaired edge case before the broader full-suite rerun starts. Purpose: avoid relying on the full-suite rerun alone for the exact defects the latest review found.
+3. [ ] Update `planning/0000051-pr-summary.md` only if the reviewer-facing summary needs a short note about the second reopened review-fix sequence and this final validation rerun. Purpose: keep reviewer traceability truthful without broadening scope.
+4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 34, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run raw build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit` and allow up to 16 minutes for a terminal result. While the wrapper still reports `agent_action: wait` and `do_not_read_log: true`, continue waiting instead of opening the log early. If `failed > 0`, or if the wrapper ends with `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+5. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+6. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+7. [ ] Run `npm run test:summary:e2e` and allow up to 7 minutes for a terminal result. If `failed > 0`, setup or teardown fails, or the wrapper reports unknown or ambiguous failure counts, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+8. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
+9. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the full Story `0000051` behavior plus nearby regressions after the latest review-fix tasks land, and confirm the debug console shows no logged errors.
+10. [ ] Run `npm run compose:down` after the wrapper-backed and manual browser checks finish.
+
+#### Implementation notes
+
+- Added after review pass `0000051-review-20260324T144346Z-6385e23c` reopened Story `0000051` with two `should_fix` findings that must be closed and revalidated before the story can close again.

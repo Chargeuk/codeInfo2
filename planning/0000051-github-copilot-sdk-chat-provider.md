@@ -2187,7 +2187,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 25. Manual follow-up: revalidate Copilot auth persistence after a controlled local stack restart
 
 - Repository Name: Current Repository
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2202,8 +2202,8 @@ Run one fresh full-story revalidation after Task 24 lands so Story `0000051` clo
 
 #### Subtasks
 
-1. [ ] Re-read the Story `0000051` acceptance criteria and the completed Task 24 notes before rerunning validation. Purpose: make sure the final proof explicitly covers the new repo-root `copilot/` contract rather than the earlier named-volume wording.
-2. [ ] Confirm the repo-root `copilot/` folder is now the active local tool-home contract, that `copilot/config.json` exists with the required bootstrap setting, and that the folder remains outside git tracking. Purpose: prove the local persistence shape now matches the updated story wording.
+1. [x] Re-read the Story `0000051` acceptance criteria and the completed Task 24 notes before rerunning validation. Purpose: make sure the final proof explicitly covers the new repo-root `copilot/` contract rather than the earlier named-volume wording.
+2. [x] Confirm the repo-root `copilot/` folder is now the active local tool-home contract, that `copilot/config.json` exists with the required bootstrap setting, and that the folder remains outside git tracking. Purpose: prove the local persistence shape now matches the updated story wording.
 3. [ ] Manual follow-up later: re-check the local main-stack auth flow end to end from outside the self-hosted local stack. Copilot should start unavailable before login when expected, become available after re-auth, and remain reusable after a full local stack restart because the repo-root `copilot/` folder holds the persisted local auth state. Purpose: prove the repaired persistence contract actually solves the user-visible problem without tearing down the agent's own runtime.
 4. [ ] Re-check one nearby regression for the shared chat surface, including ordered provider visibility and Codex-only UI behavior after switching away from Copilot. Purpose: prove the reopened local persistence repair did not destabilize the wider chat page.
 5. [ ] Update `planning/0000051-pr-summary.md` if the final reviewer-facing traceability summary needs a short note about the repo-root `copilot/` persistence repair. Purpose: keep the story closeout summary truthful after the reopened task sequence.
@@ -2213,8 +2213,8 @@ Run one fresh full-story revalidation after Task 24 lands so Story `0000051` clo
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run raw build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
 3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 5. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
@@ -2227,3 +2227,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 #### Implementation notes
 
 - Story repair note: this final validation task exists because the repo-root `copilot/` tool-home contract changes the local Docker persistence shape that earlier Story `0000051` proof relied on. The story should not close again until the wrappers, the local chat UI, and the persisted post-login provider state have all been revalidated against the new gitignored repo-root Copilot folder contract. Because this environment is itself hosted inside the local stack, the restart-dependent proof was explicitly moved into this later manual follow-up so the agent is no longer instructed to tear down or recreate the server it is running in.
+- Subtask 1 complete: re-read the Story `0000051` acceptance criteria, the Task 24 closeout notes, and the repaired local-compose proof target details so this final pass stays anchored to the repo-root `copilot/` contract instead of the older local named-volume wording.
+- Subtask 2 complete: `git check-ignore -v copilot copilot/config.json` confirmed the repo-root `copilot/` home remains gitignored via `.gitignore`, and local disk inspection confirmed `copilot/config.json` still exists with `store_token_plaintext: true`, so the repaired local tool-home contract is present before the restart-proof reruns begin.
+- Testing step 1 complete: `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the final Task 25 revalidation starts from a fresh server build baseline without needing log inspection.
+- Testing step 2 complete: `npm run build:summary:client` passed cleanly with `warning_count: 0`, so the client-side provider ordering, shared auth dialog, and transcript surfaces still compile after the local-persistence repair sequence.
+- **BLOCKER** Testing step 3: work stopped on the required full `npm run test:summary:server:unit` wrapper because it did not reach a terminal result within the task's repaired observation budget. I started the wrapper exactly as written, followed its repeated `agent_action: wait` / `do_not_read_log: true` guidance, and continued waiting through successive healthy heartbeats from `2026-03-24T01:30Z` through `2026-03-24T01:46Z` without opening the log early because the wrapper never emitted a terminal summary or an `inspect_log` state. The missing capability is a terminal wrapper result within the plan's stated wait window, so I cannot honestly mark the step complete or start targeted diagnosis from the saved log without violating the wrapper contract. The task should stay ordered as written, but this step likely needs either a larger explicit wait budget in the plan plus wrapper contract or a wrapper change that emits a terminal result or `inspect_log` guidance when the suite legitimately exceeds the current observation window.

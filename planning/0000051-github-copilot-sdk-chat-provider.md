@@ -2726,8 +2726,9 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 35. Re-run full Story `0000051` validation after the second review-fix tasks
 
 - Repository Name: Current Repository
-- Task Status: **in progress**
-- Git Commits: None yet.
+- Task Status: **completed**
+- Git Commits:
+  - `017c7edc` DEV-[51] - finish final story 51 validation
 
 #### Overview
 
@@ -2745,7 +2746,7 @@ Run one fresh full-story validation after Tasks 32 through 34 land so Story `000
 1. [x] Re-read the Story `0000051` acceptance criteria, the latest review evidence artifact, the latest review findings artifact, and the completed Tasks 32 through 34 notes before rerunning validation. Purpose: make sure the final proof explicitly covers the reopened review defects, the restored server-unit baseline, and the original story contract together.
 2. [x] Confirm that each new review-fix and prerequisite task added direct proof for its repaired edge case before the broader full-suite rerun starts. Purpose: avoid relying on the full-suite rerun alone for the exact defects the latest review found.
 3. [x] Update `planning/0000051-pr-summary.md` only if the reviewer-facing summary needs a short note about the second reopened review-fix sequence and this final validation rerun. Purpose: keep reviewer traceability truthful without broadening scope.
-4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 35, recording implementation notes, and listing the task commit hashes once they exist.
+4. [x] Update this plan file after implementation by marking the completed checkboxes for Task 35, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 

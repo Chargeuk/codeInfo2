@@ -2586,7 +2586,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - Finding summary:
   - `should_fix`: `client/src/hooks/useChatModel.ts` still normalizes malformed successful `/chat/providers` and `/chat/models` payloads into a success state instead of surfacing a contract error.
   - `should_fix`: `server/src/config/copilotConfig.ts` still writes `copilot/config.json` in place without atomic-write or partial-write tolerance, so the new plaintext-storage path depends on a happy-path serialization convention.
-- Follow-up Tasks 32 through 34 below are the required disposition for this review. All work remains in the current repository, and no allowed support-file change is being reopened for anything other than the normal plan update itself.
+- Follow-up Tasks 32 through 35 below are the required disposition for this review. All work remains in the current repository, and no allowed support-file change is being reopened for anything other than the normal plan update itself.
 
 ### Task 32. Reject malformed successful provider and model payloads in the chat bootstrap hook
 
@@ -2637,7 +2637,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **in progress**
-- Git Commits: None yet.
+- Git Commits:
+  - `24906d1f` — `DEV-[51] - harden copilot plaintext config writes`
 
 #### Overview
 
@@ -2660,11 +2661,10 @@ Reopen Story `0000051` to close the review finding that `server/src/config/copil
 
 #### Testing
 
-Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw server build or test commands unless wrapper diagnosis is required.
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper unless wrapper diagnosis is required after a wrapper failure.
 
 1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts -- --file server/src/test/unit/copilotDeviceAuth.test.ts`. Use this targeted wrapper proof because the touched Task 33 contract lives in those two files and the unrelated full-suite baseline is restored separately by Task 34 below. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper reruns that keep the same file scope or add `--test-name <pattern>`, then rerun this same targeted wrapper.
 
 #### Implementation notes
 
@@ -2677,8 +2677,9 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the persisted-config safety repair compiles without needing log inspection.
 - **BLOCKER** Testing step 2 (`npm run test:summary:server:unit`): the full wrapper stayed on `agent_action: wait` with `do_not_read_log: true` for more than 30 minutes and never reached a terminal summary during this task attempt, so I did not open the log early or pretend the proof passed. I checked `ps -eo pid,etimes,command` and confirmed the wrapper process plus its child `node --test` run were still active, with execution sitting inside the long-running `src/test/integration/flows.run.loop.test.ts` portion of the suite. The missing capability is a terminal wrapper result for the full server-unit proof within a workable observation window; unless the expected wait budget is widened or this proof requirement is re-sequenced, Task 33 cannot be closed honestly.
 - **BLOCKING ANSWER** Repository precedent shows this blocker is an unrelated full-suite baseline problem, not a Task 33 Copilot-config defect and not a broken heartbeat wrapper. Fresh `code_info` results plus direct inspection of [`AGENTS.md`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/AGENTS.md), [`scripts/test-summary-server-unit.mjs`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/test-summary-server-unit.mjs), and [`scripts/summary-wrapper-protocol.mjs`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/scripts/summary-wrapper-protocol.mjs) confirm the accepted repository contract: `npm run test:summary:server:unit` has a normal budget of up to 12 minutes, `agent_action: wait` means the child `node --test` run is still alive, logs must not be read early while `do_not_read_log: true`, and diagnosis should proceed through targeted wrapper runs before rerunning the full wrapper. Story `0000046` already solved the same blocker class by narrowing the unrelated task’s proof to targeted wrapper coverage and inserting an explicit prerequisite to restore the shared `server:unit` baseline around [`server/src/test/integration/flows.run.loop.test.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.loop.test.ts) and [`server/src/test/support/wsClient.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/support/wsClient.ts); Story `0000050` then repeated the same pattern and recorded that the correct fix boundary is deterministic cleanup in the loop-flow test or its shared harness before trusting the full wrapper again. External precedent points to the same answer. Context7 `/nodejs/node`, DeepWiki `nodejs/node`, and the official Node test docs say extraneous asynchronous activity that outlives a test must be fixed with explicit `after`/`afterEach` cleanup and targeted isolation such as `--test-name-pattern` or file filters, while the CLI timeout flags are diagnosis controls rather than the proper fix for a hanging suite. Official Node net docs say server shutdown is asynchronous, and the `ws` project docs plus issue `websockets/ws#2137` show that lingering websocket resources require explicit awaited close or, only after bounded cleanup fails, forceful termination of the still-open test resource. Web issue-resolution references from other engineers line up with that same failure mode: hanging websocket or server tests are fixed by awaiting shutdown and cleanup on every path, not by inflating global wrapper timeouts or declaring success from partial proof. The chosen fix for this repo is therefore: treat the blocker as a shared `server:unit` baseline defect in `flows.run.loop.test.ts` or its cleanup helpers, add or reuse targeted wrapper proof for the Task 33 touched files, and insert or depend on an explicit prerequisite task that stabilizes the loop-flow suite before the full `npm run test:summary:server:unit` wrapper is used as honest completion proof again. This fits the current local repo state because Task 33 already has direct targeted proof in [`server/src/test/unit/copilotConfig.test.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/copilotConfig.test.ts) and [`server/src/test/unit/copilotDeviceAuth.test.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/copilotDeviceAuth.test.ts), while the blocker note itself names an unrelated long-running integration file rather than the touched Copilot-config seam. Rejected alternatives are not suitable here: widening the wrapper timeout would hide a known suite-baseline problem instead of fixing it; reading the full log while the wrapper still reports `do_not_read_log: true` would violate the wrapper contract; forcing the wrapper or `node --test` process to exit would mask a live async leak rather than proving cleanup; and marking Task 33 complete from build plus targeted proof alone would be dishonest unless the plan is explicitly repaired to separate task-local proof from the unrelated full-suite baseline prerequisite.
+- Story repair: narrowed Task 33's testing gate to task-local wrapper proof and inserted the new Task 34 prerequisite below because the blocker research proved the missing capability is an unrelated trustworthy full `server:unit` baseline, not a missing Copilot-config seam in this task. Task 33 can now close honestly once the touched files have targeted wrapper proof and the normal bookkeeping is updated, while Task 34 owns the shared full-suite baseline restoration before later tasks depend on it again.
 
-### Task 34. Re-run full Story `0000051` validation after the second review-fix tasks
+### Task 34. Restore a trustworthy full `npm run test:summary:server:unit` baseline after the unrelated loop-flow stall
 
 - Repository Name: Current Repository
 - Task Status: **todo**
@@ -2686,20 +2687,58 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 #### Overview
 
-Run one fresh full-story validation after Tasks 32 and 33 land so Story `0000051` closes again on top of the latest review findings rather than on the earlier pre-review validation state. This task should confirm that the shared provider contract, truthful client bootstrap behavior, Copilot auth persistence behavior, and the original Copilot chat, auth, persistence, and runtime-delivery proof all still behave correctly after the second review-fix sequence. Because the reopened fixes are confined to existing client bootstrap and server auth-config surfaces in the current repository, the default validation path here is the same wrapper-first full regression path used by the previous final validation task.
+Restore a trustworthy full `npm run test:summary:server:unit` result before later Story `0000051` tasks depend on that shared wrapper again. The blocker research proved the current full-wrapper stall is an unrelated server test-baseline problem centered on `server/src/test/integration/flows.run.loop.test.ts` or its cleanup helpers, not a Copilot-config defect in Task 33 and not a wrapper-protocol failure. Keep this task strictly focused on the long-running loop-flow test, its runtime cleanup, and the shared test harness or shutdown helpers needed to make the full server-unit wrapper reach an honest terminal result again.
 
 #### Documentation Locations
 
-- The current Story `0000051` acceptance criteria, the latest review evidence and findings artifacts, and the completed Tasks 27 through 33 notes because this task must prove both review passes are now closed.
+- `AGENTS.md`, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` because this prerequisite exists to restore the shared wrapper-backed server-unit baseline, not to bypass it.
+- `server/src/test/integration/flows.run.loop.test.ts` because the blocker note and repository precedents point to this file as the current long-running full-suite stall location.
+- `server/src/test/support/wsClient.ts` and any nearby runtime-cleanup helpers because the accepted repair boundary is deterministic cleanup of lingering runtime, websocket, or shutdown work rather than a larger wrapper timeout.
+
+#### Subtasks
+
+1. [ ] Re-read Task 33's `**BLOCKING ANSWER**`, the wrapper guidance in `AGENTS.md`, and the earlier repository precedents in Stories `0000046` and `0000050` before changing any test or support helper. Purpose: keep this prerequisite focused on restoring the shared server-unit baseline instead of broadening into Copilot product logic.
+2. [ ] Reproduce the current stall with targeted wrapper scope around `server/src/test/integration/flows.run.loop.test.ts`, adding `--test-name <pattern>` only if needed to isolate the specific long-running loop-flow path. Purpose: confirm the blocker shape through wrapper-backed proof before editing test cleanup behavior.
+3. [ ] Repair the relevant loop-flow test or shared test-support helper so cleanup, shutdown, and resource release still happen on failure paths as well as success paths. Prefer explicit `finally`, `t.after(...)`, or `afterEach(...)` cleanup, and only add forceful websocket termination if bounded graceful cleanup still leaves a live test resource. Purpose: remove the async-leak or teardown-ordering gap that prevents the full wrapper from finishing.
+4. [ ] Re-run the targeted wrapper proof for the repaired loop-flow area until it reaches a clean terminal result without depending on a larger global wrapper timeout. Purpose: prove the exact blocker path is fixed before trusting the broader suite again.
+5. [ ] Re-run the full `npm run test:summary:server:unit` wrapper and record its terminal summary and log path once it completes cleanly. Purpose: restore the shared server-unit baseline that later Story `0000051` tasks need to rely on honestly.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 34, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run build or test commands for this repository without the wrapper unless wrapper diagnosis is required after a wrapper failure.
+
+1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts`. Use this targeted wrapper proof first so the exact long-running loop-flow path can be repaired honestly before trusting the broader suite again. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper reruns that keep the same file scope or add `--test-name <pattern>`, then rerun this same targeted wrapper.
+3. [ ] Run the full `npm run test:summary:server:unit`. If `failed > 0`, or if the wrapper reaches `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+
+#### Implementation notes
+
+- Inserted during Story `0000051` blocker repair after Task 33 research proved the missing capability was an unrelated trustworthy full `server:unit` baseline, not a missing Copilot-config seam. This prerequisite now owns the shared loop-flow cleanup and full-wrapper restoration work before later tasks depend on the server-unit wrapper again.
+
+### Task 35. Re-run full Story `0000051` validation after the second review-fix tasks
+
+- Repository Name: Current Repository
+- Task Status: **todo**
+- Git Commits: None yet.
+
+#### Overview
+
+Run one fresh full-story validation after Tasks 32 through 34 land so Story `0000051` closes again on top of the latest review findings rather than on the earlier pre-review validation state. This task should confirm that the shared provider contract, truthful client bootstrap behavior, Copilot auth persistence behavior, the restored full server-unit baseline, and the original Copilot chat, auth, persistence, and runtime-delivery proof all still behave correctly after the second review-fix sequence. Because the reopened fixes are confined to existing client bootstrap, server auth-config, and server test-baseline surfaces in the current repository, the default validation path here is the same wrapper-first full regression path used by the previous final validation task.
+
+#### Documentation Locations
+
+- The current Story `0000051` acceptance criteria, the latest review evidence and findings artifacts, and the completed Tasks 27 through 34 notes because this task must prove both review passes are now closed.
 - `client/src/hooks/useChatModel.ts`, `server/src/config/copilotConfig.ts`, and `server/src/routes/copilotDeviceAuth.ts` because those are the new repaired hotspots that now need final regression proof.
+- `server/src/test/integration/flows.run.loop.test.ts` and its shared cleanup helpers because Task 34 now restores the full server-unit baseline that this final validation depends on.
 - `package.json`, `scripts/summary-wrapper-protocol.mjs`, and `playwright.config.ts` because the final validation must still use the standard wrapper and test-routing path rather than a manual opt-in route.
 
 #### Subtasks
 
-1. [ ] Re-read the Story `0000051` acceptance criteria, the latest review evidence artifact, the latest review findings artifact, and the completed Tasks 32 and 33 notes before rerunning validation. Purpose: make sure the final proof explicitly covers the reopened review defects and the original story contract together.
-2. [ ] Confirm that each new review-fix task added direct proof for its repaired edge case before the broader full-suite rerun starts. Purpose: avoid relying on the full-suite rerun alone for the exact defects the latest review found.
+1. [ ] Re-read the Story `0000051` acceptance criteria, the latest review evidence artifact, the latest review findings artifact, and the completed Tasks 32 through 34 notes before rerunning validation. Purpose: make sure the final proof explicitly covers the reopened review defects, the restored server-unit baseline, and the original story contract together.
+2. [ ] Confirm that each new review-fix and prerequisite task added direct proof for its repaired edge case before the broader full-suite rerun starts. Purpose: avoid relying on the full-suite rerun alone for the exact defects the latest review found.
 3. [ ] Update `planning/0000051-pr-summary.md` only if the reviewer-facing summary needs a short note about the second reopened review-fix sequence and this final validation rerun. Purpose: keep reviewer traceability truthful without broadening scope.
-4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 34, recording implementation notes, and listing the task commit hashes once they exist.
+4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 35, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2718,4 +2757,4 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 #### Implementation notes
 
-- Added after review pass `0000051-review-20260324T144346Z-6385e23c` reopened Story `0000051` with two `should_fix` findings that must be closed and revalidated before the story can close again.
+- Renumbered from Task 34 during Story `0000051` blocker repair so the unrelated `server:unit` baseline restoration can land first as Task 34. This final validation task now closes the story only after Tasks 32 through 34 all have direct proof and the shared wrapper baseline is trustworthy again.

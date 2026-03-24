@@ -2367,7 +2367,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **completed**
-- Git Commits: None yet.
+- Git Commits:
+  - `f3ccb8ea` — `DEV-[51] - preserve truthful chat bootstrap failures`
 
 #### Overview
 
@@ -2385,7 +2386,7 @@ Reopen Story `0000051` to remove the degraded bootstrap path in `client/src/hook
 2. [x] Update `client/src/hooks/useChatModel.ts` so provider-fetch failures and model-fetch failures stay visible as real failures, keep ordered providers truthful, and stop manufacturing `available: true`, `toolsAvailable: true`, or fake fallback models after a failed network or server request. Purpose: make the chat bootstrap surface operational failures honestly.
 3. [x] Adjust any direct `ChatPage` consumer logic only if the repaired hook state needs a small UI update to keep error banners, disabled providers, or selection state coherent without hiding the failure. Purpose: keep the consumer side minimal and contract-driven.
 4. [x] Add or update direct client tests so the page keeps provider rows visible but unavailable on bootstrap failure, and so failed model loads remain observable instead of being replaced with a synthetic success state. Purpose: replace the current direct proof of the wrong behavior with direct proof of the repaired contract.
-5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 28, recording implementation notes, and listing the task commit hashes once they exist.
+5. [x] Update this plan file after implementation by marking the completed checkboxes for Task 28, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2413,6 +2414,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run compose:up` started the manual-validation stack cleanly after the Mongo and server health gates passed, so no compose-log diagnosis was needed before the browser proof step.
 - Playwright MCP validation against `http://host.docker.internal:5001/chat` manually forced `/chat/providers` to return `503`, which left the real bootstrap error visible while all three ordered provider rows stayed present and disabled with the same failure reason and no mock fallback model; after restoring the live route, a clean-path check still showed the normal provider flow working, including switching to LM Studio and opening its real model list, and a fresh-tab console pass reported no `error` entries.
 - `npm run compose:down` stopped the manual-validation stack cleanly after the browser proof, so no post-run compose-log diagnosis or forced cleanup was needed.
+- Recorded task commit `f3ccb8ea` in the plan and marked Task 28 fully complete after the truthful-bootstrap repair, direct proof updates, wrapper validation, and manual Playwright validation were all in place.
 
 ### Task 29. Map Copilot plaintext-storage bootstrap failures into the shared auth failure contract
 

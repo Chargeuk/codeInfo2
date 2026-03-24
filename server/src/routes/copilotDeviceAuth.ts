@@ -367,7 +367,10 @@ export function createCopilotDeviceAuthRouter(
           return res.status(200).json(unavailable);
         }
       }
-      return res.status(200).json(cachedState);
+      // Terminal states should not poison later retries. A fresh request should
+      // re-check current auth/runtime readiness and start a new device flow if
+      // the previous code can no longer complete successfully.
+      deviceAuthStateByHome.delete(targetCopilotHome);
     }
 
     const existingAuth = await resolveExistingAuthState({

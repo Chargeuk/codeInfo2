@@ -9,7 +9,9 @@ import supertest from 'supertest';
 
 import { createCopilotDeviceAuthRouter } from '../../routes/copilotDeviceAuth.js';
 import {
+  createCopilotCompletionPendingResponse,
   createCopilotCompletedResponse,
+  createCopilotFailedResponse,
   createCopilotVerificationReadyResponse,
   type CopilotDeviceAuthCompletion,
   type CopilotDeviceAuthResult,
@@ -257,7 +259,7 @@ describe('POST /copilot/device-auth unit behavior', () => {
     );
   });
 
-  test('device-auth completion is downgraded to failed when post-login auth status stays unauthenticated', async () => {
+  test('device-auth completion that cannot produce reusable auth is cleared for a fresh retry', async () => {
     const app = buildApp(
       withDeps({
         env: { HOME: '/tmp/test-home' },
@@ -273,11 +275,93 @@ describe('POST /copilot/device-auth unit behavior', () => {
     const second = await supertest(app).post('/copilot/device-auth').send({});
 
     assert.equal(second.status, 200);
-    assert.deepEqual(second.body, {
-      provider: 'copilot',
-      state: 'failed',
-      reason: 'copilot login completed but reusable authentication was not detected',
+    assert.equal(second.body.state, 'verification_ready');
+    assert.equal(second.body.userCode, 'ABCD-EFGH');
+  });
+
+  test('terminal failed state is cleared for retry while completion-pending state is still reused', async () => {
+    const pendingResponse = createCopilotVerificationReadyResponse({
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'PENDING-CODE',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code PENDING-CODE',
     });
+    const pendingRun = mock.fn(async () =>
+      buildDeviceAuthResult(
+        pendingResponse,
+        createCopilotCompletionPendingResponse(pendingResponse),
+      ),
+    );
+    const pendingApp = buildApp(
+      withDeps({
+        runCopilotDeviceAuth: pendingRun,
+        readDeviceAuthState: async () => ({ status: 'completion_pending' }),
+      }),
+    );
+
+    const pendingFirst = await supertest(pendingApp)
+      .post('/copilot/device-auth')
+      .send({});
+    assert.equal(pendingFirst.status, 200);
+    assert.equal(pendingFirst.body.userCode, 'PENDING-CODE');
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const pendingSecond = await supertest(pendingApp)
+      .post('/copilot/device-auth')
+      .send({});
+    assert.equal(pendingSecond.status, 200);
+    assert.equal(pendingSecond.body.state, 'completion_pending');
+    assert.equal(pendingSecond.body.userCode, 'PENDING-CODE');
+    assert.equal(pendingRun.mock.calls.length, 1);
+
+    const firstExpiredResponse = createCopilotVerificationReadyResponse({
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'EXPIRED-OLD',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code EXPIRED-OLD',
+    });
+    const retriedResponse = createCopilotVerificationReadyResponse({
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'EXPIRED-NEW',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code EXPIRED-NEW',
+    });
+    let retryCallCount = 0;
+    const retryRun = mock.fn(async () => {
+      retryCallCount += 1;
+      if (retryCallCount === 1) {
+        return buildDeviceAuthResult(
+          firstExpiredResponse,
+          createCopilotFailedResponse('device code expired or was declined'),
+        );
+      }
+      return buildDeviceAuthResult(
+        retriedResponse,
+        createCopilotCompletionPendingResponse(retriedResponse),
+      );
+    });
+    const retryApp = buildApp(
+      withDeps({
+        runCopilotDeviceAuth: retryRun,
+      }),
+    );
+
+    const retryFirst = await supertest(retryApp)
+      .post('/copilot/device-auth')
+      .send({});
+    assert.equal(retryFirst.status, 200);
+    assert.equal(retryFirst.body.userCode, 'EXPIRED-OLD');
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const retrySecond = await supertest(retryApp)
+      .post('/copilot/device-auth')
+      .send({});
+    assert.equal(retrySecond.status, 200);
+    assert.equal(retrySecond.body.state, 'verification_ready');
+    assert.equal(retrySecond.body.userCode, 'EXPIRED-NEW');
+    assert.equal(retryRun.mock.calls.length, 2);
   });
 });
 

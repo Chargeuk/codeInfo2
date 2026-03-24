@@ -210,6 +210,65 @@ describe('POST /copilot/device-auth integration behavior', () => {
     });
   });
 
+  test('expired device-auth state is cleared so a retry returns a fresh verification code', async () => {
+    const firstResponse = createCopilotVerificationReadyResponse({
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'ABCD-EFGH',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code ABCD-EFGH',
+    });
+    const secondResponse = createCopilotVerificationReadyResponse({
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'WXYZ-1234',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code WXYZ-1234',
+    });
+    let startCount = 0;
+    const runCopilotDeviceAuth = mock.fn(async () => {
+      startCount += 1;
+      if (startCount === 1) {
+        return {
+          ...firstResponse,
+          completion: Promise.resolve({
+            exitCode: 1,
+            result: createCopilotFailedResponse(
+              'device code expired or was declined',
+            ),
+          }),
+        };
+      }
+      return {
+        ...secondResponse,
+        completion: Promise.resolve({
+          exitCode: 1,
+          result: createCopilotCompletionPendingResponse(secondResponse),
+        }),
+      };
+    });
+
+    const app = buildApp(
+      depsFromHarness(
+        createMockCopilotDeviceAuthHarness(createVerificationReadyScenario()),
+        {
+          runCopilotDeviceAuth,
+        },
+      ),
+    );
+
+    const first = await supertest(app).post('/copilot/device-auth').send({});
+    assert.equal(first.status, 200);
+    assert.equal(first.body.state, 'verification_ready');
+    assert.equal(first.body.userCode, 'ABCD-EFGH');
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const second = await supertest(app).post('/copilot/device-auth').send({});
+    assert.equal(second.status, 200);
+    assert.equal(second.body.state, 'verification_ready');
+    assert.equal(second.body.userCode, 'WXYZ-1234');
+    assert.equal(runCopilotDeviceAuth.mock.calls.length, 2);
+  });
+
   test('keychain-unavailable fallback still works through writable CODEINFO_COPILOT_HOME config storage', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-device-auth-'),

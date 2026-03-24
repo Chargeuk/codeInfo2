@@ -195,6 +195,48 @@ describe('CodexDeviceAuthDialog', () => {
     ).toBeNull();
   });
 
+  it('lets Copilot auth retry from an expired error into a fresh verification-ready state', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth
+      .mockResolvedValueOnce(
+        buildAuthResponse({
+          provider: 'copilot',
+          state: 'failed',
+          payload: { reason: 'device code expired or was declined' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        buildAuthResponse({
+          provider: 'copilot',
+          state: 'verification_ready',
+          payload: {
+            verificationUrl: 'https://github.com/login/device',
+            userCode: 'FRESH-CODE',
+          },
+        }),
+      );
+
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
+    expect(
+      await screen.findByText('device code expired or was declined'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
+    expect(await screen.findByText('Verification URL')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'https://github.com/login/device' }),
+    ).toHaveAttribute('href', 'https://github.com/login/device');
+    expect(
+      screen.getByText('FRESH-CODE', { selector: 'code' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('device code expired or was declined'),
+    ).toBeNull();
+  });
+
   it('keeps the existing Codex branch working through the shared dialog', async () => {
     const user = userEvent.setup();
     postProviderDeviceAuth.mockResolvedValue(

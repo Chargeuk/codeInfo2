@@ -116,6 +116,23 @@ describe('Provider device-auth API helper', () => {
     });
   });
 
+  it('rejects malformed successful responses that omit state-specific required fields', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          provider: 'copilot',
+          state: 'verification_ready',
+          verificationUrl: 'https://github.com/login/device',
+        },
+        { status: 200 },
+      ),
+    );
+
+    await expect(postProviderDeviceAuth('copilot')).rejects.toThrow(
+      'Invalid copilot device auth response',
+    );
+  });
+
   it('still parses deterministic invalid_request responses for the Codex route', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse(

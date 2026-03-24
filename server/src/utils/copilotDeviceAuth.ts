@@ -73,6 +73,11 @@ const userCodeRedactRegex =
   /\b(?:one-time\s*code|user\s*code|code)\b\s*[:=\-]?\s*[A-Z0-9-]{6,}/gi;
 const expiredRegex = /(expired|declined)/i;
 
+function parseDeviceAuthBufferedOutput(stdout: string, stderr: string) {
+  const combined = [stdout, stderr].filter((value) => value.trim().length > 0);
+  return parseCopilotDeviceAuthOutput(combined.join('\n'));
+}
+
 function normalizeCopilotAuthResponse<
   T extends { provider: 'copilot'; state: string },
 >(response: T): T {
@@ -319,7 +324,7 @@ export async function runCopilotDeviceAuth(params?: {
     child.stdout?.on('data', (chunk) => {
       stdout += String(chunk);
       if (resolvedInitial) return;
-      const parsed = parseCopilotDeviceAuthOutput(stdout);
+      const parsed = parseDeviceAuthBufferedOutput(stdout, stderr);
       if (parsed.state === 'verification_ready') {
         finalize({ exitCode: null, stdout, stderr }, parsed);
       }
@@ -328,7 +333,7 @@ export async function runCopilotDeviceAuth(params?: {
     child.stderr?.on('data', (chunk) => {
       stderr += String(chunk);
       if (resolvedInitial) return;
-      const parsed = parseCopilotDeviceAuthOutput(stdout);
+      const parsed = parseDeviceAuthBufferedOutput(stdout, stderr);
       if (parsed.state === 'verification_ready') {
         finalize({ exitCode: null, stdout, stderr }, parsed);
       }

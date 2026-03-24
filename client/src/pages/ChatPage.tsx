@@ -999,7 +999,9 @@ export default function ChatPage() {
   const handleDeviceAuthSuccess = (response: {
     provider: 'codex' | 'copilot';
   }) => {
-    deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_success');
+    deviceAuthLog('info', 'DEV-0000031:T7:provider_device_auth_chat_success', {
+      provider: response.provider,
+    });
     void refreshProviders();
     if (provider === response.provider) {
       void refreshModels(response.provider);

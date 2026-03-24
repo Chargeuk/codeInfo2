@@ -383,6 +383,7 @@ export function createCopilotDeviceAuthRouter(
           deviceAuthStateByHome.set(targetCopilotHome, unavailable);
           return res.status(200).json(unavailable);
         }
+        return res.status(200).json(cachedState);
       }
       // Terminal states should not poison later retries. A fresh request should
       // re-check current auth/runtime readiness and start a new device flow if

@@ -85,6 +85,55 @@ const T26_SUCCESS_LOG =
 const T26_ERROR_LOG =
   '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error';
 
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
+}
+
+function isValidProviderDeviceAuthResponse<
+  TProvider extends ProviderAuthProviderId,
+>(
+  provider: TProvider,
+  data: Record<string, unknown>,
+): data is ProviderDeviceAuthResponse<TProvider> {
+  if (data.provider !== provider || typeof data.state !== 'string') {
+    return false;
+  }
+
+  if (
+    !ORDERED_PROVIDER_AUTH_STATES.includes(
+      data.state as (typeof ORDERED_PROVIDER_AUTH_STATES)[number],
+    )
+  ) {
+    return false;
+  }
+
+  switch (data.state) {
+    case 'verification_ready':
+      return (
+        typeof data.verificationUrl === 'string' &&
+        typeof data.userCode === 'string' &&
+        isOptionalString(data.displayOutput)
+      );
+    case 'completion_pending':
+      return (
+        isOptionalString(data.verificationUrl) &&
+        isOptionalString(data.userCode) &&
+        isOptionalString(data.displayOutput)
+      );
+    case 'failed':
+      return (
+        typeof data.reason === 'string' && isOptionalString(data.displayOutput)
+      );
+    case 'unavailable_before_start':
+      return typeof data.reason === 'string';
+    case 'completed':
+    case 'already_authenticated':
+      return true;
+    default:
+      return false;
+  }
+}
+
 async function throwCodexDeviceAuthError(
   res: Response,
   baseMessage: string,
@@ -142,16 +191,9 @@ export async function postProviderDeviceAuth<
   });
 
   const data = (await res.json()) as Record<string, unknown>;
-  const responseProvider = data.provider;
   const state = data.state;
 
-  if (
-    responseProvider !== provider ||
-    typeof state !== 'string' ||
-    !ORDERED_PROVIDER_AUTH_STATES.includes(
-      state as (typeof ORDERED_PROVIDER_AUTH_STATES)[number],
-    )
-  ) {
+  if (!isValidProviderDeviceAuthResponse(provider, data)) {
     log('error', T14_ERROR_LOG, {
       provider,
       status: res.status,

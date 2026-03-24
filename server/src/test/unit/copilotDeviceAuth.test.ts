@@ -401,6 +401,42 @@ describe('POST /copilot/device-auth unit behavior', () => {
     assert.equal(retrySecond.body.userCode, 'EXPIRED-NEW');
     assert.equal(retryRun.mock.calls.length, 2);
   });
+
+  test('completion-pending state is reused even when no device-auth state reader is injected', async () => {
+    const pendingResponse = createCopilotVerificationReadyResponse({
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'PERSIST-CODE',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code PERSIST-CODE',
+    });
+    const pendingRun = mock.fn(async () =>
+      buildDeviceAuthResult(
+        pendingResponse,
+        createCopilotCompletionPendingResponse(pendingResponse),
+      ),
+    );
+    const pendingApp = buildApp(
+      withDeps({
+        runCopilotDeviceAuth: pendingRun,
+      }),
+    );
+
+    const first = await supertest(pendingApp)
+      .post('/copilot/device-auth')
+      .send({});
+    assert.equal(first.status, 200);
+    assert.equal(first.body.state, 'verification_ready');
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const second = await supertest(pendingApp)
+      .post('/copilot/device-auth')
+      .send({});
+    assert.equal(second.status, 200);
+    assert.equal(second.body.state, 'completion_pending');
+    assert.equal(second.body.userCode, 'PERSIST-CODE');
+    assert.equal(pendingRun.mock.calls.length, 1);
+  });
 });
 
 describe('runCopilotDeviceAuth', () => {
@@ -423,5 +459,31 @@ describe('runCopilotDeviceAuth', () => {
         args: ['login', '--config-dir', '/tmp/copilot-home'],
       },
     ]);
+  });
+
+  test('parses verification instructions that arrive on stderr', async () => {
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    const spawnFn = mock.fn(() => child);
+
+    const runPromise = runCopilotDeviceAuth({
+      spawnFn: spawnFn as unknown as typeof spawn,
+    });
+
+    child.stderr.write(
+      'To continue signing in with GitHub Copilot:\n' +
+        '1. Open https://github.com/login/device\n' +
+        '2. Enter one-time code STDERR-CODE\n',
+    );
+    child.emit('close', 0);
+
+    const result = await runPromise;
+    assert.equal(result.state, 'verification_ready');
+    assert.equal(result.userCode, 'STDERR-CODE');
+    assert.equal(result.verificationUrl, 'https://github.com/login/device');
   });
 });

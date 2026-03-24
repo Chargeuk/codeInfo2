@@ -75,6 +75,16 @@ test('ChatInterfaceCopilot resume path keeps event mapping aligned with create',
     emitted.map((event) => event.type),
     ['thread', 'tool-request', 'tool-result', 'complete'],
   );
+  const toolRequest = emitted.find(
+    (event): event is Extract<ChatEvent, { type: 'tool-request' }> =>
+      event.type === 'tool-request',
+  );
+  const toolResult = emitted.find(
+    (event): event is Extract<ChatEvent, { type: 'tool-result' }> =>
+      event.type === 'tool-result',
+  );
+  assert.equal(toolRequest?.name, 'read_file');
+  assert.equal(toolResult?.name, 'read_file');
 });
 
 test('ChatInterfaceCopilot create-session config allows permissions by default', async () => {

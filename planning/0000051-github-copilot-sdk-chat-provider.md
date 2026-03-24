@@ -2464,7 +2464,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 30. Preserve Copilot tool names across request and result events
 
 - Repository Name: Current Repository
-- Task Status: **todo**
+- Task Status: **in progress**
 - Git Commits: None yet.
 
 #### Overview
@@ -2479,30 +2479,45 @@ Reopen Story `0000051` to close the review finding that Copilot tool completion 
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence artifact, the review findings artifact, and the Story `0000051` event-translation contract before changing the stream seam. Purpose: keep the repair focused on consistent tool-call identity rather than expanding the event model.
-2. [ ] Update the server event translation or the client merge seam so a Copilot `tool-result` never blanks out the tool name already captured for the same call. Purpose: preserve one shared tool identity from request through completion.
-3. [ ] Keep the repaired contract succinct: prefer one canonical behavior for missing tool names rather than adding parallel `name` and fallback-name fields or extra conditional branches. Purpose: fix the inconsistency without broadening the payload surface.
-4. [ ] Add or update direct automated proof so Copilot tool requests and results preserve the same tool name across the full request-to-result lifecycle. Purpose: close the current missing-proof gap for this contract edge case.
+1. [x] Re-read the review evidence artifact, the review findings artifact, and the Story `0000051` event-translation contract before changing the stream seam. Purpose: keep the repair focused on consistent tool-call identity rather than expanding the event model.
+2. [x] Update the server event translation or the client merge seam so a Copilot `tool-result` never blanks out the tool name already captured for the same call. Purpose: preserve one shared tool identity from request through completion.
+3. [x] Keep the repaired contract succinct: prefer one canonical behavior for missing tool names rather than adding parallel `name` and fallback-name fields or extra conditional branches. Purpose: fix the inconsistency without broadening the payload surface.
+4. [x] Add or update direct automated proof so Copilot tool requests and results preserve the same tool name across the full request-to-result lifecycle. Purpose: close the current missing-proof gap for this contract edge case.
 5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 30, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw build or test commands, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous failure counts.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
-4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
-5. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
-6. [ ] Run `npm run test:summary:e2e` and allow up to 7 minutes for a terminal result. If `failed > 0`, setup or teardown fails, or the wrapper reports unknown or ambiguous failure counts, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
-7. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, or item counts indicate failures or unknown totals in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-8. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
-9. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the repaired tool-call naming behavior and at least one nearby regression path, and confirm the debug console shows no logged errors.
-10. [ ] Run `npm run compose:down` after the wrapper-backed and manual browser checks finish.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [x] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+5. [x] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+6. [x] Run `npm run test:summary:e2e` and allow up to 7 minutes for a terminal result. If `failed > 0`, setup or teardown fails, or the wrapper reports unknown or ambiguous failure counts, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+7. [x] Run `npm run compose:build:summary`. If the wrapper reports `failed`, or item counts indicate failures or unknown totals in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+8. [x] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
+9. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the repaired tool-call naming behavior and at least one nearby regression path, and confirm the debug console shows no logged errors.
+10. [x] Run `npm run compose:down` after the wrapper-backed and manual browser checks finish.
 
 #### Implementation notes
 
 - Added after review pass `0000051-review-20260324T114358Z-dc5df4a4` found that Copilot `tool-result` events can still erase the tool name already recorded for the same call.
+- Re-read the Task 30 plan text plus the `0000051-review-20260324T114358Z-dc5df4a4` evidence and findings artifacts before implementation to confirm the bug is specifically request-to-result tool-name continuity, not a broader event-model change.
+- Updated `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so `tool.execution_complete` now emits the Copilot tool name instead of an empty string, closing the primary server-side continuity leak.
+- Adjusted the server repair after the first build showed the installed Copilot SDK completion event does not expose `toolName`; the translator now preserves the canonical name from the earlier request/start event by `toolCallId` and reuses it on `tool-result`.
+- Hardened `client/src/hooks/useChatStream.ts` so blank or whitespace-only tool-result names fall back to the existing request name instead of overwriting it, which keeps the fix succinct without adding new payload fields.
+- Added direct request-to-result name continuity proof in `server/src/test/unit/chat-interface-copilot.test.ts` and `client/src/test/useChatStream.toolPayloads.test.tsx` so the repaired contract is covered even if an empty result name still appears.
+- `npm run build:summary:server` passed after the server-side fix was narrowed to reuse the earlier request/start tool name instead of assuming the completion payload includes one.
+- `npm run build:summary:client` passed without warnings after the client-side blank-name fallback was added to the stream merge path.
+- `npm run test:summary:server:unit` passed with `1457/1457` tests green, including the updated Copilot request-to-result continuity assertions.
+- `npm run test:summary:server:cucumber` passed with `75/75` scenarios green, confirming the narrower event-name repair did not disturb the shared chat feature layer.
+- `npm run test:summary:client` passed with `646/646` tests green, including the new blank-result-name fallback proof in the chat stream hook tests.
+- `npm run test:summary:e2e` ended with `agent_action: inspect_log` because the wrapper reported ambiguous `0/0` counts, but `logs/test-summaries/e2e-tests-latest.log` showed Playwright `expected: 53` and `unexpected: 0`, so the full e2e pass was clean after inspection.
+- `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`, confirming the container build still bakes the repaired server and client code paths successfully.
+- `npm run compose:up` started the local stack cleanly, with the server and client containers both reaching healthy or started status for the manual browser proof step.
+- Manual Playwright proof on `http://host.docker.internal:5001/chat` used a browser-side Copilot provider and WS harness to replay a blank-name `tool-result`; the transcript still rendered `read_file · Success`, switching the provider UI to `GitHub Copilot` also stayed healthy, and the browser console had no `error` entries.
+- `npm run compose:down` stopped and removed the local validation stack cleanly after the wrapper and manual browser checks completed.
 
 ### Task 31. Re-run full Story `0000051` validation after the review-fix tasks
 

@@ -211,6 +211,12 @@ const normalizeCommand = (
   return normalized;
 };
 
+const normalizeToolName = (name: unknown): string | undefined => {
+  if (typeof name !== 'string') return undefined;
+  const trimmed = name.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
@@ -765,7 +771,7 @@ export function useChatStream(
 
       const tool: ToolCall = {
         id: callId,
-        name: event.name ?? existing?.name,
+        name: normalizeToolName(event.name) ?? existing?.name,
         status,
         payload,
         parameters: event.parameters,

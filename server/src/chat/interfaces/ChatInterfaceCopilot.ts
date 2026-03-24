@@ -218,6 +218,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
     let terminalLogged = false;
     let started = false;
     let session: CopilotSessionLike | undefined;
+    const toolNameByCallId = new Map<string, string>();
 
     const logTerminal = (status: 'completed' | 'stopped' | 'failed') => {
       if (terminalLogged) return;
@@ -263,6 +264,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
             });
           }
           for (const request of event.data.toolRequests ?? []) {
+            toolNameByCallId.set(request.toolCallId, request.name);
             this.emitEvent({
               type: 'tool-request',
               callId: request.toolCallId,
@@ -279,6 +281,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
           }
           return;
         case 'tool.execution_start':
+          toolNameByCallId.set(event.data.toolCallId, event.data.toolName);
           this.emitEvent({
             type: 'tool-request',
             callId: event.data.toolCallId,
@@ -291,7 +294,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
           this.emitEvent({
             type: 'tool-result',
             callId: event.data.toolCallId,
-            name: '',
+            name: toolNameByCallId.get(event.data.toolCallId),
             stage: event.data.success ? 'success' : 'error',
             result:
               event.data.result?.detailedContent ?? event.data.result?.content,

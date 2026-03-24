@@ -298,6 +298,42 @@ test('OpenAPI /chat/models schema includes codex capability fields', () => {
   );
 });
 
+test('OpenAPI /chat/models schema documents invalid provider validation failure', () => {
+  const openapi = readOpenApi();
+  const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
+    '/chat/models'
+  ] as Record<string, unknown> | undefined;
+  assert.ok(schema, 'missing /chat/models schema');
+
+  const invalid = (
+    ((schema?.get as Record<string, unknown>)?.responses ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >
+  )['400'];
+  assert.ok(invalid, 'missing /chat/models 400 schema');
+
+  const bodySchema = ((
+    ((invalid?.content as Record<string, unknown>) ?? {})[
+      'application/json'
+    ] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null;
+  assert.ok(bodySchema, 'missing /chat/models 400 schema body');
+
+  const required = (bodySchema?.required ?? []) as string[];
+  assert.deepEqual(required, ['error', 'message']);
+
+  const props = (bodySchema?.properties ?? {}) as Record<string, unknown>;
+  assert.deepEqual(props.error, {
+    type: 'string',
+    enum: ['invalid_request'],
+  });
+  assert.deepEqual(props.message, {
+    type: 'string',
+    enum: ['provider must be one of: codex, copilot, lmstudio'],
+  });
+});
+
 test('OpenAPI GET /agents/{agentName}/commands requires stepCount >= 1', () => {
   const openapi = readOpenApi();
   const pathSchema = (

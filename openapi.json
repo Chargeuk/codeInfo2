@@ -2037,6 +2037,28 @@
           }
         ],
         "responses": {
+          "400": {
+            "description": "Invalid provider query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": ["invalid_request"]
+                    },
+                    "message": {
+                      "type": "string",
+                      "enum": ["provider must be one of: codex, copilot, lmstudio"]
+                    }
+                  },
+                  "required": ["error", "message"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
           "200": {
             "description": "Chat model listing",
             "content": {

@@ -147,6 +147,30 @@ test('copilot models route handles an empty model list deterministically', async
   }
 });
 
+test('chat models route rejects malformed provider query values deterministically', async () => {
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=bogus')
+      .expect(400);
+
+    assert.deepEqual(res.body, {
+      error: 'invalid_request',
+      message: 'provider must be one of: codex, copilot, lmstudio',
+    });
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('copilot models route maps only verified shared-contract fields and logs ignored extras', async () => {
   const markerPayloads: Array<Record<string, unknown>> = [];
   mock.method(baseLogger, 'info', (first: unknown, second: unknown) => {

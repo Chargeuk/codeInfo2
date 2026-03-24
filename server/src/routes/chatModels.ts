@@ -1,4 +1,9 @@
-import { type ChatModelsResponse, type ChatModelInfo } from '@codeinfo2/common';
+import {
+  ORDERED_CHAT_PROVIDER_IDS,
+  isChatProviderId,
+  type ChatModelsResponse,
+  type ChatModelInfo,
+} from '@codeinfo2/common';
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
@@ -30,6 +35,7 @@ const TASK12_LOG_ERROR =
   '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error';
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 export const TASK6_LOG_MARKER = 'story.0000051.task06.models_mapped';
+const PROVIDER_VALIDATION_MESSAGE = `provider must be one of: ${ORDERED_CHAT_PROVIDER_IDS.join(', ')}`;
 
 const COPILOT_MODELS_REASON = 'copilot models unavailable';
 const VERIFIED_COPILOT_MODEL_FIELDS = new Set([
@@ -69,6 +75,20 @@ const normalizeString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseChatModelProvider = (value: unknown) => {
+  if (value === undefined) return { provider: undefined };
+  if (typeof value !== 'string') {
+    return { error: PROVIDER_VALIDATION_MESSAGE };
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!isChatProviderId(normalized)) {
+    return { error: PROVIDER_VALIDATION_MESSAGE };
+  }
+
+  return { provider: normalized };
 };
 
 const normalizeReasoningEfforts = (value: unknown): string[] => {
@@ -176,7 +196,14 @@ export function createChatModelsRouter({
 
   router.get('/models', async (req, res) => {
     const requestId = res.locals.requestId as string | undefined;
-    const provider = (req.query.provider as string | undefined)?.toLowerCase();
+    const parsedProvider = parseChatModelProvider(req.query.provider);
+    if ('error' in parsedProvider) {
+      return res.status(400).json({
+        error: 'invalid_request',
+        message: parsedProvider.error,
+      });
+    }
+    const provider = parsedProvider.provider;
 
     if (provider === 'codex') {
       const detection = getCodexDetection();

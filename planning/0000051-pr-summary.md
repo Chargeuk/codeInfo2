@@ -8,6 +8,8 @@ Review follow-up: Story 51 was reopened once for a contract-level repair after r
 
 Review-fix rerun: Story 51 was reopened again after review `0000051-review-20260324T114358Z-dc5df4a4` for four repo-local contract fixes. Tasks 27 through 30 repaired invalid `/chat/models` provider validation, truthful client bootstrap failure visibility, Copilot plaintext-storage auth failure mapping, and Copilot tool-name continuity, each with direct proof before the story-wide validation rerun in Task 31.
 
+Second review-fix rerun: Story 51 was reopened a third time after review `0000051-review-20260324T144346Z-6385e23c` for one client bootstrap contract repair, one Copilot config-artifact safety repair, and one prerequisite server-unit baseline restoration. Tasks 32 through 34 closed those gaps by rejecting malformed successful bootstrap payloads, switching Copilot plaintext bootstrap writes to a safe temp-file-and-rename path with deterministic malformed-state handling, and re-establishing a trustworthy full `npm run test:summary:server:unit` wrapper result before the final closeout rerun in Task 35.
+
 ## Major Story Steps
 
 - Tasks 1 through 6 extended the shared provider, readiness, model-list, request-validation, OpenAPI, and runtime seams from a two-provider world into a three-provider contract with deterministic Copilot visibility and stable unavailable reasons.

@@ -2187,8 +2187,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 25. Fix Copilot device-auth retry after an expired or declined code
 
 - Repository Name: Current Repository
-- Task Status: **in_progress**
-- Git Commits: None yet.
+- Task Status: **completed**
+- Git Commits: `924b9453`
 
 #### Overview
 
@@ -2211,7 +2211,7 @@ The current live Copilot device-auth flow can reach `verification_ready`, but if
 7. [x] Add or update a client test in `client/src/test/codexDeviceAuthDialog.test.tsx` or `client/src/test/chatPage.provider.test.tsx`. Test type: client unit. Description: render an expired or declined Copilot auth response, trigger the retry action, and confirm the dialog switches to a fresh verification-ready state with a new code instead of keeping the stale error. Purpose: prove the GUI recovery path works for the user-visible bug.
 8. [x] Update `design.md` only if the repaired retry semantics or route-state lifecycle would not be obvious to a future maintainer from the code and tests alone. Document name: `design.md`. Location: repository root. Description: briefly explain that terminal Copilot device-auth state is not reused across retries while genuine completion-pending state still is. Purpose: keep the auth-flow architecture truthful if the state lifecycle becomes materially clearer when written down.
 9. [x] Update `projectStructure.md` only if this task adds or removes files. Document name: `projectStructure.md`. Location: repository root. Description: record any new auth test files only if the task creates them. Purpose: keep the repository file map accurate.
-10. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 25, recording implementation notes, and listing the task commit hashes once they exist.
+10. [x] Update this plan file after implementation by marking the completed checkboxes for Task 25, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2238,6 +2238,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - Testing step 2 complete: `npm run build:summary:client` passed cleanly with `warning_count: 0`, so the shared auth dialog retry proof compiles on the client without needing log inspection.
 - Testing step 3 complete: the first full `npm run test:summary:server:unit` rerun exposed one stale expectation in `server/src/test/unit/copilotDeviceAuth.test.ts` that still asserted the pre-fix terminal failure replay; a targeted wrapper rerun for that file passed after updating the assertion, and the final full wrapper finished cleanly with `tests run: 1454`, `passed: 1454`, `failed: 0`, and log `test-results/server-unit-tests-2026-03-24T08-36-36-706Z.log`.
 - Testing step 4 complete: `npm run test:summary:client` passed cleanly with `tests run: 645`, `passed: 645`, `failed: 0`, and log `test-results/client-tests-2026-03-24T08-49-42-858Z.log`, so the shared auth dialog retry behavior stayed green in the full client suite after the server-side cache fix.
+- Subtask 10 complete: this plan section now records the finished Task 25 checkboxes, closeout notes, and implementation commit `924b9453` so the next developer can pick up Task 26 from the repaired retry baseline.
 
 ### Task 26. Manual follow-up: revalidate Copilot auth persistence after a controlled local stack restart
 

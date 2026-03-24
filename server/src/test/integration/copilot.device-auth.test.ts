@@ -307,6 +307,36 @@ describe('POST /copilot/device-auth integration behavior', () => {
     }
   });
 
+  test('plaintext token storage bootstrap failures surface the shared unavailable-before-start contract', async () => {
+    const harness = createMockCopilotDeviceAuthHarness(
+      createVerificationReadyScenario(),
+    );
+    const runCopilotDeviceAuth = mock.fn(async () =>
+      toDeviceAuthResult(await harness.startDeviceAuth()),
+    );
+
+    const res = await supertest(
+      buildApp(
+        depsFromHarness(harness, {
+          ensureCopilotPlaintextTokenStorage: async () => {
+            throw new Error('EACCES: config.json');
+          },
+          runCopilotDeviceAuth,
+        }),
+      ),
+    )
+      .post('/copilot/device-auth')
+      .send({});
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, {
+      provider: 'copilot',
+      state: 'unavailable_before_start',
+      reason: 'copilot config persistence unavailable',
+    });
+    assert.equal(runCopilotDeviceAuth.mock.calls.length, 0);
+  });
+
   test('route honors CODEINFO_COPILOT_CLI_PATH when PATH discovery is unavailable', async () => {
     const harness = createMockCopilotDeviceAuthHarness(
       createVerificationReadyScenario(),

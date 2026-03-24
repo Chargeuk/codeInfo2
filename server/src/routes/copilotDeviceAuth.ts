@@ -303,9 +303,26 @@ export function createCopilotDeviceAuthRouter(
       diagnostics: compatibility.diagnostics,
     });
 
-    const plaintextStorage = await (
-      deps.ensureCopilotPlaintextTokenStorage ?? ensureCopilotPlaintextTokenStorage
-    )(targetCopilotHome);
+    let plaintextStorage:
+      | {
+          changed: boolean;
+          configPath: string;
+        }
+      | undefined;
+    try {
+      plaintextStorage = await (
+        deps.ensureCopilotPlaintextTokenStorage ??
+        ensureCopilotPlaintextTokenStorage
+      )(targetCopilotHome);
+    } catch {
+      return res
+        .status(200)
+        .json(
+          createCopilotUnavailableBeforeStartResponse(
+            'copilot config persistence unavailable',
+          ),
+        );
+    }
 
     logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_storage_mode', {
       changed: plaintextStorage.changed,

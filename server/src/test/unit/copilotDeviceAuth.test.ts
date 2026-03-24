@@ -224,6 +224,25 @@ describe('POST /copilot/device-auth unit behavior', () => {
       state: 'unavailable_before_start',
       reason: 'copilot config persistence unavailable',
     });
+
+    const plaintextRes = await supertest(
+      buildApp(
+        withDeps({
+          ensureCopilotPlaintextTokenStorage: async () => {
+            throw new Error('EACCES: config.json');
+          },
+        }),
+      ),
+    )
+      .post('/copilot/device-auth')
+      .send({});
+
+    assert.equal(plaintextRes.status, 200);
+    assert.deepEqual(plaintextRes.body, {
+      provider: 'copilot',
+      state: 'unavailable_before_start',
+      reason: 'copilot config persistence unavailable',
+    });
   });
 
   test('CODEINFO_COPILOT_CLI_PATH keeps the route available when PATH lookup is unavailable', async () => {

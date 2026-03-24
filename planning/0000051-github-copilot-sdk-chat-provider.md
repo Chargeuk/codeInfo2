@@ -2419,7 +2419,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 29. Map Copilot plaintext-storage bootstrap failures into the shared auth failure contract
 
 - Repository Name: Current Repository
-- Task Status: **todo**
+- Task Status: **completed**
 - Git Commits: None yet.
 
 #### Overview
@@ -2434,23 +2434,30 @@ Reopen Story `0000051` to close the review finding that `server/src/routes/copil
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence artifact, the review findings artifact, and the Story `0000051` auth-contract acceptance criteria before editing the route. Purpose: keep the repair anchored to the shared provider-auth contract and the planned deterministic failure reason behavior.
-2. [ ] Update `server/src/routes/copilotDeviceAuth.ts` so failures from `ensureCopilotPlaintextTokenStorage()` are translated into the same shared `provider: 'copilot', state: 'unavailable_before_start'` response family used for the later auth-file-store bootstrap failure. Purpose: stop plaintext bootstrap errors from escaping as raw 500 responses.
-3. [ ] Keep the repair narrow and explicit: preserve the existing happy path, pending-state reuse, and retry behavior unless direct code evidence proves another auth-state change is required. Purpose: avoid broad auth-route churn while closing the specific review defect.
-4. [ ] Add or update direct server tests to prove malformed or unwritable plaintext-storage bootstrap failures now surface the shared auth failure contract without weakening the existing pending-state and retry coverage. Purpose: close the missing-proof gap on this high-risk helper.
+1. [x] Re-read the review evidence artifact, the review findings artifact, and the Story `0000051` auth-contract acceptance criteria before editing the route. Purpose: keep the repair anchored to the shared provider-auth contract and the planned deterministic failure reason behavior.
+2. [x] Update `server/src/routes/copilotDeviceAuth.ts` so failures from `ensureCopilotPlaintextTokenStorage()` are translated into the same shared `provider: 'copilot', state: 'unavailable_before_start'` response family used for the later auth-file-store bootstrap failure. Purpose: stop plaintext bootstrap errors from escaping as raw 500 responses.
+3. [x] Keep the repair narrow and explicit: preserve the existing happy path, pending-state reuse, and retry behavior unless direct code evidence proves another auth-state change is required. Purpose: avoid broad auth-route churn while closing the specific review defect.
+4. [x] Add or update direct server tests to prove malformed or unwritable plaintext-storage bootstrap failures now surface the shared auth failure contract without weakening the existing pending-state and retry coverage. Purpose: close the missing-proof gap on this high-risk helper.
 5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 29, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw server build or test commands unless wrapper diagnosis is required.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+3. [x] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
 - Added after review pass `0000051-review-20260324T114358Z-dc5df4a4` found that plaintext-storage bootstrap failures can still bypass the shared Copilot auth failure contract and leak as raw server errors.
+- Re-read the Task 29 review findings, auth-contract acceptance criteria, current route, and the existing unit/integration proof before editing so the repair stays focused on the early plaintext bootstrap hole rather than broad auth-flow churn.
+- Updated `server/src/routes/copilotDeviceAuth.ts` so `ensureCopilotPlaintextTokenStorage()` now sits behind the same shared unavailable-before-start mapping used by the later file-store bootstrap guard instead of leaking raw helper failures.
+- Kept the repair route-local and narrow by preserving the current happy path, pending-state refresh, retry reuse, and downstream device-auth behavior exactly as they were.
+- Added direct plaintext-bootstrap failure proof to both `server/src/test/unit/copilotDeviceAuth.test.ts` and `server/src/test/integration/copilot.device-auth.test.ts`, including verification that the shared response is returned and the device-auth flow never starts when plaintext storage bootstrap fails.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so no server build log inspection was needed.
+- `npm run test:summary:server:unit` passed cleanly with `1457` tests run and `0` failures, so no targeted rerun or log inspection was needed.
+- `npm run test:summary:server:cucumber` passed cleanly with `75` tests run and `0` failures, so no targeted rerun or log inspection was needed.
 
 ### Task 30. Preserve Copilot tool names across request and result events
 

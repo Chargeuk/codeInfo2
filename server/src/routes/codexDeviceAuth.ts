@@ -88,6 +88,10 @@ function toDeviceAuthResponseState(
   return state;
 }
 
+function isPendingState(state: CodexDeviceAuthState): boolean {
+  return state.state === 'completion_pending';
+}
+
 export function createCodexDeviceAuthRouter(
   deps: Deps = {
     discoverAgents,
@@ -209,7 +213,10 @@ export function createCodexDeviceAuthRouter(
 
     const cachedState = deviceAuthStateByHome.get(targetCodexHome);
     if (cachedState) {
-      return res.status(200).json(cachedState);
+      if (isPendingState(cachedState)) {
+        return res.status(200).json(cachedState);
+      }
+      deviceAuthStateByHome.delete(targetCodexHome);
     }
 
     const refreshedDetection = deps.refreshCodexDetection();

@@ -189,6 +189,57 @@ describe('Chat provider selection (WS transport)', () => {
     ).toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('stops loading and keeps a deterministic provider when every provider is unavailable', async () => {
+    const user = userEvent.setup();
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: false,
+          toolsAvailable: false,
+          reason: 'Codex unavailable',
+        },
+        {
+          id: 'copilot',
+          label: 'GitHub Copilot',
+          available: false,
+          toolsAvailable: false,
+          reason: 'Copilot unavailable',
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: false,
+          toolsAvailable: false,
+          reason: 'LM Studio unavailable',
+        },
+      ],
+      modelsProvider: 'codex',
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/loading chat providers and models/i),
+      ).toBeNull();
+    });
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    expect(providerSelect).toBeInTheDocument();
+
+    await user.click(providerSelect);
+    expect(
+      await screen.findByRole('option', {
+        name: /openai codex \(unavailable: codex unavailable\)/i,
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('surfaces a contract error when a successful provider payload is malformed', async () => {
     const user = userEvent.setup();
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {

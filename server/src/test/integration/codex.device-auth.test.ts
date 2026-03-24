@@ -147,7 +147,7 @@ describe('POST /codex/device-auth', () => {
     resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
   });
 
-  test('returns completed after the shared auth flow finishes', async () => {
+  test('returns already-authenticated after the shared auth flow finishes', async () => {
     let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
       resolveCompletion = resolve;
@@ -174,7 +174,7 @@ describe('POST /codex/device-auth', () => {
     assert.equal(refreshed.status, 200);
     assert.deepEqual(refreshed.body, {
       provider: 'codex',
-      state: 'completed',
+      state: 'already_authenticated',
     });
   });
 
@@ -269,6 +269,42 @@ describe('POST /codex/device-auth', () => {
       state: 'failed',
       reason: 'device auth output not recognized',
     });
+  });
+
+  test('clears terminal cached auth states before starting a new auth run', async () => {
+    let authAttempt = 0;
+    const runCodexDeviceAuth = mock.fn(async () => {
+      authAttempt += 1;
+      return authAttempt === 1
+        ? buildDeviceAuthResult(
+            createCodexFailedResponse('device auth output not recognized'),
+          )
+        : buildDeviceAuthResult(verificationReadyResult());
+    });
+    const app = buildApp(
+      withDeps({
+        runCodexDeviceAuth,
+      }),
+    );
+
+    const first = await supertest(app).post('/codex/device-auth').send({});
+    const second = await supertest(app).post('/codex/device-auth').send({});
+
+    assert.equal(first.status, 200);
+    assert.deepEqual(first.body, {
+      provider: 'codex',
+      state: 'failed',
+      reason: 'device auth output not recognized',
+    });
+    assert.equal(second.status, 200);
+    assert.deepEqual(second.body, {
+      provider: 'codex',
+      state: 'verification_ready',
+      verificationUrl: 'https://device.test/verify',
+      userCode: 'CODE-123',
+      displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
+    });
+    assert.equal(runCodexDeviceAuth.mock.calls.length, 2);
   });
 
   test('already-authenticated runtimes return the shared already-authenticated state', async () => {

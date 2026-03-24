@@ -243,7 +243,7 @@ export function useChatModel() {
         return providerState;
       }
       const firstAvailable = list.find((p) => p.available);
-      return firstAvailable?.id;
+      return firstAvailable?.id ?? list[0]?.id;
     },
     [providerState],
   );

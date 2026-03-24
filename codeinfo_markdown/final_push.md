@@ -1,0 +1,1 @@
+Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. If possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`.

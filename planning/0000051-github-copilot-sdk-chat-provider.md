@@ -2464,8 +2464,9 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 30. Preserve Copilot tool names across request and result events
 
 - Repository Name: Current Repository
-- Task Status: **in progress**
-- Git Commits: None yet.
+- Task Status: **completed**
+- Git Commits:
+  - `b20ce396` — `DEV-[51] - preserve copilot tool names across result events`
 
 #### Overview
 
@@ -2483,7 +2484,7 @@ Reopen Story `0000051` to close the review finding that Copilot tool completion 
 2. [x] Update the server event translation or the client merge seam so a Copilot `tool-result` never blanks out the tool name already captured for the same call. Purpose: preserve one shared tool identity from request through completion.
 3. [x] Keep the repaired contract succinct: prefer one canonical behavior for missing tool names rather than adding parallel `name` and fallback-name fields or extra conditional branches. Purpose: fix the inconsistency without broadening the payload surface.
 4. [x] Add or update direct automated proof so Copilot tool requests and results preserve the same tool name across the full request-to-result lifecycle. Purpose: close the current missing-proof gap for this contract edge case.
-5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 30, recording implementation notes, and listing the task commit hashes once they exist.
+5. [x] Update this plan file after implementation by marking the completed checkboxes for Task 30, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2518,6 +2519,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run compose:up` started the local stack cleanly, with the server and client containers both reaching healthy or started status for the manual browser proof step.
 - Manual Playwright proof on `http://host.docker.internal:5001/chat` used a browser-side Copilot provider and WS harness to replay a blank-name `tool-result`; the transcript still rendered `read_file · Success`, switching the provider UI to `GitHub Copilot` also stayed healthy, and the browser console had no `error` entries.
 - `npm run compose:down` stopped and removed the local validation stack cleanly after the wrapper and manual browser checks completed.
+- Recorded task commit `b20ce396` in the plan and marked Task 30 fully complete after the server/client seam repair, direct continuity proof, wrapper validation, and manual Playwright validation all landed.
 
 ### Task 31. Re-run full Story `0000051` validation after the review-fix tasks
 

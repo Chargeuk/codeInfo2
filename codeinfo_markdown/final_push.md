@@ -10,6 +10,7 @@ Finalize the current story across every repository that is in scope for this flo
 4. Use fresh disk reads and current git state, not conversational memory.
 5. Follow each repository's `AGENTS.md` and prefer that repository's documented linting and formatting commands.
 6. Do not create empty commits.
+7. Continue with other repositories in the list if one or some fail - always try your best to complete what you can.
 
 ## Exact Step Order
 
@@ -28,14 +29,14 @@ Finalize the current story across every repository that is in scope for this flo
 5. If linting or prettier produces auto-fix changes, review the resulting diff and commit those linting or formatting fixes in that repository.
 6. Re-check git status in every repository after the linting and prettier pass:
    - If a repository is still dirty because of new changes from linting or formatting, commit those remaining changes.
-   - If a repository is dirty for another reason you cannot safely resolve, stop and report the blocker clearly.
+   - If a repository is dirty for another reason you cannot safely resolve, just report the information to the user and leave the unresolvable documents in the repository.
 7. If possible, git push the current story branch in the current repository and in every repository listed in `additional_repositories`.
 
 ## Edge Cases
 
-- If a repository path from `additional_repositories` is missing, unreadable, or not a git repository, stop and report that the current-plan handoff is stale or invalid.
-- If a repository is on the wrong branch for the selected story, stop and report the branch mismatch instead of pushing.
-- If linting or formatting fails in a repository, do not push that repository. Report the failing command and continue only when it is safe to do so.
+- If a repository path from `additional_repositories` is missing, unreadable, or not a git repository, report that to the user, but continue with the others.
+- If a repository is on the wrong branch for the selected story, report the branch mismatch for the affected repository instead of pushing it, and continue with the others.
+- If linting or formatting fails in a repository, manually fix the linting and formatting yourself before commiting and pushing.
 - If push fails for a repository, report that failure clearly with the repository path and keep going with the remaining repositories when possible.
 
 ## Output

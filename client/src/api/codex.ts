@@ -1,30 +1,37 @@
 import type {
-  CodexDeviceAuthResponse as SharedCodexDeviceAuthResponse,
   CodexDeviceAuthSuccessResponse,
+  ProviderAuthProviderId,
+  ProviderAuthResponseFor,
 } from '@codeinfo2/common';
+import { ORDERED_PROVIDER_AUTH_STATES } from '@codeinfo2/common';
 
 import { createLogger } from '../logging/logger';
 import { getApiBaseUrl } from './baseUrl';
 
 export type CodexDeviceAuthResponse = CodexDeviceAuthSuccessResponse;
+export type ProviderDeviceAuthResponse<
+  TProvider extends ProviderAuthProviderId = ProviderAuthProviderId,
+> = ProviderAuthResponseFor<TProvider>;
 
-export type CodexDeviceAuthApiErrorDetails = {
+export type ProviderDeviceAuthApiErrorDetails = {
   status: number;
   message: string;
   error?: string;
 };
 
-export class CodexDeviceAuthApiError extends Error {
+export class ProviderDeviceAuthApiError extends Error {
   status: number;
   error?: string;
 
-  constructor(details: CodexDeviceAuthApiErrorDetails) {
+  constructor(details: ProviderDeviceAuthApiErrorDetails) {
     super(details.message);
-    this.name = 'CodexDeviceAuthApiError';
+    this.name = 'ProviderDeviceAuthApiError';
     this.status = details.status;
     this.error = details.error;
   }
 }
+
+export class CodexDeviceAuthApiError extends ProviderDeviceAuthApiError {}
 
 function isJsonContentType(contentType: string | null | undefined) {
   if (!contentType) return false;
@@ -34,7 +41,7 @@ function isJsonContentType(contentType: string | null | undefined) {
   );
 }
 
-async function parseCodexDeviceAuthErrorResponse(res: Response): Promise<{
+async function parseProviderDeviceAuthErrorResponse(res: Response): Promise<{
   error?: string;
   message?: string;
   reason?: string;
@@ -78,11 +85,60 @@ const T26_SUCCESS_LOG =
 const T26_ERROR_LOG =
   '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error';
 
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
+}
+
+function isValidProviderDeviceAuthResponse<
+  TProvider extends ProviderAuthProviderId,
+>(
+  provider: TProvider,
+  data: Record<string, unknown>,
+): data is ProviderDeviceAuthResponse<TProvider> {
+  if (data.provider !== provider || typeof data.state !== 'string') {
+    return false;
+  }
+
+  if (
+    !ORDERED_PROVIDER_AUTH_STATES.includes(
+      data.state as (typeof ORDERED_PROVIDER_AUTH_STATES)[number],
+    )
+  ) {
+    return false;
+  }
+
+  switch (data.state) {
+    case 'verification_ready':
+      return (
+        typeof data.verificationUrl === 'string' &&
+        typeof data.userCode === 'string' &&
+        isOptionalString(data.displayOutput)
+      );
+    case 'completion_pending':
+      return (
+        isOptionalString(data.verificationUrl) &&
+        isOptionalString(data.userCode) &&
+        isOptionalString(data.displayOutput)
+      );
+    case 'failed':
+      return (
+        typeof data.reason === 'string' && isOptionalString(data.displayOutput)
+      );
+    case 'unavailable_before_start':
+      return typeof data.reason === 'string';
+    case 'completed':
+    case 'already_authenticated':
+      return true;
+    default:
+      return false;
+  }
+}
+
 async function throwCodexDeviceAuthError(
   res: Response,
   baseMessage: string,
 ): Promise<never> {
-  const parsed = await parseCodexDeviceAuthErrorResponse(res);
+  const parsed = await parseProviderDeviceAuthErrorResponse(res);
   const message =
     parsed.message ??
     parsed.reason ??
@@ -101,18 +157,20 @@ async function throwCodexDeviceAuthError(
     error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
   });
 
-  throw new CodexDeviceAuthApiError({
+  throw new ProviderDeviceAuthApiError({
     status: res.status,
     message,
     error: parsed.error,
   });
 }
 
-export async function postCodexDeviceAuth(): Promise<CodexDeviceAuthResponse> {
-  log('info', 'DEV-0000031:T5:codex_device_auth_api_request', {});
+export async function postProviderDeviceAuth<
+  TProvider extends ProviderAuthProviderId,
+>(provider: TProvider): Promise<ProviderDeviceAuthResponse<TProvider>> {
+  log('info', 'DEV-0000031:T5:provider_device_auth_api_request', { provider });
 
   const res = await fetch(
-    new URL('/codex/device-auth', serverBase).toString(),
+    new URL(`/${provider}/device-auth`, serverBase).toString(),
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -123,49 +181,46 @@ export async function postCodexDeviceAuth(): Promise<CodexDeviceAuthResponse> {
   if (!res.ok) {
     await throwCodexDeviceAuthError(
       res,
-      `Failed to run Codex device auth (${res.status})`,
+      `Failed to run ${provider} device auth (${res.status})`,
     );
   }
 
-  log('info', 'DEV-0000031:T5:codex_device_auth_api_response', {
+  log('info', 'DEV-0000031:T5:provider_device_auth_api_response', {
+    provider,
     status: res.status,
   });
 
   const data = (await res.json()) as Record<string, unknown>;
-  const status = data.status;
-  const rawOutput = data.rawOutput;
+  const state = data.state;
 
-  if (
-    status !== 'ok' ||
-    typeof rawOutput !== 'string' ||
-    rawOutput.length < 1
-  ) {
+  if (!isValidProviderDeviceAuthResponse(provider, data)) {
     log('error', T14_ERROR_LOG, {
+      provider,
       status: res.status,
       error: 'invalid_success_response_shape',
     });
     log('error', T26_ERROR_LOG, {
+      provider,
       status: res.status,
       error: 'invalid_success_response_shape',
     });
-    throw new Error('Invalid codex device auth response');
+    throw new Error(`Invalid ${provider} device auth response`);
   }
 
   log('info', T14_SUCCESS_LOG, {
+    provider,
     status: res.status,
-    responseStatus: status,
+    responseState: state,
   });
   log('info', T26_SUCCESS_LOG, {
+    provider,
     status: res.status,
-    responseStatus: status,
+    responseState: state,
   });
 
-  const response: SharedCodexDeviceAuthResponse = {
-    status: 'ok',
-    rawOutput,
-  };
-  return {
-    status: response.status,
-    rawOutput: response.rawOutput,
-  };
+  return data as ProviderDeviceAuthResponse<TProvider>;
+}
+
+export async function postCodexDeviceAuth(): Promise<CodexDeviceAuthResponse> {
+  return postProviderDeviceAuth('codex');
 }

@@ -112,6 +112,7 @@ const parsed = parseComposeBuildSummary(result.output);
 const status = result.code === 0 ? 'passed' : 'failed';
 const runtimeAssetRoots = [
   '/app/codex',
+  '/app/copilot',
   '/app/codex_agents',
   '/app/flows',
   '/app/flows-sandbox',

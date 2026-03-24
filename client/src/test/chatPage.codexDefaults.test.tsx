@@ -214,7 +214,9 @@ describe('Codex defaults from server', () => {
     );
 
     await userEvent.click(providerSelect);
-    const lmOption = await screen.findByRole('option', { name: /lm studio/i });
+    const lmOption = await screen.findByRole('option', {
+      name: /^LM Studio$/i,
+    });
     await userEvent.click(lmOption);
 
     await userEvent.click(providerSelect);
@@ -598,7 +600,7 @@ describe('Codex defaults from server', () => {
 
       await userEvent.click(providerSelect);
       await userEvent.click(
-        await screen.findByRole('option', { name: /lm studio/i }),
+        await screen.findByRole('option', { name: /^LM Studio$/i }),
       );
       await userEvent.click(providerSelect);
       await userEvent.click(

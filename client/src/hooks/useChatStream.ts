@@ -82,6 +82,7 @@ export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  provider?: string;
   warnings?: string[];
   command?: {
     name: string;
@@ -208,6 +209,12 @@ const normalizeCommand = (
     normalized.identifier = identifier;
   }
   return normalized;
+};
+
+const normalizeToolName = (name: unknown): string | undefined => {
+  if (typeof name !== 'string') return undefined;
+  const trimmed = name.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 };
 
 const makeId = () =>
@@ -764,7 +771,7 @@ export function useChatStream(
 
       const tool: ToolCall = {
         id: callId,
-        name: event.name ?? existing?.name,
+        name: normalizeToolName(event.name) ?? existing?.name,
         status,
         payload,
         parameters: event.parameters,

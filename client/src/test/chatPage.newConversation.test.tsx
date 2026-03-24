@@ -196,4 +196,225 @@ describe('Chat page new conversation control', () => {
     await user.type(input, 'Fresh draft');
     expect(input).toHaveValue('Fresh draft');
   });
+
+  it('starts a new conversation for the next send when provider changes while viewing an existing conversation', async () => {
+    const user = userEvent.setup();
+    const chatBodies: Array<Record<string, unknown>> = [];
+
+    mockFetch.mockImplementation(
+      async (url: RequestInfo | URL, opts?: RequestInit) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'copilot',
+                  label: 'GitHub Copilot',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          const providerId = new URL(href, 'http://localhost').searchParams.get(
+            'provider',
+          );
+          if (providerId === 'copilot') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                provider: 'copilot',
+                available: true,
+                toolsAvailable: true,
+                models: [
+                  {
+                    key: 'copilot-chat',
+                    displayName: 'Copilot Chat',
+                    type: 'chat',
+                  },
+                ],
+              }),
+            }) as unknown as Response;
+          }
+
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              codexDefaults: {
+                sandboxMode: 'workspace-write',
+                approvalPolicy: 'on-failure',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: true,
+              },
+              codexWarnings: [],
+              models: [
+                {
+                  key: 'gpt-5.1-codex-max',
+                  displayName: 'gpt-5.1-codex-max',
+                  type: 'codex',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations/') && href.includes('/turns')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: 'persisted-codex-conversation',
+                  role: 'user',
+                  content: 'Earlier prompt',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-01-01T00:00:00.000Z',
+                },
+                {
+                  conversationId: 'persisted-codex-conversation',
+                  role: 'assistant',
+                  content: 'Earlier reply',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-01-01T00:00:01.000Z',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations') && opts?.method !== 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: 'persisted-codex-conversation',
+                  title: 'Persisted Codex conversation',
+                  provider: 'codex',
+                  model: 'gpt-5.1-codex-max',
+                  source: 'REST',
+                  lastMessageAt: '2025-01-01T00:00:03.000Z',
+                  archived: false,
+                },
+              ],
+              nextCursor: null,
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat') && opts?.method === 'POST') {
+          const body =
+            typeof opts.body === 'string'
+              ? (JSON.parse(opts.body) as Record<string, unknown>)
+              : {};
+          chatBodies.push(body);
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              conversationId: body.conversationId,
+              inflightId: 'next-inflight',
+              provider: body.provider,
+              model: body.model,
+            }),
+          }) as unknown as Response;
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        }) as unknown as Response;
+      },
+    );
+
+    renderChatPage();
+
+    const conversationRow = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(conversationRow);
+    });
+
+    expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+    expect(screen.getByTestId('provider-select')).toHaveTextContent(
+      /openai codex/i,
+    );
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await user.click(providerSelect);
+    await user.click(
+      await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /github copilot/i,
+      ),
+    );
+    expect(screen.queryByText('Earlier reply')).not.toBeInTheDocument();
+
+    const input = await screen.findByTestId('chat-input');
+    await user.type(input, 'Use Copilot next');
+    await act(async () => {
+      await user.click(screen.getByTestId('chat-send'));
+    });
+
+    await waitFor(() => expect(chatBodies).toHaveLength(1));
+    expect(chatBodies[0]?.provider).toBe('copilot');
+    expect(chatBodies[0]?.model).toBe('copilot-chat');
+    expect(chatBodies[0]?.conversationId).not.toBe(
+      'persisted-codex-conversation',
+    );
+
+    await act(async () => {
+      await user.click(screen.getByTestId('conversation-row'));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /openai codex/i,
+      ),
+    );
+    expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+  });
 });

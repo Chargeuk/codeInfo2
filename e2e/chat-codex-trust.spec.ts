@@ -17,7 +17,7 @@ test('Codex disabled banner shows when provider is unavailable (mock)', async ({
     test.skip('Codex disabled banner path only runs with mock chat');
   }
 
-  await page.route('**/chat/providers', (route) =>
+  await page.route('**/chat/providers*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -41,17 +41,17 @@ test('Codex disabled banner shows when provider is unavailable (mock)', async ({
     }),
   );
 
-  await page.route('**/chat/models**', (route) =>
+  await page.route('**/chat/models*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        provider: 'lmstudio',
-        available: true,
-        toolsAvailable: true,
-        models: [{ key: 'mock-lm', displayName: 'Mock LM' }],
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'mock-lm', displayName: 'Mock LM', type: 'gguf' }],
+        }),
       }),
-    }),
   );
 
   await page.goto(`${baseUrl}/chat`);
@@ -79,7 +79,7 @@ test('Codex chat succeeds without trust error when working directory is handled'
     let chatCalls = 0;
     const mockWs = await installMockChatWs(page);
 
-    await page.route('**/chat/providers', (route) =>
+    await page.route('**/chat/providers*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -102,7 +102,7 @@ test('Codex chat succeeds without trust error when working directory is handled'
       }),
     );
 
-    await page.route('**/chat/models?**', (route) => {
+    await page.route('**/chat/models*', (route) => {
       const url = route.request().url();
       const provider = new URL(url).searchParams.get('provider');
       const isCodex = provider === 'codex';
@@ -118,17 +118,30 @@ test('Codex chat succeeds without trust error when working directory is handled'
                 {
                   key: 'gpt-5.1',
                   displayName: 'gpt-5.1',
+                  type: 'codex',
                 },
               ]
             : [
                 {
                   key: 'mock-lm',
                   displayName: 'Mock LM',
+                  type: 'gguf',
                 },
               ],
         }),
       });
     });
+
+    await page.route('**/conversations*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [],
+          nextCursor: null,
+        }),
+      }),
+    );
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
@@ -189,9 +202,9 @@ test('Codex chat succeeds without trust error when working directory is handled'
   mkdirSync('test-results/screenshots', { recursive: true });
 
   await page.goto(`${baseUrl}/chat`);
+  await page.getByRole('button', { name: /New conversation/i }).click();
 
-  const providerSelect = page.getByTestId('provider-select');
-  const modelSelect = page.getByTestId('model-select');
+  const providerSelect = page.getByRole('combobox', { name: /Provider/i });
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
   const assistantBubble = page.locator(
@@ -201,11 +214,11 @@ test('Codex chat succeeds without trust error when working directory is handled'
     '[data-testid="chat-bubble"][data-kind="error"]',
   );
 
+  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
   await providerSelect.click();
   await page.getByRole('option', { name: /OpenAI Codex/i }).click();
 
-  await modelSelect.click();
-  await page.getByRole('option').first().click();
+  await expect(providerSelect).toHaveText(/OpenAI Codex/i);
 
   await input.fill('Hello Codex');
   await send.click();

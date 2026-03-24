@@ -4,15 +4,14 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
-import { UnsupportedProviderError } from '../../chat/factory.js';
-
-test('REST /chat responds 400 for unsupported provider from factory', async () => {
+test('REST /chat rejects actually unsupported provider names', async () => {
   const originalBase = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
 
   const { createChatRouter } = await import('../../routes/chat.js');
 
   const app = express();
+  app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({
@@ -24,9 +23,6 @@ test('REST /chat responds 400 for unsupported provider from factory', async () =
         }) as unknown as LMStudioClient,
       toolFactory: () => ({ tools: [] }),
       codexFactory: undefined,
-      chatFactory: () => {
-        throw new UnsupportedProviderError('bogus');
-      },
     }),
   );
 
@@ -34,7 +30,7 @@ test('REST /chat responds 400 for unsupported provider from factory', async () =
     model: 'm',
     message: 'hi',
     conversationId: 'c1',
-    provider: 'lmstudio',
+    provider: 'bad-provider',
   });
 
   if (originalBase === undefined) {
@@ -45,6 +41,9 @@ test('REST /chat responds 400 for unsupported provider from factory', async () =
 
   assert.equal(res.status, 400);
   assert.equal(res.body.status, 'error');
-  assert.equal(res.body.code, 'UNSUPPORTED_PROVIDER');
-  assert.match(res.body.message, /Unsupported chat provider: bogus/);
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
+  assert.match(
+    res.body.message,
+    /provider must be one of: codex, copilot, lmstudio/,
+  );
 });

@@ -52,7 +52,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
 
   const mockWs = await installMockChatWs(page);
 
-  await page.route('**/chat/providers', (route) =>
+  await page.route('**/chat/providers*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -75,7 +75,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
     }),
   );
 
-  await page.route('**/chat/models?**', (route) => {
+  await page.route('**/chat/models*', (route) => {
     const provider = new URL(route.request().url()).searchParams.get(
       'provider',
     );
@@ -83,16 +83,33 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
+        body: JSON.stringify({
         provider: provider ?? 'lmstudio',
         available: true,
         toolsAvailable: true,
         models: isCodex
-          ? [{ key: 'gpt-5.1-codex-max', displayName: 'gpt-5.1-codex-max' }]
-          : [{ key: 'mock-lm', displayName: 'Mock LM' }],
+          ? [
+              {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+              },
+            ]
+          : [{ key: 'mock-lm', displayName: 'Mock LM', type: 'gguf' }],
       }),
     });
   });
+
+  await page.route('**/conversations*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [],
+        nextCursor: null,
+      }),
+    }),
+  );
 
   await page.route('**/chat', async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
@@ -175,17 +192,17 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
   });
 
   await page.goto(`${baseUrl}/chat`);
+  await page.getByRole('button', { name: /New conversation/i }).click();
 
-  const providerSelect = page.getByTestId('provider-select');
-  const modelSelect = page.getByTestId('model-select');
+  const providerSelect = page.getByRole('combobox', { name: /Provider/i });
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
 
+  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
   await providerSelect.click();
   await page.getByRole('option', { name: /OpenAI Codex/i }).click();
 
-  await modelSelect.click();
-  await page.getByRole('option', { name: /gpt-5.1-codex-max/i }).click();
+  await expect(providerSelect).toHaveText(/OpenAI Codex/i);
 
   const codexFlagsToggle = page
     .getByTestId('codex-flags-panel')

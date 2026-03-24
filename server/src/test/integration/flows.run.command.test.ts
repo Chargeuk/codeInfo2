@@ -10,12 +10,12 @@ import supertest from 'supertest';
 import type WebSocket from 'ws';
 
 import { loadAgentCommandFile } from '../../agents/commandsLoader.js';
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
 } from '../../agents/service.js';
 import { runAgentCommand } from '../../agents/service.js';
-import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
 import { getInflight } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -2145,7 +2145,9 @@ test('cancellation during flow-owned command reingest stops later items and late
           { type: 'message', role: 'user', content: ['after command item'] },
         ],
       });
-      repos.push(buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }));
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await supertest(baseUrl)
@@ -2204,16 +2206,16 @@ test('cancellation during flow-owned command reingest stops later items and late
         repos,
         lockedModelId: null,
       }),
-        flowServiceDeps: {
-          runReingestRepository: async () => {
-            markStarted();
-            const runTokenDeadline = Date.now() + 1000;
-            while (!runToken && Date.now() < runTokenDeadline) {
-              runToken =
-                getActiveRunOwnership(conversationId)?.runToken ?? runToken;
-              await delay(10);
-            }
-            assert.notEqual(runToken, '');
+      flowServiceDeps: {
+        runReingestRepository: async () => {
+          markStarted();
+          const runTokenDeadline = Date.now() + 1000;
+          while (!runToken && Date.now() < runTokenDeadline) {
+            runToken =
+              getActiveRunOwnership(conversationId)?.runToken ?? runToken;
+            await delay(10);
+          }
+          assert.notEqual(runToken, '');
           registerPendingConversationCancel({
             conversationId,
             runToken,

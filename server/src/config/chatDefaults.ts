@@ -1,6 +1,11 @@
+import {
+  DEFAULT_CHAT_PROVIDER_ID,
+  ORDERED_CHAT_PROVIDER_IDS,
+  type ChatProviderId,
+} from '@codeinfo2/common';
 import { loadRuntimeConfigSnapshot } from './runtimeConfig.js';
 
-export type ChatDefaultProvider = 'codex' | 'lmstudio';
+export type ChatDefaultProvider = ChatProviderId;
 export type CodexWebSearchMode = 'live' | 'cached' | 'disabled';
 export type CodexDefaultSource = 'override' | 'config' | 'env' | 'hardcoded';
 
@@ -59,11 +64,13 @@ export type ResolvedCodexChatDefaults = {
   warnings: string[];
 };
 
-const FALLBACK_PROVIDER: ChatDefaultProvider = 'codex';
+export const ORDERED_CHAT_PROVIDERS = ORDERED_CHAT_PROVIDER_IDS;
+
+const FALLBACK_PROVIDER: ChatDefaultProvider = DEFAULT_CHAT_PROVIDER_ID;
 const FALLBACK_MODEL = 'gpt-5.3-codex';
 export const STORY_47_TASK_1_LOG_MARKER =
   'DEV_0000047_T01_CODEX_DEFAULTS_APPLIED';
-const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ['codex', 'lmstudio'];
+const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ORDERED_CHAT_PROVIDERS;
 const FALLBACK_CODEX_SANDBOX_MODE = 'danger-full-access' as const;
 const FALLBACK_CODEX_APPROVAL_POLICY = 'on-failure' as const;
 const FALLBACK_CODEX_REASONING = 'high' as const;
@@ -352,22 +359,33 @@ const firstSelectableModel = (models: string[]): string | undefined => {
   return undefined;
 };
 
-const alternateProvider = (
+const getProviderState = (
   provider: ChatDefaultProvider,
-): ChatDefaultProvider => (provider === 'codex' ? 'lmstudio' : 'codex');
+  states: Record<ChatDefaultProvider, RuntimeProviderState>,
+): RuntimeProviderState => states[provider];
+
+const getFallbackProviders = (requestedProvider: ChatDefaultProvider) =>
+  ORDERED_CHAT_PROVIDERS.filter((provider) => provider !== requestedProvider);
 
 export const resolveRuntimeProviderSelection = ({
   requestedProvider,
   requestedModel,
   codex,
+  copilot,
   lmstudio,
 }: {
   requestedProvider: ChatDefaultProvider;
   requestedModel: string;
   codex: RuntimeProviderState;
+  copilot: RuntimeProviderState;
   lmstudio: RuntimeProviderState;
 }): RuntimeProviderSelection => {
-  const requestedState = requestedProvider === 'codex' ? codex : lmstudio;
+  const providerStates: Record<ChatDefaultProvider, RuntimeProviderState> = {
+    codex,
+    copilot,
+    lmstudio,
+  };
+  const requestedState = getProviderState(requestedProvider, providerStates);
   if (requestedState.available) {
     return {
       requestedProvider,
@@ -381,21 +399,22 @@ export const resolveRuntimeProviderSelection = ({
     };
   }
 
-  const fallbackProvider = alternateProvider(requestedProvider);
-  const fallbackState = fallbackProvider === 'codex' ? codex : lmstudio;
-  const fallbackModel = firstSelectableModel(fallbackState.models);
-  if (fallbackState.available && fallbackModel) {
-    return {
-      requestedProvider,
-      requestedModel,
-      executionProvider: fallbackProvider,
-      executionModel: fallbackModel,
-      fallbackApplied: true,
-      unavailable: false,
-      decision: 'fallback',
-      requestedReason: requestedState.reason,
-      fallbackReason: fallbackState.reason,
-    };
+  for (const fallbackProvider of getFallbackProviders(requestedProvider)) {
+    const fallbackState = getProviderState(fallbackProvider, providerStates);
+    const fallbackModel = firstSelectableModel(fallbackState.models);
+    if (fallbackState.available && fallbackModel) {
+      return {
+        requestedProvider,
+        requestedModel,
+        executionProvider: fallbackProvider,
+        executionModel: fallbackModel,
+        fallbackApplied: true,
+        unavailable: false,
+        decision: 'fallback',
+        requestedReason: requestedState.reason,
+        fallbackReason: fallbackState.reason,
+      };
+    }
   }
 
   return {
@@ -407,7 +426,9 @@ export const resolveRuntimeProviderSelection = ({
     unavailable: true,
     decision: 'unavailable',
     requestedReason: requestedState.reason,
-    fallbackReason: fallbackState.reason,
+    fallbackReason: getFallbackProviders(requestedProvider)
+      .map((provider) => getProviderState(provider, providerStates).reason)
+      .find((reason) => typeof reason === 'string' && reason.length > 0),
   };
 };
 

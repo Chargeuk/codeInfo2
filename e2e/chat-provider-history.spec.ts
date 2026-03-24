@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { logPlaywrightCopilotScenarioRegistration } from './support/copilotFakeScenario';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
+const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 
 const hideMcpOverlay = async (page: import('@playwright/test').Page) => {
   await page.evaluate(() => {
@@ -171,4 +173,118 @@ test('historical conversation uses its provider and shows turns', async ({
   // Transcript should show codex reply.
   const transcript = page.getByTestId('chat-transcript');
   await expect(transcript).toContainText('codex reply');
+});
+
+test('copilot conversation history keeps Copilot visible in the selector and transcript', async ({
+  page,
+}) => {
+  if (!useMockChat) {
+    test.skip('Requires mock chat to keep Copilot history deterministic');
+  }
+
+  const copilotScenario = logPlaywrightCopilotScenarioRegistration({
+    spec: 'chat-provider-history.spec.ts',
+    scenarioName: 'copilot-happy-path',
+  });
+  const copilotConversationId = 'copilot-history-conversation';
+  const copilotConversation = {
+    conversationId: copilotConversationId,
+    title: 'Copilot history conversation',
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    source: 'REST',
+    lastMessageAt: '2025-01-01T00:00:00.000Z',
+    archived: false,
+  };
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: copilotScenario.e2e.providers,
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+    if (provider === 'copilot') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(copilotScenario.e2e.copilotModels),
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+      }),
+    });
+  });
+  await page.route('**/conversations*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [copilotConversation],
+        nextCursor: null,
+      }),
+    }),
+  );
+  await page.route(
+    `**/conversations/${copilotConversationId}/turns*`,
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              turnId: 'copilot-turn-user',
+              role: 'user',
+              content: 'Hello from Copilot history',
+              provider: 'copilot',
+              model: 'copilot-gpt-5',
+              status: 'ok',
+              createdAt: '2025-01-01T00:00:00.000Z',
+            },
+            {
+              turnId: 'copilot-turn-assistant',
+              role: 'assistant',
+              content: 'Copilot history reply',
+              provider: 'copilot',
+              model: 'copilot-gpt-5',
+              status: 'ok',
+              createdAt: '2025-01-01T00:00:01.000Z',
+            },
+          ],
+          nextCursor: null,
+        }),
+      }),
+  );
+
+  await page.goto(`${baseUrl}/chat`);
+  await hideMcpOverlay(page);
+
+  await page.getByTestId('conversation-refresh').click();
+  const conversationRow = page.locator('[data-testid="conversation-row"]', {
+    hasText: copilotConversation.title,
+  });
+  await expect(conversationRow).toBeVisible({ timeout: 20000 });
+  await conversationRow.click();
+
+  await expect(page.getByTestId('provider-select')).toContainText(
+    /GitHub Copilot/i,
+  );
+  await expect(page.getByTestId('chat-transcript')).toContainText(
+    'Copilot history reply',
+  );
 });

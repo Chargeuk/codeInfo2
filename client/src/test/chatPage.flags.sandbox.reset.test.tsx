@@ -173,7 +173,9 @@ describe('Codex sandbox flag reset behaviour', () => {
     );
 
     await userEvent.click(providerSelect);
-    const lmOption = await screen.findByRole('option', { name: /lm studio/i });
+    const lmOption = await screen.findByRole('option', {
+      name: /^LM Studio$/i,
+    });
     await userEvent.click(lmOption);
 
     await userEvent.click(providerSelect);

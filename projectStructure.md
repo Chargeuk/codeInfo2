@@ -1,5 +1,466 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000051 Task 20 structural change ledger
+
+Added files:
+
+- `planning/0000051-pr-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 20 is the final closeout layer for Story 51. It adds the reviewer-facing PR summary, final traceability mapping, explicit scope-audit notes, and the last documentation sync for the completed Copilot chat-only story after Task 19 repairs the manual-proof contract.
+- The final closeout keeps the repository footprint documentation-oriented unless final validation exposes a real contract gap, so the file map for Task 20 is intentionally narrow compared with earlier feature tasks.
+
+## Story 0000051 Task 18 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `e2e/chat-provider-history.spec.ts`
+- `e2e/chat-user-turn-ws.spec.ts`
+- `e2e/chat.spec.ts`
+- `e2e/support/copilotFakeScenario.ts`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+
+Story notes:
+
+- Task 18 finishes the browser-proof layer by extending the existing Playwright specs to cover Copilot provider visibility, Copilot happy-path send, Copilot websocket streaming, and the shared `Choose Authentication` dialog through the named fake-scenario contract from Task 16.
+- The Playwright coverage intentionally reuses the existing wrapper-backed boot path and selector style instead of introducing a second e2e harness.
+
+## Story 0000051 Task 17 structural change ledger
+
+Added files:
+
+- None.
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `server/src/test/features/chat_models.feature`
+- `server/src/test/features/chat_stream.feature`
+- `server/src/test/steps/chat_models.steps.ts`
+- `server/src/test/steps/chat_stream.steps.ts`
+
+Story notes:
+
+- Task 17 extends the existing server-side Cucumber feature and step files with named fake-scenario Copilot coverage for provider visibility, model listing, happy-path chat streaming, and representative streamed failure behavior.
+- The step layer stays thin and reuses the shared Task 16 scenario catalog rather than adding a Cucumber-only startup harness.
+
+## Story 0000051 Task 16 structural change ledger
+
+Added files:
+
+- `e2e/support/copilotFakeScenario.ts`
+- `server/src/test/integration/copilot.boot-path.test.ts`
+- `server/src/test/support/copilotBootPath.ts`
+- `server/src/test/support/copilotScenarioCatalog.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.env.e2e`
+- `design.md`
+- `docker-compose.e2e.yml`
+- `e2e/chat.spec.ts`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `scripts/test-summary-e2e.mjs`
+- `server/.env.e2e`
+
+Story notes:
+
+- Task 16 introduces one named fake Copilot scenario catalog instead of another cross-layer fixture stack, so integration helpers and the wrapper-backed e2e path can point at the same scenario ids for readiness, auth, model, and streaming behavior.
+- `server/src/test/support/copilotBootPath.ts` is the reusable higher-level server boot helper for later integration and Cucumber work. It composes the fake Copilot SDK harness and fake device-auth harness into real `/chat`, `/chat/providers`, `/chat/models`, `/copilot/device-auth`, and websocket surfaces.
+- `e2e/support/copilotFakeScenario.ts` plus the `.env.e2e` and `docker-compose.e2e.yml` updates add the wrapper-driven scenario selector to the Playwright path without changing the existing default mock-backed chat behavior yet.
+
+## Story 0000051 Task 15 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/copilot-compose-contract.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `.dockerignore`
+- `README.md`
+- `design.md`
+- `docker-compose.e2e.yml`
+- `docker-compose.local.yml`
+- `docker-compose.yml`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `scripts/compose-build-summary.mjs`
+- `server/Dockerfile`
+- `server/entrypoint.sh`
+- `server/npm-global.txt`
+- `scripts/docker-compose-with-env.sh`
+
+Story notes:
+
+- Task 15 extends the existing container contract so the server image now includes the GitHub Copilot CLI, prepares `/app/copilot`, and keeps the image-baked source model intact.
+- Main and e2e compose still inject `CODEINFO_COPILOT_HOME=/app/copilot` with the `copilot-data` named-volume pattern, while local compose now bind-mounts the repo-root `./copilot` folder there after wrapper bootstrap seeds `copilot/config.json`.
+- The new `server/src/test/unit/copilot-compose-contract.test.ts` file is the focused proof for unchanged ports, local bind-mount vs main/e2e named-volume persistence, Docker-ignore alignment, `/app/copilot` env injection, and the compose-build runtime asset marker.
+
+## Story 0000051 Task 12 structural change ledger
+
+Added files:
+
+- `client/src/test/agentsPage.authDialog.test.tsx`
+- `client/src/test/chatPage.authRefresh.test.tsx`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/api/codex.ts`
+- `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/codexDeviceAuthApi.test.ts`
+- `client/src/test/codexDeviceAuthDialog.test.tsx`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 12 keeps the existing dialog file path but converts it into the shared `Choose Authentication` flow, so current chat and agents consumers keep the same component entry point while gaining provider-aware auth state rendering.
+- The client auth API now has a provider-aware helper that still preserves the strict empty-body Codex route behavior and the shared provider-auth contract from Tasks 8 and 9.
+- The proof adds one chat refresh regression suite and one agents-page dialog regression suite in addition to refreshing the existing dialog and API tests around the shared auth flow.
+
+## Story 0000051 Task 10 structural change ledger
+
+Added files:
+
+- `client/src/test/providerAuthFixtures.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/test/codexDeviceAuthApi.test.ts`
+- `client/src/test/codexDeviceAuthDialog.test.tsx`
+- `client/src/test/support/fetchMock.ts`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 10 extends the existing client fetch-mock support with named provider-auth fixtures instead of introducing a second client-only harness, so later auth tests can reuse the shared Task 8 and Task 9 contract directly.
+- The new fixture API is centered on `createProviderAuthFixture(...)` and `installProviderAuthFetchFixtures(...)`, which lets tests request named states like `copilot:verification_ready` while keeping bootstrap opt-in per test.
+- The proof adds one focused `providerAuthFixtures` client suite and updates the existing Codex auth API and dialog tests to consume the shared fixture builders without reintroducing legacy raw-output response literals.
+
+## Story 0000051 Task 9 structural change ledger
+
+Added files:
+
+- `server/src/routes/copilotDeviceAuth.ts`
+- `server/src/test/integration/copilot.device-auth.test.ts`
+- `server/src/test/unit/copilotDeviceAuth.test.ts`
+- `server/src/utils/copilotDeviceAuth.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `openapi.json`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/config/copilotConfig.ts`
+- `server/src/index.ts`
+- `server/src/test/unit/openapi.contract.test.ts`
+
+Story notes:
+
+- Task 9 adds the real `POST /copilot/device-auth` backend route as the Copilot sibling to the existing Codex auth route, keeping the strict empty-body contract, shared auth-state vocabulary, and shared-home single-flight behavior instead of inventing a Copilot-only polling API.
+- The new `server/src/utils/copilotDeviceAuth.ts` utility owns Copilot login spawning, verification parsing, sanitized failure handling, and completion mapping, while `server/src/config/copilotConfig.ts` now also provides a writable config-dir check for the Copilot auth path.
+- The proof lands in one focused router unit file plus one integration file that covers early verification, completion refresh, env-token and `gh` short-circuit behavior, writable-home fallback, single-flight reuse, and secret-safe task-marker logging.
+
+## Story 0000051 Task 14 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/health.copilot-isolation.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/.env`
+- `server/.env.e2e`
+- `server/.env.local`
+- `server/src/config/copilotConfig.ts`
+- `server/src/config/startupEnv.ts`
+- `server/src/index.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
+Story notes:
+
+- Task 14 extends the shared startup env inventory with `CODEINFO_COPILOT_HOME` and the optional `CODEINFO_COPILOT_CLI_PATH`, keeping Copilot runtime-home resolution on the same `CODEINFO_*` startup path as the rest of the server config.
+- The shared Copilot config helper now resolves CLI-path override state and credential-env precedence in one place, so startup logging, readiness, auth, and future Docker wiring do not need separate Copilot env parsing rules.
+- `server/src/test/integration/health.copilot-isolation.test.ts` is the focused proof file that keeps `/health` process-only while Copilot readiness fails for connectivity, authentication, or model-list reasons on `/chat/providers`.
+
+## Story 0000051 Task 7 structural change ledger
+
+Added files:
+
+- `server/src/test/integration/chat-copilot-fallback.test.ts`
+- `server/src/test/integration/chat-copilot-flags.test.ts`
+- `server/src/test/integration/chat-copilot-lock.test.ts`
+- `server/src/test/integration/chat-copilot-resume.test.ts`
+- `server/src/test/integration/chat-copilot-stop.test.ts`
+- `server/src/test/integration/chat-copilot.test.ts`
+- `server/src/test/integration/support/copilotChatHarness.ts`
+- `server/src/test/unit/chat-interface-copilot.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts`
+- `server/src/routes/chat.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/support/mockCopilotSdk.ts`
+- `server/src/test/unit/chat-stream-bridge.test.ts`
+
+Story notes:
+
+- Task 7 moves Copilot onto the real shared `/chat` execution path, so create, resume, fallback, warnings, websocket publishing, and stop handling now reuse the existing route, stream bridge, and inflight ownership model instead of a Copilot-only transport.
+- The session identity rule stays simple and explicit: `conversationId` doubles as the Copilot session id, resume failures stay visible instead of silently starting a fresh session, and Codex-only flags are ignored with the existing warning path rather than being reinterpreted for Copilot.
+- The proof adds focused unit coverage for adapter event mapping and stream-edge cases plus integration coverage for persistence/resume, explicit resume failure, lock protection, fallback, Codex-flag isolation, and shared stop-path behavior.
+
+## Story 0000051 Task 6 structural change ledger
+
+Added files:
+
+- `server/src/test/unit/chatModels.copilot.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/routes/chatModels.ts`
+
+Story notes:
+
+- Task 6 extends the shared `/chat/models` route with a Copilot branch that reuses the Task 5 readiness resolver before running model discovery, so provider readiness and model availability keep one blocking-stage contract.
+- Copilot model mapping stays strict to the shared response shape: the route keeps only verified `id`, `name`, and supported/default reasoning-effort fields, ignores unsupported SDK fields safely, and returns deterministic unavailable output when no usable entries remain.
+- The proof adds a focused `chatModels.copilot` unit suite that covers readiness-driven unavailability, empty model lists, and strict mapping with ignored extra fields.
+
+## Story 0000051 Task 5 structural change ledger
+
+Added files:
+
+- `server/src/providers/copilotReadiness.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/src/routes/chatProviders.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+
+Story notes:
+
+- Task 5 introduces one shared Copilot readiness resolver so provider listing, later auth refresh, and later model discovery can reuse the same blocking-stage precedence instead of diverging into route-specific checks.
+- The resolver keeps the ordered provider contract intact while evaluating Copilot in the planned order of connectivity, authentication, model-list success, and tool-surface availability, with secret-safe readiness logging at the first blocking stage.
+- The route proof expands the existing `chatProviders` unit suite to cover unauthenticated, env-token, `gh` fallback, startup-failure, and model-versus-tools precedence behavior through the actual `/chat/providers` payload.
+
+## Story 0000051 Task 4 structural change ledger
+
+Added files:
+
+- `server/src/test/support/mockCopilotDeviceAuth.ts`
+- `server/src/test/unit/mockCopilotDeviceAuth.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 4 adds the reusable fake Copilot device-auth harness as the auth-side sibling to the fake Copilot SDK runtime harness instead of introducing route-specific inline fixtures.
+- The harness entry point is `createMockCopilotDeviceAuthHarness(...)`, which keeps scenarios instance-scoped and exposes `createRouteBindings()` so later Copilot auth route tests can inject fake start and completion callbacks without changing production wiring.
+- The proof file focuses on verification-ready parsing, deterministic completion-state playback, and reusable negative outcomes such as CLI-missing and generic auth failure.
+
+## Story 0000051 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/test/support/mockCopilotSdk.ts`
+- `server/src/test/unit/mockCopilotSdk.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 3 adds the first dedicated fake Copilot runtime harness as a sibling to the existing LM Studio mock support instead of introducing another mocking framework.
+- The harness is instance-scoped through `createMockCopilotSdkHarness(...)`, which exposes `createClientFactory()` and `createLifecycle()` helpers so later tests can plug into the Task 2 runtime seam without changing production wiring.
+- The proof file focuses on boot success, deterministic event playback, and explicit startup or session failures, which gives later readiness and chat tasks a stable fake runtime surface to extend.
+
+## Story 0000051 Task 2 structural change ledger
+
+Added files:
+
+- `server/src/chat/copilotLifecycle.ts`
+- `server/src/chat/interfaces/ChatInterfaceCopilot.ts`
+- `server/src/config/copilotConfig.ts`
+- `server/src/test/unit/copilotConfig.test.ts`
+- `server/src/test/unit/copilotLifecycle.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `package-lock.json`
+- `planning/0000051-github-copilot-sdk-chat-provider.md`
+- `projectStructure.md`
+- `server/package.json`
+- `server/src/chat/factory.ts`
+
+Story notes:
+
+- Task 2 adds the first reusable Copilot runtime seam and keeps it injectable so later fake-runtime tasks can plug into the same boundary instead of introducing a second test-only path.
+- The shared Copilot config helper now centralizes `CODEINFO_COPILOT_HOME`, the derived SDK `configDir`, and the `COPILOT_HOME` process env override with a temporary non-fatal default until the later env-wiring task lands.
+- The minimal `ChatInterfaceCopilot` adapter is intentionally not the full chat implementation yet; it exists to pin down create/resume session config and the explicit `cliPath` versus `PATH` launch rule before provider routes start consuming Copilot publicly.
+
 ## Story 0000050 Task 16 structural change ledger
 
 Added files:
@@ -1704,6 +2165,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- chatPage.mermaid.test.tsx ? assistant/user mermaid parity and malformed-fallback coverage
 |     |     |- codexDeviceAuthApi.test.ts ? codex device-auth API helper parsing + errors
 |     |     |- codexDeviceAuthDialog.test.tsx ? codex device-auth dialog states + copy actions
+|     |     |- providerAuthFixtures.test.ts ? shared provider-auth fixture builders plus named Codex/Copilot auth states
 |     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown
 |     |     |- agentsPage.descriptionPopover.test.tsx ? Agents page renders selected agent description markdown
 |     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state
@@ -1835,7 +2297,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ 0000033-5-chat.png â€” Chat page acceptance check for story 0000033
 â”‚     â”œâ”€ 0000033-5-ingest.png â€” Ingest page acceptance check for story 0000033
 â”‚     â””â”€ 0000033-5-logs.png â€” Logs page acceptance check for story 0000033
-â”œâ”€ playwright-output-local/ â€” local Playwright MCP screenshot artifacts captured during story/task manual verification
+â”œâ”€ playwright-output-local/ â€” local browser-MCP screenshot artifacts captured during story/task manual verification
 â”‚  â”œâ”€ 0000035-13-chat-raw-input-parity.png â€” Task 13 chat raw-input parity verification capture
 â”‚  â”œâ”€ 0000035-13-chat-user-markdown-parity.png â€” Task 13 chat user markdown parity verification capture
 â”‚  â”œâ”€ 0000035-13-agents-raw-input-parity.png â€” Task 13 agents raw-input parity verification capture
@@ -2355,6 +2817,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - `client/src/test/chatPage.reasoning.test.tsx`
 - `client/src/test/codexDeviceAuthApi.test.ts`
 - `client/src/test/codexDeviceAuthDialog.test.tsx`
+- `client/src/test/providerAuthFixtures.test.ts`
 - `common/src/api.ts`
 - `common/src/fixtures/mockModels.ts`
 - `common/src/lmstudio.ts`

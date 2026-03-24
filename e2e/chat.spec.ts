@@ -1,6 +1,11 @@
 import { mkdirSync } from 'fs';
+import type { ChatProviderInfo } from '@codeinfo2/common';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import {
+  logE2ECopilotScenarioBoot,
+  logPlaywrightCopilotScenarioRegistration,
+} from './support/copilotFakeScenario';
 import { installMockChatWs } from './support/mockChatWs';
 
 type ChatModel = { key: string; displayName: string; type?: string };
@@ -8,8 +13,50 @@ type ChatModel = { key: string; displayName: string; type?: string };
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
+const copilotScenario = useMockChat ? logE2ECopilotScenarioBoot() : null;
 const preferredChatModel = 'openai/gpt-oss-20b';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
+
+const buildMockProviders = (): ChatProviderInfo[] => {
+  const providers: ChatProviderInfo[] = [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+    },
+    {
+      id: 'codex',
+      label: 'OpenAI Codex',
+      available: false,
+      toolsAvailable: false,
+      reason: codexReason,
+    },
+  ];
+
+  const copilot = copilotScenario?.e2e.providers.find(
+    (provider) => provider.id === 'copilot',
+  );
+  return copilot ? [providers[0], providers[1], copilot] : providers;
+};
+
+const buildProvidersWithAvailableCodex = (
+  copilot: ChatProviderInfo,
+): ChatProviderInfo[] => [
+  {
+    id: 'codex',
+    label: 'OpenAI Codex',
+    available: true,
+    toolsAvailable: true,
+  },
+  copilot,
+  {
+    id: 'lmstudio',
+    label: 'LM Studio',
+    available: true,
+    toolsAvailable: true,
+  },
+];
 
 const skipIfUnreachable = async (page: Page) => {
   try {
@@ -27,6 +74,24 @@ const pickChatModel = (models: ChatModel[]) => {
   return preferred ?? models[0];
 };
 
+async function selectProvider(page: Page, providerName: string) {
+  const providerSelect = page.getByRole('combobox', { name: /Provider/i });
+  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  await providerSelect.click();
+  await page.getByRole('option', { name: providerName, exact: false }).click();
+  await expect(providerSelect).toHaveText(new RegExp(providerName, 'i'));
+}
+
+async function selectModel(page: Page, modelName: string) {
+  const modelSelect = page.getByRole('combobox', { name: /Model/i });
+  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await modelSelect.click();
+  await page.getByRole('option', { name: modelName, exact: false }).click();
+  await expect(modelSelect).toHaveText(new RegExp(modelName, 'i'), {
+    timeout: 5000,
+  });
+}
+
 test('chat streams end-to-end', async ({ page }) => {
   await skipIfUnreachable(page);
 
@@ -43,27 +108,21 @@ test('chat streams end-to-end', async ({ page }) => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-            {
-              id: 'codex',
-              label: 'OpenAI Codex',
-              available: false,
-              toolsAvailable: false,
-              reason: codexReason,
-            },
-          ],
+          providers: buildMockProviders(),
         }),
       }),
     );
     await page.route('**/chat/models*', (route) => {
       const url = new URL(route.request().url());
       const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+      if (provider === 'copilot' && copilotScenario) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(copilotScenario.e2e.copilotModels),
+        });
+      }
 
       if (provider === 'codex') {
         return route.fulfill({
@@ -90,6 +149,18 @@ test('chat streams end-to-end', async ({ page }) => {
         }),
       });
     });
+    await page.route('**/copilot/device-auth', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          copilotScenario?.e2e.copilotAuthResponse ?? {
+            provider: 'copilot',
+            state: 'already_authenticated',
+          },
+        ),
+      }),
+    );
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') {
@@ -156,26 +227,49 @@ test('chat streams end-to-end', async ({ page }) => {
 
   await page.goto(`${baseUrl}/chat`);
 
+  const providerSelect = page.getByRole('combobox', { name: /Provider/i });
+  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  if (useMockChat) {
+    const selectedProviderText =
+      (await providerSelect.textContent())?.trim() ?? '';
+    if (!selectedProviderText.includes('LM Studio')) {
+      await providerSelect.click();
+      await page.getByRole('option', { name: 'LM Studio' }).click();
+      await expect(providerSelect).toHaveText(/LM Studio/, {
+        timeout: 5000,
+      });
+    }
+  }
+
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
-  await modelSelect.click();
-
-  const option = page.getByRole('option', {
-    name: selectedModel.displayName,
-    exact: false,
-  });
-  const menuItem = page.getByRole('menuitem', {
-    name: selectedModel.displayName,
-    exact: false,
-  });
-  if (await option.count()) {
-    await option.click();
+  if (useMockChat) {
+    await expect(modelSelect).toHaveText(selectedModel.displayName, {
+      timeout: 20000,
+    });
   } else {
-    await menuItem.click();
+    const selectedModelText = (await modelSelect.textContent())?.trim() ?? '';
+    if (!selectedModelText.includes(selectedModel.displayName)) {
+      await modelSelect.click();
+
+      const option = page.getByRole('option', {
+        name: selectedModel.displayName,
+        exact: false,
+      });
+      const menuItem = page.getByRole('menuitem', {
+        name: selectedModel.displayName,
+        exact: false,
+      });
+      try {
+        await option.first().click({ timeout: 5000 });
+      } catch {
+        await menuItem.first().click({ timeout: 5000 });
+      }
+    }
+    await expect(modelSelect).toHaveText(selectedModel.displayName, {
+      timeout: 5000,
+    });
   }
-  await expect(modelSelect).toHaveText(selectedModel.displayName, {
-    timeout: 5000,
-  });
 
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
@@ -220,6 +314,241 @@ test('chat streams end-to-end', async ({ page }) => {
       fullPage: true,
     });
   }
+});
+
+test('copilot happy-path send uses the Copilot provider contract end to end', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  test.skip(!useMockChat, 'Copilot browser proof requires mock chat routing');
+
+  const registeredScenario = logPlaywrightCopilotScenarioRegistration({
+    spec: 'chat.spec.ts',
+    scenarioName: 'copilot-happy-path',
+  });
+  const mockWs = await installMockChatWs(page);
+  const chatBodies: Array<Record<string, unknown>> = [];
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: registeredScenario.e2e.providers,
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+    if (provider === 'copilot') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(registeredScenario.e2e.copilotModels),
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+      }),
+    });
+  });
+  await page.route('**/conversations/**/turns*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route('**/conversations*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      return route.continue();
+    }
+
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    chatBodies.push(payload);
+
+    const conversationId = String(payload.conversationId ?? 'copilot-chat-c1');
+    const inflightId = String(payload.inflightId ?? 'copilot-chat-i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    await mockWs.sendInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantThink: 'copilot trace',
+    });
+    for (const delta of registeredScenario.e2e.chatStream.assistantDeltas) {
+      await mockWs.sendAssistantDelta({ conversationId, inflightId, delta });
+    }
+    await mockWs.sendFinal({
+      conversationId,
+      inflightId,
+      status: registeredScenario.e2e.chatStream.finalStatus ?? 'ok',
+    });
+  });
+
+  await page.goto(`${baseUrl}/chat`);
+
+  await selectProvider(page, 'GitHub Copilot');
+  await selectModel(page, 'Copilot GPT-5');
+
+  await page
+    .getByTestId('chat-input')
+    .fill('Use Copilot for this browser test');
+  await page.getByTestId('chat-send').click();
+
+  await expect.poll(() => chatBodies.length).toBe(1);
+  expect(chatBodies[0]?.provider).toBe('copilot');
+  expect(chatBodies[0]?.model).toBe('copilot-gpt-5');
+
+  await expect(page.getByTestId('chat-transcript')).toContainText(
+    'Hello from fake Copilot',
+    { timeout: 20000 },
+  );
+});
+
+test('shared auth dialog renders Copilot verification details from the fake auth scenario', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  test.skip(
+    !useMockChat,
+    'Copilot auth browser proof requires mock chat routing',
+  );
+
+  const authScenario = logPlaywrightCopilotScenarioRegistration({
+    spec: 'chat.spec.ts',
+    scenarioName: 'copilot-auth-required',
+  });
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: buildProvidersWithAvailableCodex(
+          authScenario.e2e.providers.find(
+            (provider) => provider.id === 'copilot',
+          )!,
+        ),
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'codex';
+
+    if (provider === 'copilot') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(authScenario.e2e.copilotModels),
+      });
+    }
+
+    if (provider === 'codex') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          models: [
+            {
+              key: 'gpt-5-codex',
+              displayName: 'GPT-5 Codex',
+              type: 'codex',
+            },
+          ],
+        }),
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+      }),
+    });
+  });
+  await page.route('**/conversations/**/turns*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route('**/conversations*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route('**/copilot/device-auth', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(authScenario.e2e.copilotAuthResponse),
+    }),
+  );
+
+  await page.goto(`${baseUrl}/chat`);
+
+  await expect(page.getByRole('combobox', { name: /Provider/i })).toHaveText(
+    /OpenAI Codex/i,
+    { timeout: 20000 },
+  );
+  await page
+    .getByRole('button', { name: /Re-authenticate \(device auth\)/i })
+    .click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(
+    dialog.getByRole('heading', { name: 'Choose Authentication' }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Copilot Auth' }).click();
+
+  await expect(dialog).toContainText('Verification URL');
+  await expect(
+    dialog.getByRole('link', { name: 'https://github.com/login/device' }),
+  ).toBeVisible();
+  await expect(dialog.getByText('TASK16-ABCD', { exact: true })).toBeVisible();
 });
 
 test('chat preserves raw outbound payload and blocks whitespace-only submit', async ({

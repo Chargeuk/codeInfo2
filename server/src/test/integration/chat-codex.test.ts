@@ -15,6 +15,10 @@ import express from 'express';
 import request from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 import {
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
   getMemoryTurns,
   memoryConversations,
   memoryTurns,
@@ -25,6 +29,7 @@ import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { attachWs } from '../../ws/server.js';
+import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   closeWs,
   connectWs,
@@ -114,6 +119,17 @@ const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
+
+function createUnavailableCopilotLifecycle() {
+  return createMockCopilotSdkHarness({
+    name: 'integration-copilot-auth-required',
+    authStatus: {
+      isAuthenticated: false,
+      authType: 'user',
+      statusMessage: 'login required',
+    },
+  }).createLifecycle();
+}
 
 beforeEach(async () => {
   delete process.env.CODEX_WORKDIR;
@@ -522,14 +538,17 @@ test('shared-home device-auth success unlocks chat without extra target selectio
       }),
       getCodexConfigPathForHome: (home: string) => `${home}/config.toml`,
       runCodexDeviceAuth: async () => ({
-        ok: true,
-        rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
+        provider: 'codex',
+        state: 'verification_ready',
+        verificationUrl: 'https://device.test/verify',
+        userCode: 'CODE-123',
+        displayOutput:
+          'Open https://device.test/verify and enter code CODE-123.',
         completion: Promise.resolve({
           exitCode: 0,
           result: {
-            ok: true,
-            rawOutput:
-              'Open https://device.test/verify and enter code CODE-123.',
+            provider: 'codex',
+            state: 'completed',
           },
         }),
       }),
@@ -1032,7 +1051,13 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
 test('codex chat rejects when detection is unavailable', async () => {
   const app = express();
   app.use(express.json());
-  app.use('/chat', createChatRouter({ clientFactory: dummyClientFactory }));
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
 
   const resUnavailable = await request(app)
     .post('/chat')
@@ -1050,7 +1075,10 @@ test('codex request falls back once to lmstudio when codex is unavailable', asyn
   app.use(express.json());
   app.use(
     '/chat',
-    createChatRouter({ clientFactory: lmstudioAvailableClientFactory }),
+    createChatRouter({
+      clientFactory: lmstudioAvailableClientFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
   );
 
   const response = await request(app).post('/chat').send(buildCodexBody());
@@ -1075,7 +1103,11 @@ test('lmstudio request falls back once to codex when lmstudio is unavailable', a
   app.use(express.json());
   app.use(
     '/chat',
-    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
   );
 
   const response = await request(app)
@@ -1088,7 +1120,13 @@ test('lmstudio request falls back once to codex when lmstudio is unavailable', a
 test('lmstudio request returns PROVIDER_UNAVAILABLE when both providers are unavailable', async () => {
   const app = express();
   app.use(express.json());
-  app.use('/chat', createChatRouter({ clientFactory: dummyClientFactory }));
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
 
   const response = await request(app)
     .post('/chat')
@@ -1100,7 +1138,13 @@ test('lmstudio request returns PROVIDER_UNAVAILABLE when both providers are unav
 test('codex request returns PROVIDER_UNAVAILABLE when fallback provider has no selectable model', async () => {
   const app = express();
   app.use(express.json());
-  app.use('/chat', createChatRouter({ clientFactory: dummyClientFactory }));
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
 
   const response = await request(app).post('/chat').send(buildCodexBody());
   assert.equal(response.status, 503);
@@ -1142,58 +1186,26 @@ test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', asyn
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
-  class SlowThread extends MockThread {
-    async runStreamed(): Promise<{ events: AsyncGenerator<ThreadEvent> }> {
-      const threadId = this.id;
-      async function* generator(): AsyncGenerator<ThreadEvent> {
-        yield { type: 'thread.started', thread_id: threadId } as ThreadEvent;
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        yield {
-          type: 'item.updated',
-          item: { type: 'agent_message', text: 'Hello' },
-        } as ThreadEvent;
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        yield {
-          type: 'item.completed',
-          item: { type: 'agent_message', text: 'Hello world' },
-        } as ThreadEvent;
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        yield { type: 'turn.completed' } as ThreadEvent;
-      }
-
-      return { events: generator() };
-    }
-  }
-
-  class SlowCodex extends MockCodex {
-    override startThread(opts?: CodexThreadOptions) {
-      this.lastStartOptions = opts;
-      return new SlowThread(this.id);
-    }
-  }
-
-  const codexFactory = () => new SlowCodex('thread-lock');
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
-    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex('thread-lock'),
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
   );
 
   const conversationId = 'thread-lock';
-  const first = await request(app)
-    .post('/chat')
-    .send(buildCodexBody({ conversationId }))
-    .expect(202);
-  assert.equal(first.body.status, 'started');
+  assert.equal(tryAcquireConversationLock(conversationId), true);
 
-  const second = await request(app)
+  const response = await request(app)
     .post('/chat')
     .send(buildCodexBody({ conversationId, message: 'Second' }));
-  assert.equal(second.status, 409);
-  assert.equal(second.body.status, 'error');
-  assert.equal(second.body.code, 'RUN_IN_PROGRESS');
+  assert.equal(response.status, 409);
+  assert.equal(response.body.status, 'error');
+  assert.equal(response.body.code, 'RUN_IN_PROGRESS');
 
-  await waitForAssistantTurn(conversationId);
+  releaseConversationLock(conversationId);
 });

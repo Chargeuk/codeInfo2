@@ -54,6 +54,7 @@ export class CopilotLifecycle {
   readonly cliMode: CopilotCliMode;
   readonly clientOptions: CopilotClientOptions;
 
+  private static loggedOnce = false;
   private readonly client: CopilotRuntimeClient;
 
   constructor(options: CopilotLifecycleOptions = {}) {
@@ -73,23 +74,26 @@ export class CopilotLifecycle {
       this.clientOptions,
     );
 
-    append({
-      level: 'info',
-      message: TASK2_LOG_MARKER,
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        cliMode: this.cliMode,
-        configDir: this.configDir,
-      },
-    });
-    baseLogger.info(
-      {
-        cliMode: this.cliMode,
-        configDir: this.configDir,
-      },
-      TASK2_LOG_MARKER,
-    );
+    if (!CopilotLifecycle.loggedOnce) {
+      CopilotLifecycle.loggedOnce = true;
+      append({
+        level: 'info',
+        message: TASK2_LOG_MARKER,
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          cliMode: this.cliMode,
+          configDir: this.configDir,
+        },
+      });
+      baseLogger.info(
+        {
+          cliMode: this.cliMode,
+          configDir: this.configDir,
+        },
+        TASK2_LOG_MARKER,
+      );
+    }
   }
 
   async start(): Promise<void> {

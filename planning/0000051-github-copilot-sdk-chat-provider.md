@@ -2636,7 +2636,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 33. Make Copilot plaintext-storage bootstrap writes safe against partial-write state
 
 - Repository Name: Current Repository
-- Task Status: **todo**
+- Task Status: **in progress**
 - Git Commits: None yet.
 
 #### Overview
@@ -2651,24 +2651,31 @@ Reopen Story `0000051` to close the review finding that `server/src/config/copil
 
 #### Subtasks
 
-1. [ ] Re-read the latest review evidence and findings artifacts plus the Story `0000051` persistence and auth-contract acceptance criteria before editing the config helper. Purpose: keep the repair focused on persisted-artifact safety rather than reopening broader auth behavior.
-2. [ ] Update `server/src/config/copilotConfig.ts` so `ensureCopilotPlaintextTokenStorage()` no longer depends on an in-place happy-path overwrite of `copilot/config.json`. Prefer one explicit safe-write strategy such as write-to-temp then rename, or an equally explicit paired reader and writer contract that tolerates transient in-progress state. Purpose: remove the partial-write hazard on the shared Copilot config artifact.
-3. [ ] Compare the repaired writer with its current reader and route consumers so malformed, partial, or contradictory `config.json` state is either repaired safely or rejected in one deterministic and observable way. Purpose: make the reader and writer pair explicit instead of relying on an unstated serialization convention.
-4. [ ] Keep the repair narrow and upstream: do not add new fallback config files, silent `{}` replacement of contradictory current-format state, or broad route-level retries unless direct evidence proves they are required. Purpose: preserve the shared auth contract while tightening the artifact-safety seam.
-5. [ ] Add or update direct automated proof covering at least one partial-write or malformed-state edge case for the plaintext-storage bootstrap path, plus the current clean path and unavailable-before-start failure contract. Purpose: close the current weak-proof area for this persisted-state change.
+1. [x] Re-read the latest review evidence and findings artifacts plus the Story `0000051` persistence and auth-contract acceptance criteria before editing the config helper. Purpose: keep the repair focused on persisted-artifact safety rather than reopening broader auth behavior.
+2. [x] Update `server/src/config/copilotConfig.ts` so `ensureCopilotPlaintextTokenStorage()` no longer depends on an in-place happy-path overwrite of `copilot/config.json`. Prefer one explicit safe-write strategy such as write-to-temp then rename, or an equally explicit paired reader and writer contract that tolerates transient in-progress state. Purpose: remove the partial-write hazard on the shared Copilot config artifact.
+3. [x] Compare the repaired writer with its current reader and route consumers so malformed, partial, or contradictory `config.json` state is either repaired safely or rejected in one deterministic and observable way. Purpose: make the reader and writer pair explicit instead of relying on an unstated serialization convention.
+4. [x] Keep the repair narrow and upstream: do not add new fallback config files, silent `{}` replacement of contradictory current-format state, or broad route-level retries unless direct evidence proves they are required. Purpose: preserve the shared auth contract while tightening the artifact-safety seam.
+5. [x] Add or update direct automated proof covering at least one partial-write or malformed-state edge case for the plaintext-storage bootstrap path, plus the current clean path and unavailable-before-start failure contract. Purpose: close the current weak-proof area for this persisted-state change.
 6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 33, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not run raw server build or test commands unless wrapper diagnosis is required.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
 3. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
 
 #### Implementation notes
 
 - Added after review pass `0000051-review-20260324T144346Z-6385e23c` found that the new plaintext-storage bootstrap path still depends on a non-atomic in-place write of `copilot/config.json`, with only happy-path and explicit `EACCES` proof.
+- Re-read the latest review findings plus the Story `0000051` persistence and shared auth-contract acceptance criteria before editing `copilotConfig.ts` so Task 33 stays focused on the config-artifact safety seam instead of reopening broader device-auth behavior.
+- Updated `server/src/config/copilotConfig.ts` so plaintext-storage bootstrap now writes `config.json` through a same-directory temp file plus rename instead of overwriting the live file in place.
+- Tightened the reader and writer pair by rejecting malformed or non-object `config.json` state with one deterministic helper error instead of relying on a happy-path JSON serialization convention.
+- Kept the repair narrow to the config helper and existing route contract: no fallback files, silent `{}` replacement, or broad route-level retries were added.
+- Added direct proof in `server/src/test/unit/copilotConfig.test.ts` for malformed existing config state and in `server/src/test/unit/copilotDeviceAuth.test.ts` for the shared unavailable-before-start route contract when plaintext bootstrap rejects malformed config.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the persisted-config safety repair compiles without needing log inspection.
+- **BLOCKER** Testing step 2 (`npm run test:summary:server:unit`): the full wrapper stayed on `agent_action: wait` with `do_not_read_log: true` for more than 30 minutes and never reached a terminal summary during this task attempt, so I did not open the log early or pretend the proof passed. I checked `ps -eo pid,etimes,command` and confirmed the wrapper process plus its child `node --test` run were still active, with execution sitting inside the long-running `src/test/integration/flows.run.loop.test.ts` portion of the suite. The missing capability is a terminal wrapper result for the full server-unit proof within a workable observation window; unless the expected wait budget is widened or this proof requirement is re-sequenced, Task 33 cannot be closed honestly.
 
 ### Task 34. Re-run full Story `0000051` validation after the second review-fix tasks
 

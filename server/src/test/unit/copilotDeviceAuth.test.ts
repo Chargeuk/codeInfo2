@@ -182,7 +182,7 @@ describe('POST /copilot/device-auth unit behavior', () => {
     assert.equal(runCopilotDeviceAuth.mock.calls.length, 0);
   });
 
-  test('missing-cli and unwritable-config failures surface clear unavailable-before-start reasons', async () => {
+  test('missing-cli and config bootstrap failures surface clear unavailable-before-start reasons', async () => {
     const cliMissingRes = await supertest(
       buildApp(
         withDeps({
@@ -239,6 +239,25 @@ describe('POST /copilot/device-auth unit behavior', () => {
 
     assert.equal(plaintextRes.status, 200);
     assert.deepEqual(plaintextRes.body, {
+      provider: 'copilot',
+      state: 'unavailable_before_start',
+      reason: 'copilot config persistence unavailable',
+    });
+
+    const malformedConfigRes = await supertest(
+      buildApp(
+        withDeps({
+          ensureCopilotPlaintextTokenStorage: async () => {
+            throw new Error('copilot config.json is malformed');
+          },
+        }),
+      ),
+    )
+      .post('/copilot/device-auth')
+      .send({});
+
+    assert.equal(malformedConfigRes.status, 200);
+    assert.deepEqual(malformedConfigRes.body, {
       provider: 'copilot',
       state: 'unavailable_before_start',
       reason: 'copilot config persistence unavailable',

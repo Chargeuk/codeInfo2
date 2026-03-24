@@ -151,20 +151,26 @@ export async function ensureCopilotPlaintextTokenStorage(
   changed: boolean;
   configPath: string;
 }> {
+  const MALFORMED_CONFIG_MESSAGE = 'copilot config.json is malformed';
   const resolvedHome = path.resolve(copilotHome);
   const configPath = path.join(resolvedHome, 'config.json');
 
   await fs.promises.mkdir(resolvedHome, { recursive: true });
 
-  let currentConfig: Record<string, unknown> = {};
+  let currentConfig: Record<string, unknown>;
   try {
     const raw = await fs.promises.readFile(configPath, 'utf8');
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      currentConfig = parsed as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(MALFORMED_CONFIG_MESSAGE);
     }
+    currentConfig = parsed as Record<string, unknown>;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      currentConfig = {};
+    } else if (error instanceof SyntaxError) {
+      throw new Error(MALFORMED_CONFIG_MESSAGE);
+    } else {
       throw error;
     }
   }
@@ -181,11 +187,23 @@ export async function ensureCopilotPlaintextTokenStorage(
     store_token_plaintext: true,
   };
 
-  await fs.promises.writeFile(
-    configPath,
-    `${JSON.stringify(nextConfig, null, 2)}\n`,
-    'utf8',
+  const tempPath = path.join(
+    resolvedHome,
+    `config.json.${process.pid}.${Date.now()}.${Math.random()
+      .toString(16)
+      .slice(2)}.tmp`,
   );
+
+  try {
+    await fs.promises.writeFile(
+      tempPath,
+      `${JSON.stringify(nextConfig, null, 2)}\n`,
+      'utf8',
+    );
+    await fs.promises.rename(tempPath, configPath);
+  } finally {
+    await fs.promises.rm(tempPath, { force: true }).catch(() => {});
+  }
 
   return {
     changed: true,

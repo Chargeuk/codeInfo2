@@ -118,3 +118,28 @@ test('enables plaintext token storage without overwriting existing config keys',
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('rejects malformed existing config deterministically without leaving temp files behind', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-config-'),
+  );
+
+  try {
+    const configPath = path.join(tempRoot, 'config.json');
+    await fs.promises.writeFile(configPath, '{"store_token_plaintext":', 'utf8');
+
+    await assert.rejects(
+      ensureCopilotPlaintextTokenStorage(tempRoot),
+      /copilot config\.json is malformed/u,
+    );
+
+    const entries = await fs.promises.readdir(tempRoot);
+    assert.deepEqual(entries, ['config.json']);
+    assert.equal(
+      await fs.promises.readFile(configPath, 'utf8'),
+      '{"store_token_plaintext":',
+    );
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});

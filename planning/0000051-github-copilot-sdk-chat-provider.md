@@ -2524,7 +2524,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 ### Task 31. Re-run full Story `0000051` validation after the review-fix tasks
 
 - Repository Name: Current Repository
-- Task Status: **todo**
+- Task Status: **in progress**
 - Git Commits: None yet.
 
 #### Overview
@@ -2539,26 +2539,39 @@ Run one fresh full-story validation after Tasks 27 through 30 land so Story `000
 
 #### Subtasks
 
-1. [ ] Re-read the Story `0000051` acceptance criteria, the review evidence artifact, the review findings artifact, and the completed Tasks 27 through 30 notes before rerunning validation. Purpose: make sure the final proof explicitly covers every reopened review finding and the original story contract together.
-2. [ ] Confirm that each review-fix task added direct proof for its repaired edge case before broader regression validation starts. Purpose: avoid relying on the full-suite rerun alone for the exact defects the review found.
-3. [ ] Update `planning/0000051-pr-summary.md` only if the reviewer-facing summary needs a short note about the reopened review-fix sequence and the final validation rerun. Purpose: keep closeout traceability truthful without broadening scope.
+1. [x] Re-read the Story `0000051` acceptance criteria, the review evidence artifact, the review findings artifact, and the completed Tasks 27 through 30 notes before rerunning validation. Purpose: make sure the final proof explicitly covers every reopened review finding and the original story contract together.
+2. [x] Confirm that each review-fix task added direct proof for its repaired edge case before broader regression validation starts. Purpose: avoid relying on the full-suite rerun alone for the exact defects the review found.
+3. [x] Update `planning/0000051-pr-summary.md` only if the reviewer-facing summary needs a short note about the reopened review-fix sequence and the final validation rerun. Purpose: keep closeout traceability truthful without broadening scope.
 4. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 31, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
 Use only this repository's wrapper commands from `AGENTS.md` for the checks below because `Repository Name` is `Current Repository`. Do not attempt to run raw build or test commands for this repository without the wrapper, and only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:unit` and allow up to 16 minutes for a terminal result. While the wrapper still reports `agent_action: wait` and `do_not_read_log: true`, continue waiting instead of opening the log early. If `failed > 0`, or if the wrapper ends with `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
-4. [ ] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
-5. [ ] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
-6. [ ] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-7. [ ] Run `npm run test:summary:e2e` and allow up to 7 minutes for a terminal result. If `failed > 0`, setup or teardown fails, or the wrapper reports unknown or ambiguous failure counts, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
-8. [ ] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
-9. [ ] Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the full Story `0000051` behavior plus nearby regressions after the review-fix tasks land, and confirm the debug console shows no logged errors.
-10. [ ] Run `npm run compose:down` after the wrapper-backed and manual browser checks finish.
+1. [x] Run `npm run build:summary:server`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run build:summary:client`. If the wrapper reports `failed` or unexpected non-zero warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:unit` and allow up to 16 minutes for a terminal result. While the wrapper still reports `agent_action: wait` and `do_not_read_log: true`, continue waiting instead of opening the log early. If `failed > 0`, or if the wrapper ends with `agent_action: inspect_log`, inspect the exact printed log path under `test-results/server-unit-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full wrapper.
+4. [x] Run `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact printed log path under `test-results/server-cucumber-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full wrapper.
+5. [x] Run `npm run test:summary:client`. If `failed > 0`, inspect the exact printed log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full wrapper.
+6. [x] Run `npm run compose:build:summary`. If the wrapper reports `failed`, unknown counts, or unexpected failure totals, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+7. [x] Run `npm run test:summary:e2e` and allow up to 7 minutes for a terminal result. If `failed > 0`, setup or teardown fails, or the wrapper reports unknown or ambiguous failure counts, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full wrapper.
+8. [x] Run `npm run compose:up`. If startup fails, use `npm run compose:logs` to inspect the running stack, fix the issue, and rerun `npm run compose:up`.
+9. [x] Use the Playwright MCP tools against `http://host.docker.internal:5001` to confirm the full Story `0000051` behavior plus nearby regressions after the review-fix tasks land, and confirm the debug console shows no logged errors.
+10. [x] Run `npm run compose:down` after the wrapper-backed and manual browser checks finish.
 
 #### Implementation notes
 
 - Added after review pass `0000051-review-20260324T114358Z-dc5df4a4` reopened Story `0000051` with four repo-local findings that must all be closed and revalidated before the story can close again.
+- Re-read the Story `0000051` acceptance criteria, the `0000051-review-20260324T114358Z-dc5df4a4` evidence and findings artifacts, and the completed Task 27 through Task 30 notes before rerunning validation so the final pass stays tied to the exact reopened defects and original story contract together.
+- Confirmed from the completed Task 27 through Task 30 notes that each reopened review fix now has direct proof in its own focused tests before the broader wrapper rerun starts.
+- Updated `planning/0000051-pr-summary.md` with a short reviewer-facing note covering the reopened Task 27 through Task 30 repair sequence and this final Task 31 validation rerun, without broadening the rest of the summary.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0`, so the final rerun started from a clean server build baseline without log inspection.
+- `npm run build:summary:client` passed cleanly with `warning_count: 0`, so the final rerun kept the client build baseline green without needing any targeted diagnosis.
+- `npm run test:summary:server:unit` passed with `1457/1457` tests green after a long but healthy wrapper run that stayed on `agent_action: wait` until clean completion, matching the Task 31 wait-before-log rule.
+- `npm run test:summary:server:cucumber` passed with `75/75` scenarios green, so the final rerun kept the higher-level server behavior proof intact after the review-fix sequence.
+- `npm run test:summary:client` passed with `646/646` tests green, confirming the client-side bootstrap and tool-name repair work still holds under the final story-wide rerun.
+- `npm run compose:build:summary` passed with `items passed: 2` and `items failed: 0`, so the final validation rerun confirmed the container build still bakes the full Story `0000051` runtime assets cleanly.
+- `npm run test:summary:e2e` again ended with `agent_action: inspect_log` because the wrapper flattened Playwright JSON into ambiguous `0/0` counts, but `logs/test-summaries/e2e-tests-latest.log` showed `expected: 53` and `unexpected: 0`, so the final e2e rerun was clean after inspection.
+- `npm run compose:up` started the manual-validation stack cleanly again, with the server reaching healthy status before the final browser proof step.
+- Playwright MCP against `http://host.docker.internal:5001/chat` confirmed the final live-stack browser proof: the shared `Choose Authentication` dialog still opened from Chat, provider ordering stayed `codex > copilot (auth required) > lmstudio`, a nearby LM Studio selection still applied cleanly, and the browser console had no `error` entries.
+- `npm run compose:down` stopped and removed the full manual-validation stack cleanly, so the story-wide rerun now ends with the wrapper-backed environment torn down again.

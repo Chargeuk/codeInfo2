@@ -6,6 +6,8 @@ Story 51 adds GitHub Copilot as a third chat provider across the shared server, 
 
 Review follow-up: Story 51 was reopened once for a contract-level repair after review `0000051-review-20260323T153158Z-a71881ed`. Task 21 now closes that gap by making `/copilot/device-auth` honor `CODEINFO_COPILOT_CLI_PATH` for both availability checks and the spawned login command, with direct proof for the `PATH`-missing plus override-present deployment case.
 
+Review-fix rerun: Story 51 was reopened again after review `0000051-review-20260324T114358Z-dc5df4a4` for four repo-local contract fixes. Tasks 27 through 30 repaired invalid `/chat/models` provider validation, truthful client bootstrap failure visibility, Copilot plaintext-storage auth failure mapping, and Copilot tool-name continuity, each with direct proof before the story-wide validation rerun in Task 31.
+
 ## Major Story Steps
 
 - Tasks 1 through 6 extended the shared provider, readiness, model-list, request-validation, OpenAPI, and runtime seams from a two-provider world into a three-provider contract with deterministic Copilot visibility and stable unavailable reasons.

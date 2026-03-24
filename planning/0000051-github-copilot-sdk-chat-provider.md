@@ -2420,7 +2420,8 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 
 - Repository Name: Current Repository
 - Task Status: **completed**
-- Git Commits: None yet.
+- Git Commits:
+  - `3a531a65` — `DEV-[51] - map copilot plaintext bootstrap failures`
 
 #### Overview
 
@@ -2438,7 +2439,7 @@ Reopen Story `0000051` to close the review finding that `server/src/routes/copil
 2. [x] Update `server/src/routes/copilotDeviceAuth.ts` so failures from `ensureCopilotPlaintextTokenStorage()` are translated into the same shared `provider: 'copilot', state: 'unavailable_before_start'` response family used for the later auth-file-store bootstrap failure. Purpose: stop plaintext bootstrap errors from escaping as raw 500 responses.
 3. [x] Keep the repair narrow and explicit: preserve the existing happy path, pending-state reuse, and retry behavior unless direct code evidence proves another auth-state change is required. Purpose: avoid broad auth-route churn while closing the specific review defect.
 4. [x] Add or update direct server tests to prove malformed or unwritable plaintext-storage bootstrap failures now surface the shared auth failure contract without weakening the existing pending-state and retry coverage. Purpose: close the missing-proof gap on this high-risk helper.
-5. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 29, recording implementation notes, and listing the task commit hashes once they exist.
+5. [x] Update this plan file after implementation by marking the completed checkboxes for Task 29, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -2458,6 +2459,7 @@ Use only this repository's wrapper commands from `AGENTS.md` for the checks belo
 - `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so no server build log inspection was needed.
 - `npm run test:summary:server:unit` passed cleanly with `1457` tests run and `0` failures, so no targeted rerun or log inspection was needed.
 - `npm run test:summary:server:cucumber` passed cleanly with `75` tests run and `0` failures, so no targeted rerun or log inspection was needed.
+- Recorded task commit `3a531a65` in the plan and marked Task 29 fully complete after the narrow route fix, direct server proof updates, and wrapper-backed validation all landed.
 
 ### Task 30. Preserve Copilot tool names across request and result events
 

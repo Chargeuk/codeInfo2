@@ -200,11 +200,15 @@ This story stays within the current repository, so the contract definitions belo
 - `target: "plan_scope"` reuses the existing batch transcript payload shape used by multi-repository re-ingest, rather than introducing a second plan-scope-only batch payload.
 - The batch result for `target: "plan_scope"` contains the ordered list of repositories attempted and the terminal outcome for each repository.
 - The batch result for `target: "plan_scope"` also contains summary counts so the UI and tests can assert the batch outcome directly.
+- The batch result for `target: "plan_scope"` also contains a `warnings` array that records handoff fallback, skipped-at-resolution repositories, and attempted repository failures.
 - Additional repositories that are skipped before re-ingest begins because they are invalid or not currently ingested do not appear in the batch `repositories` array or summary counts.
+- Completed `plan_scope` batches that include warnings are persisted and published with tool-result `stage: "success"` plus the batch `warnings` array, rather than a new tool stage enum value.
 - Logs and structured runtime metadata clearly distinguish `sourceId`, `working`, and `plan_scope` target modes.
 - Logs also make it clear when `plan_scope` had to fall back to the working repository only, skip unusable additional repositories, or continue after repository-level failures.
 - Warning text, structured logs, and step metadata make skipped-at-resolution repositories visible even though they are not part of the attempted-repository batch payload.
 - Warning-oriented assistant text and UI status make it clear when `plan_scope` completed with some repository failures, without treating the whole batch as a hard error.
+- Runtime `plan_scope` consumption reads only `additional_repositories[].path` from `current-plan.json` and ignores unrelated handoff fields such as `plan_path` and `branched_from`.
+- The story persists the new warning data through the existing `Turn.toolCalls` payload path and does not introduce a new Mongo collection or a new top-level Turn schema field.
 - Unsupported target values, including the removed `current` literal, fail through the normal invalid-target validation path rather than a special backwards-compatibility branch.
 - MCP `reingest_repository` remains on its explicit `sourceId` contract and does not gain `working` or `plan_scope` semantics in this story.
 - API validation, docs, tests, and planning references are updated so `current` is no longer presented as a supported re-ingest target.
@@ -218,6 +222,8 @@ This story stays within the current repository, so the contract definitions belo
 - Reworking the broader `current-plan.json` handoff format beyond reading `additional_repositories[].path` for this story.
 - General multi-repository orchestration features beyond the `plan_scope` re-ingest behavior described here.
 - Expanding the MCP `reingest_repository` tool contract beyond its existing explicit `sourceId` behavior.
+- Adding a new tool-result stage enum value just for warning-style `plan_scope` completion.
+- Introducing a new persistence collection or a new top-level Turn schema field for re-ingest warnings.
 
 ## Research Findings
 

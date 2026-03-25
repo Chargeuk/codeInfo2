@@ -777,6 +777,7 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 - `https://zod.dev/api?id=discriminated-unions` - use for discriminator-based unions and literal branches; this is relevant if the final schema shape is expressed with a clearer discriminator key instead of a broad union.
 - `https://zod.dev/api?id=objects` - use for `z.strictObject()` and unknown-key rejection, which is directly relevant to the tests that must reject extra keys.
 
+
 #### Subtasks
 
 1. [ ] In `server/src/agents/commandsSchema.ts`, replace the re-ingest command union so the only authored shapes are `{ "type": "reingest", "sourceId": "<selector>" }`, `{ "type": "reingest", "target": "working" }`, and `{ "type": "reingest", "target": "plan_scope" }`. Read/update: `server/src/agents/commandsSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, Context7 `/colinhacks/zod`. Remove every `current` / `all` literal branch from both the schema and the inferred command item types. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
@@ -787,6 +788,8 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 6. [ ] Unit test update: `server/src/test/unit/flows-schema.test.ts`. Purpose: prove flow JSON rejects removed literals `current` / `all`, mixed `{ sourceId, target }`, and unexpected extra keys so the error-path contract is explicit. Read/update: `server/src/test/unit/flows-schema.test.ts`, `server/src/flows/flowSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
 7. [ ] Search checked-in command and flow JSON assets for removed literals with a repository-wide search such as `rg '\"target\": \"(current|all)\"'`. If real assets exist, update them to the correct new literal in the owning file; if none exist, record that result in this task's Implementation notes so the acceptance criterion is still explicitly closed out. Read/update: repository root plus any matching JSON command/flow files, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
 8. [ ] Update this story file if the concrete schema implementation in `server/src/agents/commandsSchema.ts` or `server/src/flows/flowSchema.ts` reveals any authored-contract detail that differs from the planned shapes above, so later developers do not have to infer the final contract from code alone. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `planning/plan_format.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+9. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+10. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -795,12 +798,11 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the schema contract with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts --file server/src/test/unit/flows-schema.test.ts`.
-6. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 2. Add The Shared Plan-Scope Fixture Harness
@@ -817,6 +819,7 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 `fs.mkdtemp` temp-directory API, the trailing-separator requirement for safe temp-dir creation, `fs.rm(..., { recursive: true, force: true })` cleanup, and `node:test` patterns used by the fixture smoke test.
 
+
 #### Subtasks
 
 1. [ ] Create `server/src/test/support/planScopeFixture.ts` as the shared helper for plan-scope filesystem scenarios. The helper must be able to create: a working repository root, `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, ordered `additional_repositories[].path` entries, duplicate entries, malformed JSON content, invalid repository-path cases, and an unreadable-handoff scenario or equivalent deterministic read-failure setup that later tests can use. Read/update: `server/src/test/support/planScopeFixture.ts`, `codeInfoStatus/flow-state/current-plan.json`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
@@ -826,6 +829,8 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 5. [ ] Unit test addition: `server/src/test/unit/planScopeFixture.test.ts`. Purpose: prove the fixture helper supports the unreadable/read-failure scenario and still cleans up temp directories without uncaught filesystem errors. Read/update: `server/src/test/unit/planScopeFixture.test.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
 6. [ ] Markdown update: `projectStructure.md`. Purpose: document the new files created by this task, including `server/src/test/support/planScopeFixture.ts` and `server/src/test/unit/planScopeFixture.test.ts`, after those files exist and before the task is marked complete. Read/update: `projectStructure.md`, `server/src/test/support/planScopeFixture.ts`, `server/src/test/unit/planScopeFixture.test.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
 7. [ ] Update this story file if the final helper boundary in `server/src/test/support/planScopeFixture.ts` turns out to be narrower or clearer than the current task text, so later tasks inherit the exact supported harness shape. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+8. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+9. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -834,12 +839,11 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the fixture harness behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeFixture.test.ts`.
-6. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 3. Add The Plan-Scope Resolution Helper
@@ -856,6 +860,7 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 filesystem and path APIs that read `current-plan.json`, parse JSON from disk, normalize paths, and support the `node:test` resolver coverage for fallback and warning cases.
 
+
 #### Subtasks
 
 1. [ ] Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, extract `additional_repositories[].path`, keep the working repository first, preserve file order for additional repositories, remove duplicates, and return the warning data defined in this story for missing, malformed, unreadable, or unusable handoff entries. Read/update: `server/src/ingest/planScopeResolver.ts`, `codeInfoStatus/flow-state/current-plan.json`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
@@ -865,6 +870,8 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 5. [ ] Unit test addition: `server/src/test/unit/planScopeResolver.test.ts`. Purpose: prove invalid or not-currently-ingested additional repository paths are skipped during resolution and returned as warnings instead of attempted repositories. Read/update: `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
 6. [ ] Markdown update: `projectStructure.md`. Purpose: document the new files created by this task, including `server/src/ingest/planScopeResolver.ts` and `server/src/test/unit/planScopeResolver.test.ts`, after those files exist and before the task is marked complete. Read/update: `projectStructure.md`, `server/src/ingest/planScopeResolver.ts`, `server/src/test/unit/planScopeResolver.test.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
 7. [ ] Update this story file if the implemented helper contract in `server/src/ingest/planScopeResolver.ts` produces a clearer warning shape or return type than the current wording, so Tasks 4 and 5 can depend on one explicit documented contract. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/ingest/planScopeResolver.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+8. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+9. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -873,12 +880,11 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the resolution helper with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeResolver.test.ts`.
-6. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 4. Implement Working And Plan-Scope Execution
@@ -895,6 +901,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 runtime behavior around filesystem reads, path handling, promise-based error propagation, and test coverage patterns that the re-ingest execution layer relies on.
 - Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when updating `design.md` to document the new `working` and `plan_scope` execution paths.
+
 
 #### Subtasks
 
@@ -917,6 +924,8 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 17. [ ] Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove an attempted repository failure records `repository_failed`, later repositories still run in order, and the final batch result remains a completed batch payload rather than a hard execution abort. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 18. [ ] Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove execution-layer logs and metadata distinguish working-only fallback, skipped-at-resolution repositories, and degraded batch completion clearly enough for later command/flow diagnostics. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 19. [ ] Markdown update: `design.md`. Purpose: document the execution-layer architecture change from owner-based `current` / `all` to `working` / `plan_scope`, and add or update Mermaid diagrams that show the single-target branch, the plan-scope resolution order, and the continue-after-failure batch path. Read/update: `design.md`, `server/src/ingest/reingestExecution.ts`, Context7 `/mermaid-js/mermaid`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+20. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+21. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -925,12 +934,11 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the execution contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
-6. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 5. Implement The Re-Ingest Message And Persistence Contract
@@ -949,6 +957,7 @@ Update the server-side tool-result and lifecycle message contract so completed `
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 test/runtime behavior while updating the tool-result and lifecycle tests around persisted payloads.
 - Context7 `/mermaid-js/mermaid` - use for Mermaid sequence-diagram syntax when documenting the tool-result, lifecycle, and persistence flow in `design.md`.
 
+
 #### Subtasks
 
 1. [ ] Update `server/src/chat/reingestToolResult.ts` so single re-ingest payloads use `targetMode: "sourceId" | "working"` and batch payloads use `targetMode: "plan_scope"` with the ordered attempted `repositories`, `summary`, and explicit `warnings` array described in this story. Read/update: `server/src/chat/reingestToolResult.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
@@ -961,6 +970,8 @@ Update the server-side tool-result and lifecycle message contract so completed `
 8. [ ] Unit test update: `server/src/test/unit/reingest-step-lifecycle.test.ts`. Purpose: prove warning-style batches persist correctly, produce transcript-facing warning text, and do not degrade into hard error turns. Read/update: `server/src/test/unit/reingest-step-lifecycle.test.ts`, `server/src/chat/reingestStepLifecycle.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 9. [ ] Unit test update: `server/src/test/unit/reingest-step-lifecycle.test.ts`. Purpose: prove historical payload compatibility for stored `current` / `all` data so older transcripts remain readable after the new contract lands. Read/update: `server/src/test/unit/reingest-step-lifecycle.test.ts`, `server/src/chat/reingestStepLifecycle.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 10. [ ] Markdown update: `design.md`. Purpose: document the warning-aware tool-result and persistence architecture, and add or update Mermaid diagrams that show execution result shaping, lifecycle publication, and storage in `Turn.toolCalls`. Read/update: `design.md`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, Context7 `/mermaid-js/mermaid`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+11. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+12. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -969,12 +980,11 @@ Update the server-side tool-result and lifecycle message contract so completed `
 3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the message and persistence contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-tool-result.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts`.
-6. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 6. Wire Direct Commands To The New Runtime Contract
@@ -993,6 +1003,7 @@ Wire the new schema, execution, and message contracts into direct command execut
 - `https://expressjs.com/en/guide/using-middleware.html` - use for the application-level and router-level middleware flow, including `next()` semantics, which matters when the direct-command path threads working-folder context through the server runtime.
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime that backs the direct-command unit and integration suites.
 
+
 #### Subtasks
 
 1. [ ] Update `server/src/agents/commandsRunner.ts` so direct-command re-ingest items pass the explicit runtime `workingRepositoryPath` added in Task 4 and the new `targetMode` values into `executeReingestRequest`. Keep the direct-command surface aligned with the new runtime contract rather than reconstructing owner-based `current` behavior locally. Read/update: `server/src/agents/commandsRunner.ts`, `server/src/agents/service.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
@@ -1005,6 +1016,8 @@ Wire the new schema, execution, and message contracts into direct command execut
 8. [ ] Integration test update: `server/src/test/integration/commands.reingest.test.ts`. Purpose: prove direct-command transcript-facing text no longer says "all ingested repositories" and instead reflects the new `working` / warning-aware `plan_scope` wording visible to downstream consumers. Read/update: `server/src/test/integration/commands.reingest.test.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/agents/commandsRunner.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
 9. [ ] Markdown update: `projectStructure.md`. Purpose: if Task 6 creates a new checked-in proof command such as `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, document that file after it exists so Task 8 can locate it without rediscovering the command path. If Task 6 reuses an existing checked-in command instead, record that no new project-structure entry was needed in the Implementation notes. Read/update: `projectStructure.md`, `codex_agents/tasking_agent/commands/reingest_plan_scope.json` or the reused command file, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
 10. [ ] Update this story file if direct-command wiring in `server/src/agents/commandsRunner.ts`, the chosen checked-in proof command, or `server/src/test/integration/commands.reingest.test.ts` reveals a real behavior difference from the documented contract, so Tasks 7 through 9 inherit the corrected description. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/agents/commandsRunner.ts`, the chosen checked-in proof command file. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+11. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+12. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -1013,12 +1026,11 @@ Wire the new schema, execution, and message contracts into direct command execut
 3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the direct-command runtime surface with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts --file server/src/test/integration/commands.reingest.test.ts`.
-6. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 7. Wire Flow Re-Ingest Surfaces To The New Runtime Contract
@@ -1038,6 +1050,7 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime behind the flow integration suites.
 - Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when documenting flow re-ingest behavior in `design.md`.
 
+
 #### Subtasks
 
 1. [ ] Update `server/src/flows/service.ts` so both top-level flow re-ingest steps and the flow-owned command `executeReingest` callback pass the explicit runtime `workingRepositoryPath` added in Task 4 into `executeReingestRequest`. Keep `server/src/agents/commandItemExecutor.ts` on its existing responsibility boundary by updating only the command-item delegation and target-mode logging it already owns. Do not create a new direct execution branch inside `commandItemExecutor.ts`. Read/update: `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
@@ -1048,6 +1061,8 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 6. [ ] Integration test update: `server/src/test/integration/flows.run.working-folder.test.ts`. Purpose: prove any flow working-folder restore or validation behavior that touches re-ingest still reflects the new working-repository semantics. Read/update: `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 7. [ ] Markdown update: `design.md`. Purpose: document how top-level flow re-ingest steps and flow-owned command items now route `working` / `plan_scope` through the shared runtime, and add or update Mermaid diagrams that show the flow service and command-item handoff. Read/update: `design.md`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, Context7 `/mermaid-js/mermaid`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 8. [ ] Update this story file if the flow wiring in `server/src/agents/commandItemExecutor.ts` or `server/src/flows/service.ts` reveals a real cross-surface difference from direct-command behavior, so the documented contract stays explicit for later validation tasks. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+9. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+10. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -1056,12 +1071,11 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the flow runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
-6. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 8. Validate Working-Folder Environment And Mounted Runtime Access
@@ -1079,6 +1093,7 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 - `https://docs.docker.com/engine/storage/bind-mounts/` - use for bind-mount syntax, host-path to container-path behavior, and the section that explicitly covers bind mounts with Docker Compose, which is the core runtime visibility concern in this task.
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 env/path validation behavior that the server-side tests rely on while proving success and failure paths around working-folder mapping.
 
+
 #### Subtasks
 
 1. [ ] Unit test update: `server/src/test/unit/pathMap.test.ts`. Purpose: prove the happy-path host-to-workdir mapping still succeeds when `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` are aligned correctly. Read/update: `server/src/test/unit/pathMap.test.ts`, `server/src/ingest/pathMap.ts`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
@@ -1086,6 +1101,8 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 3. [ ] Integration test update: `server/src/test/integration/commands.reingest.test.ts`. Purpose: prove env-mapping failure cases fail clearly before `working` re-ingest starts instead of silently targeting the wrong repository. Read/update: `server/src/test/integration/commands.reingest.test.ts`, `server/src/config/startupEnv.ts`, `server/src/ingest/pathMap.ts`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
 4. [ ] Compose proof update: invoke the checked-in proof command created or selected in Task 6 on the main compose surface via `POST /agents/:agentName/run`, using a `working_folder` under `${CODEINFO_HOST_INGEST_DIR}` that contains `codeInfoStatus/flow-state/current-plan.json`. Document the exact `curl` request, `agentName`, `commandName`, and expected warning/success result so the mounted-runtime proof is actually repeatable. Purpose: prove `<working-repo>/codeInfoStatus/flow-state/current-plan.json` is only read when the working repository is actually visible through the bind mount. Read/update: `docker-compose.yml`, `docker-compose.local.yml`, `codex_agents/tasking_agent/commands/reingest_plan_scope.json` or the reused proof command, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
 5. [ ] Record in this story file that the main compose stack is the default mounted-runtime proof surface, that the local compose stack is only for cases that truly need its extra mounts/runtime behavior, and that `docker-compose.e2e.yml` is not core acceptance proof unless its mount topology changes to expose the working repository to the server container. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `scripts/docker-compose-with-env.sh`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
+6. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+7. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -1095,12 +1112,11 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the env-sensitive runtime behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/pathMap.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
 6. [ ] After `npm run compose:up`, rerun the checked-in proof command from Task 6 against the main compose surface and record the exact `curl` request plus the observed success/warning result in the implementation notes so a later developer can repeat the same mounted-repository proof without rediscovering it.
-7. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 
 - No implementation notes yet.
-
 ---
 
 ### Task 9. Final Validation And Story Close-Out
@@ -1119,6 +1135,7 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 - `https://playwright.dev/docs/screenshots` - use for the optional screenshot-taking step in final validation, because it documents saving page and element screenshots directly to files.
 - Context7 `/mermaid-js/mermaid` - use if the final `design.md` consistency pass needs to correct or extend Mermaid diagrams added earlier in the story.
 
+
 #### Subtasks
 
 1. [ ] Re-check the finished implementation against every acceptance criterion in this story and record any mismatch before close-out. This check must explicitly cover: removed `current` / `all` authored literals, supported `working` / `plan_scope` authored literals, working-first ordering, warning-aware `plan_scope` completion, lifecycle persistence, and unchanged MCP `sourceId` behavior. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, implemented files from Tasks 1 through 8. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; https://playwright.dev/docs/screenshots ; Context7 /mermaid-js/mermaid.
@@ -1128,6 +1145,8 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 5. [ ] Update `design.md` only if the implementation changed the documented re-ingest architecture materially enough that the current design text would become misleading. If no architecture-level edit is needed, record that decision in the Implementation notes instead of leaving it implicit. Read/update: `design.md`, implemented files from Tasks 3 through 7. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; https://playwright.dev/docs/screenshots ; Context7 /mermaid-js/mermaid.
 6. [ ] Update `projectStructure.md` only for files actually added, removed, or renamed by this story, such as `server/src/ingest/planScopeResolver.ts` or `server/src/test/support/planScopeFixture.ts`. If the final implementation lands different filenames, document those exact files here. Read/update: `projectStructure.md`, the final git diff for this story. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; https://playwright.dev/docs/screenshots ; Context7 /mermaid-js/mermaid.
 7. [ ] Create a pull-request-ready summary that names the repository (`Current Repository`), the completed tasks, the key contract/runtime/test changes, and any intentional no-change decisions from the documentation review above. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, final task notes and git diff. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; https://playwright.dev/docs/screenshots ; Context7 /mermaid-js/mermaid.
+8. [ ] Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+9. [ ] Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
@@ -1138,7 +1157,7 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 5. [ ] Run the full server validation wrapper with `npm run test:summary:server:unit`.
 6. [ ] Run `npm run test:summary:e2e` only if the environment has been explicitly made suitable for proving the required filesystem visibility; otherwise record in the implementation notes that e2e remained optional regression smoke and was not used as core acceptance proof for this story.
 7. [ ] If an appropriate browser-visible surface exists by this point, use the Playwright MCP tool to perform a manual regression check and save any required screenshots to `./test-results/screenshots/` using the story/task naming convention; otherwise record why no UI-specific proof was applicable to this server-only story.
-8. [ ] Run full linting with `npm run lint`.
+
 
 #### Implementation notes
 

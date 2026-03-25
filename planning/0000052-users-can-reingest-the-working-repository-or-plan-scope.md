@@ -599,62 +599,79 @@ This story stays within the current repository, so the contract definitions belo
 - Assumptions that are currently invalid:
   - It is not valid to assume checked-in command or flow JSON assets still use `target: "current"` or `target: "all"`. This task must verify by search first and only edit real assets if they exist.
 
-### Task 2. Add The Plan-Scope Resolution Helper And Shared Fixture Harness
+### Task 2. Add The Shared Plan-Scope Fixture Harness
+
+- Already existing capabilities:
+  - `server/src/test/unit/pathMap.test.ts` and the temporary-directory patterns in `server/src/test/unit/agent-commands-runner.test.ts` already show the fixture style this task should reuse.
+- Missing prerequisite capabilities:
+  - `server/src/test/support/planScopeFixture.ts` and `server/src/test/unit/planScopeFixture.test.ts` do not exist yet and must be created here before later resolver and execution tasks can depend on them.
+- Assumptions that are currently invalid:
+  - It is not valid to assume this task should also own repository selection or warning shaping. The fixture harness should stay on temp-repository creation and cleanup only.
+
+### Task 3. Add The Plan-Scope Resolution Helper
 
 - Already existing capabilities:
   - `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/pathMap.ts`, and `server/src/workingFolders/state.ts` already provide the selector, normalization, and path-mapping seams this task should wrap rather than duplicate.
-  - `server/src/test/unit/pathMap.test.ts` and the temporary-directory patterns in `server/src/test/unit/agent-commands-runner.test.ts` already show the fixture style this task should reuse.
+  - The new fixture harness from Task 2 provides the test setup this resolver task should reuse.
 - Missing prerequisite capabilities:
-  - `server/src/ingest/planScopeResolver.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/test/unit/planScopeFixture.test.ts`, and `server/src/test/unit/planScopeResolver.test.ts` do not exist yet and must be created here before Task 3 can depend on them.
+  - `server/src/ingest/planScopeResolver.ts` and `server/src/test/unit/planScopeResolver.test.ts` do not exist yet and must be created here before execution work can depend on them.
 - Assumptions that are currently invalid:
-  - It is not valid to assume `current-plan.json` always exists or is readable. Task 2 must implement and prove missing-file, malformed-file, and warning-only fallback behavior at the helper boundary itself.
+  - It is not valid to assume `current-plan.json` always exists or is readable. Task 3 must implement and prove missing-file, malformed-file, and warning-only fallback behavior at the helper boundary itself.
 
-### Task 3. Implement Working And Plan-Scope Execution
+### Task 4. Implement Working And Plan-Scope Execution
 
 - Already existing capabilities:
   - `server/src/ingest/reingestExecution.ts` already owns the shared execution seam and already exposes the logging and outcome-normalization hooks that should be updated in place.
   - `server/src/test/unit/reingestExecution.test.ts` already provides the unit proof surface for execution behavior.
 - Missing prerequisite capabilities:
-  - Task 2's resolver and fixture support must exist first so Task 3 can consume them instead of rebuilding plan-scope resolution inline.
+  - Task 3's resolver and Task 2's fixture support must exist first so Task 4 can consume them instead of rebuilding plan-scope resolution inline.
 - Assumptions that are currently invalid:
-  - It is not valid to assume every run has a usable working repository. Task 3 must treat missing or unresolved `working_folder` context as a clear pre-start failure for `working`.
+  - It is not valid to assume every run has a usable working repository. Task 4 must treat missing or unresolved `working_folder` context as a clear pre-start failure for `working`.
 
-### Task 4. Implement The Re-Ingest Message And Persistence Contract
+### Task 5. Implement The Re-Ingest Message And Persistence Contract
 
 - Already existing capabilities:
   - `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, and `server/src/mongo/turn.ts` already own the tool-result payload, synthetic-turn lifecycle, and persistence slot that this task should extend.
   - `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` already cover the current payload and persistence behavior.
 - Missing prerequisite capabilities:
-  - Task 3's updated execution payloads must exist first so Task 4 can persist the new `working` / `plan_scope` result shapes and warnings array.
+  - Task 4's updated execution payloads must exist first so Task 5 can persist the new `working` / `plan_scope` result shapes and warnings array.
 - Assumptions that are currently invalid:
   - It is not valid to assume a new tool stage enum can be introduced here. The existing contract remains `success | error`, so warning-style completion must stay inside the payload.
 
-### Task 5. Wire Commands And Flows To The New Runtime Contract
+### Task 6. Wire Direct Commands To The New Runtime Contract
 
 - Already existing capabilities:
-  - `server/src/agents/commandsRunner.ts`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, and their test suites already provide the command/flow surfaces this task needs to update in place.
-  - Existing integration suites already cover direct commands, flow command steps, and working-folder behavior.
+  - `server/src/agents/commandsRunner.ts` and the direct-command test suites already provide the command surface this task needs to update in place.
 - Missing prerequisite capabilities:
-  - Task 3 must land the new execution behavior and Task 4 must land the new persisted payload contract before Task 5 can wire runtime surfaces to them.
+  - Task 4 must land the new execution behavior and Task 5 must land the new persisted payload contract before Task 6 can wire the direct-command surface to them.
 - Assumptions that are currently invalid:
-  - It is not valid to assume existing flow and runner tests already assert the new pre-start wording or target-mode values. Task 5 must update those expectations explicitly.
+  - It is not valid to assume direct-command tests already assert the new target-mode values or warning behavior. Task 6 must update those expectations explicitly.
 
-### Task 6. Validate Working-Folder Environment And Mounted Runtime Access
+### Task 7. Wire Flow Re-Ingest Surfaces To The New Runtime Contract
+
+- Already existing capabilities:
+  - `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, and the flow integration suites already provide the flow surfaces this task needs to update in place.
+- Missing prerequisite capabilities:
+  - Tasks 4 and 5 must complete first so Task 7 can wire top-level flow steps and flow-owned command items to the new execution and payload contracts.
+- Assumptions that are currently invalid:
+  - It is not valid to assume existing flow tests already assert the new pre-start wording or target-mode values. Task 7 must update those expectations explicitly.
+
+### Task 8. Validate Working-Folder Environment And Mounted Runtime Access
 
 - Already existing capabilities:
   - `server/src/ingest/pathMap.ts`, `server/src/routes/ingestDirs.ts`, `server/src/workingFolders/state.ts`, `server/src/test/unit/pathMap.test.ts`, and the checked-in compose files already define the environment and mount semantics that this task should validate.
 - Missing prerequisite capabilities:
-  - Tasks 3 through 5 must complete first so Task 6 can validate the actual new `working` / `plan_scope` runtime behavior rather than the removed `current` / `all` contract.
+  - Tasks 4 through 7 must complete first so Task 8 can validate the actual new `working` / `plan_scope` runtime behavior rather than the removed `current` / `all` contract.
 - Assumptions that are currently invalid:
-  - It is not valid to assume the e2e compose stack is the correct filesystem proof surface. Task 6 must use the main or local compose surface that actually exposes the working repository to the server container.
+  - It is not valid to assume the e2e compose stack is the correct filesystem proof surface. Task 8 must use the main or local compose surface that actually exposes the working repository to the server container.
 
-### Task 7. Final Validation And Story Close-Out
+### Task 9. Final Validation And Story Close-Out
 
 - Already existing capabilities:
   - `README.md`, `design.md`, `docs/developer-reference.md`, and `projectStructure.md` already exist and are the correct docs to update in place.
   - The repository already provides the build, test, and compose wrappers needed for close-out.
 - Missing prerequisite capabilities:
-  - Tasks 1 through 6 must be complete first so Task 7 can validate the finished contract rather than partial behavior.
+  - Tasks 1 through 8 must be complete first so Task 9 can validate the finished contract rather than partial behavior.
 - Assumptions that are currently invalid:
   - No cross-repository close-out work is required for this story because the validated scope stays inside the current repository only.
   - It is not valid to assume a Material UI or other client-side re-ingest consumer exists today; current repository evidence shows this story remains server-and-documentation work unless implementation later adds a new UI surface deliberately.
@@ -763,7 +780,7 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 
 ---
 
-### Task 2. Add The Plan-Scope Resolution Helper And Shared Fixture Harness
+### Task 2. Add The Shared Plan-Scope Fixture Harness
 
 - Repository Name: `Current Repository`
 - Task Status: `__to_do__`
@@ -771,7 +788,50 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 
 #### Overview
 
-Create the reusable runtime/helper seams that the later execution tasks depend on. This task should only deliver plan-scope scope-resolution support plus the shared filesystem fixture helper that makes the new proof path realistic.
+Create the shared filesystem fixture helper that later plan-scope tasks will depend on. This task should stay focused on reusable temp-repository setup and cleanup so the resolver and execution tasks can consume a stable harness instead of hand-rolling their own file trees.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `server/src/test/support`
+- `server/src/test/unit/pathMap.test.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+- `server/src/test/unit/planScopeFixture.test.ts`
+- `codeInfoStatus/flow-state/current-plan.json`
+- DeepWiki `nodejs/node` guidance for Node.js temp-directory fixture cleanup
+
+#### Subtasks
+
+1. [ ] Create `server/src/test/support/planScopeFixture.ts` so tests can build working repositories, handoff files, duplicate entries, malformed files, and invalid repository-path scenarios without repeating ad hoc filesystem setup.
+2. [ ] Keep `planScopeFixture` focused on reusable temp-repository creation and cleanup only; it must not perform repository selection, re-ingest execution, or warning shaping itself.
+3. [ ] Follow the temporary-directory and cleanup patterns already used in `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/pathMap.test.ts`, including `fs.mkdtemp`, minimal directory creation, and explicit `fs.rm(..., { recursive: true, force: true })` teardown.
+4. [ ] Create `server/src/test/unit/planScopeFixture.test.ts` and prove the fixture helper can create the expected temporary working-repository layout, write handoff variants, and clean up without uncaught filesystem errors.
+5. [ ] Update this story file if implementation uncovers a better fixture boundary than the one currently documented.
+6. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the fixture harness behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeFixture.test.ts`.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 3. Add The Plan-Scope Resolution Helper
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Create the plan-scope resolution helper that reads the handoff file and turns it into ordered repository scope plus warnings. This task should stop at the resolution boundary so the later execution task can consume one clear helper instead of mixing file parsing, selector lookup, and re-ingest execution together.
 
 #### Documentation Locations
 
@@ -780,23 +840,18 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 - `server/src/ingest/pathMap.ts`
 - `server/src/mcpCommon/repositorySelector.ts`
 - `server/src/workingFolders/state.ts`
-- `server/src/test/support`
 - `server/src/test/unit/pathMap.test.ts`
-- `server/src/test/unit/planScopeFixture.test.ts`
 - `server/src/test/unit/planScopeResolver.test.ts`
-- `server/src/test/unit/reingestExecution.test.ts`
+- `server/src/test/support/planScopeFixture.ts`
 - `codeInfoStatus/flow-state/current-plan.json`
-- DeepWiki `nodejs/node` guidance for optional local JSON-file failure modes
 
 #### Subtasks
 
 1. [ ] Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, normalize `additional_repositories[].path`, preserve working-repo-first order, remove duplicates, and return structured warning data for missing, malformed, unreadable, or unusable handoff entries.
 2. [ ] Keep `planScopeResolver` focused on resolution only: it must not run re-ingest itself, must not rewrite the handoff file, and must resolve additional repository entries through the existing repository-selector path and existing path-normalization helpers instead of inventing a second direct filesystem-based selector for non-working repositories.
-3. [ ] Create `server/src/test/support/planScopeFixture.ts` so tests can build working repositories, handoff files, duplicate entries, malformed files, and invalid repository-path scenarios without repeating ad hoc filesystem setup; follow the temporary-directory and cleanup patterns already used in `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/pathMap.test.ts`.
-4. [ ] Create `server/src/test/unit/planScopeFixture.test.ts` and prove the fixture helper can create the expected temporary working-repository layout, write handoff variants, and clean up without uncaught filesystem errors.
-5. [ ] Create `server/src/test/unit/planScopeResolver.test.ts` and prove missing-file fallback, malformed-file warnings, de-duplication, and normalization behavior before execution wiring depends on the helper.
-6. [ ] Update this story file if implementation uncovers a better helper boundary or warning shape than the one currently documented.
-7. [ ] Run full linting with `npm run lint`.
+3. [ ] Create `server/src/test/unit/planScopeResolver.test.ts` and prove missing-file fallback, malformed-file warnings, de-duplication, and normalization behavior using `server/src/test/support/planScopeFixture.ts` before execution wiring depends on the helper.
+4. [ ] Update this story file if implementation uncovers a better helper boundary or warning shape than the one currently documented.
+5. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -804,7 +859,7 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
 3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the helper and fixture behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeFixture.test.ts --file server/src/test/unit/planScopeResolver.test.ts`.
+5. [ ] Prove the resolution helper with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeResolver.test.ts`.
 
 #### Implementation notes
 
@@ -812,7 +867,7 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 
 ---
 
-### Task 3. Implement Working And Plan-Scope Execution
+### Task 4. Implement Working And Plan-Scope Execution
 
 - Repository Name: `Current Repository`
 - Task Status: `__to_do__`
@@ -832,6 +887,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 - `server/src/workingFolders/state.ts`
 - `server/src/test/unit/reingestExecution.test.ts`
 - `server/src/test/support/planScopeFixture.ts`
+- `server/src/ingest/planScopeResolver.ts`
 
 #### Subtasks
 
@@ -858,7 +914,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 ---
 
-### Task 4. Implement The Re-Ingest Message And Persistence Contract
+### Task 5. Implement The Re-Ingest Message And Persistence Contract
 
 - Repository Name: `Current Repository`
 - Task Status: `__to_do__`
@@ -902,7 +958,7 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 ---
 
-### Task 5. Wire Commands And Flows To The New Runtime Contract
+### Task 6. Wire Direct Commands To The New Runtime Contract
 
 - Repository Name: `Current Repository`
 - Task Status: `__to_do__`
@@ -910,30 +966,23 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 #### Overview
 
-Wire the new schema, resolver, execution, and message contracts into direct commands, top-level flow re-ingest steps, and flow-owned command items. This task should prove the end-to-end server behavior for the real runtime surfaces that users actually invoke.
+Wire the new schema, execution, and message contracts into direct command execution only. This task should prove the end-to-end behavior for direct command re-ingest before the story moves on to top-level flow steps and flow-owned command items.
 
 #### Documentation Locations
 
 - `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
 - `server/src/agents/commandsRunner.ts`
-- `server/src/agents/commandItemExecutor.ts`
 - `server/src/agents/service.ts`
 - `server/src/test/unit/agent-commands-runner.test.ts`
-- `server/src/flows/service.ts`
 - `server/src/test/integration/commands.reingest.test.ts`
-- `server/src/test/integration/flows.run.command.test.ts`
-- `server/src/test/integration/flows.run.errors.test.ts`
-- `server/src/test/integration/flows.run.working-folder.test.ts`
 
 #### Subtasks
 
-1. [ ] Update `server/src/agents/commandsRunner.ts` and `server/src/agents/commandItemExecutor.ts` so direct commands and flow-owned command items pass the working repository path into `executeReingestRequest` and preserve the new target-mode logging.
-2. [ ] Update `server/src/flows/service.ts` so top-level flow re-ingest steps use the same `working` / `plan_scope` semantics and do not retain any owner-based `current` fallback.
-3. [ ] Update `server/src/test/unit/agent-commands-runner.test.ts` so direct-command logging, lifecycle, and batch-result expectations no longer assume `targetMode: "all"` or the removed `current` target wording.
-4. [ ] Update integration coverage in `server/src/test/integration/commands.reingest.test.ts` for direct-command `working` and `plan_scope` behavior, including fallback and warning cases.
-5. [ ] Update integration coverage in `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and any affected working-folder integration tests so top-level flow steps and flow-owned command items prove the same runtime behavior as direct commands and fail with the new pre-start wording where applicable.
-6. [ ] Update this story file if runtime wiring reveals any cross-surface behavior difference that the plan currently describes incorrectly.
-7. [ ] Run full linting with `npm run lint`.
+1. [ ] Update `server/src/agents/commandsRunner.ts` so direct commands pass the working repository path into `executeReingestRequest` and preserve the new target-mode logging.
+2. [ ] Update `server/src/test/unit/agent-commands-runner.test.ts` so direct-command logging, lifecycle, and batch-result expectations no longer assume `targetMode: "all"` or the removed `current` target wording.
+3. [ ] Update integration coverage in `server/src/test/integration/commands.reingest.test.ts` for direct-command `working` and `plan_scope` behavior, including fallback and warning cases.
+4. [ ] Update this story file if direct-command wiring reveals any behavior difference that the plan currently describes incorrectly.
+5. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -941,7 +990,7 @@ Wire the new schema, resolver, execution, and message contracts into direct comm
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
 3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
+5. [ ] Prove the direct-command runtime surface with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts --file server/src/test/integration/commands.reingest.test.ts`.
 
 #### Implementation notes
 
@@ -949,7 +998,48 @@ Wire the new schema, resolver, execution, and message contracts into direct comm
 
 ---
 
-### Task 6. Validate Working-Folder Environment And Mounted Runtime Access
+### Task 7. Wire Flow Re-Ingest Surfaces To The New Runtime Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Wire the new contract into top-level flow re-ingest steps and flow-owned command items. This task should prove that the flow runtime uses the same `working` and `plan_scope` behavior as direct commands without keeping any owner-based compatibility fallback.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/integration/flows.run.working-folder.test.ts`
+
+#### Subtasks
+
+1. [ ] Update `server/src/agents/commandItemExecutor.ts` and `server/src/flows/service.ts` so flow-owned command items and top-level flow re-ingest steps pass the working repository path into `executeReingestRequest` and preserve the new target-mode logging.
+2. [ ] Update integration coverage in `server/src/test/integration/flows.run.command.test.ts` so top-level flow steps and flow-owned command items prove the same runtime behavior as the direct-command surface.
+3. [ ] Update integration coverage in `server/src/test/integration/flows.run.errors.test.ts` and any affected working-folder integration tests so flow pre-start failures use the new target wording and working-repository semantics where applicable.
+4. [ ] Update this story file if flow wiring reveals any cross-surface behavior difference that the plan currently describes incorrectly.
+5. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the flow runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 8. Validate Working-Folder Environment And Mounted Runtime Access
 
 - Repository Name: `Current Repository`
 - Task Status: `__to_do__`
@@ -1000,7 +1090,7 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 ---
 
-### Task 7. Final Validation And Story Close-Out
+### Task 9. Final Validation And Story Close-Out
 
 - Repository Name: `Current Repository`
 - Task Status: `__to_do__`
@@ -1008,7 +1098,7 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 #### Overview
 
-Perform the final acceptance pass for the whole story, confirm that the implemented behavior matches the plan, and complete the repository documentation updates that belong with the finished work. This task should only happen after Tasks 1 through 6 are fully done and documented.
+Perform the final acceptance pass for the whole story, confirm that the implemented behavior matches the plan, and complete the repository documentation updates that belong with the finished work. This task should only happen after Tasks 1 through 8 are fully done and documented.
 
 #### Documentation Locations
 

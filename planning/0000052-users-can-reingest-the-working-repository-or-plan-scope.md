@@ -582,6 +582,81 @@ This story stays within the current repository, so the contract definitions belo
   - It is not valid to assume the e2e compose stack can prove arbitrary host-repository `plan_scope` reads; that stack does not mount the host ingest root into the server container.
   - It is not valid to assume host source bind mounts should be used for application code; this repository’s Docker model still expects code to be copied into images and built there.
 
+## Task Feasibility Proof
+
+- Repository scope check:
+  - This story remains single-repository work in `Current Repository`.
+  - No cross-repository task split is required because the active handoff and the plan's `Additional Repositories` section both identify no extra repositories.
+
+### Task 1. Replace The Authored Re-Ingest Contract
+
+- Already existing capabilities:
+  - `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` already define the schema unions that must be updated in place.
+  - `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` already provide the parser proof surface this task needs.
+- Missing prerequisite capabilities:
+  - No new prerequisite capability is required before Task 1 starts.
+- Assumptions that are currently invalid:
+  - It is not valid to assume checked-in command or flow JSON assets still use `target: "current"` or `target: "all"`. This task must verify by search first and only edit real assets if they exist.
+
+### Task 2. Add The Plan-Scope Resolution Helper And Shared Fixture Harness
+
+- Already existing capabilities:
+  - `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/pathMap.ts`, and `server/src/workingFolders/state.ts` already provide the selector, normalization, and path-mapping seams this task should wrap rather than duplicate.
+  - `server/src/test/unit/pathMap.test.ts` and the temporary-directory patterns in `server/src/test/unit/agent-commands-runner.test.ts` already show the fixture style this task should reuse.
+- Missing prerequisite capabilities:
+  - `server/src/ingest/planScopeResolver.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/test/unit/planScopeFixture.test.ts`, and `server/src/test/unit/planScopeResolver.test.ts` do not exist yet and must be created here before Task 3 can depend on them.
+- Assumptions that are currently invalid:
+  - It is not valid to assume `current-plan.json` always exists or is readable. Task 2 must implement and prove missing-file, malformed-file, and warning-only fallback behavior at the helper boundary itself.
+
+### Task 3. Implement Working And Plan-Scope Execution
+
+- Already existing capabilities:
+  - `server/src/ingest/reingestExecution.ts` already owns the shared execution seam and already exposes the logging and outcome-normalization hooks that should be updated in place.
+  - `server/src/test/unit/reingestExecution.test.ts` already provides the unit proof surface for execution behavior.
+- Missing prerequisite capabilities:
+  - Task 2's resolver and fixture support must exist first so Task 3 can consume them instead of rebuilding plan-scope resolution inline.
+- Assumptions that are currently invalid:
+  - It is not valid to assume every run has a usable working repository. Task 3 must treat missing or unresolved `working_folder` context as a clear pre-start failure for `working`.
+
+### Task 4. Implement The Re-Ingest Message And Persistence Contract
+
+- Already existing capabilities:
+  - `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, and `server/src/mongo/turn.ts` already own the tool-result payload, synthetic-turn lifecycle, and persistence slot that this task should extend.
+  - `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` already cover the current payload and persistence behavior.
+- Missing prerequisite capabilities:
+  - Task 3's updated execution payloads must exist first so Task 4 can persist the new `working` / `plan_scope` result shapes and warnings array.
+- Assumptions that are currently invalid:
+  - It is not valid to assume a new tool stage enum can be introduced here. The existing contract remains `success | error`, so warning-style completion must stay inside the payload.
+
+### Task 5. Wire Commands And Flows To The New Runtime Contract
+
+- Already existing capabilities:
+  - `server/src/agents/commandsRunner.ts`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, and their test suites already provide the command/flow surfaces this task needs to update in place.
+  - Existing integration suites already cover direct commands, flow command steps, and working-folder behavior.
+- Missing prerequisite capabilities:
+  - Task 3 must land the new execution behavior and Task 4 must land the new persisted payload contract before Task 5 can wire runtime surfaces to them.
+- Assumptions that are currently invalid:
+  - It is not valid to assume existing flow and runner tests already assert the new pre-start wording or target-mode values. Task 5 must update those expectations explicitly.
+
+### Task 6. Validate Working-Folder Environment And Mounted Runtime Access
+
+- Already existing capabilities:
+  - `server/src/ingest/pathMap.ts`, `server/src/routes/ingestDirs.ts`, `server/src/workingFolders/state.ts`, `server/src/test/unit/pathMap.test.ts`, and the checked-in compose files already define the environment and mount semantics that this task should validate.
+- Missing prerequisite capabilities:
+  - Tasks 3 through 5 must complete first so Task 6 can validate the actual new `working` / `plan_scope` runtime behavior rather than the removed `current` / `all` contract.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the e2e compose stack is the correct filesystem proof surface. Task 6 must use the main or local compose surface that actually exposes the working repository to the server container.
+
+### Task 7. Final Validation And Story Close-Out
+
+- Already existing capabilities:
+  - `README.md`, `design.md`, `docs/developer-reference.md`, and `projectStructure.md` already exist and are the correct docs to update in place.
+  - The repository already provides the build, test, and compose wrappers needed for close-out.
+- Missing prerequisite capabilities:
+  - Tasks 1 through 6 must be complete first so Task 7 can validate the finished contract rather than partial behavior.
+- Assumptions that are currently invalid:
+  - No cross-repository close-out work is required for this story because the validated scope stays inside the current repository only.
+
 ## Edge Cases and Failure Modes
 
 - **Authored JSON provides both `sourceId` and `target`, or includes unexpected extra keys.**

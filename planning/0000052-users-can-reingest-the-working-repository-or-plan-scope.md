@@ -136,6 +136,34 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - General multi-repository orchestration features beyond the `plan_scope` re-ingest behavior described here.
 - Expanding the MCP `reingest_repository` tool contract beyond its existing explicit `sourceId` behavior.
 
+## Research Findings
+
+- Repository scope remains single-repository for this story. The active handoff file still points only at this repository and the plan's `Additional Repositories` section remains `- No Additional Repositories`.
+- The current command and flow schemas still hard-code only three re-ingest request shapes:
+  - explicit `sourceId`
+  - `target: "current"`
+  - `target: "all"`
+  Repo evidence: `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `server/src/ingest/reingestExecution.ts`, and `server/src/agents/commandsRunner.ts`.
+- The runtime already has working-folder resolution that should be reused rather than reimplemented. Repo evidence:
+  - `server/src/workingFolders/state.ts` validates absolute paths, known repository membership, and host-to-workdir mapping
+  - `server/src/agents/service.ts` and `server/src/flows/service.ts` already resolve the effective `working_folder` for runs before command or flow execution starts
+- `current-plan.json` is already a checked-in workflow handoff artifact, but server/client runtime code does not currently parse it during re-ingest execution. Story `0000052` therefore introduces new runtime consumption of that handoff file rather than reusing an existing runtime parser.
+- The existing batch re-ingest execution already continues after per-repository failures for `target: "all"` and records per-repository outcomes, but the user-facing tool result layer still turns any batch with `summary.failed > 0` into hard `stage: "error"`. Repo evidence:
+  - `server/src/ingest/reingestExecution.ts` continues the ordered batch after failures
+  - `server/src/chat/reingestToolResult.ts` currently maps batch results with any failed repository to hard error stage
+  - `server/src/chat/reingestStepLifecycle.ts` currently only accepts batch `targetMode: "all"`
+- The current `all` target sorts repositories by canonical path order before execution. Story `0000052` deliberately changes that behavior for `plan_scope` to a different deterministic order: working repository first, then `additional_repositories` in handoff file order.
+- Current checked-in JSON command and flow assets in this repository do not appear to contain `target: "current"` or `target: "all"` literals today; the references found during research are in runtime code and tests. That means the acceptance about updating checked-in assets should be implemented as:
+  - verify by search whether any checked-in workflow assets still use removed targets;
+  - update them if found;
+  - otherwise record that the acceptance was satisfied by verification because no checked-in assets required migration at implementation time.
+- Current tests already cover:
+  - schema acceptance/rejection for `current` and `all`
+  - direct command `current` owner resolution
+  - `all` batch ordering and continue-after-failure behavior
+  - flow-command and flow-step re-ingest parsing
+  That existing coverage should be updated rather than duplicated where possible.
+
 ## Additional Repositories
 
 - No Additional Repositories
@@ -189,6 +217,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - Replace the current owner-based `current` target in the command and flow schemas with `working` and `plan_scope`, while keeping explicit `sourceId` support.
 - Update any checked-in flow or command JSON that still uses `target: "current"` so it now uses `target: "plan_scope"`.
 - Extend the re-ingest execution layer so it accepts the validated `working_folder` repository path directly instead of only the current owner repository path.
+- Reuse the existing working-folder resolution path from `server/src/workingFolders/state.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` instead of adding a second repository-resolution path just for re-ingest targets.
 - Add one resolver for `plan_scope` that:
   - starts with the current working repository;
   - reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` when present;
@@ -197,11 +226,13 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   - skips unusable additional entries with warnings when partial resolution is still possible.
 - Reuse the existing repository selector and canonical container-path normalization logic when turning working-repository and plan-scope entries into re-ingestable roots.
 - Keep `working` as a single-repository execution path and `plan_scope` as a batch orchestration path that records the existing structured batch result shape with `targetMode: "plan_scope"`, while continuing through later repositories when one attempted re-ingest fails.
+- Update both the execution layer and the user-facing tool-result / lifecycle layers together. The runtime batch continuation behavior already exists for `all`, but the current tool-result stage mapping and lifecycle validation still treat any failed batch repository as a hard error and only recognize `targetMode: "all"`.
 - Update direct command execution, dedicated flow re-ingest steps, and flow-command re-ingest items together so all three surfaces share the same target semantics.
 - Let unsupported targets, including removed `current`, fail through the normal invalid-target schema or validation path instead of a dedicated compatibility branch.
 - Update the re-ingest tool-result and lifecycle reporting so completed `plan_scope` batches with failed repositories are surfaced as warning-style completions rather than hard errors, while still preserving failed counts and warning details.
 - Update logs, tool-result payloads, and persisted step metadata so the selected target mode and resolved repository list are obvious during debugging, including when unusable handoff data forces `plan_scope` to fall back to the working repository only, skip specific repositories, or continue after repository-level failures.
 - Add tests for:
+  - current checked-in asset verification proving whether any command or flow JSON files still require `current` → `plan_scope` migration at implementation time;
   - schema acceptance and rejection of `working`, `plan_scope`, and removed `current`;
   - checked-in commands and flows that are migrated from `current` to `plan_scope`;
   - `working` with and without a valid `working_folder`;

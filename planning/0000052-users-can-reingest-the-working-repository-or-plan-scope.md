@@ -297,42 +297,48 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 
 ## Implementation Ideas
 
-- Replace the current owner-based `current` target in the command and flow schemas with `working` and `plan_scope`, while keeping explicit `sourceId` support.
-- Update any checked-in flow or command JSON that still uses `target: "current"` so it now uses `target: "plan_scope"`.
-- Extend the re-ingest execution layer so it accepts the validated `working_folder` repository path directly instead of only the current owner repository path.
-- Reuse the existing working-folder resolution path from `server/src/workingFolders/state.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` instead of adding a second repository-resolution path just for re-ingest targets.
-- Add one resolver for `plan_scope` that:
-  - starts with the current working repository;
-  - reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` when present;
-  - extracts `additional_repositories[].path`;
-  - de-duplicates the final ordered list;
-  - skips unusable additional entries with warnings when partial resolution is still possible.
-- Reuse the existing repository selector and canonical container-path normalization logic when turning working-repository and plan-scope entries into re-ingestable roots.
-- Keep `working` as a single-repository execution path and `plan_scope` as a batch orchestration path that records the existing structured batch result shape with `targetMode: "plan_scope"`, while continuing through later repositories when one attempted re-ingest fails.
-- Update both the execution layer and the user-facing tool-result / lifecycle layers together. The runtime batch continuation behavior already exists for `all`, but the current tool-result stage mapping and lifecycle validation still treat any failed batch repository as a hard error and only recognize `targetMode: "all"`.
-- Treat Docker visibility of the working repository as an explicit prerequisite when validating `plan_scope`. If a validation path runs inside a container, it must use a working repo under the existing `${CODEINFO_HOST_INGEST_DIR}` → `${CODEINFO_CODEX_WORKDIR}` bind mount or update the relevant compose harness first.
-- Update direct command execution, dedicated flow re-ingest steps, and flow-command re-ingest items together so all three surfaces share the same target semantics.
-- Let unsupported targets, including removed `current`, fail through the normal invalid-target schema or validation path instead of a dedicated compatibility branch.
-- Update the re-ingest tool-result and lifecycle reporting so completed `plan_scope` batches with failed repositories are surfaced as warning-style completions rather than hard errors, while still preserving failed counts and warning details.
-- Update logs, tool-result payloads, and persisted step metadata so the selected target mode and resolved repository list are obvious during debugging, including when unusable handoff data forces `plan_scope` to fall back to the working repository only, skip specific repositories, or continue after repository-level failures.
-- Keep Docker validation on rebuilt images that copy source into the image. If any Docker-facing file must be included during build, update the relevant `.dockerignore`, `server/.dockerignore`, or `client/.dockerignore` entry intentionally rather than depending on a host source bind mount.
-- Reuse the existing compose port surfaces only:
-  - main stack: `5010/5011/5012` server-side, `5001` client, `8000` Chroma, `8932` Playwright MCP;
-  - local stack: `5510/5511/5512` server-side, `5501` client, `8200` Chroma, `8931` Playwright MCP;
-  - e2e stack: `6010/6011/6012` server-side, `6001` client, `8800` Chroma.
-- Add tests for:
-  - current checked-in asset verification proving whether any command or flow JSON files still require `current` → `plan_scope` migration at implementation time;
-  - schema acceptance and rejection of `working`, `plan_scope`, and removed `current`;
-  - checked-in commands and flows that are migrated from `current` to `plan_scope`;
-  - `working` with and without a valid `working_folder`;
-  - `plan_scope` with no handoff file;
-  - `plan_scope` with empty `additional_repositories`;
-  - `plan_scope` with multiple repositories and duplicate entries;
-  - malformed handoff-file scenarios that prove the step continues with only the working repository;
-  - partially invalid repository lists that prove bad entries are skipped while good entries still run, and that skipped-at-resolution repositories are visible through warnings/metadata rather than the attempted batch payload;
-  - multi-repository batches where one repository fails and later repositories still continue;
-  - completed `plan_scope` batches with failed repositories that are reported as warning-style completions rather than hard errors;
-  - wrapper-first validation proving the server build, client build, and compose runtime still work with the existing `/health` checks and mounted working-repository path assumptions.
+- Implement this story in four ordered passes so the contract stays aligned across parser, runtime, and transcript layers:
+  1. update the command and flow schemas/types to remove `current` and `all`, add `working` and `plan_scope`, and keep `sourceId`;
+  2. update the execution layer so it can resolve a working repository and a plan-scope repository list;
+  3. update the command/flow runners and persisted tool-result lifecycle so the new target modes are actually carried through every execution surface;
+  4. update tests and checked-in workflow assets so the repository stops advertising removed target names.
+- The schema-first file map is already narrow and should stay that way:
+  - `server/src/agents/commandsSchema.ts`
+  - `server/src/flows/flowSchema.ts`
+  These files currently model re-ingest as `sourceId`, `target: "current"`, or `target: "all"`. The simplest change is to swap those target literals to `working` and `plan_scope` while keeping the strict object-shape approach already used throughout the repo. External Zod guidance favors `discriminatedUnion` when a single discriminator can cheaply pick the branch, but this story does not need a broad schema refactor unless it clearly reduces ambiguity in the existing strict-object union code.
+- The runtime execution change should stay centered in `server/src/ingest/reingestExecution.ts`. That file already contains the three current execution branches, canonical selector handling, ordered batch execution, and the resolution log marker `DEV-0000050:T03:reingest_targets_resolved`. The implementation should keep `sourceId` behavior intact, replace the current-owner branch with a working-repository branch, and replace the all-repositories branch with a plan-scope branch that still reuses the existing batch execution loop and outcome normalization helpers.
+- A small dedicated helper near the ingest execution layer is likely the cleanest seam for `plan_scope` resolution. A new helper such as `server/src/ingest/planScopeResolver.ts` should:
+  - start from the working repository path already resolved for the run;
+  - read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`;
+  - extract `additional_repositories[].path`;
+  - normalize and de-duplicate in final execution order;
+  - separate skipped-at-resolution warnings from attempted repository outcomes.
+  The important design boundary is that malformed handoff data should degrade into warning metadata plus working-only execution, not a hard pre-start failure.
+- Reuse existing repository-resolution seams instead of inventing a second lookup path. The working-folder plumbing in `server/src/workingFolders/state.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` already validates repository membership and maps host paths into the container-visible workdir. `plan_scope` should consume that existing working-repository result, then use the same selector/canonical-path logic already used by explicit `sourceId` re-ingest when turning additional repository paths into re-ingestable roots.
+- The three execution surfaces must be updated together because they currently all log and forward the old target names:
+  - direct commands through `server/src/agents/commandsRunner.ts`;
+  - command items inside flows through `server/src/agents/commandItemExecutor.ts`;
+  - dedicated flow re-ingest steps through `server/src/flows/service.ts`.
+  The safest implementation order is to update the shared `executeReingestRequest` contract first, then rewire these callers so they pass the working-repository path instead of an owner path and preserve the new `targetMode` values in their existing logs.
+- The user-facing result contract needs a matching update in `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts`. Today the batch payload and lifecycle parser only recognize `targetMode: "all"`, and the tool stage is forced to hard error when any batch repository fails. `plan_scope` should reuse the same batch payload shape, but with `targetMode: "plan_scope"` and warning-style completion semantics when the batch itself finishes its ordered pass. The lifecycle copy should also mention fallback and skip cases so persisted turns do not make a degraded plan-scope run look identical to a fully clean batch.
+- MCP should stay explicitly out of scope in code, not just in prose. `server/src/mcp2/tools/reingestRepository.ts` still exposes a `sourceId`-only contract today, and the implementation should leave that surface unchanged. This story should not add `working` or `plan_scope` parsing, fallback, or handoff-file reads to MCP.
+- Checked-in workflow assets should be handled as a verify-then-update step rather than assumed churn. Current repo searches show the removed target literals are concentrated in runtime and tests rather than checked-in command/flow JSON assets. The story should still keep a final verification search for checked-in asset literals so implementation can either update any real asset that exists or record that no repository-owned command/flow files needed migration.
+- The most likely tests to update are already well signposted by the existing old-target assertions:
+  - `server/src/test/unit/agent-commands-schema.test.ts`
+  - `server/src/test/unit/flows-schema.test.ts`
+  - `server/src/test/unit/reingestExecution.test.ts`
+  - `server/src/test/unit/agent-commands-runner.test.ts`
+  - `server/src/test/unit/reingest-tool-result.test.ts`
+  - `server/src/test/unit/reingest-step-lifecycle.test.ts`
+  - `server/src/test/integration/commands.reingest.test.ts`
+  - `server/src/test/integration/flows.run.command.test.ts`
+  These tests should prove both contract replacement and behavior reuse: `working` should behave like the old single-repository path except that it targets the selected working repository, while `plan_scope` should reuse the old batch continuation mechanics without inheriting `all`'s canonical-path ordering semantics.
+- The highest-risk implementation mistake is to update schema acceptance without updating transcript and lifecycle readers. A partial change would let commands or flows parse `working` / `plan_scope` but then either persist them as the wrong target mode or reject them when the tool result is recorded. The second highest-risk mistake is to treat skipped-at-resolution repositories as synthetic attempted repositories, which would quietly change the meaning of the reused batch payload and summary counts.
+- Validation should continue to follow the existing wrapper-first and Docker rules already documented elsewhere in this plan:
+  - build and test through the existing summary wrappers before doing any compose proof;
+  - keep application code copied into the image build, not bind-mounted from the host;
+  - only rely on compose scenarios where the working repository is visible through the existing `${CODEINFO_HOST_INGEST_DIR}` to `${CODEINFO_CODEX_WORKDIR}` mapping;
+  - reuse the existing compose port surfaces rather than adding new ones for this feature.
 
 ## Questions
 

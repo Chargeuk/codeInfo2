@@ -100,10 +100,6 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 
 - No Additional Repositories
 
-### Questions
-
-- No Further Questions
-
 ## Decisions
 
 1. Use best-effort `plan_scope` execution instead of failing the whole batch.
@@ -176,3 +172,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   - partially invalid repository lists that prove bad entries are skipped while good entries still run, and that skipped-at-resolution repositories are visible through warnings/metadata rather than the attempted batch payload;
   - multi-repository batches where one repository fails and later repositories still continue;
   - completed `plan_scope` batches with failed repositories that are reported as warning-style completions rather than hard errors.
+
+## Questions
+
+- No Further Questions

@@ -700,9 +700,11 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 
 - `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
 - `server/src/ingest/reingestExecution.ts`
+- `server/src/ingest/pathMap.ts`
 - `server/src/mcpCommon/repositorySelector.ts`
 - `server/src/workingFolders/state.ts`
 - `server/src/test/support`
+- `server/src/test/unit/pathMap.test.ts`
 - `server/src/test/unit/planScopeFixture.test.ts`
 - `server/src/test/unit/planScopeResolver.test.ts`
 - `server/src/test/unit/reingestExecution.test.ts`
@@ -712,8 +714,8 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 #### Subtasks
 
 1. [ ] Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, normalize `additional_repositories[].path`, preserve working-repo-first order, remove duplicates, and return structured warning data for missing, malformed, unreadable, or unusable handoff entries.
-2. [ ] Keep `planScopeResolver` focused on resolution only: it must not run re-ingest itself, must not rewrite the handoff file, and must resolve additional repository entries through the existing repository-selector path instead of inventing a second direct filesystem-based selector for non-working repositories.
-3. [ ] Create `server/src/test/support/planScopeFixture.ts` so tests can build working repositories, handoff files, duplicate entries, malformed files, and invalid repository-path scenarios without repeating ad hoc filesystem setup.
+2. [ ] Keep `planScopeResolver` focused on resolution only: it must not run re-ingest itself, must not rewrite the handoff file, and must resolve additional repository entries through the existing repository-selector path and existing path-normalization helpers instead of inventing a second direct filesystem-based selector for non-working repositories.
+3. [ ] Create `server/src/test/support/planScopeFixture.ts` so tests can build working repositories, handoff files, duplicate entries, malformed files, and invalid repository-path scenarios without repeating ad hoc filesystem setup; follow the temporary-directory and cleanup patterns already used in `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/pathMap.test.ts`.
 4. [ ] Create `server/src/test/unit/planScopeFixture.test.ts` and prove the fixture helper can create the expected temporary working-repository layout, write handoff variants, and clean up without uncaught filesystem errors.
 5. [ ] Create `server/src/test/unit/planScopeResolver.test.ts` and prove missing-file fallback, malformed-file warnings, de-duplication, and normalization behavior before execution wiring depends on the helper.
 6. [ ] Update this story file if implementation uncovers a better helper boundary or warning shape than the one currently documented.
@@ -748,6 +750,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 - `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
 - `server/src/ingest/reingestExecution.ts`
 - `server/src/ingest/reingestError.ts`
+- `server/src/ingest/pathMap.ts`
 - `server/src/mcpCommon/repositorySelector.ts`
 - `server/src/workingFolders/state.ts`
 - `server/src/test/unit/reingestExecution.test.ts`
@@ -755,13 +758,14 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 #### Subtasks
 
-1. [ ] Update `server/src/ingest/reingestExecution.ts` so `ReingestRequest`, `ReingestTargetMode`, `ReingestExecutionSingleResult`, and `ReingestExecutionBatchResult` match the new `working` / `plan_scope` contract defined in this story.
-2. [ ] Replace the owner-based `current` single-repository branch with a working-repository branch that resolves the already-selected run `working_folder`, fails before start when no valid working repository can be resolved, and fails clearly when that repository is not currently ingested.
+1. [ ] Update `server/src/ingest/reingestExecution.ts` in place so `ReingestRequest`, `ReingestTargetMode`, `ReingestExecutionSingleResult`, and `ReingestExecutionBatchResult` match the new `working` / `plan_scope` contract defined in this story rather than adding a parallel executor.
+2. [ ] Replace the owner-based `current` single-repository branch with a working-repository branch that resolves the already-selected run `working_folder`, reuses the existing working-folder/path-mapping logic, fails before start when no valid working repository can be resolved, and fails clearly when that repository is not currently ingested.
 3. [ ] Replace the old `all` branch with a `plan_scope` batch branch that uses `planScopeResolver`, attempts only resolved repositories, keeps working-repo-first order, continues after per-repository failures, and returns the planned `warnings` array.
-4. [ ] Update the execution-layer structured logging so `working`, `plan_scope`, plan-scope fallback-to-working-only, skipped-at-resolution repositories, and continued-after-failure batches are all distinguishable in logs and step metadata instead of being reported like the removed `current` / `all` modes.
-5. [ ] Preserve explicit `sourceId` behavior and keep MCP-oriented selector semantics unchanged inside the execution layer.
-6. [ ] Update `server/src/test/unit/reingestExecution.test.ts` so it proves `working`, `plan_scope`, de-duplication, missing/malformed handoff fallback, invalid additional repositories, zero-attempt prevention behavior, and any warning/log metadata assertions needed to keep the execution contract inspectable.
-7. [ ] Run full linting with `npm run lint`.
+4. [ ] Remove or rename the obsolete `current` / `all` execution helpers and error branches inside `server/src/ingest/reingestExecution.ts` as part of the change so the removed literals do not survive in runtime types, helper names, or dead fallback code.
+5. [ ] Update the execution-layer structured logging so `working`, `plan_scope`, plan-scope fallback-to-working-only, skipped-at-resolution repositories, and continued-after-failure batches are all distinguishable in logs and step metadata instead of being reported like the removed `current` / `all` modes.
+6. [ ] Preserve explicit `sourceId` behavior and keep MCP-oriented selector semantics unchanged inside the execution layer.
+7. [ ] Update `server/src/test/unit/reingestExecution.test.ts` so it proves `working`, `plan_scope`, de-duplication, missing/malformed handoff fallback, invalid additional repositories, zero-attempt prevention behavior, and any warning/log metadata assertions needed to keep the execution contract inspectable.
+8. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -882,6 +886,8 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 - `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
 - `server/src/config/startupEnv.ts`
+- `server/src/ingest/pathMap.ts`
+- `server/src/routes/ingestDirs.ts`
 - `server/src/workingFolders/state.ts`
 - `server/.env`
 - `docker-compose.yml`
@@ -889,13 +895,14 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 - `docker-compose.e2e.yml`
 - `scripts/docker-compose-with-env.sh`
 - `package.json`
+- `server/src/test/unit/pathMap.test.ts`
 - `server/src/test/integration/flows.run.working-folder.test.ts`
 - `server/src/test/integration/commands.reingest.test.ts`
 - `server/src/test/integration/flows.run.command.test.ts`
 
 #### Subtasks
 
-1. [ ] Update the existing working-folder or re-ingest integration coverage so it explicitly proves the story behavior when `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` are present and correctly aligned with the selected working repository path.
+1. [ ] Update the existing working-folder or re-ingest integration coverage so it explicitly proves the story behavior when `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` are present and correctly aligned with the selected working repository path, reusing the existing `mapHostWorkingFolderToWorkdir` contract instead of introducing new environment-path translation logic.
 2. [ ] Add or update targeted server-side coverage for the failure path where the working-folder env mapping is missing or inconsistent, and prove that `working` fails clearly before start instead of silently targeting the wrong repository.
 3. [ ] Add or update targeted proof for `plan_scope` on the supported compose proof surface so the runtime reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` only when that working repository is actually visible inside the server container through the existing bind mount.
 4. [ ] Record in this story file which compose surface is the accepted proof path for mounted working-repository visibility and explicitly note that the e2e stack is not core acceptance proof unless its mount topology is changed to expose the working repository to the server container.
@@ -907,7 +914,7 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
 3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the env-sensitive runtime behavior with `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
+5. [ ] Prove the env-sensitive runtime behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/pathMap.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
 6. [ ] After `npm run compose:up`, run the implementation's chosen mounted-repository proof on the main or local compose surface and record the exact command or steps in the implementation notes so a later developer can repeat the same validation without rediscovering the proof path.
 
 #### Implementation notes

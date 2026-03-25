@@ -302,7 +302,7 @@ This story stays within the current repository, so the contract definitions belo
     - `npm run compose:build:summary`
     - `npm run compose:up`
     - `npm run compose:down`
-    - `npm run test:summary:e2e` only after deciding whether the e2e stack is actually an appropriate proof surface for the filesystem visibility required by the scenario being tested.
+    - `npm run test:summary:e2e` only as optional regression smoke after deciding whether the e2e stack is actually an appropriate proof surface for the filesystem visibility required by the scenario being tested. It is not the primary proof path for this story's `plan_scope` filesystem behavior.
 
 - **Docker image builds already copy application code into the image and build from there; this story must keep that model.**
   - Repo evidence:
@@ -460,6 +460,39 @@ This story stays within the current repository, so the contract definitions belo
   - keep extending the existing `buildHarness()` flow in `server/src/test/unit/reingest-step-lifecycle.test.ts`.
   Those tests already capture tool payloads, persisted turns, and log arrays, so they can absorb `targetMode: "plan_scope"` and success-with-warnings assertions without a brand-new runner helper.
 - Do not create a new Playwright or compose-only harness for this story. Current repo evidence shows the missing capability is handoff-file-backed fixture setup inside server tests, not a missing browser or container test type.
+
+## Proof Path Readiness
+
+- **Server build proof is already runnable.**
+  - `npm run build:summary:server` already exists and can run as soon as the code compiles.
+  - No story-specific harness or runtime prerequisite must be created before this proof step.
+
+- **Client build proof is already runnable, but it is repository-regression proof rather than direct feature proof.**
+  - `npm run build:summary:client` already exists.
+  - This story does not add a new frontend surface, so the client build should stay in the proof path as a regression gate, not as the main proof that `working` or `plan_scope` behaves correctly.
+
+- **Feature-specific server test proof becomes runnable only after the new fixture helper and tests exist.**
+  - `npm run test:summary:server:unit` already exists, and the wrapper already supports targeted diagnosis through `--file` and `--test-name`.
+  - The missing prerequisite is the shared `server/src/test/support/planScopeFixture.ts` helper plus the new or updated tests that consume it.
+  - The realistic proof order is:
+    1. create the shared plan-scope fixture helper;
+    2. add or update the targeted unit and integration tests;
+    3. use targeted wrapper runs for diagnosis;
+    4. finish with the full `npm run test:summary:server:unit` wrapper.
+
+- **Compose proof is runnable, but only on stacks that can actually see the working repository handoff file.**
+  - `npm run compose:build:summary`, `npm run compose:up`, `npm run compose:down`, and `npm run compose:logs` already exist.
+  - The main and local compose stacks are realistic proof surfaces because they mount `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}`.
+  - The proof path should therefore use main or local compose when validating runtime `plan_scope` file reads inside the server container.
+
+- **E2E proof is not a required feature-proof step for this story as currently scoped.**
+  - `npm run test:summary:e2e` is runnable as a repository-level regression wrapper, but it does not currently prove `plan_scope` handoff-file behavior because the e2e compose stack does not mount the host ingest root into the server container.
+  - The story should not rely on e2e as evidence that `working` / `plan_scope` runtime resolution works.
+  - If a future story wants browser-level proof of this exact filesystem behavior, that work must first add the missing runtime visibility and a UI-drivable scenario.
+
+- **No new wrapper script is required for this story.**
+  - Existing wrapper scripts already cover build, targeted server diagnosis, full server validation, compose build/up/down, and optional e2e regression runs.
+  - The realistic prerequisite work is harness and test creation, not wrapper-script creation.
 
 ## Feasibility Proof
 

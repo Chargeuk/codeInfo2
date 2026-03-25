@@ -2050,7 +2050,9 @@
                     },
                     "message": {
                       "type": "string",
-                      "enum": ["provider must be one of: codex, copilot, lmstudio"]
+                      "enum": [
+                        "provider must be one of: codex, copilot, lmstudio"
+                      ]
                     }
                   },
                   "required": ["error", "message"],

@@ -24,6 +24,7 @@ import {
   NAMED_COPILOT_SCENARIOS,
   type NamedCopilotScenario,
 } from '../support/copilotScenarioCatalog.js';
+import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   MockLMStudioClient,
   type MockScenario,
@@ -31,7 +32,6 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
-import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   closeWs,
   connectWs,

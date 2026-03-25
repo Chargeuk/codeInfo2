@@ -1023,18 +1023,18 @@ describe('agent commands runner (v1)', () => {
     assert.deepEqual(messageSteps, [2]);
   });
 
-  test('target all reingest carries batch execution metadata and ordered per-repository outcomes', async () => {
+  test('target plan_scope reingest carries batch execution metadata and ordered per-repository outcomes', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
 
     await writeCommandFile({
       agentHome,
-      commandName: 'reingest-all-batch',
+      commandName: 'reingest-plan-scope-batch',
       jsonText: JSON.stringify({
         Description: 'Reingest all',
         items: [
-          { type: 'reingest', target: 'all' },
+          { type: 'reingest', target: 'plan_scope' },
           { type: 'message', role: 'user', content: ['after'] },
         ],
       }),
@@ -1083,7 +1083,7 @@ describe('agent commands runner (v1)', () => {
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
-      commandName: 'reingest-all-batch',
+      commandName: 'reingest-plan-scope-batch',
       initialModelId: 'agent-model-1',
       source: 'REST',
       listIngestedRepositories: async () => ({
@@ -1101,14 +1101,14 @@ describe('agent commands runner (v1)', () => {
     });
 
     assert.deepEqual(reingestCalls, ['/repo/a', '/repo/b', '/repo/c']);
-    assert.deepEqual(lifecycleCalls, ['reingest-all-batch']);
+    assert.deepEqual(lifecycleCalls, ['reingest-plan-scope-batch']);
     assert.deepEqual(messageSteps, [2]);
 
     const resolutionLog = query({
       text: 'DEV-0000050:T03:reingest_targets_resolved',
     }).find(
       (entry) =>
-        entry.context?.targetMode === 'all' &&
+        entry.context?.targetMode === 'plan_scope' &&
         entry.context?.surface === 'command',
     );
     assert.deepEqual(resolutionLog?.context?.resolvedPaths, [
@@ -1121,8 +1121,8 @@ describe('agent commands runner (v1)', () => {
       text: 'DEV-0000045:T9:direct_command_reingest_recorded',
     }).find(
       (entry) =>
-        entry.context?.targetMode === 'all' &&
-        entry.context?.commandName === 'reingest-all-batch',
+        entry.context?.targetMode === 'plan_scope' &&
+        entry.context?.commandName === 'reingest-plan-scope-batch',
     );
     assert.equal(batchLog?.context?.requestedSelector, null);
     assert.equal(batchLog?.context?.repositoryCount, 3);

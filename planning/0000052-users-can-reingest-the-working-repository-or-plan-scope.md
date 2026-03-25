@@ -256,7 +256,7 @@ This story stays within the current repository, so the contract definitions belo
   - explicit `sourceId`
   - `target: "current"`
   - `target: "all"`
-  Repo evidence: `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `server/src/ingest/reingestExecution.ts`, and `server/src/agents/commandsRunner.ts`.
+    Repo evidence: `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `server/src/ingest/reingestExecution.ts`, and `server/src/agents/commandsRunner.ts`.
 - The runtime already has working-folder resolution that should be reused rather than reimplemented. Repo evidence:
   - `server/src/workingFolders/state.ts` validates absolute paths, known repository membership, and host-to-workdir mapping
   - `server/src/agents/service.ts` and `server/src/flows/service.ts` already resolve the effective `working_folder` for runs before command or flow execution starts
@@ -269,7 +269,7 @@ This story stays within the current repository, so the contract definitions belo
 - Flow-owned command re-ingest already splits responsibility across two files:
   - `server/src/agents/commandItemExecutor.ts` owns command-item log/delegation behavior only
   - `server/src/flows/service.ts` owns the callback that actually calls `executeReingestRequest`
-  The flow-wiring tasks must keep that boundary explicit instead of asking a developer to add a new direct execution path inside `commandItemExecutor.ts`.
+    The flow-wiring tasks must keep that boundary explicit instead of asking a developer to add a new direct execution path inside `commandItemExecutor.ts`.
 - The current execution layer does not have an existing "zero attempted repositories" runtime guard to preserve. Story work should therefore prove the real contracts that exist: pre-start failure when the working repository is unusable, warning-only fallback when the handoff is unusable, and continue-after-failure behavior once a `plan_scope` batch has started.
 - The summary wrappers and targeted proof commands already exist for the main validation paths:
   - `package.json` already exposes `build:summary:server`, `build:summary:client`, `compose:build:summary`, `compose:up`, `compose:down`, `test:summary:server:unit`, and `test:summary:e2e`
@@ -287,7 +287,7 @@ This story stays within the current repository, so the contract definitions belo
   - direct command `current` owner resolution
   - `all` batch ordering and continue-after-failure behavior
   - flow-command and flow-step re-ingest parsing
-  That existing coverage should be updated rather than duplicated where possible.
+    That existing coverage should be updated rather than duplicated where possible.
 
 ## Operational Prerequisites and Missing Capabilities
 
@@ -430,7 +430,7 @@ This story stays within the current repository, so the contract definitions belo
 - The schema-first file map is already narrow and should stay that way:
   - `server/src/agents/commandsSchema.ts`
   - `server/src/flows/flowSchema.ts`
-  These files currently model re-ingest as `sourceId`, `target: "current"`, or `target: "all"`. The simplest change is to swap those target literals to `working` and `plan_scope` while keeping the strict object-shape approach already used throughout the repo. External Zod guidance favors `discriminatedUnion` when a single discriminator can cheaply pick the branch, but this story does not need a broad schema refactor unless it clearly reduces ambiguity in the existing strict-object union code.
+    These files currently model re-ingest as `sourceId`, `target: "current"`, or `target: "all"`. The simplest change is to swap those target literals to `working` and `plan_scope` while keeping the strict object-shape approach already used throughout the repo. External Zod guidance favors `discriminatedUnion` when a single discriminator can cheaply pick the branch, but this story does not need a broad schema refactor unless it clearly reduces ambiguity in the existing strict-object union code.
 - The runtime execution change should stay centered in `server/src/ingest/reingestExecution.ts`. That file already contains the three current execution branches, canonical selector handling, ordered batch execution, and the resolution log marker `DEV-0000050:T03:reingest_targets_resolved`. The implementation should keep `sourceId` behavior intact, replace the current-owner branch with a working-repository branch, and replace the all-repositories branch with a plan-scope branch that still reuses the existing batch execution loop and outcome normalization helpers.
 - A small dedicated helper near the ingest execution layer is likely the cleanest seam for `plan_scope` resolution. A new helper such as `server/src/ingest/planScopeResolver.ts` should:
   - start from the working repository path already resolved for the run;
@@ -438,13 +438,13 @@ This story stays within the current repository, so the contract definitions belo
   - extract `additional_repositories[].path`;
   - normalize and de-duplicate in final execution order;
   - separate skipped-at-resolution warnings from attempted repository outcomes.
-  The important design boundary is that malformed handoff data should degrade into warning metadata plus working-only execution, not a hard pre-start failure.
+    The important design boundary is that malformed handoff data should degrade into warning metadata plus working-only execution, not a hard pre-start failure.
 - Reuse existing repository-resolution seams instead of inventing a second lookup path. The working-folder plumbing in `server/src/workingFolders/state.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` already validates repository membership and maps host paths into the container-visible workdir. `plan_scope` should consume that existing working-repository result, then use the same selector/canonical-path logic already used by explicit `sourceId` re-ingest when turning additional repository paths into re-ingestable roots.
 - The three execution surfaces must be updated together because they currently all log and forward the old target names:
   - direct commands through `server/src/agents/commandsRunner.ts`;
   - command items inside flows through `server/src/agents/commandItemExecutor.ts`;
   - dedicated flow re-ingest steps through `server/src/flows/service.ts`.
-  The safest implementation order is to update the shared `executeReingestRequest` contract first, then rewire these callers so they pass the working-repository path instead of an owner path and preserve the new `targetMode` values in their existing logs.
+    The safest implementation order is to update the shared `executeReingestRequest` contract first, then rewire these callers so they pass the working-repository path instead of an owner path and preserve the new `targetMode` values in their existing logs.
 - The user-facing result contract needs a matching update in `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts`. Today the batch payload and lifecycle parser only recognize `targetMode: "all"`, and the tool stage is forced to hard error when any batch repository fails. `plan_scope` should reuse the same batch payload shape, but with `targetMode: "plan_scope"` and warning-style completion semantics when the batch itself finishes its ordered pass. The lifecycle copy should also mention fallback and skip cases so persisted turns do not make a degraded plan-scope run look identical to a fully clean batch.
 - Because `ChatToolResultEvent.stage` is currently limited to `success` or `error`, success-with-warnings should be represented by keeping `stage: "success"` and adding the explicit `warnings` array defined in `## Message Contracts and Storage Shapes` to the batch payload that gets persisted into `Turn.toolCalls`.
 - MCP should stay explicitly out of scope in code, not just in prose. `server/src/mcp2/tools/reingestRepository.ts` still exposes a `sourceId`-only contract today, and the implementation should leave that surface unchanged. This story should not add `working` or `plan_scope` parsing, fallback, or handoff-file reads to MCP.
@@ -458,7 +458,7 @@ This story stays within the current repository, so the contract definitions belo
   - `server/src/test/unit/reingest-step-lifecycle.test.ts`
   - `server/src/test/integration/commands.reingest.test.ts`
   - `server/src/test/integration/flows.run.command.test.ts`
-  These tests should prove both contract replacement and behavior reuse: `working` should behave like the old single-repository path except that it targets the selected working repository, while `plan_scope` should reuse the old batch continuation mechanics without inheriting `all`'s canonical-path ordering semantics.
+    These tests should prove both contract replacement and behavior reuse: `working` should behave like the old single-repository path except that it targets the selected working repository, while `plan_scope` should reuse the old batch continuation mechanics without inheriting `all`'s canonical-path ordering semantics.
 - The highest-risk implementation mistake is to update schema acceptance without updating transcript and lifecycle readers. A partial change would let commands or flows parse `working` / `plan_scope` but then either persist them as the wrong target mode or reject them when the tool result is recorded. The second highest-risk mistake is to treat skipped-at-resolution repositories as synthetic attempted repositories, which would quietly change the meaning of the reused batch payload and summary counts.
 - Validation should continue to follow the existing wrapper-first and Docker rules already documented elsewhere in this plan:
   - build and test through the existing summary wrappers before doing any compose proof;
@@ -493,7 +493,7 @@ This story stays within the current repository, so the contract definitions belo
 - Warning-style result coverage should extend the existing local harnesses rather than creating a second shared support layer. In particular:
   - keep using the inline batch builders in `server/src/test/unit/reingest-tool-result.test.ts`;
   - keep extending the existing `buildHarness()` flow in `server/src/test/unit/reingest-step-lifecycle.test.ts`.
-  Those tests already capture tool payloads, persisted turns, and log arrays, so they can absorb `targetMode: "plan_scope"` and success-with-warnings assertions without a brand-new runner helper.
+    Those tests already capture tool payloads, persisted turns, and log arrays, so they can absorb `targetMode: "plan_scope"` and success-with-warnings assertions without a brand-new runner helper.
 - Do not create a new Playwright or compose-only harness for this story. Current repo evidence shows the missing capability is handoff-file-backed fixture setup inside server tests, not a missing browser or container test type.
 
 ## Proof Path Readiness
@@ -776,7 +776,7 @@ This story stays within the current repository, so the contract definitions belo
 ### Task 1. Replace The Authored Re-Ingest Contract
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__completed__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -789,35 +789,45 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 - `https://zod.dev/api?id=discriminated-unions` - use for discriminator-based unions and literal branches; this is relevant if the final schema shape is expressed with a clearer discriminator key instead of a broad union.
 - `https://zod.dev/api?id=objects` - use for `z.strictObject()` and unknown-key rejection, which is directly relevant to the tests that must reject extra keys.
 
-
 #### Subtasks
 
-
-
-1. [ ] Current Repository: In `server/src/agents/commandsSchema.ts`, replace the re-ingest command union so the only authored shapes are `{ "type": "reingest", "sourceId": "<selector>" }`, `{ "type": "reingest", "target": "working" }`, and `{ "type": "reingest", "target": "plan_scope" }`. Read/update: `server/src/agents/commandsSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, Context7 `/colinhacks/zod`. Remove every `current` / `all` literal branch from both the schema and the inferred command item types. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-2. [ ] Current Repository: In `server/src/flows/flowSchema.ts`, make the same authored-contract replacement for top-level flow re-ingest steps so the only accepted shapes are `{ sourceId }`, `target: "working"`, or `target: "plan_scope"`. Read/update: `server/src/flows/flowSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, Context7 `/colinhacks/zod`. Remove every `current` / `all` literal branch from both the schema and the exported flow-step types. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-3. [ ] Current Repository: Unit test update: `server/src/test/unit/agent-commands-schema.test.ts`. Purpose: prove command JSON accepts the happy-path authored shapes `{ sourceId }`, `target: "working"`, and `target: "plan_scope"` after the schema change. Read/update: `server/src/test/unit/agent-commands-schema.test.ts`, `server/src/agents/commandsSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-4. [ ] Current Repository: Unit test update: `server/src/test/unit/agent-commands-schema.test.ts`. Purpose: prove command JSON rejects removed literals `current` / `all`, mixed `{ sourceId, target }`, and unexpected extra keys so the error-path contract is explicit. Read/update: `server/src/test/unit/agent-commands-schema.test.ts`, `server/src/agents/commandsSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-5. [ ] Current Repository: Unit test update: `server/src/test/unit/flows-schema.test.ts`. Purpose: prove flow JSON accepts the happy-path authored shapes `{ sourceId }`, `target: "working"`, and `target: "plan_scope"` after the schema change. Read/update: `server/src/test/unit/flows-schema.test.ts`, `server/src/flows/flowSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-6. [ ] Current Repository: Unit test update: `server/src/test/unit/flows-schema.test.ts`. Purpose: prove flow JSON rejects removed literals `current` / `all`, mixed `{ sourceId, target }`, and unexpected extra keys so the error-path contract is explicit. Read/update: `server/src/test/unit/flows-schema.test.ts`, `server/src/flows/flowSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-7. [ ] Current Repository: Search checked-in command and flow JSON assets for removed literals with a repository-wide search such as `rg '\"target\": \"(current|all)\"'`. If real assets exist, update them to the correct new literal in the owning file; if none exist, record that result in this task's Implementation notes so the acceptance criterion is still explicitly closed out. Read/update: repository root plus any matching JSON command/flow files, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-8. [ ] Current Repository: Update this story file if the concrete schema implementation in `server/src/agents/commandsSchema.ts` or `server/src/flows/flowSchema.ts` reveals any authored-contract detail that differs from the planned shapes above, so later developers do not have to infer the final contract from code alone. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `planning/plan_format.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-9. [ ] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T1:reingest-target-contract` in the command or flow validation path touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears for one accepted `working` or `plan_scope` validation and for one rejected removed-target validation, so the logs confirm the authored target contract changed as expected. Read/update: `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
-10. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
-11. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+1. [x] Current Repository: In `server/src/agents/commandsSchema.ts`, replace the re-ingest command union so the only authored shapes are `{ "type": "reingest", "sourceId": "<selector>" }`, `{ "type": "reingest", "target": "working" }`, and `{ "type": "reingest", "target": "plan_scope" }`. Read/update: `server/src/agents/commandsSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, Context7 `/colinhacks/zod`. Remove every `current` / `all` literal branch from both the schema and the inferred command item types. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+2. [x] Current Repository: In `server/src/flows/flowSchema.ts`, make the same authored-contract replacement for top-level flow re-ingest steps so the only accepted shapes are `{ sourceId }`, `target: "working"`, or `target: "plan_scope"`. Read/update: `server/src/flows/flowSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, Context7 `/colinhacks/zod`. Remove every `current` / `all` literal branch from both the schema and the exported flow-step types. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+3. [x] Current Repository: Unit test update: `server/src/test/unit/agent-commands-schema.test.ts`. Purpose: prove command JSON accepts the happy-path authored shapes `{ sourceId }`, `target: "working"`, and `target: "plan_scope"` after the schema change. Read/update: `server/src/test/unit/agent-commands-schema.test.ts`, `server/src/agents/commandsSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+4. [x] Current Repository: Unit test update: `server/src/test/unit/agent-commands-schema.test.ts`. Purpose: prove command JSON rejects removed literals `current` / `all`, mixed `{ sourceId, target }`, and unexpected extra keys so the error-path contract is explicit. Read/update: `server/src/test/unit/agent-commands-schema.test.ts`, `server/src/agents/commandsSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+5. [x] Current Repository: Unit test update: `server/src/test/unit/flows-schema.test.ts`. Purpose: prove flow JSON accepts the happy-path authored shapes `{ sourceId }`, `target: "working"`, and `target: "plan_scope"` after the schema change. Read/update: `server/src/test/unit/flows-schema.test.ts`, `server/src/flows/flowSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+6. [x] Current Repository: Unit test update: `server/src/test/unit/flows-schema.test.ts`. Purpose: prove flow JSON rejects removed literals `current` / `all`, mixed `{ sourceId, target }`, and unexpected extra keys so the error-path contract is explicit. Read/update: `server/src/test/unit/flows-schema.test.ts`, `server/src/flows/flowSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+7. [x] Current Repository: Search checked-in command and flow JSON assets for removed literals with a repository-wide search such as `rg '\"target\": \"(current|all)\"'`. If real assets exist, update them to the correct new literal in the owning file; if none exist, record that result in this task's Implementation notes so the acceptance criterion is still explicitly closed out. Read/update: repository root plus any matching JSON command/flow files, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+8. [x] Current Repository: Update this story file if the concrete schema implementation in `server/src/agents/commandsSchema.ts` or `server/src/flows/flowSchema.ts` reveals any authored-contract detail that differs from the planned shapes above, so later developers do not have to infer the final contract from code alone. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `planning/plan_format.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+9. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T1:reingest-target-contract` in the command or flow validation path touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears for one accepted `working` or `plan_scope` validation and for one rejected removed-target validation, so the logs confirm the authored target contract changed as expected. Read/update: `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+10. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+11. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 1 only changes server-authored schema contracts. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 1 changes server schema parsing. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
-3. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because schema changes can affect authored command and flow behavior. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 1 only changes server-authored schema contracts. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 1 changes server schema parsing. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because schema changes can affect authored command and flow behavior. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- No implementation notes yet.
+- Replaced the command re-ingest schema branches with `sourceId`, `working`, and `plan_scope`, and removed the old `current` / `all` literal types from the inferred command contract.
+- Replaced the flow re-ingest schema branches with `sourceId`, `working`, and `plan_scope`, and removed the old `current` / `all` literal types from the exported flow-step contract.
+- Updated the command schema unit tests to accept `working` / `plan_scope`, reject removed targets, and keep mixed-shape and extra-key rejection explicit.
+- Updated the flow schema unit tests to accept `working` / `plan_scope`, reject removed targets, and keep mixed-shape and extra-key rejection explicit.
+- Searched the repository for checked-in command or flow JSON assets using removed targets; no owned command/flow JSON assets required migration for this task.
+- The final schema shape matched the planned authored contract, so no additional Task 1 contract wording change was needed in this story file.
+- Added `DEV-0000052:T1:reingest-target-contract` logging on accepted supported targets and rejected removed targets when schema parse logging is enabled.
+- `npm run lint` initially failed on pre-existing repository import-order warnings; `npm run lint:fix` cleared most of them and one remaining warning in `server/src/index.ts` was fixed manually before rerunning `npm run lint`.
+- `npm run format:check` initially failed on repository-wide Prettier drift, so `npm run format` was run before rerunning `npm run format:check` successfully.
+- `npm run build:summary:server` initially failed on downstream type seams that still only accepted `current` / `all`; the shared request and tool-result type unions were widened so the schema contract compiles cleanly ahead of the later runtime-contract task, and the wrapper then passed with `agent_action: skip_log`.
+- `npm run test:summary:server:unit` initially failed on old `current` / `all` authoring tests and one stale batch-log assertion; the affected unit and integration test fixtures were updated to `working` / `plan_scope`, one targeted wrapper rerun for `server/src/test/unit/agent-commands-runner.test.ts` passed, and the final full wrapper passed with `1467` tests run and `0` failed.
+- Final validation after the follow-up edits passed with `npm run lint`, `npm run format:check`, `npm run build:summary:server`, `npm run test:summary:server:unit`, and `npm run test:summary:server:cucumber`; the cucumber wrapper finished with `75` tests run and `0` failed.
+
 ---
+
 ### Task 2. Add The Shared Plan-Scope Fixture Harness
 
 - Repository Name: `Current Repository`
@@ -832,10 +842,7 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 `fs.mkdtemp` temp-directory API, the trailing-separator requirement for safe temp-dir creation, `fs.rm(..., { recursive: true, force: true })` cleanup, and `node:test` patterns used by the fixture smoke test.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: Create `server/src/test/support/planScopeFixture.ts` as the shared helper for plan-scope filesystem scenarios. The helper must be able to create: a working repository root, `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, ordered `additional_repositories[].path` entries, duplicate entries, malformed JSON content, invalid repository-path cases, and an unreadable-handoff scenario or equivalent deterministic read-failure setup that later tests can use. Read/update: `server/src/test/support/planScopeFixture.ts`, `codeInfoStatus/flow-state/current-plan.json`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
 2. [ ] Current Repository: Keep `server/src/test/support/planScopeFixture.ts` limited to fixture setup and teardown only. Do not add repository selection, warning construction, or re-ingest execution logic here; later tasks must still own that work in `server/src/ingest/planScopeResolver.ts` and `server/src/ingest/reingestExecution.ts`. Read/update: `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
@@ -858,7 +865,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 #### Implementation notes
 
 - No implementation notes yet.
+
 ---
+
 ### Task 3. Add The Plan-Scope Resolution Helper
 
 - Repository Name: `Current Repository`
@@ -873,10 +882,7 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 filesystem and path APIs that read `current-plan.json`, parse JSON from disk, normalize paths, and support the `node:test` resolver coverage for fallback and warning cases.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, extract `additional_repositories[].path`, keep the working repository first, preserve file order for additional repositories, remove duplicates, and return the warning data defined in this story for missing, malformed, unreadable, or unusable handoff entries. Read/update: `server/src/ingest/planScopeResolver.ts`, `codeInfoStatus/flow-state/current-plan.json`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
 2. [ ] Current Repository: Keep `server/src/ingest/planScopeResolver.ts` at the resolution boundary only. It must not start re-ingest work, must not rewrite `current-plan.json`, and must resolve extra repository entries through the existing selector/normalization seams in `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/pathMap.ts`, and `server/src/workingFolders/state.ts` instead of inventing a new direct-filesystem selection path. Read/update: `server/src/ingest/planScopeResolver.ts`, `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/pathMap.ts`, `server/src/workingFolders/state.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
@@ -899,7 +905,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 #### Implementation notes
 
 - No implementation notes yet.
+
 ---
+
 ### Task 4. Implement Working And Plan-Scope Execution
 
 - Repository Name: `Current Repository`
@@ -915,10 +923,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 runtime behavior around filesystem reads, path handling, promise-based error propagation, and test coverage patterns that the re-ingest execution layer relies on.
 - Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when updating `design.md` to document the new `working` and `plan_scope` execution paths.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: In `server/src/ingest/reingestExecution.ts`, replace the runtime type contract in place. `ReingestRequest` and `ReingestTargetMode` must support `sourceId`, `working`, and `plan_scope` only. The single-result shape must represent `sourceId` and `working`, and the batch-result shape must represent `plan_scope` with ordered `repositories`, `summary`, and `warnings`. Read/update: `server/src/ingest/reingestExecution.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 2. [ ] Current Repository: Extend the `executeReingestRequest` input contract in `server/src/ingest/reingestExecution.ts` so callers can supply the already-selected run working-repository path directly. This runtime seam must stop depending on `currentOwnerSourceId` for the new workflow-based targets, because Tasks 6 and 7 need one explicit `workingRepositoryPath` input they can pass from direct-command and flow runs. Read/update: `server/src/ingest/reingestExecution.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
@@ -954,7 +959,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 #### Implementation notes
 
 - No implementation notes yet.
+
 ---
+
 ### Task 5. Implement The Re-Ingest Message And Persistence Contract
 
 - Repository Name: `Current Repository`
@@ -971,10 +978,7 @@ Update the server-side tool-result and lifecycle message contract so completed `
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 test/runtime behavior while updating the tool-result and lifecycle tests around persisted payloads.
 - Context7 `/mermaid-js/mermaid` - use for Mermaid sequence-diagram syntax when documenting the tool-result, lifecycle, and persistence flow in `design.md`.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: Update `server/src/chat/reingestToolResult.ts` so single re-ingest payloads use `targetMode: "sourceId" | "working"` and batch payloads use `targetMode: "plan_scope"` with the ordered attempted `repositories`, `summary`, and explicit `warnings` array described in this story. Read/update: `server/src/chat/reingestToolResult.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 2. [ ] Current Repository: Keep `ChatToolResultEvent.stage` on the existing `success` / `error` enum in `server/src/chat/interfaces/ChatInterface.ts`. Represent success-with-warnings as `stage: "success"` plus a populated warnings array in the batch payload instead of inventing a third stage value. Read/update: `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestToolResult.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
@@ -1001,7 +1005,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 #### Implementation notes
 
 - No implementation notes yet.
+
 ---
+
 ### Task 6. Wire Direct Commands To The New Runtime Contract
 
 - Repository Name: `Current Repository`
@@ -1018,10 +1024,7 @@ Wire the new schema, execution, and message contracts into direct command execut
 - `https://expressjs.com/en/guide/using-middleware.html` - use for the application-level and router-level middleware flow, including `next()` semantics, which matters when the direct-command path threads working-folder context through the server runtime.
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime that backs the direct-command unit and integration suites.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: Update `server/src/agents/commandsRunner.ts` so direct-command re-ingest items pass the explicit runtime `workingRepositoryPath` added in Task 4 and the new `targetMode` values into `executeReingestRequest`. Keep the direct-command surface aligned with the new runtime contract rather than reconstructing owner-based `current` behavior locally. Read/update: `server/src/agents/commandsRunner.ts`, `server/src/agents/service.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
 2. [ ] Current Repository: Search the checked-in agent command folders for existing command assets that can safely drive the new direct-command `working` and `plan_scope` behaviors on the compose stack. If suitable assets do not already exist, create two minimal proof-owned commands such as `codex_agents/tasking_agent/commands/reingest_working.json` and `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, each with a single re-ingest item using `target: "working"` or `target: "plan_scope"` respectively, and keep them free of unrelated message steps so Tasks 8 and 9 can invoke both targets over HTTP without requiring model output. Read/update: `codex_agents/tasking_agent/commands/reingest_working.json`, `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, `codex_agents/tasking_agent/commands`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
@@ -1048,7 +1051,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 #### Implementation notes
 
 - No implementation notes yet.
+
 ---
+
 ### Task 7. Wire Flow Re-Ingest Surfaces To The New Runtime Contract
 
 - Repository Name: `Current Repository`
@@ -1066,10 +1071,7 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime behind the flow integration suites.
 - Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when documenting flow re-ingest behavior in `design.md`.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: Update `server/src/flows/service.ts` so both top-level flow re-ingest steps and the flow-owned command `executeReingest` callback pass the explicit runtime `workingRepositoryPath` added in Task 4 into `executeReingestRequest`. Keep `server/src/agents/commandItemExecutor.ts` on its existing responsibility boundary by updating only the command-item delegation and target-mode logging it already owns. Do not create a new direct execution branch inside `commandItemExecutor.ts`. Read/update: `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 2. [ ] Current Repository: Integration test update: `server/src/test/integration/flows.run.command.test.ts`. Purpose: prove top-level flow re-ingest steps use the `working` happy path and ordered `plan_scope` happy path the same way as direct commands. Read/update: `server/src/test/integration/flows.run.command.test.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
@@ -1094,7 +1096,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 #### Implementation notes
 
 - No implementation notes yet.
+
 ---
+
 ### Task 8. Validate Working-Folder Environment And Mounted Runtime Access
 
 - Repository Name: `Current Repository`
@@ -1110,10 +1114,7 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 - `https://docs.docker.com/engine/storage/bind-mounts/` - use for bind-mount syntax, host-path to container-path behavior, and the section that explicitly covers bind mounts with Docker Compose, which is the core runtime visibility concern in this task.
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 env/path validation behavior that the server-side tests rely on while proving success and failure paths around working-folder mapping.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: Unit test update: `server/src/test/unit/pathMap.test.ts`. Purpose: prove the happy-path host-to-workdir mapping still succeeds when `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` are aligned correctly. Read/update: `server/src/test/unit/pathMap.test.ts`, `server/src/ingest/pathMap.ts`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
 2. [ ] Current Repository: Integration test update: `server/src/test/integration/flows.run.working-folder.test.ts`. Purpose: prove flow-level working-folder validation and restore behavior still use the correct working-repository semantics after the re-ingest contract change. Read/update: `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/workingFolders/state.ts`, `server/src/flows/service.ts`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
@@ -1139,7 +1140,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 #### Implementation notes
 
 - No implementation notes yet.
+
 ---
+
 ### Task 9. Final Validation And Story Close-Out
 
 - Repository Name: `Current Repository`
@@ -1156,10 +1159,7 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 - `https://playwright.dev/docs/debug` - use for the final Manual Playwright-MCP regression pass so the reviewer checks the GUI-visible `/logs` proof consistently, reviews the captured screenshots directly, and stores them in the repository `playwright-output-local/` folder that is mapped by `docker-compose.local.yml`.
 - Context7 `/mermaid-js/mermaid` - use if the final `design.md` consistency pass needs to correct or extend Mermaid diagrams added earlier in the story.
 
-
 #### Subtasks
-
-
 
 1. [ ] Current Repository: Re-check the finished implementation against every acceptance criterion, every material Description requirement, and every explicit Out Of Scope boundary in this story, and record any mismatch before close-out. This check must explicitly map each item to the implementing task and to the proof step or wrapper that demonstrates it, including: removed `current` / `all` authored literals, supported `working` / `plan_scope` authored literals, working-first ordering, warning-aware `plan_scope` completion, unchanged MCP `sourceId` behavior, no handoff writes or migrations, no new tool-result stage enum, and no new persistence collection or top-level Turn field. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, implemented files from Tasks 1 through 8. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
 2. [ ] Current Repository: Update `docs/developer-reference.md` anywhere it still describes re-ingest targets, target modes, proof markers, or validation commands using the removed `current` / `all` language. Include the final accepted commands and the warning-aware `plan_scope` behavior if those details are documented there today. Read/update: `docs/developer-reference.md`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
@@ -1175,8 +1175,6 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
-
-
 
 1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 9 is the final backend regression pass for the story. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 9 is the final backend regression pass. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.

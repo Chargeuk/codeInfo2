@@ -150,7 +150,7 @@ const toCommandRunnerError = (
 const getReingestRequestLogContext = (
   item: { type: 'reingest' } & (
     | { sourceId: string }
-    | { target: 'current' | 'all' }
+    | { target: 'working' | 'plan_scope' }
   ),
   schemaSource: 'command',
 ) => ({

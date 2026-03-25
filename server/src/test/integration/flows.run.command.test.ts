@@ -1641,20 +1641,20 @@ test('flow-owned commands can execute reingest items', async () => {
   );
 });
 
-test('top-level flow target current resolves to the flow owner repository', async () => {
+test('top-level flow target working resolves to the flow owner repository', async () => {
   const repos: RepoEntry[] = [];
   let capturedSourceId: string | undefined;
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
-      const sourceRoot = path.join(tmpDir, 'repo-flow-current');
-      const conversationId = 'flow-target-current';
+      const sourceRoot = path.join(tmpDir, 'repo-flow-working');
+      const conversationId = 'flow-target-working';
       await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
       await fs.writeFile(
-        path.join(sourceRoot, 'flows', 'repo-flow-current.json'),
+        path.join(sourceRoot, 'flows', 'repo-flow-working.json'),
         JSON.stringify({
-          description: 'flow current target',
-          steps: [{ type: 'reingest', target: 'current' }],
+          description: 'flow working target',
+          steps: [{ type: 'reingest', target: 'working' }],
         }),
       );
       repos.push(
@@ -1663,7 +1663,7 @@ test('top-level flow target current resolves to the flow owner repository', asyn
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await supertest(baseUrl)
-        .post('/flows/repo-flow-current/run')
+        .post('/flows/repo-flow-working/run')
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
@@ -1693,24 +1693,24 @@ test('top-level flow target current resolves to the flow owner repository', asyn
   );
 });
 
-test('flow-owned command target current resolves to the command owner repository', async () => {
+test('flow-owned command target working resolves to the command owner repository', async () => {
   const repos: RepoEntry[] = [];
   let capturedSourceId: string | undefined;
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
-      const sourceRoot = path.join(tmpDir, 'repo-command-current');
-      const commandName = 'task11_reingest_current';
-      const conversationId = 'flow-command-target-current';
+      const sourceRoot = path.join(tmpDir, 'repo-command-working');
+      const commandName = 'task11_reingest_working';
+      const conversationId = 'flow-command-target-working';
       await writeRepoFlow({
         repoRoot: sourceRoot,
-        flowName: 'repo-command-current',
+        flowName: 'repo-command-working',
         commandName,
       });
       await writeRepoCommand({
         repoRoot: sourceRoot,
         commandName,
-        items: [{ type: 'reingest', target: 'current' }],
+        items: [{ type: 'reingest', target: 'working' }],
       });
       repos.push(
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
@@ -1718,7 +1718,7 @@ test('flow-owned command target current resolves to the command owner repository
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await supertest(baseUrl)
-        .post('/flows/repo-command-current/run')
+        .post('/flows/repo-command-working/run')
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
@@ -1748,21 +1748,21 @@ test('flow-owned command target current resolves to the command owner repository
   );
 });
 
-test('top-level flow target current fails fast when there is no owning repository path', async () => {
+test('top-level flow target working fails fast when there is no owning repository path', async () => {
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
-      const conversationId = 'flow-target-current-missing-owner';
+      const conversationId = 'flow-target-working-missing-owner';
       await fs.writeFile(
-        path.join(tmpDir, 'flow-current-missing-owner.json'),
+        path.join(tmpDir, 'flow-working-missing-owner.json'),
         JSON.stringify({
           description: 'missing owner',
-          steps: [{ type: 'reingest', target: 'current' }],
+          steps: [{ type: 'reingest', target: 'working' }],
         }),
       );
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await supertest(baseUrl)
-        .post('/flows/flow-current-missing-owner/run')
+        .post('/flows/flow-working-missing-owner/run')
         .send({ conversationId })
         .expect(202);
 
@@ -1773,7 +1773,7 @@ test('top-level flow target current fails fast when there is no owning repositor
       })) as { error?: { message?: string } };
       assert.match(
         final.error?.message ?? '',
-        /target "current" requires an owning repository path/i,
+        /target "working" requires an owning repository path/i,
       );
       cleanupMemory(conversationId);
     },

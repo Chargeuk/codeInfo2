@@ -803,15 +803,15 @@ test('duplicate case-insensitive repository ids still resolve to the latest inge
   }
 });
 
-test('direct command target current resolves to the command owner repository', async () => {
-  const harness = await setupRepoCommandHarness('target-current');
+test('direct command target working resolves to the command owner repository', async () => {
+  const harness = await setupRepoCommandHarness('target-working');
   let capturedSourceId: string | undefined;
 
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
-      commandName: 'current-target',
-      items: [{ type: 'reingest', target: 'current' }],
+      commandName: 'working-target',
+      items: [{ type: 'reingest', target: 'working' }],
     });
     __setAgentServiceDepsForTests({
       listIngestedRepositories: async () => ({
@@ -833,7 +833,7 @@ test('direct command target current resolves to the command owner repository', a
 
     await runAgentCommand({
       agentName: 'coding_agent',
-      commandName: 'current-target',
+      commandName: 'working-target',
       source: 'REST',
     });
 
@@ -843,8 +843,8 @@ test('direct command target current resolves to the command owner repository', a
   }
 });
 
-test('target all executes in ascending canonical path order and continues after failures', async () => {
-  const harness = await setupRepoCommandHarness('target-all-order');
+test('target plan_scope executes in ascending canonical path order and continues after failures', async () => {
+  const harness = await setupRepoCommandHarness('target-plan-scope-order');
   const repoA = path.join(harness.tempRoot, 'repo-a');
   const repoB = path.join(harness.tempRoot, 'repo-b');
   const repoC = path.join(harness.tempRoot, 'repo-c');
@@ -854,9 +854,9 @@ test('target all executes in ascending canonical path order and continues after 
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
-      commandName: 'all-target',
+      commandName: 'plan-scope-target',
       items: [
-        { type: 'reingest', target: 'all' },
+        { type: 'reingest', target: 'plan_scope' },
         { type: 'message', role: 'user', content: ['after batch'] },
       ],
     });
@@ -911,7 +911,7 @@ test('target all executes in ascending canonical path order and continues after 
 
     await runAgentCommand({
       agentName: 'coding_agent',
-      commandName: 'all-target',
+      commandName: 'plan-scope-target',
       source: 'REST',
       chatFactory: () => new CapturingChat(messages),
     });
@@ -923,17 +923,17 @@ test('target all executes in ascending canonical path order and continues after 
   }
 });
 
-test('target all returns an empty batch without calling the strict reingest service when no repositories are ingested', async () => {
-  const harness = await setupRepoCommandHarness('target-all-empty');
+test('target plan_scope returns an empty batch without calling the strict reingest service when no repositories are ingested', async () => {
+  const harness = await setupRepoCommandHarness('target-plan-scope-empty');
   const messages: string[] = [];
   let reingestCalls = 0;
 
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
-      commandName: 'all-target-empty',
+      commandName: 'plan-scope-target-empty',
       items: [
-        { type: 'reingest', target: 'all' },
+        { type: 'reingest', target: 'plan_scope' },
         { type: 'message', role: 'user', content: ['after empty batch'] },
       ],
     });
@@ -952,7 +952,7 @@ test('target all returns an empty batch without calling the strict reingest serv
 
     await runAgentCommand({
       agentName: 'coding_agent',
-      commandName: 'all-target-empty',
+      commandName: 'plan-scope-target-empty',
       source: 'REST',
       chatFactory: () => new CapturingChat(messages),
     });
@@ -964,14 +964,14 @@ test('target all returns an empty batch without calling the strict reingest serv
   }
 });
 
-test('target current preserves strict-service BUSY failures instead of collapsing them into a generic orchestration error', async () => {
-  const harness = await setupRepoCommandHarness('target-current-busy');
+test('target working preserves strict-service BUSY failures instead of collapsing them into a generic orchestration error', async () => {
+  const harness = await setupRepoCommandHarness('target-working-busy');
 
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
-      commandName: 'current-target-busy',
-      items: [{ type: 'reingest', target: 'current' }],
+      commandName: 'working-target-busy',
+      items: [{ type: 'reingest', target: 'working' }],
     });
     __setAgentServiceDepsForTests({
       listIngestedRepositories: async () => ({
@@ -1014,7 +1014,7 @@ test('target current preserves strict-service BUSY failures instead of collapsin
       async () =>
         runAgentCommand({
           agentName: 'coding_agent',
-          commandName: 'current-target-busy',
+          commandName: 'working-target-busy',
           source: 'REST',
         }),
       (error) =>
@@ -1028,15 +1028,15 @@ test('target current preserves strict-service BUSY failures instead of collapsin
   }
 });
 
-test('direct command target current fails before strict execution when the owner is not currently ingested', async () => {
-  const harness = await setupRepoCommandHarness('target-current-not-ingested');
+test('direct command target working fails before strict execution when the owner is not currently ingested', async () => {
+  const harness = await setupRepoCommandHarness('target-working-not-ingested');
   let strictCalls = 0;
 
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
-      commandName: 'current-target-not-ingested',
-      items: [{ type: 'reingest', target: 'current' }],
+      commandName: 'working-target-not-ingested',
+      items: [{ type: 'reingest', target: 'working' }],
     });
     __setAgentServiceDepsForTests({
       listIngestedRepositories: async () => ({
@@ -1055,13 +1055,13 @@ test('direct command target current fails before strict execution when the owner
       async () =>
         runAgentCommand({
           agentName: 'coding_agent',
-          commandName: 'current-target-not-ingested',
+          commandName: 'working-target-not-ingested',
           source: 'REST',
         }),
       (error) =>
         (error as { code?: string; reason?: string }).code ===
           'COMMAND_INVALID' &&
-        /owner repository is not currently ingested/i.test(
+        /target "working" owner repository is not currently ingested/i.test(
           (error as { reason?: string }).reason ?? '',
         ),
     );

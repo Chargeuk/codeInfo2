@@ -15,7 +15,7 @@ export type ReingestUserFacingOutcome = 'reingested' | 'skipped' | 'failed';
 export type ReingestStepResultPayload = {
   kind: 'reingest_step_result';
   stepType: 'reingest';
-  targetMode: 'sourceId' | 'current';
+  targetMode: 'sourceId' | 'current' | 'working';
   requestedSelector: string | null;
   sourceId: string;
   resolvedRepositoryId: string | null;
@@ -39,7 +39,7 @@ export type ReingestStepBatchSummary = {
 export type ReingestStepBatchResultPayload = {
   kind: 'reingest_step_batch_result';
   stepType: 'reingest';
-  targetMode: 'all';
+  targetMode: 'all' | 'plan_scope';
   requestedSelector: null;
   repositories: ReingestRepositoryExecutionOutcome[];
   summary: ReingestStepBatchSummary;
@@ -98,7 +98,7 @@ function buildBatchPayload(
   return {
     kind: 'reingest_step_batch_result',
     stepType: 'reingest',
-    targetMode: 'all',
+    targetMode: execution.targetMode,
     requestedSelector: null,
     repositories: execution.repositories,
     summary: buildBatchSummary(execution.repositories),

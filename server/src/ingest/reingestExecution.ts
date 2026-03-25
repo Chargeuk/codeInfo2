@@ -20,9 +20,16 @@ const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
   'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.';
 
-type ReingestRequest = { sourceId: string } | { target: 'current' | 'all' };
+type ReingestRequest =
+  | { sourceId: string }
+  | { target: 'current' | 'all' | 'working' | 'plan_scope' };
 
-export type ReingestTargetMode = 'sourceId' | 'current' | 'all';
+export type ReingestTargetMode =
+  | 'sourceId'
+  | 'current'
+  | 'all'
+  | 'working'
+  | 'plan_scope';
 
 export type ReingestRepositoryExecutionOutcome = {
   sourceId: string;
@@ -40,7 +47,7 @@ export type ReingestRepositoryExecutionOutcome = {
 
 export type ReingestExecutionSingleResult = {
   kind: 'single';
-  targetMode: 'sourceId' | 'current';
+  targetMode: 'sourceId' | 'current' | 'working';
   requestedSelector: string | null;
   resolvedSourceId: string;
   outcome: ReingestSuccess;
@@ -48,7 +55,7 @@ export type ReingestExecutionSingleResult = {
 
 export type ReingestExecutionBatchResult = {
   kind: 'batch';
-  targetMode: 'all';
+  targetMode: 'all' | 'plan_scope';
   requestedSelector: null;
   repositories: ReingestRepositoryExecutionOutcome[];
 };
@@ -94,7 +101,10 @@ function buildRetryLists(repos: RepoEntry[]) {
   };
 }
 
-function invalidCurrentOwnerError(repos: RepoEntry[]): ReingestError {
+function invalidOwnerTargetError(params: {
+  repos: RepoEntry[];
+  target: 'current' | 'working';
+}): ReingestError {
   return {
     code: -32602,
     message: 'INVALID_PARAMS',
@@ -107,16 +117,18 @@ function invalidCurrentOwnerError(repos: RepoEntry[]): ReingestError {
         {
           field: 'sourceId',
           reason: 'invalid_state',
-          message:
-            'target "current" requires an owning repository path for this command or flow',
+          message: `target "${params.target}" requires an owning repository path for this command or flow`,
         },
       ],
-      ...buildRetryLists(repos),
+      ...buildRetryLists(params.repos),
     },
   };
 }
 
-function currentOwnerNotIngestedError(repos: RepoEntry[]): ReingestError {
+function ownerTargetNotIngestedError(params: {
+  repos: RepoEntry[];
+  target: 'current' | 'working';
+}): ReingestError {
   return {
     code: 404,
     message: 'NOT_FOUND',
@@ -129,11 +141,10 @@ function currentOwnerNotIngestedError(repos: RepoEntry[]): ReingestError {
         {
           field: 'sourceId',
           reason: 'unknown_root',
-          message:
-            'target "current" owner repository is not currently ingested',
+          message: `target "${params.target}" owner repository is not currently ingested`,
         },
       ],
-      ...buildRetryLists(repos),
+      ...buildRetryLists(params.repos),
     },
   };
 }
@@ -277,11 +288,18 @@ export async function executeReingestRequest(params: {
   }
 
   const listed = await listRepos();
-  if (params.request.target === 'current') {
+  if (
+    params.request.target === 'current' ||
+    params.request.target === 'working'
+  ) {
+    const targetMode = params.request.target;
     if (!params.currentOwnerSourceId?.trim()) {
       return {
         ok: false,
-        error: invalidCurrentOwnerError(listed.repos),
+        error: invalidOwnerTargetError({
+          repos: listed.repos,
+          target: targetMode,
+        }),
       };
     }
 
@@ -291,7 +309,10 @@ export async function executeReingestRequest(params: {
     if (!repo) {
       return {
         ok: false,
-        error: currentOwnerNotIngestedError(listed.repos),
+        error: ownerTargetNotIngestedError({
+          repos: listed.repos,
+          target: targetMode,
+        }),
       };
     }
 
@@ -299,7 +320,7 @@ export async function executeReingestRequest(params: {
     appendResolutionLog({
       appendLog,
       surface: params.surface,
-      targetMode: 'current',
+      targetMode,
       requestedSelector: null,
       resolvedPaths: [resolvedPath],
     });
@@ -313,7 +334,7 @@ export async function executeReingestRequest(params: {
       ok: true,
       value: {
         kind: 'single',
-        targetMode: 'current',
+        targetMode,
         requestedSelector: null,
         resolvedSourceId: result.value.sourceId,
         outcome: result.value,
@@ -321,6 +342,7 @@ export async function executeReingestRequest(params: {
     };
   }
 
+  const targetMode = params.request.target;
   const orderedRepos = [...listed.repos].sort((left, right) =>
     normalizeContainerPath(left.containerPath).localeCompare(
       normalizeContainerPath(right.containerPath),
@@ -330,7 +352,7 @@ export async function executeReingestRequest(params: {
   appendResolutionLog({
     appendLog,
     surface: params.surface,
-    targetMode: 'all',
+    targetMode,
     requestedSelector: null,
     resolvedPaths: orderedRepos.map((repo) =>
       normalizeContainerPath(repo.containerPath),
@@ -370,7 +392,7 @@ export async function executeReingestRequest(params: {
     ok: true,
     value: {
       kind: 'batch',
-      targetMode: 'all',
+      targetMode,
       requestedSelector: null,
       repositories,
     },

@@ -110,7 +110,7 @@ test('executeReingestRequest keeps unresolved selectors on the strict invalid-in
   assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
 });
 
-test('executeReingestRequest surfaces selector-listing failures for sourceId, current, and all without INVALID_SOURCE_ID fallback', async () => {
+test('executeReingestRequest surfaces selector-listing failures for sourceId, working, and plan_scope without INVALID_SOURCE_ID fallback', async () => {
   const outage = new Error('ingested repository listing unavailable');
   const listIngestedRepositories = async () => {
     throw outage;
@@ -118,8 +118,8 @@ test('executeReingestRequest surfaces selector-listing failures for sourceId, cu
 
   for (const request of [
     { sourceId: 'Repo A' } as const,
-    { target: 'current' } as const,
-    { target: 'all' } as const,
+    { target: 'working' } as const,
+    { target: 'plan_scope' } as const,
   ]) {
     await assert.rejects(
       async () =>

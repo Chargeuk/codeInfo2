@@ -793,12 +793,11 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the schema contract with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts --file server/src/test/unit/flows-schema.test.ts`.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 1 only changes server-authored schema contracts. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 1 changes server schema parsing. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because schema changes can affect authored command and flow behavior. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -834,12 +833,10 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the fixture harness behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeFixture.test.ts`.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 2 adds server-side test harness files. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 2 adds unit-tested server harness support. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -875,12 +872,10 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the resolution helper with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeResolver.test.ts`.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 3 adds a server-side resolver helper. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 3 changes resolver logic covered by server unit and integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -929,12 +924,11 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the execution contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 4 changes the core server re-ingest execution runtime. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 4 changes server execution, helper, and integration behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 4 changes runtime behavior that can surface in feature-level server flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -975,12 +969,11 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the message and persistence contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-tool-result.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts`.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 5 changes server lifecycle and persistence code. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 5 changes server unit and integration behavior around tool results and persistence. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 5 changes persisted server output that can affect feature-level transcripts. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1021,12 +1014,11 @@ Wire the new schema, execution, and message contracts into direct command execut
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the direct-command runtime surface with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts --file server/src/test/integration/commands.reingest.test.ts`.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 6 changes direct-command server wiring. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 6 changes direct-command server behavior covered by unit and integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 6 changes server command execution behavior that can affect feature-level command flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1066,12 +1058,11 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the flow runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 7 changes flow-side server wiring. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 7 changes flow service and command-item server behavior covered by integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 7 changes flow-execution behavior that can surface in feature-level server coverage. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1106,13 +1097,15 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the env-sensitive runtime behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/pathMap.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
-6. [ ] After `npm run compose:up`, rerun the checked-in proof command from Task 6 against the main compose surface and record the exact `curl` request plus the observed success/warning result in the implementation notes so a later developer can repeat the same mounted-repository proof without rediscovering it.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 8 changes environment-sensitive server runtime behavior. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 8 proves environment mapping and mounted-runtime behavior through server suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 8 can change server runtime behavior seen by feature flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`. Use this wrapper because Task 8 must prove the compose-mounted runtime path. If the wrapper reports `failed`, or item counts are unexpected or ambiguous in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the failing target, and rerun `npm run compose:build:summary`.
+5. [ ] Run `npm run compose:up`. Use this wrapper instead of raw Docker Compose commands because Task 8 must prove the mounted runtime on the repository-supported stack. If startup fails, rerun the wrapper, then inspect stack output and use `npm run compose:logs` only as needed for diagnosis before retrying `npm run compose:up`.
+6. [ ] While the wrapper-started stack is running, execute the mounted-runtime proof described in this task by calling the checked-in proof command over the compose surface and recording the exact request and outcome in the Implementation notes. Keep this proof on the wrapper-started stack rather than using raw Docker commands or a different runtime surface.
+7. [ ] Run `npm run compose:down` after the mounted-runtime proof finishes. Use this wrapper instead of raw Docker Compose stop commands so teardown stays consistent with repository guidance.
 
 #### Implementation notes
 
@@ -1150,14 +1143,15 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 
 #### Testing
 
-1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
-2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
-4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Run the full server validation wrapper with `npm run test:summary:server:unit`.
-6. [ ] Run `npm run test:summary:e2e` only if the environment has been explicitly made suitable for proving the required filesystem visibility; otherwise record in the implementation notes that e2e remained optional regression smoke and was not used as core acceptance proof for this story.
-7. [ ] If an appropriate browser-visible surface exists by this point, use the Playwright MCP tool to perform a manual regression check and save any required screenshots to `./test-results/screenshots/` using the story/task naming convention; otherwise record why no UI-specific proof was applicable to this server-only story.
+Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
+1. [ ] Run `npm run build:summary:server`. Use this wrapper because Task 9 is the final backend regression pass for the story. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 9 is the final backend regression pass. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 9 is the final backend regression pass. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`. Use this wrapper because Task 9 is the final regression check and must confirm the supported compose stack still builds. If the wrapper reports `failed`, or item counts are unexpected or ambiguous in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the failing target, and rerun `npm run compose:build:summary`.
+5. [ ] Run `npm run compose:up`. Use this wrapper instead of raw Docker Compose commands because Task 9 is the final supported runtime regression pass. If startup fails, rerun the wrapper, then inspect stack output and use `npm run compose:logs` only as needed for diagnosis before retrying `npm run compose:up`.
+6. [ ] If the completed implementation exposes a browser-visible surface for this story, use the Playwright MCP tools against `http://host.docker.internal:5001` to perform a manual regression pass and confirm the debug console stays free of new logged errors. If no such surface exists, record that this backend-only story had no applicable browser-visible proof point.
+7. [ ] Run `npm run compose:down` after the final runtime regression checks finish. Use this wrapper instead of raw Docker Compose stop commands so teardown stays consistent with repository guidance.
 
 #### Implementation notes
 

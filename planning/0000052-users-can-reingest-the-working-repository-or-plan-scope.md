@@ -45,6 +45,46 @@ This story should reuse the existing batch transcript payload shape that already
 
 Best-effort execution is important for `plan_scope`. If the handoff file cannot be read well enough to produce additional repository scope, the batch should still continue with the working repository and log a warning. If some additional repository entries are invalid or not currently ingested, they should be skipped with warnings while the remaining usable repositories still run. Those skipped-at-resolution repositories should be surfaced through warnings, structured logs, and step metadata rather than being inserted into the attempted-repository batch payload. If a repository begins re-ingest and later reaches a failed terminal outcome, that warning should be recorded but the batch must continue through the rest of the resolved repository list instead of stopping early. When that happens, the overall `plan_scope` batch should be reported as completed with warnings rather than as a hard error, because the batch itself still finished its full ordered pass.
 
+### Definitions and runtime rules
+
+- **Working repository** means the repository resolved from the run's current `working_folder` value after it passes through the same repository-resolution logic already used elsewhere in the product. This story does not invent a second way to resolve repositories.
+- **Currently ingested repository** means a repository that the existing repository selector / ingest lookup layer can already resolve to an ingested root and use for a normal explicit `sourceId`-style re-ingest. If that existing lookup says the repository is unknown or not ingested, `working` must fail before starting and `plan_scope` must skip that additional repository with a warning.
+- **Direct command execution** means a re-ingest item executed from a command file without a flow wrapper.
+- **Dedicated flow re-ingest step** means a top-level flow step whose purpose is re-ingest.
+- **Flow-command re-ingest item** means a re-ingest item inside a command that is itself being executed by a flow step.
+- **Attempted repository** means a repository for which the runtime actually started a re-ingest run. Repositories rejected earlier during scope resolution are not "attempted repositories".
+- **Skipped-at-resolution repository** means an additional repository named in `current-plan.json` that is ignored before re-ingest starts because its path is invalid, unreadable, duplicated, or not currently ingested.
+- **Success-with-warnings** means the batch itself started, processed every repository it was able to attempt in order, and reached a terminal batch result, but one or more warnings were recorded. Those warnings may come from handoff fallback, skipped-at-resolution repositories, or repository-level re-ingest failures.
+- `plan_scope` repository resolution order is fixed:
+  1. resolve the working repository first;
+  2. read `<working-repo>/codeInfoStatus/flow-state/current-plan.json` if present and readable enough to parse;
+  3. append `additional_repositories[].path` entries in file order;
+  4. drop duplicates while keeping the first occurrence;
+  5. skip unusable additional repositories with warnings;
+  6. attempt the remaining repositories in final order.
+
+### Result and warning contract
+
+- `working` remains a single-repository re-ingest and should continue to use the same single-repository result shape that the product already uses for explicit selector-based re-ingest.
+- `plan_scope` must reuse the existing multi-repository batch result shape rather than inventing a new one. At minimum, the runtime must continue to populate:
+  - `targetMode`, now allowing the literal `"plan_scope"`;
+  - `repositories`, ordered exactly as attempted;
+  - `summary`, with counts derived only from attempted repositories.
+- Each attempted repository entry in the batch result must represent one repository that actually started re-ingest and must include that repository's terminal outcome.
+- Skipped-at-resolution repositories must not be synthesized into the `repositories` array. They belong in warnings, structured logs, or step metadata instead.
+- When `plan_scope` falls back to the working repository only because the handoff file is missing, malformed, unreadable, or empty, the batch still succeeds if that working-repository re-ingest succeeds. The warning should explain why no additional repositories were attempted.
+- When `plan_scope` starts successfully and one attempted repository later fails, the batch must continue through later attempted repositories and finish with a warning-style terminal status rather than aborting the whole batch at the first failed repository.
+- Unsupported target values, including removed `current`, must fail during normal schema or validation handling before any re-ingest run starts. This story should not add a compatibility-only branch that rewrites old target values at runtime.
+
+### Developer-facing implementation boundary
+
+- The same target semantics must be implemented in exactly three places and kept aligned:
+  - direct command re-ingest items;
+  - dedicated flow re-ingest steps;
+  - re-ingest items inside commands executed by flows.
+- MCP `reingest_repository` is explicitly outside this contract change. It should stay selector-driven and should not gain `working` or `plan_scope` parsing, fallback, or plan-handoff behavior.
+- Checked-in workflow assets in this repository are part of the story output. If a checked-in command or flow still uses `target: "current"`, updating that asset is part of completing the story, not optional cleanup.
+
 ### Acceptance Criteria
 
 - Command JSON no longer supports `target: "current"` for re-ingest items.
@@ -96,7 +136,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - General multi-repository orchestration features beyond the `plan_scope` re-ingest behavior described here.
 - Expanding the MCP `reingest_repository` tool contract beyond its existing explicit `sourceId` behavior.
 
-### Additional Repositories
+## Additional Repositories
 
 - No Additional Repositories
 

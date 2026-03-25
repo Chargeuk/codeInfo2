@@ -800,8 +800,9 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 3. [ ] Copy the repository's existing temp-directory style instead of inventing a new harness pattern: follow `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/pathMap.test.ts`, using `fs.mkdtemp`, only the minimum directories needed for the scenario, and teardown with `fs.rm(..., { recursive: true, force: true })`. Read/update: `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/test/unit/pathMap.test.ts`, `server/src/test/support/planScopeFixture.ts`.
 4. [ ] Unit test addition: `server/src/test/unit/planScopeFixture.test.ts`. Purpose: prove the fixture helper can create the happy-path working-repository layout and write the expected `current-plan.json` variants for later resolver and execution tests. Read/update: `server/src/test/unit/planScopeFixture.test.ts`, `server/src/test/support/planScopeFixture.ts`.
 5. [ ] Unit test addition: `server/src/test/unit/planScopeFixture.test.ts`. Purpose: prove the fixture helper supports the unreadable/read-failure scenario and still cleans up temp directories without uncaught filesystem errors. Read/update: `server/src/test/unit/planScopeFixture.test.ts`, `server/src/test/support/planScopeFixture.ts`.
-6. [ ] Update this story file if the final helper boundary in `server/src/test/support/planScopeFixture.ts` turns out to be narrower or clearer than the current task text, so later tasks inherit the exact supported harness shape. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/test/support/planScopeFixture.ts`.
-7. [ ] Run full linting with `npm run lint`.
+6. [ ] Markdown update: `projectStructure.md`. Purpose: document the new files created by this task, including `server/src/test/support/planScopeFixture.ts` and `server/src/test/unit/planScopeFixture.test.ts`, after those files exist and before the task is marked complete. Read/update: `projectStructure.md`, `server/src/test/support/planScopeFixture.ts`, `server/src/test/unit/planScopeFixture.test.ts`.
+7. [ ] Update this story file if the final helper boundary in `server/src/test/support/planScopeFixture.ts` turns out to be narrower or clearer than the current task text, so later tasks inherit the exact supported harness shape. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/test/support/planScopeFixture.ts`.
+8. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -838,8 +839,9 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 3. [ ] Unit test addition: `server/src/test/unit/planScopeResolver.test.ts`. Purpose: prove missing handoff, unreadable handoff, and malformed JSON all resolve to warning-style fallback instead of hard failure. Read/update: `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`.
 4. [ ] Unit test addition: `server/src/test/unit/planScopeResolver.test.ts`. Purpose: prove the happy path for `additional_repositories`, including working-repository-first ordering, empty-list fallback, and first-seen de-duplication of repeated repository entries. Read/update: `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`.
 5. [ ] Unit test addition: `server/src/test/unit/planScopeResolver.test.ts`. Purpose: prove invalid or not-currently-ingested additional repository paths are skipped during resolution and returned as warnings instead of attempted repositories. Read/update: `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`.
-6. [ ] Update this story file if the implemented helper contract in `server/src/ingest/planScopeResolver.ts` produces a clearer warning shape or return type than the current wording, so Tasks 4 and 5 can depend on one explicit documented contract. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/ingest/planScopeResolver.ts`.
-7. [ ] Run full linting with `npm run lint`.
+6. [ ] Markdown update: `projectStructure.md`. Purpose: document the new files created by this task, including `server/src/ingest/planScopeResolver.ts` and `server/src/test/unit/planScopeResolver.test.ts`, after those files exist and before the task is marked complete. Read/update: `projectStructure.md`, `server/src/ingest/planScopeResolver.ts`, `server/src/test/unit/planScopeResolver.test.ts`.
+7. [ ] Update this story file if the implemented helper contract in `server/src/ingest/planScopeResolver.ts` produces a clearer warning shape or return type than the current wording, so Tasks 4 and 5 can depend on one explicit documented contract. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/ingest/planScopeResolver.ts`.
+8. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -868,6 +870,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 #### Documentation Locations
 
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 runtime behavior around filesystem reads, path handling, promise-based error propagation, and test coverage patterns that the re-ingest execution layer relies on.
+- Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when updating `design.md` to document the new `working` and `plan_scope` execution paths.
 
 #### Subtasks
 
@@ -882,7 +885,8 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 9. [ ] Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove the `plan_scope` happy path uses working-first ordering, file-order additional repositories, and first-seen de-duplication. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`.
 10. [ ] Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove missing, malformed, and unreadable handoff inputs fall back to working-only execution with warnings instead of aborting the batch. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`.
 11. [ ] Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove invalid additional repositories are skipped, attempted repository failures still allow later repositories to run, zero-attempt prevention stays enforced, and warning/log metadata reflects the degraded batch correctly. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`.
-12. [ ] Run full linting with `npm run lint`.
+12. [ ] Markdown update: `design.md`. Purpose: document the execution-layer architecture change from owner-based `current` / `all` to `working` / `plan_scope`, and add or update Mermaid diagrams that show the single-target branch, the plan-scope resolution order, and the continue-after-failure batch path. Read/update: `design.md`, `server/src/ingest/reingestExecution.ts`, Context7 `/mermaid-js/mermaid`.
+13. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -912,6 +916,7 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 - `https://mongoosejs.com/docs/schematypes.html` - use for `Schema.Types.Mixed`, especially the documented change-tracking caveat that explains why this story should keep using the existing fresh write path instead of introducing in-place mutation logic.
 - Context7 `/nodejs/node/v22.17.0` - use for Node 22 test/runtime behavior while updating the tool-result and lifecycle tests around persisted payloads.
+- Context7 `/mermaid-js/mermaid` - use for Mermaid sequence-diagram syntax when documenting the tool-result, lifecycle, and persistence flow in `design.md`.
 
 #### Subtasks
 
@@ -924,7 +929,8 @@ Update the server-side tool-result and lifecycle message contract so completed `
 7. [ ] Unit test update: `server/src/test/unit/reingest-tool-result.test.ts`. Purpose: prove the concrete warning-code payloads `handoff_missing`, `handoff_invalid`, `repository_skipped`, and `repository_failed` include the expected `repositoryPath` / `resolvedRepositoryId` fields. Read/update: `server/src/test/unit/reingest-tool-result.test.ts`, `server/src/chat/reingestToolResult.ts`.
 8. [ ] Unit test update: `server/src/test/unit/reingest-step-lifecycle.test.ts`. Purpose: prove warning-style batches persist correctly, produce transcript-facing warning text, and do not degrade into hard error turns. Read/update: `server/src/test/unit/reingest-step-lifecycle.test.ts`, `server/src/chat/reingestStepLifecycle.ts`.
 9. [ ] Unit test update: `server/src/test/unit/reingest-step-lifecycle.test.ts`. Purpose: prove historical payload compatibility for stored `current` / `all` data so older transcripts remain readable after the new contract lands. Read/update: `server/src/test/unit/reingest-step-lifecycle.test.ts`, `server/src/chat/reingestStepLifecycle.ts`.
-10. [ ] Run full linting with `npm run lint`.
+10. [ ] Markdown update: `design.md`. Purpose: document the warning-aware tool-result and persistence architecture, and add or update Mermaid diagrams that show execution result shaping, lifecycle publication, and storage in `Turn.toolCalls`. Read/update: `design.md`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, Context7 `/mermaid-js/mermaid`.
+11. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -995,6 +1001,7 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 - `https://expressjs.com/en/5x/api` - use for Express 5 routing and request-handler rules that apply to the flow run endpoints and any nested middleware callbacks they use.
 - `https://expressjs.com/en/guide/using-middleware.html` - use for router middleware behavior and `next()` / `next('route')` flow, which is relevant when flow execution hands off between service layers and route handlers.
 - Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime behind the flow integration suites.
+- Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when documenting flow re-ingest behavior in `design.md`.
 
 #### Subtasks
 
@@ -1003,8 +1010,9 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 3. [ ] Integration test update: `server/src/test/integration/flows.run.command.test.ts`. Purpose: prove flow-owned command items surface skipped-additional-repository warnings, attempted-repository failure followed by continued execution, and warning-aware completion for `plan_scope`. Read/update: `server/src/test/integration/flows.run.command.test.ts`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`.
 4. [ ] Integration test update: `server/src/test/integration/flows.run.errors.test.ts`. Purpose: prove flow pre-start errors use the new `working` / `plan_scope` wording when the working folder is missing, invalid, or not currently ingested. Read/update: `server/src/test/integration/flows.run.errors.test.ts`, `server/src/flows/service.ts`.
 5. [ ] Integration test update: `server/src/test/integration/flows.run.working-folder.test.ts`. Purpose: prove any flow working-folder restore or validation behavior that touches re-ingest still reflects the new working-repository semantics. Read/update: `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/flows/service.ts`.
-6. [ ] Update this story file if the flow wiring in `server/src/agents/commandItemExecutor.ts` or `server/src/flows/service.ts` reveals a real cross-surface difference from direct-command behavior, so the documented contract stays explicit for later validation tasks. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`.
-7. [ ] Run full linting with `npm run lint`.
+6. [ ] Markdown update: `design.md`. Purpose: document how top-level flow re-ingest steps and flow-owned command items now route `working` / `plan_scope` through the shared runtime, and add or update Mermaid diagrams that show the flow service and command-item handoff. Read/update: `design.md`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, Context7 `/mermaid-js/mermaid`.
+7. [ ] Update this story file if the flow wiring in `server/src/agents/commandItemExecutor.ts` or `server/src/flows/service.ts` reveals a real cross-surface difference from direct-command behavior, so the documented contract stays explicit for later validation tasks. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`.
+8. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -1073,6 +1081,7 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 
 - `https://docs.docker.com/engine/storage/bind-mounts/` - use when checking that the final compose proof assumptions still match the documented bind-mount behavior used by the story.
 - `https://playwright.dev/docs/screenshots` - use for the optional screenshot-taking step in final validation, because it documents saving page and element screenshots directly to files.
+- Context7 `/mermaid-js/mermaid` - use if the final `design.md` consistency pass needs to correct or extend Mermaid diagrams added earlier in the story.
 
 #### Subtasks
 

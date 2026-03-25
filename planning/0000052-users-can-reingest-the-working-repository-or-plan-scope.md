@@ -340,6 +340,33 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   - only rely on compose scenarios where the working repository is visible through the existing `${CODEINFO_HOST_INGEST_DIR}` to `${CODEINFO_CODEX_WORKDIR}` mapping;
   - reuse the existing compose port surfaces rather than adding new ones for this feature.
 
+## Test Harnesses
+
+- This story does not require a new top-level test runner, a new HTTP test surface, or a new Docker/e2e harness. The existing server unit and integration suites already cover the relevant execution layers, and the current wrappers in `package.json` are sufficient for final validation.
+- This story does require one new reusable filesystem fixture helper because `plan_scope` introduces a test shape the current suites do not yet support cleanly: reading `<working-repo>/codeInfoStatus/flow-state/current-plan.json` and turning that file into ordered repository scope plus warnings.
+- Create that helper in `server/src/test/support/planScopeFixture.ts` so both unit and integration suites can share it instead of duplicating ad hoc `fs.mkdir`, `fs.writeFile`, and cleanup logic inside individual test files.
+- The helper should use the same lightweight Node.js filesystem-fixture pattern already used elsewhere in this repository's tests and consistent with current `node:test` guidance:
+  - create temp roots with `fs.mkdtemp`;
+  - create only the directories needed for the scenario;
+  - write the handoff file with `fs.writeFile`;
+  - remove the temp tree with `fs.rm(..., { recursive: true, force: true })` during teardown.
+- The helper should be able to build the exact plan-scope scenarios this story needs:
+  - working-repository-only fixture with no handoff file;
+  - handoff file present with empty `additional_repositories`;
+  - valid ordered additional repository entries;
+  - duplicate entries, including a duplicate of the working repository;
+  - malformed JSON payloads;
+  - entries that point at paths the ingest lookup will treat as invalid or not currently ingested.
+- The first consumers of this helper should be:
+  - `server/src/test/unit/reingestExecution.test.ts`, to prove scope resolution, de-duplication, missing-file fallback, malformed-file fallback, and skipped-at-resolution behavior without starting the HTTP server;
+  - `server/src/test/integration/commands.reingest.test.ts`, to prove direct-command `working` and `plan_scope` execution against a realistic temporary repo layout;
+  - `server/src/test/integration/flows.run.command.test.ts`, to prove both top-level flow re-ingest steps and flow-owned command re-ingest items use the same handoff-file semantics.
+- Warning-style result coverage should extend the existing local harnesses rather than creating a second shared support layer. In particular:
+  - keep using the inline batch builders in `server/src/test/unit/reingest-tool-result.test.ts`;
+  - keep extending the existing `buildHarness()` flow in `server/src/test/unit/reingest-step-lifecycle.test.ts`.
+  Those tests already capture tool payloads, persisted turns, and log arrays, so they can absorb `targetMode: "plan_scope"` and success-with-warnings assertions without a brand-new runner helper.
+- Do not create a new Playwright or compose-only harness for this story. Current repo evidence shows the missing capability is handoff-file-backed fixture setup inside server tests, not a missing browser or container test type.
+
 ## Questions
 
 - No Further Questions

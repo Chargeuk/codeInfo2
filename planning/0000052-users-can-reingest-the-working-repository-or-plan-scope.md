@@ -859,7 +859,7 @@ Wire the new schema, resolver, execution, and message contracts into direct comm
 
 ---
 
-### Task 6. Final Validation And Story Close-Out
+### Task 6. Validate Working-Folder Environment And Mounted Runtime Access
 
 - Repository Name: `Current Repository`
 - Task Status: `__to_do__`
@@ -867,7 +867,55 @@ Wire the new schema, resolver, execution, and message contracts into direct comm
 
 #### Overview
 
-Perform the final acceptance pass for the whole story, confirm that the implemented behavior matches the plan, and complete the repository documentation updates that belong with the finished work. This task should only happen after Tasks 1 through 5 are fully done and documented.
+Prove the environment-sensitive and container-visible runtime assumptions that this story depends on. This task exists because `working` and `plan_scope` only behave correctly when the existing working-folder path mapping and compose-mounted repository visibility are both still intact, so those surfaces need their own explicit proof before final close-out.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `server/src/config/startupEnv.ts`
+- `server/src/workingFolders/state.ts`
+- `server/.env`
+- `docker-compose.yml`
+- `docker-compose.local.yml`
+- `docker-compose.e2e.yml`
+- `scripts/docker-compose-with-env.sh`
+- `package.json`
+- `server/src/test/integration/flows.run.working-folder.test.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
+#### Subtasks
+
+1. [ ] Update the existing working-folder or re-ingest integration coverage so it explicitly proves the story behavior when `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` are present and correctly aligned with the selected working repository path.
+2. [ ] Add or update targeted server-side coverage for the failure path where the working-folder env mapping is missing or inconsistent, and prove that `working` fails clearly before start instead of silently targeting the wrong repository.
+3. [ ] Add or update targeted proof for `plan_scope` on the supported compose proof surface so the runtime reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` only when that working repository is actually visible inside the server container through the existing bind mount.
+4. [ ] Record in this story file which compose surface is the accepted proof path for mounted working-repository visibility and explicitly note that the e2e stack is not core acceptance proof unless its mount topology is changed to expose the working repository to the server container.
+5. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the env-sensitive runtime behavior with `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
+6. [ ] After `npm run compose:up`, run the implementation's chosen mounted-repository proof on the main or local compose surface and record the exact command or steps in the implementation notes so a later developer can repeat the same validation without rediscovering the proof path.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 7. Final Validation And Story Close-Out
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Perform the final acceptance pass for the whole story, confirm that the implemented behavior matches the plan, and complete the repository documentation updates that belong with the finished work. This task should only happen after Tasks 1 through 6 are fully done and documented.
 
 #### Documentation Locations
 

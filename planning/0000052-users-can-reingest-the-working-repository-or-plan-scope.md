@@ -770,7 +770,7 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the schema contract with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts --file server/src/test/unit/flows-schema.test.ts`.
 
@@ -798,7 +798,6 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 - `server/src/test/unit/agent-commands-runner.test.ts`
 - `server/src/test/unit/planScopeFixture.test.ts`
 - `codeInfoStatus/flow-state/current-plan.json`
-- DeepWiki `nodejs/node` guidance for Node.js temp-directory fixture cleanup
 
 #### Subtasks
 
@@ -813,7 +812,7 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the fixture harness behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeFixture.test.ts`.
 
@@ -857,7 +856,7 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the resolution helper with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeResolver.test.ts`.
 
@@ -904,7 +903,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the execution contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts`.
 
@@ -948,7 +947,7 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the message and persistence contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-tool-result.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts`.
 
@@ -988,7 +987,7 @@ Wire the new schema, execution, and message contracts into direct command execut
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the direct-command runtime surface with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts --file server/src/test/integration/commands.reingest.test.ts`.
 
@@ -1029,7 +1028,7 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the flow runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
 
@@ -1047,7 +1046,7 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 
 #### Overview
 
-Prove the environment-sensitive and container-visible runtime assumptions that this story depends on. This task exists because `working` and `plan_scope` only behave correctly when the existing working-folder path mapping and compose-mounted repository visibility are both still intact, so those surfaces need their own explicit proof before final close-out.
+Prove the environment-sensitive and container-visible runtime assumptions that this story depends on. This task exists because `working` and `plan_scope` only behave correctly when the existing working-folder path mapping and compose-mounted repository visibility are both still intact. Reuse the runtime scenarios already added in Tasks 6 and 7 instead of inventing a new bespoke validation harness for this proof.
 
 #### Documentation Locations
 
@@ -1071,18 +1070,18 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 1. [ ] Update the existing working-folder or re-ingest integration coverage so it explicitly proves the story behavior when `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` are present and correctly aligned with the selected working repository path, reusing the existing `mapHostWorkingFolderToWorkdir` contract instead of introducing new environment-path translation logic.
 2. [ ] Add or update targeted server-side coverage for the failure path where the working-folder env mapping is missing or inconsistent, and prove that `working` fails clearly before start instead of silently targeting the wrong repository.
-3. [ ] Add or update targeted proof for `plan_scope` on the supported compose proof surface so the runtime reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` only when that working repository is actually visible inside the server container through the existing bind mount.
-4. [ ] Record in this story file which compose surface is the accepted proof path for mounted working-repository visibility and explicitly note that the e2e stack is not core acceptance proof unless its mount topology is changed to expose the working repository to the server container.
+3. [ ] Add or update targeted proof for `plan_scope` on the supported compose proof surface by reusing one of the direct-command or flow scenarios already added in Tasks 6 or 7, so the runtime reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` only when that working repository is actually visible inside the server container through the existing bind mount.
+4. [ ] Record in this story file that the main compose stack is the default proof surface for mounted working-repository visibility, and only use the local compose stack when a story-specific validation really needs its extra mounts or runtime behavior. Also note explicitly that the e2e stack is not core acceptance proof unless its mount topology is changed to expose the working repository to the server container.
 5. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Prove the env-sensitive runtime behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/pathMap.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
-6. [ ] After `npm run compose:up`, run the implementation's chosen mounted-repository proof on the main or local compose surface and record the exact command or steps in the implementation notes so a later developer can repeat the same validation without rediscovering the proof path.
+6. [ ] After `npm run compose:up`, rerun one of the story's existing direct-command or flow `plan_scope` scenarios against the main compose surface and record the exact command or request in the implementation notes so a later developer can repeat the same mounted-repository proof without rediscovering it.
 
 #### Implementation notes
 
@@ -1107,20 +1106,14 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 - `design.md`
 - `docs/developer-reference.md`
 - `projectStructure.md`
-- `package.json`
-- `docker-compose.yml`
-- `docker-compose.local.yml`
-- `docker-compose.e2e.yml`
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
 
 #### Subtasks
 
 1. [ ] Re-check the finished implementation against every acceptance criterion in this story and record any mismatch before attempting close-out.
-2. [ ] Update `README.md` if the supported re-ingest target contract, validation commands, or user-facing behavior changed in a way that should be documented for developers.
-3. [ ] Update `design.md` so the re-ingest contract, warning payload path, and working / plan-scope behavior are described at architecture level if the implementation changed those areas materially.
-4. [ ] Update `docs/developer-reference.md` anywhere it still describes re-ingest targets, target modes, proof markers, or validation commands using the removed `current` / `all` language.
-5. [ ] Update `projectStructure.md` for any added, removed, or renamed files such as `server/src/ingest/planScopeResolver.ts` or `server/src/test/support/planScopeFixture.ts`.
+2. [ ] Update `docs/developer-reference.md` anywhere it still describes re-ingest targets, target modes, proof markers, or validation commands using the removed `current` / `all` language.
+3. [ ] Update `README.md` only if the supported re-ingest target contract, validation commands, or user-facing behavior changed in a way that should be documented for developers outside the story file.
+4. [ ] Update `design.md` only if the implementation changed the documented re-ingest architecture materially enough that the existing design text would become misleading.
+5. [ ] Update `projectStructure.md` only for files that were actually added, removed, or renamed by this story, such as `server/src/ingest/planScopeResolver.ts` or `server/src/test/support/planScopeFixture.ts`.
 6. [ ] Create a pull-request-ready summary covering all tasks completed in this story and the major contract/runtime/test changes that landed.
 7. [ ] Run full linting with `npm run lint`.
 
@@ -1128,7 +1121,7 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 
 1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
-3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+3. [ ] Prove the Docker build wrapper still succeeds with `npm run compose:build:summary`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
 5. [ ] Run the full server validation wrapper with `npm run test:summary:server:unit`.
 6. [ ] Run `npm run test:summary:e2e` only if the environment has been explicitly made suitable for proving the required filesystem visibility; otherwise record in the implementation notes that e2e remained optional regression smoke and was not used as core acceptance proof for this story.

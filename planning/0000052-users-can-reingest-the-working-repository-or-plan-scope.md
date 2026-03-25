@@ -712,7 +712,7 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 #### Subtasks
 
 1. [ ] Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, normalize `additional_repositories[].path`, preserve working-repo-first order, remove duplicates, and return structured warning data for missing, malformed, unreadable, or unusable handoff entries.
-2. [ ] Keep `planScopeResolver` focused on resolution only: it must not run re-ingest itself, must not rewrite the handoff file, and must not invent a second repository selector algorithm outside the existing normalization rules.
+2. [ ] Keep `planScopeResolver` focused on resolution only: it must not run re-ingest itself, must not rewrite the handoff file, and must resolve additional repository entries through the existing repository-selector path instead of inventing a second direct filesystem-based selector for non-working repositories.
 3. [ ] Create `server/src/test/support/planScopeFixture.ts` so tests can build working repositories, handoff files, duplicate entries, malformed files, and invalid repository-path scenarios without repeating ad hoc filesystem setup.
 4. [ ] Create `server/src/test/unit/planScopeFixture.test.ts` and prove the fixture helper can create the expected temporary working-repository layout, write handoff variants, and clean up without uncaught filesystem errors.
 5. [ ] Create `server/src/test/unit/planScopeResolver.test.ts` and prove missing-file fallback, malformed-file warnings, de-duplication, and normalization behavior before execution wiring depends on the helper.
@@ -756,11 +756,12 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 #### Subtasks
 
 1. [ ] Update `server/src/ingest/reingestExecution.ts` so `ReingestRequest`, `ReingestTargetMode`, `ReingestExecutionSingleResult`, and `ReingestExecutionBatchResult` match the new `working` / `plan_scope` contract defined in this story.
-2. [ ] Replace the owner-based `current` single-repository branch with a working-repository branch that fails before start when no valid working repository can be resolved or when that repository is not currently ingested.
+2. [ ] Replace the owner-based `current` single-repository branch with a working-repository branch that resolves the already-selected run `working_folder`, fails before start when no valid working repository can be resolved, and fails clearly when that repository is not currently ingested.
 3. [ ] Replace the old `all` branch with a `plan_scope` batch branch that uses `planScopeResolver`, attempts only resolved repositories, keeps working-repo-first order, continues after per-repository failures, and returns the planned `warnings` array.
-4. [ ] Preserve explicit `sourceId` behavior and keep MCP-oriented selector semantics unchanged inside the execution layer.
-5. [ ] Update `server/src/test/unit/reingestExecution.test.ts` so it proves `working`, `plan_scope`, de-duplication, missing/malformed handoff fallback, invalid additional repositories, and zero-attempt prevention behavior.
-6. [ ] Run full linting with `npm run lint`.
+4. [ ] Update the execution-layer structured logging so `working`, `plan_scope`, plan-scope fallback-to-working-only, skipped-at-resolution repositories, and continued-after-failure batches are all distinguishable in logs and step metadata instead of being reported like the removed `current` / `all` modes.
+5. [ ] Preserve explicit `sourceId` behavior and keep MCP-oriented selector semantics unchanged inside the execution layer.
+6. [ ] Update `server/src/test/unit/reingestExecution.test.ts` so it proves `working`, `plan_scope`, de-duplication, missing/malformed handoff fallback, invalid additional repositories, zero-attempt prevention behavior, and any warning/log metadata assertions needed to keep the execution contract inspectable.
+7. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -801,9 +802,10 @@ Update the server-side tool-result and lifecycle message contract so completed `
 1. [ ] Update `server/src/chat/reingestToolResult.ts` so single re-ingest payloads use `targetMode: "sourceId" | "working"` and batch payloads use `targetMode: "plan_scope"` plus the explicit `warnings` array.
 2. [ ] Keep `ChatToolResultEvent.stage` on the existing `success` / `error` enum and represent success-with-warnings as `stage: "success"` plus batch warnings, rather than inventing a third stage.
 3. [ ] Update `server/src/chat/reingestStepLifecycle.ts` so it accepts, persists, and publishes the new batch payload shape while preserving readability of historical stored payloads that still contain `current` or `all`.
-4. [ ] Confirm that `server/src/mongo/turn.ts` does not require a new top-level field or collection because the new payload continues to live inside `Turn.toolCalls`.
-5. [ ] Update `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` so they prove warning-style completion, warning persistence, and historical payload compatibility.
-6. [ ] Run full linting with `npm run lint`.
+4. [ ] Update the lifecycle-generated user/assistant turn text so `plan_scope` results are no longer described as applying to "all ingested repositories" and warning-style completion is visible to transcript readers without being turned into a hard error.
+5. [ ] Confirm that `server/src/mongo/turn.ts` does not require a new top-level field or collection because the new payload continues to live inside `Turn.toolCalls`.
+6. [ ] Update `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` so they prove warning-style completion, warning persistence, transcript-facing warning text, and historical payload compatibility.
+7. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 

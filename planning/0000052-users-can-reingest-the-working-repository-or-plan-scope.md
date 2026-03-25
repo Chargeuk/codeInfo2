@@ -749,12 +749,6 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `planning/plan_format.md`
-- `server/src/agents/commandsSchema.ts`
-- `server/src/flows/flowSchema.ts`
-- `server/src/test/unit/agent-commands-schema.test.ts`
-- `server/src/test/unit/flows-schema.test.ts`
 - Context7 `/colinhacks/zod`
 
 #### Subtasks
@@ -792,12 +786,7 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `server/src/test/support`
-- `server/src/test/unit/pathMap.test.ts`
-- `server/src/test/unit/agent-commands-runner.test.ts`
-- `server/src/test/unit/planScopeFixture.test.ts`
-- `codeInfoStatus/flow-state/current-plan.json`
+- Context7 `/nodejs/node/v22.17.0`
 
 #### Subtasks
 
@@ -834,15 +823,7 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `server/src/ingest/reingestExecution.ts`
-- `server/src/ingest/pathMap.ts`
-- `server/src/mcpCommon/repositorySelector.ts`
-- `server/src/workingFolders/state.ts`
-- `server/src/test/unit/pathMap.test.ts`
-- `server/src/test/unit/planScopeResolver.test.ts`
-- `server/src/test/support/planScopeFixture.ts`
-- `codeInfoStatus/flow-state/current-plan.json`
+- Context7 `/nodejs/node/v22.17.0`
 
 #### Subtasks
 
@@ -878,15 +859,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `server/src/ingest/reingestExecution.ts`
-- `server/src/ingest/reingestError.ts`
-- `server/src/ingest/pathMap.ts`
-- `server/src/mcpCommon/repositorySelector.ts`
-- `server/src/workingFolders/state.ts`
-- `server/src/test/unit/reingestExecution.test.ts`
-- `server/src/test/support/planScopeFixture.ts`
-- `server/src/ingest/planScopeResolver.ts`
+- Context7 `/nodejs/node/v22.17.0`
 
 #### Subtasks
 
@@ -925,13 +898,8 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `server/src/chat/interfaces/ChatInterface.ts`
-- `server/src/chat/reingestToolResult.ts`
-- `server/src/chat/reingestStepLifecycle.ts`
-- `server/src/mongo/turn.ts`
-- `server/src/test/unit/reingest-tool-result.test.ts`
-- `server/src/test/unit/reingest-step-lifecycle.test.ts`
+- Context7 `/automattic/mongoose/9.0.1`
+- Context7 `/nodejs/node/v22.17.0`
 
 #### Subtasks
 
@@ -969,11 +937,8 @@ Wire the new schema, execution, and message contracts into direct command execut
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `server/src/agents/commandsRunner.ts`
-- `server/src/agents/service.ts`
-- `server/src/test/unit/agent-commands-runner.test.ts`
-- `server/src/test/integration/commands.reingest.test.ts`
+- Context7 `/expressjs/express/v5.1.0`
+- Context7 `/nodejs/node/v22.17.0`
 
 #### Subtasks
 
@@ -1009,12 +974,8 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `server/src/agents/commandItemExecutor.ts`
-- `server/src/flows/service.ts`
-- `server/src/test/integration/flows.run.command.test.ts`
-- `server/src/test/integration/flows.run.errors.test.ts`
-- `server/src/test/integration/flows.run.working-folder.test.ts`
+- Context7 `/expressjs/express/v5.1.0`
+- Context7 `/nodejs/node/v22.17.0`
 
 #### Subtasks
 
@@ -1050,21 +1011,8 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `server/src/config/startupEnv.ts`
-- `server/src/ingest/pathMap.ts`
-- `server/src/routes/ingestDirs.ts`
-- `server/src/workingFolders/state.ts`
-- `server/.env`
-- `docker-compose.yml`
-- `docker-compose.local.yml`
-- `docker-compose.e2e.yml`
-- `scripts/docker-compose-with-env.sh`
-- `package.json`
-- `server/src/test/unit/pathMap.test.ts`
-- `server/src/test/integration/flows.run.working-folder.test.ts`
-- `server/src/test/integration/commands.reingest.test.ts`
-- `server/src/test/integration/flows.run.command.test.ts`
+- Context7 `/docker/docs`
+- Context7 `/nodejs/node/v22.17.0`
 
 #### Subtasks
 
@@ -1101,11 +1049,8 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 
 #### Documentation Locations
 
-- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
-- `README.md`
-- `design.md`
-- `docs/developer-reference.md`
-- `projectStructure.md`
+- Context7 `/docker/docs`
+- Context7 `/microsoft/playwright`
 
 #### Subtasks
 

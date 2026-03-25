@@ -749,7 +749,9 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 
 #### Documentation Locations
 
-- Context7 `/colinhacks/zod`
+- `https://zod.dev/api?id=unions` - use for the standard union parsing rules that matter when the schema accepts one of several authored re-ingest shapes.
+- `https://zod.dev/api?id=discriminated-unions` - use for discriminator-based unions and literal branches; this is relevant if the final schema shape is expressed with a clearer discriminator key instead of a broad union.
+- `https://zod.dev/api?id=objects` - use for `z.strictObject()` and unknown-key rejection, which is directly relevant to the tests that must reject extra keys.
 
 #### Subtasks
 
@@ -786,7 +788,7 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 
 #### Documentation Locations
 
-- Context7 `/nodejs/node/v22.17.0`
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 `fs.mkdtemp` temp-directory API, the trailing-separator requirement for safe temp-dir creation, `fs.rm(..., { recursive: true, force: true })` cleanup, and `node:test` patterns used by the fixture smoke test.
 
 #### Subtasks
 
@@ -823,7 +825,7 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 
 #### Documentation Locations
 
-- Context7 `/nodejs/node/v22.17.0`
+- Context7 `/nodejs/node/v22.17.0` - use for Node 22 filesystem and path APIs that read `current-plan.json`, parse JSON from disk, normalize paths, and support the `node:test` resolver coverage for fallback and warning cases.
 
 #### Subtasks
 
@@ -859,7 +861,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 #### Documentation Locations
 
-- Context7 `/nodejs/node/v22.17.0`
+- Context7 `/nodejs/node/v22.17.0` - use for Node 22 runtime behavior around filesystem reads, path handling, promise-based error propagation, and test coverage patterns that the re-ingest execution layer relies on.
 
 #### Subtasks
 
@@ -898,8 +900,8 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 #### Documentation Locations
 
-- Context7 `/automattic/mongoose/9.0.1`
-- Context7 `/nodejs/node/v22.17.0`
+- `https://mongoosejs.com/docs/schematypes.html` - use for `Schema.Types.Mixed`, especially the documented change-tracking caveat that explains why this story should keep using the existing fresh write path instead of introducing in-place mutation logic.
+- Context7 `/nodejs/node/v22.17.0` - use for Node 22 test/runtime behavior while updating the tool-result and lifecycle tests around persisted payloads.
 
 #### Subtasks
 
@@ -937,8 +939,9 @@ Wire the new schema, execution, and message contracts into direct command execut
 
 #### Documentation Locations
 
-- Context7 `/expressjs/express/v5.1.0`
-- Context7 `/nodejs/node/v22.17.0`
+- `https://expressjs.com/en/5x/api` - use for Express 5 request handlers, routing methods, and middleware callback behavior used by the direct-command server surface.
+- `https://expressjs.com/en/guide/using-middleware.html` - use for the application-level and router-level middleware flow, including `next()` semantics, which matters when the direct-command path threads working-folder context through the server runtime.
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime that backs the direct-command unit and integration suites.
 
 #### Subtasks
 
@@ -974,8 +977,9 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 
 #### Documentation Locations
 
-- Context7 `/expressjs/express/v5.1.0`
-- Context7 `/nodejs/node/v22.17.0`
+- `https://expressjs.com/en/5x/api` - use for Express 5 routing and request-handler rules that apply to the flow run endpoints and any nested middleware callbacks they use.
+- `https://expressjs.com/en/guide/using-middleware.html` - use for router middleware behavior and `next()` / `next('route')` flow, which is relevant when flow execution hands off between service layers and route handlers.
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime behind the flow integration suites.
 
 #### Subtasks
 
@@ -1011,8 +1015,8 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 #### Documentation Locations
 
-- Context7 `/docker/docs`
-- Context7 `/nodejs/node/v22.17.0`
+- `https://docs.docker.com/engine/storage/bind-mounts/` - use for bind-mount syntax, host-path to container-path behavior, and the section that explicitly covers bind mounts with Docker Compose, which is the core runtime visibility concern in this task.
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 env/path validation behavior that the server-side tests rely on while proving success and failure paths around working-folder mapping.
 
 #### Subtasks
 
@@ -1049,8 +1053,8 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 
 #### Documentation Locations
 
-- Context7 `/docker/docs`
-- Context7 `/microsoft/playwright`
+- `https://docs.docker.com/engine/storage/bind-mounts/` - use when checking that the final compose proof assumptions still match the documented bind-mount behavior used by the story.
+- `https://playwright.dev/docs/screenshots` - use for the optional screenshot-taking step in final validation, because it documents saving page and element screenshots directly to files.
 
 #### Subtasks
 

@@ -85,6 +85,89 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - MCP `reingest_repository` is explicitly outside this contract change. It should stay selector-driven and should not gain `working` or `plan_scope` parsing, fallback, or plan-handoff behavior.
 - Checked-in workflow assets in this repository are part of the story output. If a checked-in command or flow still uses `target: "current"`, updating that asset is part of completing the story, not optional cleanup.
 
+## Message Contracts and Storage Shapes
+
+This story stays within the current repository, so the contract definitions below use the normal single-repository style. The story does change existing contracts and one stored payload shape, but it should do so by extending the current command/flow/tool-result path rather than inventing a second persistence channel.
+
+### Authored command and flow JSON contracts
+
+- Command JSON re-ingest items should be defined as exactly one of:
+  - `{ "type": "reingest", "sourceId": "<selector>" }`
+  - `{ "type": "reingest", "target": "working" }`
+  - `{ "type": "reingest", "target": "plan_scope" }`
+- Flow JSON re-ingest steps should be defined as exactly one of:
+  - `{ "type": "reingest", "sourceId": "<selector>" }`
+  - `{ "type": "reingest", "target": "working" }`
+  - `{ "type": "reingest", "target": "plan_scope" }`
+- `target: "current"` and `target: "all"` are removed from newly-authored command and flow files in this story. They are not compatibility aliases.
+- Contract owner and parser files:
+  - `server/src/agents/commandsSchema.ts`
+  - `server/src/flows/flowSchema.ts`
+- Compatibility expectation:
+  - new checked-in command and flow files written by this story must use only `sourceId`, `working`, or `plan_scope`;
+  - remaining `current`/`all` authored values should fail the normal invalid-target path rather than being rewritten at runtime.
+
+### Runtime re-ingest execution result contract
+
+- `server/src/ingest/reingestExecution.ts` should keep two result families:
+  - single-repository result for `sourceId` and `working`;
+  - batch result for `plan_scope`.
+- The single result contract should be:
+  - `kind: "single"`
+  - `targetMode: "sourceId" | "working"`
+  - `requestedSelector: string | null`
+  - `resolvedSourceId: string`
+  - `outcome: ReingestSuccess`
+- The batch result contract should remain attempted-repository-oriented and should be:
+  - `kind: "batch"`
+  - `targetMode: "plan_scope"`
+  - `requestedSelector: null`
+  - `repositories: ReingestRepositoryExecutionOutcome[]`
+  - `summary: { reingested: number; skipped: number; failed: number }`
+  - `warnings: ReingestPlanScopeWarning[]`
+- `repositories` and `summary` must describe attempted repositories only.
+- `warnings` must carry the resolution-time and best-effort context that the existing batch payload cannot express by repository outcomes alone.
+- The warning shape should stay simple and explicit:
+  - `code: "handoff_missing" | "handoff_invalid" | "repository_skipped" | "repository_failed"`
+  - `message: string`
+  - `repositoryPath?: string | null`
+  - `resolvedRepositoryId?: string | null`
+- Compatibility expectation:
+  - reuse the current repository-outcome entry shape instead of inventing a second per-repository result type;
+  - do not synthesize skipped-at-resolution repositories into `repositories`.
+
+### `current-plan.json` handoff storage contract
+
+- This story reuses the existing checked-in handoff file instead of creating a new storage file.
+- Runtime consumption should read:
+  - `<working-repo>/codeInfoStatus/flow-state/current-plan.json`
+  - `additional_repositories[].path`
+- Runtime consumption should ignore handoff fields that are not needed for repository scope resolution, including `plan_path` and any `branched_from` values.
+- This story does not redefine the handoff file format. It adds runtime consumption of the existing `additional_repositories[].path` field only.
+- Compatibility expectation:
+  - missing file, unreadable file, malformed JSON, or empty `additional_repositories` must fall back to working-only behavior plus warnings;
+  - the story should not write or migrate this file during re-ingest execution.
+
+### Chat tool-result and persisted turn storage contract
+
+- `server/src/chat/reingestToolResult.ts` should keep the existing `tool-result` event path and the existing `reingest_step_result` / `reingest_step_batch_result` payload kinds.
+- The single payload should become:
+  - `targetMode: "sourceId" | "working"`
+- The batch payload should become:
+  - `targetMode: "plan_scope"`
+  - `repositories: ReingestRepositoryExecutionOutcome[]`
+  - `summary: { reingested: number; skipped: number; failed: number }`
+  - `warnings: ReingestPlanScopeWarning[]`
+- Because `ChatToolResultEvent.stage` currently only allows `success` or `error`, completed `plan_scope` batches with warnings should be represented as:
+  - `stage: "success"`
+  - batch payload `warnings.length > 0`
+- `server/src/chat/reingestStepLifecycle.ts` should persist that batch payload unchanged into `Turn.toolCalls` so the warning information survives memory persistence, Mongo persistence, websocket publication, and later transcript reads.
+- Storage shape owner:
+  - `server/src/mongo/turn.ts` already stores `toolCalls` as `Schema.Types.Mixed`, so no new collection or top-level Turn schema field is needed for this story.
+- Compatibility expectation:
+  - new writes from this story should persist `working` and `plan_scope`;
+  - stored historical payloads that still mention `sourceId`, `current`, or `all` should remain readable through the lifecycle normalization path where practical, but the story should not keep writing the removed literals.
+
 ### Acceptance Criteria
 
 - Command JSON no longer supports `target: "current"` for re-ingest items.
@@ -321,6 +404,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   - dedicated flow re-ingest steps through `server/src/flows/service.ts`.
   The safest implementation order is to update the shared `executeReingestRequest` contract first, then rewire these callers so they pass the working-repository path instead of an owner path and preserve the new `targetMode` values in their existing logs.
 - The user-facing result contract needs a matching update in `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts`. Today the batch payload and lifecycle parser only recognize `targetMode: "all"`, and the tool stage is forced to hard error when any batch repository fails. `plan_scope` should reuse the same batch payload shape, but with `targetMode: "plan_scope"` and warning-style completion semantics when the batch itself finishes its ordered pass. The lifecycle copy should also mention fallback and skip cases so persisted turns do not make a degraded plan-scope run look identical to a fully clean batch.
+- Because `ChatToolResultEvent.stage` is currently limited to `success` or `error`, success-with-warnings should be represented by keeping `stage: "success"` and adding the explicit `warnings` array defined in `## Message Contracts and Storage Shapes` to the batch payload that gets persisted into `Turn.toolCalls`.
 - MCP should stay explicitly out of scope in code, not just in prose. `server/src/mcp2/tools/reingestRepository.ts` still exposes a `sourceId`-only contract today, and the implementation should leave that surface unchanged. This story should not add `working` or `plan_scope` parsing, fallback, or handoff-file reads to MCP.
 - Checked-in workflow assets should be handled as a verify-then-update step rather than assumed churn. Current repo searches show the removed target literals are concentrated in runtime and tests rather than checked-in command/flow JSON assets. The story should still keep a final verification search for checked-in asset literals so implementation can either update any real asset that exists or record that no repository-owned command/flow files needed migration.
 - The most likely tests to update are already well signposted by the existing old-target assertions:

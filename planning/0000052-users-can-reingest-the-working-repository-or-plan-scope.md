@@ -911,7 +911,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 4. Implement Working And Plan-Scope Execution
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -932,8 +932,8 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 5. [ ] Current Repository: Remove or rename every obsolete `current` / `all` helper, branch, and error path in `server/src/ingest/reingestExecution.ts` so the removed literals do not survive in runtime type names, helper names, or dead compatibility code. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/ingest/reingestError.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 6. [ ] Current Repository: Update execution-layer logs and step metadata in `server/src/ingest/reingestExecution.ts` so `working`, `plan_scope`, working-only fallback, skipped-at-resolution repositories, and continue-after-failure batches can be distinguished clearly during diagnosis. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/test/unit/reingestExecution.test.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 7. [ ] Current Repository: Preserve explicit `sourceId` behavior and keep the MCP-facing selector model unchanged. Do not add `working` or `plan_scope` semantics to the MCP contract while editing the shared execution code. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/mcp2/tools/reingestRepository.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
-8. [ ] Current Repository: Unit test update: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove explicit selector-based `sourceId` re-ingest still canonicalizes valid selectors and returns the same single-result contract after the new target modes are added. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
-9. [ ] Current Repository: Unit test update: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove unresolved or invalid `sourceId` inputs still stay on the strict invalid-input path and do not fall into `working` or `plan_scope` handling. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+8. [x] Current Repository: Unit test update: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove explicit selector-based `sourceId` re-ingest still canonicalizes valid selectors and returns the same single-result contract after the new target modes are added. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+9. [x] Current Repository: Unit test update: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove unresolved or invalid `sourceId` inputs still stay on the strict invalid-input path and do not fall into `working` or `plan_scope` handling. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 10. [ ] Current Repository: Unit test update: `server/src/test/unit/mcp.reingest.classic.test.ts`. Purpose: prove the classic MCP `reingest_repository` tool remains `sourceId`-only and does not accept `target: "working"` or `target: "plan_scope"` arguments after the shared execution changes. Read/update: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/mcp/tools.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 11. [ ] Current Repository: Unit test update: `server/src/test/unit/mcp2.reingest.tool.test.ts`. Purpose: prove the MCP v2 `reingest_repository` tool remains `sourceId`-only and does not accept `target: "working"` or `target: "plan_scope"` arguments after the shared execution changes. Read/update: `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
 12. [ ] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove the `working` happy path resolves the selected working repository and completes as a single-repository execution. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
@@ -958,7 +958,8 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 
 #### Implementation notes
 
-- No implementation notes yet.
+- `server/src/test/unit/reingestExecution.test.ts` already proves explicit `sourceId` selectors still canonicalize to the resolved container path and stay on the strict invalid-input path when lookup fails, so those two preservation subtasks were marked complete during this audit.
+- The rest of Task 4 remains open because `server/src/ingest/reingestExecution.ts` still carries the old `current` / `all` runtime branches and does not yet consume a shared plan-scope resolver or warning-aware batch payload.
 
 ---
 

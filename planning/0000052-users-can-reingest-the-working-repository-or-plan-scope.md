@@ -187,6 +187,10 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
     - `docker-compose.e2e.yml` does not mount the host ingest root into the server container;
     - working-folder validation/path mapping already depends on `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR`.
   - Missing prerequisite: any runtime validation done inside Docker must use a working repository that is actually visible inside the server container. For the e2e stack, Story `0000052` cannot assume arbitrary host repositories are readable unless the e2e environment is updated to mount them or the validation is performed through a non-e2e harness that already has filesystem access.
+  - Validation implication:
+    - the main Compose stack is sufficient for read-only access to a mounted working repository;
+    - the local Compose stack is suitable when writable source mounts or Docker socket access are also needed;
+    - the e2e Compose stack is not, by itself, proof that runtime `plan_scope` file reads work for arbitrary host repositories.
 
 - **The story depends on existing env injection paths staying correct.**
   - Repo evidence:
@@ -198,6 +202,14 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - **Validation wrappers already exist and should be treated as the default proof path.**
   - Repo evidence: root `package.json` already provides `build:summary:*`, `test:summary:*`, and `compose:*` wrappers, plus the compose launcher script `scripts/docker-compose-with-env.sh`.
   - Planning implication: final validation for Story `0000052` should be task-sized around those wrappers rather than inventing ad hoc raw commands, except where targeted diagnosis is required.
+  - Concrete wrapper baseline to reference when tasking:
+    - `npm run build:summary:server`
+    - `npm run build:summary:client`
+    - `npm run test:summary:server:unit`
+    - `npm run compose:build:summary`
+    - `npm run compose:up`
+    - `npm run compose:down`
+    - `npm run test:summary:e2e` only after deciding whether the e2e stack is actually an appropriate proof surface for the filesystem visibility required by the scenario being tested.
 
 - **Existing test harnesses do not yet cover the new target modes or handoff-file-driven scope resolution.**
   - Repo evidence:

@@ -444,6 +444,7 @@ This story stays within the current repository, so the contract definitions belo
   - create only the directories needed for the scenario;
   - write the handoff file with `fs.writeFile`;
   - remove the temp tree with `fs.rm(..., { recursive: true, force: true })` during teardown.
+  - do not plan around `fsPromises.mkdtempDisposable()` or `await using`; the current repository baseline is Node 22 and the checked-in tests already standardize on `fs.mkdtemp` plus explicit cleanup.
 - The helper should be able to build the exact plan-scope scenarios this story needs:
   - working-repository-only fixture with no handoff file;
   - handoff file present with empty `additional_repositories`;
@@ -656,6 +657,7 @@ This story stays within the current repository, so the contract definitions belo
   - Tasks 1 through 6 must be complete first so Task 7 can validate the finished contract rather than partial behavior.
 - Assumptions that are currently invalid:
   - No cross-repository close-out work is required for this story because the validated scope stays inside the current repository only.
+  - It is not valid to assume a Material UI or other client-side re-ingest consumer exists today; current repository evidence shows this story remains server-and-documentation work unless implementation later adds a new UI surface deliberately.
 
 ## Edge Cases and Failure Modes
 
@@ -882,7 +884,7 @@ Update the server-side tool-result and lifecycle message contract so completed `
 2. [ ] Keep `ChatToolResultEvent.stage` on the existing `success` / `error` enum and represent success-with-warnings as `stage: "success"` plus batch warnings, rather than inventing a third stage.
 3. [ ] Update `server/src/chat/reingestStepLifecycle.ts` so it accepts, persists, and publishes the new batch payload shape while preserving readability of historical stored payloads that still contain `current` or `all`.
 4. [ ] Update the lifecycle-generated user/assistant turn text so `plan_scope` results are no longer described as applying to "all ingested repositories" and warning-style completion is visible to transcript readers without being turned into a hard error.
-5. [ ] Confirm that `server/src/mongo/turn.ts` does not require a new top-level field or collection because the new payload continues to live inside `Turn.toolCalls`.
+5. [ ] Confirm that `server/src/mongo/turn.ts` does not require a new top-level field or collection because the new payload continues to live inside `Turn.toolCalls`, and keep persistence on the existing fresh `appendTurn` write path rather than introducing an in-place `markModified('toolCalls')` mutation flow for `Schema.Types.Mixed`.
 6. [ ] Update `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` so they prove warning-style completion, warning persistence, transcript-facing warning text, and historical payload compatibility.
 7. [ ] Run full linting with `npm run lint`.
 

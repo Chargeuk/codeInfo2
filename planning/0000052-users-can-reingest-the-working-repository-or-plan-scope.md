@@ -367,6 +367,92 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   Those tests already capture tool payloads, persisted turns, and log arrays, so they can absorb `targetMode: "plan_scope"` and success-with-warnings assertions without a brand-new runner helper.
 - Do not create a new Playwright or compose-only harness for this story. Current repo evidence shows the missing capability is handoff-file-backed fixture setup inside server tests, not a missing browser or container test type.
 
+## Feasibility Proof
+
+### 1. Schema parsing
+
+- Already existing capabilities:
+  - `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` already model re-ingest as a strict object union with `sourceId` and literal `target` branches.
+  - Existing unit tests in `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` already prove acceptance and rejection for the current target literals.
+- Missing prerequisite capabilities:
+  - The schemas and their dependent tests must be updated to replace `target: "current"` and `target: "all"` with `target: "working"` and `target: "plan_scope"`.
+  - Any schema-driven metadata/log assertions that still assume the old target names must be updated at the same time.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the parser already accepts `working` or `plan_scope`.
+  - It is not valid to assume `current` can stay as a compatibility alias; the story removes it from the supported contract entirely.
+
+### 2. Working-folder and repository resolution
+
+- Already existing capabilities:
+  - `server/src/workingFolders/state.ts` already normalizes, validates, and maps `working_folder` paths into the container-visible workdir.
+  - `server/src/agents/service.ts`, `server/src/flows/service.ts`, and the working-folder integration coverage in `server/src/test/integration/flows.run.working-folder.test.ts` already prove that runs can start with a validated working repository path.
+- Missing prerequisite capabilities:
+  - The re-ingest execution path must be taught to consume the already-resolved working repository as its first-class input for `target: "working"` and `target: "plan_scope"`.
+  - That same resolved working repository must then be passed consistently from direct commands, top-level flow re-ingest steps, and flow-owned command items.
+- Assumptions that are currently invalid:
+  - It is not valid to assume every run has a usable working repository today.
+  - It is not valid to assume a validated `working_folder` automatically means the repository is currently ingested; the story still needs an explicit not-ingested failure path for `working`.
+
+### 3. `plan_scope` handoff-file resolution
+
+- Already existing capabilities:
+  - The product already uses `codeInfoStatus/flow-state/current-plan.json` as a checked-in handoff artifact, and the story’s plan host already carries that file today.
+  - The repo already has canonical path normalization and repository-selector helpers that can be reused once extra repository paths are read.
+- Missing prerequisite capabilities:
+  - There is no runtime helper yet that reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` during re-ingest.
+  - A dedicated resolver such as `server/src/ingest/planScopeResolver.ts` must be created to read `additional_repositories[].path`, preserve file order, remove duplicates, and convert malformed or unusable entries into warnings instead of hard failures.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the current re-ingest runtime already knows how to read `current-plan.json`.
+  - It is not valid to assume skipped-at-resolution repositories can be represented as if they were attempted repositories; that would change the existing batch payload contract.
+
+### 4. Re-ingest execution and batch continuation
+
+- Already existing capabilities:
+  - `server/src/ingest/reingestExecution.ts` already supports a single-repository path (`sourceId` and `current`) and a batch path (`all`).
+  - The batch execution loop already continues after repository-level failures and already records per-repository outcomes in order.
+- Missing prerequisite capabilities:
+  - The single-repository branch must be adapted from owner-based `current` to working-repository `working`.
+  - The batch branch must be adapted from global-ingested-repository `all` to handoff-driven `plan_scope`, including working-repo-first ordering and resolution-time warning handling.
+- Assumptions that are currently invalid:
+  - It is not valid to assume `plan_scope` can simply reuse `all` unchanged; `all` currently sorts every ingested repository by canonical path, which is not the required plan-scope ordering.
+  - It is not valid to assume malformed handoff data should abort the batch before the working repository runs.
+
+### 5. Tool-result and lifecycle persistence
+
+- Already existing capabilities:
+  - `server/src/chat/reingestToolResult.ts` already builds a structured single-result payload and a structured batch payload.
+  - `server/src/chat/reingestStepLifecycle.ts` already persists and publishes re-ingest tool results into the conversation lifecycle.
+- Missing prerequisite capabilities:
+  - Both files must be extended to recognize `targetMode: "working"` and `targetMode: "plan_scope"`.
+  - The batch tool-result stage and lifecycle text must gain an explicit success-with-warnings path for completed `plan_scope` runs that contain warnings or failed repositories.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the current lifecycle already supports warning-style batch completion.
+  - It is not valid to assume a partially failed batch will persist as a non-error result today; the current tool-result layer still maps any failed batch repository to hard error.
+
+### 6. Test harness support
+
+- Already existing capabilities:
+  - The repo already has unit coverage for schemas, execution, tool-result shaping, and lifecycle persistence.
+  - The repo already has integration harnesses for direct commands and flows that build temporary repository layouts and exercise real server entry points.
+- Missing prerequisite capabilities:
+  - The shared filesystem-backed plan-scope fixture helper documented in `## Test Harnesses` must be created so tests can write and vary `current-plan.json` payloads without duplicating setup code.
+  - Existing unit and integration suites must then add the missing scenarios for missing handoff files, malformed handoff files, duplicate repositories, invalid additional repositories, and warning-style completion.
+- Assumptions that are currently invalid:
+  - It is not valid to assume current test fixtures already prove `plan_scope` file reading, de-duplication, or warning propagation.
+  - It is not valid to assume this story needs a brand-new Playwright or compose-only harness; the missing capability is fixture setup inside the server test suites.
+
+### 7. Docker and compose validation surfaces
+
+- Already existing capabilities:
+  - The root wrappers in `package.json` already provide the build, test, and compose validation entry points the story should use.
+  - The main and local compose stacks already mount `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}`, which is the required visibility seam for filesystem-backed working-repository validation.
+- Missing prerequisite capabilities:
+  - Any compose-based proof for `plan_scope` must first ensure the chosen working repository lives under the mounted ingest root that the server container can actually read.
+  - If future Docker-facing files are added as part of this story, the relevant `.dockerignore` file must be updated so those files reach the image build context intentionally.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the e2e compose stack can prove arbitrary host-repository `plan_scope` reads; that stack does not mount the host ingest root into the server container.
+  - It is not valid to assume host source bind mounts should be used for application code; this repository’s Docker model still expects code to be copied into images and built there.
+
 ## Questions
 
 - No Further Questions

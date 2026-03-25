@@ -451,7 +451,9 @@ This story stays within the current repository, so the contract definitions belo
   - duplicate entries, including a duplicate of the working repository;
   - malformed JSON payloads;
   - entries that point at paths the ingest lookup will treat as invalid or not currently ingested.
+- The helper needs its own direct smoke test in `server/src/test/unit/planScopeFixture.test.ts` so the story proves the harness can create and tear down the temporary repository layouts it is responsible for without uncaught filesystem errors.
 - The first consumers of this helper should be:
+  - `server/src/test/unit/planScopeFixture.test.ts`, to prove the helper itself can execute, create the expected handoff layout, and clean up without leaking temp directories;
   - `server/src/test/unit/reingestExecution.test.ts`, to prove scope resolution, de-duplication, missing-file fallback, malformed-file fallback, and skipped-at-resolution behavior without starting the HTTP server;
   - `server/src/test/integration/commands.reingest.test.ts`, to prove direct-command `working` and `plan_scope` execution against a realistic temporary repo layout;
   - `server/src/test/integration/flows.run.command.test.ts`, to prove both top-level flow re-ingest steps and flow-owned command re-ingest items use the same handoff-file semantics.
@@ -701,6 +703,7 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 - `server/src/mcpCommon/repositorySelector.ts`
 - `server/src/workingFolders/state.ts`
 - `server/src/test/support`
+- `server/src/test/unit/planScopeFixture.test.ts`
 - `server/src/test/unit/planScopeResolver.test.ts`
 - `server/src/test/unit/reingestExecution.test.ts`
 - `codeInfoStatus/flow-state/current-plan.json`
@@ -711,9 +714,10 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 1. [ ] Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, normalize `additional_repositories[].path`, preserve working-repo-first order, remove duplicates, and return structured warning data for missing, malformed, unreadable, or unusable handoff entries.
 2. [ ] Keep `planScopeResolver` focused on resolution only: it must not run re-ingest itself, must not rewrite the handoff file, and must not invent a second repository selector algorithm outside the existing normalization rules.
 3. [ ] Create `server/src/test/support/planScopeFixture.ts` so tests can build working repositories, handoff files, duplicate entries, malformed files, and invalid repository-path scenarios without repeating ad hoc filesystem setup.
-4. [ ] Create `server/src/test/unit/planScopeResolver.test.ts` and prove missing-file fallback, malformed-file warnings, de-duplication, and normalization behavior before execution wiring depends on the helper.
-5. [ ] Update this story file if implementation uncovers a better helper boundary or warning shape than the one currently documented.
-6. [ ] Run full linting with `npm run lint`.
+4. [ ] Create `server/src/test/unit/planScopeFixture.test.ts` and prove the fixture helper can create the expected temporary working-repository layout, write handoff variants, and clean up without uncaught filesystem errors.
+5. [ ] Create `server/src/test/unit/planScopeResolver.test.ts` and prove missing-file fallback, malformed-file warnings, de-duplication, and normalization behavior before execution wiring depends on the helper.
+6. [ ] Update this story file if implementation uncovers a better helper boundary or warning shape than the one currently documented.
+7. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -721,7 +725,7 @@ Create the reusable runtime/helper seams that the later execution tasks depend o
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
 3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the helper and fixture behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeResolver.test.ts`.
+5. [ ] Prove the helper and fixture behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeFixture.test.ts --file server/src/test/unit/planScopeResolver.test.ts`.
 
 #### Implementation notes
 

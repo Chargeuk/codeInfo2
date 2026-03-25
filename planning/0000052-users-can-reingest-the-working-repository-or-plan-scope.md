@@ -547,6 +547,63 @@ This story stays within the current repository, so the contract definitions belo
   - It is not valid to assume the e2e compose stack can prove arbitrary host-repository `plan_scope` reads; that stack does not mount the host ingest root into the server container.
   - It is not valid to assume host source bind mounts should be used for application code; this repository’s Docker model still expects code to be copied into images and built there.
 
+## Edge Cases and Failure Modes
+
+- **Authored JSON provides both `sourceId` and `target`, or includes unexpected extra keys.**
+  - Current command and flow schemas use strict object branches, so mixed or extra-key shapes should fail parsing rather than being partially accepted.
+  - The story should preserve that behavior when `working` and `plan_scope` replace `current` and `all`.
+
+- **`working_folder` is missing, points to a non-directory, falls outside the known repository set, or belongs to a repository that is not currently ingested.**
+  - `working` must fail before starting re-ingest.
+  - `plan_scope` must also fail before starting if the working repository itself cannot be resolved as the first attempted repository.
+
+- **The working repository path is valid but cannot be mapped into the container-visible workdir because host/container path configuration is inconsistent.**
+  - This should be treated as an operational pre-start failure, not as a silent fallback to some other repository.
+  - Validation should make it obvious whether the failure came from `CODEINFO_HOST_INGEST_DIR`, `CODEINFO_CODEX_WORKDIR`, or a path outside the mounted ingest root.
+
+- **`current-plan.json` is absent, unreadable because of permissions, empty, or contains malformed JSON.**
+  - Missing or unreadable handoff data should not abort a batch that otherwise has a usable working repository.
+  - `plan_scope` should continue with the working repository only and record a warning that explains why extra repositories were not attempted.
+
+- **`current-plan.json.additional_repositories` exists but contains invalid entries.**
+  - Examples that must be treated as skipped-at-resolution warnings:
+    - missing `path`
+    - non-string `path`
+    - blank or whitespace-only `path`
+    - a path that normalizes to the working repository again
+    - a path that normalizes to a duplicate of another additional repository
+    - a path that does not resolve to a currently ingested repository
+  - These entries must not be inserted into the attempted `repositories` array.
+
+- **The same repository is referred to by different but equivalent selector forms.**
+  - Host path, container path, casing differences in repository ids, and trailing-slash differences should all normalize through the existing repository selector path before de-duplication.
+  - The first resolved occurrence should win, and later equivalent occurrences should become warnings rather than second attempts.
+
+- **The repository selector resolves multiple candidates for the same id or path because more than one ingest record exists.**
+  - `plan_scope` should reuse the same latest-ingest selection rules already used by explicit `sourceId` resolution.
+  - The story should not add a second repository-selection algorithm just for handoff-file entries.
+
+- **`plan_scope` starts successfully but one attempted repository later returns `skipped`, `cancelled`, structured error, or unexpected error.**
+  - The batch must continue through later repositories in final order.
+  - The batch `summary` must count only attempted repositories.
+  - Repository-level failures must also appear in the batch `warnings` array so the completed run is visibly degraded even when tool-result `stage` remains `success`.
+
+- **A completed `plan_scope` batch contains warnings but no failed attempted repositories.**
+  - The completed result should still publish and persist as `stage: "success"` with populated `warnings`.
+  - The implementation should not invent a third tool-result stage or collapse warnings into silent logs only.
+
+- **A `plan_scope` request would otherwise produce zero attempted repositories after resolution.**
+  - This should only be possible if the working repository failed pre-start validation, because the working repository is always intended to be first.
+  - The story should therefore treat zero-attempt `plan_scope` execution as a failure to start, not as a successful empty batch.
+
+- **Historical persisted re-ingest payloads still contain `targetMode: "current"` or `targetMode: "all"`.**
+  - New writes from this story should use only `working` and `plan_scope`.
+  - Existing stored payloads should remain readable through lifecycle normalization so old transcripts do not break when the new code is deployed.
+
+- **Docker validation is attempted in an environment where the server container cannot see the working repository handoff file.**
+  - That environment can incorrectly look like a missing handoff-file fallback when the real problem is missing volume visibility.
+  - Validation notes and tests should distinguish true missing-handoff behavior from container-mount misconfiguration so the feature is not falsely marked as working.
+
 ## Questions
 
 - No Further Questions

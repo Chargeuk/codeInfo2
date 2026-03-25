@@ -211,6 +211,32 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
     - `npm run compose:down`
     - `npm run test:summary:e2e` only after deciding whether the e2e stack is actually an appropriate proof surface for the filesystem visibility required by the scenario being tested.
 
+- **Docker image builds already copy application code into the image and build from there; this story must keep that model.**
+  - Repo evidence:
+    - `server/Dockerfile` copies repo files into build stages and runs the server build inside the image before creating the runtime image;
+    - `client/Dockerfile` copies repo files into the build stage and runs the client build inside the image before creating the runtime image;
+    - existing compose files do not bind-mount the application source tree into the main or e2e server/client containers.
+  - Planning implication: Story `0000052` must not plan a host source-tree bind mount as the way to make application code or runtime changes visible inside containers. Runtime validation should rely on rebuilt images plus the existing working-repository bind mount for external repository data only.
+
+- **If Docker-facing files are added or moved, the correct build-context ignore file must be updated deliberately.**
+  - Repo evidence:
+    - root `.dockerignore` trims the main build context;
+    - `server/.dockerignore` and `client/.dockerignore` trim workspace-specific contexts.
+  - Planning implication: if Story `0000052` adds any file that must be present during Docker image build, tasking must name the correct ignore file to review/update so the file is copied intentionally through the build context instead of being reached through a runtime bind mount.
+
+- **No new Docker or compose port surface is required for this story; existing ports must be reused and treated as fixed.**
+  - Repo evidence:
+    - main stack: server `5010`, chat MCP `5011`, agents MCP `5012`, client `5001`, Chroma `8000`, Playwright MCP `8932`;
+    - local stack: server `5510`, chat MCP `5511`, agents MCP `5512`, client `5501`, Chroma `8200`, Playwright MCP `8931`;
+    - e2e stack: server `6010`, chat MCP `6011`, agents MCP `6012`, client `6001`, Chroma `8800`.
+  - Planning implication: Story `0000052` should explicitly reuse those existing ports during validation and should not introduce new exposed ports for the feature.
+
+- **Generated container artifacts should continue to prefer Docker-managed volumes, not source-tree bind mounts.**
+  - Repo evidence:
+    - current compose files already use named volumes for mutable runtime data such as `copilot-data`, `chroma-data`, `mongo_data`, `mongo_config`, and Playwright output;
+    - the only recurring host bind mount intentionally used for persistence visibility is `./logs:/app/logs`.
+  - Planning implication: if Story `0000052` needs any new generated artifact persistence during Docker validation, it should plan a Docker-managed volume for that output rather than a host source bind mount. Logs remain the one accepted host-visible bind-mounted artifact class.
+
 - **Existing test harnesses do not yet cover the new target modes or handoff-file-driven scope resolution.**
   - Repo evidence:
     - current tests cover `sourceId`, `current`, and `all` in schema, runtime, and tool-result layers;
@@ -289,6 +315,11 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - Let unsupported targets, including removed `current`, fail through the normal invalid-target schema or validation path instead of a dedicated compatibility branch.
 - Update the re-ingest tool-result and lifecycle reporting so completed `plan_scope` batches with failed repositories are surfaced as warning-style completions rather than hard errors, while still preserving failed counts and warning details.
 - Update logs, tool-result payloads, and persisted step metadata so the selected target mode and resolved repository list are obvious during debugging, including when unusable handoff data forces `plan_scope` to fall back to the working repository only, skip specific repositories, or continue after repository-level failures.
+- Keep Docker validation on rebuilt images that copy source into the image. If any Docker-facing file must be included during build, update the relevant `.dockerignore`, `server/.dockerignore`, or `client/.dockerignore` entry intentionally rather than depending on a host source bind mount.
+- Reuse the existing compose port surfaces only:
+  - main stack: `5010/5011/5012` server-side, `5001` client, `8000` Chroma, `8932` Playwright MCP;
+  - local stack: `5510/5511/5512` server-side, `5501` client, `8200` Chroma, `8931` Playwright MCP;
+  - e2e stack: `6010/6011/6012` server-side, `6001` client, `8800` Chroma.
 - Add tests for:
   - current checked-in asset verification proving whether any command or flow JSON files still require `current` → `plan_scope` migration at implementation time;
   - schema acceptance and rejection of `working`, `plan_scope`, and removed `current`;

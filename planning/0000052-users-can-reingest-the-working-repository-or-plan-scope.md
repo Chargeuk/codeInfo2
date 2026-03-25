@@ -639,4 +639,268 @@ This story stays within the current repository, so the contract definitions belo
 
 ## Questions
 
-- No Further Questions
+# Tasks
+
+### Task 1. Replace The Authored Re-Ingest Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Replace the command and flow authoring contract so newly-authored re-ingest items use `sourceId`, `working`, or `plan_scope`, and the removed `current` / `all` literals fail schema validation. This task is only about parser- and type-level contract replacement, so it can be proved with focused schema tests before runtime execution changes are attempted.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `planning/plan_format.md`
+- `server/src/agents/commandsSchema.ts`
+- `server/src/flows/flowSchema.ts`
+- `server/src/test/unit/agent-commands-schema.test.ts`
+- `server/src/test/unit/flows-schema.test.ts`
+- Context7 `/colinhacks/zod`
+
+#### Subtasks
+
+1. [ ] Update `server/src/agents/commandsSchema.ts` so re-ingest command items accept only `{ sourceId }`, `target: "working"`, or `target: "plan_scope"`, and remove the `current` / `all` branches from both the schema and inferred TypeScript types.
+2. [ ] Update `server/src/flows/flowSchema.ts` so re-ingest flow steps accept only `{ sourceId }`, `target: "working"`, or `target: "plan_scope"`, and remove the `current` / `all` branches from both the schema and exported TypeScript types.
+3. [ ] Update `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` so they prove accepted shapes, rejected removed literals, rejection of mixed `sourceId` + `target`, and rejection of unexpected extra keys.
+4. [ ] Search the repository for checked-in command and flow JSON assets that still contain `target: "current"` or `target: "all"`, update real assets if found, and record in the task notes if the search proves no checked-in assets required migration.
+5. [ ] Update this story file if implementation reveals any authored-contract detail that differs from the planned command or flow shape.
+6. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the schema contract with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-schema.test.ts --file server/src/test/unit/flows-schema.test.ts`.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 2. Add The Plan-Scope Resolution Helper And Shared Fixture Harness
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Create the reusable runtime/helper seams that the later execution tasks depend on. This task should only deliver plan-scope scope-resolution support plus the shared filesystem fixture helper that makes the new proof path realistic.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `server/src/ingest/reingestExecution.ts`
+- `server/src/mcpCommon/repositorySelector.ts`
+- `server/src/workingFolders/state.ts`
+- `server/src/test/support`
+- `server/src/test/unit/planScopeResolver.test.ts`
+- `server/src/test/unit/reingestExecution.test.ts`
+- `codeInfoStatus/flow-state/current-plan.json`
+- DeepWiki `nodejs/node` guidance for optional local JSON-file failure modes
+
+#### Subtasks
+
+1. [ ] Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, normalize `additional_repositories[].path`, preserve working-repo-first order, remove duplicates, and return structured warning data for missing, malformed, unreadable, or unusable handoff entries.
+2. [ ] Keep `planScopeResolver` focused on resolution only: it must not run re-ingest itself, must not rewrite the handoff file, and must not invent a second repository selector algorithm outside the existing normalization rules.
+3. [ ] Create `server/src/test/support/planScopeFixture.ts` so tests can build working repositories, handoff files, duplicate entries, malformed files, and invalid repository-path scenarios without repeating ad hoc filesystem setup.
+4. [ ] Create `server/src/test/unit/planScopeResolver.test.ts` and prove missing-file fallback, malformed-file warnings, de-duplication, and normalization behavior before execution wiring depends on the helper.
+5. [ ] Update this story file if implementation uncovers a better helper boundary or warning shape than the one currently documented.
+6. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the helper and fixture behavior with `npm run test:summary:server:unit -- --file server/src/test/unit/planScopeResolver.test.ts`.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 3. Implement Working And Plan-Scope Execution
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Implement the actual runtime execution contract for `working` and `plan_scope` inside the re-ingest layer. This task should stop at the execution result boundary: it should not yet change the persisted chat/lifecycle message contract.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `server/src/ingest/reingestExecution.ts`
+- `server/src/ingest/reingestError.ts`
+- `server/src/mcpCommon/repositorySelector.ts`
+- `server/src/workingFolders/state.ts`
+- `server/src/test/unit/reingestExecution.test.ts`
+- `server/src/test/support/planScopeFixture.ts`
+
+#### Subtasks
+
+1. [ ] Update `server/src/ingest/reingestExecution.ts` so `ReingestRequest`, `ReingestTargetMode`, `ReingestExecutionSingleResult`, and `ReingestExecutionBatchResult` match the new `working` / `plan_scope` contract defined in this story.
+2. [ ] Replace the owner-based `current` single-repository branch with a working-repository branch that fails before start when no valid working repository can be resolved or when that repository is not currently ingested.
+3. [ ] Replace the old `all` branch with a `plan_scope` batch branch that uses `planScopeResolver`, attempts only resolved repositories, keeps working-repo-first order, continues after per-repository failures, and returns the planned `warnings` array.
+4. [ ] Preserve explicit `sourceId` behavior and keep MCP-oriented selector semantics unchanged inside the execution layer.
+5. [ ] Update `server/src/test/unit/reingestExecution.test.ts` so it proves `working`, `plan_scope`, de-duplication, missing/malformed handoff fallback, invalid additional repositories, and zero-attempt prevention behavior.
+6. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the execution contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts`.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 4. Implement The Re-Ingest Message And Persistence Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Update the server-side tool-result and lifecycle message contract so completed `plan_scope` batches can be published and persisted as success-with-warnings without breaking historical payload reads. This task is intentionally separate from the execution task because the message/persistence contract is its own testable server output.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `server/src/chat/interfaces/ChatInterface.ts`
+- `server/src/chat/reingestToolResult.ts`
+- `server/src/chat/reingestStepLifecycle.ts`
+- `server/src/mongo/turn.ts`
+- `server/src/test/unit/reingest-tool-result.test.ts`
+- `server/src/test/unit/reingest-step-lifecycle.test.ts`
+
+#### Subtasks
+
+1. [ ] Update `server/src/chat/reingestToolResult.ts` so single re-ingest payloads use `targetMode: "sourceId" | "working"` and batch payloads use `targetMode: "plan_scope"` plus the explicit `warnings` array.
+2. [ ] Keep `ChatToolResultEvent.stage` on the existing `success` / `error` enum and represent success-with-warnings as `stage: "success"` plus batch warnings, rather than inventing a third stage.
+3. [ ] Update `server/src/chat/reingestStepLifecycle.ts` so it accepts, persists, and publishes the new batch payload shape while preserving readability of historical stored payloads that still contain `current` or `all`.
+4. [ ] Confirm that `server/src/mongo/turn.ts` does not require a new top-level field or collection because the new payload continues to live inside `Turn.toolCalls`.
+5. [ ] Update `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` so they prove warning-style completion, warning persistence, and historical payload compatibility.
+6. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the message and persistence contract with `npm run test:summary:server:unit -- --file server/src/test/unit/reingest-tool-result.test.ts --file server/src/test/unit/reingest-step-lifecycle.test.ts`.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 5. Wire Commands And Flows To The New Runtime Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Wire the new schema, resolver, execution, and message contracts into direct commands, top-level flow re-ingest steps, and flow-owned command items. This task should prove the end-to-end server behavior for the real runtime surfaces that users actually invoke.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/agents/commandItemExecutor.ts`
+- `server/src/agents/service.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/integration/flows.run.working-folder.test.ts`
+
+#### Subtasks
+
+1. [ ] Update `server/src/agents/commandsRunner.ts` and `server/src/agents/commandItemExecutor.ts` so direct commands and flow-owned command items pass the working repository path into `executeReingestRequest` and preserve the new target-mode logging.
+2. [ ] Update `server/src/flows/service.ts` so top-level flow re-ingest steps use the same `working` / `plan_scope` semantics and do not retain any owner-based `current` fallback.
+3. [ ] Update integration coverage in `server/src/test/integration/commands.reingest.test.ts` for direct-command `working` and `plan_scope` behavior, including fallback and warning cases.
+4. [ ] Update integration coverage in `server/src/test/integration/flows.run.command.test.ts` and any affected working-folder integration tests so top-level flow steps and flow-owned command items prove the same runtime behavior as direct commands.
+5. [ ] Update this story file if runtime wiring reveals any cross-surface behavior difference that the plan currently describes incorrectly.
+6. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Prove the runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
+
+#### Implementation notes
+
+- No implementation notes yet.
+
+---
+
+### Task 6. Final Validation And Story Close-Out
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Perform the final acceptance pass for the whole story, confirm that the implemented behavior matches the plan, and complete the repository documentation updates that belong with the finished work. This task should only happen after Tasks 1 through 5 are fully done and documented.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- `package.json`
+- `docker-compose.yml`
+- `docker-compose.local.yml`
+- `docker-compose.e2e.yml`
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Re-check the finished implementation against every acceptance criterion in this story and record any mismatch before attempting close-out.
+2. [ ] Update `README.md` if the supported re-ingest target contract, validation commands, or user-facing behavior changed in a way that should be documented for developers.
+3. [ ] Update `design.md` so the re-ingest contract, warning payload path, and working / plan-scope behavior are described at architecture level if the implementation changed those areas materially.
+4. [ ] Update `projectStructure.md` for any added, removed, or renamed files such as `server/src/ingest/planScopeResolver.ts` or `server/src/test/support/planScopeFixture.ts`.
+5. [ ] Create a pull-request-ready summary covering all tasks completed in this story and the major contract/runtime/test changes that landed.
+6. [ ] Run full linting with `npm run lint`.
+
+#### Testing
+
+1. [ ] Prove the server build works outside Docker with `npm run build:summary:server`.
+2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
+3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
+4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
+5. [ ] Run the full server validation wrapper with `npm run test:summary:server:unit`.
+6. [ ] Run `npm run test:summary:e2e` only if the environment has been explicitly made suitable for proving the required filesystem visibility; otherwise record in the implementation notes that e2e remained optional regression smoke and was not used as core acceptance proof for this story.
+7. [ ] If an appropriate browser-visible surface exists by this point, use the Playwright MCP tool to perform a manual regression check and save any required screenshots to `./test-results/screenshots/` using the story/task naming convention; otherwise record why no UI-specific proof was applicable to this server-only story.
+
+#### Implementation notes
+
+- No implementation notes yet.

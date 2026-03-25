@@ -164,6 +164,51 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   - flow-command and flow-step re-ingest parsing
   That existing coverage should be updated rather than duplicated where possible.
 
+## Operational Prerequisites and Missing Capabilities
+
+- **No new HTTP listener is required for this story.**
+  - Repo evidence: the main server already starts from `server/src/index.ts`, and Compose health checks already target `GET /health`.
+  - Planning implication: Story `0000052` should reuse the existing server listener and `/health` endpoint rather than planning a new readiness route just for plan-scope re-ingest.
+
+- **The runtime does not yet have a `current-plan.json` reader in the re-ingest path.**
+  - Repo evidence: `current-plan.json` is currently a workflow handoff artifact, but the re-ingest execution/runtime files do not parse it today.
+  - Missing capability: Story `0000052` must add a runtime seam that safely reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, extracts `additional_repositories[].path`, and turns resolution failures into warnings instead of hard failures where required by the story.
+
+- **Warning-style batch completion does not yet exist in the re-ingest tool-result layer.**
+  - Repo evidence:
+    - `server/src/ingest/reingestExecution.ts` already continues batch execution after per-repository failures for `target: "all"`;
+    - `server/src/chat/reingestToolResult.ts` still maps any batch with `summary.failed > 0` to hard tool stage `error`;
+    - `server/src/chat/reingestStepLifecycle.ts` still only recognizes batch `targetMode: "all"`.
+  - Missing capability: Story `0000052` must extend both the user-facing tool-result layer and the lifecycle validation/persistence layer so `plan_scope` can finish as success-with-warnings instead of being forced into a hard error state.
+
+- **Container access to `<working-repo>/codeInfoStatus/flow-state/current-plan.json` depends on existing host-to-container bind mounts.**
+  - Repo evidence:
+    - `docker-compose.yml` and `docker-compose.local.yml` mount `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}`;
+    - `docker-compose.e2e.yml` does not mount the host ingest root into the server container;
+    - working-folder validation/path mapping already depends on `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR`.
+  - Missing prerequisite: any runtime validation done inside Docker must use a working repository that is actually visible inside the server container. For the e2e stack, Story `0000052` cannot assume arbitrary host repositories are readable unless the e2e environment is updated to mount them or the validation is performed through a non-e2e harness that already has filesystem access.
+
+- **The story depends on existing env injection paths staying correct.**
+  - Repo evidence:
+    - startup env loading is centralized in `server/src/config/startupEnv.ts`;
+    - checked-in defaults live in `server/.env`;
+    - working-folder mapping uses `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR`.
+  - Planning implication: tasking must include explicit validation that `working` and `plan_scope` continue to behave correctly when those env values are present, missing, or inconsistent with the mounted working repository path.
+
+- **Validation wrappers already exist and should be treated as the default proof path.**
+  - Repo evidence: root `package.json` already provides `build:summary:*`, `test:summary:*`, and `compose:*` wrappers, plus the compose launcher script `scripts/docker-compose-with-env.sh`.
+  - Planning implication: final validation for Story `0000052` should be task-sized around those wrappers rather than inventing ad hoc raw commands, except where targeted diagnosis is required.
+
+- **Existing test harnesses do not yet cover the new target modes or handoff-file-driven scope resolution.**
+  - Repo evidence:
+    - current tests cover `sourceId`, `current`, and `all` in schema, runtime, and tool-result layers;
+    - no current test harness proves reading `current-plan.json`, de-duplicating `additional_repositories`, or warning-style `plan_scope` completion.
+  - Missing capability: Story `0000052` must add focused test support for:
+    - runtime handoff-file fixtures under a working repository path;
+    - `working` target resolution through existing working-folder plumbing;
+    - `plan_scope` warning cases (malformed handoff, invalid additional repository, attempted repo failure);
+    - lifecycle/tool-result behavior for `targetMode: "plan_scope"`.
+
 ## Additional Repositories
 
 - No Additional Repositories
@@ -227,6 +272,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - Reuse the existing repository selector and canonical container-path normalization logic when turning working-repository and plan-scope entries into re-ingestable roots.
 - Keep `working` as a single-repository execution path and `plan_scope` as a batch orchestration path that records the existing structured batch result shape with `targetMode: "plan_scope"`, while continuing through later repositories when one attempted re-ingest fails.
 - Update both the execution layer and the user-facing tool-result / lifecycle layers together. The runtime batch continuation behavior already exists for `all`, but the current tool-result stage mapping and lifecycle validation still treat any failed batch repository as a hard error and only recognize `targetMode: "all"`.
+- Treat Docker visibility of the working repository as an explicit prerequisite when validating `plan_scope`. If a validation path runs inside a container, it must use a working repo under the existing `${CODEINFO_HOST_INGEST_DIR}` → `${CODEINFO_CODEX_WORKDIR}` bind mount or update the relevant compose harness first.
 - Update direct command execution, dedicated flow re-ingest steps, and flow-command re-ingest items together so all three surfaces share the same target semantics.
 - Let unsupported targets, including removed `current`, fail through the normal invalid-target schema or validation path instead of a dedicated compatibility branch.
 - Update the re-ingest tool-result and lifecycle reporting so completed `plan_scope` batches with failed repositories are surfaced as warning-style completions rather than hard errors, while still preserving failed counts and warning details.
@@ -242,7 +288,8 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
   - malformed handoff-file scenarios that prove the step continues with only the working repository;
   - partially invalid repository lists that prove bad entries are skipped while good entries still run, and that skipped-at-resolution repositories are visible through warnings/metadata rather than the attempted batch payload;
   - multi-repository batches where one repository fails and later repositories still continue;
-  - completed `plan_scope` batches with failed repositories that are reported as warning-style completions rather than hard errors.
+  - completed `plan_scope` batches with failed repositories that are reported as warning-style completions rather than hard errors;
+  - wrapper-first validation proving the server build, client build, and compose runtime still work with the existing `/health` checks and mounted working-repository path assumptions.
 
 ## Questions
 

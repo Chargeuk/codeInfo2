@@ -837,19 +837,22 @@ Wire the new schema, resolver, execution, and message contracts into direct comm
 - `server/src/agents/commandsRunner.ts`
 - `server/src/agents/commandItemExecutor.ts`
 - `server/src/agents/service.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
 - `server/src/flows/service.ts`
 - `server/src/test/integration/commands.reingest.test.ts`
 - `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
 - `server/src/test/integration/flows.run.working-folder.test.ts`
 
 #### Subtasks
 
 1. [ ] Update `server/src/agents/commandsRunner.ts` and `server/src/agents/commandItemExecutor.ts` so direct commands and flow-owned command items pass the working repository path into `executeReingestRequest` and preserve the new target-mode logging.
 2. [ ] Update `server/src/flows/service.ts` so top-level flow re-ingest steps use the same `working` / `plan_scope` semantics and do not retain any owner-based `current` fallback.
-3. [ ] Update integration coverage in `server/src/test/integration/commands.reingest.test.ts` for direct-command `working` and `plan_scope` behavior, including fallback and warning cases.
-4. [ ] Update integration coverage in `server/src/test/integration/flows.run.command.test.ts` and any affected working-folder integration tests so top-level flow steps and flow-owned command items prove the same runtime behavior as direct commands.
-5. [ ] Update this story file if runtime wiring reveals any cross-surface behavior difference that the plan currently describes incorrectly.
-6. [ ] Run full linting with `npm run lint`.
+3. [ ] Update `server/src/test/unit/agent-commands-runner.test.ts` so direct-command logging, lifecycle, and batch-result expectations no longer assume `targetMode: "all"` or the removed `current` target wording.
+4. [ ] Update integration coverage in `server/src/test/integration/commands.reingest.test.ts` for direct-command `working` and `plan_scope` behavior, including fallback and warning cases.
+5. [ ] Update integration coverage in `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and any affected working-folder integration tests so top-level flow steps and flow-owned command items prove the same runtime behavior as direct commands and fail with the new pre-start wording where applicable.
+6. [ ] Update this story file if runtime wiring reveals any cross-surface behavior difference that the plan currently describes incorrectly.
+7. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 
@@ -857,7 +860,7 @@ Wire the new schema, resolver, execution, and message contracts into direct comm
 2. [ ] Prove the client build works outside Docker with `npm run build:summary:client`.
 3. [ ] Prove the clean Docker build works with `npm run compose:build:clean`.
 4. [ ] Prove Docker Compose starts with `npm run compose:up` and can be stopped with `npm run compose:down`.
-5. [ ] Prove the runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
+5. [ ] Prove the runtime surfaces with `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.working-folder.test.ts`.
 
 #### Implementation notes
 
@@ -928,6 +931,7 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 - `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
 - `README.md`
 - `design.md`
+- `docs/developer-reference.md`
 - `projectStructure.md`
 - `package.json`
 - `docker-compose.yml`
@@ -941,9 +945,10 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 1. [ ] Re-check the finished implementation against every acceptance criterion in this story and record any mismatch before attempting close-out.
 2. [ ] Update `README.md` if the supported re-ingest target contract, validation commands, or user-facing behavior changed in a way that should be documented for developers.
 3. [ ] Update `design.md` so the re-ingest contract, warning payload path, and working / plan-scope behavior are described at architecture level if the implementation changed those areas materially.
-4. [ ] Update `projectStructure.md` for any added, removed, or renamed files such as `server/src/ingest/planScopeResolver.ts` or `server/src/test/support/planScopeFixture.ts`.
-5. [ ] Create a pull-request-ready summary covering all tasks completed in this story and the major contract/runtime/test changes that landed.
-6. [ ] Run full linting with `npm run lint`.
+4. [ ] Update `docs/developer-reference.md` anywhere it still describes re-ingest targets, target modes, proof markers, or validation commands using the removed `current` / `all` language.
+5. [ ] Update `projectStructure.md` for any added, removed, or renamed files such as `server/src/ingest/planScopeResolver.ts` or `server/src/test/support/planScopeFixture.ts`.
+6. [ ] Create a pull-request-ready summary covering all tasks completed in this story and the major contract/runtime/test changes that landed.
+7. [ ] Run full linting with `npm run lint`.
 
 #### Testing
 

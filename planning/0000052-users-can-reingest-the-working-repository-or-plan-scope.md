@@ -13,6 +13,8 @@ Commands and flows already support a dedicated re-ingest step, but the current t
 
 This story replaces the confusing owner-based `current` target with two targets that match the real workflow model.
 
+It also removes the broader `all` batch literal from command and flow authoring. Users who want explicit one-repository control should keep using `sourceId`, and users who want the working repository plus its declared related repositories should use `plan_scope`.
+
 The first target is `working`. This means "re-ingest the repository currently selected as the run's `working_folder`". It should work the same way for direct commands, dedicated flow re-ingest steps, and command items executed inside flows. If no working repository is selected, or if the selected working repository is not currently ingested, the step should fail before it starts with a clear error.
 
 The second target is `plan_scope`. This means "re-ingest the current working repository and any additional repositories declared in that repository's `codeInfoStatus/flow-state/current-plan.json` file". The current repository always comes first. If the handoff file is missing, or if it exists but has no `additional_repositories`, then `plan_scope` should behave the same as `working`.
@@ -21,7 +23,7 @@ If `current-plan.json` exists but is malformed or unreadable, `plan_scope` shoul
 
 The repository already uses `current-plan.json` as a canonical handoff file for multi-repository story scope. That handoff names extra repositories through `additional_repositories`, while the current repository is implicit. This story reuses that same product language rather than inventing a second related-repositories concept. The current plan-scope re-ingest should therefore read the same `additional_repositories[].path` values already used elsewhere in the repository's workflow assets.
 
-This story is also a contract cleanup. The `current` re-ingest target should be removed rather than kept as a second name for a different meaning. Leaving `current` in place would preserve a word that already means the wrong thing in both planning and code, which would keep the product confusing for workflow authors.
+This story is also a contract cleanup. The old `current` and `all` re-ingest targets should be removed rather than kept as alternate names for different behavior. Leaving those literals in place would preserve outdated wording that no longer matches the intended workflow model, which would keep the product confusing for workflow authors.
 
 This cleanup should also update any checked-in commands or flows in the repository that still reference `target: "current"`. Those checked-in assets should move to `target: "plan_scope"` as part of this story so the repository's own workflow configuration matches the new supported contract immediately.
 
@@ -41,7 +43,7 @@ Duplicate repositories should be removed while preserving the first occurrence. 
 
 Because `plan_scope` can touch more than one repository, it should behave like a small batch operation rather than a set of disconnected single-repository tool events. It should block until every targeted repository reaches a terminal outcome, and it should record one structured batch result that the UI, logs, and tests can reason about. This keeps the user experience aligned with the existing direction for multi-repository re-ingest work.
 
-This story should reuse the existing batch transcript payload shape that already exists for multi-repository re-ingest. `plan_scope` is still a batch re-ingest of multiple repositories, so it should travel through the same general payload contract rather than inventing a second special-purpose batch result. The runtime should extend that existing shape by allowing `targetMode: "plan_scope"` and by populating the same ordered `repositories` array and `summary` counts already used by the current batch path.
+This story should reuse the existing batch transcript payload shape that already exists for multi-repository re-ingest. `plan_scope` is still a batch re-ingest of multiple repositories, so it should travel through the same general payload contract rather than inventing a second special-purpose batch result. The runtime should extend that existing shape only as needed for this story by allowing `targetMode: "plan_scope"`, keeping the same ordered `repositories` array and `summary` counts, and adding warning data for plan-scope-specific fallback and skip cases.
 
 Best-effort execution is important for `plan_scope`. If the handoff file cannot be read well enough to produce additional repository scope, the batch should still continue with the working repository and log a warning. If some additional repository entries are invalid or not currently ingested, they should be skipped with warnings while the remaining usable repositories still run. Those skipped-at-resolution repositories should be surfaced through warnings, structured logs, and step metadata rather than being inserted into the attempted-repository batch payload. If a repository begins re-ingest and later reaches a failed terminal outcome, that warning should be recorded but the batch must continue through the rest of the resolved repository list instead of stopping early. When that happens, the overall `plan_scope` batch should be reported as completed with warnings rather than as a hard error, because the batch itself still finished its full ordered pass.
 
@@ -74,7 +76,7 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - Skipped-at-resolution repositories must not be synthesized into the `repositories` array. They belong in warnings, structured logs, or step metadata instead.
 - When `plan_scope` falls back to the working repository only because the handoff file is missing, malformed, unreadable, or empty, the batch still succeeds if that working-repository re-ingest succeeds. The warning should explain why no additional repositories were attempted.
 - When `plan_scope` starts successfully and one attempted repository later fails, the batch must continue through later attempted repositories and finish with a warning-style terminal status rather than aborting the whole batch at the first failed repository.
-- Unsupported target values, including removed `current`, must fail during normal schema or validation handling before any re-ingest run starts. This story should not add a compatibility-only branch that rewrites old target values at runtime.
+- Unsupported target values, including removed `current` and removed `all`, must fail during normal schema or validation handling before any re-ingest run starts. This story should not add a compatibility-only branch that rewrites old target values at runtime.
 
 ### Developer-facing implementation boundary
 
@@ -172,6 +174,8 @@ This story stays within the current repository, so the contract definitions belo
 
 - Command JSON no longer supports `target: "current"` for re-ingest items.
 - Flow JSON no longer supports `target: "current"` for re-ingest steps.
+- Command JSON no longer supports `target: "all"` for re-ingest items.
+- Flow JSON no longer supports `target: "all"` for re-ingest steps.
 - Checked-in commands and flows in this repository that previously used `target: "current"` are updated to use `target: "plan_scope"` where that matches the desired behavior.
 - Command JSON supports `target: "working"` for re-ingest items.
 - Flow JSON supports `target: "working"` for re-ingest steps.

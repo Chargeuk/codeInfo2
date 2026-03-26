@@ -322,6 +322,7 @@ export async function runAgentCommandRunner(
           request: item,
           surface: 'command',
           currentOwnerSourceId: params.sourceId,
+          workingRepositoryPath: params.working_folder,
           deps: {
             listIngestedRepositories:
               params.listIngestedRepositories ?? listIngestedRepositories,
@@ -388,6 +389,20 @@ export async function runAgentCommandRunner(
               result.value.kind === 'batch' ? result.value.repositories : null,
             callId,
             continuedToNextItem,
+          },
+        });
+        append({
+          level: 'info',
+          message: 'DEV-0000052:T6:direct-command-reingest',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'direct_command',
+            commandName,
+            targetMode: result.value.targetMode,
+            requestedSelector: result.value.requestedSelector,
+            warningCount:
+              result.value.kind === 'batch' ? result.value.warnings.length : 0,
           },
         });
         continue;

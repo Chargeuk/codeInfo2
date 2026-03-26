@@ -28,6 +28,7 @@ import {
 } from '../../flows/markdownFileResolver.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { attachWs } from '../../ws/server.js';
+import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 import {
   closeWs,
   connectWs,
@@ -851,6 +852,74 @@ test('direct command target working fails fast until the surface passes an expli
   }
 });
 
+test('direct command target working reingests the selected working repository and persists targetMode working', async () => {
+  const harness = await setupRepoCommandHarness('target-working-success');
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'working-target-success',
+      items: [{ type: 'reingest', target: 'working' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({
+        id: 'Owner Repo',
+        containerPath: harness.repoRoot,
+      }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => ({
+        ok: true,
+        value: buildReingestSuccess({
+          sourceId: sourceId ?? harness.repoRoot,
+          resolvedRepositoryId: 'Owner Repo',
+        }),
+      }),
+      createCallId: () => 'call-working-target',
+    });
+
+    const result = await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'working-target-success',
+      working_folder: harness.repoRoot,
+      source: 'REST',
+    });
+
+    const turns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(turns.length, 2);
+    assert.deepEqual(turns[1]?.toolCalls, {
+      calls: [
+        {
+          type: 'tool-result',
+          callId: 'call-working-target',
+          name: 'reingest_repository',
+          stage: 'success',
+          result: {
+            kind: 'reingest_step_result',
+            stepType: 'reingest',
+            targetMode: 'working',
+            requestedSelector: null,
+            sourceId: harness.repoRoot,
+            resolvedRepositoryId: 'Owner Repo',
+            outcome: 'reingested',
+            status: 'completed',
+            completionMode: 'reingested',
+            operation: 'reembed',
+            runId: 'run-123',
+            files: 3,
+            chunks: 7,
+            embedded: 7,
+            errorCode: null,
+          },
+          error: null,
+        },
+      ],
+    });
+  } finally {
+    await harness.restore();
+  }
+});
+
 test('target plan_scope fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-order');
   const repoA = path.join(harness.tempRoot, 'repo-a');
@@ -935,6 +1004,333 @@ test('target plan_scope fails fast until the surface passes an explicit working 
     assert.deepEqual(calls, []);
     assert.deepEqual(messages, []);
   } finally {
+    await harness.restore();
+  }
+});
+
+test('target plan_scope fails before start when the selected working repository is not currently ingested', async () => {
+  const harness = await setupRepoCommandHarness(
+    'target-plan-scope-not-ingested',
+  );
+  const messages: string[] = [];
+  let reingestCalls = 0;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'plan-scope-target-not-ingested',
+      items: [{ type: 'reingest', target: 'plan_scope' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => {
+        reingestCalls += 1;
+        return { ok: true, value: buildReingestSuccess() };
+      },
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'plan-scope-target-not-ingested',
+          working_folder: harness.repoRoot,
+          source: 'REST',
+          chatFactory: () => new CapturingChat(messages),
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /target "plan_scope" selected working repository is not currently ingested/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
+
+    assert.equal(reingestCalls, 0);
+    assert.deepEqual(messages, []);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('direct command target plan_scope falls back to the working repository for missing and malformed handoff files', async () => {
+  for (const mode of ['missing', 'malformed'] as const) {
+    const harness = await setupRepoCommandHarness(`target-plan-scope-${mode}`);
+    const fixture = await createPlanScopeFixture({
+      tempPrefix: `commands-${mode}-`,
+      workingRepositoryName: path.basename(harness.repoRoot),
+      planFile:
+        mode === 'missing'
+          ? { mode: 'missing' }
+          : { mode: 'malformed', rawText: '{"additional_repositories": [' },
+    });
+    const calls: string[] = [];
+    const expectedWarningCode =
+      mode === 'missing' ? 'handoff_missing' : 'handoff_invalid';
+
+    try {
+      await writeCommandFile({
+        commandRoot: path.join(harness.agentHome, 'commands'),
+        commandName: `plan-scope-${mode}`,
+        items: [{ type: 'reingest', target: 'plan_scope' }],
+      });
+      setAgentServiceRepoList([
+        buildRepoEntry({
+          id: 'Owner Repo',
+          containerPath: fixture.workingRepositoryPath,
+        }),
+      ]);
+      __setAgentCommandRunnerDepsForTests({
+        runReingestRepository: async ({ sourceId }) => {
+          calls.push(sourceId ?? '(missing)');
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? fixture.workingRepositoryPath,
+              resolvedRepositoryId: 'Owner Repo',
+            }),
+          };
+        },
+        createCallId: () => `call-plan-scope-${mode}`,
+      });
+
+      const result = await runAgentCommand({
+        agentName: 'coding_agent',
+        commandName: `plan-scope-${mode}`,
+        working_folder: fixture.workingRepositoryPath,
+        source: 'REST',
+      });
+
+      const turns = memoryTurns.get(result.conversationId) ?? [];
+      const call = (
+        turns[1]?.toolCalls as {
+          calls?: Array<{ result?: { warnings?: Array<{ code?: string }> } }>;
+        } | null
+      )?.calls?.[0];
+      assert.deepEqual(calls, [fixture.workingRepositoryPath]);
+      assert.equal(
+        (call?.result as { targetMode?: string } | undefined)?.targetMode,
+        'plan_scope',
+      );
+      const warnings = (
+        call?.result as {
+          warnings?: Array<{
+            code?: string;
+            message?: string;
+            repositoryPath?: string | null;
+            resolvedRepositoryId?: string | null;
+          }>;
+        }
+      ).warnings;
+      assert.equal(warnings?.length, 1);
+      assert.equal(warnings?.[0]?.code, expectedWarningCode);
+      assert.equal(warnings?.[0]?.repositoryPath, fixture.currentPlanPath);
+      assert.equal(warnings?.[0]?.resolvedRepositoryId ?? null, null);
+      assert.match(
+        warnings?.[0]?.message ?? '',
+        /working repository only|falling back to the working repository only/i,
+      );
+    } finally {
+      await fixture.cleanup();
+      await harness.restore();
+    }
+  }
+});
+
+test('direct command target plan_scope publishes success with warnings, continues after failures, and updates transcript wording', async () => {
+  const harness = await setupRepoCommandHarness('target-plan-scope-success');
+  const fixture = await createPlanScopeFixture({
+    tempPrefix: 'commands-plan-scope-success-',
+    workingRepositoryName: path.basename(harness.repoRoot),
+    additionalRepositories: [{ name: 'repo-a' }, { name: 'repo-b' }],
+    planFile: { mode: 'valid' },
+  });
+  const validAdditionalPaths = fixture.additionalRepositoryPaths;
+  const missingAdditionalPath = path.join(fixture.rootDir, 'repo-missing');
+  await fs.writeFile(
+    fixture.currentPlanPath,
+    JSON.stringify(
+      {
+        plan_path:
+          'planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md',
+        branched_from: 'main',
+        additional_repositories: [
+          { path: fixture.workingRepositoryPath },
+          { path: validAdditionalPaths[0] },
+          { path: missingAdditionalPath },
+          { path: validAdditionalPaths[1] },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+
+  const app = express();
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'direct-command-plan-scope-success';
+  const calls: string[] = [];
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'plan-scope-success',
+      items: [{ type: 'reingest', target: 'plan_scope' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({
+        id: 'Owner Repo',
+        containerPath: fixture.workingRepositoryPath,
+      }),
+      buildRepoEntry({
+        id: 'Repo A',
+        containerPath: validAdditionalPaths[0]!,
+      }),
+      buildRepoEntry({
+        id: 'Repo B',
+        containerPath: validAdditionalPaths[1]!,
+      }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        calls.push(sourceId ?? '(missing)');
+        if (sourceId === validAdditionalPaths[0]) {
+          return {
+            ok: false,
+            error: {
+              code: 429,
+              message: 'BUSY',
+              data: {
+                tool: 'reingest_repository',
+                code: 'BUSY',
+                retryable: true,
+                retryMessage: 'retry later',
+                reingestableRepositoryIds: ['Repo A'],
+                reingestableSourceIds: [validAdditionalPaths[0]],
+                fieldErrors: [
+                  {
+                    field: 'sourceId',
+                    reason: 'busy',
+                    message: 'Repository is already being re-ingested',
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId: sourceId ?? fixture.workingRepositoryPath,
+            resolvedRepositoryId:
+              sourceId === fixture.workingRepositoryPath
+                ? 'Owner Repo'
+                : 'Repo B',
+          }),
+        };
+      },
+      createCallId: () => 'call-plan-scope-success',
+    });
+
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId,
+    });
+
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        conversationId: string;
+        status: string;
+      } => {
+        const payload = event as {
+          type?: string;
+          conversationId?: string;
+        };
+        return (
+          payload.type === 'turn_final' &&
+          payload.conversationId === conversationId
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const result = await startAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'plan-scope-success',
+      conversationId,
+      working_folder: fixture.workingRepositoryPath,
+      source: 'REST',
+    });
+
+    const final = await finalPromise;
+    await waitForMemoryTurns(result.conversationId, 2);
+
+    const turns = memoryTurns.get(result.conversationId) ?? [];
+    const toolCall = (
+      turns[1]?.toolCalls as {
+        calls?: Array<{
+          stage?: string;
+          result?: {
+            targetMode?: string;
+            repositories?: Array<{ sourceId?: string }>;
+            warnings?: Array<{ code?: string }>;
+          };
+        }>;
+      } | null
+    )?.calls?.[0];
+
+    assert.equal(final.status, 'ok');
+    assert.deepEqual(calls, [
+      fixture.workingRepositoryPath,
+      validAdditionalPaths[0],
+      validAdditionalPaths[1],
+    ]);
+    assert.equal(toolCall?.stage, 'success');
+    assert.equal(toolCall?.result?.targetMode, 'plan_scope');
+    assert.deepEqual(
+      toolCall?.result?.repositories?.map((repository) => repository.sourceId),
+      [
+        fixture.workingRepositoryPath,
+        validAdditionalPaths[0],
+        validAdditionalPaths[1],
+      ],
+    );
+    assert.deepEqual(
+      toolCall?.result?.warnings?.map((warning) => warning.code),
+      ['repository_skipped', 'repository_skipped', 'repository_failed'],
+    );
+    assert.match(
+      turns[0]?.content ?? '',
+      /Record re-ingest result for plan scope with warnings/i,
+    );
+    assert.match(
+      turns[1]?.content ?? '',
+      /Plan-scope re-ingest recorded for 3 repositories \(2 reingested, 0 skipped, 1 failed\)\. Warning count: 3\./i,
+    );
+    assert.doesNotMatch(
+      `${turns[0]?.content ?? ''} ${turns[1]?.content ?? ''}`,
+      /all ingested repositories/i,
+    );
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    await fixture.cleanup();
     await harness.restore();
   }
 });
@@ -1093,6 +1489,52 @@ test('direct command target working fails before strict execution when the surfa
         (error as { code?: string; reason?: string }).code ===
           'COMMAND_INVALID' &&
         /target "working" requires a selected working repository path/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
+    assert.equal(strictCalls, 0);
+  } finally {
+    await harness.restore();
+  }
+});
+
+test('direct command target working fails before start when the selected working repository is not currently ingested', async () => {
+  const harness = await setupRepoCommandHarness(
+    'target-working-not-ingested-selected',
+  );
+  let strictCalls = 0;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'working-target-selected-not-ingested',
+      items: [{ type: 'reingest', target: 'working' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => {
+        strictCalls += 1;
+        return { ok: true, value: buildReingestSuccess() };
+      },
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'working-target-selected-not-ingested',
+          working_folder: harness.repoRoot,
+          source: 'REST',
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /target "working" selected working repository is not currently ingested/i.test(
           (error as { reason?: string }).reason ?? '',
         ),
     );

@@ -1,0 +1,9 @@
+{
+  "Description": "Proof command for Story 0000052 direct-command plan-scope re-ingest.",
+  "items": [
+    {
+      "type": "reingest",
+      "target": "plan_scope"
+    }
+  ]
+}

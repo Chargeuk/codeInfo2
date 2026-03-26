@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 
+import type { ReingestPlanScopeWarning } from '../ingest/planScopeResolver.js';
 import { append } from '../logStore.js';
 import { appendTurn, updateConversationMeta } from '../mongo/repo.js';
 import type { Turn, TurnCommandMetadata, TurnSource } from '../mongo/turn.js';
@@ -27,7 +28,6 @@ import type {
   ReingestStepResultPayload,
   ReingestToolResultPayload,
 } from './reingestToolResult.js';
-import type { ReingestPlanScopeWarning } from '../ingest/planScopeResolver.js';
 
 type LegacySingleTargetMode =
   | ReingestStepResultPayload['targetMode']

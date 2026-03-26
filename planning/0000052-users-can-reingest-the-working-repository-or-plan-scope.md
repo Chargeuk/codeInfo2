@@ -989,6 +989,30 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 - `npm run build:summary:server` initially failed on compile-time test fixture drift (`current` / `all` execution fixtures and missing batch `summary`/`warnings`), and the rerun passed cleanly after those compatibility fixes landed.
 - Command and flow tests that still relied on owner-based `working` / `plan_scope` behavior were updated to the Task 4 fail-fast expectation until Tasks 6 and 7 wire explicit `workingRepositoryPath` through those surfaces.
 - **BLOCKER** Testing step 2 (`npm run test:summary:server:unit`) is currently blocked by a wrapper run that stays in `agent_action: wait` far past the documented 12-minute budget. I reran the full unit wrapper after fixing the earlier compile and assertion failures, confirmed the process is still active via `ps`, and traced the long-running child to `node --test --test-concurrency=1 src/test/integration/flows.run.loop.test.ts`. The missing capability is a reliable way to complete or safely diagnose that hanging full-suite run while the wrapper still reports `do_not_read_log: true`; this task should stay in progress until the suite can finish cleanly or the hanging test is separately isolated and repaired.
+- **BLOCKING ANSWER**
+  - Repository precedents found:
+    - `server/src/test/support/wsClient.ts` already gives the repo-preferred deterministic WebSocket teardown surface through `closeWs(...)` and `waitForClose(...)`, each with their own timeouts.
+    - `server/src/test/integration/flows.run.command.test.ts` and `server/src/test/integration/agents-run-ws-cancel.test.ts` show the preferred cleanup shape for long-running flow tests: use `try/finally`, wait for runtime state to drain, then tear down WebSocket and HTTP handles instead of relying on the wrapper to kill the process.
+    - `scripts/summary-wrapper-protocol.mjs` and `scripts/test-summary-server-unit.mjs` prove the wrapper has no watchdog or forced kill path. It only reports `agent_action: wait` until the child exits, so leaked handles must be fixed in the tests or runtime, not in the wrapper.
+  - External library precedents found:
+    - Node v22 `node:test` docs say test timeouts default to `Infinity`, so a hanging integration suite will not fail by itself unless the test finishes or its own timeout/cleanup path fires.
+    - Node HTTP docs say `server.close()` stops new connections and, on modern Node, closes idle HTTP connections, but upgraded sockets are a separate concern.
+    - The official `ws` docs say `WebSocketServer.close()` does not terminate existing active clients automatically when an external HTTP server is used, and `WebSocket#terminate()` is the immediate close path when graceful close is not enough.
+  - Issue-resolution references found:
+    - A targeted rerun with `npm run test:summary:server:unit -- --file src/test/integration/flows.run.loop.test.ts` completed cleanly with `16` tests run and `0` failed, so the named file is diagnosable in isolation and the blocker is a full-suite leak or ordering problem rather than a permanently broken Task 4 runtime seam.
+    - Direct inspection of `server/src/test/integration/flows.run.loop.test.ts` shows several success-path tests still end with `cleanupMemory(...)` immediately after partial assertions such as `waitForTurns(...)`, while the stop/cancel paths already use `cleanupConversationRuntime(...)`. That means some loop tests can drop persisted memory state before the flow runtime and WebSocket ownership have drained fully.
+    - The `ws` maintainers' guidance and issue history both point the same way: do not assume server close will tear down all live clients; close or terminate them explicitly when you need deterministic test shutdown.
+  - Chosen fix:
+    - Repair `server/src/test/integration/flows.run.loop.test.ts` so every test that starts a flow waits for terminal flow cleanup before deleting memory state. In practice, the success-path loop tests should stop using bare `cleanupMemory(...)` and should either await the terminal `turn_final` event or call `cleanupConversationRuntime(...)` before teardown, matching the repo's existing explicit-cleanup pattern.
+    - Keep the wrapper unchanged and use the existing targeted `--file` / `--test-name` wrapper reruns for diagnosis first, then rerun the full `npm run test:summary:server:unit` wrapper once the loop-test cleanup is hardened.
+  - Why this fits the current repo state:
+    - It uses cleanup helpers the repo already has instead of inventing a new kill switch.
+    - It addresses the actual leak surface that can survive into the full suite: unfinished flow runtime ownership, inflight state, and live upgraded WebSocket handles.
+    - It matches the evidence that the isolated loop file passes, so the next fix belongs in deterministic teardown and suite interaction, not in the re-ingest execution code added by Task 4.
+  - Rejected alternatives:
+    - Do not add a wrapper watchdog or forced child kill. That would hide leaked handles and make later regressions harder to diagnose.
+    - Do not rely on `forceExit`, blind process termination, or reading the live wrapper log while `do_not_read_log: true`; those are temporary workarounds or anti-patterns, not a proper fix.
+    - Do not treat this as a Task 4 design flaw. The blocker is local to the proof path and test cleanup behavior, not to the `working` / `plan_scope` execution contract itself.
 
 ---
 

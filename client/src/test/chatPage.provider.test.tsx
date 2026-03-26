@@ -332,10 +332,10 @@ describe('Chat provider selection (WS transport)', () => {
         screen.getByRole('combobox', { name: /provider/i }),
       ).toHaveTextContent(/lm studio/i),
     );
-    expect(screen.getByTestId('model-select')).toHaveTextContent(
-      /legacy model/i,
-    );
-    expect(screen.queryByText(/malformed chat providers response/i)).toBeNull();
+    expect(screen.getByTestId('model-select')).toHaveTextContent(/legacy model/i);
+    expect(
+      screen.queryByText(/malformed chat providers response/i),
+    ).toBeNull();
   });
 
   it('shows Codex as unavailable with guidance banner', async () => {

@@ -250,7 +250,6 @@ const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
 });
 
 test('codex chat injects system context and emits MCP tool request/result', async () => {
-  const eventTimeoutMs = 10000;
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -292,7 +291,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
           e.type === 'inflight_snapshot' && e.conversationId === 'thread-mcp'
         );
       },
-      timeoutMs: eventTimeoutMs,
+      timeoutMs: 5000,
     });
 
     const toolRequestPromise = waitForEvent({
@@ -316,7 +315,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
           e.event?.type === 'tool-request'
         );
       },
-      timeoutMs: eventTimeoutMs,
+      timeoutMs: 5000,
     });
 
     const toolResultPromise = waitForEvent({
@@ -346,7 +345,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
           e.event?.type === 'tool-result'
         );
       },
-      timeoutMs: eventTimeoutMs,
+      timeoutMs: 5000,
     });
 
     const analysisPromise = waitForEvent({
@@ -366,7 +365,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
         };
         return e.type === 'analysis_delta' && e.conversationId === 'thread-mcp';
       },
-      timeoutMs: eventTimeoutMs,
+      timeoutMs: 5000,
     });
 
     const finalPromise = waitForEvent({
@@ -386,7 +385,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
         };
         return e.type === 'turn_final' && e.conversationId === 'thread-mcp';
       },
-      timeoutMs: eventTimeoutMs,
+      timeoutMs: 5000,
     });
 
     const res = await request(httpServer)

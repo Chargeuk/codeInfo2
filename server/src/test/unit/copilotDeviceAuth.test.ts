@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import type { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
+import { PassThrough } from 'node:stream';
 
 import express from 'express';
 import supertest from 'supertest';
@@ -104,9 +104,7 @@ function withDeps(
   };
 }
 
-function createSpawnStub(
-  commandCalls: Array<{ command: string; args: string[] }>,
-) {
+function createSpawnStub(commandCalls: Array<{ command: string; args: string[] }>) {
   return mock.fn((command: string, args?: string[]) => {
     commandCalls.push({ command, args: args ?? [] });
     const child = new EventEmitter() as EventEmitter & {

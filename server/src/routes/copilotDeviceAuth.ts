@@ -79,11 +79,9 @@ function logCopilotAuthDiagnostics(
   baseLogger.info(context, tag);
 }
 
-function resolveCopilotCli(env: NodeJS.ProcessEnv = process.env): {
-  available: boolean;
-  reason?: string;
-  cliPath?: string;
-} {
+function resolveCopilotCli(
+  env: NodeJS.ProcessEnv = process.env,
+): { available: boolean; reason?: string; cliPath?: string } {
   const configuredCliPath = resolveCopilotCliPath(undefined, env);
   if (configuredCliPath) {
     try {
@@ -296,8 +294,7 @@ export function createCopilotDeviceAuthRouter(
     const targetCopilotHome = deps.getCopilotHome(deps.env);
     const targetConfigDir = deps.getCopilotConfigDirForHome(targetCopilotHome);
     const compatibility = await (
-      deps.ensureCopilotAuthHomeCompatibility ??
-      ensureCopilotAuthHomeCompatibility
+      deps.ensureCopilotAuthHomeCompatibility ?? ensureCopilotAuthHomeCompatibility
     )(targetCopilotHome, deps.env);
 
     logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_home_alignment', {

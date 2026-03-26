@@ -176,8 +176,9 @@ function emitReingestTargetContractLogs(params: {
           timestamp: new Date().toISOString(),
           source: 'server',
           context: {
-            flowName: params.flowName,
-            stepIndex: stepIndex + 1,
+            surface: 'flow',
+            definitionName: params.flowName,
+            definitionIndex: stepIndex,
             outcome: 'rejected_removed_target',
             removedTarget: target,
           },
@@ -211,8 +212,9 @@ function emitReingestTargetContractLogs(params: {
         timestamp: new Date().toISOString(),
         source: 'server',
         context: {
-          flowName: params.flowName,
-          stepIndex: stepIndex + 1,
+          surface: 'flow',
+          definitionName: params.flowName,
+          definitionIndex: stepIndex,
           outcome: 'accepted_supported_target',
           supportedTarget: target,
         },

@@ -1566,7 +1566,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 14. Normalize The Shared Task 1 Log Marker Schema
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1581,23 +1581,30 @@ Fix the review finding that `DEV-0000052:T1:reingest-target-contract` is emitted
 
 #### Subtasks
 
-1. [ ] Current Repository: Read `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, the Task 1 tests, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the log-contract cleanup stays limited to the shared Task 1 marker surface.
-2. [ ] Current Repository: Update the command and flow emitters for `DEV-0000052:T1:reingest-target-contract` so they share one stable context vocabulary. At minimum, add a common surface discriminator and align the name/index fields so the marker can be parsed consistently without per-emitter field branching.
-3. [ ] Current Repository: Keep the accepted and rejected target outcomes unchanged. This task is a log-schema normalization only; it must not alter the actual command/flow validation behavior or broaden support for removed targets.
-4. [ ] Current Repository: Update the Task 1 unit coverage in `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` so the normalized shared marker schema is directly asserted from both emitters.
-5. [ ] Current Repository: Update this story file's Task 14 Implementation notes immediately after the code/test change lands, naming the final shared marker fields and any compatibility tradeoff that had to be chosen.
+1. [x] Current Repository: Read `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, the Task 1 tests, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the log-contract cleanup stays limited to the shared Task 1 marker surface.
+2. [x] Current Repository: Update the command and flow emitters for `DEV-0000052:T1:reingest-target-contract` so they share one stable context vocabulary. At minimum, add a common surface discriminator and align the name/index fields so the marker can be parsed consistently without per-emitter field branching.
+3. [x] Current Repository: Keep the accepted and rejected target outcomes unchanged. This task is a log-schema normalization only; it must not alter the actual command/flow validation behavior or broaden support for removed targets.
+4. [x] Current Repository: Update the Task 1 unit coverage in `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` so the normalized shared marker schema is directly asserted from both emitters.
+5. [x] Current Repository: Update this story file's Task 14 Implementation notes immediately after the code/test change lands, naming the final shared marker fields and any compatibility tradeoff that had to be chosen.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 14 changes server-side schema logging code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 14 changes command and flow schema handling plus unit coverage. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 14 changes flow-related schema behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 14 changes server-side schema logging code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 14 changes command and flow schema handling plus unit coverage. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 14 changes flow-related schema behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Awaiting implementation.
+- Re-read the command and flow schema emitters, the Task 1 schema-unit proof tests, and the second review finding so the cleanup stays limited to the shared `DEV-0000052:T1:reingest-target-contract` marker contract.
+- Normalized the shared Task 1 marker context to `{ surface, definitionName, definitionIndex, outcome, supportedTarget?/removedTarget? }` in both schema emitters so downstream parsing no longer branches on command-vs-flow field names.
+- Kept the accepted and rejected target behavior unchanged; the cleanup is log-only and still rejects removed `current` / `all` values through the same schema path as before.
+- Updated the Task 1 schema-unit proofs in `agent-commands-schema.test.ts` and `flows-schema.test.ts` to assert the normalized marker fields directly from both emitters.
+- Chose zero-based `definitionIndex` as the shared field so the command emitter could stay on its native array index and the flow emitter could align to the same machine-oriented vocabulary instead of mixing zero-based and one-based marker shapes.
+- `npm run build:summary:server` passed cleanly with `status: passed` and `warning_count: 0`, so the shared-marker normalization compiles without introducing new server warnings.
+- `npm run test:summary:server:unit` passed cleanly with `tests run: 1504` and `failed: 0`; like the earlier reopened-story runs, it took longer than the nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before ending with `agent_action: skip_log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75` and `failed: 0`, so the normalized shared Task 1 marker shape leaves the feature-level server flow suite green as well.
 
 ---
 

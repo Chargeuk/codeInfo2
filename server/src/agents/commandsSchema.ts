@@ -100,8 +100,9 @@ function emitReingestTargetContractLogs(params: {
           timestamp: new Date().toISOString(),
           source: 'server',
           context: {
-            commandName: params.commandName,
-            itemIndex,
+            surface: 'command',
+            definitionName: params.commandName,
+            definitionIndex: itemIndex,
             outcome: 'rejected_removed_target',
             removedTarget: target,
           },
@@ -135,8 +136,9 @@ function emitReingestTargetContractLogs(params: {
         timestamp: new Date().toISOString(),
         source: 'server',
         context: {
-          commandName: params.commandName,
-          itemIndex,
+          surface: 'command',
+          definitionName: params.commandName,
+          definitionIndex: itemIndex,
           outcome: 'accepted_supported_target',
           supportedTarget: target,
         },

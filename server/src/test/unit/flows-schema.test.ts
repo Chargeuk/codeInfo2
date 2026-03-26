@@ -516,8 +516,14 @@ describe('flow schema (v1)', () => {
 
     const logs = query({ text: 'DEV-0000052:T1:reingest-target-contract' });
     assert.equal(logs.length, 2);
+    assert.equal(logs[0]?.context?.surface, 'flow');
+    assert.equal(logs[0]?.context?.definitionName, 'accepted-target');
+    assert.equal(logs[0]?.context?.definitionIndex, 0);
     assert.equal(logs[0]?.context?.outcome, 'accepted_supported_target');
     assert.equal(logs[0]?.context?.supportedTarget, 'plan_scope');
+    assert.equal(logs[1]?.context?.surface, 'flow');
+    assert.equal(logs[1]?.context?.definitionName, 'rejected-target');
+    assert.equal(logs[1]?.context?.definitionIndex, 0);
     assert.equal(logs[1]?.context?.outcome, 'rejected_removed_target');
     assert.equal(logs[1]?.context?.removedTarget, 'all');
   });

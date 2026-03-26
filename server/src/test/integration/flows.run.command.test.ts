@@ -1641,9 +1641,9 @@ test('flow-owned commands can execute reingest items', async () => {
   );
 });
 
-test('top-level flow target working resolves to the flow owner repository', async () => {
+test('top-level flow target working fails fast until the surface passes an explicit working repository path', async () => {
   const repos: RepoEntry[] = [];
-  let capturedSourceId: string | undefined;
+  let strictCalls = 0;
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -1667,12 +1667,16 @@ test('top-level flow target working resolves to the flow owner repository', asyn
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      await waitForFlowFinal({
+      const final = (await waitForFlowFinal({
         ws: wsUrl,
         conversationId,
-        status: 'ok',
-      });
-      assert.equal(capturedSourceId, sourceRoot);
+        status: 'failed',
+      })) as { error?: { message?: string } };
+      assert.match(
+        final.error?.message ?? '',
+        /target "working" requires a selected working repository path/i,
+      );
+      assert.equal(strictCalls, 0);
       cleanupMemory(conversationId);
     },
     {
@@ -1681,11 +1685,11 @@ test('top-level flow target working resolves to the flow owner repository', asyn
         lockedModelId: null,
       }),
       flowServiceDeps: {
-        runReingestRepository: async ({ sourceId }) => {
-          capturedSourceId = sourceId;
+        runReingestRepository: async () => {
+          strictCalls += 1;
           return {
             ok: true,
-            value: buildReingestSuccess({ sourceId }),
+            value: buildReingestSuccess(),
           };
         },
       },
@@ -1693,9 +1697,9 @@ test('top-level flow target working resolves to the flow owner repository', asyn
   );
 });
 
-test('flow-owned command target working resolves to the command owner repository', async () => {
+test('flow-owned command target working fails fast until the surface passes an explicit working repository path', async () => {
   const repos: RepoEntry[] = [];
-  let capturedSourceId: string | undefined;
+  let strictCalls = 0;
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -1722,12 +1726,16 @@ test('flow-owned command target working resolves to the command owner repository
         .send({ conversationId, sourceId: sourceRoot })
         .expect(202);
 
-      await waitForFlowFinal({
+      const final = (await waitForFlowFinal({
         ws: wsUrl,
         conversationId,
-        status: 'ok',
-      });
-      assert.equal(capturedSourceId, sourceRoot);
+        status: 'failed',
+      })) as { error?: { message?: string } };
+      assert.match(
+        final.error?.message ?? '',
+        /target "working" requires a selected working repository path/i,
+      );
+      assert.equal(strictCalls, 0);
       cleanupMemory(conversationId);
     },
     {
@@ -1736,11 +1744,11 @@ test('flow-owned command target working resolves to the command owner repository
         lockedModelId: null,
       }),
       flowServiceDeps: {
-        runReingestRepository: async ({ sourceId }) => {
-          capturedSourceId = sourceId;
+        runReingestRepository: async () => {
+          strictCalls += 1;
           return {
             ok: true,
-            value: buildReingestSuccess({ sourceId }),
+            value: buildReingestSuccess(),
           };
         },
       },
@@ -1773,7 +1781,7 @@ test('top-level flow target working fails fast when there is no owning repositor
       })) as { error?: { message?: string } };
       assert.match(
         final.error?.message ?? '',
-        /target "working" requires an owning repository path/i,
+        /target "working" requires a selected working repository path/i,
       );
       cleanupMemory(conversationId);
     },

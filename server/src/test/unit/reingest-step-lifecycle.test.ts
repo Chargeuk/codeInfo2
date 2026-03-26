@@ -376,15 +376,17 @@ test('publishes tool_event before final assistant-turn completion', async () => 
   );
 });
 
-test('persists one explicit batch payload for an empty target-all run', async () => {
+test('persists one explicit batch payload for an empty plan_scope run', async () => {
   const harness = buildHarness({
     toolResult: buildReingestToolResult({
       callId: 'reingest-batch-empty',
       execution: {
         kind: 'batch',
-        targetMode: 'all',
+        targetMode: 'plan_scope',
         requestedSelector: null,
         repositories: [],
+        summary: { reingested: 0, skipped: 0, failed: 0 },
+        warnings: [],
       },
     }),
   });
@@ -414,9 +416,11 @@ test('empty batch payload keeps a zeroed summary object', async () => {
       callId: 'reingest-batch-empty-summary',
       execution: {
         kind: 'batch',
-        targetMode: 'all',
+        targetMode: 'plan_scope',
         requestedSelector: null,
         repositories: [],
+        summary: { reingested: 0, skipped: 0, failed: 0 },
+        warnings: [],
       },
     }),
   });
@@ -447,7 +451,7 @@ test('batch reingest persistence stays on Turn.toolCalls instead of a second cha
       callId: 'reingest-batch-toolcalls',
       execution: {
         kind: 'batch',
-        targetMode: 'all',
+        targetMode: 'plan_scope',
         requestedSelector: null,
         repositories: [
           {
@@ -464,6 +468,8 @@ test('batch reingest persistence stays on Turn.toolCalls instead of a second cha
             errorMessage: null,
           },
         ],
+        summary: { reingested: 1, skipped: 0, failed: 0 },
+        warnings: [],
       },
     }),
   });
@@ -483,7 +489,7 @@ test('batch synthetic turn content summarizes the run instead of naming one sour
       callId: 'reingest-batch-summary-content',
       execution: {
         kind: 'batch',
-        targetMode: 'all',
+        targetMode: 'plan_scope',
         requestedSelector: null,
         repositories: [
           {
@@ -513,6 +519,8 @@ test('batch synthetic turn content summarizes the run instead of naming one sour
             errorMessage: 'Timed out waiting for lock.',
           },
         ],
+        summary: { reingested: 1, skipped: 0, failed: 1 },
+        warnings: [],
       },
     }),
   });
@@ -521,7 +529,7 @@ test('batch synthetic turn content summarizes the run instead of naming one sour
 
   assert.equal(
     harness.publishedUserTurns[0].content,
-    'Record re-ingest result for all ingested repositories',
+    'Record re-ingest step result',
   );
   const assistantTurn = harness.persistedTurns.find(
     (turn) => turn.role === 'assistant',

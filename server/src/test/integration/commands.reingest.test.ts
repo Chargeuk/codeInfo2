@@ -803,9 +803,9 @@ test('duplicate case-insensitive repository ids still resolve to the latest inge
   }
 });
 
-test('direct command target working resolves to the command owner repository', async () => {
+test('direct command target working fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-working');
-  let capturedSourceId: string | undefined;
+  let strictCalls = 0;
 
   try {
     await writeCommandFile({
@@ -825,25 +825,33 @@ test('direct command target working resolves to the command owner repository', a
       }),
     });
     __setAgentCommandRunnerDepsForTests({
-      runReingestRepository: async ({ sourceId }) => {
-        capturedSourceId = sourceId;
-        return { ok: true, value: buildReingestSuccess({ sourceId }) };
+      runReingestRepository: async () => {
+        strictCalls += 1;
+        return { ok: true, value: buildReingestSuccess() };
       },
     });
 
-    await runAgentCommand({
-      agentName: 'coding_agent',
-      commandName: 'working-target',
-      source: 'REST',
-    });
-
-    assert.equal(capturedSourceId, harness.repoRoot);
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'working-target',
+          source: 'REST',
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /target "working" requires a selected working repository path/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
+    assert.equal(strictCalls, 0);
   } finally {
     await harness.restore();
   }
 });
 
-test('target plan_scope executes in ascending canonical path order and continues after failures', async () => {
+test('target plan_scope fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-order');
   const repoA = path.join(harness.tempRoot, 'repo-a');
   const repoB = path.join(harness.tempRoot, 'repo-b');
@@ -909,21 +917,29 @@ test('target plan_scope executes in ascending canonical path order and continues
       },
     });
 
-    await runAgentCommand({
-      agentName: 'coding_agent',
-      commandName: 'plan-scope-target',
-      source: 'REST',
-      chatFactory: () => new CapturingChat(messages),
-    });
-
-    assert.deepEqual(calls, [repoA, repoB, repoC]);
-    assert.deepEqual(messages, ['after batch']);
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'plan-scope-target',
+          source: 'REST',
+          chatFactory: () => new CapturingChat(messages),
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /target "plan_scope" requires a selected working repository path/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
+    assert.deepEqual(calls, []);
+    assert.deepEqual(messages, []);
   } finally {
     await harness.restore();
   }
 });
 
-test('target plan_scope returns an empty batch without calling the strict reingest service when no repositories are ingested', async () => {
+test('target plan_scope fails fast before strict execution when no working repository path is supplied', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-empty');
   const messages: string[] = [];
   let reingestCalls = 0;
@@ -950,22 +966,32 @@ test('target plan_scope returns an empty batch without calling the strict reinge
       },
     });
 
-    await runAgentCommand({
-      agentName: 'coding_agent',
-      commandName: 'plan-scope-target-empty',
-      source: 'REST',
-      chatFactory: () => new CapturingChat(messages),
-    });
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'plan-scope-target-empty',
+          source: 'REST',
+          chatFactory: () => new CapturingChat(messages),
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /target "plan_scope" requires a selected working repository path/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
 
     assert.equal(reingestCalls, 0);
-    assert.deepEqual(messages, ['after empty batch']);
+    assert.deepEqual(messages, []);
   } finally {
     await harness.restore();
   }
 });
 
-test('target working preserves strict-service BUSY failures instead of collapsing them into a generic orchestration error', async () => {
+test('target working fails before strict BUSY handling until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-working-busy');
+  let strictCalls = 0;
 
   try {
     await writeCommandFile({
@@ -985,29 +1011,32 @@ test('target working preserves strict-service BUSY failures instead of collapsin
       }),
     });
     __setAgentCommandRunnerDepsForTests({
-      runReingestRepository: async () => ({
-        ok: false,
-        error: {
-          code: 429,
-          message: 'BUSY',
-          data: {
-            tool: 'reingest_repository',
-            code: 'BUSY',
-            retryable: true,
-            retryMessage: 'retry',
-            reingestableRepositoryIds: ['Owner Repo'],
-            reingestableSourceIds: [harness.repoRoot],
-            fieldErrors: [
-              {
-                field: 'sourceId',
-                reason: 'busy',
-                message:
-                  'reingest is currently locked by another ingest operation',
-              },
-            ],
+      runReingestRepository: async () => {
+        strictCalls += 1;
+        return {
+          ok: false,
+          error: {
+            code: 429,
+            message: 'BUSY',
+            data: {
+              tool: 'reingest_repository',
+              code: 'BUSY',
+              retryable: true,
+              retryMessage: 'retry',
+              reingestableRepositoryIds: ['Owner Repo'],
+              reingestableSourceIds: [harness.repoRoot],
+              fieldErrors: [
+                {
+                  field: 'sourceId',
+                  reason: 'busy',
+                  message:
+                    'reingest is currently locked by another ingest operation',
+                },
+              ],
+            },
           },
-        },
-      }),
+        };
+      },
     });
 
     await assert.rejects(
@@ -1020,15 +1049,17 @@ test('target working preserves strict-service BUSY failures instead of collapsin
       (error) =>
         (error as { code?: string; reason?: string }).code ===
           'COMMAND_INVALID' &&
-        (error as { code?: string; reason?: string }).reason ===
-          'reingest is currently locked by another ingest operation',
+        /target "working" requires a selected working repository path/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
     );
+    assert.equal(strictCalls, 0);
   } finally {
     await harness.restore();
   }
 });
 
-test('direct command target working fails before strict execution when the owner is not currently ingested', async () => {
+test('direct command target working fails before strict execution when the surface does not provide a working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-working-not-ingested');
   let strictCalls = 0;
 
@@ -1061,7 +1092,7 @@ test('direct command target working fails before strict execution when the owner
       (error) =>
         (error as { code?: string; reason?: string }).code ===
           'COMMAND_INVALID' &&
-        /target "working" owner repository is not currently ingested/i.test(
+        /target "working" requires a selected working repository path/i.test(
           (error as { reason?: string }).reason ?? '',
         ),
     );

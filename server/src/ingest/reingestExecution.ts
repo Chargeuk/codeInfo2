@@ -8,6 +8,11 @@ import {
 import { append } from '../logStore.js';
 import { resolveRepositorySelector } from '../mcpCommon/repositorySelector.js';
 
+import {
+  resolvePlanScopeRepositories,
+  type PlanScopeResolutionResult,
+  type ReingestPlanScopeWarning,
+} from './planScopeResolver.js';
 import { formatReingestPrestartReason } from './reingestError.js';
 import type {
   ReingestError,
@@ -22,14 +27,9 @@ const RETRY_MESSAGE =
 
 type ReingestRequest =
   | { sourceId: string }
-  | { target: 'current' | 'all' | 'working' | 'plan_scope' };
+  | { target: 'working' | 'plan_scope' };
 
-export type ReingestTargetMode =
-  | 'sourceId'
-  | 'current'
-  | 'all'
-  | 'working'
-  | 'plan_scope';
+export type ReingestTargetMode = 'sourceId' | 'working' | 'plan_scope';
 
 export type ReingestRepositoryExecutionOutcome = {
   sourceId: string;
@@ -47,7 +47,7 @@ export type ReingestRepositoryExecutionOutcome = {
 
 export type ReingestExecutionSingleResult = {
   kind: 'single';
-  targetMode: 'sourceId' | 'current' | 'working';
+  targetMode: 'sourceId' | 'working';
   requestedSelector: string | null;
   resolvedSourceId: string;
   outcome: ReingestSuccess;
@@ -55,9 +55,15 @@ export type ReingestExecutionSingleResult = {
 
 export type ReingestExecutionBatchResult = {
   kind: 'batch';
-  targetMode: 'all' | 'plan_scope';
+  targetMode: 'plan_scope';
   requestedSelector: null;
   repositories: ReingestRepositoryExecutionOutcome[];
+  summary: {
+    reingested: number;
+    skipped: number;
+    failed: number;
+  };
+  warnings: ReingestPlanScopeWarning[];
 };
 
 export type ReingestExecutionResult =
@@ -70,6 +76,13 @@ type ExecuteReingestRequestDeps = {
     sourceId?: string;
   }) => Promise<ReingestResult>;
   appendLog?: typeof append;
+  resolvePlanScopeRepositories?: (params: {
+    workingRepositoryPath: string;
+    deps?: {
+      listIngestedRepositories?: () => Promise<ListReposResult>;
+      appendLog?: typeof append;
+    };
+  }) => Promise<PlanScopeResolutionResult>;
 };
 
 function normalizeContainerPath(value: string): string {
@@ -101,9 +114,9 @@ function buildRetryLists(repos: RepoEntry[]) {
   };
 }
 
-function invalidOwnerTargetError(params: {
+function invalidWorkingTargetError(params: {
   repos: RepoEntry[];
-  target: 'current' | 'working';
+  target: 'working' | 'plan_scope';
 }): ReingestError {
   return {
     code: -32602,
@@ -117,7 +130,7 @@ function invalidOwnerTargetError(params: {
         {
           field: 'sourceId',
           reason: 'invalid_state',
-          message: `target "${params.target}" requires an owning repository path for this command or flow`,
+          message: `target "${params.target}" requires a selected working repository path for this run`,
         },
       ],
       ...buildRetryLists(params.repos),
@@ -125,9 +138,9 @@ function invalidOwnerTargetError(params: {
   };
 }
 
-function ownerTargetNotIngestedError(params: {
+function workingTargetNotIngestedError(params: {
   repos: RepoEntry[];
-  target: 'current' | 'working';
+  target: 'working' | 'plan_scope';
 }): ReingestError {
   return {
     code: 404,
@@ -141,12 +154,24 @@ function ownerTargetNotIngestedError(params: {
         {
           field: 'sourceId',
           reason: 'unknown_root',
-          message: `target "${params.target}" owner repository is not currently ingested`,
+          message: `target "${params.target}" selected working repository is not currently ingested`,
         },
       ],
       ...buildRetryLists(params.repos),
     },
   };
+}
+
+function buildBatchSummary(
+  repositories: ReingestRepositoryExecutionOutcome[],
+): ReingestExecutionBatchResult['summary'] {
+  return repositories.reduce<ReingestExecutionBatchResult['summary']>(
+    (summary, repository) => {
+      summary[repository.outcome] += 1;
+      return summary;
+    },
+    { reingested: 0, skipped: 0, failed: 0 },
+  );
 }
 
 function normalizeOutcome(
@@ -241,10 +266,78 @@ function appendResolutionLog(params: {
   });
 }
 
+function appendExecutionLog(params: {
+  appendLog: typeof append;
+  surface: 'command' | 'flow' | 'flow_command';
+  targetMode: ReingestTargetMode;
+  requestedSelector: string | null;
+  repositories: ReingestRepositoryExecutionOutcome[];
+  warnings: ReingestPlanScopeWarning[];
+}) {
+  params.appendLog({
+    level: 'info',
+    message: 'DEV-0000052:T4:reingest-execution',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: params.surface,
+      targetMode: params.targetMode,
+      requestedSelector: params.requestedSelector,
+      attemptedRepositoryCount: params.repositories.length,
+      warningCount: params.warnings.length,
+      warningCodes: params.warnings.map((warning) => warning.code),
+      resolvedPaths: params.repositories.map((repo) => repo.sourceId),
+      summary: buildBatchSummary(params.repositories),
+    },
+  });
+}
+
+function buildRepositoryFailedWarning(params: {
+  sourceId: string;
+  resolvedRepositoryId: string | null;
+  errorMessage: string | null;
+  errorCode: string | null;
+}): ReingestPlanScopeWarning {
+  return {
+    code: 'repository_failed',
+    message: `plan_scope repository "${params.sourceId}" failed: ${params.errorMessage ?? params.errorCode ?? 'Unknown reingest failure'}`,
+    repositoryPath: params.sourceId,
+    resolvedRepositoryId: params.resolvedRepositoryId,
+  };
+}
+
+function toFailureRepoEntry(params: {
+  sourceId: string;
+  resolvedRepositoryId: string | null;
+}): RepoEntry {
+  return {
+    id: params.resolvedRepositoryId ?? params.sourceId,
+    description: null,
+    containerPath: params.sourceId,
+    hostPath: params.sourceId,
+    lastIngestAt: null,
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 0,
+    model: 'model',
+    modelId: 'model',
+    lock: {
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'model',
+      embeddingDimensions: 0,
+      lockedModelId: 'model',
+      modelId: 'model',
+    },
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    lastError: null,
+  };
+}
+
 export async function executeReingestRequest(params: {
   request: ReingestRequest;
   surface: 'command' | 'flow' | 'flow_command';
   currentOwnerSourceId?: string;
+  workingRepositoryPath?: string;
   deps?: ExecuteReingestRequestDeps;
 }): Promise<
   | { ok: true; value: ReingestExecutionResult }
@@ -255,6 +348,8 @@ export async function executeReingestRequest(params: {
   const runReingest =
     params.deps?.runReingestRepository ?? runReingestRepository;
   const appendLog = params.deps?.appendLog ?? append;
+  const resolvePlanScope =
+    params.deps?.resolvePlanScopeRepositories ?? resolvePlanScopeRepositories;
 
   if ('sourceId' in params.request) {
     const resolved = await canonicalizeSelector({
@@ -287,31 +382,28 @@ export async function executeReingestRequest(params: {
     };
   }
 
-  const listed = await listRepos();
-  if (
-    params.request.target === 'current' ||
-    params.request.target === 'working'
-  ) {
-    const targetMode = params.request.target;
-    if (!params.currentOwnerSourceId?.trim()) {
+  if (params.request.target === 'working') {
+    const listed = await listRepos();
+    const runtimeWorkingRepositoryPath = params.workingRepositoryPath?.trim();
+    if (!runtimeWorkingRepositoryPath) {
       return {
         ok: false,
-        error: invalidOwnerTargetError({
+        error: invalidWorkingTargetError({
           repos: listed.repos,
-          target: targetMode,
+          target: 'working',
         }),
       };
     }
 
-    const repo = await resolveRepositorySelector(params.currentOwnerSourceId, {
+    const repo = await resolveRepositorySelector(runtimeWorkingRepositoryPath, {
       listIngestedRepositories: listRepos,
     });
     if (!repo) {
       return {
         ok: false,
-        error: ownerTargetNotIngestedError({
+        error: workingTargetNotIngestedError({
           repos: listed.repos,
-          target: targetMode,
+          target: 'working',
         }),
       };
     }
@@ -320,7 +412,7 @@ export async function executeReingestRequest(params: {
     appendResolutionLog({
       appendLog,
       surface: params.surface,
-      targetMode,
+      targetMode: 'working',
       requestedSelector: null,
       resolvedPaths: [resolvedPath],
     });
@@ -330,11 +422,20 @@ export async function executeReingestRequest(params: {
       return result;
     }
 
+    appendExecutionLog({
+      appendLog,
+      surface: params.surface,
+      targetMode: 'working',
+      requestedSelector: null,
+      repositories: [normalizeOutcome(result.value)],
+      warnings: [],
+    });
+
     return {
       ok: true,
       value: {
         kind: 'single',
-        targetMode,
+        targetMode: 'working',
         requestedSelector: null,
         resolvedSourceId: result.value.sourceId,
         outcome: result.value,
@@ -342,59 +443,117 @@ export async function executeReingestRequest(params: {
     };
   }
 
-  const targetMode = params.request.target;
-  const orderedRepos = [...listed.repos].sort((left, right) =>
-    normalizeContainerPath(left.containerPath).localeCompare(
-      normalizeContainerPath(right.containerPath),
-    ),
+  const listed = await listRepos();
+  const workingRepositoryPath = params.workingRepositoryPath?.trim();
+  if (!workingRepositoryPath) {
+    return {
+      ok: false,
+      error: invalidWorkingTargetError({
+        repos: listed.repos,
+        target: 'plan_scope',
+      }),
+    };
+  }
+  const workingRepository = await resolveRepositorySelector(
+    workingRepositoryPath,
+    {
+      listIngestedRepositories: listRepos,
+    },
   );
+  if (!workingRepository) {
+    return {
+      ok: false,
+      error: workingTargetNotIngestedError({
+        repos: listed.repos,
+        target: 'plan_scope',
+      }),
+    };
+  }
+
+  const resolution = await resolvePlanScope({
+    workingRepositoryPath,
+    deps: {
+      listIngestedRepositories: listRepos,
+      appendLog,
+    },
+  });
 
   appendResolutionLog({
     appendLog,
     surface: params.surface,
-    targetMode,
+    targetMode: 'plan_scope',
     requestedSelector: null,
-    resolvedPaths: orderedRepos.map((repo) =>
-      normalizeContainerPath(repo.containerPath),
-    ),
+    resolvedPaths: resolution.repositories.map((repo) => repo.sourceId),
   });
 
   const repositories: ReingestRepositoryExecutionOutcome[] = [];
-  for (const repo of orderedRepos) {
+  const warnings = [...resolution.warnings];
+  for (const repo of resolution.repositories) {
     try {
       const result = await runReingest({
-        sourceId: normalizeContainerPath(repo.containerPath),
+        sourceId: repo.sourceId,
       });
       if (result.ok) {
         repositories.push(normalizeOutcome(result.value));
       } else {
-        repositories.push(
-          normalizeFailureOutcome({
-            repo,
-            error: result.error,
+        const failure = normalizeFailureOutcome({
+          repo: toFailureRepoEntry({
+            sourceId: repo.sourceId,
+            resolvedRepositoryId: repo.resolvedRepositoryId,
+          }),
+          error: result.error,
+        });
+        repositories.push(failure);
+        warnings.push(
+          buildRepositoryFailedWarning({
+            sourceId: repo.sourceId,
+            resolvedRepositoryId: repo.resolvedRepositoryId,
+            errorMessage: failure.errorMessage,
+            errorCode: failure.errorCode,
           }),
         );
       }
     } catch (error) {
-      repositories.push(
-        normalizeFailureOutcome({
-          repo,
-          error:
-            error instanceof Error
-              ? error
-              : new Error('Unexpected reingest error'),
+      const failure = normalizeFailureOutcome({
+        repo: toFailureRepoEntry({
+          sourceId: repo.sourceId,
+          resolvedRepositoryId: repo.resolvedRepositoryId,
+        }),
+        error:
+          error instanceof Error
+            ? error
+            : new Error('Unexpected reingest error'),
+      });
+      repositories.push(failure);
+      warnings.push(
+        buildRepositoryFailedWarning({
+          sourceId: repo.sourceId,
+          resolvedRepositoryId: repo.resolvedRepositoryId,
+          errorMessage: failure.errorMessage,
+          errorCode: failure.errorCode,
         }),
       );
     }
   }
 
+  appendExecutionLog({
+    appendLog,
+    surface: params.surface,
+    targetMode: 'plan_scope',
+    requestedSelector: null,
+    repositories,
+    warnings,
+  });
+
   return {
     ok: true,
     value: {
       kind: 'batch',
-      targetMode,
+      targetMode: 'plan_scope',
       requestedSelector: null,
       repositories,
+      summary: buildBatchSummary(repositories),
+      warnings,
     },
   };
 }

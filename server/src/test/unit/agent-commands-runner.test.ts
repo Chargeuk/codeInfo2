@@ -1023,7 +1023,7 @@ describe('agent commands runner (v1)', () => {
     assert.deepEqual(messageSteps, [2]);
   });
 
-  test('target plan_scope reingest carries batch execution metadata and ordered per-repository outcomes', async () => {
+  test('target plan_scope reingest fails fast until the command surface passes an explicit working repository path', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
@@ -1080,94 +1080,38 @@ describe('agent commands runner (v1)', () => {
       },
     });
 
-    await runAgentCommandRunner({
-      agentName: 'a1',
-      agentHome,
-      commandName: 'reingest-plan-scope-batch',
-      initialModelId: 'agent-model-1',
-      source: 'REST',
-      listIngestedRepositories: async () => ({
-        repos: [
-          buildRepoEntry({ id: 'repo-c', containerPath: '/repo/c' }),
-          buildRepoEntry({ id: 'repo-a', containerPath: '/repo/a' }),
-          buildRepoEntry({ id: 'repo-b', containerPath: '/repo/b' }),
-        ],
-        lockedModelId: null,
-      }),
-      runAgentInstructionUnlocked: async (params) => {
-        messageSteps.push(params.command?.stepIndex ?? -1);
-        return { modelId: 'agent-model-1' };
-      },
-    });
-
-    assert.deepEqual(reingestCalls, ['/repo/a', '/repo/b', '/repo/c']);
-    assert.deepEqual(lifecycleCalls, ['reingest-plan-scope-batch']);
-    assert.deepEqual(messageSteps, [2]);
-
-    const resolutionLog = query({
-      text: 'DEV-0000050:T03:reingest_targets_resolved',
-    }).find(
-      (entry) =>
-        entry.context?.targetMode === 'plan_scope' &&
-        entry.context?.surface === 'command',
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: 'reingest-plan-scope-batch',
+          initialModelId: 'agent-model-1',
+          source: 'REST',
+          listIngestedRepositories: async () => ({
+            repos: [
+              buildRepoEntry({ id: 'repo-c', containerPath: '/repo/c' }),
+              buildRepoEntry({ id: 'repo-a', containerPath: '/repo/a' }),
+              buildRepoEntry({ id: 'repo-b', containerPath: '/repo/b' }),
+            ],
+            lockedModelId: null,
+          }),
+          runAgentInstructionUnlocked: async (params) => {
+            messageSteps.push(params.command?.stepIndex ?? -1);
+            return { modelId: 'agent-model-1' };
+          },
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /target "plan_scope" requires a selected working repository path/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
     );
-    assert.deepEqual(resolutionLog?.context?.resolvedPaths, [
-      '/repo/a',
-      '/repo/b',
-      '/repo/c',
-    ]);
 
-    const batchLog = query({
-      text: 'DEV-0000045:T9:direct_command_reingest_recorded',
-    }).find(
-      (entry) =>
-        entry.context?.targetMode === 'plan_scope' &&
-        entry.context?.commandName === 'reingest-plan-scope-batch',
-    );
-    assert.equal(batchLog?.context?.requestedSelector, null);
-    assert.equal(batchLog?.context?.repositoryCount, 3);
-    assert.deepEqual(batchLog?.context?.repositories, [
-      {
-        sourceId: '/repo/a',
-        resolvedRepositoryId: 'repo-a',
-        outcome: 'reingested',
-        status: 'completed',
-        completionMode: 'reingested',
-        runId: 'run-123',
-        files: 3,
-        chunks: 7,
-        embedded: 7,
-        errorCode: null,
-        errorMessage: null,
-      },
-      {
-        sourceId: '/repo/b',
-        resolvedRepositoryId: 'repo-b',
-        outcome: 'failed',
-        status: 'error',
-        completionMode: null,
-        runId: null,
-        files: 0,
-        chunks: 0,
-        embedded: 0,
-        errorCode: 'BUSY',
-        errorMessage:
-          'reingest is currently locked by another ingest operation',
-      },
-      {
-        sourceId: '/repo/c',
-        resolvedRepositoryId: 'repo-c',
-        outcome: 'skipped',
-        status: 'completed',
-        completionMode: 'skipped',
-        runId: 'run-123',
-        files: 3,
-        chunks: 7,
-        embedded: 7,
-        errorCode: null,
-        errorMessage: null,
-      },
-    ]);
+    assert.deepEqual(reingestCalls, []);
+    assert.deepEqual(lifecycleCalls, []);
+    assert.deepEqual(messageSteps, []);
   });
 
   test('terminal cancelled reingest outcomes remain non-fatal once started', async () => {

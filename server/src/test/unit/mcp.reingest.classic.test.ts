@@ -371,6 +371,35 @@ test('classic MCP request-shape guards reject wait/blocking args', async () => {
   assert.equal(res.body.result, undefined);
 });
 
+test('classic MCP reingest_repository advertises a sourceId-only schema without working/plan_scope targets', async () => {
+  const app = createApp({ ok: true, value: terminalCompleted });
+  const res = await request(app)
+    .post('/mcp')
+    .send({ jsonrpc: '2.0', id: 'schema-check', method: 'tools/list' });
+
+  assert.equal(res.status, 200);
+  const tools = res.body.result.tools as Array<{
+    name: string;
+    inputSchema: {
+      required?: string[];
+      properties?: Record<string, unknown>;
+      additionalProperties?: boolean;
+    };
+  }>;
+  const reingestTool = tools.find(
+    (tool) => tool.name === 'reingest_repository',
+  );
+  assert.ok(reingestTool);
+  assert.deepEqual(reingestTool.inputSchema.required, ['sourceId']);
+  assert.equal(reingestTool.inputSchema.additionalProperties, false);
+  assert.deepEqual(
+    Object.keys(reingestTool.inputSchema.properties ?? {}).sort((a, b) =>
+      a.localeCompare(b),
+    ),
+    ['sourceId'],
+  );
+});
+
 test('classic and v2 parity payload baseline can be normalized from terminal fields', () => {
   const normalized = JSON.stringify(terminalCompleted);
   assert.equal(

@@ -11,6 +11,50 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000052 Task 4 working and plan-scope execution
+
+- `server/src/ingest/reingestExecution.ts` now treats authored re-ingest requests as one runtime contract with only three modes: explicit `sourceId`, single-repository `working`, and batch `plan_scope`.
+- `working` is now the execution-layer replacement for the removed owner-based `current` branch. Callers can pass `workingRepositoryPath` directly, the execution layer resolves that path against the existing ingested-repository selector seam, and the request fails before start when no usable working repository is available.
+- `plan_scope` is now the execution-layer replacement for the removed `all` branch. It delegates repository-scope discovery to `server/src/ingest/planScopeResolver.ts`, keeps working-repository-first ordering, preserves additional-repository file order after first-seen de-duplication, and records skipped-at-resolution repositories only as warnings.
+- Batch execution is intentionally best-effort at this layer. Once a repository enters the attempted batch, later repositories still run even if an earlier attempt fails, and the result payload returns ordered attempted repositories plus `summary` and `warnings` rather than aborting the whole batch.
+- MCP remains sourceId-only in this task. The shared execution seam changed, but the classic and v2 `reingest_repository` tool schemas still require `sourceId` and do not expose `working` or `plan_scope`.
+
+```mermaid
+flowchart TD
+  Request["executeReingestRequest"] --> Mode{"request mode"}
+  Mode -->|sourceId| SourceId["canonicalize selector<br/>run single repository"]
+  Mode -->|working| Working["resolve workingRepositoryPath<br/>validate currently ingested"]
+  Mode -->|plan_scope| PlanScope["validate workingRepositoryPath<br/>resolve plan scope"]
+  Working --> Single["single result<br/>targetMode=working"]
+  SourceId --> SingleSource["single result<br/>targetMode=sourceId"]
+  PlanScope --> Resolver["planScopeResolver.ts<br/>working first + file order + dedupe"]
+  Resolver --> Batch["attempt resolved repositories only"]
+  Batch --> Result["batch result<br/>repositories + summary + warnings"]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as command/flow runtime
+  participant Exec as reingestExecution.ts
+  participant Resolver as planScopeResolver.ts
+  participant Ingest as runReingestRepository
+
+  Caller->>Exec: target=plan_scope + workingRepositoryPath
+  Exec->>Exec: validate working repository is ingested
+  Exec->>Resolver: resolvePlanScopeRepositories(...)
+  Resolver-->>Exec: ordered repositories + warnings
+  loop attempted repositories
+    Exec->>Ingest: runReingestRepository(sourceId)
+    alt repository succeeds
+      Ingest-->>Exec: completed/skipped terminal result
+    else repository fails
+      Ingest-->>Exec: structured failure
+      Exec->>Exec: append repository_failed warning
+    end
+  end
+  Exec-->>Caller: completed batch payload with summary + warnings
+```
+
 ## Story 0000051 final architecture closeout
 
 - Story `0000051` completes a chat-only third-provider integration for GitHub Copilot. The top-level product provider contract is now one ordered list shared by server defaults, client bootstrap, persistence enums, provider discovery, model loading, and OpenAPI: `codex`, then `copilot`, then `lmstudio`.

@@ -377,6 +377,38 @@ test('MCP v2 request-shape guards reject wait/blocking args', async () => {
   });
 });
 
+test('MCP v2 reingest_repository advertises a sourceId-only schema without working/plan_scope targets', async () => {
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'schema-check',
+      method: 'tools/list',
+    });
+
+    assert.equal(body.error, undefined);
+    const tools = body.result.tools as Array<{
+      name: string;
+      inputSchema: {
+        required?: string[];
+        properties?: Record<string, unknown>;
+        additionalProperties?: boolean;
+      };
+    }>;
+    const reingestTool = tools.find(
+      (tool) => tool.name === 'reingest_repository',
+    );
+    assert.ok(reingestTool);
+    assert.deepEqual(reingestTool.inputSchema.required, ['sourceId']);
+    assert.equal(reingestTool.inputSchema.additionalProperties, false);
+    assert.deepEqual(
+      Object.keys(reingestTool.inputSchema.properties ?? {}).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+      ['sourceId'],
+    );
+  });
+});
+
 test('MCP v2 disconnect during blocking wait does not crash router', async () => {
   setToolDeps({
     runReingestRepository: async () => {

@@ -44,9 +44,9 @@ const buildBatchExecution = (
   overrides: Partial<ReingestExecutionBatchResult> = {},
 ): ReingestExecutionBatchResult => ({
   kind: 'batch',
-  targetMode: 'all',
+  targetMode: 'plan_scope',
   requestedSelector: null,
-  repositories: [
+  repositories: overrides.repositories ?? [
     {
       sourceId: '/data/repo-a',
       resolvedRepositoryId: 'repo-a',
@@ -87,6 +87,12 @@ const buildBatchExecution = (
       errorMessage: 'Another ingest is already running.',
     },
   ],
+  summary: overrides.summary ?? {
+    reingested: 1,
+    skipped: 1,
+    failed: 1,
+  },
+  warnings: overrides.warnings ?? [],
   ...overrides,
 });
 
@@ -158,11 +164,11 @@ test('preserves selector metadata in single-result payloads', () => {
   });
 });
 
-test('preserves current-target metadata in single-result payloads', () => {
+test('preserves working-target metadata in single-result payloads', () => {
   const result = buildReingestToolResult({
     callId: 'reingest-step-3',
     execution: buildSingleExecution({
-      targetMode: 'current',
+      targetMode: 'working',
       requestedSelector: null,
       outcome: buildOutcome({
         sourceId: '/data/current-repo',
@@ -175,7 +181,7 @@ test('preserves current-target metadata in single-result payloads', () => {
   assert.deepEqual(result.result, {
     kind: 'reingest_step_result',
     stepType: 'reingest',
-    targetMode: 'current',
+    targetMode: 'working',
     requestedSelector: null,
     sourceId: '/data/current-repo',
     resolvedRepositoryId: 'repo-current',
@@ -315,7 +321,7 @@ test('remains compatible with the persisted Turn.toolCalls container shape for b
           result: {
             kind: 'reingest_step_batch_result',
             stepType: 'reingest',
-            targetMode: 'all',
+            targetMode: 'plan_scope',
             requestedSelector: null,
             repositories: [],
             summary: {

@@ -27,7 +27,7 @@ Story notes:
 
 - Task 6 wires direct-command re-ingest onto the shared `working` / `plan_scope` runtime contract by forwarding the selected `working_folder` into `executeReingestRequest` and emitting the `DEV-0000052:T6:direct-command-reingest` proof marker.
 - The new `tasking_agent` proof commands are minimal single-step assets so later compose and logs-page proof can invoke `working` and `plan_scope` over HTTP without depending on model-generated message steps.
-- The direct-command unit and integration coverage now proves working-target happy path behavior, pre-start validation failures, warning-aware `plan_scope` fallback and skipped-repository handling, continued execution after attempted repository failure, and transcript wording that no longer says "all ingested repositories".
+- The direct-command unit and integration coverage now proves working-target happy path behavior, pre-start validation failures, warning-aware `plan_scope` fallback and skipped-repository handling, continued execution after attempted repository failure, and transcript wording that no longer uses the removed bulk-reingest phrasing.
 
 ## Story 0000052 Task 3 structural change ledger
 

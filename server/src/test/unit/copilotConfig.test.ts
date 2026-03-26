@@ -126,7 +126,11 @@ test('rejects malformed existing config deterministically without leaving temp f
 
   try {
     const configPath = path.join(tempRoot, 'config.json');
-    await fs.promises.writeFile(configPath, '{"store_token_plaintext":', 'utf8');
+    await fs.promises.writeFile(
+      configPath,
+      '{"store_token_plaintext":',
+      'utf8',
+    );
 
     await assert.rejects(
       ensureCopilotPlaintextTokenStorage(tempRoot),

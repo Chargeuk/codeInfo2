@@ -147,7 +147,9 @@ const isValidWarningCode = (
   value === 'repository_skipped' ||
   value === 'repository_failed';
 
-const normalizeBatchWarnings = (value: unknown): {
+const normalizeBatchWarnings = (
+  value: unknown,
+): {
   warnings: ReingestStepBatchResultPayload['warnings'];
   droppedCount: number;
 } => {

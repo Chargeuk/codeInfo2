@@ -732,9 +732,11 @@ test('drops malformed persisted batch warnings instead of relabeling them', asyn
     (
       harness.appendLogs.find(
         (entry) => entry.message === 'DEV-0000052:T5:reingest-lifecycle',
-      )?.context as {
-        warningCount?: number;
-      } | undefined
+      )?.context as
+        | {
+            warningCount?: number;
+          }
+        | undefined
     )?.warningCount,
     0,
   );
@@ -811,9 +813,11 @@ test('drops a malformed persisted batch warnings container instead of treating i
     (
       harness.appendLogs.find(
         (entry) => entry.message === 'DEV-0000052:T5:reingest-lifecycle',
-      )?.context as {
-        warningCount?: number;
-      } | undefined
+      )?.context as
+        | {
+            warningCount?: number;
+          }
+        | undefined
     )?.warningCount,
     0,
   );

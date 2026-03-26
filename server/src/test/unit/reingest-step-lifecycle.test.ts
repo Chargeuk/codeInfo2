@@ -640,6 +640,106 @@ test('older batch payloads with targetMode all still parse and persist correctly
   });
 });
 
+test('drops malformed persisted batch warnings instead of relabeling them', async () => {
+  const legacyToolResult: ChatToolResultEvent = {
+    type: 'tool-result',
+    callId: 'legacy-reingest-batch-unknown-warning',
+    name: 'reingest_repository',
+    stage: 'success',
+    result: {
+      kind: 'reingest_step_batch_result',
+      stepType: 'reingest',
+      targetMode: 'plan_scope',
+      requestedSelector: null,
+      repositories: [
+        {
+          sourceId: '/repo/a',
+          resolvedRepositoryId: 'repo-a',
+          outcome: 'reingested',
+          status: 'completed',
+          completionMode: 'reingested',
+          runId: 'run-a',
+          files: 4,
+          chunks: 8,
+          embedded: 8,
+          errorCode: null,
+          errorMessage: null,
+        },
+      ],
+      summary: { reingested: 1, skipped: 0, failed: 0 },
+      warnings: [
+        {
+          code: 'future_warning_code',
+          message: 'unknown warning from newer writer',
+          repositoryPath: '/repo/a',
+        },
+      ],
+    },
+    error: null,
+  };
+  const harness = buildHarness({
+    toolResult: legacyToolResult,
+  });
+
+  await harness.run();
+
+  assert.equal(
+    harness.publishedUserTurns[0].content,
+    'Record re-ingest result for plan scope',
+  );
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.equal(
+    assistantTurn.content,
+    'Plan-scope re-ingest recorded for 1 repositories (1 reingested, 0 skipped, 0 failed).',
+  );
+  assert.deepEqual(
+    (
+      assistantTurn.toolCalls as {
+        calls: Array<{ result: { warnings: Array<unknown> } }>;
+      }
+    ).calls[0].result.warnings,
+    [
+      (
+        legacyToolResult.result as {
+          warnings: Array<unknown>;
+        }
+      ).warnings[0],
+    ],
+  );
+  assert.equal(
+    harness.appendLogs.some(
+      (entry) =>
+        entry.message === 'DEV-0000052:T10:reingest-lifecycle-warning-dropped',
+    ),
+    true,
+  );
+  assert.deepEqual(
+    harness.appendLogs.find(
+      (entry) =>
+        entry.message === 'DEV-0000052:T10:reingest-lifecycle-warning-dropped',
+    )?.context,
+    {
+      conversationId: 'conversation-1',
+      callId: 'legacy-reingest-batch-unknown-warning',
+      targetMode: 'plan_scope',
+      droppedMalformedWarnings: 1,
+    },
+  );
+  assert.equal(
+    (
+      harness.appendLogs.find(
+        (entry) => entry.message === 'DEV-0000052:T5:reingest-lifecycle',
+      )?.context as {
+        warningCount?: number;
+      } | undefined
+    )?.warningCount,
+    0,
+  );
+});
+
 test('passes through caller-supplied model, source, and command metadata', async () => {
   const command: TurnCommandMetadata = {
     name: 'flow',

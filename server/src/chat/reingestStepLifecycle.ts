@@ -139,20 +139,33 @@ const isValidCompletionMode = (
 ): value is ReingestStepResultPayload['completionMode'] =>
   value === 'reingested' || value === 'skipped' || value === null;
 
-const normalizeBatchWarnings = (
+const isValidWarningCode = (
   value: unknown,
-): ReingestStepBatchResultPayload['warnings'] => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((warning): warning is Record<string, unknown> => isRecord(warning))
-    .map((warning) => ({
-      code:
-        warning.code === 'handoff_missing' ||
-        warning.code === 'handoff_invalid' ||
-        warning.code === 'repository_skipped' ||
-        warning.code === 'repository_failed'
-          ? warning.code
-          : ('repository_skipped' satisfies ReingestPlanScopeWarning['code']),
+): value is ReingestPlanScopeWarning['code'] =>
+  value === 'handoff_missing' ||
+  value === 'handoff_invalid' ||
+  value === 'repository_skipped' ||
+  value === 'repository_failed';
+
+const normalizeBatchWarnings = (value: unknown): {
+  warnings: ReingestStepBatchResultPayload['warnings'];
+  droppedCount: number;
+} => {
+  if (!Array.isArray(value)) {
+    return { warnings: [], droppedCount: 0 };
+  }
+
+  const warnings: ReingestStepBatchResultPayload['warnings'] = [];
+  let droppedCount = 0;
+
+  for (const warning of value) {
+    if (!isRecord(warning) || !isValidWarningCode(warning.code)) {
+      droppedCount += 1;
+      continue;
+    }
+
+    warnings.push({
+      code: warning.code,
       message:
         typeof warning.message === 'string'
           ? warning.message
@@ -170,12 +183,20 @@ const normalizeBatchWarnings = (
           ? ((warning.resolvedRepositoryId as string | null | undefined) ??
             null)
           : null,
-    }));
+    });
+  }
+
+  return { warnings, droppedCount };
+};
+
+type ParsedReingestPayload = {
+  payload: ReingestToolResultPayload;
+  droppedMalformedWarnings: number;
 };
 
 const getReingestPayload = (
   toolResult: ChatToolResultEvent,
-): ReingestToolResultPayload | null => {
+): ParsedReingestPayload | null => {
   const result = toolResult.result;
   if (!isRecord(result)) return null;
   if (result.stepType !== 'reingest') return null;
@@ -197,11 +218,18 @@ const getReingestPayload = (
       return null;
     }
 
+    const normalizedWarnings = normalizeBatchWarnings(
+      (result as LegacyBatchPayload).warnings,
+    );
+
     return {
-      ...(result as LegacyBatchPayload),
-      targetMode:
-        result.targetMode === 'plan_scope' ? 'plan_scope' : 'plan_scope',
-      warnings: normalizeBatchWarnings((result as LegacyBatchPayload).warnings),
+      payload: {
+        ...(result as LegacyBatchPayload),
+        targetMode:
+          result.targetMode === 'plan_scope' ? 'plan_scope' : 'plan_scope',
+        warnings: normalizedWarnings.warnings,
+      },
+      droppedMalformedWarnings: normalizedWarnings.droppedCount,
     };
   }
 
@@ -253,29 +281,33 @@ const getReingestPayload = (
       : 'failed';
 
   return {
-    kind: 'reingest_step_result',
-    stepType: 'reingest',
-    targetMode: normalizedTargetMode,
-    requestedSelector: normalizedRequestedSelector,
-    sourceId: payload.sourceId,
-    resolvedRepositoryId: normalizedResolvedRepositoryId,
-    outcome: normalizedOutcome,
-    status: payload.status,
-    completionMode: normalizedCompletionMode,
-    operation: payload.operation,
-    runId: payload.runId,
-    files: payload.files,
-    chunks: payload.chunks,
-    embedded: payload.embedded,
-    errorCode: payload.errorCode ?? null,
+    payload: {
+      kind: 'reingest_step_result',
+      stepType: 'reingest',
+      targetMode: normalizedTargetMode,
+      requestedSelector: normalizedRequestedSelector,
+      sourceId: payload.sourceId,
+      resolvedRepositoryId: normalizedResolvedRepositoryId,
+      outcome: normalizedOutcome,
+      status: payload.status,
+      completionMode: normalizedCompletionMode,
+      operation: payload.operation,
+      runId: payload.runId,
+      files: payload.files,
+      chunks: payload.chunks,
+      embedded: payload.embedded,
+      errorCode: payload.errorCode ?? null,
+    },
+    droppedMalformedWarnings: 0,
   };
 };
 
 const buildUserTurnContent = (toolResult: ChatToolResultEvent): string => {
-  const payload = getReingestPayload(toolResult);
-  if (!payload) {
+  const parsedPayload = getReingestPayload(toolResult);
+  if (!parsedPayload) {
     return 'Record re-ingest step result';
   }
+  const { payload } = parsedPayload;
   if (payload.kind === 'reingest_step_batch_result') {
     return payload.warnings.length > 0
       ? 'Record re-ingest result for plan scope with warnings'
@@ -285,8 +317,9 @@ const buildUserTurnContent = (toolResult: ChatToolResultEvent): string => {
 };
 
 const buildAssistantTurnContent = (toolResult: ChatToolResultEvent): string => {
-  const payload = getReingestPayload(toolResult);
-  if (!payload) return 'Re-ingest step result recorded.';
+  const parsedPayload = getReingestPayload(toolResult);
+  if (!parsedPayload) return 'Re-ingest step result recorded.';
+  const { payload } = parsedPayload;
   if (payload.kind === 'reingest_step_batch_result') {
     const warningSuffix =
       payload.warnings.length > 0
@@ -377,7 +410,8 @@ export async function runReingestStepLifecycle(params: {
   const userContent = buildUserTurnContent(params.toolResult);
   const assistantContent = buildAssistantTurnContent(params.toolResult);
   const liveToolEvent = toLiveToolEvent(params.toolResult);
-  const payload = getReingestPayload(params.toolResult);
+  const parsedPayload = getReingestPayload(params.toolResult);
+  const payload = parsedPayload?.payload ?? null;
 
   lifecycleDeps.createInflight({
     conversationId: params.conversationId,
@@ -489,6 +523,21 @@ export async function runReingestStepLifecycle(params: {
     });
 
     if (payload) {
+      if (parsedPayload?.droppedMalformedWarnings) {
+        lifecycleDeps.appendLog({
+          level: 'warn',
+          message: 'DEV-0000052:T10:reingest-lifecycle-warning-dropped',
+          timestamp: lifecycleDeps.now().toISOString(),
+          source: 'server',
+          context: {
+            conversationId: params.conversationId,
+            callId: params.toolResult.callId,
+            targetMode: payload.targetMode,
+            droppedMalformedWarnings: parsedPayload.droppedMalformedWarnings,
+          },
+        });
+      }
+
       lifecycleDeps.appendLog({
         level: 'info',
         message: 'DEV-0000050:T04:reingest_payload_persisted',

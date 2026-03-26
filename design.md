@@ -5213,6 +5213,40 @@ flowchart TD
   M --> O[Caller executes normal command or flow instruction path]
 ```
 
+## Story 0000052 Task 5: warning-aware re-ingest lifecycle payloads
+
+- Task 5 keeps re-ingest persistence on the existing synthetic-turn plus `Turn.toolCalls` path, but it updates the payload contract so new writes reflect the `working` and `plan_scope` execution model from Task 4 instead of the removed `current` and `all` wording.
+- `server/src/chat/reingestToolResult.ts` now writes:
+  - `reingest_step_result` for `targetMode: "sourceId" | "working"`;
+  - `reingest_step_batch_result` for `targetMode: "plan_scope"` with ordered attempted `repositories`, explicit `summary`, and explicit `warnings`.
+- Completed `plan_scope` batches stay on `ChatToolResultEvent.stage = "success"` even when warnings include `repository_failed`, `repository_skipped`, `handoff_missing`, or `handoff_invalid`. Warning-aware completion is represented inside the payload rather than by inventing a third top-level stage.
+- `server/src/chat/reingestStepLifecycle.ts` still persists one synthetic user turn and one synthetic assistant turn, but it now publishes plan-scope-specific wording and makes warning-style completion visible in transcript text without degrading the whole batch into a hard error.
+- Historical stored payloads remain readable. The lifecycle parser still accepts older `targetMode: "current"` and `targetMode: "all"` payloads from `Turn.toolCalls`, normalizes omitted `warnings` to `[]`, and presents them through the current transcript-facing path.
+- `server/src/mongo/turn.ts` does not add a new top-level field for this task. Re-ingest payloads remain nested under `Turn.toolCalls`, and writes stay on the existing fresh `appendTurn(...)` path rather than an in-place `Schema.Types.Mixed` mutation flow.
+- The Task 5 lifecycle proof marker is `DEV-0000052:T5:reingest-lifecycle`, emitted with `stage`, `targetMode`, and `warningCount` once the lifecycle has published and persisted the tool result.
+
+```mermaid
+sequenceDiagram
+    participant Exec as reingestExecution.ts
+    participant Builder as reingestToolResult.ts
+    participant Lifecycle as reingestStepLifecycle.ts
+    participant Persist as Turn.toolCalls
+    participant Reader as Transcript readers
+
+    Exec->>Builder: single or batch execution result
+    alt single result
+        Builder->>Lifecycle: reingest_step_result targetMode=sourceId|working
+    else plan_scope batch
+        Builder->>Lifecycle: reingest_step_batch_result + warnings
+        Builder->>Lifecycle: stage=success
+    end
+    Lifecycle->>Lifecycle: build transcript-facing user/assistant text
+    Lifecycle->>Persist: assistant turn with toolCalls.calls[0]
+    Lifecycle-->>Lifecycle: DEV-0000052:T5:reingest-lifecycle
+    Persist->>Reader: stored mixed payload
+    Reader->>Reader: normalize historical current/all payloads for display
+```
+
 ## Story 0000050 Task 6: shared MCP placeholder normalization
 
 - Task 6 introduces `server/src/config/mcpEndpoints.ts` as the runtime-owned MCP endpoint contract. It resolves `${CODEINFO_SERVER_PORT}`, `${CODEINFO_CHAT_MCP_PORT}`, `${CODEINFO_AGENTS_MCP_PORT}`, and the direct `CODEINFO_PLAYWRIGHT_MCP_URL` token before downstream runtime consumers see an effective endpoint.

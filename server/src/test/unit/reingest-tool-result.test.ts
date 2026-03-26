@@ -203,7 +203,7 @@ test('builds one batch payload and preserves repository ordering', () => {
     execution: buildBatchExecution(),
   });
 
-  assert.equal(result.stage, 'error');
+  assert.equal(result.stage, 'success');
   assert.equal(
     (result.result as { kind: string }).kind,
     'reingest_step_batch_result',
@@ -264,6 +264,48 @@ test('batch payload summary counts mixed outcomes without recomputation', () => 
       skipped: 1,
       failed: 1,
     },
+  );
+});
+
+test('batch payload preserves explicit warnings and warning field metadata', () => {
+  const result = buildReingestToolResult({
+    callId: 'reingest-step-6b',
+    execution: buildBatchExecution({
+      warnings: [
+        {
+          code: 'handoff_missing',
+          message: 'handoff missing',
+          repositoryPath:
+            '/repo/current/codeInfoStatus/flow-state/current-plan.json',
+          resolvedRepositoryId: null,
+        },
+        {
+          code: 'repository_failed',
+          message: 'repo failed',
+          repositoryPath: '/data/repo-c',
+          resolvedRepositoryId: 'repo-c',
+        },
+      ],
+    }),
+  });
+
+  assert.deepEqual(
+    (result.result as { warnings: Array<Record<string, unknown>> }).warnings,
+    [
+      {
+        code: 'handoff_missing',
+        message: 'handoff missing',
+        repositoryPath:
+          '/repo/current/codeInfoStatus/flow-state/current-plan.json',
+        resolvedRepositoryId: null,
+      },
+      {
+        code: 'repository_failed',
+        message: 'repo failed',
+        repositoryPath: '/data/repo-c',
+        resolvedRepositoryId: 'repo-c',
+      },
+    ],
   );
 });
 
@@ -329,6 +371,7 @@ test('remains compatible with the persisted Turn.toolCalls container shape for b
               skipped: 0,
               failed: 0,
             },
+            warnings: [],
           },
           error: null,
         },

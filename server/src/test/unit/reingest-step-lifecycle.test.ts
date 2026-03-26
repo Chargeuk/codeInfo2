@@ -520,7 +520,14 @@ test('batch synthetic turn content summarizes the run instead of naming one sour
           },
         ],
         summary: { reingested: 1, skipped: 0, failed: 1 },
-        warnings: [],
+        warnings: [
+          {
+            code: 'repository_failed',
+            message: 'repo-b failed',
+            repositoryPath: '/repo/b',
+            resolvedRepositoryId: 'repo-b',
+          },
+        ],
       },
     }),
   });
@@ -529,7 +536,7 @@ test('batch synthetic turn content summarizes the run instead of naming one sour
 
   assert.equal(
     harness.publishedUserTurns[0].content,
-    'Record re-ingest step result',
+    'Record re-ingest result for plan scope with warnings',
   );
   const assistantTurn = harness.persistedTurns.find(
     (turn) => turn.role === 'assistant',
@@ -537,7 +544,7 @@ test('batch synthetic turn content summarizes the run instead of naming one sour
   assert.ok(assistantTurn);
   assert.equal(
     assistantTurn.content,
-    'Batch re-ingest recorded for 2 repositories (1 reingested, 0 skipped, 1 failed).',
+    'Plan-scope re-ingest recorded for 2 repositories (1 reingested, 0 skipped, 1 failed). Warning count: 1.',
   );
 });
 
@@ -575,6 +582,59 @@ test('older single-result payloads still parse and persist correctly', async () 
     (turn) => turn.role === 'assistant',
   );
   assert.ok(assistantTurn);
+  assert.deepEqual(assistantTurn.toolCalls, {
+    calls: [legacyToolResult],
+  });
+});
+
+test('older batch payloads with targetMode all still parse and persist correctly', async () => {
+  const legacyToolResult: ChatToolResultEvent = {
+    type: 'tool-result',
+    callId: 'legacy-reingest-batch',
+    name: 'reingest_repository',
+    stage: 'error',
+    result: {
+      kind: 'reingest_step_batch_result',
+      stepType: 'reingest',
+      targetMode: 'all',
+      requestedSelector: null,
+      repositories: [
+        {
+          sourceId: '/repo/a',
+          resolvedRepositoryId: 'repo-a',
+          outcome: 'reingested',
+          status: 'completed',
+          completionMode: 'reingested',
+          runId: 'run-a',
+          files: 4,
+          chunks: 8,
+          embedded: 8,
+          errorCode: null,
+          errorMessage: null,
+        },
+      ],
+      summary: { reingested: 1, skipped: 0, failed: 0 },
+    },
+    error: null,
+  };
+  const harness = buildHarness({
+    toolResult: legacyToolResult,
+  });
+
+  await harness.run();
+
+  assert.equal(
+    harness.publishedUserTurns[0].content,
+    'Record re-ingest result for plan scope',
+  );
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.equal(
+    assistantTurn.content,
+    'Plan-scope re-ingest recorded for 1 repositories (1 reingested, 0 skipped, 0 failed).',
+  );
   assert.deepEqual(assistantTurn.toolCalls, {
     calls: [legacyToolResult],
   });
@@ -620,5 +680,9 @@ test('passes through caller-supplied model, source, and command metadata', async
   assert.equal(
     harness.appendLogs[1]?.message,
     'DEV-0000050:T04:reingest_payload_persisted',
+  );
+  assert.equal(
+    harness.appendLogs[2]?.message,
+    'DEV-0000052:T5:reingest-lifecycle',
   );
 });

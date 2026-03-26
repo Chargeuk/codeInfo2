@@ -1,3 +1,4 @@
+import type { ReingestPlanScopeWarning } from '../ingest/planScopeResolver.js';
 import type {
   ReingestExecutionBatchResult,
   ReingestExecutionResult,
@@ -15,7 +16,7 @@ export type ReingestUserFacingOutcome = 'reingested' | 'skipped' | 'failed';
 export type ReingestStepResultPayload = {
   kind: 'reingest_step_result';
   stepType: 'reingest';
-  targetMode: 'sourceId' | 'current' | 'working';
+  targetMode: 'sourceId' | 'working';
   requestedSelector: string | null;
   sourceId: string;
   resolvedRepositoryId: string | null;
@@ -39,10 +40,11 @@ export type ReingestStepBatchSummary = {
 export type ReingestStepBatchResultPayload = {
   kind: 'reingest_step_batch_result';
   stepType: 'reingest';
-  targetMode: 'all' | 'plan_scope';
+  targetMode: 'plan_scope';
   requestedSelector: null;
   repositories: ReingestRepositoryExecutionOutcome[];
   summary: ReingestStepBatchSummary;
+  warnings: ReingestPlanScopeWarning[];
 };
 
 export type ReingestToolResultPayload =
@@ -102,6 +104,7 @@ function buildBatchPayload(
     requestedSelector: null,
     repositories: execution.repositories,
     summary: buildBatchSummary(execution.repositories),
+    warnings: execution.warnings,
   };
 }
 
@@ -115,7 +118,7 @@ function toPayload(
 
 function toToolStage(payload: ReingestToolResultPayload): 'success' | 'error' {
   if (payload.kind === 'reingest_step_batch_result') {
-    return payload.summary.failed > 0 ? 'error' : 'success';
+    return 'success';
   }
   return payload.status === 'completed' ? 'success' : 'error';
 }
@@ -128,13 +131,18 @@ export function buildReingestToolResult(params: {
 
   append({
     level: 'info',
-    message: 'DEV-0000045:T7:reingest_tool_result_built',
+    message: 'DEV-0000052:T5:reingest-lifecycle',
     timestamp: new Date().toISOString(),
     source: 'server',
     context: {
       callId: params.callId,
       payloadKind: result.kind,
       targetMode: result.targetMode,
+      stage: toToolStage(result),
+      warningCount:
+        result.kind === 'reingest_step_batch_result'
+          ? result.warnings.length
+          : 0,
       sourceId: result.kind === 'reingest_step_result' ? result.sourceId : null,
       repositoryCount:
         result.kind === 'reingest_step_batch_result'

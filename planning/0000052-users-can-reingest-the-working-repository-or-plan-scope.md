@@ -1504,3 +1504,136 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Final runtime proof recreated the Story `0000052` marker set on the wrapper-started compose stack using the checked-in `reingest_working` and `reingest_plan_scope` direct-command proof assets against `/Users/danielstapleton/Documents/dev/task14-ingest-mini`, then refreshed the remaining traceability markers through `POST /logs`. The `/logs` evidence now shows `T1`, `T2`, `T3`, `T4`, `T5`, `T6`, `T7`, `T8`, `T9`, and the reopened-review `T10` marker after the review fixes, with `plan_scope` still publishing `stage: "success"` plus warnings.
 - Playwright MCP verification passed against `http://host.docker.internal:5001/logs` with a `DEV-0000052` filter applied. The browser console error check returned no entries, the filtered logs view showed the Story `0000052` markers after the review fixes, and the saved screenshots were written to `playwright-output-local/0000052-task12-logs-markers.png` and `playwright-output-local/0000052-task12-console-clean.png`.
 - `npm run compose:down` completed cleanly after the final runtime proof, so the reopened close-out ends with the wrapper-started stack torn down again.
+
+## Code Review Findings
+
+- Review pass: `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md`
+- Review outcome:
+  - Reopen the story in the current repository.
+  - Fix the lifecycle malformed-warning normalization gap first.
+  - Normalize the shared `DEV-0000052:T1:reingest-target-contract` log schema second.
+  - Re-run the full final validation sequence after both review fixes complete.
+
+---
+
+### Task 13. Make Malformed Persisted Warning Shapes Observable In Lifecycle Reads
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Fix the review finding in the lifecycle read path so malformed persisted `warnings` shapes do not silently normalize into a clean zero-warning batch. This task extends the existing Task 10 compatibility hardening by making non-array or otherwise unusable persisted warning containers observable through the same lifecycle warning-drop evidence path instead of disappearing without trace.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` - review finding that this task must resolve.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical acceptance contract and reopened review context for Story `0000052`.
+- Context7 `/nodejs/node/v22.17.0` - use when reasoning about durable runtime parsing and normalization behavior for persisted server-side state.
+
+#### Subtasks
+
+1. [ ] Current Repository: Read `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the fix stays local to the persisted lifecycle read seam.
+2. [ ] Current Repository: Update `normalizeBatchWarnings(...)` in `server/src/chat/reingestStepLifecycle.ts` so non-array persisted `warnings` values are treated as malformed warning data rather than as a clean empty warning set. The chosen behavior must preserve observability: either count the whole malformed container as dropped warning input or otherwise emit explicit lifecycle evidence that malformed persisted warning state was encountered.
+3. [ ] Current Repository: Keep newly written Story `0000052` payloads unchanged. This task must only harden lifecycle reads for malformed persisted state and must not broaden the canonical write contract in `server/src/chat/reingestToolResult.ts`.
+4. [ ] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingest-step-lifecycle.test.ts` so a persisted `plan_scope` payload with a non-array `warnings` value is directly proved. The test must show that the malformed shape no longer disappears silently and that the lifecycle warning-drop evidence path records the problem.
+5. [ ] Current Repository: Update this story file's Task 13 Implementation notes immediately after the code/test change lands, naming the final malformed-warning-container behavior and any compatibility tradeoff that had to be chosen.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 13 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 13 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 13 changes server-side lifecycle behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Awaiting implementation.
+
+---
+
+### Task 14. Normalize The Shared Task 1 Log Marker Schema
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Fix the review finding that `DEV-0000052:T1:reingest-target-contract` is emitted from both the command and flow schema paths with different context shapes. This task should keep the marker shared, but it must normalize the emitted context contract so downstream parsing and operational debugging can treat the command and flow emitters as one coherent proof surface.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` - review finding that this task must resolve.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical story scope and reopened review context.
+- Context7 `/nodejs/node/v22.17.0` - use when reasoning about runtime logging shape consistency and test updates.
+
+#### Subtasks
+
+1. [ ] Current Repository: Read `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, the Task 1 tests, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the log-contract cleanup stays limited to the shared Task 1 marker surface.
+2. [ ] Current Repository: Update the command and flow emitters for `DEV-0000052:T1:reingest-target-contract` so they share one stable context vocabulary. At minimum, add a common surface discriminator and align the name/index fields so the marker can be parsed consistently without per-emitter field branching.
+3. [ ] Current Repository: Keep the accepted and rejected target outcomes unchanged. This task is a log-schema normalization only; it must not alter the actual command/flow validation behavior or broaden support for removed targets.
+4. [ ] Current Repository: Update the Task 1 unit coverage in `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` so the normalized shared marker schema is directly asserted from both emitters.
+5. [ ] Current Repository: Update this story file's Task 14 Implementation notes immediately after the code/test change lands, naming the final shared marker fields and any compatibility tradeoff that had to be chosen.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 14 changes server-side schema logging code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 14 changes command and flow schema handling plus unit coverage. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 14 changes flow-related schema behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Awaiting implementation.
+
+---
+
+### Task 15. Re-Run Final Validation After Review Round 2
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Re-validate Story `0000052` after Tasks 13 and 14 land, then re-close the story against the acceptance criteria, the second review pass, and the durable review artifacts. This task supersedes the previous Task 12 close-out and must prove both new review findings are resolved on the default validation path.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-evidence.md` - evidence artifact for the second review pass.
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` - findings artifact that Tasks 13 and 14 must clear.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical acceptance criteria and reopened review-fix tasks.
+- `https://docs.docker.com/engine/storage/bind-mounts/` - mounted-runtime proof expectations for the supported compose stack.
+- `https://playwright.dev/docs/debug` - logs-page proof workflow for the final manual check.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-check every acceptance criterion against the final implementation after Tasks 13 and 14 complete, and explicitly confirm in the Implementation notes that the two new review findings are resolved rather than merely unobserved.
+2. [ ] Current Repository: Re-run the repo-wide stale-language and remaining-diff audit. Confirm the remaining non-support diff still maps cleanly to Story `0000052` after the new review-fix tasks land.
+3. [ ] Current Repository: Update `docs/developer-reference.md`, `design.md`, `projectStructure.md`, and this story file again if the Task 13 lifecycle-read fix or the Task 14 log-schema normalization changes the documented final state. If no further doc edits are needed, record that no-change decision explicitly in the Implementation notes.
+4. [ ] Current Repository: Keep the durable review artifacts `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-evidence.md` and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` in the commit history alongside this reopened-plan work so later human reviewers can inspect the evidence and findings that triggered the second reopen.
+5. [ ] Current Repository: Prepare a fresh PR-ready close-out note in the Implementation notes that summarizes the second review fixes, the final proof sequence, and any remaining residual risk after re-validation.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 13 and 14 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Story `0000052` still includes client-visible proof surfaces and final regression checks. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] Current Repository: Run `npm run compose:up`.
+9. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the Story `0000052` behavior plus surrounding regressions, and check that there are no logged errors in the debug console. The `/logs` page must still show the full Story `0000052` marker set after the second review fixes.
+10. [ ] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Awaiting implementation.

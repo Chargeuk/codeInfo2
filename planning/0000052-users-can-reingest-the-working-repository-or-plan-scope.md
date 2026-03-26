@@ -1519,7 +1519,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 13. Make Malformed Persisted Warning Shapes Observable In Lifecycle Reads
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits: `__to_do__`
 
 #### Overview
@@ -1534,23 +1534,30 @@ Fix the review finding in the lifecycle read path so malformed persisted `warnin
 
 #### Subtasks
 
-1. [ ] Current Repository: Read `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the fix stays local to the persisted lifecycle read seam.
-2. [ ] Current Repository: Update `normalizeBatchWarnings(...)` in `server/src/chat/reingestStepLifecycle.ts` so non-array persisted `warnings` values are treated as malformed warning data rather than as a clean empty warning set. The chosen behavior must preserve observability: either count the whole malformed container as dropped warning input or otherwise emit explicit lifecycle evidence that malformed persisted warning state was encountered.
-3. [ ] Current Repository: Keep newly written Story `0000052` payloads unchanged. This task must only harden lifecycle reads for malformed persisted state and must not broaden the canonical write contract in `server/src/chat/reingestToolResult.ts`.
-4. [ ] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingest-step-lifecycle.test.ts` so a persisted `plan_scope` payload with a non-array `warnings` value is directly proved. The test must show that the malformed shape no longer disappears silently and that the lifecycle warning-drop evidence path records the problem.
-5. [ ] Current Repository: Update this story file's Task 13 Implementation notes immediately after the code/test change lands, naming the final malformed-warning-container behavior and any compatibility tradeoff that had to be chosen.
+1. [x] Current Repository: Read `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the fix stays local to the persisted lifecycle read seam.
+2. [x] Current Repository: Update `normalizeBatchWarnings(...)` in `server/src/chat/reingestStepLifecycle.ts` so non-array persisted `warnings` values are treated as malformed warning data rather than as a clean empty warning set. The chosen behavior must preserve observability: either count the whole malformed container as dropped warning input or otherwise emit explicit lifecycle evidence that malformed persisted warning state was encountered.
+3. [x] Current Repository: Keep newly written Story `0000052` payloads unchanged. This task must only harden lifecycle reads for malformed persisted state and must not broaden the canonical write contract in `server/src/chat/reingestToolResult.ts`.
+4. [x] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingest-step-lifecycle.test.ts` so a persisted `plan_scope` payload with a non-array `warnings` value is directly proved. The test must show that the malformed shape no longer disappears silently and that the lifecycle warning-drop evidence path records the problem.
+5. [x] Current Repository: Update this story file's Task 13 Implementation notes immediately after the code/test change lands, naming the final malformed-warning-container behavior and any compatibility tradeoff that had to be chosen.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 13 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 13 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 13 changes server-side lifecycle behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 13 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 13 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 13 changes server-side lifecycle behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Awaiting implementation.
+- Subtask 1: Re-read `reingestStepLifecycle.ts`, `reingestToolResult.ts`, the focused lifecycle unit coverage, and the second review findings so the Task 13 fix stays isolated to malformed persisted warning reads instead of drifting back into the write contract.
+- Subtask 2: Updated `normalizeBatchWarnings(...)` so an absent `warnings` field still stays compatibility-clean, but any explicit non-array container now counts as one dropped malformed warning input instead of disappearing as a zero-warning batch.
+- Subtask 3: Left `reingestToolResult.ts` unchanged so Story `0000052` keeps the same canonical write contract and this task stays read-side only.
+- Subtask 4: Added focused unit coverage for a persisted `plan_scope` payload whose `warnings` field is an object, proving the lifecycle warning-drop log fires and the malformed container no longer normalizes silently.
+- Subtask 5: Final Task 13 behavior is now: `warnings === undefined` remains a legacy-compatible clean fallback, while any other non-array `warnings` container is treated as malformed and recorded through the existing `DEV-0000052:T10:reingest-lifecycle-warning-dropped` evidence path with `droppedMalformedWarnings: 1`.
+- `npm run build:summary:server` passed cleanly with `status: passed` and `warning_count: 0`, so the narrowed lifecycle-read change still leaves the server workspace compiling without extra warnings.
+- `npm run test:summary:server:unit` passed cleanly with `tests run: 1504` and `failed: 0`. Like the earlier reopened Story `0000052` passes, it ran well past the nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing with `agent_action: skip_log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75` and `failed: 0`, so the malformed-warning-container hardening leaves the feature-level server regression suite green as well.
 
 ---
 

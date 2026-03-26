@@ -151,8 +151,11 @@ const normalizeBatchWarnings = (value: unknown): {
   warnings: ReingestStepBatchResultPayload['warnings'];
   droppedCount: number;
 } => {
-  if (!Array.isArray(value)) {
+  if (value === undefined) {
     return { warnings: [], droppedCount: 0 };
+  }
+  if (!Array.isArray(value)) {
+    return { warnings: [], droppedCount: 1 };
   }
 
   const warnings: ReingestStepBatchResultPayload['warnings'] = [];

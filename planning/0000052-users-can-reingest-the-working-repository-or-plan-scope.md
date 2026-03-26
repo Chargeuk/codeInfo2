@@ -1379,9 +1379,11 @@ Fix the review finding in the lifecycle read path so malformed or mixed-version 
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 10 changes server-side lifecycle code. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file src/test/unit/reingest-step-lifecycle.test.ts`. Use this targeted wrapper first because Task 10 is intentionally local to the lifecycle read path. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose the lifecycle failure, and rerun the same targeted wrapper until it passes.
-3. [ ] Current Repository: After the targeted lifecycle proof passes, run full `npm run test:summary:server:unit` so the hardened warning-normalization behavior is proved on the default server-unit path before Task 11 begins.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 10 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 10 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 10 changes server-side lifecycle behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -1414,9 +1416,13 @@ Fix the review finding that this branch still carries unrelated non-support chat
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run lint`. Use this repository-wide check because Task 11 may remove changes across server, client, test, and OpenAPI-adjacent files. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining issues in the files still on the Story `0000052` branch.
-2. [ ] Current Repository: Run `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files that still belong to Story `0000052`.
-3. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` one final time and confirm the unrelated non-support file cluster from the review finding is gone before Task 12 begins.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 11 removes unrelated server-side branch changes and must leave the remaining Story `0000052` server/common code compiling cleanly. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run build:summary:client`. Use this wrapper because Task 11 also removes unrelated client-side branch changes and must leave the remaining Story `0000052` diff compiling cleanly. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 11 changes the remaining server/test diff on the current branch. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] Current Repository: Run full `npm run test:summary:client`. Use this summary wrapper because Task 11 removes unrelated client/test changes from the branch and must leave the remaining client state healthy. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+5. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` one final time and confirm the unrelated non-support file cluster from the review finding is gone before Task 12 begins.
 
 #### Implementation notes
 
@@ -1452,14 +1458,18 @@ Re-validate the reopened story after Tasks 10 and 11 land, then re-close Story `
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. This is the first default-path proof that the reopened server changes still compile after the review-fix work.
-2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. This must pass after Task 10's lifecycle hardening and Task 11's diff cleanup.
-3. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. This confirms the review-fix work did not disturb feature-level server flows.
-4. [ ] Current Repository: Run `npm run compose:build:summary`.
-5. [ ] Current Repository: Run `npm run compose:up`.
-6. [ ] Current Repository: While the wrapper-started stack is running, rerun the checked-in `reingest_working` and `reingest_plan_scope` proof commands from Task 9 against the supported mounted working repository and confirm the compose proof still shows the expected direct-command and warning-aware `plan_scope` outcomes.
-7. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001/logs` and confirm the final Story `0000052` marker set still appears, with no unexpected browser-console `error` entries.
-8. [ ] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 10 and 11 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Task 11 removes client-side branch changes and must leave the remaining branch state healthy. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] Current Repository: Run `npm run compose:up`.
+9. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the Story `0000052` behavior plus surrounding regressions, and check that there are no logged errors in the debug console. The `/logs` page must still show the final Story `0000052` marker set after the review fixes.
+10. [ ] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
 
 #### Implementation notes
 

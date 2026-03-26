@@ -1752,7 +1752,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 16. Record Failed Repository Warnings For Ok-Shaped Terminal Failures
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -1770,23 +1770,30 @@ Fix the remaining `plan_scope` runtime-accounting defect in `server/src/ingest/r
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/ingest/reingestService.ts`, and the existing re-ingest execution/tool-result/lifecycle tests before editing so the fix stays localized to the failed-outcome warning-accounting seam.
-2. [ ] Current Repository: Update the `plan_scope` execution loop in `server/src/ingest/reingestExecution.ts` so any attempted repository whose normalized outcome is `failed` also emits a matching `repository_failed` warning, even when the underlying re-ingest call returned `ok: true`.
-3. [ ] Current Repository: Keep continue-after-failure semantics unchanged. This task must not revert the best-effort batch behavior or the `stage: "success"` contract for completed warning-bearing `plan_scope` batches.
-4. [ ] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingestExecution.test.ts` so an ok-shaped terminal `error` result and an ok-shaped terminal `cancelled` result both prove the repaired warning path directly. Re-open `reingest-tool-result.test.ts` and/or `reingest-step-lifecycle.test.ts` only if the changed warning semantics need extra downstream assertions.
-5. [ ] Current Repository: Update this story file's Task 16 Implementation notes immediately after the code/test change lands, naming the final rule for failed attempted repositories and any compatibility tradeoff that had to be preserved.
+1. [x] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/ingest/reingestService.ts`, and the existing re-ingest execution/tool-result/lifecycle tests before editing so the fix stays localized to the failed-outcome warning-accounting seam.
+2. [x] Current Repository: Update the `plan_scope` execution loop in `server/src/ingest/reingestExecution.ts` so any attempted repository whose normalized outcome is `failed` also emits a matching `repository_failed` warning, even when the underlying re-ingest call returned `ok: true`.
+3. [x] Current Repository: Keep continue-after-failure semantics unchanged. This task must not revert the best-effort batch behavior or the `stage: "success"` contract for completed warning-bearing `plan_scope` batches.
+4. [x] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingestExecution.test.ts` so an ok-shaped terminal `error` result and an ok-shaped terminal `cancelled` result both prove the repaired warning path directly. Re-open `reingest-tool-result.test.ts` and/or `reingest-step-lifecycle.test.ts` only if the changed warning semantics need extra downstream assertions.
+5. [x] Current Repository: Update this story file's Task 16 Implementation notes immediately after the code/test change lands, naming the final rule for failed attempted repositories and any compatibility tradeoff that had to be preserved.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 16 changes server-side re-ingest execution accounting. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 16 changes server-side runtime and batch-accounting behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 16 changes server-side runtime behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 16 changes server-side re-ingest execution accounting. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 16 changes server-side runtime and batch-accounting behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 16 changes server-side runtime behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- None yet.
+- Subtask 1: Re-read the execution loop, the re-ingest service terminal-result normalization, and the focused execution/tool-result/lifecycle tests so the Task 16 fix stays limited to the ok-shaped terminal failure warning seam.
+- Subtask 2: Updated the `plan_scope` loop so any attempted repository that normalizes to `outcome: "failed"` now appends a matching `repository_failed` warning even when `runReingestRepository(...)` returned `ok: true`.
+- Subtask 3: Kept the best-effort batch flow unchanged; the fix only fills the missing warning seam and does not change continue-after-failure execution or the completed-with-warnings contract.
+- Subtask 4: Extended `server/src/test/unit/reingestExecution.test.ts` with direct proof that ok-shaped terminal `error` and `cancelled` repository outcomes now both surface `repository_failed` warnings without reopening downstream tool-result or lifecycle tests.
+- Subtask 5: Final Task 16 rule is now that every attempted `plan_scope` repository whose normalized terminal outcome is `failed` must carry a matching `repository_failed` warning, regardless of whether the underlying re-ingest call failed structurally or returned an ok-shaped terminal `error` / `cancelled` result. The preserved compatibility tradeoff is unchanged batch behavior: completed warning-bearing `plan_scope` runs still continue through later repositories and still report success-with-warnings rather than a hard batch error.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the Task 16 execution-layer change still leaves the server workspace building without extra warnings.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1505`, `failed: 0`, and `agent_action: skip_log`, so the repaired warning-accounting path holds across the full server unit/integration suite.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the Task 16 runtime-accounting fix also holds across the full feature-level server suite.
 
 ---
 

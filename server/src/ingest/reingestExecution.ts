@@ -494,7 +494,18 @@ export async function executeReingestRequest(params: {
         sourceId: repo.sourceId,
       });
       if (result.ok) {
-        repositories.push(normalizeOutcome(result.value));
+        const outcome = normalizeOutcome(result.value);
+        repositories.push(outcome);
+        if (outcome.outcome === 'failed') {
+          warnings.push(
+            buildRepositoryFailedWarning({
+              sourceId: outcome.sourceId,
+              resolvedRepositoryId: outcome.resolvedRepositoryId,
+              errorMessage: outcome.errorMessage,
+              errorCode: outcome.errorCode,
+            }),
+          );
+        }
       } else {
         const failure = normalizeFailureOutcome({
           repo: toFailureRepoEntry({

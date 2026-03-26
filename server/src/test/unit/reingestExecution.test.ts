@@ -43,9 +43,11 @@ function buildReingestSuccess(params: {
   sourceId: string;
   resolvedRepositoryId: string | null;
   completionMode?: 'reingested' | 'skipped' | null;
+  status?: 'completed' | 'cancelled' | 'error';
+  errorCode?: string | null;
 }) {
   return {
-    status: 'completed' as const,
+    status: params.status ?? ('completed' as const),
     operation: 'reembed' as const,
     runId: `run:${params.sourceId}`,
     sourceId: params.sourceId,
@@ -55,7 +57,7 @@ function buildReingestSuccess(params: {
     files: 1,
     chunks: 2,
     embedded: 2,
-    errorCode: null,
+    errorCode: params.errorCode ?? null,
   };
 }
 
@@ -597,6 +599,127 @@ describe('executeReingestRequest', () => {
     assert.deepEqual(
       result.value.warnings.map((warning) => warning.code),
       ['repository_failed'],
+    );
+  });
+
+  test('plan_scope records repository_failed warnings for ok-shaped terminal error and cancelled outcomes', async () => {
+    const fixture = await createPlanScopeFixture({
+      additionalRepositories: [{ name: 'repo-a' }, { name: 'repo-b' }],
+    });
+    cleanups.push(fixture.cleanup);
+
+    const result = await executeReingestRequest({
+      request: { target: 'plan_scope' },
+      surface: 'command',
+      workingRepositoryPath: fixture.workingRepositoryPath,
+      deps: {
+        listIngestedRepositories: async () => ({
+          repos: [
+            buildRepoEntry({
+              id: 'working-repo',
+              containerPath: fixture.workingRepositoryPath,
+              hostPath: fixture.workingRepositoryPath,
+            }),
+            buildRepoEntry({
+              id: 'repo-a',
+              containerPath: fixture.additionalRepositoryPaths[0]!,
+              hostPath: fixture.additionalRepositoryPaths[0]!,
+            }),
+            buildRepoEntry({
+              id: 'repo-b',
+              containerPath: fixture.additionalRepositoryPaths[1]!,
+              hostPath: fixture.additionalRepositoryPaths[1]!,
+            }),
+          ],
+          lockedModelId: 'model',
+        }),
+        runReingestRepository: async ({ sourceId }) => {
+          if (sourceId === fixture.additionalRepositoryPaths[0]) {
+            return {
+              ok: true,
+              value: buildReingestSuccess({
+                sourceId: sourceId ?? '/missing',
+                resolvedRepositoryId: 'repo-a',
+                status: 'error',
+                completionMode: null,
+                errorCode: 'INGEST_ERROR',
+              }),
+            };
+          }
+          if (sourceId === fixture.additionalRepositoryPaths[1]) {
+            return {
+              ok: true,
+              value: buildReingestSuccess({
+                sourceId: sourceId ?? '/missing',
+                resolvedRepositoryId: 'repo-b',
+                status: 'cancelled',
+                completionMode: null,
+              }),
+            };
+          }
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId: 'working-repo',
+            }),
+          };
+        },
+        appendLog: noopLog,
+      },
+    });
+
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.kind, 'batch');
+    assert.deepEqual(
+      result.value.repositories.map((repository) => ({
+        sourceId: repository.sourceId,
+        outcome: repository.outcome,
+        status: repository.status,
+        errorCode: repository.errorCode,
+      })),
+      [
+        {
+          sourceId: fixture.workingRepositoryPath,
+          outcome: 'reingested',
+          status: 'completed',
+          errorCode: null,
+        },
+        {
+          sourceId: fixture.additionalRepositoryPaths[0],
+          outcome: 'failed',
+          status: 'error',
+          errorCode: 'INGEST_ERROR',
+        },
+        {
+          sourceId: fixture.additionalRepositoryPaths[1],
+          outcome: 'failed',
+          status: 'cancelled',
+          errorCode: null,
+        },
+      ],
+    );
+    assert.deepEqual(result.value.summary, {
+      reingested: 1,
+      skipped: 0,
+      failed: 2,
+    });
+    assert.deepEqual(
+      result.value.warnings.map((warning) => ({
+        code: warning.code,
+        repositoryPath: warning.repositoryPath,
+      })),
+      [
+        {
+          code: 'repository_failed',
+          repositoryPath: fixture.additionalRepositoryPaths[0],
+        },
+        {
+          code: 'repository_failed',
+          repositoryPath: fixture.additionalRepositoryPaths[1],
+        },
+      ],
     );
   });
 

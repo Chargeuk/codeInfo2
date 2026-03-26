@@ -41,6 +41,8 @@ still match the normalized review scope and current repository state for every s
 
 Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
 
+If the review handoff includes `challenge_file`, treat it as an optional additive artifact for this pass. Read it when present. If it is absent, derive the same reasoning directly from the evidence and findings artifacts instead of failing or asking for a rerun.
+
 ## Validation And Stop Conditions
 
 Before deciding disposition, validate all of the following:
@@ -74,6 +76,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - the files inspected;
     - why each repository in scope remains complete;
     - why the story remains complete.
+    - the rejected-risk notes carried forward from the findings artifact, plus any blind-spot challenge follow-up when that extra artifact exists.
 14. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
 15. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
 16. Even when there are no findings, the `Post-Implementation Code Review` section MUST state whether the generic adversarial checklist had direct proof, indirect proof, or missing proof for:
@@ -86,6 +89,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - test isolation.
 17. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
 18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
+19. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
 
 ## Output Contract
 
@@ -107,4 +111,5 @@ Before you finish this step, verify all of the following:
 - no allowed support file was reopened for anything other than spelling, grammar, or wording corrections;
 - the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope;
 - the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope;
+- the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present;
 - durable artifacts are treated as commit-worthy, the current-plan handoff is not mistaken for the durable review artifact, and the review handoff remains transient workflow state rather than the durable artifact.

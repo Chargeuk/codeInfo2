@@ -1801,7 +1801,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 17. Reuse Stable Repository Listings And Downstream Batch Summary Ownership
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet.
 
@@ -1821,24 +1821,32 @@ Clean up the remaining lower-risk re-ingest execution and lifecycle issues that 
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/ingest/planScopeResolver.ts`, `server/src/mcpCommon/repositorySelector.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts` before editing so the cleanup stays aligned with the landed Story `0000052` runtime contract.
-2. [ ] Current Repository: Update the `working` and `plan_scope` request paths in `server/src/ingest/reingestExecution.ts` to reuse a request-scoped ingested-repository listing snapshot for selector validation and plan-scope resolution where practical, instead of rereading mutable repository listings unnecessarily within one execution path.
-3. [ ] Current Repository: Update `server/src/chat/reingestToolResult.ts` so batch payloads pass through `execution.summary` unchanged rather than recomputing a second downstream summary from the repositories array.
-4. [ ] Current Repository: Update `server/src/chat/reingestStepLifecycle.ts` so the legacy batch `targetMode` normalization is explicit and readable while preserving acceptance of historical `all` payloads.
-5. [ ] Current Repository: Add or update focused unit coverage in the re-ingest execution/tool-result/lifecycle test files so the new snapshot reuse, summary ownership, and legacy target-mode normalization behavior are directly asserted.
-6. [ ] Current Repository: Update this story file's Task 17 Implementation notes immediately after the code/test change lands, naming the final snapshot-sharing rule, summary-ownership rule, and lifecycle mapping behavior.
+1. [x] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/ingest/planScopeResolver.ts`, `server/src/mcpCommon/repositorySelector.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts` before editing so the cleanup stays aligned with the landed Story `0000052` runtime contract.
+2. [x] Current Repository: Update the `working` and `plan_scope` request paths in `server/src/ingest/reingestExecution.ts` to reuse a request-scoped ingested-repository listing snapshot for selector validation and plan-scope resolution where practical, instead of rereading mutable repository listings unnecessarily within one execution path.
+3. [x] Current Repository: Update `server/src/chat/reingestToolResult.ts` so batch payloads pass through `execution.summary` unchanged rather than recomputing a second downstream summary from the repositories array.
+4. [x] Current Repository: Update `server/src/chat/reingestStepLifecycle.ts` so the legacy batch `targetMode` normalization is explicit and readable while preserving acceptance of historical `all` payloads.
+5. [x] Current Repository: Add or update focused unit coverage in the re-ingest execution/tool-result/lifecycle test files so the new snapshot reuse, summary ownership, and legacy target-mode normalization behavior are directly asserted.
+6. [x] Current Repository: Update this story file's Task 17 Implementation notes immediately after the code/test change lands, naming the final snapshot-sharing rule, summary-ownership rule, and lifecycle mapping behavior.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 17 changes server-side execution, tool-result, and lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 17 changes server-side runtime, tool-result, and lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 17 changes runtime paths that can still surface through feature-level flows and lifecycle reads. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 17 changes server-side execution, tool-result, and lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 17 changes server-side runtime, tool-result, and lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 17 changes runtime paths that can still surface through feature-level flows and lifecycle reads. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- None yet.
+- Subtask 1: Re-read the execution, resolver, selector, tool-result, and lifecycle seams plus the focused unit coverage so the Task 17 cleanup stays on the already-landed `working` / `plan_scope` contract instead of reopening earlier semantic decisions.
+- Subtask 2: Updated `executeReingestRequest(...)` to take one request-scoped ingested-repository listing snapshot per `working` or `plan_scope` path and reuse that snapshot for selector validation and plan-scope resolution instead of rereading mutable listings within the same execution path.
+- Subtask 3: Updated `reingestToolResult.ts` so batch payloads now pass through `execution.summary` unchanged, keeping the execution layer as the source of truth for plan-scope summary counts.
+- Subtask 4: Replaced the legacy batch target-mode ternary in `reingestStepLifecycle.ts` with an explicit normalization helper so historical `all` payloads still normalize to `plan_scope` through one readable mapping seam.
+- Subtask 5: Updated focused unit coverage so the execution tests now prove request-scoped listing reuse, the tool-result tests now prove summary pass-through without recomputation, and the lifecycle tests now call out the explicit legacy `all` to `plan_scope` normalization behavior.
+- Subtask 6: Final Task 17 behavior is now: one request-scoped listing snapshot is reused within each `working` or `plan_scope` execution path, execution-owned batch `summary` values flow through the tool-result layer unchanged, and legacy batch `targetMode: "all"` is accepted only through one explicit read-side normalization step to canonical `plan_scope`.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the Task 17 execution/tool-result/lifecycle cleanup still leaves the server workspace building without extra warnings.
+- Testing 2: The first `npm run test:summary:server:unit` pass exposed one real regression in the persisted batch tool-result compatibility test, so the task followed the wrapper diagnosis flow, updated that focused expectation, and reran the full wrapper. The rerun then passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`, confirming the snapshot reuse, summary pass-through, and explicit legacy mapping changes across the full server unit/integration suite.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the Task 17 cleanup also holds across the full feature-level server flow suite.
 
 ---
 

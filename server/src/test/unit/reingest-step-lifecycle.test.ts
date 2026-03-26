@@ -587,7 +587,7 @@ test('older single-result payloads still parse and persist correctly', async () 
   });
 });
 
-test('older batch payloads with targetMode all still parse and persist correctly', async () => {
+test('older batch payloads with targetMode all still normalize explicitly to plan_scope behavior', async () => {
   const legacyToolResult: ChatToolResultEvent = {
     type: 'tool-result',
     callId: 'legacy-reingest-batch',

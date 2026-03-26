@@ -254,15 +254,21 @@ test('batch payload entries preserve repository identity and canonical path fiel
 test('batch payload summary counts mixed outcomes without recomputation', () => {
   const result = buildReingestToolResult({
     callId: 'reingest-step-6',
-    execution: buildBatchExecution(),
+    execution: buildBatchExecution({
+      summary: {
+        reingested: 4,
+        skipped: 3,
+        failed: 2,
+      },
+    }),
   });
 
   assert.deepEqual(
     (result.result as { summary: Record<string, number> }).summary,
     {
-      reingested: 1,
-      skipped: 1,
-      failed: 1,
+      reingested: 4,
+      skipped: 3,
+      failed: 2,
     },
   );
 });
@@ -346,6 +352,11 @@ test('remains compatible with the persisted Turn.toolCalls container shape for b
     callId: 'reingest-step-9',
     execution: buildBatchExecution({
       repositories: [],
+      summary: {
+        reingested: 0,
+        skipped: 0,
+        failed: 0,
+      },
     }),
   });
 

@@ -85,6 +85,19 @@ type ExecuteReingestRequestDeps = {
   }) => Promise<PlanScopeResolutionResult>;
 };
 
+async function listReposSnapshot(
+  listRepos: () => Promise<ListReposResult>,
+): Promise<{
+  listed: ListReposResult;
+  cachedListRepos: () => Promise<ListReposResult>;
+}> {
+  const listed = await listRepos();
+  return {
+    listed,
+    cachedListRepos: async () => listed,
+  };
+}
+
 function normalizeContainerPath(value: string): string {
   const normalized = path.posix.normalize(value.replace(/\\/g, '/').trim());
   if (normalized.length > 1 && normalized.endsWith('/')) {
@@ -383,7 +396,7 @@ export async function executeReingestRequest(params: {
   }
 
   if (params.request.target === 'working') {
-    const listed = await listRepos();
+    const { listed, cachedListRepos } = await listReposSnapshot(listRepos);
     const runtimeWorkingRepositoryPath = params.workingRepositoryPath?.trim();
     if (!runtimeWorkingRepositoryPath) {
       return {
@@ -396,7 +409,7 @@ export async function executeReingestRequest(params: {
     }
 
     const repo = await resolveRepositorySelector(runtimeWorkingRepositoryPath, {
-      listIngestedRepositories: listRepos,
+      listIngestedRepositories: cachedListRepos,
     });
     if (!repo) {
       return {
@@ -443,7 +456,7 @@ export async function executeReingestRequest(params: {
     };
   }
 
-  const listed = await listRepos();
+  const { listed, cachedListRepos } = await listReposSnapshot(listRepos);
   const workingRepositoryPath = params.workingRepositoryPath?.trim();
   if (!workingRepositoryPath) {
     return {
@@ -457,7 +470,7 @@ export async function executeReingestRequest(params: {
   const workingRepository = await resolveRepositorySelector(
     workingRepositoryPath,
     {
-      listIngestedRepositories: listRepos,
+      listIngestedRepositories: cachedListRepos,
     },
   );
   if (!workingRepository) {
@@ -473,7 +486,7 @@ export async function executeReingestRequest(params: {
   const resolution = await resolvePlanScope({
     workingRepositoryPath,
     deps: {
-      listIngestedRepositories: listRepos,
+      listIngestedRepositories: cachedListRepos,
       appendLog,
     },
   });

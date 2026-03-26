@@ -124,6 +124,17 @@ const isValidBatchTargetMode = (
   value: unknown,
 ): value is LegacyBatchTargetMode => value === 'all' || value === 'plan_scope';
 
+const normalizeLegacyBatchTargetMode = (
+  value: LegacyBatchTargetMode,
+): ReingestStepBatchResultPayload['targetMode'] => {
+  switch (value) {
+    case 'plan_scope':
+      return 'plan_scope';
+    case 'all':
+      return 'plan_scope';
+  }
+};
+
 const isValidOutcome = (
   value: unknown,
 ): value is ReingestStepResultPayload['outcome'] =>
@@ -230,8 +241,7 @@ const getReingestPayload = (
     return {
       payload: {
         ...(result as LegacyBatchPayload),
-        targetMode:
-          result.targetMode === 'plan_scope' ? 'plan_scope' : 'plan_scope',
+        targetMode: normalizeLegacyBatchTargetMode(result.targetMode),
         warnings: normalizedWarnings.warnings,
       },
       droppedMalformedWarnings: normalizedWarnings.droppedCount,

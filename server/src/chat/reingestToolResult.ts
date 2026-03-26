@@ -82,18 +82,6 @@ function buildSinglePayload(
   };
 }
 
-function buildBatchSummary(
-  repositories: ReingestExecutionBatchResult['repositories'],
-): ReingestStepBatchSummary {
-  return repositories.reduce<ReingestStepBatchSummary>(
-    (summary, repository) => {
-      summary[repository.outcome] += 1;
-      return summary;
-    },
-    { reingested: 0, skipped: 0, failed: 0 },
-  );
-}
-
 function buildBatchPayload(
   execution: ReingestExecutionBatchResult,
 ): ReingestStepBatchResultPayload {
@@ -103,7 +91,7 @@ function buildBatchPayload(
     targetMode: execution.targetMode,
     requestedSelector: null,
     repositories: execution.repositories,
-    summary: buildBatchSummary(execution.repositories),
+    summary: execution.summary,
     warnings: execution.warnings,
   };
 }

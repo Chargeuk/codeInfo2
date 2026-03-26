@@ -777,7 +777,7 @@ This story stays within the current repository, so the contract definitions belo
 
 - Repository Name: `Current Repository`
 - Task Status: `__completed__`
-- Git Commits: `__to_do__`
+- Git Commits: `e11d1f16`
 
 #### Overview
 

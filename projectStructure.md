@@ -1,5 +1,31 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000052 Task 2 structural change ledger
+
+Added files:
+
+- `server/src/test/support/planScopeFixture.ts`
+- `server/src/test/unit/planScopeFixture.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 2 adds one reusable plan-scope filesystem fixture helper plus one focused smoke-test file, rather than spreading temporary handoff-tree setup across later resolver and execution suites.
+- The helper stays on fixture creation and cleanup only: it creates working-repository roots, `codeInfoStatus/flow-state/current-plan.json` variants, duplicate and invalid path inputs, malformed JSON payloads, and a deterministic read-failure setup for later tests.
+- The proof marker `DEV-0000052:T2:plan-scope-fixture-proof` is emitted from the smoke-test path once the fixture-backed read-failure scenario passes and cleanup completes.
+
 ## Story 0000051 Task 20 structural change ledger
 
 Added files:

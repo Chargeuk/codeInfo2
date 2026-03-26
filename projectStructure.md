@@ -1,5 +1,31 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000052 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/ingest/planScopeResolver.ts`
+- `server/src/test/unit/planScopeResolver.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 3 adds the reusable plan-scope resolver that reads the working repository handoff file, resolves additional repository paths through the existing working-folder and repository-selector seams, and returns ordered repository scope plus warning metadata.
+- The resolver stays at the resolution boundary only: it does not start re-ingest work, rewrite `current-plan.json`, or synthesize skipped-at-resolution repositories into attempted execution results.
+- The accompanying unit suite proves working-only fallback, warning-producing handoff degradation, first-seen de-duplication, ignored handoff fields, and the `DEV-0000052:T3:plan-scope-resolver` proof marker.
+
 ## Story 0000052 Task 2 structural change ledger
 
 Added files:

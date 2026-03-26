@@ -776,7 +776,7 @@ This story stays within the current repository, so the contract definitions belo
 ### Task 1. Replace The Authored Re-Ingest Contract
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `e11d1f16`
 
 #### Overview
@@ -831,7 +831,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 2. Add The Shared Plan-Scope Fixture Harness
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `e11d1f16, 2a088f5b`
 
 #### Overview
@@ -881,7 +881,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 3. Add The Plan-Scope Resolution Helper
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `01f1e861`
 
 #### Overview
@@ -932,7 +932,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 4. Implement Working And Plan-Scope Execution
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `f03fabd6, 713af736, 1bc5729e`
 
 #### Overview
@@ -1027,7 +1027,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 5. Implement The Re-Ingest Message And Persistence Contract
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `b51e3b92`
 
 #### Overview
@@ -1082,7 +1082,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 6. Wire Direct Commands To The New Runtime Contract
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `47000b26`, `5285e81f`
 
 #### Overview
@@ -1143,7 +1143,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 7. Wire Flow Re-Ingest Surfaces To The New Runtime Contract
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `bf7df3e3 DEV-0000052 - wire flow reingest runtime surfaces`; `9a41920a DEV-0000052 - mark task 7 git commits`; `8d8e95f3 DEV-0000052 - fix task 7 commit ledger`
 
 #### Overview
@@ -1201,7 +1201,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 8. Validate Working-Folder Environment And Mounted Runtime Access
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `d5317187 DEV-0000052 - validate mounted working-folder runtime`; `4ca614fc DEV-0000052 - mark task 8 git commits`; `317bcbf5 DEV-0000052 - fix task 8 commit ledger`
 
 #### Overview
@@ -1270,7 +1270,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
 ### Task 9. Final Validation And Story Close-Out
 
 - Repository Name: `Current Repository`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits: `1eb5fc89 DEV-0000052 - complete final validation and closeout`; `db2194f7 DEV-0000052 - mark task 9 git commits`
 
 #### Overview

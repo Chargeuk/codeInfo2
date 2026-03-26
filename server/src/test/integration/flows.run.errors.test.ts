@@ -772,6 +772,70 @@ test('malformed sourceId stops the dedicated flow reingest step before later ste
   });
 });
 
+test('missing working folder stops dedicated flow target working before later steps begin', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'reingest-working-missing-folder',
+      steps: [{ type: 'reingest', target: 'working' }, makeLlmStep()],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'reingest-working-missing-folder',
+      source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
+    });
+    subscribeConversation(ws, result.conversationId);
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId: result.conversationId,
+      status: 'failed',
+    });
+    const turns = await waitForTurns(
+      result.conversationId,
+      (items) => items.length >= 2,
+    );
+    assert.equal(turns.length, 2);
+    assert.equal(turns[1]?.status, 'failed');
+    assert.match(
+      final.error?.message ?? turns[1]?.content ?? '',
+      /target "working" requires a selected working repository path/i,
+    );
+  });
+});
+
+test('missing working folder stops dedicated flow target plan_scope before later steps begin', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'reingest-plan-scope-missing-folder',
+      steps: [{ type: 'reingest', target: 'plan_scope' }, makeLlmStep()],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'reingest-plan-scope-missing-folder',
+      source: 'REST',
+      listIngestedRepositories: listDefaultReingestRepos,
+    });
+    subscribeConversation(ws, result.conversationId);
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId: result.conversationId,
+      status: 'failed',
+    });
+    const turns = await waitForTurns(
+      result.conversationId,
+      (items) => items.length >= 2,
+    );
+    assert.equal(turns.length, 2);
+    assert.equal(turns[1]?.status, 'failed');
+    assert.match(
+      final.error?.message ?? turns[1]?.content ?? '',
+      /target "plan_scope" requires a selected working repository path/i,
+    );
+  });
+});
+
 test('unknown sourceId stops the dedicated flow reingest step before later steps begin', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
@@ -807,6 +871,48 @@ test('unknown sourceId stops the dedicated flow reingest step before later steps
     );
     assert.equal(turns.length, 2);
     assert.equal(turns[1]?.status, 'failed');
+  });
+});
+
+test('selected working repository must already be ingested for dedicated flow target plan_scope', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    const workingRoot = path.join(tmpDir, 'working-not-ingested');
+    await fs.mkdir(workingRoot, { recursive: true });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'reingest-plan-scope-not-ingested',
+      steps: [{ type: 'reingest', target: 'plan_scope' }, makeLlmStep()],
+    });
+    let listCallCount = 0;
+
+    const result = await startFlowRun({
+      flowName: 'reingest-plan-scope-not-ingested',
+      source: 'REST',
+      working_folder: workingRoot,
+      listIngestedRepositories: async () => ({
+        repos:
+          listCallCount++ === 0
+            ? [buildRepoEntry({ id: 'Working Repo', containerPath: workingRoot })]
+            : [],
+        lockedModelId: null,
+      }),
+    });
+    subscribeConversation(ws, result.conversationId);
+    const final = await waitForFlowFinal({
+      ws,
+      conversationId: result.conversationId,
+      status: 'failed',
+    });
+    const turns = await waitForTurns(
+      result.conversationId,
+      (items) => items.length >= 2,
+    );
+    assert.equal(turns.length, 2);
+    assert.equal(turns[1]?.status, 'failed');
+    assert.match(
+      final.error?.message ?? turns[1]?.content ?? '',
+      /target "plan_scope" selected working repository is not currently ingested/i,
+    );
   });
 });
 

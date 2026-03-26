@@ -55,6 +55,52 @@ sequenceDiagram
   Exec-->>Caller: completed batch payload with summary + warnings
 ```
 
+## Story 0000052 Task 7 flow re-ingest surfaces
+
+- `server/src/flows/service.ts` now passes `repositoryContext.workingRepositoryPath` into the shared Task 4 execution seam for both dedicated flow `reingest` steps and flow-owned command `reingest` items.
+- Flow runtime ownership stays explicit:
+  - dedicated flow `reingest` steps still execute in the top-level flow-step path;
+  - flow-owned command items still route through `server/src/agents/commandItemExecutor.ts` for item delegation, then return to `server/src/flows/service.ts` for re-ingest execution and lifecycle handling.
+- Both flow surfaces now reuse the same `working` and `plan_scope` contract as direct commands:
+  - `working` targets the selected `working_folder` repository only;
+  - `plan_scope` resolves the selected working repository first, then `additional_repositories[].path` from that repository's `current-plan.json`, preserving file order after first-seen de-duplication;
+  - completed `plan_scope` runs with warnings still publish and persist `stage: "success"` plus explicit `warnings`.
+- Task 7 adds `DEV-0000052:T7:flow-reingest` so logs can distinguish the two flow surfaces while still proving the final `targetMode` came from the shared runtime contract.
+
+```mermaid
+flowchart LR
+  subgraph FlowStep["Dedicated flow step"]
+    StepRequest["flow step = reingest"] --> StepExec["flows/service.ts<br/>runReingestStep"]
+  end
+  subgraph FlowCommand["Flow-owned command item"]
+    CommandItem["command item = reingest"] --> ItemDelegate["commandItemExecutor.ts<br/>delegation only"]
+    ItemDelegate --> CommandExec["flows/service.ts<br/>executeReingest callback"]
+  end
+  StepExec --> SharedExec["executeReingestRequest<br/>working or plan_scope"]
+  CommandExec --> SharedExec
+  SharedExec --> Lifecycle["reingestStepLifecycle.ts"]
+  Lifecycle --> Transcript["tool_event + persisted assistant turn"]
+```
+
+```mermaid
+sequenceDiagram
+  participant Route as /flows/:flowName/run
+  participant Flow as flows/service.ts
+  participant Exec as reingestExecution.ts
+  participant Life as reingestStepLifecycle.ts
+
+  Route->>Flow: start flow with sourceId + optional working_folder
+  alt dedicated flow step
+    Flow->>Exec: reingest step + workingRepositoryPath
+  else flow-owned command item
+    Flow->>Flow: commandItemExecutor delegates item
+    Flow->>Exec: executeReingest callback + workingRepositoryPath
+  end
+  Exec-->>Flow: single or batch execution payload
+  Flow->>Life: publish/persist shared tool-result lifecycle
+  Life-->>Route: stage=success, targetMode, warnings
+```
+
 ## Story 0000051 final architecture closeout
 
 - Story `0000051` completes a chat-only third-provider integration for GitHub Copilot. The top-level product provider contract is now one ordered list shared by server defaults, client bootstrap, persistence enums, provider discovery, model loading, and OpenAPI: `codex`, then `copilot`, then `lmstudio`.

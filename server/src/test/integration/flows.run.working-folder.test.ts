@@ -12,6 +12,10 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  __resetFlowServiceDepsForTests,
+  __setFlowServiceDepsForTests,
+} from '../../flows/service.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
@@ -396,6 +400,128 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
     }
     memoryConversations.delete('flow-child-working-folder');
     memoryTurns.delete('flow-child-working-folder');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('validated working_folder also drives dedicated flow reingest target working', async () => {
+  resetStore();
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-workdir-reingest-'),
+  );
+  const sourceRoot = path.join(tmpDir, 'flow-owner');
+  const workingFolder = path.join(tmpDir, 'working-root');
+  const calls: string[] = [];
+  await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
+  await fs.mkdir(workingFolder, { recursive: true });
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  await fs.writeFile(
+    path.join(sourceRoot, 'flows', 'working-folder-reingest.json'),
+    JSON.stringify({
+      description: 'working-folder-reingest',
+      steps: [{ type: 'reingest', target: 'working' }],
+    }),
+  );
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(sourceRoot), buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  __setFlowServiceDepsForTests({
+    runReingestRepository: async ({ sourceId }) => {
+      calls.push(sourceId ?? '(missing)');
+      return {
+        ok: true,
+        value: {
+          status: 'completed',
+          operation: 'reembed',
+          runId: 'run-working-folder',
+          sourceId: sourceId ?? workingFolder,
+          resolvedRepositoryId: path.basename(workingFolder),
+          completionMode: 'reingested',
+          durationMs: 10,
+          files: 1,
+          chunks: 1,
+          embedded: 1,
+          errorCode: null,
+        },
+      };
+    },
+    createCallId: () => 'call-working-folder',
+  });
+
+  try {
+    const res = await supertest(app)
+      .post('/flows/working-folder-reingest/run')
+      .send({
+        conversationId: 'flow-working-folder-reingest',
+        sourceId: sourceRoot,
+        working_folder: workingFolder,
+      })
+      .expect(202);
+
+    assert.equal(res.body.status, 'started');
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const turns = memoryTurns.get('flow-working-folder-reingest') ?? [];
+      if (turns.length >= 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    const turns = memoryTurns.get('flow-working-folder-reingest') ?? [];
+    assert.deepEqual(calls, [workingFolder]);
+    assert.equal(
+      memoryConversations.get('flow-working-folder-reingest')?.flags
+        ?.workingFolder,
+      workingFolder,
+    );
+    assert.equal(turns[1]?.role, 'assistant');
+    assert.equal(
+      (
+        turns[1]?.toolCalls as {
+          calls?: Array<{
+            result?: { targetMode?: string; sourceId?: string };
+          }>;
+        } | null
+      )?.calls?.[0]?.result?.targetMode,
+      'working',
+    );
+    assert.equal(
+      (
+        turns[1]?.toolCalls as {
+          calls?: Array<{ result?: { sourceId?: string } }>;
+        } | null
+      )?.calls?.[0]?.result?.sourceId,
+      workingFolder,
+    );
+  } finally {
+    __resetFlowServiceDepsForTests();
+    memoryConversations.delete('flow-working-folder-reingest');
+    memoryTurns.delete('flow-working-folder-reingest');
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

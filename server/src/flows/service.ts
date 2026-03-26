@@ -2804,6 +2804,8 @@ async function runFlowUnlocked(params: {
                 request: reingestItem,
                 surface: 'flow_command',
                 currentOwnerSourceId: commandLoad.sourceId,
+                workingRepositoryPath:
+                  params.repositoryContext.workingRepositoryPath,
                 deps: {
                   listIngestedRepositories:
                     params.repositoryContext.listIngestedRepositories,
@@ -2833,6 +2835,21 @@ async function runFlowUnlocked(params: {
                 source: params.source,
                 command,
                 toolResult,
+              });
+              append({
+                level: 'info',
+                message: 'DEV-0000052:T7:flow-reingest',
+                timestamp: new Date().toISOString(),
+                source: 'server',
+                context: {
+                  surface: 'flow',
+                  flowSurface: 'flow_command',
+                  flowName: params.flowName,
+                  commandName: step.commandName,
+                  stepIndex: command.stepIndex,
+                  itemIndex,
+                  targetMode: result.value.targetMode,
+                },
               });
 
               if (result.value.kind === 'single') {
@@ -2955,6 +2972,7 @@ async function runFlowUnlocked(params: {
         request: step,
         surface: 'flow',
         currentOwnerSourceId: params.repositoryContext.flowSourceId,
+        workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
         deps: {
           listIngestedRepositories:
             params.repositoryContext.listIngestedRepositories,
@@ -3006,6 +3024,19 @@ async function runFlowUnlocked(params: {
       source: params.source,
       command,
       toolResult,
+    });
+    append({
+      level: 'info',
+      message: 'DEV-0000052:T7:flow-reingest',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        surface: 'flow',
+        flowSurface: 'flow_step',
+        flowName: params.flowName,
+        stepIndex: command.stepIndex,
+        targetMode: result.value.targetMode,
+      },
     });
 
     const pendingCancel = consumePendingConversationCancel({

@@ -37,6 +37,7 @@ import { query, resetStore } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
+import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 import {
   closeWs,
   connectWs,
@@ -469,6 +470,26 @@ const writeRepoFlow = async (params: {
   await fs.writeFile(
     path.join(flowDir, `${params.flowName}.json`),
     JSON.stringify(makeFlowCommand({ commandName: params.commandName })),
+  );
+};
+
+const writeFlowFile = async (params: {
+  repoRoot: string;
+  flowName: string;
+  steps: unknown[];
+}) => {
+  const flowDir = path.join(params.repoRoot, 'flows');
+  await fs.mkdir(flowDir, { recursive: true });
+  await fs.writeFile(
+    path.join(flowDir, `${params.flowName}.json`),
+    JSON.stringify(
+      {
+        description: params.flowName,
+        steps: params.steps,
+      },
+      null,
+      2,
+    ),
   );
 };
 
@@ -1641,42 +1662,69 @@ test('flow-owned commands can execute reingest items', async () => {
   );
 });
 
-test('top-level flow target working fails fast until the surface passes an explicit working repository path', async () => {
+test('top-level flow target working reuses the selected working repository path', async () => {
   const repos: RepoEntry[] = [];
-  let strictCalls = 0;
+  const calls: string[] = [];
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
       const sourceRoot = path.join(tmpDir, 'repo-flow-working');
+      const workingRoot = path.join(tmpDir, 'repo-flow-working-target');
       const conversationId = 'flow-target-working';
-      await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
-      await fs.writeFile(
-        path.join(sourceRoot, 'flows', 'repo-flow-working.json'),
-        JSON.stringify({
-          description: 'flow working target',
-          steps: [{ type: 'reingest', target: 'working' }],
-        }),
-      );
+      await fs.mkdir(workingRoot, { recursive: true });
+      await writeFlowFile({
+        repoRoot: sourceRoot,
+        flowName: 'repo-flow-working',
+        steps: [{ type: 'reingest', target: 'working' }],
+      });
       repos.push(
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-flow-working/run')
-        .send({ conversationId, sourceId: sourceRoot })
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
         .expect(202);
 
-      const final = (await waitForFlowFinal({
+      await waitForFlowFinal({
         ws: wsUrl,
         conversationId,
-        status: 'failed',
-      })) as { error?: { message?: string } };
-      assert.match(
-        final.error?.message ?? '',
-        /target "working" requires a selected working repository path/i,
+        status: 'ok',
+      });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) => items.length >= 2,
+        4000,
       );
-      assert.equal(strictCalls, 0);
+      const toolCall = (
+        turns[1]?.toolCalls as {
+          calls?: Array<{
+            stage?: string;
+            result?: {
+              targetMode?: string;
+              sourceId?: string;
+              resolvedRepositoryId?: string | null;
+            };
+          }>;
+        } | null
+      )?.calls?.[0];
+      assert.deepEqual(calls, [workingRoot]);
+      assert.equal(toolCall?.stage, 'success');
+      assert.equal(toolCall?.result?.targetMode, 'working');
+      assert.equal(toolCall?.result?.sourceId, workingRoot);
+      assert.equal(toolCall?.result?.resolvedRepositoryId, 'Working Repo');
+      const task7Log = query({ text: 'DEV-0000052:T7:flow-reingest' }, 20).find(
+        (entry) =>
+          entry.context?.flowSurface === 'flow_step' &&
+          entry.context?.flowName === 'repo-flow-working',
+      );
+      assert.equal(task7Log?.context?.targetMode, 'working');
       cleanupMemory(conversationId);
     },
     {
@@ -1685,11 +1733,14 @@ test('top-level flow target working fails fast until the surface passes an expli
         lockedModelId: null,
       }),
       flowServiceDeps: {
-        runReingestRepository: async () => {
-          strictCalls += 1;
+        runReingestRepository: async ({ sourceId }) => {
+          calls.push(sourceId ?? '(missing)');
           return {
             ok: true,
-            value: buildReingestSuccess(),
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId: 'Working Repo',
+            }),
           };
         },
       },
@@ -1697,15 +1748,161 @@ test('top-level flow target working fails fast until the surface passes an expli
   );
 });
 
-test('flow-owned command target working fails fast until the surface passes an explicit working repository path', async () => {
+test('top-level flow target plan_scope keeps working-first and handoff order', async () => {
   const repos: RepoEntry[] = [];
-  let strictCalls = 0;
+  const calls: string[] = [];
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-flow-plan-scope');
+      const fixture = await createPlanScopeFixture({
+        tempPrefix: 'flows-plan-scope-working-',
+        workingRepositoryName: 'flow-working-repo',
+        additionalRepositories: [{ name: 'repo-a' }, { name: 'repo-b' }],
+      });
+
+      try {
+        const conversationId = 'flow-target-plan-scope';
+        await writeFlowFile({
+          repoRoot: sourceRoot,
+          flowName: 'repo-flow-plan-scope',
+          steps: [{ type: 'reingest', target: 'plan_scope' }],
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+          buildRepoEntry({
+            containerPath: fixture.workingRepositoryPath,
+            id: 'Working Repo',
+          }),
+          buildRepoEntry({
+            containerPath: fixture.additionalRepositoryPaths[0]!,
+            id: 'Repo A',
+          }),
+          buildRepoEntry({
+            containerPath: fixture.additionalRepositoryPaths[1]!,
+            id: 'Repo B',
+          }),
+        );
+
+        await fs.writeFile(
+          fixture.currentPlanPath,
+          JSON.stringify(
+            {
+              plan_path:
+                'planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md',
+              branched_from: 'main',
+              additional_repositories: [
+                { path: fixture.additionalRepositoryPaths[1] },
+                { path: fixture.additionalRepositoryPaths[0] },
+              ],
+            },
+            null,
+            2,
+          ),
+        );
+
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/repo-flow-plan-scope/run')
+          .send({
+            conversationId,
+            sourceId: sourceRoot,
+            working_folder: fixture.workingRepositoryPath,
+          })
+          .expect(202);
+
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'ok',
+        });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) => items.length >= 2,
+          4000,
+        );
+        const toolCall = (
+          turns[1]?.toolCalls as {
+            calls?: Array<{
+              stage?: string;
+              result?: {
+                targetMode?: string;
+                repositories?: Array<{ sourceId?: string }>;
+                warnings?: unknown[];
+              };
+            }>;
+          } | null
+        )?.calls?.[0];
+
+        assert.deepEqual(calls, [
+          fixture.workingRepositoryPath,
+          fixture.additionalRepositoryPaths[1],
+          fixture.additionalRepositoryPaths[0],
+        ]);
+        assert.equal(toolCall?.stage, 'success');
+        assert.equal(toolCall?.result?.targetMode, 'plan_scope');
+        assert.deepEqual(
+          toolCall?.result?.repositories?.map(
+            (repository) => repository.sourceId,
+          ),
+          [
+            fixture.workingRepositoryPath,
+            fixture.additionalRepositoryPaths[1],
+            fixture.additionalRepositoryPaths[0],
+          ],
+        );
+        assert.deepEqual(toolCall?.result?.warnings ?? [], []);
+        const task7Log = query(
+          { text: 'DEV-0000052:T7:flow-reingest' },
+          20,
+        ).find(
+          (entry) =>
+            entry.context?.flowSurface === 'flow_step' &&
+            entry.context?.flowName === 'repo-flow-plan-scope',
+        );
+        assert.equal(task7Log?.context?.targetMode, 'plan_scope');
+        cleanupMemory(conversationId);
+      } finally {
+        await fixture.cleanup();
+      }
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async ({ sourceId }) => {
+          calls.push(sourceId ?? '(missing)');
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId:
+                sourceId === repos[1]?.containerPath
+                  ? 'Working Repo'
+                  : sourceId === repos[2]?.containerPath
+                    ? 'Repo A'
+                    : 'Repo B',
+            }),
+          };
+        },
+      },
+    },
+  );
+});
+
+test('flow-owned command target working reuses the selected working repository path', async () => {
+  const repos: RepoEntry[] = [];
+  const calls: string[] = [];
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
       const sourceRoot = path.join(tmpDir, 'repo-command-working');
+      const workingRoot = path.join(tmpDir, 'repo-command-working-target');
       const commandName = 'task11_reingest_working';
       const conversationId = 'flow-command-target-working';
+      await fs.mkdir(workingRoot, { recursive: true });
       await writeRepoFlow({
         repoRoot: sourceRoot,
         flowName: 'repo-command-working',
@@ -1718,24 +1915,52 @@ test('flow-owned command target working fails fast until the surface passes an e
       });
       repos.push(
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-working/run')
-        .send({ conversationId, sourceId: sourceRoot })
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
         .expect(202);
 
-      const final = (await waitForFlowFinal({
+      await waitForFlowFinal({
         ws: wsUrl,
         conversationId,
-        status: 'failed',
-      })) as { error?: { message?: string } };
-      assert.match(
-        final.error?.message ?? '',
-        /target "working" requires a selected working repository path/i,
+        status: 'ok',
+      });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) => items.length >= 2,
+        4000,
       );
-      assert.equal(strictCalls, 0);
+      const toolCall = (
+        turns[1]?.toolCalls as {
+          calls?: Array<{
+            stage?: string;
+            result?: {
+              targetMode?: string;
+              sourceId?: string;
+              resolvedRepositoryId?: string | null;
+            };
+          }>;
+        } | null
+      )?.calls?.[0];
+      assert.deepEqual(calls, [workingRoot]);
+      assert.equal(toolCall?.stage, 'success');
+      assert.equal(toolCall?.result?.targetMode, 'working');
+      assert.equal(toolCall?.result?.sourceId, workingRoot);
+      assert.equal(toolCall?.result?.resolvedRepositoryId, 'Working Repo');
+      const task7Log = query({ text: 'DEV-0000052:T7:flow-reingest' }, 20).find(
+        (entry) =>
+          entry.context?.flowSurface === 'flow_command' &&
+          entry.context?.commandName === commandName,
+      );
+      assert.equal(task7Log?.context?.targetMode, 'working');
       cleanupMemory(conversationId);
     },
     {
@@ -1744,11 +1969,14 @@ test('flow-owned command target working fails fast until the surface passes an e
         lockedModelId: null,
       }),
       flowServiceDeps: {
-        runReingestRepository: async () => {
-          strictCalls += 1;
+        runReingestRepository: async ({ sourceId }) => {
+          calls.push(sourceId ?? '(missing)');
           return {
             ok: true,
-            value: buildReingestSuccess(),
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId: 'Working Repo',
+            }),
           };
         },
       },
@@ -1790,6 +2018,273 @@ test('top-level flow target working fails fast when there is no owning repositor
         repos: [],
         lockedModelId: null,
       }),
+    },
+  );
+});
+
+test('flow-owned command target plan_scope publishes success with warnings, continues after failures, and keeps updated wording', async () => {
+  const repos: RepoEntry[] = [];
+  const calls: string[] = [];
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-command-plan-scope');
+      const commandName = 'task11_reingest_plan_scope';
+      const fixture = await createPlanScopeFixture({
+        tempPrefix: 'flows-command-plan-scope-',
+        workingRepositoryName: 'flow-command-working',
+        additionalRepositories: [{ name: 'repo-a' }, { name: 'repo-b' }],
+      });
+      const missingAdditionalPath = path.join(fixture.rootDir, 'repo-missing');
+      const conversationId = 'flow-command-plan-scope-success';
+
+      try {
+        await writeFlowFile({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-plan-scope',
+          steps: [
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'repo-agent',
+              commandName,
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'planner',
+              messages: [{ role: 'user', content: ['after flow step'] }],
+            },
+          ],
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [
+            { type: 'reingest', target: 'plan_scope' },
+            { type: 'message', role: 'user', content: ['after command item'] },
+          ],
+        });
+        await fs.writeFile(
+          fixture.currentPlanPath,
+          JSON.stringify(
+            {
+              plan_path:
+                'planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md',
+              branched_from: 'main',
+              additional_repositories: [
+                { path: fixture.workingRepositoryPath },
+                { path: fixture.additionalRepositoryPaths[0] },
+                { path: missingAdditionalPath },
+                { path: fixture.additionalRepositoryPaths[1] },
+              ],
+            },
+            null,
+            2,
+          ),
+        );
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+          buildRepoEntry({
+            containerPath: fixture.workingRepositoryPath,
+            id: 'Working Repo',
+          }),
+          buildRepoEntry({
+            containerPath: fixture.additionalRepositoryPaths[0]!,
+            id: 'Repo A',
+          }),
+          buildRepoEntry({
+            containerPath: fixture.additionalRepositoryPaths[1]!,
+            id: 'Repo B',
+          }),
+        );
+
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        const toolEventPromise = waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            raw: unknown,
+          ): raw is {
+            type: 'tool_event';
+            conversationId: string;
+            event: {
+              type: 'tool-result';
+              stage?: string;
+              result?: {
+                targetMode?: string;
+                warnings?: Array<{ code?: string }>;
+              };
+            };
+          } => {
+            const candidate = raw as {
+              type?: string;
+              conversationId?: string;
+              event?: {
+                type?: string;
+                stage?: string;
+                result?: {
+                  targetMode?: string;
+                  warnings?: Array<{ code?: string }>;
+                };
+              };
+            };
+            return (
+              candidate.type === 'tool_event' &&
+              candidate.conversationId === conversationId &&
+              candidate.event?.type === 'tool-result' &&
+              candidate.event?.result?.targetMode === 'plan_scope'
+            );
+          },
+          timeoutMs: 5000,
+        });
+
+        await supertest(baseUrl)
+          .post('/flows/repo-command-plan-scope/run')
+          .send({
+            conversationId,
+            sourceId: sourceRoot,
+            working_folder: fixture.workingRepositoryPath,
+          })
+          .expect(202);
+
+        const toolEvent = await toolEventPromise;
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'ok',
+        });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some((turn) => turn.content.includes('after command item')) &&
+            items.some((turn) => turn.content.includes('after flow step')),
+          4000,
+        );
+
+        const assistantWithToolCall = turns.find(
+          (turn) => turn.role === 'assistant' && turn.toolCalls,
+        );
+        const toolCall = (
+          assistantWithToolCall?.toolCalls as {
+            calls?: Array<{
+              stage?: string;
+              result?: {
+                targetMode?: string;
+                repositories?: Array<{ sourceId?: string }>;
+                warnings?: Array<{ code?: string }>;
+              };
+            }>;
+          } | null
+        )?.calls?.[0];
+
+        assert.equal(toolEvent.event.stage, 'success');
+        assert.deepEqual(
+          toolEvent.event.result?.warnings?.map((warning) => warning.code),
+          ['repository_skipped', 'repository_skipped', 'repository_failed'],
+        );
+        assert.deepEqual(calls, [
+          fixture.workingRepositoryPath,
+          fixture.additionalRepositoryPaths[0],
+          fixture.additionalRepositoryPaths[1],
+        ]);
+        assert.equal(toolCall?.stage, 'success');
+        assert.equal(toolCall?.result?.targetMode, 'plan_scope');
+        assert.deepEqual(
+          toolCall?.result?.repositories?.map(
+            (repository) => repository.sourceId,
+          ),
+          [
+            fixture.workingRepositoryPath,
+            fixture.additionalRepositoryPaths[0],
+            fixture.additionalRepositoryPaths[1],
+          ],
+        );
+        assert.deepEqual(
+          toolCall?.result?.warnings?.map((warning) => warning.code),
+          ['repository_skipped', 'repository_skipped', 'repository_failed'],
+        );
+        assert.match(
+          turns[0]?.content ?? '',
+          /Record re-ingest result for plan scope with warnings/i,
+        );
+        assert.ok(
+          turns.some((turn) =>
+            turn.content.includes(
+              'Plan-scope re-ingest recorded for 3 repositories (2 reingested, 0 skipped, 1 failed). Warning count: 3.',
+            ),
+          ),
+        );
+        assert.equal(
+          turns.some((turn) => turn.content.includes('after command item')),
+          true,
+        );
+        assert.equal(
+          turns.some((turn) => turn.content.includes('after flow step')),
+          true,
+        );
+        assert.doesNotMatch(
+          turns.map((turn) => turn.content).join(' '),
+          /all ingested repositories|all repositories/i,
+        );
+        const task7Log = query(
+          { text: 'DEV-0000052:T7:flow-reingest' },
+          20,
+        ).find(
+          (entry) =>
+            entry.context?.flowSurface === 'flow_command' &&
+            entry.context?.commandName === commandName,
+        );
+        assert.equal(task7Log?.context?.targetMode, 'plan_scope');
+        await cleanupConversationRuntime(conversationId);
+      } finally {
+        await fixture.cleanup();
+      }
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async ({ sourceId }) => {
+          calls.push(sourceId ?? '(missing)');
+          if (sourceId === repos[2]?.containerPath) {
+            return {
+              ok: false,
+              error: {
+                code: 429,
+                message: 'BUSY',
+                data: {
+                  tool: 'reingest_repository',
+                  code: 'BUSY',
+                  retryable: true,
+                  retryMessage: 'retry later',
+                  reingestableRepositoryIds: ['Repo A'],
+                  reingestableSourceIds: [repos[2]?.containerPath ?? ''],
+                  fieldErrors: [
+                    {
+                      field: 'sourceId',
+                      reason: 'busy',
+                      message: 'Repository is already being re-ingested',
+                    },
+                  ],
+                },
+              },
+            };
+          }
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId:
+                sourceId === repos[1]?.containerPath
+                  ? 'Working Repo'
+                  : 'Repo B',
+            }),
+          };
+        },
+        createCallId: () => 'call-flow-plan-scope',
+      },
     },
   );
 });

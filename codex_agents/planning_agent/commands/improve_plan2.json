@@ -1,0 +1,25 @@
+{
+  "Description": "Improve the active story plan with scoped research and plan hardening, without creating tasks.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/01-preflight.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/02-research.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/03-hardening.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/04-finalize.md"
+    }
+  ]
+}

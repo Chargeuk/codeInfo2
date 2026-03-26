@@ -892,7 +892,12 @@ test('selected working repository must already be ingested for dedicated flow ta
       listIngestedRepositories: async () => ({
         repos:
           listCallCount++ === 0
-            ? [buildRepoEntry({ id: 'Working Repo', containerPath: workingRoot })]
+            ? [
+                buildRepoEntry({
+                  id: 'Working Repo',
+                  containerPath: workingRoot,
+                }),
+              ]
             : [],
         lockedModelId: null,
       }),

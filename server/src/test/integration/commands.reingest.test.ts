@@ -56,6 +56,37 @@ class CapturingChat extends ChatInterface {
   }
 }
 
+const ORIGINAL_CODEINFO_HOST_INGEST_DIR = process.env.CODEINFO_HOST_INGEST_DIR;
+const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
+
+const restorePathMappingEnv = () => {
+  if (ORIGINAL_CODEINFO_HOST_INGEST_DIR === undefined) {
+    delete process.env.CODEINFO_HOST_INGEST_DIR;
+  } else {
+    process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_CODEINFO_HOST_INGEST_DIR;
+  }
+  if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  } else {
+    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
+  if (ORIGINAL_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEX_WORKDIR;
+  } else {
+    process.env.CODEX_WORKDIR = ORIGINAL_CODEX_WORKDIR;
+  }
+};
+
+const setPathMappingEnv = (params: {
+  hostIngestDir: string;
+  codexWorkdir: string;
+}) => {
+  process.env.CODEINFO_HOST_INGEST_DIR = params.hostIngestDir;
+  process.env.CODEINFO_CODEX_WORKDIR = params.codexWorkdir;
+  delete process.env.CODEX_WORKDIR;
+};
+
 const buildReingestSuccess = (
   overrides: Partial<{
     status: 'completed' | 'cancelled' | 'error';
@@ -920,6 +951,55 @@ test('direct command target working reingests the selected working repository an
   }
 });
 
+test('direct command target working resolves a host working_folder into the mounted codex workdir before reingest starts', async () => {
+  const harness = await setupRepoCommandHarness('target-working-mapped');
+  const hostIngestDir = path.join(harness.tempRoot, 'host-ingest');
+  const codexWorkdir = path.join(harness.tempRoot, 'codex-workdir');
+  const hostWorkingFolder = path.join(hostIngestDir, 'repo-owner');
+  const mappedWorkingFolder = path.join(codexWorkdir, 'repo-owner');
+  let capturedSourceId: string | undefined;
+
+  try {
+    setPathMappingEnv({ hostIngestDir, codexWorkdir });
+    await fs.mkdir(mappedWorkingFolder, { recursive: true });
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'working-target-mapped-success',
+      items: [{ type: 'reingest', target: 'working' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({
+        id: 'Owner Repo',
+        containerPath: mappedWorkingFolder,
+      }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        capturedSourceId = sourceId;
+        return {
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId: sourceId ?? mappedWorkingFolder,
+            resolvedRepositoryId: 'Owner Repo',
+          }),
+        };
+      },
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'working-target-mapped-success',
+      working_folder: hostWorkingFolder,
+      source: 'REST',
+    });
+
+    assert.equal(capturedSourceId, mappedWorkingFolder);
+  } finally {
+    restorePathMappingEnv();
+    await harness.restore();
+  }
+});
+
 test('target plan_scope fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-order');
   const repoA = path.join(harness.tempRoot, 'repo-a');
@@ -1541,6 +1621,72 @@ test('direct command target working fails before start when the selected working
     assert.equal(strictCalls, 0);
   } finally {
     await harness.restore();
+  }
+});
+
+test('direct command target working fails clearly before strict execution when host-to-workdir mapping cannot resolve a visible repository', async () => {
+  const scenarios = [
+    {
+      name: 'outside-ingest-root',
+      workingFolder: '/different-host-root/repo-owner',
+    },
+    {
+      name: 'missing-mapped-directory',
+      workingFolder: '/host/ingest/repo-owner',
+    },
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const harness = await setupRepoCommandHarness(
+      `target-working-env-failure-${scenario.name}`,
+    );
+    const hostIngestDir = '/host/ingest';
+    const codexWorkdir = path.join(
+      harness.tempRoot,
+      `codex-workdir-${scenario.name}`,
+    );
+    let strictCalls = 0;
+
+    try {
+      setPathMappingEnv({ hostIngestDir, codexWorkdir });
+      await writeCommandFile({
+        commandRoot: path.join(harness.agentHome, 'commands'),
+        commandName: `working-target-env-failure-${scenario.name}`,
+        items: [{ type: 'reingest', target: 'working' }],
+      });
+      setAgentServiceRepoList([
+        buildRepoEntry({
+          id: 'Owner Repo',
+          containerPath: path.join(codexWorkdir, 'repo-owner'),
+        }),
+      ]);
+      __setAgentCommandRunnerDepsForTests({
+        runReingestRepository: async () => {
+          strictCalls += 1;
+          return { ok: true, value: buildReingestSuccess() };
+        },
+      });
+
+      await assert.rejects(
+        async () =>
+          runAgentCommand({
+            agentName: 'coding_agent',
+            commandName: `working-target-env-failure-${scenario.name}`,
+            working_folder: scenario.workingFolder,
+            source: 'REST',
+          }),
+        (error) =>
+          (error as { code?: string; reason?: string }).code ===
+            'WORKING_FOLDER_NOT_FOUND' &&
+          /working_folder not found/i.test(
+            (error as { reason?: string }).reason ?? '',
+          ),
+      );
+      assert.equal(strictCalls, 0);
+    } finally {
+      restorePathMappingEnv();
+      await harness.restore();
+    }
   }
 });
 

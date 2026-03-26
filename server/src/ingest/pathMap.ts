@@ -130,3 +130,56 @@ export function mapHostWorkingFolderToWorkdir(params: {
     relPath,
   };
 }
+
+export function describeMountedWorkingFolder(params: {
+  hostIngestDir?: string;
+  codexWorkdir?: string;
+  hostWorkingFolder?: string;
+}):
+  | {
+      mounted: true;
+      mappedPath: string;
+      relPath: string;
+    }
+  | {
+      mounted: false;
+      reason:
+        | 'missing_configuration'
+        | 'missing_working_folder'
+        | 'invalid_absolute_path'
+        | 'outside_host_ingest_dir';
+      errorCode?: 'INVALID_ABSOLUTE_PATH' | 'OUTSIDE_HOST_INGEST_DIR';
+    } {
+  const hostIngestDir = params.hostIngestDir?.trim();
+  const codexWorkdir = params.codexWorkdir?.trim();
+  const hostWorkingFolder = params.hostWorkingFolder?.trim();
+
+  if (!hostWorkingFolder) {
+    return { mounted: false, reason: 'missing_working_folder' };
+  }
+  if (!hostIngestDir || !codexWorkdir) {
+    return { mounted: false, reason: 'missing_configuration' };
+  }
+
+  const mapped = mapHostWorkingFolderToWorkdir({
+    hostIngestDir,
+    codexWorkdir,
+    hostWorkingFolder,
+  });
+  if ('error' in mapped) {
+    return {
+      mounted: false,
+      reason:
+        mapped.error.code === 'INVALID_ABSOLUTE_PATH'
+          ? 'invalid_absolute_path'
+          : 'outside_host_ingest_dir',
+      errorCode: mapped.error.code,
+    };
+  }
+
+  return {
+    mounted: true,
+    mappedPath: mapped.mappedPath,
+    relPath: mapped.relPath,
+  };
+}

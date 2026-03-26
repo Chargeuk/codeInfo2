@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach, describe } from 'node:test';
 import {
+  describeMountedWorkingFolder,
   mapHostWorkingFolderToWorkdir,
   mapIngestPath,
 } from '../../ingest/pathMap.js';
@@ -64,6 +65,21 @@ describe('mapHostWorkingFolderToWorkdir', () => {
     assert.ok(result.mappedPath.endsWith('/data/repo/sub'));
   });
 
+  test('maps aligned host ingest and workdir roots for mounted working repositories', () => {
+    const result = mapHostWorkingFolderToWorkdir({
+      hostIngestDir: '/host/ingest',
+      codexWorkdir: '/workspace/repos',
+      hostWorkingFolder: '/host/ingest/repo-owner/codeInfoStatus',
+    });
+
+    assert.ok('mappedPath' in result);
+    assert.equal(result.relPath, 'repo-owner/codeInfoStatus');
+    assert.equal(
+      result.mappedPath,
+      '/workspace/repos/repo-owner/codeInfoStatus',
+    );
+  });
+
   test('rejects outside ingest root', () => {
     const result = mapHostWorkingFolderToWorkdir({
       hostIngestDir: '/host/base',
@@ -95,5 +111,35 @@ describe('mapHostWorkingFolderToWorkdir', () => {
 
     assert.ok('error' in result);
     assert.equal(result.error.code, 'INVALID_ABSOLUTE_PATH');
+  });
+});
+
+describe('describeMountedWorkingFolder', () => {
+  test('reports mounted working folders when host and workdir roots align', () => {
+    const result = describeMountedWorkingFolder({
+      hostIngestDir: '/host/ingest',
+      codexWorkdir: '/workspace/repos',
+      hostWorkingFolder: '/host/ingest/repo-owner',
+    });
+
+    assert.deepEqual(result, {
+      mounted: true,
+      mappedPath: '/workspace/repos/repo-owner',
+      relPath: 'repo-owner',
+    });
+  });
+
+  test('reports non-mounted working folders outside the ingest root', () => {
+    const result = describeMountedWorkingFolder({
+      hostIngestDir: '/host/ingest',
+      codexWorkdir: '/workspace/repos',
+      hostWorkingFolder: '/host/other/repo-owner',
+    });
+
+    assert.deepEqual(result, {
+      mounted: false,
+      reason: 'outside_host_ingest_dir',
+      errorCode: 'OUTSIDE_HOST_INGEST_DIR',
+    });
   });
 });

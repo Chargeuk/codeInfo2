@@ -11,6 +11,7 @@ import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import type { RepositoryCandidateLookupSummary } from '../flows/repositoryCandidateOrder.js';
+import { describeMountedWorkingFolder } from '../ingest/pathMap.js';
 import { formatReingestPrestartReason } from '../ingest/reingestError.js';
 import { executeReingestRequest } from '../ingest/reingestExecution.js';
 import type { ReingestResult } from '../ingest/reingestService.js';
@@ -167,6 +168,9 @@ function isSafeCommandName(raw: string): boolean {
   if (name.includes('..')) return false;
   return true;
 }
+
+const isTask8ComposeProofCommand = (commandName: string) =>
+  commandName === 'reingest_working' || commandName === 'reingest_plan_scope';
 
 export async function runAgentCommandRunner(
   params: RunAgentCommandRunnerParams,
@@ -405,6 +409,49 @@ export async function runAgentCommandRunner(
               result.value.kind === 'batch' ? result.value.warnings.length : 0,
           },
         });
+        if (
+          process.env.CODEINFO_RUNTIME_COMPOSE_FILE === 'docker-compose.yml' &&
+          isTask8ComposeProofCommand(commandName)
+        ) {
+          const mountedWorkingFolder = describeMountedWorkingFolder({
+            hostIngestDir: process.env.CODEINFO_HOST_INGEST_DIR,
+            codexWorkdir:
+              process.env.CODEINFO_CODEX_WORKDIR ?? process.env.CODEX_WORKDIR,
+            hostWorkingFolder: params.working_folder,
+          });
+          append({
+            level: 'info',
+            message: 'DEV-0000052:T8:compose-reingest-proof',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              surface: 'compose_proof',
+              commandName,
+              targetMode: result.value.targetMode,
+              mounted: mountedWorkingFolder.mounted,
+              workingFolder: params.working_folder ?? null,
+              mappedPath: mountedWorkingFolder.mounted
+                ? mountedWorkingFolder.mappedPath
+                : null,
+              mountReason: mountedWorkingFolder.mounted
+                ? 'mapped'
+                : mountedWorkingFolder.reason,
+              proofOutcome:
+                result.value.kind === 'batch' &&
+                result.value.warnings.length > 0
+                  ? 'success_with_warnings'
+                  : 'success',
+              warningCount:
+                result.value.kind === 'batch'
+                  ? result.value.warnings.length
+                  : 0,
+              repositoryCount:
+                result.value.kind === 'batch'
+                  ? result.value.repositories.length
+                  : 1,
+            },
+          });
+        }
         continue;
       }
 

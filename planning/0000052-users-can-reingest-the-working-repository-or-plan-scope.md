@@ -1401,8 +1401,8 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 11. Remove Unrelated Non-Support Branch Changes From Story 0000052
 
 - Repository Name: `Current Repository`
-- Task Status: `__in_progress__`
-- Git Commits: `__to_do__`
+- Task Status: `__done__`
+- Git Commits: `8a6e775b DEV-0000052 - remove unrelated non-support branch changes`
 
 #### Overview
 
@@ -1418,8 +1418,8 @@ Fix the review finding that this branch still carries unrelated non-support chat
 
 1. [x] Current Repository: Re-check `git diff --name-status origin/main...HEAD` and copy the unrelated non-support file set from the review finding into a working checklist before editing anything. At minimum, include `client/src/hooks/useChatModel.ts`, `server/src/config/copilotConfig.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/index.ts`, `openapi.json`, the listed chat/copilot tests, and the listed e2e files.
 2. [x] Current Repository: Restore every unrelated non-support file in that checklist to its `origin/main` content so the Story `0000052` branch no longer carries chat/copilot/OpenAPI changes that were not part of the canonical plan. Do not touch allowed support files in this cleanup task except for wording-only corrections if one is genuinely needed.
-3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm the remaining non-support diff now aligns with the Story `0000052` re-ingest implementation files, tests, and docs only. Record any intentionally remaining non-support file outside the core re-ingest set in the Implementation notes with a concrete story reason, rather than leaving it implicit.
-4. [ ] Current Repository: Update this story file's Task 11 Implementation notes with the final removed-file list and the final remaining-file list so later reviewers do not have to reconstruct the branch cleanup from git history alone.
+3. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm the remaining non-support diff now aligns with the Story `0000052` re-ingest implementation files, tests, and docs only. Record any intentionally remaining non-support file outside the core re-ingest set in the Implementation notes with a concrete story reason, rather than leaving it implicit.
+4. [x] Current Repository: Update this story file's Task 11 Implementation notes with the final removed-file list and the final remaining-file list so later reviewers do not have to reconstruct the branch cleanup from git history alone.
 
 #### Testing
 
@@ -1429,7 +1429,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 2. [x] Current Repository: Run `npm run build:summary:client`. Use this wrapper because Task 11 also removes unrelated client-side branch changes and must leave the remaining Story `0000052` diff compiling cleanly. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
 3. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 11 changes the remaining server/test diff on the current branch. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
 4. [x] Current Repository: Run full `npm run test:summary:client`. Use this summary wrapper because Task 11 removes unrelated client/test changes from the branch and must leave the remaining client state healthy. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
-5. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` one final time and confirm the unrelated non-support file cluster from the review finding is gone before Task 12 begins.
+5. [x] Current Repository: Run `git diff --name-status origin/main...HEAD` one final time and confirm the unrelated non-support file cluster from the review finding is gone before Task 12 begins.
 
 #### Implementation notes
 
@@ -1439,6 +1439,8 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - `npm run build:summary:client` also passed cleanly with zero warnings after restoring the unrelated client/e2e/OpenAPI support files, so the remaining branch state still compiles without that non-support cluster.
 - `npm run test:summary:server:unit` passed cleanly with `1503` tests run and `0` failed on the cleaned working tree. Like the recent Story `0000052` wrappers, it ran well past the nominal budget while continuing to emit healthy `agent_action: wait` heartbeats, so the long-but-moving wrapper pattern remained a timing note rather than a new blocker.
 - `npm run test:summary:client` passed cleanly with `652` tests run and `0` failed after restoring the unrelated client/test files, which confirms the remaining Story `0000052` branch state still leaves the client suite healthy.
+- Final removed-file list restored to `origin/main`: `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.authRefresh.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `e2e/chat-codex-mcp.spec.ts`, `e2e/chat-codex-trust.spec.ts`, `openapi.json`, `server/src/config/copilotConfig.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/index.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, `server/src/test/unit/copilotDeviceAuth.test.ts`, `server/src/test/steps/chat_models.steps.ts`, and `server/src/test/steps/chat_stream.steps.ts`.
+- Final remaining diff list after rerunning `git diff --name-status origin/main...HEAD`: the Story `0000052` re-ingest implementation files and tests, the Story `0000052` docs and plan files, the checked-in `reingest_working.json` and `reingest_plan_scope.json` proof commands, and the review/workflow artifacts under `codeInfoStatus/` and `codeInfo_simple_stories/`. No unrelated chat/copilot/OpenAPI runtime or test file from the review finding remains on the branch diff.
 
 ---
 

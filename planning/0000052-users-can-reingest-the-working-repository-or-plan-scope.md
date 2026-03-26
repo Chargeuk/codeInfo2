@@ -1336,3 +1336,131 @@ Use this repository's wrapper-first workflow only. Do not attempt to run raw bui
   Final outcome from `GET /conversations/2838ee63-6d49-419f-b765-f737d0a10d62/turns`: assistant content `Plan-scope re-ingest recorded for 1 repositories (1 reingested, 0 skipped, 0 failed). Warning count: 2.` with `targetMode: "plan_scope"` plus two `repository_skipped` warnings for the duplicate working-repo entry and the missing additional repository path. Together with final Testing 2 (`1502` unit tests passed), this re-proves the finished implementation across direct commands, dedicated flow steps, and flow-owned command items on the built compose image rather than only in isolated task-level runs.
 - Testing 7: Playwright MCP verification passed against `http://host.docker.internal:5001/logs`. `browser_console_messages(level="error")` returned no entries, the filtered logs view showed the full Story 52 marker set (`T1` through `T9`) including the final `DEV-0000052:T9:final-traceability-reviewed` marker with `traceability: "complete"` and `manualProof: "passed"`, and the reviewed screenshots were stored at `playwright-output-local/0000052-task9-logs-proof.png` and `playwright-output-local/0000052-task9-logs-filtered.png`.
 - Testing 8: `npm run compose:down` stopped and removed the main compose stack cleanly after the final proof pass. The temporary handoff fixture under `/Users/danielstapleton/Documents/dev/task14-ingest-mini/codeInfoStatus/flow-state/current-plan.json` was removed before teardown so the mounted proof repo returned to its pre-proof state.
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260326T072226Z-2752b3c4`
+- Durable evidence artifact: `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-evidence.md`
+- Durable findings artifact: `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md`
+- Findings disposition:
+  - `should_fix` generic engineering issue: `server/src/chat/reingestStepLifecycle.ts` currently rewrites unknown persisted batch-warning codes to `repository_skipped`, which can hide malformed or mixed-version stored state behind a benign-looking warning.
+  - `should_fix` plan contract issue: the branch diff still includes unrelated non-support chat/copilot/OpenAPI changes outside the Story `0000052` plan, so the branch must be narrowed back to the story's intended scope before the story can stay closed.
+- Review outcome:
+  - Reopen the story in the current repository.
+  - Fix the lifecycle normalization issue first.
+  - Remove or isolate the unrelated non-support branch changes second.
+  - Re-run the final validation sequence after both review-fix tasks complete.
+
+---
+
+### Task 10. Preserve Unknown Batch Warning Evidence During Lifecycle Reads
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Fix the review finding in the lifecycle read path so malformed or mixed-version persisted batch warnings are not silently rewritten into the semantically different supported code `repository_skipped`. This task is only about the lifecycle normalization/persistence read path for already-stored re-ingest results; it does not reopen the broader authored/runtime target contract from Tasks 1 through 8.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` - review finding that this task must resolve.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - acceptance contract and review-disposition context for Story `0000052`.
+- Context7 `/nodejs/node/v22.17.0` - use when reasoning about durable runtime parsing/normalization behavior for persisted server-side state.
+
+#### Subtasks
+
+1. [ ] Current Repository: Read `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, and `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` before changing code so the fix stays local to the lifecycle read/normalization seam.
+2. [ ] Current Repository: Update `normalizeBatchWarnings(...)` in `server/src/chat/reingestStepLifecycle.ts` so unknown or malformed persisted warning entries are not relabeled to `repository_skipped`. The replacement behavior must be explicit and reviewable: drop invalid entries from the normalized `warnings` array and emit lifecycle log context that counts dropped malformed warnings, or another equally explicit behavior that preserves the fact that the stored payload was malformed instead of inventing a benign warning code.
+3. [ ] Current Repository: Keep newly written Story `0000052` payloads unchanged. This task must only harden the lifecycle read path for malformed persisted data; it must not broaden the public batch warning contract or alter the canonical warning codes written by `server/src/chat/reingestToolResult.ts`.
+4. [ ] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingest-step-lifecycle.test.ts` so the broken path is directly proved. At minimum, cover a stored batch payload whose warning entry uses an unknown code and show that the lifecycle result no longer misreports it as `repository_skipped`.
+5. [ ] Current Repository: Update this story file's Task 10 Implementation notes immediately after the code/test change lands, naming the final malformed-warning behavior and any compatibility tradeoff that had to be chosen.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 10 changes server-side lifecycle code. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file src/test/unit/reingest-step-lifecycle.test.ts`. Use this targeted wrapper first because Task 10 is intentionally local to the lifecycle read path. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose the lifecycle failure, and rerun the same targeted wrapper until it passes.
+3. [ ] Current Repository: After the targeted lifecycle proof passes, run full `npm run test:summary:server:unit` so the hardened warning-normalization behavior is proved on the default server-unit path before Task 11 begins.
+
+#### Implementation notes
+
+- Awaiting implementation.
+
+---
+
+### Task 11. Remove Unrelated Non-Support Branch Changes From Story 0000052
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Fix the review finding that this branch still carries unrelated non-support chat/copilot/OpenAPI changes outside Story `0000052` scope. The goal of this task is to narrow the branch diff back to the re-ingest story plus its allowed support files so the final validation and any later human review can focus on one coherent story.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` - review finding that identifies the unrelated non-support file cluster.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical story scope and out-of-scope boundaries.
+- `planning/plan_format.md` - repository task status expectations for reopening and reclosing story work.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-check `git diff --name-status origin/main...HEAD` and copy the unrelated non-support file set from the review finding into a working checklist before editing anything. At minimum, include `client/src/hooks/useChatModel.ts`, `server/src/config/copilotConfig.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/index.ts`, `openapi.json`, the listed chat/copilot tests, and the listed e2e files.
+2. [ ] Current Repository: Restore every unrelated non-support file in that checklist to its `origin/main` content so the Story `0000052` branch no longer carries chat/copilot/OpenAPI changes that were not part of the canonical plan. Do not touch allowed support files in this cleanup task except for wording-only corrections if one is genuinely needed.
+3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm the remaining non-support diff now aligns with the Story `0000052` re-ingest implementation files, tests, and docs only. Record any intentionally remaining non-support file outside the core re-ingest set in the Implementation notes with a concrete story reason, rather than leaving it implicit.
+4. [ ] Current Repository: Update this story file's Task 11 Implementation notes with the final removed-file list and the final remaining-file list so later reviewers do not have to reconstruct the branch cleanup from git history alone.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run lint`. Use this repository-wide check because Task 11 may remove changes across server, client, test, and OpenAPI-adjacent files. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining issues in the files still on the Story `0000052` branch.
+2. [ ] Current Repository: Run `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files that still belong to Story `0000052`.
+3. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` one final time and confirm the unrelated non-support file cluster from the review finding is gone before Task 12 begins.
+
+#### Implementation notes
+
+- Awaiting implementation.
+
+---
+
+### Task 12. Re-Run Final Validation After Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits: `__to_do__`
+
+#### Overview
+
+Re-validate the reopened story after Tasks 10 and 11 land, then re-close Story `0000052` against the acceptance criteria, the review findings, and the durable review artifacts. This task supersedes the earlier Task 9 close-out and must prove both review findings are resolved on the default validation path.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-evidence.md` - evidence artifact that identified the risky helpers, proof sources, and suspicious diff buckets.
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` - findings artifact that Tasks 10 and 11 must clear.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical acceptance criteria and reopened review-fix tasks.
+- `https://docs.docker.com/engine/storage/bind-mounts/` - mounted-runtime proof expectations for the supported compose stack.
+- `https://playwright.dev/docs/debug` - logs-page proof workflow for the final manual check.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-check every acceptance criterion against the final implementation after Tasks 10 and 11 complete, and explicitly confirm in the Implementation notes that the two review findings are resolved rather than merely unobserved.
+2. [ ] Current Repository: Re-run the repo-wide stale-language and remaining-diff audit. Confirm `git diff --name-status origin/main...HEAD` no longer contains the unrelated non-support chat/copilot/OpenAPI file cluster from the review finding, and confirm the remaining non-support diff still maps cleanly to Story `0000052`.
+3. [ ] Current Repository: Update `docs/developer-reference.md`, `design.md`, `projectStructure.md`, and this story file again if the Task 10 lifecycle fix or the Task 11 branch cleanup changes the documented final state. If no further doc edits are needed, record that no-change decision explicitly in the Implementation notes.
+4. [ ] Current Repository: Keep the durable review artifacts `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-evidence.md` and `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` in the commit history alongside this reopened-plan work so later human reviewers can inspect the evidence and findings that triggered the reopen.
+5. [ ] Current Repository: Prepare a fresh PR-ready close-out note in the Implementation notes that summarizes the review fixes, the final proof sequence, and any remaining residual risk after re-validation.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. This is the first default-path proof that the reopened server changes still compile after the review-fix work.
+2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. This must pass after Task 10's lifecycle hardening and Task 11's diff cleanup.
+3. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. This confirms the review-fix work did not disturb feature-level server flows.
+4. [ ] Current Repository: Run `npm run compose:build:summary`.
+5. [ ] Current Repository: Run `npm run compose:up`.
+6. [ ] Current Repository: While the wrapper-started stack is running, rerun the checked-in `reingest_working` and `reingest_plan_scope` proof commands from Task 9 against the supported mounted working repository and confirm the compose proof still shows the expected direct-command and warning-aware `plan_scope` outcomes.
+7. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001/logs` and confirm the final Story `0000052` marker set still appears, with no unexpected browser-console `error` entries.
+8. [ ] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Awaiting implementation.

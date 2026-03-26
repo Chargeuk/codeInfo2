@@ -372,7 +372,7 @@ test('flow loops until break answer matches breakOn', async () => {
       );
       const agentConversation = memoryConversations.get(agentConversationId);
       assert.equal(agentConversation?.title, `${customTitle} (outer)`);
-      cleanupMemory(conversationId, agentConversationId);
+      await cleanupConversationRuntime(conversationId, agentConversationId);
     },
   );
 });
@@ -423,7 +423,7 @@ test('break step fails on invalid JSON response', async () => {
 
       assert.equal(final.status, 'failed');
       assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
-      cleanupMemory(conversationId);
+      await cleanupConversationRuntime(conversationId);
     },
   );
 });
@@ -468,7 +468,7 @@ test('break step recovers from wrapper output containing json fence', async () =
       });
 
       assert.equal(final.status, 'ok');
-      cleanupMemory(conversationId);
+      await cleanupConversationRuntime(conversationId);
     },
   );
 });
@@ -519,7 +519,7 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
 
       assert.equal(final.status, 'failed');
       assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
-      cleanupMemory(conversationId);
+      await cleanupConversationRuntime(conversationId);
     },
   );
 });
@@ -564,7 +564,7 @@ test('break step fails on invalid answer value', async () => {
       });
 
       assert.equal(final.status, 'failed');
-      cleanupMemory(conversationId);
+      await cleanupConversationRuntime(conversationId);
     },
   );
 });
@@ -605,7 +605,7 @@ test('flow step persists per-agent transcript', async () => {
       assert.ok(userTurns[0].content.includes('Say hello from a flow step.'));
       assert.equal(assistantTurns[0].content, 'Flow agent response');
 
-      cleanupMemory(conversationId, agentConversationId);
+      await cleanupConversationRuntime(conversationId, agentConversationId);
     },
   );
 });
@@ -662,7 +662,11 @@ test('flow agent transcripts stay isolated by agent', async () => {
       assert.ok(!betaContent.includes('Alpha step.'));
       assert.ok(!betaContent.includes('Alpha response'));
 
-      cleanupMemory(conversationId, alphaConversationId, betaConversationId);
+      await cleanupConversationRuntime(
+        conversationId,
+        alphaConversationId,
+        betaConversationId,
+      );
     },
   );
 });
@@ -698,7 +702,7 @@ test('flow conversation remains merged with command metadata', async () => {
       assert.ok(stepIndexes.includes(1));
       assert.ok(stepIndexes.includes(2));
 
-      cleanupMemory(conversationId);
+      await cleanupConversationRuntime(conversationId);
     },
   );
 });
@@ -762,7 +766,7 @@ test('failed flow step persists to agent conversation', async () => {
       );
       assert.ok(failedTurn?.content.length);
 
-      cleanupMemory(conversationId, agentConversationId);
+      await cleanupConversationRuntime(conversationId, agentConversationId);
     },
   );
 });
@@ -804,7 +808,7 @@ test('flow step retries transient failures and eventually succeeds', async () =>
         5000,
       );
       assert.equal(outerBreakAttempts, 2);
-      cleanupMemory(conversationId);
+      await cleanupConversationRuntime(conversationId);
     },
   );
   if (previousRetries === undefined) {
@@ -862,7 +866,7 @@ test('flow step retries to exhaustion and emits one terminal failure', async () 
       assert.equal(final.status, 'failed');
       assert.equal(outerBreakAttempts, 2);
       await expectNoTerminalFinal(wsUrl, conversationId);
-      cleanupMemory(conversationId);
+      await cleanupConversationRuntime(conversationId);
     },
   );
   if (previousRetries === undefined) {

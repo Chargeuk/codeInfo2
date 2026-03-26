@@ -106,7 +106,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isValidSingleTargetMode = (
   value: unknown,
 ): value is ReingestStepResultPayload['targetMode'] =>
-  value === 'sourceId' || value === 'current';
+  value === 'sourceId' || value === 'current' || value === 'working';
 
 const isValidOutcome = (
   value: unknown,
@@ -131,7 +131,9 @@ const getReingestPayload = (
   if (result.stepType !== 'reingest') return null;
 
   if (result.kind === 'reingest_step_batch_result') {
-    if (result.targetMode !== 'all') return null;
+    if (result.targetMode !== 'all' && result.targetMode !== 'plan_scope') {
+      return null;
+    }
     if (result.requestedSelector !== null) return null;
     if (!Array.isArray(result.repositories)) return null;
     if (!isRecord(result.summary)) return null;
@@ -216,9 +218,8 @@ const getReingestPayload = (
 
 const buildUserTurnContent = (toolResult: ChatToolResultEvent): string => {
   const payload = getReingestPayload(toolResult);
-  if (!payload) return 'Record re-ingest step result';
-  if (payload.kind === 'reingest_step_batch_result') {
-    return 'Record re-ingest result for all ingested repositories';
+  if (!payload || payload.kind === 'reingest_step_batch_result') {
+    return 'Record re-ingest step result';
   }
   return `Record re-ingest result for ${payload.sourceId}`;
 };

@@ -1843,7 +1843,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 
 #### Overview
 
-Harden the shared review process so future no-findings reviews are less likely to miss semantic mismatches like the follow-up `plan_scope` accounting defect. This task should tighten the internal and external review markdown prompts, add a focused blind-spot challenge step to every review flow in `flows/` that uses those shared prompts, and ensure the no-findings disposition path records rejected-risk reasoning for the highest-risk helpers.
+Harden the shared review process so future no-findings reviews are less likely to miss semantic mismatches like the follow-up `plan_scope` accounting defect. This task should tighten the internal and external review markdown prompts, add a focused blind-spot challenge step to every review flow in `flows/` that uses those shared prompts, and ensure the no-findings disposition path records rejected-risk reasoning for the highest-risk helpers. Because flow JSON is loaded once per run while markdown files are read step-by-step from disk, this task must keep the markdown changes backward-compatible with the old review step graph so any already-running flow can continue safely even before it is restarted onto the new flow JSON.
 
 #### Documentation Locations
 
@@ -1853,15 +1853,17 @@ Harden the shared review process so future no-findings reviews are less likely t
 - `flows/implement_next_plan.json`, `flows/review_plan.json`, `flows/task_and_implement_plan.json`, and `flows/improve_task_implement_plan.json` - internal review flows that should gain the new blind-spot challenge step.
 - `flows/ingest_external_review_plan.json` - external review flow that should gain the external analogue of the same challenge step.
 - `codeinfo_markdown/ensure_testing_steps_are_correct.md` and `codeinfo_markdown/create_final_summary.md` - adjacent shared review/finalization prompts to re-open if the new risk-recording contract needs extra propagation.
+- `server/src/flows/service.ts` and `server/src/flows/markdownFileResolver.ts` - runtime flow-loading references that explain why Task 18 must keep the markdown changes additive and backward-compatible for already-running flows.
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read every shared internal and external review markdown file plus each review-capable flow in `flows/` before editing so the hardening stays shared and does not drift between flow entrypoints.
+1. [ ] Current Repository: Re-read every shared internal and external review markdown file plus each review-capable flow in `flows/`, and re-read the runtime flow-loading behavior in `server/src/flows/service.ts` plus `server/src/flows/markdownFileResolver.ts`, before editing so the hardening stays shared and does not drift between flow entrypoints or break an already-running flow.
 2. [ ] Current Repository: Tighten the internal review prompts so the evidence and findings passes must record a risk-invariant matrix and rejected-risk notes for the top risky helpers, and so the no-findings disposition path carries those notes into the final plan review section.
-3. [ ] Current Repository: Mirror the same hardening in the external-review markdown prompts so the external review process does not become a weaker variant of the internal process.
-4. [ ] Current Repository: Add a new shared blind-spot challenge step after findings and before disposition in every internal review flow, and add the external analogue in `flows/ingest_external_review_plan.json`. The inserted step should explicitly try to break a tentative no-findings conclusion by inspecting only the highest-risk helpers from the evidence artifact.
-5. [ ] Current Repository: Re-open adjacent shared finalization prompts only if needed so the tightened no-findings contract, reviewer summary, and testing-step guidance stay internally consistent after the new review-flow step is added.
-6. [ ] Current Repository: Update this story file's Task 18 Implementation notes immediately after the prompt/flow change lands, naming the final shared review guarantees and which flows were updated.
+3. [ ] Current Repository: Make those markdown prompt changes additive and backward-compatible with the old review step graph. Do not rename or remove existing markdown files, do not require a brand-new artifact that only the new blind-spot challenge step can produce, and make downstream prompts consume that extra step when present but still derive the required reasoning directly from the existing evidence/findings artifacts when it is absent.
+4. [ ] Current Repository: Mirror the same hardening and backward-compatibility rules in the external-review markdown prompts so the external review process does not become a weaker variant of the internal process or an in-progress external run.
+5. [ ] Current Repository: Add a new shared blind-spot challenge step after findings and before disposition in every internal review flow, and add the external analogue in `flows/ingest_external_review_plan.json`. The inserted step should explicitly try to break a tentative no-findings conclusion by inspecting only the highest-risk helpers from the evidence artifact, but the surrounding prompts must still function correctly when that step is absent because an older in-progress flow run is still using the previous JSON snapshot.
+6. [ ] Current Repository: Re-open adjacent shared finalization prompts only if needed so the tightened no-findings contract, reviewer summary, and testing-step guidance stay internally consistent after the new review-flow step is added.
+7. [ ] Current Repository: Update this story file's Task 18 Implementation notes immediately after the prompt/flow change lands, naming the final shared review guarantees, which flows were updated, and exactly how backward compatibility for already-running flows was preserved.
 
 #### Testing
 
@@ -1869,7 +1871,8 @@ Use this repository's wrapper-first workflow where applicable. This task changes
 
 1. [ ] Current Repository: Re-open each updated internal review markdown file and verify the final text now requires a risk-invariant matrix or rejected-risk notes for the top risky helpers before a no-findings disposition can close a story.
 2. [ ] Current Repository: Re-open each updated internal review flow JSON file and verify the new blind-spot challenge step sits after findings and before disposition, and that the flow still points at the shared markdown files rather than copy-pasted inline review instructions.
-3. [ ] Current Repository: Re-open the updated external review markdown files and `flows/ingest_external_review_plan.json` and verify the external review sequence received the same hardening rather than drifting into a weaker variant.
+3. [ ] Current Repository: Re-open the updated internal review markdown files and verify the compatibility wording is explicit: downstream prompts still work without the new challenge step by deriving rejected-risk reasoning from the existing evidence/findings artifacts when needed.
+4. [ ] Current Repository: Re-open the updated external review markdown files and `flows/ingest_external_review_plan.json` and verify the external review sequence received the same hardening and the same backward-compatibility guarantees rather than drifting into a weaker variant.
 
 #### Implementation notes
 

@@ -1982,7 +1982,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 20. Remove Unrelated Non-Support Formatting Drift From Story 0000052
 
 - Repository Name: `Current Repository`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -2013,24 +2013,34 @@ The code-review findings pass confirmed that Story `0000052` still carries unrel
 
 1. [x] Current Repository: Re-read the Task 20 finding plus every named file above, then compare each file against `origin/main` so you confirm the remaining Story `0000052` delta in that file is unrelated formatting or import-order churn only before you remove it.
 2. [x] Current Repository: Remove the unrelated non-support churn from each named file so the final `origin/main...HEAD` diff no longer contains those files. Keep any genuinely story-owned or user-owned change only if you can prove it belongs to Story `0000052`; otherwise restore the file to the base version.
-3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` after the cleanup and confirm the remaining diff now contains only Story `0000052` implementation files, planned docs/tests, approved `flows/**`, and allowed support files.
-4. [ ] Current Repository: Update this story file's Task 20 Implementation notes immediately after the cleanup lands, naming the final removed-file list and calling out any file that was intentionally retained because it turned out to be Story `0000052` work after all.
+3. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` after the cleanup and confirm the remaining diff now contains only Story `0000052` implementation files, planned docs/tests, approved `flows/**`, and allowed support files.
+4. [x] Current Repository: Update this story file's Task 20 Implementation notes immediately after the cleanup lands, naming the final removed-file list and calling out any file that was intentionally retained because it turned out to be Story `0000052` work after all.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task removes unrelated diff churn from both server/common and client/test surfaces, so prove the cleanup with the branch-diff check plus the full summary wrappers that cover the touched current-repository areas.
 
-1. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm none of the files named in the Task 20 finding remain in the branch diff. Record the remaining diff classes in the Implementation notes.
-2. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
-3. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
-4. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-5. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
-6. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+1. [x] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm none of the files named in the Task 20 finding remain in the branch diff. Record the remaining diff classes in the Implementation notes.
+2. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+3. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+4. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+5. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+6. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
 - Subtask 1: Re-read the Task 20 finding and compared every named file against `origin/main`. The remaining delta in all 14 files is formatting or import-order churn only, so none of those files currently carries Story `0000052` behavior that must be preserved before cleanup.
 - Subtask 2: Restored the 14 named client, e2e, OpenAPI, and Copilot-adjacent server/test files to their `origin/main` versions because each remaining delta was unrelated formatting or import-order churn only. No named file had to be retained as Story `0000052` behavior at this step.
+- Subtask 3: Re-ran `git diff --name-status origin/main...HEAD` after the cleanup commit and confirmed none of the 14 Task 20 files remain in the branch diff. The remaining diff classes are Story `0000052` runtime implementation files, planned docs/tests, approved `flows/**`, review evidence/findings artifacts, and allowed support files only.
+- Subtask 4: Final removed-file list: `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.authRefresh.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `e2e/chat-codex-mcp.spec.ts`, `e2e/chat-codex-trust.spec.ts`, `openapi.json`, `server/src/config/copilotConfig.ts`, `server/src/index.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/steps/chat_stream.steps.ts`, `server/src/test/unit/copilotConfig.test.ts`, and `server/src/test/unit/copilotDeviceAuth.test.ts`. No named file was intentionally retained because none carried Story `0000052` behavior after the re-check.
+- Testing 1: `git diff --name-status origin/main...HEAD` no longer lists any of the 14 Task 20 cleanup files. The remaining diff is limited to Story `0000052` implementation files, planned docs/tests, approved `flows/**`, review artifacts, and allowed support files.
+- Testing 2: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the cleanup did not introduce server build drift.
+- Testing 3: `npm run build:summary:client` passed cleanly through the wrapper's typecheck-plus-build sequence with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the cleanup did not introduce client build drift either.
+- Testing 4: `npm run test:summary:server:unit` passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 5: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the cleanup also held across the full feature-level server flow suite.
+- Testing 6: `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the cleanup also held across the full client regression suite.
+
+- Git Commits:
 
 ---
 

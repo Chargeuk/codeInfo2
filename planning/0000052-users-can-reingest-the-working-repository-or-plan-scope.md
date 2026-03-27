@@ -1464,6 +1464,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Git Commits:
   - `dc08c948 DEV-0000052 - close final reopen validation`
   - `25f14440 DEV-0000052 - mark task 25 git commits`
+  - `f5c77a04 DEV-0000052 - finalize task 25 plan ledger`
+  - `dc08c948 DEV-0000052 - close final reopen validation`
+  - `25f14440 DEV-0000052 - mark task 25 git commits`
   - `b674876c DEV-0000052 - rerun final validation after review fixes`
 
 #### Overview

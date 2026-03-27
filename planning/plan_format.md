@@ -100,7 +100,7 @@ Rules:
 
 Plan the task's proof in this order when applicable:
 
-1. [ ] Build the relevant project or projects using the repository's wrapper-first workflow from `AGENTS.md`, or the highest-level safe commands discoverable from the repository if no wrapper guidance exists.
+1. [ ] Build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds, following the wrapper-first workflow from `AGENTS.md` where available.
 2. [ ] Run the relevant automated tests using the repository's wrapper-first workflow from `AGENTS.md`, or the highest-level safe commands discoverable from the repository if no wrapper guidance exists.
 3. [ ] Start the runnable system or required services only if this task's proof needs them.
 4. [ ] Perform manual Playwright or browser automation only if the task affects a user-visible or browser-accessible surface and the tooling exists.
@@ -110,6 +110,11 @@ Rules:
 
 - The testing steps must match the task's repository and affected projects.
 - Prefer wrapper scripts over low-level direct commands where possible.
+- When the repository's primary build mechanism is Docker or Compose, keep that as the first build proof rather than replacing it with ad hoc local build commands.
+- Back-end systems should plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path unless the repository's instructions explicitly define a different standard.
+- Front-end systems should plan unit tests plus Playwright end-to-end tests, and include screenshot evidence where the UI can be checked visually.
+- Systems where a back end is paired with a front end should include the Playwright end-to-end path plus manual Playwright MCP validation when the tooling exists.
+- If expected harnesses are missing for the system being changed, add prerequisite harness work earlier in the story before later tasks rely on it.
 - If a proof step is not applicable, omit it and explain why in the task wording or implementation notes rather than inventing it.
 - If the task depends on a new harness, wrapper, or runtime seam, that prerequisite should be created in an earlier task.
 
@@ -182,7 +187,7 @@ The final task must validate the full story rather than only isolated task-level
 
 #### Testing
 
-1. [ ] Run the full relevant build wrappers or highest-level safe build commands for every affected project or repository.
+1. [ ] Run the full relevant primary Docker or Compose build wrappers for every affected project or repository when those are the repository's primary build mechanism, otherwise use the highest-level safe build commands.
 2. [ ] Run the full relevant automated test wrappers or highest-level safe automated test commands for every affected project or repository.
 3. [ ] Start the full runnable system if final story validation requires runtime proof.
 4. [ ] Perform final manual Playwright or browser validation if the story affects a user-visible or browser-accessible surface and the tooling exists. Capture screenshots or other proof artifacts only when they are meaningful to the story.

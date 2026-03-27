@@ -9,8 +9,9 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 </instruction_priority>
 
 <source_priority>
-- Use `code_info` first for repository facts, existing implementations, reusable patterns, contracts, likely file locations, and cross-repository relationships. Include the full repository path when asking about this repository.
+- Use `code_info` first for repository facts, existing implementations, reusable patterns, contracts, likely file locations, cross-repository relationships, and how we or our company already solve similar problems across ingested repositories. Include the full repository path when asking about this repository.
 - Inspect relevant local source files directly after `code_info`.
+- If `repository_information.md` was found during preflight, use it as supporting product and repository context throughout this pass.
 - Use DeepWiki for external GitHub repository architecture or docs when relevant.
 - Use Context7 for library, SDK, and framework documentation when relevant.
 - Use web search only when repository evidence plus official docs do not settle an external-library or runtime question.

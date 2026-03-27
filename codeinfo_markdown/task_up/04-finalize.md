@@ -20,16 +20,17 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 </verification_loop>
 
 <final_edit_rules>
-- If the plan needs a `Feasibility Proof Pass`, `Log Or Proof Markers`, `Task Exit Criteria`, `Task Dependencies`, `Edge Cases and Failure Modes`, `Test Harnesses`, or similar sections to support the final task list truthfully, add or update them.
+- Preserve the standard named planning sections used by this planning system when they are relevant, such as `Feasibility Proof Pass`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, and `Log Or Proof Markers`.
+- Add further relevant sections only when they are genuinely helpful for the selected plan.
+- If the plan needs a `Task Exit Criteria`, `Task Dependencies`, or similar task-structure sections to support the final task list truthfully, add or update them.
 - Remove contradictions, stale repository references, and stale proof steps.
 - Do not leave TODO placeholders or open review comments in the task list.
 </final_edit_rules>
 
 <commit_policy>
 - If this command changed files, create one commit after the final verification pass.
-- The commit message must start with `DEV-[Number] -`.
-- Use the current repository branch story number for `[Number]` when available.
-- Write a 4- or 5-sentence commit body that explains what changed and why.
+- Follow the repository's commit-message and branch conventions from `AGENTS.md` or other repository-specific instructions when they exist.
+- If no repository-specific commit convention exists, use a concise commit subject and a short explanatory body.
 - If nothing changed, do not create an empty commit.
 </commit_policy>
 

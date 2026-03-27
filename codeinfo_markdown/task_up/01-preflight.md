@@ -14,7 +14,9 @@ Lock the active story, repository scope, and tasking format before generating or
 - Use `codeInfoStatus/flow-state/current-plan.json` as the sole source of active plan scope.
 - Do not independently search for or select a different plan.
 - Read `codeinfo_markdown/repository_information.md` if it exists.
-- Read `plan_format.md` in the current repository. If it is not present, use `code_info` to find the best matching format in `codeInfo2`, then another repository only if needed.
+- Read `plan_format.md` in the current repository if it exists.
+- If `plan_format.md` is not present in the current repository, use the copy from `codeInfo2` if it is available.
+- If it is still not available, use `code_info` to find the best matching planning template in another repository.
 </source_priority>
 
 <tool_use_policy>
@@ -38,5 +40,6 @@ Lock the active story, repository scope, and tasking format before generating or
 
 <output_contract>
 - Confirm the selected story, participating repositories, whether `repository_information.md` was found, and whether the story is already partially or fully tasked.
+- If `repository_information.md` was found, keep using it as supporting repository context in later passes.
 - Do not create or rewrite tasks in this pass yet unless you must update the plan's `Additional Repositories` section to keep repository ownership truthful before later work.
 </output_contract>

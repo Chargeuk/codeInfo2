@@ -1462,9 +1462,6 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Repository Name: `Current Repository`
 - Task Status: `__done__`
 - Git Commits:
-  - `e38a25a0 DEV-0000052 - remove dead owner reingest plumbing`
-  - `4a505f32 DEV-0000052 - mark task 21 git commits`
-  - `e38a25a0 DEV-0000052 - remove dead owner reingest plumbing`
   - `b674876c DEV-0000052 - rerun final validation after review fixes`
 
 #### Overview
@@ -2096,6 +2093,9 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the dead owner-era parameter cleanup also held across the full feature-level server flow suite.
 
 - Git Commits:
+  - `e38a25a0 DEV-0000052 - remove dead owner reingest plumbing`
+  - `4a505f32 DEV-0000052 - mark task 21 git commits`
+  - `6fe0525d DEV-0000052 - fix task 21 commit ledger`
 
 ---
 

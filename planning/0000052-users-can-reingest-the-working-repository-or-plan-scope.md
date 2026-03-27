@@ -1462,6 +1462,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Repository Name: `Current Repository`
 - Task Status: `__done__`
 - Git Commits:
+  - `dc08c948 DEV-0000052 - close final reopen validation`
   - `b674876c DEV-0000052 - rerun final validation after review fixes`
 
 #### Overview

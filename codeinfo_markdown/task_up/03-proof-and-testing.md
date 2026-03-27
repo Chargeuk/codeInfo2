@@ -50,6 +50,8 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether the necessary runtime, harness, dependencies, scripts, and repos will exist by the point each proof step is reached.
 - Check whether each task's testing section reflects the task's repository and affected projects rather than copying a generic list blindly.
 - Check whether the generated testing order matches the repository's primary proof workflow, including Docker or Compose build steps where those are the primary build mechanism.
+- Check whether each subtask is specific enough for a weak developer to execute without guessing file targets, commands, documentation, or expected outcomes.
+- Check whether required lint, format, and static-analysis subtasks are explicit, separate, and placed at the end of the subtask list when the repository workflow expects them there.
 </verification_loop>
 
 <output_contract>

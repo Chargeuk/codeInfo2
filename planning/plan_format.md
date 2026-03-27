@@ -11,11 +11,12 @@ This is the baseline task structure to follow once the story sections above are 
 3. Work through the tasks in order unless a later task explicitly says it can run in parallel.
 4. Before touching code for a task, update its `Task Status` to `__in_progress__`.
 5. Complete subtasks in order. Mark each checkbox immediately when that subtask is complete.
-6. Subtasks should cover implementation and file updates. Build and test execution normally belongs in the `Testing` section, not in `Subtasks`, unless the task is specifically creating or repairing a harness or wrapper.
-7. Once all subtasks are complete, run the `Testing` section in order and mark each item complete immediately after it passes.
-8. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
-9. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
-10. Repeat for the next task.
+6. Subtasks should cover implementation and file updates. Write them for a very weak, junior, forgetful developer who may read only the current subtask and may not reliably cross-reference the rest of the story.
+7. Build and test execution normally belongs in the `Testing` section, not in `Subtasks`, unless the task is specifically creating or repairing a harness or wrapper.
+8. Once all subtasks are complete, run the `Testing` section in order and mark each item complete immediately after it passes.
+9. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
+10. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
+11. Repeat for the next task.
 
 ## Additional Repositories
 
@@ -87,14 +88,18 @@ Two or three concise sentences describing what this task achieves, why it is nee
 2. [ ] Implement the required code, config, contract, migration, deployment, or runtime changes. Name the exact local files or areas to update.
 3. [ ] Add or update the implementation-side proof files for this task, such as unit tests, integration tests, fixtures, schemas, or harness code, naming the exact files to create or change.
 4. [ ] Update each required documentation file in its own subtask, naming the exact file and what must change.
-5. [ ] Run the repository's required lint, format, or static-analysis checks for the files changed by this task when the repository workflow expects these checks as final subtasks.
+5. [ ] Run the first required lint, format, or static-analysis command for the files changed by this task when the repository workflow expects these checks as final subtasks. State the exact command, the expected pass condition, and any available auto-fix command to try first.
+6. [ ] Run the next required lint, format, or static-analysis command, again naming the exact command, expected pass condition, and any available auto-fix command to try first. Repeat with additional separate final subtasks if the repository requires more checks.
 
 Rules:
 
 - Every subtask should be specific enough for a junior developer to execute without extra clarification.
+- Every subtask should be understandable in isolation for a very weak, junior, forgetful developer who may only read that one subtask.
+- Repeat critical context, exact files, documentation references, commands, and expected outcomes inside the subtask whenever omitting them would force the implementer to guess.
 - Do not create investigation subtasks.
 - Do not hide important file targets or proof expectations in vague phrases such as "update tests as needed".
 - Keep build and test execution commands in the `Testing` section unless the task is specifically creating or fixing a harness or wrapper.
+- When lint, format, or static-analysis checks are required as subtasks, keep them as separate final subtasks with one explicit command per subtask. If an auto-fix command exists, instruct the implementer to try it before making manual fixes.
 
 #### Testing
 

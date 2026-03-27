@@ -15,6 +15,7 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 - Check that the plan's `Additional Repositories` section exactly matches every non-current repository that the final tasks will change.
 - Check that no task has drifted beyond the story's intended scope.
 - Check that every task is specific enough for a junior developer and does not depend on hidden senior knowledge.
+- Check that every subtask is understandable in isolation for a weak, junior, forgetful developer and does not require them to infer missing instructions from elsewhere in the story.
 - Check that each task has realistic exit criteria, dependencies, proof steps, and runnable validation.
 - Check that the final validation task proves the whole story rather than only isolated task-level behavior.
 </verification_loop>

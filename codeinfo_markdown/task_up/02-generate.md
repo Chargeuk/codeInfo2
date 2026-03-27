@@ -37,9 +37,12 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Every task must include a concise Overview and a concrete Task Exit Criteria section.
 - `Documentation Locations` must reference external docs, MCP docs, official URLs, or installed library code. Local repo files to inspect or change belong in Subtasks, not in Documentation Locations.
 - Subtasks must name the relevant local files, folders, classes, functions, commands, configs, or runtime assets to inspect or update.
+- Each subtask must be understandable in isolation for a very weak, junior, forgetful developer who may read only that one subtask and may not reliably cross-reference the rest of the plan.
+- Repeat critical context, documentation references, commands, and expected outcomes inside a subtask when omitting them would force the implementer to infer missing information from other sections.
 - Each documentation file update belongs in its own subtask.
 - Each task should be detailed enough for a junior developer who may only read the current task and its subtasks.
 - Do not put build or test execution commands in Subtasks unless the task is specifically creating or repairing a harness or wrapper.
+- When the repository workflow expects lint, format, or static-analysis checks as subtasks, add them as separate final subtasks with one explicit command per subtask. Each such subtask should state the exact command, the expected pass condition, and that any available auto-fix command should be tried before manual fixes.
 </task_shape_rules>
 
 <completeness_contract>

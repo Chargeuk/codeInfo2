@@ -83,7 +83,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
+        body: JSON.stringify({
         provider: provider ?? 'lmstudio',
         available: true,
         toolsAvailable: true,

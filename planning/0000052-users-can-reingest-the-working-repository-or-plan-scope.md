@@ -1982,7 +1982,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 20. Remove Unrelated Non-Support Formatting Drift From Story 0000052
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Overview
 
@@ -2011,22 +2011,26 @@ The code-review findings pass confirmed that Story `0000052` still carries unrel
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the Task 20 finding plus every named file above, then compare each file against `origin/main` so you confirm the remaining Story `0000052` delta in that file is unrelated formatting or import-order churn only before you remove it.
-2. [ ] Current Repository: Remove the unrelated non-support churn from each named file so the final `origin/main...HEAD` diff no longer contains those files. Keep any genuinely story-owned or user-owned change only if you can prove it belongs to Story `0000052`; otherwise restore the file to the base version.
+1. [x] Current Repository: Re-read the Task 20 finding plus every named file above, then compare each file against `origin/main` so you confirm the remaining Story `0000052` delta in that file is unrelated formatting or import-order churn only before you remove it.
+2. [x] Current Repository: Remove the unrelated non-support churn from each named file so the final `origin/main...HEAD` diff no longer contains those files. Keep any genuinely story-owned or user-owned change only if you can prove it belongs to Story `0000052`; otherwise restore the file to the base version.
 3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` after the cleanup and confirm the remaining diff now contains only Story `0000052` implementation files, planned docs/tests, approved `flows/**`, and allowed support files.
 4. [ ] Current Repository: Update this story file's Task 20 Implementation notes immediately after the cleanup lands, naming the final removed-file list and calling out any file that was intentionally retained because it turned out to be Story `0000052` work after all.
 
 #### Testing
 
-Use this repository's wrapper-first workflow where wrappers apply. This task mainly removes unrelated diff churn, so its proof must combine branch-diff verification with light compile smoke for the touched client/server files.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task removes unrelated diff churn from both server/common and client/test surfaces, so prove the cleanup with the branch-diff check plus the full summary wrappers that cover the touched current-repository areas.
 
 1. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm none of the files named in the Task 20 finding remain in the branch diff. Record the remaining diff classes in the Implementation notes.
 2. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 3. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+4. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+5. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+6. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: Re-read the Task 20 finding and compared every named file against `origin/main`. The remaining delta in all 14 files is formatting or import-order churn only, so none of those files currently carries Story `0000052` behavior that must be preserved before cleanup.
+- Subtask 2: Restored the 14 named client, e2e, OpenAPI, and Copilot-adjacent server/test files to their `origin/main` versions because each remaining delta was unrelated formatting or import-order churn only. No named file had to be retained as Story `0000052` behavior at this step.
 
 ---
 
@@ -2057,10 +2061,11 @@ The findings pass confirmed that the shared `executeReingestRequest(...)` runtim
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Because Task 21 changes the shared server-side execution seam plus command/flow callers, prove the cleanup with the server build and full server unit suite.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Because Task 21 changes the shared server-side execution seam plus command/flow callers, prove the cleanup with the server build plus the full current-repository server unit and cucumber summary suites.
 
 1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -2094,14 +2099,14 @@ Close the reopened Story `0000052` only after the review-fix tasks land together
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
 
 1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
 3. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
 4. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 5. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
-6. [ ] Current Repository: Run full `npm run test:summary:e2e`. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+6. [ ] Current Repository: Run full `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
 7. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 8. [ ] Current Repository: Run `npm run compose:up`.
 9. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, reconfirm the Story `0000052` `reingest_working` and `reingest_plan_scope` behavior plus the `/logs` proof path, and check that there are no browser-console `error` entries during the final runtime proof.

@@ -6,23 +6,18 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
+import { createFakeCopilotRuntimeSeamFromEnv } from '../../copilot/fake/runtimeSeam.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { createFakeCopilotRuntimeSeamFromEnv } from '../../copilot/fake/runtimeSeam.js';
 import { query as queryLogs, resetStore } from '../../logStore.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { createCopilotDeviceAuthRouter } from '../../routes/copilotDeviceAuth.js';
 import { attachWs } from '../../ws/server.js';
-import {
-  closeWs,
-  connectWs,
-  sendJson,
-  waitForEvent,
-} from '../support/wsClient.js';
+import { closeWs, connectWs, sendJson, waitForEvent } from '../support/wsClient.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
 
@@ -91,10 +86,7 @@ async function startServerForScenario(scenarioName: string) {
       copilotRuntimeFactory: seam.createCopilotReadinessRuntime,
     }),
   );
-  app.use(
-    '/copilot',
-    createCopilotDeviceAuthRouter(seam.createDeviceAuthRouterDeps()),
-  );
+  app.use('/copilot', createCopilotDeviceAuthRouter(seam.createDeviceAuthRouterDeps()));
 
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
@@ -188,9 +180,7 @@ test('compose-style env seam activates the fake Copilot happy path through norma
       await closeWs(ws);
     }
 
-    const bootLogs = queryLogs({
-      text: 'story.0000051.task16.fake_scenario_booted',
-    });
+    const bootLogs = queryLogs({ text: 'story.0000051.task16.fake_scenario_booted' });
     assert.ok(bootLogs.length > 0);
     assert.equal(bootLogs.at(-1)?.context?.scenario, 'copilot-happy-path');
     assert.equal(bootLogs.at(-1)?.context?.surface, 'compose-e2e');
@@ -219,9 +209,7 @@ test('compose-style env seam activates auth-required device-flow state through n
     assert.equal(auth.body.state, 'verification_ready');
     assert.equal(auth.body.userCode, 'TASK16-ABCD');
 
-    const bootLogs = queryLogs({
-      text: 'story.0000051.task16.fake_scenario_booted',
-    });
+    const bootLogs = queryLogs({ text: 'story.0000051.task16.fake_scenario_booted' });
     assert.ok(bootLogs.length > 0);
     assert.equal(bootLogs.at(-1)?.context?.scenario, 'copilot-auth-required');
     assert.equal(bootLogs.at(-1)?.context?.surface, 'compose-e2e');

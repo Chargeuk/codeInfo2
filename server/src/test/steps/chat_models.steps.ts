@@ -18,13 +18,13 @@ import {
   NAMED_COPILOT_SCENARIOS,
   type NamedCopilotScenario,
 } from '../support/copilotScenarioCatalog.js';
-import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   MockLMStudioClient,
   type MockScenario,
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 
 const TASK17_LOG_MARKER = 'story.0000051.task17.cucumber_scenarios_registered';
 

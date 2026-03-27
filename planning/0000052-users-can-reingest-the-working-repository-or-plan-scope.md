@@ -2158,3 +2158,135 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
   - `b3be682f DEV-0000052 - finish final review closeout`
   - `b3729ac0 DEV-0000052 - mark task 22 git commits`
   - `a69e458c DEV-0000052 - fix task 22 commit ledger`
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260327T222622Z-549a89b3`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-blind-spot-challenge.md`
+- Review outcome: reopen Story `0000052` for two repo-local `should_fix` findings before the story can stay closed again.
+- Finding 1 summary: the branch still carries a non-support client timestamp-hardening change in `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` even though Story `0000052` never planned a client-side `/logs` timestamp contract change. The follow-up must remove that client change from this story branch so the remaining diff stays story-owned.
+- Finding 2 summary: the new `DEV-0000052:T5:reingest-lifecycle` log marker is emitted from both `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts` with different context schemas. The follow-up must make that logging contract unambiguous, preferably by splitting the two lifecycle points into distinct marker names rather than asking downstream readers to guess which schema they received.
+- Challenge artifact status: the focused blind-spot challenge produced no new findings. It strengthened the rejected-risk conclusions for `executeReingestRequest(...)` and `resolvePlanScopeRepositories(...)`, and left only residual weak proof around malformed historical warning payloads in `reingestStepLifecycle.ts`.
+
+---
+
+### Task 23. Remove The Out-Of-Scope `/logs` Timestamp Hardening From Story 0000052
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+The latest review pass confirmed that this story branch still includes a non-support client change that broadens the `/logs` timestamp-rendering contract, even though Story `0000052` only uses `/logs` as a manual proof surface for re-ingest warnings and traceability. This task must remove the out-of-scope timestamp-hardening delta from `LogsPage` and its test so the branch diff returns to story-owned re-ingest, review-hardening, and allowed support-file work only.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 23 checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md` - source of the client-scope finding this task must close.
+- `client/src/pages/LogsPage.tsx` - current out-of-scope timestamp-normalization change that should be removed from this story branch.
+- `client/src/test/logsPage.test.tsx` - current out-of-scope test coverage that locks the timestamp-normalization change into the branch diff.
+- `git diff --name-status origin/main...HEAD` - required verification surface for proving those client files no longer remain in the Story `0000052` diff.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the Task 23 finding plus `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx`, compare both files against `origin/main`, and confirm the remaining delta is only the out-of-scope timestamp-hardening change rather than required Story `0000052` behavior.
+2. [ ] Current Repository: Remove the out-of-scope timestamp-hardening delta from both files so this story no longer changes the `/logs` timestamp contract or adds timestamp-specific client regression coverage that the story never planned.
+3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` are gone from the branch diff after the cleanup.
+4. [ ] Current Repository: Update this story file's Task 23 Implementation notes immediately after the cleanup lands, recording the removed client-file list and why the `/logs` proof path still remains adequate for Story `0000052` without the timestamp-hardening change.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task is strictly client-side cleanup, so prove it with the branch-diff check plus the current repository's client wrapper build and client summary suite.
+
+1. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the branch diff.
+2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` identified a repo-local `should_fix` scope issue in the current repository's client `/logs` files. The intended repair is to remove the timestamp-hardening delta from this story branch rather than expand Story `0000052` to own a separate client timestamp contract.
+
+---
+
+### Task 24. Split The Ambiguous `DEV-0000052:T5:reingest-lifecycle` Log Contract Into One Stable Schema Per Marker
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+The latest review pass found that Story `0000052` now emits the same `DEV-0000052:T5:reingest-lifecycle` marker from both the tool-result builder and the later persistence lifecycle path, but each emitter attaches a different context shape. This task must make that contract unambiguous. Keep the fix simple: use one stable schema per log marker, which most likely means splitting the two lifecycle points into distinct marker names instead of trying to support two different schemas under one shared marker.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 24 checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md` - source of the log-schema finding this task must close.
+- `server/src/chat/reingestToolResult.ts` - current pre-persist emitter for `DEV-0000052:T5:reingest-lifecycle`.
+- `server/src/chat/reingestStepLifecycle.ts` - current later lifecycle emitter for `DEV-0000052:T5:reingest-lifecycle`.
+- `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` - focused proof surfaces that should show the final marker names and context schemas clearly.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the Task 24 finding plus the two emitters and their focused tests before editing so the repair stays limited to the ambiguous shared marker contract.
+2. [ ] Current Repository: Replace the ambiguous shared marker contract with one stable schema per marker. Prefer distinct marker names for the tool-result-build step and the later persistence/publication lifecycle step, and keep each marker's context shape internally consistent.
+3. [ ] Current Repository: Update or extend the focused unit tests so they prove the final marker names and their expected context keys explicitly, rather than relying on one mixed marker name across two code paths.
+4. [ ] Current Repository: Update this story file's Task 24 Implementation notes immediately after the repair lands, naming the final marker(s), the owning file for each emitter, and why the chosen split is simpler than a shared mixed-schema marker.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task changes server/common runtime logging behavior, so prove it with the current repository's server build and full server unit summary suite.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` found that the same `DEV-0000052:T5:reingest-lifecycle` marker currently means two different lifecycle moments with two different context schemas. The intended repair is to keep the runtime behavior intact while making the log vocabulary objectively unambiguous for downstream readers.
+
+---
+
+### Task 25. Re-Run Final Validation After The Review-Fix Tasks
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Close the reopened Story `0000052` only after Tasks 23 and 24 land together. This final validation task must prove that the out-of-scope client timestamp change is gone, the re-ingest lifecycle log vocabulary is unambiguous, the original `working` / `plan_scope` acceptance criteria still hold, and the durable review artifacts for this reopen remain attached to the final close-out state.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan, review-fix tasks, and final validation checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-evidence.md` - durable evidence artifact for the current review pass.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md` - durable findings artifact that Tasks 23 and 24 must close.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-blind-spot-challenge.md` - additive blind-spot challenge artifact that confirmed no extra late finding beyond the recorded `should_fix` items.
+- `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` - client files that should be absent from the final story diff once Task 23 lands.
+- `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts` - runtime files that must expose one stable schema per log marker once Task 24 lands.
+- The final `origin/main...HEAD` diff - proof surface that the reopened branch scope is once again story-owned.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-check the Story `0000052` acceptance criteria against the landed Tasks 23 and 24 work so the new review findings are actually closed and the original `working` / `plan_scope` contract still has direct proof.
+2. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` plus focused repository search and confirm the out-of-scope client files from Task 23 are gone from the branch diff and the ambiguous shared lifecycle marker from Task 24 has been replaced by one stable schema per marker.
+3. [ ] Current Repository: Re-open the current review evidence, findings, and blind-spot challenge artifacts and refresh this story file's close-out notes so the final reopened state explains what was fixed, why the review reopened the story, and how the review-fix work was revalidated.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] Current Repository: Run `npm run compose:up`.
+9. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, reconfirm the Story `0000052` `reingest_working` and `reingest_plan_scope` behavior plus the `/logs` proof path, and check that there are no browser-console `error` entries during the final runtime proof.
+10. [ ] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` produced two repo-local `should_fix` findings. The final close-out for this reopen must prove both repairs together, carry the durable review artifacts forward, and confirm the original Story `0000052` acceptance contract still holds after the cleanup.

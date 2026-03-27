@@ -1581,7 +1581,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 
 - Repository Name: `Current Repository`
 - Task Status: `__done__`
-- Git Commits: `a49470a8 DEV-0000052 - remove unrelated formatting drift`; `ca4902b6 DEV-0000052 - complete task 20 cleanup validation`; `904d0c41 DEV-0000052 - mark task 20 git commits`; `dd810a6a DEV-0000052 - fix task 20 commit ledger`
+- Git Commits:
   - `738352e1 DEV-0000052 - normalize task 1 log marker schema`
   - `2cd9f5bb DEV-0000052 - mark task 14 git commits`
   - `6023d321 DEV-0000052 - fix task 14 commit ledger`
@@ -2041,6 +2041,11 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Testing 6: `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the cleanup also held across the full client regression suite.
 
 - Git Commits:
+  - `a49470a8 DEV-0000052 - remove unrelated formatting drift`
+  - `ca4902b6 DEV-0000052 - complete task 20 cleanup validation`
+  - `904d0c41 DEV-0000052 - mark task 20 git commits`
+  - `dd810a6a DEV-0000052 - fix task 20 commit ledger`
+  - `da285470 DEV-0000052 - correct task 20 plan bookkeeping`
 
 ---
 

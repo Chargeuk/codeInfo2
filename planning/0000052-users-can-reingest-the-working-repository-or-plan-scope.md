@@ -2175,7 +2175,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 23. Remove The Out-Of-Scope `/logs` Timestamp Hardening From Story 0000052
 
 - Repository Name: `Current Repository`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -2193,26 +2193,35 @@ The latest review pass confirmed that this story branch still includes a non-sup
 
 1. [x] Current Repository: Re-read the Task 23 finding plus `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx`, compare both files against `origin/main`, and confirm the remaining delta is only the out-of-scope timestamp-hardening change rather than required Story `0000052` behavior.
 2. [x] Current Repository: Remove the out-of-scope timestamp-hardening delta from both files so this story no longer changes the `/logs` timestamp contract or adds timestamp-specific client regression coverage that the story never planned.
-3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` are gone from the branch diff after the cleanup.
-4. [ ] Current Repository: Update this story file's Task 23 Implementation notes immediately after the cleanup lands, recording the removed client-file list and why the `/logs` proof path still remains adequate for Story `0000052` without the timestamp-hardening change.
+3. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` are gone from the branch diff after the cleanup.
+4. [x] Current Repository: Update this story file's Task 23 Implementation notes immediately after the cleanup lands, recording the removed client-file list and why the `/logs` proof path still remains adequate for Story `0000052` without the timestamp-hardening change.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task is strictly client-side cleanup on a front-end-visible `/logs` surface, so prove it with the branch-diff check, the current repository's client wrappers, and wrapper-started manual Playwright proof. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the branch diff.
-2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
-3. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
-4. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
-5. [ ] Current Repository: Run `npm run compose:up`.
-6. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the `/logs` page still renders correctly after the cleanup, and check that there are no logged errors in the debug console.
-7. [ ] Current Repository: Run `npm run compose:down` after the final front-end proof completes.
+1. [x] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the branch diff.
+2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+4. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] Current Repository: Run `npm run compose:up`.
+6. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the `/logs` page still renders correctly after the cleanup, and check that there are no logged errors in the debug console.
+7. [x] Current Repository: Run `npm run compose:down` after the final front-end proof completes.
 
 #### Implementation notes
 
 - Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` identified a repo-local `should_fix` scope issue in the current repository's client `/logs` files. The intended repair is to remove the timestamp-hardening delta from this story branch rather than expand Story `0000052` to own a separate client timestamp contract.
 - Subtask 1: Compared `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` against `origin/main` before editing. The remaining delta is only the timestamp-hardening helper change plus its focused regression test, not required Story `0000052` re-ingest or review-hardening behavior.
 - Subtask 2: Removed the timestamp-hardening helper broadening from `client/src/pages/LogsPage.tsx` and dropped the matching mixed-timestamp regression case from `client/src/test/logsPage.test.tsx`. The local client files now match `origin/main` again, so the remaining Task 23 proof depends on committing that cleanup and rerunning the branch-diff check rather than on any further code change.
+- Subtask 3: Re-ran `git diff --name-status origin/main...HEAD` after the cleanup commit and confirmed `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the story diff.
+- Subtask 4: Final removed client-file list from the story diff is `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx`. The `/logs` proof path remains adequate for Story `0000052` because this story only needs that page as a browser-visible traceability surface for re-ingest markers and warnings, not as a separate timestamp-format contract change.
+- Testing 1: `git diff --name-status origin/main...HEAD` no longer lists `client/src/pages/LogsPage.tsx` or `client/src/test/logsPage.test.tsx`, so the branch-diff proof for the out-of-scope client cleanup is satisfied.
+- Testing 2: `npm run build:summary:client` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so removing the out-of-scope timestamp hardening did not introduce any client build drift.
+- Testing 3: `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the current client regression suite still stays green after the cleanup.
+- Testing 4: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the wrapper-started runtime proof images still build after the client cleanup.
+- Testing 5: `npm run compose:up` brought the wrapper-started stack up cleanly after the client cleanup; the main network was created, Mongo reached `Healthy`, the server reached `Healthy`, and the client container started successfully for the final `/logs` proof.
+- Testing 6: Playwright MCP verification passed against `http://host.docker.internal:5001/logs` after the client cleanup. The `/logs` page rendered normally on the wrapper-started stack, `browser_console_messages(level=\"error\")` returned no entries, and the reviewed screenshot was captured at `/tmp/playwright-output/0000052-task23-logs.png`.
+- Testing 7: `npm run compose:down` completed cleanly after the final front-end proof, stopping the wrapper-started containers and removing the `codeinfo2_internal` network without needing any manual Docker cleanup.
 
 ---
 

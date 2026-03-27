@@ -65,6 +65,27 @@ const ingestFailureBody = {
   hasMore: false,
 };
 
+const mixedTimestampBody = {
+  items: [
+    {
+      level: 'info',
+      message: 'numeric timestamp log',
+      timestamp: Date.UTC(2025, 0, 1, 0, 0, 3),
+      source: 'server',
+      sequence: 4,
+    },
+    {
+      level: 'warn',
+      message: 'invalid timestamp log',
+      timestamp: 'not-a-date',
+      source: 'server',
+      sequence: 5,
+    },
+  ],
+  lastSequence: 5,
+  hasMore: false,
+};
+
 function createMockEventSource() {
   const es = {
     onmessage: null as ((event: MessageEvent<string>) => void) | null,
@@ -154,5 +175,15 @@ describe('LogsPage', () => {
     expect(screen.getByText(/"provider":"lmstudio"/)).toBeVisible();
     expect(screen.getByText(/"surface":"ingest\/reembed"/)).toBeVisible();
     expect(screen.getByText(/"code":"LMSTUDIO_UNAVAILABLE"/)).toBeVisible();
+  });
+
+  it('renders logs even when timestamps are numeric or invalid', async () => {
+    getFetchMock().mockResolvedValueOnce(mockJsonResponse(mixedTimestampBody));
+
+    render(<LogsPage />);
+
+    expect(await screen.findByText('numeric timestamp log')).toBeVisible();
+    expect(screen.getByText('invalid timestamp log')).toBeVisible();
+    expect(screen.getByText('not-a-date')).toBeVisible();
   });
 });

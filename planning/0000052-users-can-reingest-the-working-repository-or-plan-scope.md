@@ -1966,3 +1966,147 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Testing 8: `npm run compose:up` passed and brought the main stack up cleanly; Mongo reached `Healthy`, then the server reached `Healthy`, and the client container started successfully for the final Playwright proof.
 - Testing 9: Final Playwright MCP proof passed against `http://host.docker.internal:5001` on a wrapper-started stack. A `reingest_working` run against `/Users/danielstapleton/Documents/dev/task14-ingest-mini` completed successfully, a `reingest_plan_scope` run against the same ingested working repo completed as success-with-warnings on the visible transcript/log path, a fresh `/logs` tab reported no browser-console `error` entries, the filtered logs view showed the Story `0000052` marker set including `DEV-0000052:T9:final-traceability-reviewed` with `traceability: "complete"` and `manualProof: "passed"`, and the reviewed screenshots were captured as `playwright-output-local/0000052-task19-logs-proof.png` and `playwright-output-local/0000052-task19-logs-filtered.png`.
 - Testing 10: `npm run compose:down` completed cleanly after the final runtime proof, removing the wrapper-started containers and `codeinfo2_internal` network without needing any manual Docker cleanup.
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260327T000751Z-d0d03a86`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md`
+- Review outcome: reopen Story `0000052` for two repo-local `should_fix` findings before the story can stay closed again.
+- Finding 1 summary: unrelated non-support formatting-only churn is still present on the branch diff in client, e2e, OpenAPI, and Copilot-adjacent server files. The follow-up must remove that unrelated drift so the remaining `origin/main...HEAD` diff is story-owned.
+- Finding 2 summary: the shared re-ingest execution seam still exposes dead `currentOwnerSourceId` plumbing even though owner-based `current` targeting was removed. The follow-up must remove that stale parameter from `executeReingestRequest(...)` and every caller so the changed runtime surface no longer advertises a removed contract.
+- Challenge artifact status: no `*-blind-spot-challenge.md` exists for this review pass, so the reopen decision relies on the evidence artifact plus the findings artifact's `Rejected Risk Notes`.
+
+---
+
+### Task 20. Remove Unrelated Non-Support Formatting Drift From Story 0000052
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+The code-review findings pass confirmed that Story `0000052` still carries unrelated non-support formatting-only churn in client, e2e, OpenAPI, and Copilot-adjacent server files. This task must remove that drift so the branch diff returns to story-owned re-ingest, review-hardening, and explicitly allowed support-file changes only. The goal is not to restyle those files differently; it is to make the remaining `origin/main...HEAD` diff accurately reflect the intended Story `0000052` scope again.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and the Task 20 cleanup checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md` - source of the branch-drift finding that this task must resolve.
+- The exact files named in that finding:
+  - `client/src/hooks/useChatModel.ts`
+  - `client/src/test/chatPage.authRefresh.test.tsx`
+  - `client/src/test/chatPage.provider.test.tsx`
+  - `e2e/chat-codex-mcp.spec.ts`
+  - `e2e/chat-codex-trust.spec.ts`
+  - `openapi.json`
+  - `server/src/config/copilotConfig.ts`
+  - `server/src/index.ts`
+  - `server/src/routes/copilotDeviceAuth.ts`
+  - `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`
+  - `server/src/test/steps/chat_models.steps.ts`
+  - `server/src/test/steps/chat_stream.steps.ts`
+  - `server/src/test/unit/copilotConfig.test.ts`
+  - `server/src/test/unit/copilotDeviceAuth.test.ts`
+- `git diff --name-status origin/main...HEAD` - mandatory verification surface for proving the unrelated files are gone from the Story `0000052` branch diff.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the Task 20 finding plus every named file above, then compare each file against `origin/main` so you confirm the remaining Story `0000052` delta in that file is unrelated formatting or import-order churn only before you remove it.
+2. [ ] Current Repository: Remove the unrelated non-support churn from each named file so the final `origin/main...HEAD` diff no longer contains those files. Keep any genuinely story-owned or user-owned change only if you can prove it belongs to Story `0000052`; otherwise restore the file to the base version.
+3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` after the cleanup and confirm the remaining diff now contains only Story `0000052` implementation files, planned docs/tests, approved `flows/**`, and allowed support files.
+4. [ ] Current Repository: Update this story file's Task 20 Implementation notes immediately after the cleanup lands, naming the final removed-file list and calling out any file that was intentionally retained because it turned out to be Story `0000052` work after all.
+
+#### Testing
+
+Use this repository's wrapper-first workflow where wrappers apply. This task mainly removes unrelated diff churn, so its proof must combine branch-diff verification with light compile smoke for the touched client/server files.
+
+1. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm none of the files named in the Task 20 finding remain in the branch diff. Record the remaining diff classes in the Implementation notes.
+2. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+3. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### Task 21. Remove Dead Owner-Era `currentOwnerSourceId` Plumbing From The Re-Ingest Runtime
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+The findings pass confirmed that the shared `executeReingestRequest(...)` runtime surface still exposes `currentOwnerSourceId` even though Story `0000052` removed owner-based `current` targeting and the implementation no longer reads that input. This task must delete the dead parameter from the execution seam and its command/flow call sites so the landed runtime contract advertises only the inputs that still matter for `sourceId`, `working`, and `plan_scope`.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 21 acceptance notes.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md` - source of the dead-plumbing finding that this task must close.
+- `server/src/ingest/reingestExecution.ts` - the shared execution seam that still exposes `currentOwnerSourceId`.
+- `server/src/agents/commandsRunner.ts` - direct-command caller that still passes the dead owner-era input.
+- `server/src/flows/service.ts` - dedicated-flow and flow-command callers that still pass the dead owner-era input.
+- `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, and any focused execution tests that need adjustment after the signature cleanup.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, and the focused command/flow tests before editing so the cleanup stays limited to the stale owner-era parameter and does not reopen the landed `working` / `plan_scope` behavior.
+2. [ ] Current Repository: Remove `currentOwnerSourceId` from the shared `executeReingestRequest(...)` input contract and delete every direct-command and flow caller that still passes it. Do not reintroduce any owner-based compatibility logic while cleaning up the signature.
+3. [ ] Current Repository: Update the focused tests if needed so they prove the runtime still handles explicit `sourceId`, `working`, and `plan_scope` correctly after the signature cleanup and no test or helper still relies on the dead owner-era field.
+4. [ ] Current Repository: Update this story file's Task 21 Implementation notes immediately after the cleanup lands, naming the final runtime signature and the exact callers/tests that were updated.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Because Task 21 changes the shared server-side execution seam plus command/flow callers, prove the cleanup with the server build and full server unit suite.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### Task 22. Re-Run Final Validation After Code Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Close the reopened Story `0000052` only after the review-fix tasks land together. This final validation task must prove that the unrelated branch drift is gone, the stale owner-era execution parameter is gone, the original `working` / `plan_scope` acceptance criteria still hold, and the durable review artifacts for this reopen were carried forward with the final close-out state.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan, review-fix tasks, and final validation checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-evidence.md` - durable evidence artifact for the current review pass.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md` - durable findings artifact that Tasks 20 and 21 must close.
+- `codeInfoStatus/flow-state/current-plan.json` - canonical handoff that should still point at Story `0000052`.
+- `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsRunner.ts`, and `server/src/flows/service.ts` - runtime surfaces re-opened by Task 21.
+- The final `origin/main...HEAD` diff - proof surface that Task 20 really removed the unrelated non-support files from the branch.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-check the Story `0000052` acceptance criteria against the landed Tasks 20 and 21 implementation so the review findings are actually closed and the original `working` / `plan_scope` contract still has direct proof.
+2. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` plus repository text search and confirm the unrelated files from Task 20 are gone from the branch diff, the stale `currentOwnerSourceId` surface from Task 21 is gone, and the remaining diff still maps cleanly to Story `0000052`.
+3. [ ] Current Repository: Re-open the current review evidence and findings artifacts and refresh this story file's close-out notes so the final reopened state explains what was fixed, why the review reopened the story, and how the review-fix work was revalidated.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] Current Repository: Run full `npm run test:summary:e2e`. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] Current Repository: Run `npm run compose:up`.
+9. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, reconfirm the Story `0000052` `reingest_working` and `reingest_plan_scope` behavior plus the `/logs` proof path, and check that there are no browser-console `error` entries during the final runtime proof.
+10. [ ] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Pending.

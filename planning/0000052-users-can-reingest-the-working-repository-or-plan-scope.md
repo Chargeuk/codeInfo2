@@ -2175,7 +2175,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 23. Remove The Out-Of-Scope `/logs` Timestamp Hardening From Story 0000052
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Overview
 
@@ -2191,22 +2191,28 @@ The latest review pass confirmed that this story branch still includes a non-sup
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the Task 23 finding plus `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx`, compare both files against `origin/main`, and confirm the remaining delta is only the out-of-scope timestamp-hardening change rather than required Story `0000052` behavior.
-2. [ ] Current Repository: Remove the out-of-scope timestamp-hardening delta from both files so this story no longer changes the `/logs` timestamp contract or adds timestamp-specific client regression coverage that the story never planned.
+1. [x] Current Repository: Re-read the Task 23 finding plus `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx`, compare both files against `origin/main`, and confirm the remaining delta is only the out-of-scope timestamp-hardening change rather than required Story `0000052` behavior.
+2. [x] Current Repository: Remove the out-of-scope timestamp-hardening delta from both files so this story no longer changes the `/logs` timestamp contract or adds timestamp-specific client regression coverage that the story never planned.
 3. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` are gone from the branch diff after the cleanup.
 4. [ ] Current Repository: Update this story file's Task 23 Implementation notes immediately after the cleanup lands, recording the removed client-file list and why the `/logs` proof path still remains adequate for Story `0000052` without the timestamp-hardening change.
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task is strictly client-side cleanup, so prove it with the branch-diff check plus the current repository's client wrapper build and client summary suite.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task is strictly client-side cleanup on a front-end-visible `/logs` surface, so prove it with the branch-diff check, the current repository's client wrappers, and wrapper-started manual Playwright proof. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [ ] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the branch diff.
 2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
 3. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+4. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [ ] Current Repository: Run `npm run compose:up`.
+6. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the `/logs` page still renders correctly after the cleanup, and check that there are no logged errors in the debug console.
+7. [ ] Current Repository: Run `npm run compose:down` after the final front-end proof completes.
 
 #### Implementation notes
 
 - Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` identified a repo-local `should_fix` scope issue in the current repository's client `/logs` files. The intended repair is to remove the timestamp-hardening delta from this story branch rather than expand Story `0000052` to own a separate client timestamp contract.
+- Subtask 1: Compared `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` against `origin/main` before editing. The remaining delta is only the timestamp-hardening helper change plus its focused regression test, not required Story `0000052` re-ingest or review-hardening behavior.
+- Subtask 2: Removed the timestamp-hardening helper broadening from `client/src/pages/LogsPage.tsx` and dropped the matching mixed-timestamp regression case from `client/src/test/logsPage.test.tsx`. The local client files now match `origin/main` again, so the remaining Task 23 proof depends on committing that cleanup and rerunning the branch-diff check rather than on any further code change.
 
 ---
 
@@ -2236,10 +2242,11 @@ The latest review pass found that Story `0000052` now emits the same `DEV-000005
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task changes server/common runtime logging behavior, so prove it with the current repository's server build and full server unit summary suite.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task changes server/common runtime logging behavior, so prove it with the current repository's server build plus the full server unit and cucumber summary suites. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -2274,7 +2281,7 @@ Close the reopened Story `0000052` only after Tasks 23 and 24 land together. Thi
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.

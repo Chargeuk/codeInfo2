@@ -29,16 +29,8 @@ const sourceOptions: LogEntry['source'][] = [
   'client-flows',
 ];
 
-function formatTimestamp(value: unknown) {
-  const date =
-    value instanceof Date
-      ? value
-      : typeof value === 'string' || typeof value === 'number'
-        ? new Date(value)
-        : null;
-  if (!date || Number.isNaN(date.getTime())) {
-    return typeof value === 'string' && value.trim() ? value : 'Unknown time';
-  }
+function formatTimestamp(value: string) {
+  const date = new Date(value);
   return new Intl.DateTimeFormat(undefined, {
     hour: '2-digit',
     minute: '2-digit',

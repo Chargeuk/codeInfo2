@@ -2223,6 +2223,10 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Testing 6: Playwright MCP verification passed against `http://host.docker.internal:5001/logs` after the client cleanup. The `/logs` page rendered normally on the wrapper-started stack, `browser_console_messages(level=\"error\")` returned no entries, and the reviewed screenshot was captured at `/tmp/playwright-output/0000052-task23-logs.png`.
 - Testing 7: `npm run compose:down` completed cleanly after the final front-end proof, stopping the wrapper-started containers and removing the `codeinfo2_internal` network without needing any manual Docker cleanup.
 
+- Git Commits:
+  - `88a274f5 DEV-0000052 - remove out-of-scope logs timestamp change`
+  - `4be6b321 DEV-0000052 - complete task 23 cleanup validation`
+
 ---
 
 ### Task 24. Split The Ambiguous `DEV-0000052:T5:reingest-lifecycle` Log Contract Into One Stable Schema Per Marker

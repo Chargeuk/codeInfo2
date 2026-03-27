@@ -9,8 +9,9 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 </instruction_priority>
 
 <source_priority>
-- Use `code_info` first for repository facts, likely file locations, existing implementations, current contracts, and patterns across ingested repositories. Include the full repository path when asking about this repository.
+- Use `code_info` first for repository facts, likely file locations, existing implementations, current contracts, reusable patterns, and how we or our company already solve similar problems across ingested repositories. Include the full repository path when asking about this repository.
 - Inspect relevant local source files directly after `code_info`.
+- If `repository_information.md` was found during preflight, use it as supporting product and repository context throughout this pass.
 - Use DeepWiki for external GitHub repository architecture or documentation when relevant.
 - Use Context7 for library, SDK, or framework documentation when relevant.
 - Use web search only when repository evidence plus official docs do not settle an external-library, runtime, or deployment question.
@@ -31,8 +32,9 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - Prefer code copied into Docker images over host-source bind mounts inside containers.
 - Check whether the plan needs explicit Docker build-context ignore updates, explicit port choices, or Docker-managed volumes for generated artifacts.
 - Check whether a new frontend or backend is actually required.
-- If a new frontend is required, research existing repository patterns for production serving, env injection, logging, unit tests, Playwright, and wrapper scripts.
-- If a new backend is required, research existing repository patterns for unit tests, Cucumber plus Testcontainers, Playwright, and wrapper scripts.
+- If a backend is required or changed, ensure the plan expects unit tests and Cucumber integration tests that use Testcontainers as the primary integration-test path. If those harnesses are missing for the system being changed, add the prerequisite work early in the story before relying on them for new functionality.
+- If a frontend is required or changed, ensure the plan expects frontend unit tests plus Playwright end-to-end tests with screenshot evidence where the UI can be checked visually, and manual validation using the Playwright MCP server when the tooling exists.
+- If a backend is paired with a frontend, ensure the paired system includes the required Playwright end-to-end tests and manual Playwright MCP validation. If those harnesses are missing for the system being changed, add the prerequisite work early in the story before relying on them for new functionality.
 - Check whether new message contracts or storage shapes are required.
 - Check whether planned test types need new harnesses because the current repositories do not already support them.
 - Check whether planned proof steps will be runnable at the point they are reached.

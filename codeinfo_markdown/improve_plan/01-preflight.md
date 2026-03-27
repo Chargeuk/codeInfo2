@@ -13,6 +13,9 @@ Lock the active plan scope before doing any research or edits.
 - Use fresh disk reads and current git state, not conversational memory.
 - Use `codeInfoStatus/flow-state/current-plan.json` as the sole source of active plan scope for this command.
 - Do not independently search for or select a different plan.
+- Read `plan_format.md` in the current repository if it exists.
+- If `plan_format.md` is not present in the current repository, use the copy from `codeInfo2` if it is available.
+- If it is still not available, use `code_info` to find the best matching planning template in another repository.
 </source_priority>
 
 <tool_use_policy>
@@ -37,5 +40,6 @@ Lock the active plan scope before doing any research or edits.
 <output_contract>
 - First, confirm the selected story, the participating repositories, and whether `repository_information.md` was found.
 - Then state whether the story is single-repository or multi-repository.
+- If `repository_information.md` was found, keep using it as supporting repository context in later passes.
 - Do not make plan edits in this pass unless you must update the plan's `Additional Repositories` section to keep repository ownership truthful before further work.
 </output_contract>

@@ -20,9 +20,8 @@ Perform a final verification pass, then make one coherent commit if the command 
 
 <commit_policy>
 - If this command changed files, create one commit after the final verification pass.
-- The commit message must start with `DEV-[Number] -`.
-- Use the current repository branch story number for `[Number]` when available.
-- Write a 4- or 5-sentence commit body that explains what changed and why.
+- Follow the repository's commit-message and branch conventions from `AGENTS.md` or other repository-specific instructions when they exist.
+- If no repository-specific commit convention exists, use a concise commit subject and a short explanatory body.
 - If verification finds a remaining issue, fix it before committing when possible.
 - If nothing changed, do not create an empty commit.
 </commit_policy>

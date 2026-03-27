@@ -12,7 +12,8 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Re-read the active plan from disk before editing.
 - Preserve the existing plan structure where possible.
 - Use `plan_format.md` from the current repository as the formatting reference when it is relevant.
-- If `plan_format.md` is not in the current repository, use `code_info` to find the best matching reference in `codeInfo2`, then another repository only if needed.
+- If `plan_format.md` is not present in the current repository, use the copy from `codeInfo2` if it is available.
+- If it is still not available, use `code_info` to find the best matching planning template in another repository.
 - Do not add unnecessary multi-repository structure to single-repository stories.
 - If the story is multi-repository, make repository ownership explicit throughout the plan.
 </editing_rules>
@@ -23,6 +24,8 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Add or update message-contract and storage-shape details when the story needs them.
 - Add or update a test-harness section only if new harness work is actually required.
 - Add or update `Edge Cases and Failure Modes` when needed.
+- Preserve the standard named planning sections used by this planning system when they are relevant, such as `Feasibility Proof Pass`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, and `Log Or Proof Markers`.
+- Add further relevant sections only when they are genuinely helpful for the selected plan.
 - Make prerequisite work explicit when capabilities are missing or assumptions are invalid.
 - Make runtime, deployment, Docker, test, and validation expectations explicit when those areas matter to the story.
 - If the story is multi-repository, state which repository owns each planned change and describe dependency direction, sequencing, and compatibility expectations.

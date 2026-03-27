@@ -2232,7 +2232,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 24. Split The Ambiguous `DEV-0000052:T5:reingest-lifecycle` Log Contract Into One Stable Schema Per Marker
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -2248,22 +2248,29 @@ The latest review pass found that Story `0000052` now emits the same `DEV-000005
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the Task 24 finding plus the two emitters and their focused tests before editing so the repair stays limited to the ambiguous shared marker contract.
-2. [ ] Current Repository: Replace the ambiguous shared marker contract with one stable schema per marker. Prefer distinct marker names for the tool-result-build step and the later persistence/publication lifecycle step, and keep each marker's context shape internally consistent.
-3. [ ] Current Repository: Update or extend the focused unit tests so they prove the final marker names and their expected context keys explicitly, rather than relying on one mixed marker name across two code paths.
-4. [ ] Current Repository: Update this story file's Task 24 Implementation notes immediately after the repair lands, naming the final marker(s), the owning file for each emitter, and why the chosen split is simpler than a shared mixed-schema marker.
+1. [x] Current Repository: Re-read the Task 24 finding plus the two emitters and their focused tests before editing so the repair stays limited to the ambiguous shared marker contract.
+2. [x] Current Repository: Replace the ambiguous shared marker contract with one stable schema per marker. Prefer distinct marker names for the tool-result-build step and the later persistence/publication lifecycle step, and keep each marker's context shape internally consistent.
+3. [x] Current Repository: Update or extend the focused unit tests so they prove the final marker names and their expected context keys explicitly, rather than relying on one mixed marker name across two code paths.
+4. [x] Current Repository: Update this story file's Task 24 Implementation notes immediately after the repair lands, naming the final marker(s), the owning file for each emitter, and why the chosen split is simpler than a shared mixed-schema marker.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task changes server/common runtime logging behavior, so prove it with the current repository's server build plus the full server unit and cucumber summary suites. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
 - Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` found that the same `DEV-0000052:T5:reingest-lifecycle` marker currently means two different lifecycle moments with two different context schemas. The intended repair is to keep the runtime behavior intact while making the log vocabulary objectively unambiguous for downstream readers.
+- Subtask 1: Re-read the Task 24 finding, both `DEV-0000052:T5:reingest-lifecycle` emitters, and the focused unit suites before editing. The ambiguity is real: `reingestToolResult.ts` logs build-time payload details while `reingestStepLifecycle.ts` logs later persistence metadata under the same marker name.
+- Subtask 2: Split the shared marker into `DEV-0000052:T5:reingest-tool-result-built` in `server/src/chat/reingestToolResult.ts` and `DEV-0000052:T5:reingest-lifecycle-persisted` in `server/src/chat/reingestStepLifecycle.ts`. Each emitter now owns one stable lifecycle moment and one stable context schema instead of sharing a mixed contract.
+- Subtask 3: Extended the focused unit coverage so `server/src/test/unit/reingest-tool-result.test.ts` asserts the tool-result-build marker and its context keys directly from the log store, while `server/src/test/unit/reingest-step-lifecycle.test.ts` now asserts the renamed persisted-lifecycle marker and its persistence-oriented context shape.
+- Subtask 4: Final marker ownership is now explicit: `DEV-0000052:T5:reingest-tool-result-built` belongs to `server/src/chat/reingestToolResult.ts`, and `DEV-0000052:T5:reingest-lifecycle-persisted` belongs to `server/src/chat/reingestStepLifecycle.ts`. This split is simpler than a shared mixed-schema marker because downstream readers no longer need per-emitter branching to know which lifecycle moment or context contract they received.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the marker split did not introduce any server build drift.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1507`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the unambiguous marker split still holds across the feature-level server suite.
 
 ---
 

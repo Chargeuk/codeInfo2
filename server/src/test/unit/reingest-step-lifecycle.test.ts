@@ -731,7 +731,8 @@ test('drops malformed persisted batch warnings instead of relabeling them', asyn
   assert.equal(
     (
       harness.appendLogs.find(
-        (entry) => entry.message === 'DEV-0000052:T5:reingest-lifecycle',
+        (entry) =>
+          entry.message === 'DEV-0000052:T5:reingest-lifecycle-persisted',
       )?.context as
         | {
             warningCount?: number;
@@ -812,7 +813,8 @@ test('drops a malformed persisted batch warnings container instead of treating i
   assert.equal(
     (
       harness.appendLogs.find(
-        (entry) => entry.message === 'DEV-0000052:T5:reingest-lifecycle',
+        (entry) =>
+          entry.message === 'DEV-0000052:T5:reingest-lifecycle-persisted',
       )?.context as
         | {
             warningCount?: number;
@@ -866,6 +868,13 @@ test('passes through caller-supplied model, source, and command metadata', async
   );
   assert.equal(
     harness.appendLogs[2]?.message,
-    'DEV-0000052:T5:reingest-lifecycle',
+    'DEV-0000052:T5:reingest-lifecycle-persisted',
   );
+  assert.deepEqual(harness.appendLogs[2]?.context, {
+    conversationId: 'conversation-1',
+    callId: 'reingest-step-1',
+    stage: 'success',
+    targetMode: 'sourceId',
+    warningCount: 0,
+  });
 });

@@ -77,6 +77,8 @@ const defaultDeps: LifecycleDeps = {
   now: () => new Date(),
   createInflightId: () => crypto.randomUUID(),
 };
+const REINGEST_LIFECYCLE_PERSISTED_LOG =
+  'DEV-0000052:T5:reingest-lifecycle-persisted';
 
 let lifecycleDeps: LifecycleDeps = defaultDeps;
 
@@ -571,7 +573,7 @@ export async function runReingestStepLifecycle(params: {
 
       lifecycleDeps.appendLog({
         level: 'info',
-        message: 'DEV-0000052:T5:reingest-lifecycle',
+        message: REINGEST_LIFECYCLE_PERSISTED_LOG,
         timestamp: lifecycleDeps.now().toISOString(),
         source: 'server',
         context: {

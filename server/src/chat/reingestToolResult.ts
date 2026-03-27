@@ -52,6 +52,8 @@ export type ReingestToolResultPayload =
   | ReingestStepBatchResultPayload;
 
 const REINGEST_TOOL_NAME = 'reingest_repository';
+const REINGEST_TOOL_RESULT_LOG =
+  'DEV-0000052:T5:reingest-tool-result-built';
 
 function toUserFacingOutcome(
   outcome: ReingestSuccess,
@@ -119,7 +121,7 @@ export function buildReingestToolResult(params: {
 
   append({
     level: 'info',
-    message: 'DEV-0000052:T5:reingest-lifecycle',
+    message: REINGEST_TOOL_RESULT_LOG,
     timestamp: new Date().toISOString(),
     source: 'server',
     context: {

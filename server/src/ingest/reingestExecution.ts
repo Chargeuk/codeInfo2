@@ -349,7 +349,6 @@ function toFailureRepoEntry(params: {
 export async function executeReingestRequest(params: {
   request: ReingestRequest;
   surface: 'command' | 'flow' | 'flow_command';
-  currentOwnerSourceId?: string;
   workingRepositoryPath?: string;
   deps?: ExecuteReingestRequestDeps;
 }): Promise<

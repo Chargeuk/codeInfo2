@@ -2052,7 +2052,7 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 ### Task 21. Remove Dead Owner-Era `currentOwnerSourceId` Plumbing From The Re-Ingest Runtime
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -2069,22 +2069,30 @@ The findings pass confirmed that the shared `executeReingestRequest(...)` runtim
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, and the focused command/flow tests before editing so the cleanup stays limited to the stale owner-era parameter and does not reopen the landed `working` / `plan_scope` behavior.
-2. [ ] Current Repository: Remove `currentOwnerSourceId` from the shared `executeReingestRequest(...)` input contract and delete every direct-command and flow caller that still passes it. Do not reintroduce any owner-based compatibility logic while cleaning up the signature.
-3. [ ] Current Repository: Update the focused tests if needed so they prove the runtime still handles explicit `sourceId`, `working`, and `plan_scope` correctly after the signature cleanup and no test or helper still relies on the dead owner-era field.
-4. [ ] Current Repository: Update this story file's Task 21 Implementation notes immediately after the cleanup lands, naming the final runtime signature and the exact callers/tests that were updated.
+1. [x] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, and the focused command/flow tests before editing so the cleanup stays limited to the stale owner-era parameter and does not reopen the landed `working` / `plan_scope` behavior.
+2. [x] Current Repository: Remove `currentOwnerSourceId` from the shared `executeReingestRequest(...)` input contract and delete every direct-command and flow caller that still passes it. Do not reintroduce any owner-based compatibility logic while cleaning up the signature.
+3. [x] Current Repository: Update the focused tests if needed so they prove the runtime still handles explicit `sourceId`, `working`, and `plan_scope` correctly after the signature cleanup and no test or helper still relies on the dead owner-era field.
+4. [x] Current Repository: Update this story file's Task 21 Implementation notes immediately after the cleanup lands, naming the final runtime signature and the exact callers/tests that were updated.
 
 #### Testing
 
 Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Because Task 21 changes the shared server-side execution seam plus command/flow callers, prove the cleanup with the server build plus the full current-repository server unit and cucumber summary suites.
 
-1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
-2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
-3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: Re-read the shared execution seam, the command and flow callers, and the focused command/flow tests before editing. The stale owner-era surface is currently limited to `executeReingestRequest(...)` plus three caller arguments, so the cleanup can stay narrow without reopening the landed `sourceId` / `working` / `plan_scope` behavior.
+- Subtask 2: Removed `currentOwnerSourceId` from the `executeReingestRequest(...)` input contract in `server/src/ingest/reingestExecution.ts` and deleted the dead argument from the command, flow-command, and dedicated-flow callers. The cleanup stayed limited to the stale owner-era surface and did not add any compatibility shim back in.
+- Subtask 3: No focused test source changes were needed because none of the command/flow tests still constructed the dead field directly. Re-checking with repository search after the code edit confirmed `currentOwnerSourceId` is gone from the server runtime and test surfaces, leaving only the surviving `sourceId`, `working`, and `plan_scope` inputs in play.
+- Subtask 4: Final runtime signature is `executeReingestRequest({ request, surface, workingRepositoryPath, deps })`. Updated callers are `server/src/agents/commandsRunner.ts` plus the flow-command and dedicated-flow re-ingest paths in `server/src/flows/service.ts`; no focused test files required direct edits for this contract cleanup.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the shared re-ingest signature cleanup did not introduce any server build drift.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the dead owner-era parameter cleanup also held across the full feature-level server flow suite.
+
+- Git Commits:
 
 ---
 

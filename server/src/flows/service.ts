@@ -2803,7 +2803,6 @@ async function runFlowUnlocked(params: {
               const result = await executeReingestRequest({
                 request: reingestItem,
                 surface: 'flow_command',
-                currentOwnerSourceId: commandLoad.sourceId,
                 workingRepositoryPath:
                   params.repositoryContext.workingRepositoryPath,
                 deps: {
@@ -2971,7 +2970,6 @@ async function runFlowUnlocked(params: {
       result = await executeReingestRequest({
         request: step,
         surface: 'flow',
-        currentOwnerSourceId: params.repositoryContext.flowSourceId,
         workingRepositoryPath: params.repositoryContext.workingRepositoryPath,
         deps: {
           listIngestedRepositories:

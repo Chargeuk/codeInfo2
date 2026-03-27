@@ -325,7 +325,6 @@ export async function runAgentCommandRunner(
         const result = await executeReingestRequest({
           request: item,
           surface: 'command',
-          currentOwnerSourceId: params.sourceId,
           workingRepositoryPath: params.working_folder,
           deps: {
             listIngestedRepositories:

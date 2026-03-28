@@ -276,6 +276,15 @@ const getFlowExecutionId = (conversationId: string) => {
   return flags.flow?.executionId as string;
 };
 
+const getFlowChildExecutionId = (conversationId: string) => {
+  const conversation = memoryConversations.get(conversationId);
+  const flags = (conversation?.flags ?? {}) as {
+    flowChild?: { executionId?: string };
+  };
+  assert.equal(typeof flags.flowChild?.executionId, 'string');
+  return flags.flowChild?.executionId as string;
+};
+
 const withMarkdownFlowHarness = async (
   task: (params: {
     tempRoot: string;
@@ -500,6 +509,10 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
     assert.ok(conversation);
     assert.equal(conversation?.title, customTitle);
     assert.equal(conversation?.flowName, 'llm-basic');
+    assert.equal(
+      getFlowChildExecutionId(getAgentConversationId(conversationId)),
+      getFlowExecutionId(conversationId),
+    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { ConversationModel } from '../../mongo/conversation.js';
 import {
   listConversations,
+  updateConversationFlowChildExecution,
   updateConversationFlowState,
   updateConversationWorkingFolder,
 } from '../../mongo/repo.js';
@@ -127,6 +128,53 @@ test('updateConversationWorkingFolder persists flags.workingFolder via nested $s
   });
 });
 
+test('updateConversationFlowChildExecution persists flags.flowChild.executionId via nested $set', async () => {
+  const originalReady = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    value: 1,
+    configurable: true,
+  });
+
+  const original = ConversationModel.findByIdAndUpdate;
+  const captured: Array<{
+    id: unknown;
+    update: unknown;
+    options: unknown;
+  }> = [];
+
+  ConversationModel.findByIdAndUpdate = ((
+    id: unknown,
+    update: unknown,
+    options: unknown,
+  ) => {
+    captured.push({ id, update, options });
+    return { exec: async () => null } as unknown as ReturnType<
+      typeof ConversationModel.findByIdAndUpdate
+    >;
+  }) as typeof ConversationModel.findByIdAndUpdate;
+
+  try {
+    await updateConversationFlowChildExecution({
+      conversationId: 'agent-1',
+      executionId: 'execution-child-1',
+    });
+  } finally {
+    ConversationModel.findByIdAndUpdate = original;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: originalReady,
+      configurable: true,
+    });
+  }
+
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0]?.id, 'agent-1');
+  assert.deepEqual(captured[0]?.update, {
+    $set: {
+      'flags.flowChild.executionId': 'execution-child-1',
+    },
+  });
+});
+
 test('writing flags.workingFolder does not replace sibling flags such as threadId', async () => {
   const originalReady = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
@@ -172,6 +220,22 @@ test('listConversations surfaces flags.workingFolder plus expanded flags.flow st
         lean: async () =>
           [
             {
+              _id: 'child-1',
+              provider: 'codex',
+              model: 'gpt-5',
+              title: 'Flow: example (main)',
+              agentName: 'coding_agent',
+              flags: {
+                flowChild: {
+                  executionId: 'execution-1',
+                },
+              },
+              lastMessageAt: new Date('2025-01-01T00:01:00Z'),
+              archivedAt: null,
+              createdAt: new Date('2025-01-01T00:01:00Z'),
+              updatedAt: new Date('2025-01-01T00:01:00Z'),
+            },
+            {
               _id: 'flow-1',
               provider: 'codex',
               model: 'gpt-5',
@@ -204,8 +268,13 @@ test('listConversations surfaces flags.workingFolder plus expanded flags.flow st
       limit: 10,
       includeArchived: true,
     });
-    assert.equal(items.length, 1);
+    assert.equal(items.length, 2);
     assert.deepEqual(items[0]?.flags, {
+      flowChild: {
+        executionId: 'execution-1',
+      },
+    });
+    assert.deepEqual(items[1]?.flags, {
       workingFolder: '/repos/working-root',
       flow: {
         executionId: 'execution-1',

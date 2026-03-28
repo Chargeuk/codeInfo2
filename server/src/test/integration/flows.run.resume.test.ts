@@ -78,6 +78,15 @@ const getFlowExecutionId = (conversationId: string) => {
   return flags.flow?.executionId as string;
 };
 
+const getFlowChildExecutionId = (conversationId: string) => {
+  const conversation = memoryConversations.get(conversationId);
+  const flags = (conversation?.flags ?? {}) as {
+    flowChild?: { executionId?: string };
+  };
+  assert.equal(typeof flags.flowChild?.executionId, 'string');
+  return flags.flowChild?.executionId as string;
+};
+
 const buildApp = () => {
   const app = express();
   app.use(
@@ -108,6 +117,7 @@ test('startFlowRun resumes after resumeStepPath', async () => {
   process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-1';
+  const childConversationId = 'agent-conv-resume-1';
   const originalTitle = 'Flow: resume-basic';
   const customTitle = 'Resume Custom Title';
   const captured: string[] = [];
@@ -140,8 +150,27 @@ test('startFlowRun resumes after resumeStepPath', async () => {
         executionId: 'resume-execution-1',
         stepPath: [0],
         loopStack: [{ loopStepPath: [0], iteration: 1 }],
-        agentConversations: {},
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
         agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      flowChild: {
+        executionId: 'resume-execution-1',
       },
     },
     lastMessageAt: new Date(),
@@ -165,9 +194,23 @@ test('startFlowRun resumes after resumeStepPath', async () => {
     const conversation = memoryConversations.get(conversationId);
     assert.equal(conversation?.title, originalTitle);
     assert.equal(getFlowExecutionId(conversationId), 'resume-execution-1');
+    assert.equal(
+      (
+        (conversation?.flags ?? {}) as {
+          flow?: { agentConversations?: Record<string, string> };
+        }
+      ).flow?.agentConversations?.['coding_agent:resume-test'],
+      childConversationId,
+    );
+    assert.equal(
+      getFlowChildExecutionId(childConversationId),
+      'resume-execution-1',
+    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;
@@ -333,7 +376,10 @@ test('startFlowRun backfills legacy executionId on resume', async () => {
     });
 
     assert.equal(result.conversationId, conversationId);
-    await waitFor(() => (memoryTurns.get(conversationId) ?? []).length >= 2, 5000);
+    await waitFor(
+      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+      5000,
+    );
 
     const conversation = memoryConversations.get(conversationId);
     const flags = (conversation?.flags ?? {}) as {
@@ -355,6 +401,231 @@ test('startFlowRun backfills legacy executionId on resume', async () => {
       memoryConversations.delete(childConversationId);
       memoryTurns.delete(childConversationId);
     });
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun backfills legacy child executionId on resume', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-child-backfill-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-conv-child-legacy';
+  const childConversationId = 'agent-resume-conv-child-legacy';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-child-legacy',
+        stepPath: [],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {},
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'resume-basic',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    await waitFor(
+      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+      5000,
+    );
+    assert.equal(
+      getFlowChildExecutionId(childConversationId),
+      'resume-execution-child-legacy',
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run rejects conflicting child execution marker', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-child-conflict-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+  const app = buildApp();
+
+  const flowConversationId = 'flow-resume-conv-child-conflict';
+  const agentConversationId = 'agent-conv-child-conflict';
+  memoryConversations.set(flowConversationId, {
+    _id: flowConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-parent-1',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': agentConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(agentConversationId, {
+    _id: agentConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Agent: conflicting-child',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      flowChild: {
+        executionId: 'other-execution',
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    const res = await supertest(app)
+      .post('/flows/resume-basic/run')
+      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'invalid_request');
+  } finally {
+    memoryConversations.delete(flowConversationId);
+    memoryConversations.delete(agentConversationId);
+    memoryTurns.delete(flowConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run rejects missing child conversation mapping', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-child-missing-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+  const app = buildApp();
+
+  const flowConversationId = 'flow-resume-conv-child-missing';
+  memoryConversations.set(flowConversationId, {
+    _id: flowConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-parent-missing',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': 'missing-child-conversation',
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    const res = await supertest(app)
+      .post('/flows/resume-basic/run')
+      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'invalid_request');
+  } finally {
+    memoryConversations.delete(flowConversationId);
+    memoryTurns.delete(flowConversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

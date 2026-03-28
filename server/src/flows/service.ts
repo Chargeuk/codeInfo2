@@ -62,6 +62,7 @@ import type { Conversation } from '../mongo/conversation.js';
 import {
   appendTurn,
   createConversation,
+  updateConversationFlowChildExecution,
   updateConversationMeta,
   updateConversationFlowState,
   updateConversationThreadId,
@@ -300,6 +301,83 @@ async function getConversation(
     .exec()) as Conversation | null;
 }
 
+const getFlowChildExecutionId = (
+  conversation: Conversation | null | undefined,
+): string | null => {
+  const flags = (conversation?.flags ?? {}) as {
+    flowChild?: { executionId?: unknown };
+  };
+  if (
+    typeof flags.flowChild?.executionId === 'string' &&
+    flags.flowChild.executionId.trim().length > 0
+  ) {
+    return flags.flowChild.executionId.trim();
+  }
+  return null;
+};
+
+const persistFlowChildExecutionId = async (params: {
+  conversationId: string;
+  executionId: string;
+}) => {
+  if (shouldUseMemoryPersistence()) {
+    const existing = memoryConversations.get(params.conversationId);
+    if (!existing) return;
+    updateMemoryConversationMeta(params.conversationId, {
+      flags: {
+        ...(existing.flags ?? {}),
+        flowChild: {
+          ...((
+            (existing.flags ?? {}) as { flowChild?: Record<string, unknown> }
+          ).flowChild ?? {}),
+          executionId: params.executionId,
+        },
+      },
+    });
+    return;
+  }
+
+  await updateConversationFlowChildExecution(params);
+};
+
+const ensureFlowChildConversationOwnership = async (params: {
+  conversationId: string;
+  agentType: string;
+  executionId: string;
+}) => {
+  const conversation = await getConversation(params.conversationId);
+  if (!conversation) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `Missing child conversation for ${params.agentType}`,
+    );
+  }
+  if (conversation.agentName !== params.agentType) {
+    throw toFlowRunError(
+      'AGENT_MISMATCH',
+      `Agent mismatch for ${params.agentType}`,
+    );
+  }
+
+  const childExecutionId = getFlowChildExecutionId(conversation);
+  if (
+    childExecutionId &&
+    childExecutionId.trim() !== params.executionId.trim()
+  ) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      `Child conversation execution mismatch for ${params.agentType}`,
+    );
+  }
+
+  if (!childExecutionId) {
+    await persistFlowChildExecutionId({
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+    });
+  }
+};
+
 const persistConversationWorkingFolder = async (params: {
   conversationId: string;
   workingFolder?: string | null;
@@ -439,6 +517,7 @@ const ensureFlowAgentConversation = async (params: {
   flowName: string;
   agentType: string;
   identifier: string;
+  executionId: string;
   modelId: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
@@ -468,9 +547,12 @@ const ensureFlowAgentConversation = async (params: {
       title,
       agentName: params.agentType,
       source: params.source,
-      flags: params.workingFolder
-        ? { workingFolder: params.workingFolder }
-        : {},
+      flags: {
+        ...(params.workingFolder
+          ? { workingFolder: params.workingFolder }
+          : {}),
+        flowChild: { executionId: params.executionId },
+      },
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -510,7 +592,10 @@ const ensureFlowAgentConversation = async (params: {
     title,
     agentName: params.agentType,
     source: params.source,
-    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
+    flags: {
+      ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
+      flowChild: { executionId: params.executionId },
+    },
     lastMessageAt: now,
   });
   if (params.customTitle) {
@@ -596,6 +681,7 @@ const ensureAgentState = async (params: {
   runtimeState: FlowExecutionRuntimeState;
   agentType: string;
   identifier: string;
+  executionId: string;
   flowName: string;
   modelId: string;
   workingFolder?: string;
@@ -610,10 +696,16 @@ const ensureAgentState = async (params: {
       flowName: params.flowName,
       agentType: params.agentType,
       identifier: params.identifier,
+      executionId: params.executionId,
       modelId: params.modelId,
       customTitle: params.customTitle,
       source: params.source,
       workingFolder: params.workingFolder,
+    });
+    await ensureFlowChildConversationOwnership({
+      conversationId: existing.conversationId,
+      agentType: params.agentType,
+      executionId: params.executionId,
     });
     existing.workingFolder = params.workingFolder;
     return { state: existing, isNew: false };
@@ -629,10 +721,16 @@ const ensureAgentState = async (params: {
     flowName: params.flowName,
     agentType: params.agentType,
     identifier: params.identifier,
+    executionId: params.executionId,
     modelId: params.modelId,
     customTitle: params.customTitle,
     source: params.source,
     workingFolder: params.workingFolder,
+  });
+  await ensureFlowChildConversationOwnership({
+    conversationId: state.conversationId,
+    agentType: params.agentType,
+    executionId: params.executionId,
   });
   return { state, isNew: true };
 };
@@ -1920,10 +2018,11 @@ const validateResumeAgentConversations = async (
   const entries = Object.entries(resumeState.agentConversations);
   for (const [key, conversationId] of entries) {
     const agentType = key.split(':')[0] ?? '';
-    const conversation = await getConversation(conversationId);
-    if (conversation && conversation.agentName !== agentType) {
-      throw toFlowRunError('AGENT_MISMATCH', `Agent mismatch for ${agentType}`);
-    }
+    await ensureFlowChildConversationOwnership({
+      conversationId,
+      agentType,
+      executionId: resumeState.executionId,
+    });
   }
 };
 
@@ -2341,6 +2440,7 @@ async function runFlowUnlocked(params: {
       runtimeState,
       agentType: instructionParams.agentType,
       identifier: instructionParams.identifier,
+      executionId: params.executionId,
       flowName: params.flowName,
       modelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,

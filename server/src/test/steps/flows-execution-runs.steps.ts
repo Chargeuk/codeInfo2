@@ -83,6 +83,33 @@ const getStoredExecutionId = async (conversationId: string) => {
   return flowFlags.flow?.executionId as string;
 };
 
+const getStoredChildConversationId = async (conversationId: string) => {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const conversation = await waitForConversation(conversationId);
+    const flowFlags = (conversation.flags ?? {}) as {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+    const childConversationId =
+      flowFlags.flow?.agentConversations?.['coding_agent:resume-test'];
+    if (typeof childConversationId === 'string') {
+      return childConversationId;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail(
+    `Timed out waiting for child conversation mapping ${conversationId}`,
+  );
+};
+
+const getStoredChildExecutionId = async (conversationId: string) => {
+  const conversation = await waitForConversation(conversationId);
+  const flags = (conversation.flags ?? {}) as {
+    flowChild?: { executionId?: string };
+  };
+  assert.equal(typeof flags.flowChild?.executionId, 'string');
+  return flags.flowChild?.executionId as string;
+};
+
 Before({ tags: '@mongo' }, async () => {
   rememberedConversationIds.clear();
   rememberedExecutionIds.clear();
@@ -333,6 +360,28 @@ Then(
     );
     assert.equal(
       await getStoredExecutionId(conversationId),
+      rememberedExecutionId,
+    );
+  },
+);
+
+Then(
+  'the child conversation execution id for {string} matches {string}',
+  async (conversationKey: string, executionKey: string) => {
+    const conversationId = rememberedConversationIds.get(conversationKey);
+    const rememberedExecutionId = rememberedExecutionIds.get(executionKey);
+    assert(
+      conversationId,
+      `Missing remembered conversation ${conversationKey}`,
+    );
+    assert(
+      rememberedExecutionId,
+      `Missing remembered execution ${executionKey}`,
+    );
+    const childConversationId =
+      await getStoredChildConversationId(conversationId);
+    assert.equal(
+      await getStoredChildExecutionId(childConversationId),
       rememberedExecutionId,
     );
   },

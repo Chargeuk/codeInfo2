@@ -542,7 +542,7 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
-  it('starts a fresh run with a new conversation id even when an older flow conversation is selected', async () => {
+  it('starts a fresh run with a new conversation id and preserved custom title even when an older flow conversation is selected', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
 
@@ -627,7 +627,7 @@ describe('Flows page run/resume controls', () => {
       const [, init] = runCall as [unknown, RequestInit];
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
       expect(body.conversationId).not.toBe('flow-1');
-      expect(body.customTitle).toBeUndefined();
+      expect(body.customTitle).toBe('Daily recap');
     });
   });
 

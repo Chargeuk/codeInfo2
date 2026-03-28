@@ -1128,8 +1128,7 @@ export default function FlowsPage() {
   const isWorkingFolderDisabled =
     flowsLoading || !!flowsError || flowWorkingFolderLocked;
   const showStop = isSending || isStopping;
-  const customTitleDisabled =
-    isSending || Boolean(resumeStepPath) || selectedFlowHasHistory;
+  const customTitleDisabled = isSending || Boolean(resumeStepPath);
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversation?.conversationId;

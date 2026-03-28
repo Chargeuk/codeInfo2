@@ -461,7 +461,7 @@ Close the server-side review finding by removing the partial-failure window in l
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -480,18 +480,26 @@ Close the client-side review finding by making the Story 53 proof match the inte
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the review findings plus the fresh-run code path in `client/src/pages/FlowsPage.tsx`, the request-shaping logic in `client/src/api/flows.ts`, and the focused proof file `client/src/test/flowsPage.run.test.tsx`. Confirm the intended Story 53 custom-title contract for a fresh Run from an older selected conversation before changing either the proof or runtime.
-2. [ ] Current Repository: Update `client/src/test/flowsPage.run.test.tsx` so the fresh-run proof from an older selected conversation asserts the correct Story 53 behavior: the request uses a new conversation id and preserves the intended `customTitle` semantics for a brand-new run. If that proof exposes a real runtime mismatch, fix the runtime in `client/src/pages/FlowsPage.tsx` and/or `client/src/api/flows.ts` so the product matches the canonical plan before closing this task.
-3. [ ] Current Repository: Keep the existing Run-versus-Resume split explicit. The updated proof must still show that Resume reuses the selected stopped conversation id while Run does not, and it must not accidentally collapse those two cases back together while fixing the custom-title assertion.
-4. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-5. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+1. [x] Current Repository: Re-read the review findings plus the fresh-run code path in `client/src/pages/FlowsPage.tsx`, the request-shaping logic in `client/src/api/flows.ts`, and the focused proof file `client/src/test/flowsPage.run.test.tsx`. Confirm the intended Story 53 custom-title contract for a fresh Run from an older selected conversation before changing either the proof or runtime.
+2. [x] Current Repository: Update `client/src/test/flowsPage.run.test.tsx` so the fresh-run proof from an older selected conversation asserts the correct Story 53 behavior: the request uses a new conversation id and preserves the intended `customTitle` semantics for a brand-new run. If that proof exposes a real runtime mismatch, fix the runtime in `client/src/pages/FlowsPage.tsx` and/or `client/src/api/flows.ts` so the product matches the canonical plan before closing this task.
+3. [x] Current Repository: Keep the existing Run-versus-Resume split explicit. The updated proof must still show that Resume reuses the selected stopped conversation id while Run does not, and it must not accidentally collapse those two cases back together while fixing the custom-title assertion.
+4. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+5. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because the review finding is in the client run-start proof surface and may require a small runtime correction in the Flows page or flow API helper. If the wrapper reports `failed`, unexpected warnings, or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because the review finding is specifically about incorrect client acceptance proof and the Run-versus-Resume payload contract. If `failed > 0`, inspect the exact printed client test log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper reruns such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full `npm run test:summary:client` wrapper.
+1. [x] Current Repository: Run `npm run build:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because the review finding is in the client run-start proof surface and may require a small runtime correction in the Flows page or flow API helper. If the wrapper reports `failed`, unexpected warnings, or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
+2. [x] Current Repository: Run `npm run test:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because the review finding is specifically about incorrect client acceptance proof and the Run-versus-Resume payload contract. If `failed > 0`, inspect the exact printed client test log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper reruns such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full `npm run test:summary:client` wrapper.
 
 #### Implementation notes
+
+- Subtask 1: Re-read the review finding plus the current fresh-run code path in `FlowsPage.tsx`, `flows.ts`, and `flowsPage.run.test.tsx`, and confirmed the intended Story 53 contract is fresh Run plus preserved `customTitle` even when an older flow conversation is selected.
+- Subtask 2: Updated the focused Story 53 proof in `client/src/test/flowsPage.run.test.tsx`, then fixed the real runtime mismatch in `FlowsPage.tsx` by keeping the custom-title input enabled for fresh runs from older selected conversations while leaving resume-time omission rules unchanged in `flows.ts`.
+- Subtask 3: Kept the Run-versus-Resume split explicit by narrowing the UI fix to the fresh-run input gating; Resume coverage remains separate and still proves Resume reuses the selected stopped conversation id while Run does not.
+- Subtask 4: Ran `npm run lint` after the Task 6 proof and runtime correction and the full repository eslint pass completed cleanly without follow-up fixes.
+- Subtask 5: `npm run format:check` passed cleanly after the Task 6 proof and runtime correction, so no formatter fallback was needed for this task.
+- Testing 1: `npm run build:summary:client` passed cleanly with `warning_count: 0`, confirming the Task 6 proof-and-runtime correction leaves the supported client typecheck-and-build wrapper green.
+- Testing 2: Re-ran the full `npm run test:summary:client` wrapper after fixing the Flows-page custom-title input gating; the full client suite passed cleanly with `654/654` green after the focused Story 53 proof also passed in isolation.
 
 ### Task 7. Revalidate Story 53 After Review Fixes
 

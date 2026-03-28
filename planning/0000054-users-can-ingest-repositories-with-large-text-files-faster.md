@@ -29,7 +29,11 @@ The user has now fixed the provider-control contract more precisely. Each provid
 
 The initial defaults are also now fixed. OpenAI should start with batch size `20` and max in-flight requests `10`. LM Studio should start with batch size `1` and max in-flight requests `4`. OpenAI batching must still stay inside the provider's official request limits, including the current maximum input-array size and total-token limit for a single embeddings request. The dispatcher should also be slot-driven rather than wave-driven: if a provider is already at its max in-flight count and one request finishes, the next eligible embedding work should be sent immediately instead of waiting for the rest of that in-flight group to finish first.
 
+The batching rule is now also more specific. OpenAI batches may mix chunks from different files instead of staying file-local, as long as the runtime preserves original file and chunk ordering metadata and reassembles persisted output deterministically after responses return. This lets the dispatcher keep provider capacity busy even when some files produce only a few chunks.
+
 The queue contract is now also fixed. The waiting chunk queue should still be sized from max-in-flight behavior rather than becoming a fully manual tuning surface, but the server should expose one absolute queue-cap environment variable in `server/.env` so operators can protect memory when needed. That variable should default to `-1`, which means "do not apply an extra absolute cap beyond the normal queue logic." A value of `0` means "do not allow a waiting queue at all," and any positive value caps the queue at that many waiting items even if the derived queue logic would otherwise allow more.
+
+Cancellation behavior is also now more precise. If the user cancels an ingest while multiple embedding requests are in flight, the dispatcher should stop sending any new embedding work immediately. It should try to abort already in-flight provider requests where the provider client supports that behavior, but it should not depend on every provider supporting perfect mid-flight cancellation. Any late-arriving results from requests that were already too far along to stop should be ignored rather than written after cancellation.
 
 The AST optimization should also stay conservative. The user does not want partial AST updates that only recalculate the changed source file. Instead, the rule should be:
 
@@ -37,6 +41,8 @@ The AST optimization should also stay conservative. The user does not want parti
 - if any AST-supported file was added, changed, or deleted, rebuild the full AST exactly as the current full-rebuild path already does.
 
 For this story, a file move should stay as delete-plus-add rather than introducing a separate rename detector. That means an AST-supported move is treated as AST-relevant because it produces an AST-supported delete and add, which still triggers the existing full AST rebuild.
+
+That same conservative rule also applies when a move crosses the AST-supported boundary. If either side of the move is AST-supported, treat the move as AST-relevant and rebuild the full AST. This keeps the AST dataset correct even when a file moves into or out of the supported set under a new path.
 
 That means the story is intentionally about doing less wasted work when only non-AST files changed, not about making AST indexing partially incremental for changed source files.
 
@@ -59,14 +65,17 @@ Overall, when the story is complete, users should be able to ingest repositories
 - LM Studio's effective batch size remains `1` even if its configured batching value is higher.
 - The checked-in `.env` file documents initial provider defaults of OpenAI batch size `20`, OpenAI max in-flight `10`, LM Studio batch size `1`, and LM Studio max in-flight `4`.
 - OpenAI's effective batching continues to obey the provider's official single-request embedding limits even when the configured batch size is larger.
+- OpenAI batches may contain chunks from different files, as long as persisted metadata and output ordering remain deterministic.
 - The embedding dispatcher applies backpressure or another bounded-queue strategy so a very large file does not simply move the bottleneck into unbounded in-memory chunk accumulation.
 - The embedding dispatcher refills provider capacity immediately when any in-flight embedding request completes, rather than waiting for a whole wave of in-flight requests to finish before dispatching more work.
 - The server `.env` file includes an absolute waiting-queue cap setting with default `-1`, where `-1` disables the extra cap, `0` disables the waiting queue, and positive values cap the waiting queue size.
 - Chunk order, chunk metadata, and persisted vector metadata remain deterministic even when embedding requests run concurrently.
 - Cancellation and failure behavior remain coherent when multiple embedding requests are in flight.
+- On cancel, the dispatcher stops sending new embedding work immediately, attempts best-effort aborts for in-flight requests where supported, and ignores late results from requests that could not be stopped in time.
 - During delta re-embed, AST rebuild is skipped entirely when the delta contains no AST-supported added, changed, or deleted file.
 - During delta re-embed, if the delta contains any AST-supported added, changed, or deleted file, the runtime rebuilds the full AST using the existing full-rebuild behavior rather than a changed-file-only AST update.
 - File moves stay as delete-plus-add in this story rather than adding separate rename detection, so an AST-supported move still counts as AST-relevant work.
+- A file move that crosses the AST-supported boundary still counts as AST-relevant work if either side of the move is AST-supported.
 - Markdown-only or other non-AST-only delta re-embeds no longer trigger a full AST rebuild.
 - The story preserves current correctness guarantees for AST data by avoiding partial changed-file-only AST persistence logic.
 - Existing ingest outputs, provider selection behavior, and root metadata remain compatible with the current ingest model unless a change is explicitly required for these optimizations.
@@ -94,19 +103,6 @@ Overall, when the story is complete, users should be able to ingest repositories
 
 ### Questions
 
-1. Should one OpenAI batch be allowed to mix chunks from different files, or should batches stay within one file?
-   - Why this is important: The story already says OpenAI can batch multiple inputs, but batching across file boundaries changes retry behavior, ordering, and how well small files can share provider capacity.
-   - Best Answer: Allow batches to mix chunks from different files, as long as original file and chunk ordering metadata is preserved and persistence stays deterministic. That gives the dispatcher the best chance to keep provider slots full instead of waiting for one file at a time, while still letting the runtime rebuild stable output order after responses return.
-   - Where this answer came from: Repo evidence from [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/ingest/providers/types.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/types.ts), [server/src/ingest/providers/openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), and [server/src/ingest/chunker.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/chunker.ts), which show the current serial per-chunk/per-file shape and the need to preserve deterministic metadata; external evidence from OpenAI embeddings docs showing one request can take an array of input strings, plus DeepWiki guidance that batches can safely mix items from different sources when ordering metadata is carried separately. Context7 could not be queried because the workspace quota is exhausted today, and web search evidence included the official OpenAI embeddings API and MDN docs reviewed for this planning round.
-2. When cancel is pressed, should new embedding work stop immediately even if a few requests are already finishing?
-   - Why this is important: The story already requires coherent cancellation with multiple requests in flight, but we still need one clear rule for what “cancel” means once some provider requests have already been sent.
-   - Best Answer: Yes. Stop dispatching any new embedding work immediately, try to abort in-flight requests where the provider/client supports it, and ignore late-arriving results from requests that were already too far along to stop. That is the safest answer because it makes cancel feel immediate without depending on every provider to support perfect mid-flight aborts.
-   - Where this answer came from: Repo evidence from [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/ingest/providers/openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), [server/src/ingest/providers/lmstudioEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/lmstudioEmbeddingProvider.ts), and [server/src/routes/ingestCancel.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestCancel.ts), which show current cancellation is run-level and not request-level; external evidence from MDN `AbortController` guidance and DeepWiki queue-cancellation patterns recommending immediate stop of new work plus best-effort cleanup for active work. Context7 could not be queried because the workspace quota is exhausted today.
-3. If a file move crosses the AST-supported boundary, should it still count as AST-relevant work?
-   - Why this is important: The story already keeps moves as delete-plus-add, but a move from unsupported to supported, or supported to unsupported, still needs one clear AST rule.
-   - Best Answer: Yes. If either side of the move is AST-supported, treat the move as AST-relevant and rebuild the full AST. That is the safest answer because a delete-plus-add across the AST boundary changes which files belong in the AST dataset, so the conservative full rebuild rule should still apply.
-   - Where this answer came from: Repo evidence from [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [server/src/ingest/deltaPlan.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/deltaPlan.ts), [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [server/src/test/unit/ingest-ast-indexing.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-ast-indexing.test.ts), which show rename detection is not first-class and AST rebuild decisions stay conservative; external evidence from DeepWiki queue/batch guidance was not needed beyond the general conservative-recovery precedent because this is mainly a repository-specific AST correctness rule. Context7 could not be queried because the workspace quota is exhausted today.
-
 ## Decisions
 
 1. Provider batching and max-in-flight controls should stay separate for each provider.
@@ -129,6 +125,24 @@ Overall, when the story is complete, users should be able to ingest repositories
    - What the answer is: Keep the normal queue behavior tied to max in-flight logic, but add one absolute queue-cap setting in `server/.env` to protect memory when needed. That env var should default to `-1`, meaning no extra absolute cap beyond the normal queue logic. A value of `0` means no waiting queue at all, and any positive value caps the waiting queue at that many items.
    - Where the answer came from: User decision in this planning session, supported by repo evidence in [config.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/config.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [ingest-batch-flush.feature](/home/d_a_s/code/codeInfo2/server/src/test/features/ingest-batch-flush.feature), plus Node stream backpressure guidance previously reviewed through Context7 and DeepWiki.
    - Why it is the best answer: It keeps the default operator surface simple, preserves the performance benefits of queue sizing derived from concurrency, and still gives operators one clear emergency brake for memory-heavy environments.
+4. OpenAI batches may mix chunks from different files.
+   - The question being addressed: Should one OpenAI batch be allowed to mix chunks from different files, or should batches stay within one file?
+   - Why the question matters: The story already says OpenAI can batch multiple inputs, but batching across file boundaries changes retry behavior, ordering, and how well small files can share provider capacity.
+   - What the answer is: Allow batches to mix chunks from different files, as long as original file and chunk ordering metadata is preserved and persistence stays deterministic.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/ingest/providers/types.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/types.ts), [server/src/ingest/providers/openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), and [server/src/ingest/chunker.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/chunker.ts), plus external evidence from official OpenAI embeddings docs and DeepWiki guidance that batches can safely mix items from different sources when ordering metadata is carried separately. Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: It lets the dispatcher keep provider slots full instead of waiting on one file at a time, while still preserving deterministic persisted output order.
+5. Cancel should stop new embedding work immediately and ignore late results.
+   - The question being addressed: When cancel is pressed, should new embedding work stop immediately even if a few requests are already finishing?
+   - Why the question matters: The story already requires coherent cancellation with multiple requests in flight, but we still need one clear rule for what “cancel” means once some provider requests have already been sent.
+   - What the answer is: Stop dispatching any new embedding work immediately, try to abort in-flight requests where the provider/client supports it, and ignore late-arriving results from requests that were already too far along to stop.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/ingest/providers/openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), [server/src/ingest/providers/lmstudioEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/lmstudioEmbeddingProvider.ts), and [server/src/routes/ingestCancel.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestCancel.ts), plus external evidence from MDN `AbortController` guidance and DeepWiki queue-cancellation patterns. Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: It makes cancel feel immediate without depending on every provider to support perfect mid-flight aborts, and it prevents cancelled work from writing late results back into the run.
+6. Moves across the AST-supported boundary still count as AST-relevant.
+   - The question being addressed: If a file move crosses the AST-supported boundary, should it still count as AST-relevant work?
+   - Why the question matters: The story already keeps moves as delete-plus-add, but a move from unsupported to supported, or supported to unsupported, still needs one clear AST rule.
+   - What the answer is: If either side of the move is AST-supported, treat the move as AST-relevant and rebuild the full AST.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [server/src/ingest/deltaPlan.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/deltaPlan.ts), [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [server/src/test/unit/ingest-ast-indexing.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-ast-indexing.test.ts). Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: A delete-plus-add across the AST boundary changes which files belong in the AST dataset, so the conservative full rebuild rule should still apply.
 
 ## Implementation Ideas
 
@@ -142,10 +156,13 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Clamp configured provider values to provider-supported limits at runtime, so unsupported high values degrade safely instead of failing the run or emitting a warning for that reason alone.
 - Extend the provider model interface so ingest can use a batch-oriented embedding method when available and fall back to bounded concurrent single-item requests otherwise.
 - Keep the dispatcher queue bounded so performance gains do not come at the cost of uncontrolled memory growth on very large text files.
+- Allow OpenAI batches to mix chunks from different files, but preserve stable file and chunk indexes so persistence order stays deterministic.
 - Use slot-based dispatch so each completed in-flight request immediately pulls the next queued embedding work instead of waiting for an entire wave to finish.
 - Apply the absolute queue cap after the normal queue-sizing logic so the env value acts as a memory-protection ceiling rather than replacing the default queue behavior.
 - Preserve deterministic metadata ordering by carrying original file and chunk indexes through the concurrent dispatch path and reassembling results in that stable order before persistence.
+- On cancel, stop scheduling new embedding work immediately, attempt best-effort aborts for in-flight requests where supported, and ignore any late results that still arrive after cancellation.
 - During delta re-embed, derive a separate `astRelevantDelta` check from the normal delta plan and only enter the AST rebuild path when that filtered delta contains at least one AST-supported add, change, or delete.
 - Treat file moves as delete-plus-add rather than adding rename detection, so AST-supported moves naturally fall into the same conservative AST-relevant path.
+- Treat moves across the AST-supported boundary as AST-relevant if either side of the move is AST-supported.
 - Reuse the existing full AST rebuild path when `astRelevantDelta` is non-empty rather than designing a partial AST persistence model in this story.
 - Add targeted unit and integration coverage for large Markdown chunking, provider concurrency limits, concurrent result ordering, cancellation with in-flight requests, OpenAI batch guardrails, LM Studio concurrency caps, and the new AST skip/full-rebuild gate.

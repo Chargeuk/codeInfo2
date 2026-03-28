@@ -13,7 +13,7 @@ Users can currently start ingest and re-embed work only when the server is idle.
 
 This story adds a durable whole-request queue for ingest and re-embed work. The queue is intentionally about request orchestration, not about how one ingest run chunks files or dispatches embeddings internally. When a request arrives, the server should normalize it to the canonical embed target path, store one queue record in MongoDB, and either start it immediately if nothing is active or leave it waiting until earlier queued work finishes.
 
-The queue should use one MongoDB collection for both waiting and currently running items. The currently running item stays in the collection until it reaches a terminal outcome. Once that run completes, the server must remove that queue record before it attempts to start the next oldest item. This ordering matters because a restart should be able to look at the same collection and simply start the oldest remaining item again without relying on a second persistent "in progress" state.
+The queue should use one MongoDB collection for both waiting and currently running items. The currently running item stays in the collection until it reaches a terminal outcome. Once that run completes, the server must remove that queue record before it attempts to start the next oldest item. If that delete fails, the server should log an error, surface an error state in the frontend, and keep retrying the delete with backoff while the queue remains stalled. This ordering matters because a restart should be able to look at the same collection and simply start the oldest remaining item again without relying on a second persistent "in progress" state.
 
 This story also fixes duplicate-request behavior. If a request arrives for a canonical embed target path that is already waiting in the queue, the server should not insert a second queue item. Instead, it should update that existing waiting item's stored settings in place, keep the same queue request id and queue position, return success, and log that the queued work was intentionally updated rather than duplicated. If the matching item is already running, the server should still avoid creating a second queue item, but it should not try to mutate the active run's settings mid-flight. This latest-settings-wins rule for waiting items applies across both start-ingest and re-embed requests once the server has resolved them to the same canonical embed target path.
 
@@ -36,7 +36,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - Queue order is FIFO by queue creation time.
 - On server startup, if no ingest is active and the queue collection contains leftover items, the server attempts to start the oldest remaining item automatically.
 - When an ingest or re-embed run reaches a terminal outcome, the server attempts to delete that queue item before it attempts to start the next queued item.
-- If queue-item deletion fails after a terminal run, the server does not start the next queued item until that queue-record removal problem is resolved or retried.
+- If queue-item deletion fails after a terminal run, the server logs an error, shows an error state in the frontend, retries the delete with backoff, and does not start the next queued item until that queue-record removal problem is resolved.
 - If a request arrives for a canonical embed target path that is already waiting in the queue, the server does not create a duplicate queue item.
 - For a matching waiting queue item, the newer request updates the stored queued settings in place, keeps the same queue request id, and keeps the same queue position.
 - If a matching queue item is already running, the server still avoids creating a duplicate queue item, but it does not mutate the active run's settings mid-flight.
@@ -73,11 +73,6 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 ### Questions
 
-1. If removing the finished queue item fails, should the server keep retrying automatically or stop and wait for a manual fix?
-   - Why this is important: The story already says the next queued run must not start before the finished queue record is removed, so we still need to decide whether recovery is automatic or purely manual.
-   - Best Answer: Retry deletion automatically with backoff, and keep the queue stalled until that delete succeeds. This is the best fit because transient MongoDB failures should self-heal where possible, while the queue still preserves FIFO ordering and never advances past an uncleared finished item.
-   - Where this answer came from: Repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md) and [server/src/ingest/lock.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/lock.ts), which already frame this story around single-flight ordering and delete-before-next semantics; external evidence from official MongoDB retryable-write guidance showing MongoDB is designed to recover from transient write failures with bounded retries; DeepWiki's BullMQ queue docs, which treat cleanup and stalled-job recovery as automatic retry territory rather than purely manual intervention; and Context7 could not be queried because the workspace quota is exhausted today.
-
 ## Decisions
 
 1. Queue position should count only waiting requests.
@@ -92,6 +87,12 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
    - What the answer is: If the matching queue item is still waiting, the newer request replaces the stored queued settings in place while keeping the same `requestId` and queue position. If the matching item is already running, the server still avoids creating a second queue item, but it does not mutate the active run's settings mid-flight.
    - Where the answer came from: User decision in this planning session, supported by repo evidence from [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), and [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), plus external evidence from DeepWiki's BullMQ docs showing queues often dedupe on one job identity while the product still chooses how to treat later duplicates. Context7 could not be queried because the workspace quota is exhausted today.
    - Why it is the best answer: It lets users correct a queued request without losing its place in line, while still avoiding the higher-risk behavior of trying to rewrite an ingest that has already started.
+3. Finished queue-item deletion should retry automatically and surface an error.
+   - The question being addressed: If removing the finished queue item fails, should the server keep retrying automatically or stop and wait for a manual fix?
+   - Why the question matters: The story already says the next queued run must not start before the finished queue record is removed, so we still need to decide whether recovery is automatic or purely manual and how visible that failure is to users.
+   - What the answer is: Retry deletion automatically with backoff, keep the queue stalled until that delete succeeds, log an error, and show an error state in the frontend while the queue is blocked.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md) and [server/src/ingest/lock.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/lock.ts), plus external evidence from official MongoDB retryable-write guidance showing MongoDB is designed to recover from transient write failures with bounded retries and DeepWiki's BullMQ queue docs, which treat cleanup and stalled-job recovery as automatic retry territory rather than purely manual intervention. Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: It preserves FIFO correctness, self-heals common transient failures, and still gives both operators and users a clear signal that the queue is blocked on cleanup rather than silently appearing idle.
 
 ## Implementation Ideas
 
@@ -105,6 +106,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
   - otherwise inserts a new queue item and returns its request id.
 - Add one shared `pumpIngestQueue()` function that starts the oldest queue item only when the existing in-memory ingest lock is idle.
 - Keep the active queue document in Mongo while the run is executing; on terminal completion, delete it first and only then call `pumpIngestQueue()` again.
+- If finished queue-item deletion fails, log the failure, expose a frontend-visible blocked error state, and retry deletion with backoff before allowing the queue to advance.
 - Run `pumpIngestQueue()` on server startup so leftover queue entries are resumed automatically in FIFO order.
 - Reuse the existing canonical path resolution logic so dedupe is based on the same normalized ingest target the runtime actually uses.
 - Update REST ingest/re-embed handlers to return queue-aware success payloads with `queued`, `requestId`, and `queuePosition`.

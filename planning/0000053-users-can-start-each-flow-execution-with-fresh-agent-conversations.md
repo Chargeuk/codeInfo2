@@ -68,7 +68,18 @@ This story should preserve the current lightweight shape wherever possible. The 
 
 ### Questions
 
-None. The execution-scoping and manual-child-chat behavior are now fixed for this story.
+1. When the same flow is started again, should it always open a new flow conversation, or can it restart inside an old one?
+   - Why this is important: This decides whether a "new execution" is truly separate from resume, or whether old conversation state can still bleed into a fresh run.
+   - Best Answer: It should always open a new flow conversation for a new execution. Resume should be the only path that reuses an existing flow conversation. This is the safest and simplest behavior because the current runtime already loads flow resume state from the parent conversation flags, so reusing an old parent conversation for a new execution would blur the line between "resume" and "start again". Workflow systems such as Temporal and GitHub Actions also distinguish a logical workflow from a specific run by giving each run its own run identity.
+   - Where this answer came from: Repo evidence from `server/src/flows/service.ts` flow start and resume-state loading, especially where `conversationId` defaults on start and where `flags.flow` is parsed and hydrated; repo evidence from this story's Description and Acceptance Criteria; external evidence from Temporal Workflow ID / Run ID docs and GitHub Actions workflow run ID docs.
+2. If two executions create child chats with the same title, should the Agents sidebar show which execution each one came from?
+   - Why this is important: Without a visible clue, users may not know which `planning_agent` or other child chat belongs to the flow run they want to inspect or continue.
+   - Best Answer: Yes. The sidebar should show a lightweight execution clue for flow-created child conversations, but not a major UI redesign. The current child conversation titles are based on flow name and identifier, so multiple executions can produce chats that look identical even when they belong to different runs. A small execution label or equivalent metadata would keep the story usable without making it larger than necessary.
+   - Where this answer came from: Repo evidence from `server/src/flows/service.ts` title-building for flow and child agent conversations; repo evidence from this story's requirement that child conversations remain visible and usable from the Agents page; external evidence from GitHub Actions workflow run history and run-number conventions, which separate repeated runs with lightweight run identifiers.
+3. When a stopped flow resumes after manual agent chat, should it use the updated agent conversation or the flow's last saved snapshot?
+   - Why this is important: This decides whether manual chat added while the flow is stopped actually changes what the resumed flow sees.
+   - Best Answer: It should use the updated agent conversation. The story already says child agent chats remain normal conversations and that manual chat should still be part of the conversation when the flow resumes. That means the flow should treat `flags.flow.agentConversations` as the pointer to the correct child conversation, but treat the child conversation itself as the live source of truth for the latest thread state when resuming.
+   - Where this answer came from: Repo evidence from this story's Description and Acceptance Criteria around manual child-chat preservation; repo evidence from `server/src/flows/service.ts` agent thread persistence and resume-state hydration; related repo precedent from `planning/0000029-flow-agent-transcripts-and-inflight-hydration.md`, which favors using the live persisted conversation data as the source of truth when rehydrating transcript state.
 
 ## Implementation Ideas
 

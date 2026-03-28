@@ -412,6 +412,7 @@ Run the full story acceptance pass, update the repository documentation that now
 - Task Dependencies: `Task 4`
 - Task Status: `__done__`
 - Git Commits:
+  - `9997e454` - `DEV-0000053 - persist legacy parent execution id before child backfill`
 
 #### Overview
 

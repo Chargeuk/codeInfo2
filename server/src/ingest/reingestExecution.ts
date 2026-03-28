@@ -483,7 +483,9 @@ export async function executeReingestRequest(params: {
   }
 
   const resolution = await resolvePlanScope({
-    workingRepositoryPath,
+    workingRepositoryPath: normalizeContainerPath(
+      workingRepository.containerPath,
+    ),
     deps: {
       listIngestedRepositories: cachedListRepos,
       appendLog,

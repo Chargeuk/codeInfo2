@@ -328,6 +328,56 @@ describe('executeReingestRequest', () => {
     }
   });
 
+  test('plan_scope passes the resolved working repository sourceId into the resolver instead of the raw working-folder path', async () => {
+    let resolverWorkingRepositoryPath: string | undefined;
+    let capturedSourceId: string | undefined;
+
+    const result = await executeReingestRequest({
+      request: { target: 'plan_scope' },
+      surface: 'command',
+      workingRepositoryPath: '/host/repo-a',
+      deps: {
+        listIngestedRepositories: async () => ({
+          repos: [
+            buildRepoEntry({
+              id: 'Repo A',
+              containerPath: '/data/repo-a',
+              hostPath: '/host/repo-a',
+            }),
+          ],
+          lockedModelId: 'model',
+        }),
+        resolvePlanScopeRepositories: async ({ workingRepositoryPath }) => {
+          resolverWorkingRepositoryPath = workingRepositoryPath;
+          return {
+            repositories: [
+              {
+                sourceId: '/data/repo-a',
+                resolvedRepositoryId: 'Repo A',
+              },
+            ],
+            warnings: [],
+          };
+        },
+        runReingestRepository: async ({ sourceId }) => {
+          capturedSourceId = sourceId;
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId: 'Repo A',
+            }),
+          };
+        },
+        appendLog: noopLog,
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(resolverWorkingRepositoryPath, '/data/repo-a');
+    assert.equal(capturedSourceId, '/data/repo-a');
+  });
+
   test('plan_scope uses working-first ordering, file-order additional repositories, and first-seen de-duplication', async () => {
     const fixture = await createPlanScopeFixture({
       additionalRepositories: [{ name: 'repo-a' }, { name: 'repo-b' }],

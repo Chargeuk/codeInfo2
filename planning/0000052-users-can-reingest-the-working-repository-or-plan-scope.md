@@ -819,7 +819,7 @@ Replace the command and flow authoring contract so newly-authored re-ingest item
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 1 only changes server-authored schema contracts. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 1 changes server schema parsing. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -871,7 +871,7 @@ Create the shared filesystem fixture helper that later plan-scope tasks will dep
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 2 adds server-side test harness files. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 2 adds unit-tested server harness support. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -921,7 +921,7 @@ Create the plan-scope resolution helper that reads the handoff file and turns it
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 3 adds a server-side resolver helper. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 3 changes resolver logic covered by server unit and integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -986,7 +986,7 @@ Implement the actual runtime execution contract for `working` and `plan_scope` i
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 4 changes the core server re-ingest execution runtime. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: After Subtask 21 lands, run `npm run test:summary:server:unit -- --file src/test/integration/flows.run.loop.test.ts`. Use this targeted wrapper first because the known blocker is a full-suite hang rooted in this file's cleanup path, and this proof step must show the loop test exits cleanly on its own before the full suite is trusted again. If this targeted wrapper still hangs or fails, diagnose `server/src/test/integration/flows.run.loop.test.ts` before attempting the full wrapper.
@@ -1072,7 +1072,7 @@ Update the server-side tool-result and lifecycle message contract so completed `
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 5 changes server lifecycle and persistence code. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 5 changes server unit and integration behavior around tool results and persistence. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -1127,7 +1127,7 @@ Wire the new schema, execution, and message contracts into direct command execut
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 6 changes direct-command server wiring. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 6 changes direct-command server behavior covered by unit and integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -1187,7 +1187,7 @@ Wire the new contract into top-level flow re-ingest steps and flow-owned command
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 7 changes flow-side server wiring. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 7 changes flow service and command-item server behavior covered by integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -1240,7 +1240,7 @@ Prove the environment-sensitive and container-visible runtime assumptions that t
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 8 changes environment-sensitive server runtime behavior. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 8 proves environment mapping and mounted-runtime behavior through server suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -1312,7 +1312,7 @@ Perform the final acceptance pass for the whole story, confirm that the implemen
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run raw build or test commands without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 9 is the final backend regression pass for the story. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 9 is the final backend regression pass. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
@@ -1393,7 +1393,7 @@ Fix the review finding in the lifecycle read path so malformed or mixed-version 
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 10 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 10 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
@@ -1437,7 +1437,7 @@ Fix the review finding that this branch still carries unrelated non-support chat
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 11 removes unrelated server-side branch changes and must leave the remaining Story `0000052` server/common code compiling cleanly. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run build:summary:client`. Use this wrapper because Task 11 also removes unrelated client-side branch changes and must leave the remaining Story `0000052` diff compiling cleanly. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
@@ -1491,7 +1491,7 @@ Re-validate the reopened story after Tasks 10 and 11 land, then re-close Story `
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 10 and 11 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Task 11 removes client-side branch changes and must leave the remaining branch state healthy. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
@@ -1563,7 +1563,7 @@ Fix the review finding in the lifecycle read path so malformed persisted `warnin
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 13 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 13 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
@@ -1611,7 +1611,7 @@ Fix the review finding that `DEV-0000052:T1:reingest-target-contract` is emitted
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 14 changes server-side schema logging code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 14 changes command and flow schema handling plus unit coverage. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
@@ -1660,7 +1660,7 @@ Re-validate Story `0000052` after Tasks 13 and 14 land, then re-close the story 
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 13 and 14 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Story `0000052` still includes client-visible proof surfaces and final regression checks. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
@@ -1785,7 +1785,7 @@ Fix the remaining `plan_scope` runtime-accounting defect in `server/src/ingest/r
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 16 changes server-side re-ingest execution accounting. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 16 changes server-side runtime and batch-accounting behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
@@ -1837,7 +1837,7 @@ Clean up the remaining lower-risk re-ingest execution and lifecycle issues that 
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 17 changes server-side execution, tool-result, and lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 17 changes server-side runtime, tool-result, and lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
@@ -1891,7 +1891,7 @@ Harden the shared review process so future no-findings reviews are less likely t
 
 #### Testing
 
-Use this repository's wrapper-first workflow where applicable. This task changes shared review markdowns and flow JSON files, so validate the landed behavior by reopening the modified files and confirming the shared challenge step and rejected-risk requirements were wired in exactly where intended.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task changes shared review markdowns and flow JSON files, so validate the landed behavior by reopening the modified files and confirming the shared challenge step and rejected-risk requirements were wired in exactly where intended.
 
 1. [x] Current Repository: Re-open each updated internal review markdown file and verify the final text now requires a risk-invariant matrix or rejected-risk notes for the top risky helpers before a no-findings disposition can close a story.
 2. [x] Current Repository: Re-open each updated internal review flow JSON file and verify the new blind-spot challenge step sits after findings and before disposition, and that the flow still points at the shared markdown files rather than copy-pasted inline review instructions.
@@ -1942,7 +1942,7 @@ Close the reopened story only after Tasks 16, 17, and 18 land together. This fin
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 16 and 17 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Story `0000052` still includes client-visible proof surfaces and final regression checks. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
@@ -2023,7 +2023,7 @@ The code-review findings pass confirmed that Story `0000052` still carries unrel
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task removes unrelated diff churn from both server/common and client/test surfaces, so prove the cleanup with the branch-diff check plus the full summary wrappers that cover the touched current-repository areas.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task removes unrelated diff churn from both server/common and client/test surfaces, so prove the cleanup with the branch-diff check plus the full summary wrappers that cover the touched current-repository areas.
 
 1. [x] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm none of the files named in the Task 20 finding remain in the branch diff. Record the remaining diff classes in the Implementation notes.
 2. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
@@ -2081,7 +2081,7 @@ The findings pass confirmed that the shared `executeReingestRequest(...)` runtim
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. Because Task 21 changes the shared server-side execution seam plus command/flow callers, prove the cleanup with the server build plus the full current-repository server unit and cucumber summary suites.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Because Task 21 changes the shared server-side execution seam plus command/flow callers, prove the cleanup with the server build plus the full current-repository server unit and cucumber summary suites.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
@@ -2130,7 +2130,7 @@ Close the reopened Story `0000052` only after the review-fix tasks land together
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
@@ -2204,7 +2204,7 @@ The latest review pass confirmed that this story branch still includes a non-sup
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task is strictly client-side cleanup on a front-end-visible `/logs` surface, so prove it with the branch-diff check, the current repository's client wrappers, and wrapper-started manual Playwright proof. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task is strictly client-side cleanup on a front-end-visible `/logs` surface, so prove it with the branch-diff check, the current repository's client wrappers, and wrapper-started manual Playwright proof. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the branch diff.
 2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
@@ -2261,7 +2261,7 @@ The latest review pass found that Story `0000052` now emits the same `DEV-000005
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task changes server/common runtime logging behavior, so prove it with the current repository's server build plus the full server unit and cucumber summary suites. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task changes server/common runtime logging behavior, so prove it with the current repository's server build plus the full server unit and cucumber summary suites. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
@@ -2310,7 +2310,7 @@ Close the reopened Story `0000052` only after Tasks 23 and 24 land together. Thi
 
 #### Testing
 
-Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
 
 1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
 2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
@@ -2518,3 +2518,13 @@ This task belongs to `Current Repository`, so use this repository's wrapper-firs
 - `resolvePlanScopeRepositories(...)` in `server/src/ingest/planScopeResolver.ts`: rejected risk for malformed, unreadable, invalid-array, duplicate, and invalid-repository handoff states, with one residual weak-proof concern for a concurrent partial-write race. That remaining weak proof is acceptable here because the explicit story contract already says malformed or unreadable handoffs should fall back to working-only behavior with warnings.
 - `getReingestPayload(...)` / `normalizeLegacySingleTargetMode(...)` in `server/src/chat/reingestStepLifecycle.ts`: rejected risk with direct proof. The final landed code now keeps canonical `sourceId` / `working`, explicit legacy `current`, and omitted historical single-result payloads readable while leaving malformed future single-result target modes unparsed instead of coercing them into canonical `sourceId`.
 - Blind-spot challenge follow-up: the focused challenge added no new findings and strengthened all three rejected-risk conclusions above. It specifically re-checked mixed-shape persisted single-result payloads, path-spelling and normalization duplicates in plan-scope resolution, and multi-failure ordered batch execution without overturning the no-findings disposition.
+
+## Final Summary
+
+1. The story changes the authored and runtime re-ingest contract from the old owner-era `current` / `all` targets to the newer `working` and `plan_scope` targets across the command schema, flow schema, runtime execution, chat tool-result payloads, lifecycle persistence, docs, tests, and the repository's own checked-in workflow assets. It also includes the later review-fix reopenings that removed an out-of-scope `/logs` client change, split the ambiguous `DEV-0000052:T5:reingest-lifecycle` log contract into two stable markers, and tightened lifecycle normalization so malformed persisted single-result `targetMode` values are no longer silently coerced into canonical `sourceId`.
+
+2. The change was made because users work from a selected `working_folder` repository, not from the repository that owns a flow or command file, so the old `current` wording no longer matched the real workflow model. `plan_scope` was added so the product can re-ingest the working repository plus the related repositories already declared in `codeInfoStatus/flow-state/current-plan.json`, while still preserving explicit `sourceId` for one-repository control. The review-fix reopenings were necessary to keep the branch honest: remove unrelated client drift, make downstream log parsing unambiguous, and ensure malformed persisted lifecycle payloads are surfaced safely instead of being rewritten into valid-looking results.
+
+3. The most complex logic sits in the `plan_scope` resolution and lifecycle compatibility seams. `plan_scope` first validates the working repository, then reads only `additional_repositories[].path` from the current-plan handoff, preserves working-first ordering, deduplicates repositories on their resolved identity, falls back to working-only with warnings when the handoff is missing or malformed, and continues after per-repository failures so the batch can finish with ordered outcomes plus warning data. On the readback side, lifecycle persistence still understands the explicit legacy single-result shape it must support, but it now draws a harder line by accepting only canonical `sourceId` / `working`, explicit legacy `current`, and omitted historical single-result modes, leaving unknown future values unparsed instead of pretending they were valid selector-driven results.
+
+4. A reviewer should pay particular attention to `server/src/ingest/reingestExecution.ts`, `server/src/ingest/planScopeResolver.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts`, because those files jointly define the runtime, warning, summary, and persistence contracts for `working` and `plan_scope`. The most important things to verify are that `plan_scope` still uses the working repository first, only reads `additional_repositories[].path` from the handoff, keeps skipped-at-resolution repositories out of the attempted batch payload, preserves warning and summary alignment after repository-level failures, and leaves malformed future lifecycle payloads unparsed rather than silently normalizing them into canonical success-shaped data.

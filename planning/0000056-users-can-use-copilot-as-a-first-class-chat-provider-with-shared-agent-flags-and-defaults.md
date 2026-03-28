@@ -74,6 +74,7 @@ Overall, when this story is complete:
 - The chat page can use Copilot with tools available through the same product-managed tool layer that underpins the supported chat-tool experience elsewhere in the repository.
 - The chat MCP interface supports Copilot anywhere the current shared chat-provider contract is expected to accept a provider choice, including the current `codebase_question` path.
 - MCP chat requests using Copilot follow the same provider-resolution and validation rules as the normal chat page rather than using a second special-case provider contract.
+- The public chat MCP request contract stays limited to provider and model selection in this story and does not add Agent Flags.
 - Shared provider and model contracts returned by the server are updated so the client can render provider-neutral defaults and capability data without depending on Codex-only payload fields as the main mechanism.
 - Any remaining Codex-specific response fields that still need to exist for compatibility must no longer be the primary way the client decides which provider controls to render.
 - Existing Codex behavior remains working after the provider-neutral refactor, including current Codex defaults, model capability handling, and tool-aware chat behavior.
@@ -95,6 +96,7 @@ Overall, when this story is complete:
 - Redesigning authentication UX beyond what is needed to keep existing provider auth flows coherent with the stronger chat-provider contract.
 - Introducing a second environment variable for default chat model selection after provider-local chat config becomes the source of truth.
 - Preserving hidden hardcoded model selection as a silent fallback once provider-local chat config is required for default-model resolution.
+- Adding Agent Flags to the public chat MCP request contract in this story.
 - Requiring Copilot and LM Studio to expose exactly the same editable controls that Codex exposes.
 - Rebuilding unrelated chat transcript presentation outside the work needed to support provider-neutral flags, defaults, and tool parity.
 
@@ -112,10 +114,15 @@ Overall, when this story is complete:
    - Why this is important: Agent Flags can change tools, permissions, and runtime behavior, so this decision affects whether one visible transcript can silently change meaning halfway through.
    - Best Answer: Changing Agent Flags should start a new conversation for the next send, matching the current provider-change and model-change contract. That keeps transcript behavior predictable and avoids a situation where the same conversation suddenly resumes under a different tool set, permission policy, or provider-specific runtime mode. For example, switching from one sandbox or tool posture to another should feel like starting a fresh draft, not mutating the meaning of an existing thread in place.
    - Where this answer came from: Repo evidence from [planning/0000051-github-copilot-sdk-chat-provider.md](/home/d_a_s/code/codeInfo2/planning/0000051-github-copilot-sdk-chat-provider.md), [client/src/pages/ChatPage.tsx](/home/d_a_s/code/codeInfo2/client/src/pages/ChatPage.tsx), and [client/src/test/chatPage.newConversation.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/chatPage.newConversation.test.tsx); external evidence from DeepWiki guidance on Copilot session configuration, which shows that tools and session behavior are part of session setup, making this a product-policy decision about transcript continuity rather than an SDK limitation.
-3. In the chat MCP interface, should requests use only provider and model defaults, or should they also accept Agent Flags?
-   - Why this is important: This decides whether MCP parity means “Copilot can be selected and uses the shared defaults,” or whether this story also expands the public MCP request contract with a second provider-flags surface.
-   - Best Answer: The chat MCP interface should keep using provider and model defaults only in this story, and should not add Agent Flags to the public MCP request contract yet. The current `codebase_question` path already keeps its input surface small, and this story's main MCP goal is provider parity plus shared defaults and tool support, not exposing every chat-page control through MCP. That keeps scope contained while still making Copilot usable wherever the current shared chat-provider contract is expected.
-   - Where this answer came from: Repo evidence from [server/src/mcp2/tools/codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/home/d_a_s/code/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md), and [planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md](/home/d_a_s/code/codeInfo2/planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md); external evidence from DeepWiki and GitHub Copilot CLI documentation showing that Copilot can support per-session tools and MCP configuration, which reinforces that the product can keep MCP inputs small and still provide strong provider parity through defaults and server-managed tooling.
+
+## Decisions
+
+1. The chat MCP interface should stay provider/model-defaults-only in this story.
+   - The question being addressed: In the chat MCP interface, should requests use only provider and model defaults, or should they also accept Agent Flags?
+   - Why the question matters: This determines whether Copilot MCP parity means shared defaults and provider support, or whether the story also has to expand the public MCP request contract with a second flags surface.
+   - What the answer is: Keep the chat MCP request contract limited to provider and model selection in this story, and do not add Agent Flags to the public MCP input shape yet. Copilot parity in MCP should come from provider support, shared default resolution, and server-managed tool wiring rather than from exposing every chat-page control through MCP.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [server/src/mcp2/tools/codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md](/home/d_a_s/code/codeInfo2/planning/0000047-codex-chat-config-defaults-bootstrap-and-context7-overlay.md), and [planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md](/home/d_a_s/code/codeInfo2/planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md), plus external evidence from DeepWiki and GitHub Copilot documentation showing that Copilot can support per-session tools and MCP configuration even when the product keeps its public MCP request contract small.
+   - Why it is the best answer: It keeps the story focused, preserves a simple MCP contract, avoids adding a second provider-flags API surface before the provider-neutral chat-page contract is settled, and still delivers the user-facing parity goal that Copilot can be selected and run through the shared chat MCP path.
 
 ## Implementation Ideas
 
@@ -132,6 +139,7 @@ Overall, when this story is complete:
 - Wire Copilot tool support through the existing `toolsFactory` seam in the Copilot chat interface and through the shared chat factory so normal chat sessions receive repository-managed tools.
 - Reuse the repository's existing trusted tool-building path as much as possible so Copilot and Codex tool behavior stay aligned at the product layer even if their native runtimes differ underneath.
 - Extend the chat MCP provider contract, including the `codebase_question` path, so `provider: 'copilot'` is accepted and resolved through the same provider-default logic as normal chat.
+- Keep the MCP request input focused on provider and model in this story; let provider-local defaults and server-managed tooling supply the rest of the Copilot parity behavior.
 - Keep Copilot's runtime home and auth state under the current `copilot/` resolution path, and ensure any new Copilot chat-default file is read separately from the runtime `configDir`.
 - Update shared server and client contracts so provider capability metadata can describe fields such as labels, option types, supported values, defaults, and whether a field is editable.
 - Keep the provider-capability contract honest: if Copilot has fewer editable chat options than Codex in the installed SDK path, surface fewer options rather than creating fake controls.

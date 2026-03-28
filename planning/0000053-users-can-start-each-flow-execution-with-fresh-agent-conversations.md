@@ -324,6 +324,7 @@ Align the browser UI with the new execution boundary. The Flows page must treat 
 - Task Dependencies: `Task 1, Task 2, Task 3`
 - Task Status: `__done__`
 - Git Commits:
+  - `3dd984e6` - `DEV-0000053 - complete story 53 close-out validation`
 
 #### Overview
 

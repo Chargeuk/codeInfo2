@@ -563,3 +563,88 @@ Run a fresh Story 53 close-out pass after the review-fix tasks land. This task r
 - Testing 8: `npm run compose:up` started the supported main stack cleanly, including the `playwright-mcp` service needed for the final manual verification against the host-mapped client URLs.
 - Testing 9: Manual Playwright MCP verification against `http://host.docker.internal:5001/flows` and `/agents` confirmed two `Story53 manual echo` rows with distinct clues (`Run ee6e75e2` and `Run f0938f05`) in Flows, matching `planning_agent` child rows with the same clues in Agents, and an ordinary `Command:` row with no run clue; fresh screenshots were saved as `playwright-output-local/0000053-7-main-flows.png` and `playwright-output-local/0000053-7-main-agents.png`, I inspected both saved images, and the Playwright console error query returned no entries during the pass.
 - Testing 10: `npm run compose:down` stopped and removed the supported main validation stack cleanly after the final manual Playwright MCP pass.
+
+## Post-Implementation Code Review
+
+### Scope And Base Checks
+
+- Review scope was normalized from `codeInfoStatus/flow-state/current-plan.json`, which still points to this canonical plan and still lists `additional_repositories: []`.
+- The current repository remained on `feature/53-fresh-flow-agent-conversations` during the review pass, and the story number still matched `planning/0000053-users-can-start-each-flow-execution-with-fresh-agent-conversations.md`.
+- The review evidence and findings handoff for this pass used `origin/main` as the resolved base branch because `current-plan.json` preserved `branched_from: "main"` and the remote default branch resolves to `origin/main`.
+- No cross-repository review work was required because Story 53 stayed single-repository all the way through the completed implementation and review-fix tasks.
+
+### Files Inspected
+
+- Server runtime and persistence: `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/flows/types.ts`, `server/src/mongo/repo.ts`
+- Client runtime and sidebar rendering: `client/src/pages/FlowsPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/api/conversations.ts`, `client/src/hooks/useConversations.ts`
+- Server proof: `server/src/test/unit/flows.flags.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/test/integration/conversations.flowname.test.ts`, `server/src/test/features/flows-execution-runs.feature`, `server/src/test/steps/flows-execution-runs.steps.ts`
+- Client and browser proof: `client/src/test/flowsPage.run.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, `client/src/test/chatSidebar.test.tsx`, `client/src/test/agentsPage.sidebarWs.test.tsx`, `e2e/flows-execution-runs.spec.ts`
+- Supporting default-path selectors and consumers reviewed for honest reachability checks: `package.json`, `playwright.config.ts`, `server/src/routes/conversations.ts`, `server/src/ws/sidebar.ts`, `server/src/mongo/conversation.ts`
+
+### Acceptance Criteria Proof Status
+
+1. Fresh flow start creates a new `executionId`: `direct`
+2. The current flow execution persists its `executionId` in `conversation.flags.flow`: `direct`
+3. Each fresh flow start opens a new parent flow conversation: `direct`
+4. A fresh flow start creates a fresh per-execution agent mapping and does not reuse older execution child conversations: `direct`
+5. Flow agent reuse remains available within one execution: `direct`
+6. The persisted `agentConversations` mapping remains `${agentType}:${identifier}` but execution-scoped: `direct`
+7. The runtime no longer relies on a process-global agent-conversation map for cross-execution reuse: `direct`
+8. Starting the same flow again as a new execution creates fresh child conversations even with the same identifiers: `direct`
+9. Resuming a stopped flow continues the same `executionId`: `direct`
+10. Resuming a stopped flow continues using the same child conversations for that execution: `direct`
+11. Flow parent conversations persist execution identity under `conversation.flags.flow.executionId`: `direct`
+12. Flow-created child conversations persist `flags.flowChild.executionId`: `direct`
+13. Flow-created child conversations remain visible in the normal Agents page sidebar: `direct`
+14. Repeated executions show the lightweight `Run <shortExecutionId>` clue: `direct`
+15. The clue is derived directly from `executionId` rather than a separate ordinal: `direct`
+16. The clue is shown in existing sidebar metadata rather than the main title: `direct`
+17. A user can open a child conversation and continue chatting manually while the parent flow is stopped: `indirect`
+18. Resume continues the same child conversation rather than creating a replacement: `direct`
+19. Manual chat added while stopped remains part of resumed context: `direct`
+20. Resume uses the current persisted child state rather than an old snapshot: `direct`
+21. The child agent conversation remains a normal conversation and is not hidden, locked, or made flow-only: `direct`
+22. Stopping a flow preserves enough execution state to resume later: `direct`
+23. Starting a new flow execution does not copy or inherit the previous slot mapping: `direct`
+24. Existing stopped flows without `executionId` remain resumable through backfill: `direct`
+25. Fresh executions of the same flow may run concurrently in different parent conversations: `direct`
+26. Existing `RUN_IN_PROGRESS` protection remains scoped to a single conversation: `direct`
+27. Existing agent sidebar behavior remains intact apart from showing the normal child conversations and run clue: `direct`
+28. Existing within-execution `agentType`/`identifier` slot semantics remain intact: `direct`
+29. Missing or wrong-agent stored child conversations fail clearly on resume: `direct`
+30. Conflicting child execution markers fail clearly on resume: `direct`
+31. The story does not add a broader multi-execution history subsystem: `direct`
+
+### Why The Story Remains Complete
+
+- The current repository remains complete because the final branch diff satisfies the planned server runtime, client UI, persistence, compatibility, and validation work without requiring any additional repository changes.
+- The code remains appropriately succinct for the required behavior. The two largest changed areas are `server/src/flows/service.ts` and `server/src/test/integration/flows.run.resume.test.ts`, but the review did not find a concrete simplification that was localized, objectively testable, and worth reopening after the completed review-fix tasks.
+- The changed docs (`design.md`, `docs/developer-reference.md`, and `projectStructure.md`) stay aligned with the implemented Story 53 contract, and no further repository-owned follow-up work is required by the final no-findings review disposition.
+
+### Generic Adversarial Checklist Status
+
+- Execution-routing or harness dependence: `indirect`
+  - I re-checked `package.json` and `playwright.config.ts` so the changed server/client/e2e proof remains in the default wrapper and Playwright discovery paths, but the wrappers themselves were not re-run during this review step.
+- Default launcher, wrapper, dispatcher, CI, or startup-path inclusion: `indirect`
+  - The completed Task 7 notes record successful wrapper-backed regression runs, and the review confirmed the changed files still sit behind the same default selectors.
+- Shared-state or concurrency safety: `direct`
+  - The server review covered per-conversation lock scope, execution-scoped runtime state, and retry-after-failure flow behavior with direct integration/unit proof.
+- Reader/writer atomicity or partial-write tolerance: `indirect`
+  - Parent and child execution markers use existing nested `$set` update paths and the reviewed retry proof covers the most important parent-before-child ordering issue, but the review did not prove every possible partial-write or crash point.
+- Cleanup ownership or stale-state safety: `indirect`
+  - The changed tests include cleanup coverage and the review checked the relevant cleanup paths, but crash-recovery and stale-state handling still rely partly on reasoning from the existing runtime design rather than a new exhaustive proof matrix.
+- Lifecycle ordering: `direct`
+  - The review directly checked fresh start versus resume routing, legacy parent backfill ordering, child ownership validation, and final Run-versus-Resume UI behavior.
+- Test isolation: `indirect`
+  - The changed test code includes cleanup and temp-file teardown, but the review did not add new worker-stress or parallel-interference proof beyond the existing suite structure.
+
+### Rejected-Risk Carryforward
+
+- `startFlowRun(...)` in `server/src/flows/service.ts`: the review rejected the risk that a legacy parent without `executionId` could still leave parent and child state mixed after a failed resume. The findings pass relied on direct regression proof in `server/src/test/integration/flows.run.resume.test.ts`, and the blind-spot challenge strengthened that conclusion by separately checking the archived-selected-conversation fresh-run path.
+- `ensureFlowChildConversationOwnership(...)` in `server/src/flows/service.ts`: the review rejected the risk that missing, wrong-agent, or conflicting child mappings could be silently reused. The findings pass had direct negative-path proof for conflicting and missing child mappings. The blind-spot challenge left one residual weak-proof concern for a whitespace-only child execution marker because the code trims and treats that case as missing, but there is not a dedicated branch-local test just for that variant.
+- `startFlowRun(...)` in `client/src/pages/FlowsPage.tsx`: the review rejected the risk that `Run` from an older selected conversation could still reuse the selected conversation or suppress `customTitle`. The findings pass and blind-spot challenge both confirmed the final Flows-page logic and focused RTL proof match the intended contract.
+
+### Residual Risks
+
+- The final manual-browser proof recorded in this plan references `playwright-output-local/0000053-7-main-*.png`, while the current disk check during review only found the earlier `0000053-4-main-*` screenshots. That mismatch is in an allowed support file rather than the reviewed runtime code, so it did not reopen the story, but the screenshot portion of the final proof remains indirect.
+- The changed workflow configuration under `flows/improve_task_implement_plan.json` now references `improve_plan2` and `task_up2`. The review confirmed the unchanged flow command loader resolves command files dynamically and that both new command JSON files exist, so no defect was endorsed, but the exact workflow path still has only indirect proof in this branch.

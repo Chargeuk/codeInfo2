@@ -25,6 +25,8 @@ The large-text chunking path should stay conservative. It should use file type p
 
 The embedding dispatcher should remain provider-aware and bounded. OpenAI batching must still obey the existing per-input and per-request token guardrails. LM Studio concurrency must still be capped so that the runtime does not accidentally flood the provider. The user wants provider-specific environment variables that set the maximum number of in-flight embedding requests. Conservative defaults should preserve current behavior until operators choose to raise them.
 
+The user has now fixed the provider-control contract more precisely. Each provider should have its own batching setting and its own max-in-flight-requests setting. The runtime should apply provider-specific hard caps when it reads those values, so a value that is too large is silently clamped to what that provider actually supports instead of failing the run or emitting a warning just because the configured number was high. For example, LM Studio should continue to behave as batch size `1` even if its configured batching value is higher, while OpenAI can use larger batches when its own guardrails still allow them. These environment variables should be present in the checked-in `.env` file with sensible defaults and short explanations of how each one affects dispatch.
+
 The AST optimization should also stay conservative. The user does not want partial AST updates that only recalculate the changed source file. Instead, the rule should be:
 
 - if no AST-supported file was added, changed, deleted, or effectively renamed, skip AST rebuild during delta re-embed;
@@ -46,7 +48,9 @@ Overall, when the story is complete, users should be able to ingest repositories
 - OpenAI embedding dispatch can submit multi-input requests while still honoring the existing OpenAI guardrails for per-input size, total token count, and input count per request.
 - LM Studio embedding dispatch can process multiple embedding requests concurrently up to a configured provider-specific limit.
 - Provider-specific environment variables control the maximum number of in-flight embedding requests, with conservative defaults that preserve current behavior unless explicitly changed.
-- If batching controls are introduced for providers that support them, those controls are also conservative by default and do not violate provider guardrails.
+- Provider-specific environment variables also control batching where the provider supports it, with conservative defaults present in the checked-in `.env` file and brief documentation explaining how they work.
+- Effective provider settings are clamped to provider-supported limits without failing the run or emitting a warning solely because a configured value was too large.
+- LM Studio's effective batch size remains `1` even if its configured batching value is higher.
 - The embedding dispatcher applies backpressure or another bounded-queue strategy so a very large file does not simply move the bottleneck into unbounded in-memory chunk accumulation.
 - Chunk order, chunk metadata, and persisted vector metadata remain deterministic even when embedding requests run concurrently.
 - Cancellation and failure behavior remain coherent when multiple embedding requests are in flight.
@@ -66,6 +70,7 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Broad redesign of the ingest UI beyond what is needed to surface existing progress and preserve correctness.
 - Reworking unrelated embedding-provider behavior outside repository ingest.
 - Introducing provider auto-tuning, adaptive concurrency learning, or dynamic runtime benchmarking beyond the explicit configuration discussed for this story.
+- Rejecting runs or surfacing warnings solely because an operator configured batch or in-flight values above a provider's supported cap.
 - Redesigning vector persistence, repository metadata persistence, or Chroma collection layout beyond what is needed to support the new dispatch path safely.
 - General-purpose chunking changes for every content type when the specific user pain here is large prose-oriented text documents such as Markdown planning files.
 - Parallelizing whole ingest runs across multiple repositories or relaxing the existing ingest busy-state contract.
@@ -77,20 +82,24 @@ Overall, when the story is complete, users should be able to ingest repositories
 
 ### Questions
 
-1. Should OpenAI batching get its own setting, or should max in-flight requests be the only tuning knob?
-   - Why this is important: Batching and concurrency are different limits, and mixing them together would make provider guardrails harder to reason about.
-   - Best Answer: Give OpenAI a separate batch-size setting and keep max in-flight for request concurrency, with both defaulting to `1`. The repo already treats OpenAI and LM Studio differently at the provider layer, OpenAI already supports multi-input embedding requests, and OpenAI's official limits apply both per input and across the full request.
-   - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), and [lmstudioEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/lmstudioEmbeddingProvider.ts). External evidence: OpenAI embeddings API reference, Context7 `/openai/openai-node`, and DeepWiki `openai/openai-node`.
-
-2. Should the waiting chunk queue get its own setting, or should it stay an internal limit tied to max in-flight requests?
+1. Should the waiting chunk queue get its own setting, or should it stay an internal limit tied to max in-flight requests?
    - Why this is important: The queue is the in-memory list of chunks waiting to be embedded, so this decision controls whether large files stay memory-safe without adding too many new operator settings.
    - Best Answer: Keep the queue bound internal and tie it to max in-flight requests with a small fixed multiplier instead of adding another env var. The current repo already uses `flushEvery` for persistence cadence rather than buffering control, and Node's backpressure guidance favors bounded buffers over unbounded producer output.
    - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [config.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/config.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [ingest-batch-flush.feature](/home/d_a_s/code/codeInfo2/server/src/test/features/ingest-batch-flush.feature). External evidence: Node stream docs via Context7 `/nodejs/node`, DeepWiki `nodejs/node`, and the official Node.js stream backpressure guide.
 
-3. Should file moves stay as delete-plus-add, or should this story add real rename detection?
+2. Should file moves stay as delete-plus-add, or should this story add real rename detection?
    - Why this is important: The current delta planner only compares file paths and hashes, so "effective rename" needs a clear rule or implementers may accidentally add extra scope.
    - Best Answer: Keep file moves as delete-plus-add in this story, and treat any AST-supported move as AST-relevant so it still triggers the existing full AST rebuild. That matches the current delta planner, keeps AST behavior conservative, and avoids inventing new rename-detection logic inside a performance story.
    - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [deltaPlan.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/deltaPlan.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md](/home/d_a_s/code/codeInfo2/planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md). External evidence: external SDK and API docs were reviewed, but this recommendation is driven by repo-specific ingest semantics rather than a third-party contract.
+
+## Decisions
+
+1. Provider batching and max-in-flight controls should stay separate for each provider.
+   - The question being addressed: Should OpenAI batching get its own setting, or should max in-flight requests be the only tuning knob?
+   - Why the question matters: Batching controls how many chunks go into one request, while max in-flight controls how many requests can run at once. Keeping them separate makes provider behavior easier to tune and reason about.
+   - What the answer is: Each provider should have its own batching setting and its own max-in-flight-requests setting. The runtime should clamp configured values to provider-supported limits without failing the run or logging just because the configured value was too high. LM Studio therefore keeps effective batch size `1` even if configured higher, while OpenAI can use larger batches within its own guardrails. All of these settings should live in the checked-in `.env` file with sensible defaults and a short explanation of how each one works.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence in [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), and [lmstudioEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/lmstudioEmbeddingProvider.ts), plus external OpenAI docs reviewed through Context7 and DeepWiki.
+   - Why it is the best answer: It preserves simple operator control, matches the fact that providers support different request shapes, and avoids turning an over-large config value into an unnecessary run failure.
 
 ## Implementation Ideas
 
@@ -98,8 +107,8 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Add a prose-oriented chunking strategy in the ingest chunker for large `.md`, `.mdx`, and `.txt` files that splits on headings, blank lines, fenced code blocks, and list boundaries before local fallback cuts.
 - Convert chunk production into a streaming or incremental shape so large-file chunking and embedding can overlap instead of forcing a full-file chunking pause up front.
 - Introduce an embedding dispatcher that preserves chunk order while supporting provider-aware batching and provider-aware request concurrency.
-- Add provider-specific configuration such as `CODEINFO_INGEST_OPENAI_MAX_INFLIGHT` and `CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT`, with defaults of `1`.
-- Consider provider-specific batch-size configuration for providers that support multi-input requests, while keeping current guardrails authoritative.
+- Add provider-specific configuration such as `CODEINFO_INGEST_OPENAI_MAX_BATCH_SIZE`, `CODEINFO_INGEST_OPENAI_MAX_INFLIGHT`, `CODEINFO_INGEST_LMSTUDIO_MAX_BATCH_SIZE`, and `CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT`, with conservative defaults of `1` documented in the checked-in `.env` file.
+- Clamp configured provider values to provider-supported limits at runtime, so unsupported high values degrade safely instead of failing the run or emitting a warning for that reason alone.
 - Extend the provider model interface so ingest can use a batch-oriented embedding method when available and fall back to bounded concurrent single-item requests otherwise.
 - Keep the dispatcher queue bounded so performance gains do not come at the cost of uncontrolled memory growth on very large text files.
 - Preserve deterministic metadata ordering by carrying original file and chunk indexes through the concurrent dispatch path and reassembling results in that stable order before persistence.

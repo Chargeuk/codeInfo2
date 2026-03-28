@@ -1,5 +1,86 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000052 Task 6 structural change ledger
+
+Added files:
+
+- `codex_agents/tasking_agent/commands/reingest_plan_scope.json`
+- `codex_agents/tasking_agent/commands/reingest_working.json`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `projectStructure.md`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/unit/agent-commands-runner.test.ts`
+
+Story notes:
+
+- Task 6 wires direct-command re-ingest onto the shared `working` / `plan_scope` runtime contract by forwarding the selected `working_folder` into `executeReingestRequest` and emitting the `DEV-0000052:T6:direct-command-reingest` proof marker.
+- The new `tasking_agent` proof commands are minimal single-step assets so later compose and logs-page proof can invoke `working` and `plan_scope` over HTTP without depending on model-generated message steps.
+- The direct-command unit and integration coverage now proves working-target happy path behavior, pre-start validation failures, warning-aware `plan_scope` fallback and skipped-repository handling, continued execution after attempted repository failure, and transcript wording that no longer uses the removed bulk-reingest phrasing.
+
+## Story 0000052 Task 3 structural change ledger
+
+Added files:
+
+- `server/src/ingest/planScopeResolver.ts`
+- `server/src/test/unit/planScopeResolver.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 3 adds the reusable plan-scope resolver that reads the working repository handoff file, resolves additional repository paths through the existing working-folder and repository-selector seams, and returns ordered repository scope plus warning metadata.
+- The resolver stays at the resolution boundary only: it does not start re-ingest work, rewrite `current-plan.json`, or synthesize skipped-at-resolution repositories into attempted execution results.
+- The accompanying unit suite proves working-only fallback, warning-producing handoff degradation, first-seen de-duplication, ignored handoff fields, and the `DEV-0000052:T3:plan-scope-resolver` proof marker.
+
+## Story 0000052 Task 2 structural change ledger
+
+Added files:
+
+- `server/src/test/support/planScopeFixture.ts`
+- `server/src/test/unit/planScopeFixture.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`
+- `projectStructure.md`
+
+Story notes:
+
+- Task 2 adds one reusable plan-scope filesystem fixture helper plus one focused smoke-test file, rather than spreading temporary handoff-tree setup across later resolver and execution suites.
+- The helper stays on fixture creation and cleanup only: it creates working-repository roots, `codeInfoStatus/flow-state/current-plan.json` variants, duplicate and invalid path inputs, malformed JSON payloads, and a deterministic read-failure setup for later tests.
+- The proof marker `DEV-0000052:T2:plan-scope-fixture-proof` is emitted from the smoke-test path once the fixture-backed read-failure scenario passes and cleanup completes.
+
 ## Story 0000051 Task 20 structural change ledger
 
 Added files:

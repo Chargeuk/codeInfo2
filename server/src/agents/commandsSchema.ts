@@ -35,24 +35,24 @@ const AgentCommandReingestSourceIdItemSchema = z
   })
   .strict();
 
-const AgentCommandReingestCurrentTargetItemSchema = z
+const AgentCommandReingestWorkingTargetItemSchema = z
   .object({
     type: z.literal('reingest'),
-    target: z.literal('current'),
+    target: z.literal('working'),
   })
   .strict();
 
-const AgentCommandReingestAllTargetItemSchema = z
+const AgentCommandReingestPlanScopeTargetItemSchema = z
   .object({
     type: z.literal('reingest'),
-    target: z.literal('all'),
+    target: z.literal('plan_scope'),
   })
   .strict();
 
 const AgentCommandReingestItemSchema = z.union([
   AgentCommandReingestSourceIdItemSchema,
-  AgentCommandReingestCurrentTargetItemSchema,
-  AgentCommandReingestAllTargetItemSchema,
+  AgentCommandReingestWorkingTargetItemSchema,
+  AgentCommandReingestPlanScopeTargetItemSchema,
 ]);
 
 const AgentCommandItemSchema = z.union([
@@ -76,6 +76,77 @@ export type AgentCommandReingestItem = z.infer<
 export type AgentCommandItem = z.infer<typeof AgentCommandItemSchema>;
 export type AgentCommandFile = z.infer<typeof AgentCommandFileSchema>;
 
+function emitReingestTargetContractLogs(params: {
+  commandName: string;
+  raw: unknown;
+  parsedOk: boolean;
+}) {
+  if (
+    !params.parsedOk &&
+    typeof params.raw === 'object' &&
+    params.raw !== null
+  ) {
+    const items = (params.raw as { items?: unknown }).items;
+    if (!Array.isArray(items)) return;
+
+    for (const [itemIndex, item] of items.entries()) {
+      if (typeof item !== 'object' || item === null) continue;
+      const target = (item as { target?: unknown; type?: unknown }).target;
+      const type = (item as { target?: unknown; type?: unknown }).type;
+      if (type === 'reingest' && (target === 'current' || target === 'all')) {
+        append({
+          level: 'info',
+          message: 'DEV-0000052:T1:reingest-target-contract',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'command',
+            definitionName: params.commandName,
+            definitionIndex: itemIndex,
+            outcome: 'rejected_removed_target',
+            removedTarget: target,
+          },
+        });
+      }
+    }
+    return;
+  }
+
+  if (
+    !params.parsedOk ||
+    typeof params.raw !== 'object' ||
+    params.raw === null ||
+    !Array.isArray((params.raw as { items?: unknown }).items)
+  ) {
+    return;
+  }
+
+  const items = (params.raw as { items: unknown[] }).items;
+  for (const [itemIndex, item] of items.entries()) {
+    if (typeof item !== 'object' || item === null) continue;
+    const target = (item as { target?: unknown; type?: unknown }).target;
+    const type = (item as { target?: unknown; type?: unknown }).type;
+    if (
+      type === 'reingest' &&
+      (target === 'working' || target === 'plan_scope')
+    ) {
+      append({
+        level: 'info',
+        message: 'DEV-0000052:T1:reingest-target-contract',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          surface: 'command',
+          definitionName: params.commandName,
+          definitionIndex: itemIndex,
+          outcome: 'accepted_supported_target',
+          supportedTarget: target,
+        },
+      });
+    }
+  }
+}
+
 export function parseAgentCommandFile(
   jsonText: string,
   metadata?: { commandName?: string; emitSchemaParseLogs?: boolean },
@@ -88,6 +159,13 @@ export function parseAgentCommandFile(
   }
 
   const parsed = AgentCommandFileSchema.safeParse(raw);
+  if (metadata?.emitSchemaParseLogs) {
+    emitReingestTargetContractLogs({
+      commandName: metadata.commandName?.trim() || '(unknown)',
+      raw,
+      parsedOk: parsed.success,
+    });
+  }
   if (!parsed.success) return { ok: false };
 
   if (metadata?.emitSchemaParseLogs) {

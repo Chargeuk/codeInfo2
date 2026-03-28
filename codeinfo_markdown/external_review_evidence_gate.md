@@ -10,7 +10,8 @@ Then apply these external-review-specific additions:
    - the exact external review input file path;
    - the raw external review comments grouped by file and reviewer;
    - any comments that obviously require deeper validation in the findings step.
-6. When writing or overwriting `codeInfoStatus/reviews/<story-number>-current-review.json`, extend the base handoff with:
+6. Keep the base prompt's `Risk-Invariant Matrix` requirement for the top risky helpers/functions. External review comments can influence which helpers are highest-risk, but they do not replace the need to record invariants, contradictory inputs, and proof strength.
+7. When writing or overwriting `codeInfoStatus/reviews/<story-number>-current-review.json`, extend the base handoff with:
    - `external_review_input_file`
-7. Keep the rest of the handoff contract aligned with `review_evidence_gate.md`, including stable repo aliases, ancestry-aware resolved base branches, and current HEAD commits for every repository in scope.
-8. Report the evidence summary and the exact handoff file path when done.
+8. Keep the rest of the handoff contract aligned with `review_evidence_gate.md`, including stable repo aliases, ancestry-aware resolved base branches, current HEAD commits for every repository in scope, and the risk-invariant matrix for the top risky helpers/functions.
+9. Report the evidence summary and the exact handoff file path when done.

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { afterEach } from 'node:test';
 
 import type { ToolEvent } from '../../chat/inflightRegistry.js';
 import type { ChatToolResultEvent } from '../../chat/interfaces/ChatInterface.js';
@@ -11,6 +11,11 @@ import type {
   ReingestExecutionBatchResult,
   ReingestExecutionSingleResult,
 } from '../../ingest/reingestExecution.js';
+import { query, resetStore } from '../../logStore.js';
+
+afterEach(() => {
+  resetStore();
+});
 
 const buildOutcome = (
   overrides: Partial<ReingestTerminalOutcome> = {},
@@ -44,9 +49,9 @@ const buildBatchExecution = (
   overrides: Partial<ReingestExecutionBatchResult> = {},
 ): ReingestExecutionBatchResult => ({
   kind: 'batch',
-  targetMode: 'all',
+  targetMode: 'plan_scope',
   requestedSelector: null,
-  repositories: [
+  repositories: overrides.repositories ?? [
     {
       sourceId: '/data/repo-a',
       resolvedRepositoryId: 'repo-a',
@@ -87,6 +92,12 @@ const buildBatchExecution = (
       errorMessage: 'Another ingest is already running.',
     },
   ],
+  summary: overrides.summary ?? {
+    reingested: 1,
+    skipped: 1,
+    failed: 1,
+  },
+  warnings: overrides.warnings ?? [],
   ...overrides,
 });
 
@@ -158,11 +169,11 @@ test('preserves selector metadata in single-result payloads', () => {
   });
 });
 
-test('preserves current-target metadata in single-result payloads', () => {
+test('preserves working-target metadata in single-result payloads', () => {
   const result = buildReingestToolResult({
     callId: 'reingest-step-3',
     execution: buildSingleExecution({
-      targetMode: 'current',
+      targetMode: 'working',
       requestedSelector: null,
       outcome: buildOutcome({
         sourceId: '/data/current-repo',
@@ -175,7 +186,7 @@ test('preserves current-target metadata in single-result payloads', () => {
   assert.deepEqual(result.result, {
     kind: 'reingest_step_result',
     stepType: 'reingest',
-    targetMode: 'current',
+    targetMode: 'working',
     requestedSelector: null,
     sourceId: '/data/current-repo',
     resolvedRepositoryId: 'repo-current',
@@ -197,7 +208,7 @@ test('builds one batch payload and preserves repository ordering', () => {
     execution: buildBatchExecution(),
   });
 
-  assert.equal(result.stage, 'error');
+  assert.equal(result.stage, 'success');
   assert.equal(
     (result.result as { kind: string }).kind,
     'reingest_step_batch_result',
@@ -248,16 +259,64 @@ test('batch payload entries preserve repository identity and canonical path fiel
 test('batch payload summary counts mixed outcomes without recomputation', () => {
   const result = buildReingestToolResult({
     callId: 'reingest-step-6',
-    execution: buildBatchExecution(),
+    execution: buildBatchExecution({
+      summary: {
+        reingested: 4,
+        skipped: 3,
+        failed: 2,
+      },
+    }),
   });
 
   assert.deepEqual(
     (result.result as { summary: Record<string, number> }).summary,
     {
-      reingested: 1,
-      skipped: 1,
-      failed: 1,
+      reingested: 4,
+      skipped: 3,
+      failed: 2,
     },
+  );
+});
+
+test('batch payload preserves explicit warnings and warning field metadata', () => {
+  const result = buildReingestToolResult({
+    callId: 'reingest-step-6b',
+    execution: buildBatchExecution({
+      warnings: [
+        {
+          code: 'handoff_missing',
+          message: 'handoff missing',
+          repositoryPath:
+            '/repo/current/codeInfoStatus/flow-state/current-plan.json',
+          resolvedRepositoryId: null,
+        },
+        {
+          code: 'repository_failed',
+          message: 'repo failed',
+          repositoryPath: '/data/repo-c',
+          resolvedRepositoryId: 'repo-c',
+        },
+      ],
+    }),
+  });
+
+  assert.deepEqual(
+    (result.result as { warnings: Array<Record<string, unknown>> }).warnings,
+    [
+      {
+        code: 'handoff_missing',
+        message: 'handoff missing',
+        repositoryPath:
+          '/repo/current/codeInfoStatus/flow-state/current-plan.json',
+        resolvedRepositoryId: null,
+      },
+      {
+        code: 'repository_failed',
+        message: 'repo failed',
+        repositoryPath: '/data/repo-c',
+        resolvedRepositoryId: 'repo-c',
+      },
+    ],
   );
 });
 
@@ -293,11 +352,44 @@ test('remains compatible with the existing live tool-result event shape', () => 
   assert.equal(liveEvent.errorFull ?? null, null);
 });
 
+test('emits one stable tool-result build marker schema', () => {
+  buildReingestToolResult({
+    callId: 'reingest-step-log',
+    execution: buildBatchExecution(),
+  });
+
+  const marker = query(
+    {
+      text: 'DEV-0000052:T5:reingest-tool-result-built',
+      source: ['server'],
+    },
+    10,
+  ).at(-1);
+
+  assert.ok(marker);
+  assert.equal(marker.message, 'DEV-0000052:T5:reingest-tool-result-built');
+  assert.deepEqual(marker.context, {
+    callId: 'reingest-step-log',
+    payloadKind: 'reingest_step_batch_result',
+    targetMode: 'plan_scope',
+    stage: 'success',
+    warningCount: 0,
+    sourceId: null,
+    repositoryCount: 3,
+    status: null,
+  });
+});
+
 test('remains compatible with the persisted Turn.toolCalls container shape for batch payloads', () => {
   const built = buildReingestToolResult({
     callId: 'reingest-step-9',
     execution: buildBatchExecution({
       repositories: [],
+      summary: {
+        reingested: 0,
+        skipped: 0,
+        failed: 0,
+      },
     }),
   });
 
@@ -315,7 +407,7 @@ test('remains compatible with the persisted Turn.toolCalls container shape for b
           result: {
             kind: 'reingest_step_batch_result',
             stepType: 'reingest',
-            targetMode: 'all',
+            targetMode: 'plan_scope',
             requestedSelector: null,
             repositories: [],
             summary: {
@@ -323,6 +415,7 @@ test('remains compatible with the persisted Turn.toolCalls container shape for b
               skipped: 0,
               failed: 0,
             },
+            warnings: [],
           },
           error: null,
         },

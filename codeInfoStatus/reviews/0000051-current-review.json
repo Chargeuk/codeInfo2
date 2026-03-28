@@ -1,0 +1,29 @@
+{
+  "story_id": "0000051",
+  "plan_path": "planning/0000051-github-copilot-sdk-chat-provider.md",
+  "review_pass_id": "0000051-review-20260324T144346Z-6385e23c",
+  "evidence_file": "codeInfoStatus/reviews/0000051-review-20260324T144346Z-6385e23c-evidence.md",
+  "findings_file": "codeInfoStatus/reviews/0000051-review-20260324T144346Z-6385e23c-findings.md",
+  "repos": [
+    {
+      "repo_alias": "current_repository",
+      "repo_root": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2",
+      "branch": "feature/0000051-github-copilot-sdk-chat-provider",
+      "resolved_base_branch": "main",
+      "head_commit": "1f075187"
+    }
+  ],
+  "scope_summary": {
+    "additional_repository_count": 0,
+    "cross_repository_review_required": false,
+    "resolved_base_reason": "current-plan branched_from is main and the repository default branch is origin/main, so the review base is main"
+  },
+  "finding_summary": {
+    "total": 2,
+    "must_fix": 0,
+    "should_fix": 2,
+    "optional_simplification": 0,
+    "repo_local_findings": 2,
+    "cross_repository_findings": 0
+  }
+}

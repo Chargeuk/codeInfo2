@@ -25,12 +25,12 @@ Perform this onboarding only when you are first working in this folder structure
 2. In that tool call, include the full repository path for this repository when doing so.
 3. Ask for:
    - a concise project overview;
-   - the next plan in `./planning`, defined as the lowest `<index>-<title>.md` file that still contains tasks marked `todo` or `in progress`;
+   - the next plan in `./planning`, defined as the lowest `<index>-<title>.md` file that still contains tasks marked `todo` or `in progress` that is NOT a pr-summary file;
    - the current status of that plan.
 4. View the last 3 commits in the repository.
 5. Confirm the current git branch.
-6. Check the planning document that matches the current branch story number, if one exists.
-7. Check the latest planning document in `./planning` if it is different from the branch-matched plan.
+6. Check the planning document that matches the current branch story number that is NOT a pr-summary file, if one exists.
+7. Check the latest planning document in `./planning` that is NOT a pr-summary file if it is different from the branch-matched plan.
 8. Summarize for the user:
    - the project overview;
    - what was last implemented;
@@ -62,7 +62,7 @@ Perform this onboarding only when you are first working in this folder structure
 
 ## Working Through Story Plans
 
-When working from a file in `./planning`, update the plan continuously as implementation progresses.
+When working from a file in `./planning` that is NOT a pr-summary file, update the plan continuously as implementation progresses.
 
 1. Mark each subtask complete immediately when that subtask is implemented.
 2. Mark each testing step complete immediately when that testing step is performed.

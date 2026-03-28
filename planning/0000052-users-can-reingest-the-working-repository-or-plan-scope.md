@@ -13,15 +13,19 @@ Commands and flows already support a dedicated re-ingest step, but the current t
 
 This story replaces the confusing owner-based `current` target with two targets that match the real workflow model.
 
+It also removes the broader `all` batch literal from command and flow authoring. Users who want explicit one-repository control should keep using `sourceId`, and users who want the working repository plus its declared related repositories should use `plan_scope`.
+
 The first target is `working`. This means "re-ingest the repository currently selected as the run's `working_folder`". It should work the same way for direct commands, dedicated flow re-ingest steps, and command items executed inside flows. If no working repository is selected, or if the selected working repository is not currently ingested, the step should fail before it starts with a clear error.
 
 The second target is `plan_scope`. This means "re-ingest the current working repository and any additional repositories declared in that repository's `codeInfoStatus/flow-state/current-plan.json` file". The current repository always comes first. If the handoff file is missing, or if it exists but has no `additional_repositories`, then `plan_scope` should behave the same as `working`.
+
+`plan_scope` still depends on the working repository being usable. If no working repository is selected, or if the selected working repository is not currently ingested, the batch must fail before it starts for the same reason as `working`. The handoff fallback rules only apply after the working repository itself has been validated and accepted as the first repository in scope.
 
 If `current-plan.json` exists but is malformed or unreadable, `plan_scope` should not fail the whole step. Instead, it should continue with only the working repository and emit enough structured logging to make it clear that the handoff could not be fully used. If the handoff file can be read but some additional repositories are invalid or not currently ingested, those entries should be skipped with warnings while the remaining usable repositories still run.
 
 The repository already uses `current-plan.json` as a canonical handoff file for multi-repository story scope. That handoff names extra repositories through `additional_repositories`, while the current repository is implicit. This story reuses that same product language rather than inventing a second related-repositories concept. The current plan-scope re-ingest should therefore read the same `additional_repositories[].path` values already used elsewhere in the repository's workflow assets.
 
-This story is also a contract cleanup. The `current` re-ingest target should be removed rather than kept as a second name for a different meaning. Leaving `current` in place would preserve a word that already means the wrong thing in both planning and code, which would keep the product confusing for workflow authors.
+This story is also a contract cleanup. The old `current` and `all` re-ingest targets should be removed rather than kept as alternate names for different behavior. Leaving those literals in place would preserve outdated wording that no longer matches the intended workflow model, which would keep the product confusing for workflow authors.
 
 This cleanup should also update any checked-in commands or flows in the repository that still reference `target: "current"`. Those checked-in assets should move to `target: "plan_scope"` as part of this story so the repository's own workflow configuration matches the new supported contract immediately.
 
@@ -37,18 +41,159 @@ The runtime should preserve deterministic behavior for `plan_scope`. Repository 
 1. the current working repository;
 2. then repositories listed in `current-plan.json.additional_repositories` in file order.
 
-Duplicate repositories should be removed while preserving the first occurrence. If the current working repository is also listed in `additional_repositories`, that duplicate should be ignored. If the same additional repository appears more than once, only the first occurrence should be kept.
+Duplicate repositories should be removed while preserving the first occurrence. If the current working repository is also listed in `additional_repositories`, that duplicate should be skipped as redundant. If the same additional repository appears more than once, only the first occurrence should be kept and later duplicates should be surfaced as skipped-at-resolution warnings so the user can see that the handoff contained redundant scope entries.
 
 Because `plan_scope` can touch more than one repository, it should behave like a small batch operation rather than a set of disconnected single-repository tool events. It should block until every targeted repository reaches a terminal outcome, and it should record one structured batch result that the UI, logs, and tests can reason about. This keeps the user experience aligned with the existing direction for multi-repository re-ingest work.
 
-This story should reuse the existing batch transcript payload shape that already exists for multi-repository re-ingest. `plan_scope` is still a batch re-ingest of multiple repositories, so it should travel through the same general payload contract rather than inventing a second special-purpose batch result. The runtime should extend that existing shape by allowing `targetMode: "plan_scope"` and by populating the same ordered `repositories` array and `summary` counts already used by the current batch path.
+This story should reuse the existing batch transcript payload shape that already exists for multi-repository re-ingest. `plan_scope` is still a batch re-ingest of multiple repositories, so it should travel through the same general payload contract rather than inventing a second special-purpose batch result. The runtime should extend that existing shape only as needed for this story by allowing `targetMode: "plan_scope"`, keeping the same ordered `repositories` array and `summary` counts, and adding warning data for plan-scope-specific fallback and skip cases.
 
 Best-effort execution is important for `plan_scope`. If the handoff file cannot be read well enough to produce additional repository scope, the batch should still continue with the working repository and log a warning. If some additional repository entries are invalid or not currently ingested, they should be skipped with warnings while the remaining usable repositories still run. Those skipped-at-resolution repositories should be surfaced through warnings, structured logs, and step metadata rather than being inserted into the attempted-repository batch payload. If a repository begins re-ingest and later reaches a failed terminal outcome, that warning should be recorded but the batch must continue through the rest of the resolved repository list instead of stopping early. When that happens, the overall `plan_scope` batch should be reported as completed with warnings rather than as a hard error, because the batch itself still finished its full ordered pass.
+
+### Definitions and runtime rules
+
+- **Working repository** means the repository resolved from the run's current `working_folder` value after it passes through the same repository-resolution logic already used elsewhere in the product. This story does not invent a second way to resolve repositories.
+- **Currently ingested repository** means a repository that the existing repository selector / ingest lookup layer can already resolve to an ingested root and use for a normal explicit `sourceId`-style re-ingest. If that existing lookup says the repository is unknown or not ingested, `working` must fail before starting and `plan_scope` must skip that additional repository with a warning.
+- **Direct command execution** means a re-ingest item executed from a command file without a flow wrapper.
+- **Dedicated flow re-ingest step** means a top-level flow step whose purpose is re-ingest.
+- **Flow-command re-ingest item** means a re-ingest item inside a command that is itself being executed by a flow step.
+- **Attempted repository** means a repository for which the runtime actually started a re-ingest run. Repositories rejected earlier during scope resolution are not "attempted repositories".
+- **Skipped-at-resolution repository** means an additional repository named in `current-plan.json` that is ignored before re-ingest starts because its path is invalid, unreadable, duplicated, or not currently ingested.
+- **Success-with-warnings** means the batch itself started, processed every repository it was able to attempt in order, and reached a terminal batch result, but one or more warnings were recorded. Those warnings may come from handoff fallback, skipped-at-resolution repositories, or repository-level re-ingest failures.
+- `plan_scope` repository resolution order is fixed:
+  1. resolve the working repository first;
+  2. read `<working-repo>/codeInfoStatus/flow-state/current-plan.json` if present and readable enough to parse;
+  3. append `additional_repositories[].path` entries in file order;
+  4. drop duplicates while keeping the first occurrence;
+  5. skip unusable additional repositories with warnings;
+  6. attempt the remaining repositories in final order.
+  7. if `additional_repositories` is absent or an empty array, continue with a clean working-only batch and no handoff warning;
+  8. if `additional_repositories` exists but is not a usable array of `{ path }` objects, treat the handoff as invalid and fall back to working-only with `handoff_invalid`.
+
+### Result and warning contract
+
+- `working` remains a single-repository re-ingest and should continue to use the same single-repository result shape that the product already uses for explicit selector-based re-ingest.
+- `plan_scope` must reuse the existing multi-repository batch result shape rather than inventing a new one. At minimum, the runtime must continue to populate:
+  - `targetMode`, now allowing the literal `"plan_scope"`;
+  - `repositories`, ordered exactly as attempted;
+  - `summary`, with counts derived only from attempted repositories.
+- Each attempted repository entry in the batch result must represent one repository that actually started re-ingest and must include that repository's terminal outcome.
+- Skipped-at-resolution repositories must not be synthesized into the `repositories` array. They belong in warnings, structured logs, or step metadata instead.
+- When `plan_scope` falls back to the working repository only because the handoff file is missing, malformed, unreadable, or structurally invalid, the batch still succeeds if that working-repository re-ingest succeeds. The warning should explain why no additional repositories were attempted.
+- When `plan_scope` reads a valid handoff file whose `additional_repositories` field is absent or empty, the batch should behave as a clean working-only run with no handoff warning because the handoff itself was usable and simply contributed no extra repository scope.
+- When `plan_scope` starts successfully and one attempted repository later fails, the batch must continue through later attempted repositories and finish with a warning-style terminal status rather than aborting the whole batch at the first failed repository.
+- Unsupported target values, including removed `current` and removed `all`, must fail during normal schema or validation handling before any re-ingest run starts. This story should not add a compatibility-only branch that rewrites old target values at runtime.
+
+### Developer-facing implementation boundary
+
+- The same target semantics must be implemented in exactly three places and kept aligned:
+  - direct command re-ingest items;
+  - dedicated flow re-ingest steps;
+  - re-ingest items inside commands executed by flows.
+- MCP `reingest_repository` is explicitly outside this contract change. It should stay selector-driven and should not gain `working` or `plan_scope` parsing, fallback, or plan-handoff behavior.
+- Checked-in workflow assets in this repository are part of the story output. If a checked-in command or flow still uses `target: "current"`, updating that asset is part of completing the story, not optional cleanup.
+
+## Message Contracts and Storage Shapes
+
+This story stays within the current repository, so the contract definitions below use the normal single-repository style. The story does change existing contracts and one stored payload shape, but it should do so by extending the current command/flow/tool-result path rather than inventing a second persistence channel.
+
+### Authored command and flow JSON contracts
+
+- Command JSON re-ingest items should be defined as exactly one of:
+  - `{ "type": "reingest", "sourceId": "<selector>" }`
+  - `{ "type": "reingest", "target": "working" }`
+  - `{ "type": "reingest", "target": "plan_scope" }`
+- Flow JSON re-ingest steps should be defined as exactly one of:
+  - `{ "type": "reingest", "sourceId": "<selector>" }`
+  - `{ "type": "reingest", "target": "working" }`
+  - `{ "type": "reingest", "target": "plan_scope" }`
+- `target: "current"` and `target: "all"` are removed from newly-authored command and flow files in this story. They are not compatibility aliases.
+- Contract owner and parser files:
+  - `server/src/agents/commandsSchema.ts`
+  - `server/src/flows/flowSchema.ts`
+- Compatibility expectation:
+  - new checked-in command and flow files written by this story must use only `sourceId`, `working`, or `plan_scope`;
+  - remaining `current`/`all` authored values should fail the normal invalid-target path rather than being rewritten at runtime.
+
+### Runtime re-ingest execution result contract
+
+- `server/src/ingest/reingestExecution.ts` should keep two result families:
+  - single-repository result for `sourceId` and `working`;
+  - batch result for `plan_scope`.
+- The single result contract should be:
+  - `kind: "single"`
+  - `targetMode: "sourceId" | "working"`
+  - `requestedSelector: string | null`
+  - `resolvedSourceId: string`
+  - `outcome: ReingestSuccess`
+- The batch result contract should remain attempted-repository-oriented and should be:
+  - `kind: "batch"`
+  - `targetMode: "plan_scope"`
+  - `requestedSelector: null`
+  - `repositories: ReingestRepositoryExecutionOutcome[]`
+  - `summary: { reingested: number; skipped: number; failed: number }`
+  - `warnings: ReingestPlanScopeWarning[]`
+- `repositories` and `summary` must describe attempted repositories only.
+- `warnings` must carry the resolution-time and best-effort context that the existing batch payload cannot express by repository outcomes alone.
+- The warning shape should stay simple and explicit:
+  - `code: "handoff_missing" | "handoff_invalid" | "repository_skipped" | "repository_failed"`
+  - `message: string`
+  - `repositoryPath?: string | null`
+  - `resolvedRepositoryId?: string | null`
+- Duplicate additional-repository entries, including duplicates of the working repository, should use the normal `repository_skipped` warning path rather than a separate duplicate-specific warning code.
+- Compatibility expectation:
+  - reuse the current repository-outcome entry shape instead of inventing a second per-repository result type;
+  - do not synthesize skipped-at-resolution repositories into `repositories`.
+
+### `current-plan.json` handoff storage contract
+
+- This story reuses the existing checked-in handoff file instead of creating a new storage file.
+- Runtime consumption should read:
+  - `<working-repo>/codeInfoStatus/flow-state/current-plan.json`
+  - `additional_repositories[].path`
+- Runtime consumption should ignore handoff fields that are not needed for repository scope resolution, including `plan_path` and any `branched_from` values.
+- This story does not redefine the handoff file format. It adds runtime consumption of the existing `additional_repositories[].path` field only.
+- Compatibility expectation:
+  - missing file or unreadable file must fall back to working-only behavior plus warnings;
+  - malformed JSON or structurally invalid `additional_repositories` content must fall back to working-only behavior plus `handoff_invalid`;
+  - empty or absent `additional_repositories` in an otherwise readable handoff file must fall back to working-only behavior without a handoff warning;
+  - the story should not write or migrate this file during re-ingest execution.
+
+### Chat tool-result and persisted turn storage contract
+
+- `server/src/chat/reingestToolResult.ts` should keep the existing `tool-result` event path and the existing `reingest_step_result` / `reingest_step_batch_result` payload kinds.
+- The single payload should become:
+  - `targetMode: "sourceId" | "working"`
+- The batch payload should become:
+  - `targetMode: "plan_scope"`
+  - `repositories: ReingestRepositoryExecutionOutcome[]`
+  - `summary: { reingested: number; skipped: number; failed: number }`
+  - `warnings: ReingestPlanScopeWarning[]`
+- Because `ChatToolResultEvent.stage` currently only allows `success` or `error`, completed `plan_scope` batches with warnings should be represented as:
+  - `stage: "success"`
+  - batch payload `warnings.length > 0`
+- `server/src/chat/reingestStepLifecycle.ts` should persist that batch payload unchanged into `Turn.toolCalls` so the warning information survives memory persistence, Mongo persistence, websocket publication, and later transcript reads.
+- Storage shape owner:
+  - `server/src/mongo/turn.ts` already stores `toolCalls` as `Schema.Types.Mixed`, so no new collection or top-level Turn schema field is needed for this story.
+- Compatibility expectation:
+  - new writes from this story should persist `working` and `plan_scope`;
+  - stored historical payloads that still mention `sourceId`, `current`, or `all` should remain readable through the lifecycle normalization path where practical, but the story should not keep writing the removed literals.
+
+### Follow-up runtime and review hardening contract
+
+- Within one `working` or `plan_scope` execution path, selector validation and plan-scope repository resolution should reuse a stable ingested-repository snapshot where practical instead of re-reading mutable repository listings unnecessarily.
+- If a repository re-ingest attempt returns an ok-shaped terminal result whose final status is `error` or `cancelled`, the batch must still normalize that repository to `outcome: "failed"` and append a `repository_failed` warning so warnings, summaries, logs, and downstream tool-result consumers stay aligned.
+- `server/src/chat/reingestToolResult.ts` should treat the execution-layer batch summary as the source of truth and pass it through unchanged rather than recomputing an equivalent downstream summary from the repositories array.
+- `server/src/chat/reingestStepLifecycle.ts` should keep accepting legacy batch `targetMode` values, but the normalization path should express that legacy-to-canonical mapping clearly rather than through redundant conditionals.
+- Shared review prompts in `codeinfo_markdown/` should record a risk-invariant matrix and rejected-risk notes for the top risky helpers so a no-findings review still proves why high-risk semantic mismatches were rejected.
+- Shared review flows in `flows/` that run the internal or external code-review sequence should include an explicit blind-spot challenge step after findings and before disposition so one focused pass tries to break a tentative no-findings conclusion.
+- The no-findings disposition path should carry those rejected-risk notes into the final plan review section so later readers can see which subtle semantic mismatches were checked and why they were cleared.
 
 ### Acceptance Criteria
 
 - Command JSON no longer supports `target: "current"` for re-ingest items.
 - Flow JSON no longer supports `target: "current"` for re-ingest steps.
+- Command JSON no longer supports `target: "all"` for re-ingest items.
+- Flow JSON no longer supports `target: "all"` for re-ingest steps.
 - Checked-in commands and flows in this repository that previously used `target: "current"` are updated to use `target: "plan_scope"` where that matches the desired behavior.
 - Command JSON supports `target: "working"` for re-ingest items.
 - Flow JSON supports `target: "working"` for re-ingest steps.
@@ -59,17 +204,21 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - `target: "working"` behaves consistently for direct commands, dedicated flow re-ingest steps, and re-ingest items inside flow-executed commands.
 - If no `working_folder` is available for the run, `target: "working"` fails before the step starts with a clear validation or pre-start error.
 - If the selected `working_folder` repository is not currently ingested, `target: "working"` fails before the step starts with a clear validation or pre-start error.
+- If no `working_folder` is available for the run, `target: "plan_scope"` fails before the step starts with a clear validation or pre-start error.
+- If the selected `working_folder` repository is not currently ingested, `target: "plan_scope"` fails before the step starts with a clear validation or pre-start error.
 - `target: "plan_scope"` always includes the current working repository first.
 - `target: "plan_scope"` reads extra repositories from `codeInfoStatus/flow-state/current-plan.json` under the current working repository root.
 - `target: "plan_scope"` uses the `additional_repositories` entries from that handoff file as the additional repository source of truth.
 - `target: "plan_scope"` reads repository paths from `additional_repositories[].path`.
 - If `current-plan.json` is missing, `target: "plan_scope"` behaves the same as `target: "working"`.
-- If `current-plan.json` exists but `additional_repositories` is empty or absent, `target: "plan_scope"` behaves the same as `target: "working"`.
+- If `current-plan.json` exists but `additional_repositories` is empty or absent, `target: "plan_scope"` behaves the same as `target: "working"` without a handoff warning.
 - If `current-plan.json` exists but is malformed or unreadable, `target: "plan_scope"` continues with only the working repository instead of failing the whole step.
+- If `current-plan.json` is readable JSON but `additional_repositories` is not a usable array of `{ path }` entries, `target: "plan_scope"` treats the handoff as invalid, records `handoff_invalid`, and continues with only the working repository.
 - If `current-plan.json` contains invalid or not-currently-ingested additional repositories, `target: "plan_scope"` skips those entries with warnings and still attempts the remaining usable repositories.
 - `target: "plan_scope"` processes repositories in deterministic order: working repository first, then `additional_repositories` in file order.
 - `target: "plan_scope"` de-duplicates repositories while preserving first occurrence order.
-- If the working repository also appears inside `additional_repositories`, it is treated as redundant and ignored there.
+- If the working repository also appears inside `additional_repositories`, it is treated as redundant, skipped with `repository_skipped`, and not attempted twice.
+- If the same additional repository appears more than once, later duplicates are dropped, surfaced as `repository_skipped`, and do not change the first occurrence order.
 - Existing re-ingest blocking semantics remain intact for both new targets: the step waits for terminal outcomes before continuing.
 - `target: "plan_scope"` does not abort the batch when one attempted repository reaches a failed terminal re-ingest outcome; it continues through the rest of the resolved repository list and records warnings for failures.
 - When a `plan_scope` batch starts successfully and completes its full ordered pass, the overall tool result is reported as success-with-warnings rather than as a hard error, even if some repositories in the batch failed.
@@ -77,14 +226,22 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - `target: "plan_scope"` reuses the existing batch transcript payload shape used by multi-repository re-ingest, rather than introducing a second plan-scope-only batch payload.
 - The batch result for `target: "plan_scope"` contains the ordered list of repositories attempted and the terminal outcome for each repository.
 - The batch result for `target: "plan_scope"` also contains summary counts so the UI and tests can assert the batch outcome directly.
+- The batch result for `target: "plan_scope"` also contains a `warnings` array that records handoff fallback, skipped-at-resolution repositories, and attempted repository failures.
 - Additional repositories that are skipped before re-ingest begins because they are invalid or not currently ingested do not appear in the batch `repositories` array or summary counts.
+- If an attempted `plan_scope` repository returns an ok-shaped terminal error or cancellation result, the batch still emits a `repository_failed` warning and keeps the warning, repository outcome, and summary accounting aligned.
+- A single `working` or `plan_scope` execution path reuses a stable ingested-repository listing snapshot for selector validation and plan-scope resolution instead of re-reading mutable listings unnecessarily.
+- The chat tool-result batch payload reuses the execution-layer summary rather than recomputing a second summary downstream from the repositories array.
+- Completed `plan_scope` batches that include warnings are persisted and published with tool-result `stage: "success"` plus the batch `warnings` array, rather than a new tool stage enum value.
 - Logs and structured runtime metadata clearly distinguish `sourceId`, `working`, and `plan_scope` target modes.
 - Logs also make it clear when `plan_scope` had to fall back to the working repository only, skip unusable additional repositories, or continue after repository-level failures.
 - Warning text, structured logs, and step metadata make skipped-at-resolution repositories visible even though they are not part of the attempted-repository batch payload.
 - Warning-oriented assistant text and UI status make it clear when `plan_scope` completed with some repository failures, without treating the whole batch as a hard error.
+- Runtime `plan_scope` consumption reads only `additional_repositories[].path` from `current-plan.json` and ignores unrelated handoff fields such as `plan_path` and `branched_from`.
+- The story persists the new warning data through the existing `Turn.toolCalls` payload path and does not introduce a new Mongo collection or a new top-level Turn schema field.
 - Unsupported target values, including the removed `current` literal, fail through the normal invalid-target validation path rather than a special backwards-compatibility branch.
 - MCP `reingest_repository` remains on its explicit `sourceId` contract and does not gain `working` or `plan_scope` semantics in this story.
 - API validation, docs, tests, and planning references are updated so `current` is no longer presented as a supported re-ingest target.
+- Shared review prompts and review flows in this repository record rejected-risk reasoning for the top risky helpers and run an explicit blind-spot challenge step before a no-findings disposition can close the story.
 
 ### Out Of Scope
 
@@ -95,14 +252,143 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 - Reworking the broader `current-plan.json` handoff format beyond reading `additional_repositories[].path` for this story.
 - General multi-repository orchestration features beyond the `plan_scope` re-ingest behavior described here.
 - Expanding the MCP `reingest_repository` tool contract beyond its existing explicit `sourceId` behavior.
+- Adding a new tool-result stage enum value just for warning-style `plan_scope` completion.
+- Introducing a new persistence collection or a new top-level Turn schema field for re-ingest warnings.
 
-### Additional Repositories
+## Ground Rules For Juniors
+
+- Work from the repository root unless a subtask explicitly says otherwise.
+- Treat every subtask as standalone work: read every file in its `Read/update:` list and every link in its `Documentation:` list before you change code.
+- Do not rely on later tasks to clarify the current one. If a subtask says to preserve or avoid something, handle that boundary inside that subtask before moving on.
+- Keep implementation local to the files named in the subtask unless you discover a concrete dependency that must be added; if that happens, update this story file immediately so the dependency is written down for the next developer.
+- Run the task’s listed verification steps before marking the task done, and record any deliberate no-change decision in that task’s Implementation notes so later developers do not have to guess why something was left alone.
+
+## Research Findings
+
+- Repository scope remains single-repository for this story. The active handoff file still points only at this repository and the plan's `Additional Repositories` section remains `- No Additional Repositories`.
+- The current command and flow schemas still hard-code only three re-ingest request shapes:
+  - explicit `sourceId`
+  - `target: "current"`
+  - `target: "all"`
+    Repo evidence: `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `server/src/ingest/reingestExecution.ts`, and `server/src/agents/commandsRunner.ts`.
+- The runtime already has working-folder resolution that should be reused rather than reimplemented. Repo evidence:
+  - `server/src/workingFolders/state.ts` validates absolute paths, known repository membership, and host-to-workdir mapping
+  - `server/src/agents/service.ts` and `server/src/flows/service.ts` already resolve the effective `working_folder` for runs before command or flow execution starts
+- `current-plan.json` is already a checked-in workflow handoff artifact, but server/client runtime code does not currently parse it during re-ingest execution. Story `0000052` therefore introduces new runtime consumption of that handoff file rather than reusing an existing runtime parser.
+- The existing batch re-ingest execution already continues after per-repository failures for `target: "all"` and records per-repository outcomes, but the user-facing tool result layer still turns any batch with `summary.failed > 0` into hard `stage: "error"`. Repo evidence:
+  - `server/src/ingest/reingestExecution.ts` continues the ordered batch after failures
+  - `server/src/chat/reingestToolResult.ts` currently maps batch results with any failed repository to hard error stage
+  - `server/src/chat/reingestStepLifecycle.ts` currently only accepts batch `targetMode: "all"`
+- `server/src/ingest/reingestExecution.ts` does not currently accept a working-repository path input. The runtime task must therefore add an explicit execution input for the already-selected run `working_folder` before direct-command or flow wiring can use the new `working` target semantics.
+- Flow-owned command re-ingest already splits responsibility across two files:
+  - `server/src/agents/commandItemExecutor.ts` owns command-item log/delegation behavior only
+  - `server/src/flows/service.ts` owns the callback that actually calls `executeReingestRequest`
+    The flow-wiring tasks must keep that boundary explicit instead of asking a developer to add a new direct execution path inside `commandItemExecutor.ts`.
+- The current execution layer does not have an existing "zero attempted repositories" runtime guard to preserve. Story work should therefore prove the real contracts that exist: pre-start failure when the working repository is unusable, warning-only fallback when the handoff is unusable, and continue-after-failure behavior once a `plan_scope` batch has started.
+- The summary wrappers and targeted proof commands already exist for the main validation paths:
+  - `package.json` already exposes `build:summary:server`, `build:summary:client`, `compose:build:summary`, `compose:up`, `compose:down`, `test:summary:server:unit`, and `test:summary:e2e`
+  - `scripts/test-summary-server-unit.mjs` already supports repeatable `--file` targeting for the planned unit and integration suites
+  - `scripts/docker-compose-with-env.sh` already creates optional local env files when absent, so the compose wrappers themselves are runnable without hand-creating blank `.env.local` files first
+- The main compose stack already mounts `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}` in `docker-compose.yml`, so the mounted-runtime proof can use the main stack once the story provides one checked-in re-ingest command or flow asset that is safe to invoke there.
+- The repository does not currently contain any checked-in command or flow asset that executes a re-ingest step. A later compose-proof task therefore cannot rely on an existing named command or flow unless this story creates one deliberately earlier in the sequence.
+- The current `all` target sorts repositories by canonical path order before execution. Story `0000052` deliberately changes that behavior for `plan_scope` to a different deterministic order: working repository first, then `additional_repositories` in handoff file order.
+- Current checked-in JSON command and flow assets in this repository do not appear to contain `target: "current"` or `target: "all"` literals today; the references found during research are in runtime code and tests. That means the acceptance about updating checked-in assets should be implemented as:
+  - verify by search whether any checked-in workflow assets still use removed targets;
+  - update them if found;
+  - otherwise record that the acceptance was satisfied by verification because no checked-in assets required migration at implementation time.
+- Current tests already cover:
+  - schema acceptance/rejection for `current` and `all`
+  - direct command `current` owner resolution
+  - `all` batch ordering and continue-after-failure behavior
+  - flow-command and flow-step re-ingest parsing
+    That existing coverage should be updated rather than duplicated where possible.
+
+## Operational Prerequisites and Missing Capabilities
+
+- **No new HTTP listener is required for this story.**
+  - Repo evidence: the main server already starts from `server/src/index.ts`, and Compose health checks already target `GET /health`.
+  - Planning implication: Story `0000052` should reuse the existing server listener and `/health` endpoint rather than planning a new readiness route just for plan-scope re-ingest.
+
+- **The runtime does not yet have a `current-plan.json` reader in the re-ingest path.**
+  - Repo evidence: `current-plan.json` is currently a workflow handoff artifact, but the re-ingest execution/runtime files do not parse it today.
+  - Missing capability: Story `0000052` must add a runtime seam that safely reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, extracts `additional_repositories[].path`, and turns resolution failures into warnings instead of hard failures where required by the story.
+
+- **Warning-style batch completion does not yet exist in the re-ingest tool-result layer.**
+  - Repo evidence:
+    - `server/src/ingest/reingestExecution.ts` already continues batch execution after per-repository failures for `target: "all"`;
+    - `server/src/chat/reingestToolResult.ts` still maps any batch with `summary.failed > 0` to hard tool stage `error`;
+    - `server/src/chat/reingestStepLifecycle.ts` still only recognizes batch `targetMode: "all"`.
+  - Missing capability: Story `0000052` must extend both the user-facing tool-result layer and the lifecycle validation/persistence layer so `plan_scope` can finish as success-with-warnings instead of being forced into a hard error state.
+
+- **Container access to `<working-repo>/codeInfoStatus/flow-state/current-plan.json` depends on existing host-to-container bind mounts.**
+  - Repo evidence:
+    - `docker-compose.yml` and `docker-compose.local.yml` mount `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}`;
+    - `docker-compose.e2e.yml` does not mount the host ingest root into the server container;
+    - working-folder validation/path mapping already depends on `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR`.
+  - Missing prerequisite: any runtime validation done inside Docker must use a working repository that is actually visible inside the server container. For the e2e stack, Story `0000052` cannot assume arbitrary host repositories are readable unless the e2e environment is updated to mount them or the validation is performed through a non-e2e harness that already has filesystem access.
+  - Validation implication:
+    - the main Compose stack is sufficient for read-only access to a mounted working repository;
+    - the local Compose stack is suitable when writable source mounts or Docker socket access are also needed;
+    - the e2e Compose stack is not, by itself, proof that runtime `plan_scope` file reads work for arbitrary host repositories.
+
+- **The story depends on existing env injection paths staying correct.**
+  - Repo evidence:
+    - startup env loading is centralized in `server/src/config/startupEnv.ts`;
+    - checked-in defaults live in `server/.env`;
+    - working-folder mapping uses `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR`.
+  - Planning implication: tasking must include explicit validation that `working` and `plan_scope` continue to behave correctly when those env values are present, missing, or inconsistent with the mounted working repository path.
+
+- **Validation wrappers already exist and should be treated as the default proof path.**
+  - Repo evidence: root `package.json` already provides `build:summary:*`, `test:summary:*`, and `compose:*` wrappers, plus the compose launcher script `scripts/docker-compose-with-env.sh`.
+  - Planning implication: final validation for Story `0000052` should be task-sized around those wrappers rather than inventing ad hoc raw commands, except where targeted diagnosis is required.
+  - Concrete wrapper baseline to reference when tasking:
+    - `npm run build:summary:server`
+    - `npm run build:summary:client`
+    - `npm run test:summary:server:unit`
+    - `npm run compose:build:summary`
+    - `npm run compose:up`
+    - `npm run compose:down`
+    - `npm run test:summary:e2e` only as optional regression smoke after deciding whether the e2e stack is actually an appropriate proof surface for the filesystem visibility required by the scenario being tested. It is not the primary proof path for this story's `plan_scope` filesystem behavior.
+
+- **Docker image builds already copy application code into the image and build from there; this story must keep that model.**
+  - Repo evidence:
+    - `server/Dockerfile` copies repo files into build stages and runs the server build inside the image before creating the runtime image;
+    - `client/Dockerfile` copies repo files into the build stage and runs the client build inside the image before creating the runtime image;
+    - existing compose files do not bind-mount the application source tree into the main or e2e server/client containers.
+  - Planning implication: Story `0000052` must not plan a host source-tree bind mount as the way to make application code or runtime changes visible inside containers. Runtime validation should rely on rebuilt images plus the existing working-repository bind mount for external repository data only.
+
+- **If Docker-facing files are added or moved, the correct build-context ignore file must be updated deliberately.**
+  - Repo evidence:
+    - root `.dockerignore` trims the main build context;
+    - `server/.dockerignore` and `client/.dockerignore` trim workspace-specific contexts.
+  - Planning implication: if Story `0000052` adds any file that must be present during Docker image build, tasking must name the correct ignore file to review/update so the file is copied intentionally through the build context instead of being reached through a runtime bind mount.
+
+- **No new Docker or compose port surface is required for this story; existing ports must be reused and treated as fixed.**
+  - Repo evidence:
+    - main stack: server `5010`, chat MCP `5011`, agents MCP `5012`, client `5001`, Chroma `8000`, Playwright MCP `8932`;
+    - local stack: server `5510`, chat MCP `5511`, agents MCP `5512`, client `5501`, Chroma `8200`, Playwright MCP `8931`;
+    - e2e stack: server `6010`, chat MCP `6011`, agents MCP `6012`, client `6001`, Chroma `8800`.
+  - Planning implication: Story `0000052` should explicitly reuse those existing ports during validation and should not introduce new exposed ports for the feature.
+
+- **Generated container artifacts should continue to prefer Docker-managed volumes, not source-tree bind mounts.**
+  - Repo evidence:
+    - current compose files already use named volumes for mutable runtime data such as `copilot-data`, `chroma-data`, `mongo_data`, `mongo_config`, and Playwright output;
+    - the only recurring host bind mount intentionally used for persistence visibility is `./logs:/app/logs`.
+  - Planning implication: if Story `0000052` needs any new generated artifact persistence during Docker validation, it should plan a Docker-managed volume for that output rather than a host source bind mount. Logs remain the one accepted host-visible bind-mounted artifact class.
+
+- **Existing test harnesses do not yet cover the new target modes or handoff-file-driven scope resolution.**
+  - Repo evidence:
+    - current tests cover `sourceId`, `current`, and `all` in schema, runtime, and tool-result layers;
+    - no current test harness proves reading `current-plan.json`, de-duplicating `additional_repositories`, or warning-style `plan_scope` completion.
+  - Missing capability: Story `0000052` must add focused test support for:
+    - runtime handoff-file fixtures under a working repository path;
+    - `working` target resolution through existing working-folder plumbing;
+    - `plan_scope` warning cases (malformed handoff, invalid additional repository, attempted repo failure);
+    - lifecycle/tool-result behavior for `targetMode: "plan_scope"`.
+
+## Additional Repositories
 
 - No Additional Repositories
-
-### Questions
-
-- No Further Questions
 
 ## Decisions
 
@@ -150,29 +436,2095 @@ Best-effort execution is important for `plan_scope`. If the handoff file cannot 
 
 ## Implementation Ideas
 
-- Replace the current owner-based `current` target in the command and flow schemas with `working` and `plan_scope`, while keeping explicit `sourceId` support.
-- Update any checked-in flow or command JSON that still uses `target: "current"` so it now uses `target: "plan_scope"`.
-- Extend the re-ingest execution layer so it accepts the validated `working_folder` repository path directly instead of only the current owner repository path.
-- Add one resolver for `plan_scope` that:
-  - starts with the current working repository;
-  - reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` when present;
-  - extracts `additional_repositories[].path`;
-  - de-duplicates the final ordered list;
-  - skips unusable additional entries with warnings when partial resolution is still possible.
-- Reuse the existing repository selector and canonical container-path normalization logic when turning working-repository and plan-scope entries into re-ingestable roots.
-- Keep `working` as a single-repository execution path and `plan_scope` as a batch orchestration path that records the existing structured batch result shape with `targetMode: "plan_scope"`, while continuing through later repositories when one attempted re-ingest fails.
-- Update direct command execution, dedicated flow re-ingest steps, and flow-command re-ingest items together so all three surfaces share the same target semantics.
-- Let unsupported targets, including removed `current`, fail through the normal invalid-target schema or validation path instead of a dedicated compatibility branch.
-- Update the re-ingest tool-result and lifecycle reporting so completed `plan_scope` batches with failed repositories are surfaced as warning-style completions rather than hard errors, while still preserving failed counts and warning details.
-- Update logs, tool-result payloads, and persisted step metadata so the selected target mode and resolved repository list are obvious during debugging, including when unusable handoff data forces `plan_scope` to fall back to the working repository only, skip specific repositories, or continue after repository-level failures.
-- Add tests for:
-  - schema acceptance and rejection of `working`, `plan_scope`, and removed `current`;
-  - checked-in commands and flows that are migrated from `current` to `plan_scope`;
-  - `working` with and without a valid `working_folder`;
-  - `plan_scope` with no handoff file;
-  - `plan_scope` with empty `additional_repositories`;
-  - `plan_scope` with multiple repositories and duplicate entries;
-  - malformed handoff-file scenarios that prove the step continues with only the working repository;
-  - partially invalid repository lists that prove bad entries are skipped while good entries still run, and that skipped-at-resolution repositories are visible through warnings/metadata rather than the attempted batch payload;
-  - multi-repository batches where one repository fails and later repositories still continue;
-  - completed `plan_scope` batches with failed repositories that are reported as warning-style completions rather than hard errors.
+- Implement this story in four ordered passes so the contract stays aligned across parser, runtime, and transcript layers:
+  1. update the command and flow schemas/types to remove `current` and `all`, add `working` and `plan_scope`, and keep `sourceId`;
+  2. update the execution layer so it can resolve a working repository and a plan-scope repository list;
+  3. update the command/flow runners and persisted tool-result lifecycle so the new target modes are actually carried through every execution surface;
+  4. update tests and checked-in workflow assets so the repository stops advertising removed target names.
+- The schema-first file map is already narrow and should stay that way:
+  - `server/src/agents/commandsSchema.ts`
+  - `server/src/flows/flowSchema.ts`
+    These files currently model re-ingest as `sourceId`, `target: "current"`, or `target: "all"`. The simplest change is to swap those target literals to `working` and `plan_scope` while keeping the strict object-shape approach already used throughout the repo. External Zod guidance favors `discriminatedUnion` when a single discriminator can cheaply pick the branch, but this story does not need a broad schema refactor unless it clearly reduces ambiguity in the existing strict-object union code.
+- The runtime execution change should stay centered in `server/src/ingest/reingestExecution.ts`. That file already contains the three current execution branches, canonical selector handling, ordered batch execution, and the resolution log marker `DEV-0000050:T03:reingest_targets_resolved`. The implementation should keep `sourceId` behavior intact, replace the current-owner branch with a working-repository branch, and replace the all-repositories branch with a plan-scope branch that still reuses the existing batch execution loop and outcome normalization helpers.
+- A small dedicated helper near the ingest execution layer is likely the cleanest seam for `plan_scope` resolution. A new helper such as `server/src/ingest/planScopeResolver.ts` should:
+  - start from the working repository path already resolved for the run;
+  - read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`;
+  - extract `additional_repositories[].path`;
+  - normalize and de-duplicate in final execution order;
+  - separate skipped-at-resolution warnings from attempted repository outcomes.
+    The important design boundary is that malformed handoff data should degrade into warning metadata plus working-only execution, not a hard pre-start failure.
+- Reuse existing repository-resolution seams instead of inventing a second lookup path. The working-folder plumbing in `server/src/workingFolders/state.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` already validates repository membership and maps host paths into the container-visible workdir. `plan_scope` should consume that existing working-repository result, then use the same selector/canonical-path logic already used by explicit `sourceId` re-ingest when turning additional repository paths into re-ingestable roots.
+- The three execution surfaces must be updated together because they currently all log and forward the old target names:
+  - direct commands through `server/src/agents/commandsRunner.ts`;
+  - command items inside flows through `server/src/agents/commandItemExecutor.ts`;
+  - dedicated flow re-ingest steps through `server/src/flows/service.ts`.
+    The safest implementation order is to update the shared `executeReingestRequest` contract first, then rewire these callers so they pass the working-repository path instead of an owner path and preserve the new `targetMode` values in their existing logs.
+- The user-facing result contract needs a matching update in `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts`. Today the batch payload and lifecycle parser only recognize `targetMode: "all"`, and the tool stage is forced to hard error when any batch repository fails. `plan_scope` should reuse the same batch payload shape, but with `targetMode: "plan_scope"` and warning-style completion semantics when the batch itself finishes its ordered pass. The lifecycle copy should also mention fallback and skip cases so persisted turns do not make a degraded plan-scope run look identical to a fully clean batch.
+- Because `ChatToolResultEvent.stage` is currently limited to `success` or `error`, success-with-warnings should be represented by keeping `stage: "success"` and adding the explicit `warnings` array defined in `## Message Contracts and Storage Shapes` to the batch payload that gets persisted into `Turn.toolCalls`.
+- MCP should stay explicitly out of scope in code, not just in prose. `server/src/mcp2/tools/reingestRepository.ts` still exposes a `sourceId`-only contract today, and the implementation should leave that surface unchanged. This story should not add `working` or `plan_scope` parsing, fallback, or handoff-file reads to MCP.
+- Checked-in workflow assets should be handled as a verify-then-update step rather than assumed churn. Current repo searches show the removed target literals are concentrated in runtime and tests rather than checked-in command/flow JSON assets. The story should still keep a final verification search for checked-in asset literals so implementation can either update any real asset that exists or record that no repository-owned command/flow files needed migration.
+- The most likely tests to update are already well signposted by the existing old-target assertions:
+  - `server/src/test/unit/agent-commands-schema.test.ts`
+  - `server/src/test/unit/flows-schema.test.ts`
+  - `server/src/test/unit/reingestExecution.test.ts`
+  - `server/src/test/unit/agent-commands-runner.test.ts`
+  - `server/src/test/unit/reingest-tool-result.test.ts`
+  - `server/src/test/unit/reingest-step-lifecycle.test.ts`
+  - `server/src/test/integration/commands.reingest.test.ts`
+  - `server/src/test/integration/flows.run.command.test.ts`
+    These tests should prove both contract replacement and behavior reuse: `working` should behave like the old single-repository path except that it targets the selected working repository, while `plan_scope` should reuse the old batch continuation mechanics without inheriting `all`'s canonical-path ordering semantics.
+- The highest-risk implementation mistake is to update schema acceptance without updating transcript and lifecycle readers. A partial change would let commands or flows parse `working` / `plan_scope` but then either persist them as the wrong target mode or reject them when the tool result is recorded. The second highest-risk mistake is to treat skipped-at-resolution repositories as synthetic attempted repositories, which would quietly change the meaning of the reused batch payload and summary counts.
+- Validation should continue to follow the existing wrapper-first and Docker rules already documented elsewhere in this plan:
+  - build and test through the existing summary wrappers before doing any compose proof;
+  - keep application code copied into the image build, not bind-mounted from the host;
+  - only rely on compose scenarios where the working repository is visible through the existing `${CODEINFO_HOST_INGEST_DIR}` to `${CODEINFO_CODEX_WORKDIR}` mapping;
+  - reuse the existing compose port surfaces rather than adding new ones for this feature.
+
+## Test Harnesses
+
+- This story does not require a new top-level test runner, a new HTTP test surface, or a new Docker/e2e harness. The existing server unit and integration suites already cover the relevant execution layers, and the current wrappers in `package.json` are sufficient for final validation.
+- This story does require one new reusable filesystem fixture helper because `plan_scope` introduces a test shape the current suites do not yet support cleanly: reading `<working-repo>/codeInfoStatus/flow-state/current-plan.json` and turning that file into ordered repository scope plus warnings.
+- Create that helper in `server/src/test/support/planScopeFixture.ts` so both unit and integration suites can share it instead of duplicating ad hoc `fs.mkdir`, `fs.writeFile`, and cleanup logic inside individual test files.
+- The helper should use the same lightweight Node.js filesystem-fixture pattern already used elsewhere in this repository's tests and consistent with current `node:test` guidance:
+  - create temp roots with `fs.mkdtemp`;
+  - create only the directories needed for the scenario;
+  - write the handoff file with `fs.writeFile`;
+  - remove the temp tree with `fs.rm(..., { recursive: true, force: true })` during teardown.
+  - do not plan around `fsPromises.mkdtempDisposable()` or `await using`; the current repository baseline is Node 22 and the checked-in tests already standardize on `fs.mkdtemp` plus explicit cleanup.
+- The helper should be able to build the exact plan-scope scenarios this story needs:
+  - working-repository-only fixture with no handoff file;
+  - handoff file present with empty `additional_repositories`;
+  - valid ordered additional repository entries;
+  - duplicate entries, including a duplicate of the working repository;
+  - malformed JSON payloads;
+  - entries that point at paths the ingest lookup will treat as invalid or not currently ingested.
+- The helper needs its own direct smoke test in `server/src/test/unit/planScopeFixture.test.ts` so the story proves the harness can create and tear down the temporary repository layouts it is responsible for without uncaught filesystem errors.
+- The first consumers of this helper should be:
+  - `server/src/test/unit/planScopeFixture.test.ts`, to prove the helper itself can execute, create the expected handoff layout, and clean up without leaking temp directories;
+  - `server/src/test/unit/reingestExecution.test.ts`, to prove scope resolution, de-duplication, missing-file fallback, malformed-file fallback, and skipped-at-resolution behavior without starting the HTTP server;
+  - `server/src/test/integration/commands.reingest.test.ts`, to prove direct-command `working` and `plan_scope` execution against a realistic temporary repo layout;
+  - `server/src/test/integration/flows.run.command.test.ts`, to prove both top-level flow re-ingest steps and flow-owned command re-ingest items use the same handoff-file semantics.
+- Warning-style result coverage should extend the existing local harnesses rather than creating a second shared support layer. In particular:
+  - keep using the inline batch builders in `server/src/test/unit/reingest-tool-result.test.ts`;
+  - keep extending the existing `buildHarness()` flow in `server/src/test/unit/reingest-step-lifecycle.test.ts`.
+    Those tests already capture tool payloads, persisted turns, and log arrays, so they can absorb `targetMode: "plan_scope"` and success-with-warnings assertions without a brand-new runner helper.
+- Do not create a new Playwright or compose-only harness for this story. Current repo evidence shows the missing capability is handoff-file-backed fixture setup inside server tests, not a missing browser or container test type.
+
+## Proof Path Readiness
+
+- **Server build proof is already runnable.**
+  - `npm run build:summary:server` already exists and can run as soon as the code compiles.
+  - No story-specific harness or runtime prerequisite must be created before this proof step.
+
+- **Client build proof is already runnable, but it is repository-regression proof rather than direct feature proof.**
+  - `npm run build:summary:client` already exists.
+  - This story does not add a new frontend surface, so the client build should stay in the proof path as a regression gate, not as the main proof that `working` or `plan_scope` behaves correctly.
+
+- **Feature-specific server test proof becomes runnable only after the new fixture helper and tests exist.**
+  - `npm run test:summary:server:unit` already exists, and the wrapper already supports targeted diagnosis through `--file` and `--test-name`.
+  - The missing prerequisite is the shared `server/src/test/support/planScopeFixture.ts` helper plus the new or updated tests that consume it.
+  - The realistic proof order is:
+    1. create the shared plan-scope fixture helper;
+    2. add or update the targeted unit and integration tests;
+    3. use targeted wrapper runs for diagnosis;
+    4. finish with the full `npm run test:summary:server:unit` wrapper.
+
+- **Compose proof is runnable, but only on stacks that can actually see the working repository handoff file.**
+  - `npm run compose:build:summary`, `npm run compose:up`, `npm run compose:down`, and `npm run compose:logs` already exist.
+  - The main and local compose stacks are realistic proof surfaces because they mount `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}`.
+  - The proof path should therefore use main or local compose when validating runtime `plan_scope` file reads inside the server container.
+
+- **E2E proof is not a required feature-proof step for this story as currently scoped.**
+  - `npm run test:summary:e2e` is runnable as a repository-level regression wrapper, but it does not currently prove `plan_scope` handoff-file behavior because the e2e compose stack does not mount the host ingest root into the server container.
+  - The story should not rely on e2e as evidence that `working` / `plan_scope` runtime resolution works.
+  - If a future story wants browser-level proof of this exact filesystem behavior, that work must first add the missing runtime visibility and a UI-drivable scenario.
+
+- **No new wrapper script is required for this story.**
+  - Existing wrapper scripts already cover build, targeted server diagnosis, full server validation, compose build/up/down, and optional e2e regression runs.
+  - The realistic prerequisite work is harness and test creation, not wrapper-script creation.
+
+## Feasibility Proof
+
+### 1. Schema parsing
+
+- Already existing capabilities:
+  - `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` already model re-ingest as a strict object union with `sourceId` and literal `target` branches.
+  - Existing unit tests in `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` already prove acceptance and rejection for the current target literals.
+- Missing prerequisite capabilities:
+  - The schemas and their dependent tests must be updated to replace `target: "current"` and `target: "all"` with `target: "working"` and `target: "plan_scope"`.
+  - Any schema-driven metadata/log assertions that still assume the old target names must be updated at the same time.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the parser already accepts `working` or `plan_scope`.
+  - It is not valid to assume `current` can stay as a compatibility alias; the story removes it from the supported contract entirely.
+
+### 2. Working-folder and repository resolution
+
+- Already existing capabilities:
+  - `server/src/workingFolders/state.ts` already normalizes, validates, and maps `working_folder` paths into the container-visible workdir.
+  - `server/src/agents/service.ts`, `server/src/flows/service.ts`, and the working-folder integration coverage in `server/src/test/integration/flows.run.working-folder.test.ts` already prove that runs can start with a validated working repository path.
+- Missing prerequisite capabilities:
+  - The re-ingest execution path must be taught to consume the already-resolved working repository as its first-class input for `target: "working"` and `target: "plan_scope"`.
+  - That same resolved working repository must then be passed consistently from direct commands, top-level flow re-ingest steps, and flow-owned command items.
+- Assumptions that are currently invalid:
+  - It is not valid to assume every run has a usable working repository today.
+  - It is not valid to assume a validated `working_folder` automatically means the repository is currently ingested; the story still needs an explicit not-ingested failure path for `working`.
+
+### 3. `plan_scope` handoff-file resolution
+
+- Already existing capabilities:
+  - The product already uses `codeInfoStatus/flow-state/current-plan.json` as a checked-in handoff artifact, and the story’s plan host already carries that file today.
+  - The repo already has canonical path normalization and repository-selector helpers that can be reused once extra repository paths are read.
+- Missing prerequisite capabilities:
+  - There is no runtime helper yet that reads `<working-repo>/codeInfoStatus/flow-state/current-plan.json` during re-ingest.
+  - A dedicated resolver such as `server/src/ingest/planScopeResolver.ts` must be created to read `additional_repositories[].path`, preserve file order, remove duplicates, and convert malformed or unusable entries into warnings instead of hard failures.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the current re-ingest runtime already knows how to read `current-plan.json`.
+  - It is not valid to assume skipped-at-resolution repositories can be represented as if they were attempted repositories; that would change the existing batch payload contract.
+
+### 4. Re-ingest execution and batch continuation
+
+- Already existing capabilities:
+  - `server/src/ingest/reingestExecution.ts` already supports a single-repository path (`sourceId` and `current`) and a batch path (`all`).
+  - The batch execution loop already continues after repository-level failures and already records per-repository outcomes in order.
+- Missing prerequisite capabilities:
+  - The single-repository branch must be adapted from owner-based `current` to working-repository `working`.
+  - The batch branch must be adapted from global-ingested-repository `all` to handoff-driven `plan_scope`, including working-repo-first ordering and resolution-time warning handling.
+- Assumptions that are currently invalid:
+  - It is not valid to assume `plan_scope` can simply reuse `all` unchanged; `all` currently sorts every ingested repository by canonical path, which is not the required plan-scope ordering.
+  - It is not valid to assume malformed handoff data should abort the batch before the working repository runs.
+
+### 5. Tool-result and lifecycle persistence
+
+- Already existing capabilities:
+  - `server/src/chat/reingestToolResult.ts` already builds a structured single-result payload and a structured batch payload.
+  - `server/src/chat/reingestStepLifecycle.ts` already persists and publishes re-ingest tool results into the conversation lifecycle.
+- Missing prerequisite capabilities:
+  - Both files must be extended to recognize `targetMode: "working"` and `targetMode: "plan_scope"`.
+  - The batch tool-result stage and lifecycle text must gain an explicit success-with-warnings path for completed `plan_scope` runs that contain warnings or failed repositories.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the current lifecycle already supports warning-style batch completion.
+  - It is not valid to assume a partially failed batch will persist as a non-error result today; the current tool-result layer still maps any failed batch repository to hard error.
+
+### 6. Test harness support
+
+- Already existing capabilities:
+  - The repo already has unit coverage for schemas, execution, tool-result shaping, and lifecycle persistence.
+  - The repo already has integration harnesses for direct commands and flows that build temporary repository layouts and exercise real server entry points.
+- Missing prerequisite capabilities:
+  - The shared filesystem-backed plan-scope fixture helper documented in `## Test Harnesses` must be created so tests can write and vary `current-plan.json` payloads without duplicating setup code.
+  - Existing unit and integration suites must then add the missing scenarios for missing handoff files, malformed handoff files, duplicate repositories, invalid additional repositories, and warning-style completion.
+- Assumptions that are currently invalid:
+  - It is not valid to assume current test fixtures already prove `plan_scope` file reading, de-duplication, or warning propagation.
+  - It is not valid to assume this story needs a brand-new Playwright or compose-only harness; the missing capability is fixture setup inside the server test suites.
+
+### 7. Docker and compose validation surfaces
+
+- Already existing capabilities:
+  - The root wrappers in `package.json` already provide the build, test, and compose validation entry points the story should use.
+  - The main and local compose stacks already mount `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}`, which is the required visibility seam for filesystem-backed working-repository validation.
+- Missing prerequisite capabilities:
+  - Any compose-based proof for `plan_scope` must first ensure the chosen working repository lives under the mounted ingest root that the server container can actually read.
+  - If future Docker-facing files are added as part of this story, the relevant `.dockerignore` file must be updated so those files reach the image build context intentionally.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the e2e compose stack can prove arbitrary host-repository `plan_scope` reads; that stack does not mount the host ingest root into the server container.
+  - It is not valid to assume host source bind mounts should be used for application code; this repository’s Docker model still expects code to be copied into images and built there.
+
+## Task Feasibility Proof
+
+- Repository scope check:
+  - This story remains single-repository work in `Current Repository`.
+  - No cross-repository task split is required because the active handoff and the plan's `Additional Repositories` section both identify no extra repositories.
+
+### Task 1. Replace The Authored Re-Ingest Contract
+
+- Already existing capabilities:
+  - `server/src/agents/commandsSchema.ts` and `server/src/flows/flowSchema.ts` already define the schema unions that must be updated in place.
+  - `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` already provide the parser proof surface this task needs.
+- Missing prerequisite capabilities:
+  - No new prerequisite capability is required before Task 1 starts.
+- Assumptions that are currently invalid:
+  - It is not valid to assume checked-in command or flow JSON assets still use `target: "current"` or `target: "all"`. This task must verify by search first and only edit real assets if they exist.
+
+### Task 2. Add The Shared Plan-Scope Fixture Harness
+
+- Already existing capabilities:
+  - `server/src/test/unit/pathMap.test.ts` and the temporary-directory patterns in `server/src/test/unit/agent-commands-runner.test.ts` already show the fixture style this task should reuse.
+- Missing prerequisite capabilities:
+  - `server/src/test/support/planScopeFixture.ts` and `server/src/test/unit/planScopeFixture.test.ts` do not exist yet and must be created here before later resolver and execution tasks can depend on them.
+- Assumptions that are currently invalid:
+  - It is not valid to assume this task should also own repository selection or warning shaping. The fixture harness should stay on temp-repository creation and cleanup only.
+
+### Task 3. Add The Plan-Scope Resolution Helper
+
+- Already existing capabilities:
+  - `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/pathMap.ts`, and `server/src/workingFolders/state.ts` already provide the selector, normalization, and path-mapping seams this task should wrap rather than duplicate.
+  - The new fixture harness from Task 2 provides the test setup this resolver task should reuse.
+- Missing prerequisite capabilities:
+  - `server/src/ingest/planScopeResolver.ts` and `server/src/test/unit/planScopeResolver.test.ts` do not exist yet and must be created here before execution work can depend on them.
+- Assumptions that are currently invalid:
+  - It is not valid to assume `current-plan.json` always exists or is readable. Task 3 must implement and prove missing-file, malformed-file, and warning-only fallback behavior at the helper boundary itself.
+
+### Task 4. Implement Working And Plan-Scope Execution
+
+- Already existing capabilities:
+  - `server/src/ingest/reingestExecution.ts` already owns the shared execution seam and already exposes the logging and outcome-normalization hooks that should be updated in place.
+  - `server/src/test/unit/reingestExecution.test.ts` already provides the unit proof surface for execution behavior.
+  - `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` already provide the sourceId-only MCP proof surfaces this story should preserve.
+- Missing prerequisite capabilities:
+  - Task 3's resolver and Task 2's fixture support must exist first so Task 4 can consume them instead of rebuilding plan-scope resolution inline.
+- Assumptions that are currently invalid:
+  - It is not valid to assume every run has a usable working repository. Task 4 must treat missing or unresolved `working_folder` context as a clear pre-start failure for `working`.
+  - It is not valid to assume the current execution seam already accepts working-repository context. Task 4 must add that explicit input before Tasks 6 and 7 can wire direct-command and flow callers to it.
+
+### Task 5. Implement The Re-Ingest Message And Persistence Contract
+
+- Already existing capabilities:
+  - `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, and `server/src/mongo/turn.ts` already own the tool-result payload, synthetic-turn lifecycle, and persistence slot that this task should extend.
+  - `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` already cover the current payload and persistence behavior.
+- Missing prerequisite capabilities:
+  - Task 4's updated execution payloads must exist first so Task 5 can persist the new `working` / `plan_scope` result shapes and warnings array.
+- Assumptions that are currently invalid:
+  - It is not valid to assume a new tool stage enum can be introduced here. The existing contract remains `success | error`, so warning-style completion must stay inside the payload.
+
+### Task 6. Wire Direct Commands To The New Runtime Contract
+
+- Already existing capabilities:
+  - `server/src/agents/commandsRunner.ts` and the direct-command test suites already provide the command surface this task needs to update in place.
+- Missing prerequisite capabilities:
+  - Task 4 must land the new execution behavior and Task 5 must land the new persisted payload contract before Task 6 can wire the direct-command surface to them.
+  - The repository does not yet have a checked-in re-ingest command asset that Task 8 can invoke on the compose stack, so Task 6 must create one if no suitable command already exists.
+- Assumptions that are currently invalid:
+  - It is not valid to assume direct-command tests already assert the new target-mode values or warning behavior. Task 6 must update those expectations explicitly.
+
+### Task 7. Wire Flow Re-Ingest Surfaces To The New Runtime Contract
+
+- Already existing capabilities:
+  - `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, and the flow integration suites already provide the flow surfaces this task needs to update in place.
+- Missing prerequisite capabilities:
+  - Tasks 4 and 5 must complete first so Task 7 can wire top-level flow steps and flow-owned command items to the new execution and payload contracts.
+- Assumptions that are currently invalid:
+  - It is not valid to assume `server/src/agents/commandItemExecutor.ts` directly calls `executeReingestRequest`. Task 7 must keep execution ownership in `server/src/flows/service.ts` and use `commandItemExecutor.ts` only for the command-item delegation/logging boundary it already owns.
+  - It is not valid to assume existing flow tests already assert the new pre-start wording, warning payloads, transcript text, or target-mode values. Task 7 must update those expectations explicitly.
+
+### Task 8. Validate Working-Folder Environment And Mounted Runtime Access
+
+- Already existing capabilities:
+  - `server/src/ingest/pathMap.ts`, `server/src/routes/ingestDirs.ts`, `server/src/workingFolders/state.ts`, `server/src/test/unit/pathMap.test.ts`, and the checked-in compose files already define the environment and mount semantics that this task should validate.
+- Missing prerequisite capabilities:
+  - Tasks 4 through 7 must complete first so Task 8 can validate the actual new `working` / `plan_scope` runtime behavior rather than the removed `current` / `all` contract.
+- Assumptions that are currently invalid:
+  - It is not valid to assume the e2e compose stack is the correct filesystem proof surface. Task 8 must use the main or local compose surface that actually exposes the working repository to the server container.
+
+### Task 9. Final Validation And Story Close-Out
+
+- Already existing capabilities:
+  - `README.md`, `design.md`, `docs/developer-reference.md`, and `projectStructure.md` already exist and are the correct docs to update in place.
+  - The repository already provides the build, test, and compose wrappers needed for close-out.
+- Missing prerequisite capabilities:
+  - Tasks 1 through 8 must be complete first so Task 9 can validate the finished contract rather than partial behavior.
+- Assumptions that are currently invalid:
+  - No cross-repository close-out work is required for this story because the validated scope stays inside the current repository only.
+  - It is not valid to assume a Material UI or other client-side re-ingest consumer exists today; current repository evidence shows this story remains server-and-documentation work unless implementation later adds a new UI surface deliberately.
+
+## Edge Cases and Failure Modes
+
+- **Authored JSON provides both `sourceId` and `target`, or includes unexpected extra keys.**
+  - Current command and flow schemas use strict object branches, so mixed or extra-key shapes should fail parsing rather than being partially accepted.
+  - The story should preserve that behavior when `working` and `plan_scope` replace `current` and `all`.
+
+- **`working_folder` is missing, points to a non-directory, falls outside the known repository set, or belongs to a repository that is not currently ingested.**
+  - `working` must fail before starting re-ingest.
+  - `plan_scope` must also fail before starting if the working repository itself cannot be resolved as the first attempted repository.
+
+- **The working repository path is valid but cannot be mapped into the container-visible workdir because host/container path configuration is inconsistent.**
+  - This should be treated as an operational pre-start failure, not as a silent fallback to some other repository.
+  - Validation should make it obvious whether the failure came from `CODEINFO_HOST_INGEST_DIR`, `CODEINFO_CODEX_WORKDIR`, or a path outside the mounted ingest root.
+
+- **`current-plan.json` is absent, unreadable because of permissions, empty, or contains malformed JSON.**
+  - Missing or unreadable handoff data should not abort a batch that otherwise has a usable working repository.
+  - `plan_scope` should continue with the working repository only and record a warning that explains why extra repositories were not attempted.
+
+- **`current-plan.json.additional_repositories` exists but contains invalid entries.**
+  - Examples that must be treated as skipped-at-resolution warnings:
+    - missing `path`
+    - non-string `path`
+    - blank or whitespace-only `path`
+    - a path that normalizes to the working repository again
+    - a path that normalizes to a duplicate of another additional repository
+    - a path that does not resolve to a currently ingested repository
+  - These entries must not be inserted into the attempted `repositories` array.
+
+- **The same repository is referred to by different but equivalent selector forms.**
+  - Host path, container path, casing differences in repository ids, and trailing-slash differences should all normalize through the existing repository selector path before de-duplication.
+  - The first resolved occurrence should win, and later equivalent occurrences should become warnings rather than second attempts.
+
+- **The repository selector resolves multiple candidates for the same id or path because more than one ingest record exists.**
+  - `plan_scope` should reuse the same latest-ingest selection rules already used by explicit `sourceId` resolution.
+  - The story should not add a second repository-selection algorithm just for handoff-file entries.
+
+- **`plan_scope` starts successfully but one attempted repository later returns `skipped`, `cancelled`, structured error, or unexpected error.**
+  - The batch must continue through later repositories in final order.
+  - The batch `summary` must count only attempted repositories.
+  - Repository-level failures must also appear in the batch `warnings` array so the completed run is visibly degraded even when tool-result `stage` remains `success`.
+
+- **A completed `plan_scope` batch contains warnings but no failed attempted repositories.**
+  - The completed result should still publish and persist as `stage: "success"` with populated `warnings`.
+  - The implementation should not invent a third tool-result stage or collapse warnings into silent logs only.
+
+- **A `plan_scope` request resolves only the working repository because no usable additional repositories remain.**
+  - This is a normal degraded-path success case when the working repository is valid and the handoff is missing, unreadable, malformed, empty, or contains only skipped additional entries.
+  - The story should prove the batch still attempts the working repository, records warning data for the degraded scope, and does not invent a separate empty-batch success path.
+
+- **Historical persisted re-ingest payloads still contain `targetMode: "current"` or `targetMode: "all"`.**
+  - New writes from this story should use only `working` and `plan_scope`.
+  - Existing stored payloads should remain readable through lifecycle normalization so old transcripts do not break when the new code is deployed.
+
+- **Docker validation is attempted in an environment where the server container cannot see the working repository handoff file.**
+  - That environment can incorrectly look like a missing handoff-file fallback when the real problem is missing volume visibility.
+  - Validation notes and tests should distinguish true missing-handoff behavior from container-mount misconfiguration so the feature is not falsely marked as working.
+
+## Questions
+
+# Tasks
+
+### Task 1. Replace The Authored Re-Ingest Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `e11d1f16`
+
+#### Overview
+
+Replace the command and flow authoring contract so newly-authored re-ingest items use `sourceId`, `working`, or `plan_scope`, and the removed `current` / `all` literals fail schema validation. This task is only about parser- and type-level contract replacement, so it can be proved with focused schema tests before runtime execution changes are attempted.
+
+#### Documentation Locations
+
+- `https://zod.dev/api?id=unions` - use for the standard union parsing rules that matter when the schema accepts one of several authored re-ingest shapes.
+- `https://zod.dev/api?id=discriminated-unions` - use for discriminator-based unions and literal branches; this is relevant if the final schema shape is expressed with a clearer discriminator key instead of a broad union.
+- `https://zod.dev/api?id=objects` - use for `z.strictObject()` and unknown-key rejection, which is directly relevant to the tests that must reject extra keys.
+
+#### Subtasks
+
+1. [x] Current Repository: In `server/src/agents/commandsSchema.ts`, replace the re-ingest command union so the only authored shapes are `{ "type": "reingest", "sourceId": "<selector>" }`, `{ "type": "reingest", "target": "working" }`, and `{ "type": "reingest", "target": "plan_scope" }`. Read/update: `server/src/agents/commandsSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, Context7 `/colinhacks/zod`. Remove every `current` / `all` literal branch from both the schema and the inferred command item types. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+2. [x] Current Repository: In `server/src/flows/flowSchema.ts`, make the same authored-contract replacement for top-level flow re-ingest steps so the only accepted shapes are `{ sourceId }`, `target: "working"`, or `target: "plan_scope"`. Read/update: `server/src/flows/flowSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, Context7 `/colinhacks/zod`. Remove every `current` / `all` literal branch from both the schema and the exported flow-step types. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+3. [x] Current Repository: Unit test update: `server/src/test/unit/agent-commands-schema.test.ts`. Purpose: prove command JSON accepts the happy-path authored shapes `{ sourceId }`, `target: "working"`, and `target: "plan_scope"` after the schema change. Read/update: `server/src/test/unit/agent-commands-schema.test.ts`, `server/src/agents/commandsSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+4. [x] Current Repository: Unit test update: `server/src/test/unit/agent-commands-schema.test.ts`. Purpose: prove command JSON rejects removed literals `current` / `all`, mixed `{ sourceId, target }`, and unexpected extra keys so the error-path contract is explicit. Read/update: `server/src/test/unit/agent-commands-schema.test.ts`, `server/src/agents/commandsSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+5. [x] Current Repository: Unit test update: `server/src/test/unit/flows-schema.test.ts`. Purpose: prove flow JSON accepts the happy-path authored shapes `{ sourceId }`, `target: "working"`, and `target: "plan_scope"` after the schema change. Read/update: `server/src/test/unit/flows-schema.test.ts`, `server/src/flows/flowSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+6. [x] Current Repository: Unit test update: `server/src/test/unit/flows-schema.test.ts`. Purpose: prove flow JSON rejects removed literals `current` / `all`, mixed `{ sourceId, target }`, and unexpected extra keys so the error-path contract is explicit. Read/update: `server/src/test/unit/flows-schema.test.ts`, `server/src/flows/flowSchema.ts`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+7. [x] Current Repository: Search checked-in command and flow JSON assets for removed literals with a repository-wide search such as `rg '\"target\": \"(current|all)\"'`. If real assets exist, update them to the correct new literal in the owning file; if none exist, record that result in this task's Implementation notes so the acceptance criterion is still explicitly closed out. Read/update: repository root plus any matching JSON command/flow files, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+8. [x] Current Repository: Update this story file if the concrete schema implementation in `server/src/agents/commandsSchema.ts` or `server/src/flows/flowSchema.ts` reveals any authored-contract detail that differs from the planned shapes above, so later developers do not have to infer the final contract from code alone. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `planning/plan_format.md`. Documentation: https://zod.dev/api?id=unions ; https://zod.dev/api?id=discriminated-unions ; https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+9. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T1:reingest-target-contract` in the command or flow validation path touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears for one accepted `working` or `plan_scope` validation and for one rejected removed-target validation, so the logs confirm the authored target contract changed as expected. Read/update: `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://zod.dev/api?id=objects ; Context7 /colinhacks/zod.
+10. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+11. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 1 only changes server-authored schema contracts. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 1 changes server schema parsing. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because schema changes can affect authored command and flow behavior. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Replaced the command re-ingest schema branches with `sourceId`, `working`, and `plan_scope`, and removed the old `current` / `all` literal types from the inferred command contract.
+- Replaced the flow re-ingest schema branches with `sourceId`, `working`, and `plan_scope`, and removed the old `current` / `all` literal types from the exported flow-step contract.
+- Updated the command schema unit tests to accept `working` / `plan_scope`, reject removed targets, and keep mixed-shape and extra-key rejection explicit.
+- Updated the flow schema unit tests to accept `working` / `plan_scope`, reject removed targets, and keep mixed-shape and extra-key rejection explicit.
+- Searched the repository for checked-in command or flow JSON assets using removed targets; no owned command/flow JSON assets required migration for this task.
+- The final schema shape matched the planned authored contract, so no additional Task 1 contract wording change was needed in this story file.
+- Added `DEV-0000052:T1:reingest-target-contract` logging on accepted supported targets and rejected removed targets when schema parse logging is enabled.
+- `npm run lint` initially failed on pre-existing repository import-order warnings; `npm run lint:fix` cleared most of them and one remaining warning in `server/src/index.ts` was fixed manually before rerunning `npm run lint`.
+- `npm run format:check` initially failed on repository-wide Prettier drift, so `npm run format` was run before rerunning `npm run format:check` successfully.
+- `npm run build:summary:server` initially failed on downstream type seams that still only accepted `current` / `all`; the shared request and tool-result type unions were widened so the schema contract compiles cleanly ahead of the later runtime-contract task, and the wrapper then passed with `agent_action: skip_log`.
+- `npm run test:summary:server:unit` initially failed on old `current` / `all` authoring tests and one stale batch-log assertion; the affected unit and integration test fixtures were updated to `working` / `plan_scope`, one targeted wrapper rerun for `server/src/test/unit/agent-commands-runner.test.ts` passed, and the final full wrapper passed with `1467` tests run and `0` failed.
+- Final validation after the follow-up edits passed with `npm run lint`, `npm run format:check`, `npm run build:summary:server`, `npm run test:summary:server:unit`, and `npm run test:summary:server:cucumber`; the cucumber wrapper finished with `75` tests run and `0` failed.
+
+---
+
+### Task 2. Add The Shared Plan-Scope Fixture Harness
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `e11d1f16, 2a088f5b`
+
+#### Overview
+
+Create the shared filesystem fixture helper that later plan-scope tasks will depend on. This task should stay focused on reusable temp-repository setup and cleanup so the resolver and execution tasks can consume a stable harness instead of hand-rolling their own file trees.
+
+#### Documentation Locations
+
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 `fs.mkdtemp` temp-directory API, the trailing-separator requirement for safe temp-dir creation, `fs.rm(..., { recursive: true, force: true })` cleanup, and `node:test` patterns used by the fixture smoke test.
+
+#### Subtasks
+
+1. [x] Current Repository: Create `server/src/test/support/planScopeFixture.ts` as the shared helper for plan-scope filesystem scenarios. The helper must be able to create: a working repository root, `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, ordered `additional_repositories[].path` entries, duplicate entries, malformed JSON content, invalid repository-path cases, and an unreadable-handoff scenario or equivalent deterministic read-failure setup that later tests can use. Read/update: `server/src/test/support/planScopeFixture.ts`, `codeInfoStatus/flow-state/current-plan.json`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
+2. [x] Current Repository: Keep `server/src/test/support/planScopeFixture.ts` limited to fixture setup and teardown only. Do not add repository selection, warning construction, or re-ingest execution logic here; later tasks must still own that work in `server/src/ingest/planScopeResolver.ts` and `server/src/ingest/reingestExecution.ts`. Read/update: `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+3. [x] Current Repository: Copy the repository's existing temp-directory style instead of inventing a new harness pattern: follow `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/pathMap.test.ts`, using `fs.mkdtemp`, only the minimum directories needed for the scenario, and teardown with `fs.rm(..., { recursive: true, force: true })`. Read/update: `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/test/unit/pathMap.test.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+4. [x] Current Repository: Unit test addition: `server/src/test/unit/planScopeFixture.test.ts`. Purpose: prove the fixture helper can create the happy-path working-repository layout and write the expected `current-plan.json` variants for later resolver and execution tests. Read/update: `server/src/test/unit/planScopeFixture.test.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+5. [x] Current Repository: Unit test addition: `server/src/test/unit/planScopeFixture.test.ts`. Purpose: prove the fixture helper supports the unreadable/read-failure scenario and still cleans up temp directories without uncaught filesystem errors. Read/update: `server/src/test/unit/planScopeFixture.test.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+6. [x] Current Repository: Markdown update: `projectStructure.md`. Purpose: document the new files created by this task, including `server/src/test/support/planScopeFixture.ts` and `server/src/test/unit/planScopeFixture.test.ts`, after those files exist and before the task is marked complete. Read/update: `projectStructure.md`, `server/src/test/support/planScopeFixture.ts`, `server/src/test/unit/planScopeFixture.test.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+7. [x] Current Repository: Update this story file if the final helper boundary in `server/src/test/support/planScopeFixture.ts` turns out to be narrower or clearer than the current task text, so later tasks inherit the exact supported harness shape. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+8. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T2:plan-scope-fixture-proof` to the fixture-owned proof path for this task. Expected Manual Playwright-MCP logs-page outcome: after the final server-unit proof finishes, the logs include this marker with `outcome: "fixture_backed_proof_passed"`, confirming the shared fixture harness supported the finished story proof. Read/update: `server/src/test/support/planScopeFixture.ts`, `server/src/test/unit/planScopeFixture.test.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
+9. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+10. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 2 adds server-side test harness files. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 2 adds unit-tested server harness support. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Added `server/src/test/support/planScopeFixture.ts` as a setup-and-cleanup-only helper that creates working-repository roots, `current-plan.json` variants, duplicate path inputs, invalid repository paths, malformed JSON, and a deterministic read-failure setup.
+- Kept the fixture boundary narrow by avoiding repository-selection, warning-shaping, or re-ingest execution behavior; later resolver and execution tasks still own that logic.
+- Matched the repository's existing temp-directory style with `fs.mkdtemp` and `fs.rm(..., { recursive: true, force: true })` instead of introducing a new fixture pattern.
+- Added `server/src/test/unit/planScopeFixture.test.ts` to prove happy-path layout creation, handoff variants, deterministic read failure, cleanup, and the Task 2 proof marker.
+- Updated `projectStructure.md` for the two new Task 2 files.
+- The implemented helper boundary matched the planned Task 2 shape, so no additional task-wording change was needed in this story file.
+- Added `DEV-0000052:T2:plan-scope-fixture-proof` from the smoke-test proof path with `outcome: "fixture_backed_proof_passed"`.
+- `npm run lint` passed for the Task 2 changes without needing follow-up fixes.
+- `npm run format:check` failed on the new fixture files, so `npm run format` was run and `npm run format:check` then passed cleanly.
+- `npm run build:summary:server` finished with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- `npm run test:summary:server:unit` finished with `tests run: 1469`, `failed: 0`, and `agent_action: skip_log`, confirming the shared fixture harness integrates cleanly with the full server unit suite.
+
+---
+
+### Task 3. Add The Plan-Scope Resolution Helper
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `01f1e861`
+
+#### Overview
+
+Create the plan-scope resolution helper that reads the handoff file and turns it into ordered repository scope plus warnings. This task should stop at the resolution boundary so the later execution task can consume one clear helper instead of mixing file parsing, selector lookup, and re-ingest execution together.
+
+#### Documentation Locations
+
+- Context7 `/nodejs/node/v22.17.0` - use for Node 22 filesystem and path APIs that read `current-plan.json`, parse JSON from disk, normalize paths, and support the `node:test` resolver coverage for fallback and warning cases.
+
+#### Subtasks
+
+1. [x] Current Repository: Create `server/src/ingest/planScopeResolver.ts` to read `<working-repo>/codeInfoStatus/flow-state/current-plan.json`, extract `additional_repositories[].path`, keep the working repository first, preserve file order for additional repositories, remove duplicates, and return the warning data defined in this story for missing, malformed, unreadable, or unusable handoff entries. Read/update: `server/src/ingest/planScopeResolver.ts`, `codeInfoStatus/flow-state/current-plan.json`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
+2. [x] Current Repository: Keep `server/src/ingest/planScopeResolver.ts` at the resolution boundary only. It must not start re-ingest work, must not rewrite `current-plan.json`, and must resolve extra repository entries through the existing selector/normalization seams in `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/pathMap.ts`, and `server/src/workingFolders/state.ts` instead of inventing a new direct-filesystem selection path. Read/update: `server/src/ingest/planScopeResolver.ts`, `server/src/mcpCommon/repositorySelector.ts`, `server/src/ingest/pathMap.ts`, `server/src/workingFolders/state.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+3. [x] Current Repository: Unit test addition: `server/src/test/unit/planScopeResolver.test.ts`. Purpose: prove missing handoff, unreadable handoff, and malformed JSON all resolve to warning-style fallback instead of hard failure. Read/update: `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+4. [x] Current Repository: Unit test addition: `server/src/test/unit/planScopeResolver.test.ts`. Purpose: prove the happy path for `additional_repositories`, including working-repository-first ordering, empty-list fallback without handoff warnings, first-seen de-duplication of repeated repository entries, and ignoring unrelated handoff fields such as `plan_path` and `branched_from`. Read/update: `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+5. [x] Current Repository: Unit test addition: `server/src/test/unit/planScopeResolver.test.ts`. Purpose: prove structurally invalid `additional_repositories` content is treated as `handoff_invalid` working-only fallback, and that dropped duplicate repository entries are surfaced through `repository_skipped` warnings instead of attempted repositories. Read/update: `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/ingest/planScopeResolver.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+6. [x] Current Repository: Markdown update: `projectStructure.md`. Purpose: document the new files created by this task, including `server/src/ingest/planScopeResolver.ts` and `server/src/test/unit/planScopeResolver.test.ts`, after those files exist and before the task is marked complete. Read/update: `projectStructure.md`, `server/src/ingest/planScopeResolver.ts`, `server/src/test/unit/planScopeResolver.test.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+7. [x] Current Repository: Update this story file if the implemented helper contract in `server/src/ingest/planScopeResolver.ts` produces a clearer warning shape or return type than the current wording, so Tasks 4 and 5 can depend on one explicit documented contract. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/ingest/planScopeResolver.ts`. Documentation: Context7 /nodejs/node/v22.17.0.
+8. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T3:plan-scope-resolver` in the resolver path touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears for both a clean working-only resolution and a warning-producing handoff resolution, so the logs confirm repository ordering, fallback, and ignored handoff-field behavior. Read/update: `server/src/ingest/planScopeResolver.ts`, `server/src/test/unit/planScopeResolver.test.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0.
+9. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+10. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 3 adds a server-side resolver helper. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 3 changes resolver logic covered by server unit and integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Added `server/src/ingest/planScopeResolver.ts` to resolve the working repository plus any valid `additional_repositories[].path` entries into ordered plan-scope repository input with warning metadata.
+- Kept the helper at the resolution boundary by limiting it to working-folder normalization, handoff reads, selector reuse, de-duplication, warnings, and proof logging without starting re-ingest execution.
+- Added resolver coverage for missing, unreadable, and malformed handoff files so those cases degrade to working-only results with warnings instead of throwing hard failures.
+- Added resolver coverage for working-first ordering, empty-list clean fallback, duplicate handling, and ignored handoff fields such as `plan_path` and `branched_from`.
+- Added resolver coverage for structurally invalid `additional_repositories` payloads and duplicate/unusable additional repositories so they surface through `handoff_invalid` or `repository_skipped` warnings instead of attempted repositories.
+- Added the `DEV-0000052:T3:plan-scope-resolver` proof marker for both clean and warning-producing resolution outcomes.
+- Updated `projectStructure.md` for the new resolver helper and its unit suite.
+- The implemented resolver contract matched the planned Task 3 boundary closely enough that no extra story wording change was needed before Task 4 consumes it.
+- `npm run lint` initially failed on one import-order warning in the new resolver test, and rerunning after fixing that warning passed cleanly.
+- `npm run format:check` initially failed on the new resolver test, so `npm run format` was run before rerunning `npm run format:check` successfully.
+- `npm run build:summary:server` finished with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- `npm run test:summary:server:unit` finished with `tests run: 1474`, `failed: 0`, and `agent_action: skip_log`, confirming the resolver helper integrates cleanly with the full server unit suite.
+
+---
+
+### Task 4. Implement Working And Plan-Scope Execution
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `f03fabd6, 713af736, 1bc5729e`
+
+#### Overview
+
+Implement the actual runtime execution contract for `working` and `plan_scope` inside the re-ingest layer. This task should stop at the execution result boundary: it should not yet change the persisted chat/lifecycle message contract.
+
+#### Documentation Locations
+
+- Context7 `/nodejs/node/v22.17.0` - use for Node 22 runtime behavior around filesystem reads, path handling, promise-based error propagation, and test coverage patterns that the re-ingest execution layer relies on.
+- Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when updating `design.md` to document the new `working` and `plan_scope` execution paths.
+
+#### Subtasks
+
+1. [x] Current Repository: In `server/src/ingest/reingestExecution.ts`, replace the runtime type contract in place. `ReingestRequest` and `ReingestTargetMode` must support `sourceId`, `working`, and `plan_scope` only. The single-result shape must represent `sourceId` and `working`, and the batch-result shape must represent `plan_scope` with ordered `repositories`, `summary`, and `warnings`. Read/update: `server/src/ingest/reingestExecution.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+2. [x] Current Repository: Extend the `executeReingestRequest` input contract in `server/src/ingest/reingestExecution.ts` so callers can supply the already-selected run working-repository path directly. This runtime seam must stop depending on `currentOwnerSourceId` for the new workflow-based targets, because Tasks 6 and 7 need one explicit `workingRepositoryPath` input they can pass from direct-command and flow runs. Read/update: `server/src/ingest/reingestExecution.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+3. [x] Current Repository: Replace the owner-based `current` branch in `server/src/ingest/reingestExecution.ts` with a `working` branch that uses the already-selected run `working_folder`, reuses the existing path mapping and working-folder validation seams from `server/src/workingFolders/state.ts` and `server/src/ingest/pathMap.ts`, fails before start when no usable working repository is available, and fails clearly when that repository is not currently ingested. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/workingFolders/state.ts`, `server/src/ingest/pathMap.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+4. [x] Current Repository: Replace the old `all` batch branch in `server/src/ingest/reingestExecution.ts` with `plan_scope` behavior that calls `server/src/ingest/planScopeResolver.ts`, attempts only resolved repositories, keeps `working` first and `additional_repositories` in file order, continues after per-repository failures, and returns the planned warning array without inserting skipped-at-resolution repositories into the attempted `repositories` list. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/ingest/planScopeResolver.ts`, `codeInfoStatus/flow-state/current-plan.json`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+5. [x] Current Repository: Remove or rename every obsolete `current` / `all` helper, branch, and error path in `server/src/ingest/reingestExecution.ts` so the removed literals do not survive in runtime type names, helper names, or dead compatibility code. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/ingest/reingestError.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+6. [x] Current Repository: Update execution-layer logs and step metadata in `server/src/ingest/reingestExecution.ts` so `working`, `plan_scope`, working-only fallback, skipped-at-resolution repositories, and continue-after-failure batches can be distinguished clearly during diagnosis. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/test/unit/reingestExecution.test.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+7. [x] Current Repository: Preserve explicit `sourceId` behavior and keep the MCP-facing selector model unchanged. Do not add `working` or `plan_scope` semantics to the MCP contract while editing the shared execution code. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/mcp2/tools/reingestRepository.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+8. [x] Current Repository: Unit test update: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove explicit selector-based `sourceId` re-ingest still canonicalizes valid selectors and returns the same single-result contract after the new target modes are added. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+9. [x] Current Repository: Unit test update: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove unresolved or invalid `sourceId` inputs still stay on the strict invalid-input path and do not fall into `working` or `plan_scope` handling. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+10. [x] Current Repository: Unit test update: `server/src/test/unit/mcp.reingest.classic.test.ts`. Purpose: prove the classic MCP `reingest_repository` tool remains `sourceId`-only and does not accept `target: "working"` or `target: "plan_scope"` arguments after the shared execution changes. Read/update: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/mcp/tools.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+11. [x] Current Repository: Unit test update: `server/src/test/unit/mcp2.reingest.tool.test.ts`. Purpose: prove the MCP v2 `reingest_repository` tool remains `sourceId`-only and does not accept `target: "working"` or `target: "plan_scope"` arguments after the shared execution changes. Read/update: `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+12. [x] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove the `working` happy path resolves the selected working repository and completes as a single-repository execution. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+13. [x] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove both `working` and `plan_scope` fail before start when the working repository is missing or not currently ingested, and that handoff fallback logic is never used when the required working repository itself is unusable. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/workingFolders/state.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+14. [x] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove the `plan_scope` happy path uses working-first ordering, file-order additional repositories, and first-seen de-duplication. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+15. [x] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove missing, malformed, unreadable, or structurally invalid handoff inputs fall back to working-only execution with the correct warning behavior instead of aborting the batch, and that empty or absent `additional_repositories` stays a clean working-only path without a handoff warning. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+16. [x] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove invalid additional repositories are skipped at resolution, appear only in warnings, and do not enter the attempted `repositories` array or `summary` counts. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+17. [x] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove an attempted repository failure records `repository_failed`, later repositories still run in order, and the final batch result remains a completed batch payload rather than a hard execution abort. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/support/planScopeFixture.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+18. [x] Current Repository: Unit test addition: `server/src/test/unit/reingestExecution.test.ts`. Purpose: prove execution-layer logs and metadata distinguish working-only fallback, skipped-at-resolution repositories, and degraded batch completion clearly enough for later command/flow diagnostics. Read/update: `server/src/test/unit/reingestExecution.test.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+19. [x] Current Repository: Markdown update: `design.md`. Purpose: document the execution-layer architecture change from owner-based `current` / `all` to `working` / `plan_scope`, and add or update Mermaid diagrams that show the single-target branch, the plan-scope resolution order, and the continue-after-failure batch path. Read/update: `design.md`, `server/src/ingest/reingestExecution.ts`, Context7 `/mermaid-js/mermaid`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+20. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T4:reingest-execution` in the execution path touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears with `targetMode`, attempted-repository counts, and warning counts for both `working` and `plan_scope`, confirming execution ordering and best-effort batch behavior. Read/update: `server/src/ingest/reingestExecution.ts`, `server/src/test/unit/reingestExecution.test.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+21. [x] Current Repository: Repair the loop-test teardown prerequisite in `server/src/test/integration/flows.run.loop.test.ts` so every flow-starting scenario reaches deterministic terminal cleanup before deleting memory state. Replace bare success-path `cleanupMemory(...)` calls with `cleanupConversationRuntime(...)` or an equivalent wait-for-terminal-final plus runtime-drain sequence, and keep the existing `closeWs(...)`, `wsHandle.close()`, and `httpServer.close(...)` ordering intact. This prerequisite exists because the full Task 4 server-unit wrapper is not honestly runnable until the known full-suite hang surface is hardened. Read/update: `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/support/wsClient.ts`, `server/src/ws/server.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: Context7 /nodejs/node/v22.17.0 ; Context7 `/websockets/ws`.
+22. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+23. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 4 changes the core server re-ingest execution runtime. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: After Subtask 21 lands, run `npm run test:summary:server:unit -- --file src/test/integration/flows.run.loop.test.ts`. Use this targeted wrapper first because the known blocker is a full-suite hang rooted in this file's cleanup path, and this proof step must show the loop test exits cleanly on its own before the full suite is trusted again. If this targeted wrapper still hangs or fails, diagnose `server/src/test/integration/flows.run.loop.test.ts` before attempting the full wrapper.
+3. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this full wrapper only after Testing step 2 passes, because Task 4 changes server execution, helper, and integration behavior and the loop-test cleanup prerequisite must already be proven. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 4 changes runtime behavior that can surface in feature-level server flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- `server/src/test/unit/reingestExecution.test.ts` already proves explicit `sourceId` selectors still canonicalize to the resolved container path and stay on the strict invalid-input path when lookup fails, so those two preservation subtasks were marked complete during this audit.
+- `server/src/ingest/reingestExecution.ts` now exposes only `sourceId`, `working`, and `plan_scope`, with batch payloads returning ordered attempted repositories plus explicit `summary` and `warnings`.
+- `executeReingestRequest(...)` now accepts `workingRepositoryPath`, validates the selected working repository before start for `working` and `plan_scope`, and emits `DEV-0000052:T4:reingest-execution` for both single and batch execution paths.
+- `server/src/test/unit/reingestExecution.test.ts` now covers working-path success, missing or not-ingested working-repository failures, resolver-backed plan-scope ordering, working-only fallback warnings, skipped-at-resolution repositories, continue-after-failure batches, and execution-layer log metadata.
+- Classic and MCP v2 guard tests now prove `reingest_repository` remains `sourceId`-only, and `design.md` now documents the execution-layer shift from owner-based `current` / `all` to `working` / `plan_scope`.
+- `npm run lint` passed cleanly after the Task 4 execution, test, MCP guard, and design changes landed.
+- `npm run format:check` initially flagged the touched execution files, so `npm run format` was run and the formatting check now passes cleanly.
+- `npm run build:summary:server` initially failed on compile-time test fixture drift (`current` / `all` execution fixtures and missing batch `summary`/`warnings`), and the rerun passed cleanly after those compatibility fixes landed.
+- Command and flow tests that still relied on owner-based `working` / `plan_scope` behavior were updated to the Task 4 fail-fast expectation until Tasks 6 and 7 wire explicit `workingRepositoryPath` through those surfaces.
+- Historical blocker context: Testing step 3 (`npm run test:summary:server:unit`) previously stalled in `agent_action: wait` far past the documented 12-minute budget. The diagnosis traced the long-running child to `node --test --test-concurrency=1 src/test/integration/flows.run.loop.test.ts`, which led to the loop-test cleanup repair and targeted rerun documented below.
+- **BLOCKING ANSWER**
+  - Repository precedents found:
+    - `server/src/test/support/wsClient.ts` already gives the repo-preferred deterministic WebSocket teardown surface through `closeWs(...)` and `waitForClose(...)`, each with their own timeouts.
+    - `server/src/test/integration/flows.run.command.test.ts` and `server/src/test/integration/agents-run-ws-cancel.test.ts` show the preferred cleanup shape for long-running flow tests: use `try/finally`, wait for runtime state to drain, then tear down WebSocket and HTTP handles instead of relying on the wrapper to kill the process.
+    - `scripts/summary-wrapper-protocol.mjs` and `scripts/test-summary-server-unit.mjs` prove the wrapper has no watchdog or forced kill path. It only reports `agent_action: wait` until the child exits, so leaked handles must be fixed in the tests or runtime, not in the wrapper.
+  - External library precedents found:
+    - Node v22 `node:test` docs say test timeouts default to `Infinity`, so a hanging integration suite will not fail by itself unless the test finishes or its own timeout/cleanup path fires.
+    - Node HTTP docs say `server.close()` stops new connections and, on modern Node, closes idle HTTP connections, but upgraded sockets are a separate concern.
+    - The official `ws` docs say `WebSocketServer.close()` does not terminate existing active clients automatically when an external HTTP server is used, and `WebSocket#terminate()` is the immediate close path when graceful close is not enough.
+  - Issue-resolution references found:
+    - A targeted rerun with `npm run test:summary:server:unit -- --file src/test/integration/flows.run.loop.test.ts` completed cleanly with `16` tests run and `0` failed, so the named file is diagnosable in isolation and the blocker is a full-suite leak or ordering problem rather than a permanently broken Task 4 runtime seam.
+    - Direct inspection of `server/src/test/integration/flows.run.loop.test.ts` shows several success-path tests still end with `cleanupMemory(...)` immediately after partial assertions such as `waitForTurns(...)`, while the stop/cancel paths already use `cleanupConversationRuntime(...)`. That means some loop tests can drop persisted memory state before the flow runtime and WebSocket ownership have drained fully.
+    - The `ws` maintainers' guidance and issue history both point the same way: do not assume server close will tear down all live clients; close or terminate them explicitly when you need deterministic test shutdown.
+  - Chosen fix:
+    - Repair `server/src/test/integration/flows.run.loop.test.ts` so every test that starts a flow waits for terminal flow cleanup before deleting memory state. In practice, the success-path loop tests should stop using bare `cleanupMemory(...)` and should either await the terminal `turn_final` event or call `cleanupConversationRuntime(...)` before teardown, matching the repo's existing explicit-cleanup pattern.
+    - Keep the wrapper unchanged and use the existing targeted `--file` / `--test-name` wrapper reruns for diagnosis first, then rerun the full `npm run test:summary:server:unit` wrapper once the loop-test cleanup is hardened.
+  - Why this fits the current repo state:
+    - It uses cleanup helpers the repo already has instead of inventing a new kill switch.
+    - It addresses the actual leak surface that can survive into the full suite: unfinished flow runtime ownership, inflight state, and live upgraded WebSocket handles.
+    - It matches the evidence that the isolated loop file passes, so the next fix belongs in deterministic teardown and suite interaction, not in the re-ingest execution code added by Task 4.
+  - Rejected alternatives:
+    - Do not add a wrapper watchdog or forced child kill. That would hide leaked handles and make later regressions harder to diagnose.
+    - Do not rely on `forceExit`, blind process termination, or reading the live wrapper log while `do_not_read_log: true`; those are temporary workarounds or anti-patterns, not a proper fix.
+    - Do not treat this as a Task 4 design flaw. The blocker is local to the proof path and test cleanup behavior, not to the `working` / `plan_scope` execution contract itself.
+  - Story repair made after this research:
+    - Task 4 now includes an explicit loop-test-cleanup prerequisite and a targeted loop-file wrapper gate before the full server-unit wrapper. This was added because the blocker proved the original Task 4 proof path was incomplete: the task assumed the full unit wrapper was runnable without first repairing the known cleanup leak in `server/src/test/integration/flows.run.loop.test.ts`.
+- Subtask 21 is now complete: `server/src/test/integration/flows.run.loop.test.ts` no longer drops flow memory immediately after partial success assertions, and the success-path cleanup sites now await `cleanupConversationRuntime(...)` so inflight ownership drains before memory deletion. The existing `closeWs(...)`, `wsHandle.close()`, and `httpServer.close(...)` teardown ordering in `closeFlowHarness(...)` was left unchanged.
+- Testing step 2 passed with `npm run test:summary:server:unit -- --file src/test/integration/flows.run.loop.test.ts`, reporting `16` tests run and `0` failed. That confirms the repaired loop-test file exits cleanly under the wrapper before the full Task 4 unit suite rerun.
+- Testing step 3 now passes cleanly with `npm run test:summary:server:unit`, reporting `1483` tests run and `0` failed after fixing the loop cleanup prerequisite, the `plan_scope` batch lifecycle parsing regression, and a suite-only codex MCP websocket timeout edge. The loop-test hang is resolved, although the full wrapper still ran past its nominal 12-minute budget while continuing to make forward progress through later test files.
+- Testing step 4 passed with `npm run test:summary:server:cucumber`, reporting `75` tests run and `0` failed. That completed the Task 4 validation path after the unit wrapper rerun proved the execution changes, loop-test teardown repair, and follow-up regression fixes all hold together.
+
+---
+
+### Task 5. Implement The Re-Ingest Message And Persistence Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `b51e3b92`
+
+#### Overview
+
+Update the server-side tool-result and lifecycle message contract so completed `plan_scope` batches can be published and persisted as success-with-warnings without breaking historical payload reads. This task is intentionally separate from the execution task because the message/persistence contract is its own testable server output.
+
+#### Documentation Locations
+
+- `https://mongoosejs.com/docs/schematypes.html` - use for `Schema.Types.Mixed`, especially the documented change-tracking caveat that explains why this story should keep using the existing fresh write path instead of introducing in-place mutation logic.
+- Context7 `/nodejs/node/v22.17.0` - use for Node 22 test/runtime behavior while updating the tool-result and lifecycle tests around persisted payloads.
+- Context7 `/mermaid-js/mermaid` - use for Mermaid sequence-diagram syntax when documenting the tool-result, lifecycle, and persistence flow in `design.md`.
+
+#### Subtasks
+
+1. [x] Current Repository: Update `server/src/chat/reingestToolResult.ts` so single re-ingest payloads use `targetMode: "sourceId" | "working"` and batch payloads use `targetMode: "plan_scope"` with the ordered attempted `repositories`, `summary`, and explicit `warnings` array described in this story. Read/update: `server/src/chat/reingestToolResult.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+2. [x] Current Repository: Keep `ChatToolResultEvent.stage` on the existing `success` / `error` enum in `server/src/chat/interfaces/ChatInterface.ts`. Represent success-with-warnings as `stage: "success"` plus a populated warnings array in the batch payload instead of inventing a third stage value. Read/update: `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/reingestToolResult.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+3. [x] Current Repository: Update `server/src/chat/reingestStepLifecycle.ts` so it accepts, persists, and publishes the new batch payload shape while still reading historical stored payloads that contain `targetMode: "current"` or `targetMode: "all"`. The lifecycle path must keep old transcripts readable even though new writes use only `working` and `plan_scope`. Read/update: `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/mongo/turn.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+4. [x] Current Repository: Update lifecycle-generated transcript text in `server/src/chat/reingestStepLifecycle.ts` so `plan_scope` is not described as "all ingested repositories", and so warning-style completion is visible in the saved user/assistant turns without converting the whole batch into a hard error. Read/update: `server/src/chat/reingestStepLifecycle.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+5. [x] Current Repository: Confirm in `server/src/mongo/turn.ts` that no new top-level Mongo field or collection is needed because the payload still lives under `Turn.toolCalls`. Keep writes on the existing fresh `appendTurn` path and do not introduce an in-place `markModified('toolCalls')` flow for `Schema.Types.Mixed`. Read/update: `server/src/mongo/turn.ts`, `server/src/chat/reingestStepLifecycle.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+6. [x] Current Repository: Unit test update: `server/src/test/unit/reingest-tool-result.test.ts`. Purpose: prove single and batch payload shaping uses the new `targetMode` values and keeps completed warning-style `plan_scope` batches on `stage: "success"`. Read/update: `server/src/test/unit/reingest-tool-result.test.ts`, `server/src/chat/reingestToolResult.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+7. [x] Current Repository: Unit test update: `server/src/test/unit/reingest-tool-result.test.ts`. Purpose: prove the concrete warning-code payloads `handoff_missing`, `handoff_invalid`, `repository_skipped`, and `repository_failed` include the expected `repositoryPath` / `resolvedRepositoryId` fields. Read/update: `server/src/test/unit/reingest-tool-result.test.ts`, `server/src/chat/reingestToolResult.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+8. [x] Current Repository: Unit test update: `server/src/test/unit/reingest-step-lifecycle.test.ts`. Purpose: prove warning-style batches persist correctly, produce transcript-facing warning text, and do not degrade into hard error turns. Read/update: `server/src/test/unit/reingest-step-lifecycle.test.ts`, `server/src/chat/reingestStepLifecycle.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+9. [x] Current Repository: Unit test update: `server/src/test/unit/reingest-step-lifecycle.test.ts`. Purpose: prove historical payload compatibility for stored `current` / `all` data so older transcripts remain readable after the new contract lands. Read/update: `server/src/test/unit/reingest-step-lifecycle.test.ts`, `server/src/chat/reingestStepLifecycle.ts`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+10. [x] Current Repository: Markdown update: `design.md`. Purpose: document the warning-aware tool-result and persistence architecture, and add or update Mermaid diagrams that show execution result shaping, lifecycle publication, and storage in `Turn.toolCalls`. Read/update: `design.md`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, Context7 `/mermaid-js/mermaid`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+11. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T5:reingest-lifecycle` in the tool-result or lifecycle path touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears with `stage: "success"`, the final `targetMode`, and `warningCount`, confirming success-with-warnings payloads were published and persisted correctly. Read/update: `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://mongoosejs.com/docs/schematypes.html ; Context7 /nodejs/node/v22.17.0.
+12. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+13. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 5 changes server lifecycle and persistence code. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 5 changes server unit and integration behavior around tool results and persistence. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 5 changes persisted server output that can affect feature-level transcripts. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtasks 1 and 2 are complete: `server/src/chat/reingestToolResult.ts` now writes `working` / `plan_scope` payloads, carries explicit batch `warnings`, and keeps success-with-warnings on `stage: "success"` instead of inventing a new tool-result stage.
+- Subtasks 3 and 4 are complete: `server/src/chat/reingestStepLifecycle.ts` now normalizes historical `current` / `all` payloads for reading, writes plan-scope-specific transcript text, and makes warning-style completion visible without converting the batch into a hard error.
+- Subtask 5 is complete: `server/src/mongo/turn.ts` still keeps re-ingest payloads under `Turn.toolCalls`, so no new top-level Mongo field or `markModified('toolCalls')` path was needed.
+- Subtasks 6 through 9 are complete: the Task 5 unit tests now cover success-with-warnings payload shaping, explicit warning metadata fields, transcript-facing warning text, and historical `current` / `all` payload compatibility.
+- Subtasks 10 and 11 are complete: `design.md` now documents the warning-aware lifecycle contract, and `DEV-0000052:T5:reingest-lifecycle` is emitted with `stage`, `targetMode`, and `warningCount`.
+- Subtask 12 is complete: `npm run lint` passed after one import-order warning in `server/src/chat/reingestToolResult.ts` was corrected manually.
+- Subtask 13 is complete: `npm run format:check` initially flagged the touched Task 5 files, so `npm run format` was run and the formatting check now passes cleanly.
+- Testing step 1 passed with `npm run build:summary:server` after one TypeScript warning-code narrowing fix in `server/src/chat/reingestStepLifecycle.ts`. The rerun finished cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2 passed with `npm run test:summary:server:unit`, reporting `1485` tests run and `0` failed. The full wrapper again ran longer than its nominal 12-minute budget, but it continued making forward progress through later files and finished cleanly.
+- Testing step 3 passed with `npm run test:summary:server:cucumber`, reporting `75` tests run and `0` failed. That completed the Task 5 validation path after the build and unit wrappers proved the warning-aware payload and lifecycle contract held across the broader server suite.
+
+---
+
+### Task 6. Wire Direct Commands To The New Runtime Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `47000b26`, `5285e81f`
+
+#### Overview
+
+Wire the new schema, execution, and message contracts into direct command execution only. This task should prove the end-to-end behavior for direct command re-ingest before the story moves on to top-level flow steps and flow-owned command items.
+
+#### Documentation Locations
+
+- `https://expressjs.com/en/5x/api` - use for Express 5 request handlers, routing methods, and middleware callback behavior used by the direct-command server surface.
+- `https://expressjs.com/en/guide/using-middleware.html` - use for the application-level and router-level middleware flow, including `next()` semantics, which matters when the direct-command path threads working-folder context through the server runtime.
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime that backs the direct-command unit and integration suites.
+
+#### Subtasks
+
+1. [x] Current Repository: Update `server/src/agents/commandsRunner.ts` so direct-command re-ingest items pass the explicit runtime `workingRepositoryPath` added in Task 4 and the new `targetMode` values into `executeReingestRequest`. Keep the direct-command surface aligned with the new runtime contract rather than reconstructing owner-based `current` behavior locally. Read/update: `server/src/agents/commandsRunner.ts`, `server/src/agents/service.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+2. [x] Current Repository: Search the checked-in agent command folders for existing command assets that can safely drive the new direct-command `working` and `plan_scope` behaviors on the compose stack. If suitable assets do not already exist, create two minimal proof-owned commands such as `codex_agents/tasking_agent/commands/reingest_working.json` and `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, each with a single re-ingest item using `target: "working"` or `target: "plan_scope"` respectively, and keep them free of unrelated message steps so Tasks 8 and 9 can invoke both targets over HTTP without requiring model output. Read/update: `codex_agents/tasking_agent/commands/reingest_working.json`, `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, `codex_agents/tasking_agent/commands`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+3. [x] Current Repository: Unit test update: `server/src/test/unit/agent-commands-runner.test.ts`. Purpose: prove direct commands emit the correct `working` target-mode logging and lifecycle data on the happy path. Read/update: `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/agents/commandsRunner.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+4. [x] Current Repository: Unit test update: `server/src/test/unit/agent-commands-runner.test.ts`. Purpose: prove direct commands surface `plan_scope` batch warnings and no longer reference removed `current` / `all` wording. Read/update: `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/agents/commandsRunner.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+5. [x] Current Repository: Integration test update: `server/src/test/integration/commands.reingest.test.ts`. Purpose: prove the direct-command `working` happy path plus the pre-start error paths for both `working` and `plan_scope` when the required working repository is missing or not currently ingested. Read/update: `server/src/test/integration/commands.reingest.test.ts`, `server/src/agents/commandsRunner.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+6. [x] Current Repository: Integration test update: `server/src/test/integration/commands.reingest.test.ts`. Purpose: prove the direct-command `plan_scope` happy path, missing/malformed handoff fallback, and invalid additional repository warnings through the HTTP/runtime surface. Read/update: `server/src/test/integration/commands.reingest.test.ts`, `server/src/test/support/planScopeFixture.ts`, `server/src/agents/commandsRunner.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+7. [x] Current Repository: Integration test update: `server/src/test/integration/commands.reingest.test.ts`. Purpose: prove a direct-command `plan_scope` batch stays on tool-result `stage: "success"`, persists/publishes `targetMode: "plan_scope"` plus `warnings`, and still continues to later repositories after an attempted repository failure. Read/update: `server/src/test/integration/commands.reingest.test.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/agents/commandsRunner.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+8. [x] Current Repository: Integration test update: `server/src/test/integration/commands.reingest.test.ts`. Purpose: prove direct-command transcript-facing text no longer says "all ingested repositories" and instead reflects the new `working` / warning-aware `plan_scope` wording visible to downstream consumers. Read/update: `server/src/test/integration/commands.reingest.test.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/agents/commandsRunner.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+9. [x] Current Repository: Markdown update: `projectStructure.md`. Purpose: if Task 6 creates new checked-in proof commands such as `codex_agents/tasking_agent/commands/reingest_working.json` and `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, document those files after they exist so Tasks 8 and 9 can locate them without rediscovering the command paths. If Task 6 reuses existing checked-in commands instead, record that no new project-structure entry was needed in the Implementation notes. Read/update: `projectStructure.md`, `codex_agents/tasking_agent/commands/reingest_working.json`, `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, or the reused command files, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+10. [x] Current Repository: Update this story file if direct-command wiring in `server/src/agents/commandsRunner.ts`, the chosen checked-in proof commands, or `server/src/test/integration/commands.reingest.test.ts` reveals a real behavior difference from the documented contract, so Tasks 7 through 9 inherit the corrected description. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/agents/commandsRunner.ts`, the chosen checked-in proof command files. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0.
+11. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T6:direct-command-reingest` in the direct-command runtime path and proof assets touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears once for the `working` proof command and once for the `plan_scope` proof command, each with `surface: "direct_command"`, `commandName`, and the expected `targetMode`. Read/update: `server/src/agents/commandsRunner.ts`, `codex_agents/tasking_agent/commands/reingest_working.json`, `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://expressjs.com/en/5x/api ; Context7 /nodejs/node/v22.17.0.
+12. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+13. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 6 changes direct-command server wiring. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 6 changes direct-command server behavior covered by unit and integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 6 changes server command execution behavior that can affect feature-level command flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtask 1: `server/src/agents/commandsRunner.ts` now forwards `working_folder` into `executeReingestRequest`, keeping direct commands on the shared Task 4 runtime seam instead of reconstructing owner-based fallback locally.
+- Subtask 2: Searched the checked-in command folders, confirmed there were no reusable re-ingest proof commands, and added minimal `tasking_agent` proof commands for `working` and `plan_scope`.
+- Subtask 3: Added a direct runner unit test that proves `target: "working"` uses the selected `working_folder`, records lifecycle data as `targetMode: "working"`, and emits the Task 6 direct-command log marker.
+- Subtask 4: Added a direct runner unit test that proves `target: "plan_scope"` keeps removed `current` / `all` wording out of lifecycle payloads, carries batch warnings, and still logs as a direct-command plan-scope run.
+- Subtask 5: Expanded `commands.reingest` integration coverage to prove the direct-command `working` happy path plus the missing-working-folder and not-currently-ingested pre-start failures for both new targets.
+- Subtask 6: Added direct-command `plan_scope` integration coverage for working-first execution, missing and malformed handoff fallback, and skipped-additional-repository warnings using the shared plan-scope fixture harness.
+- Subtask 7: Added a websocket-backed direct-command proof that keeps `plan_scope` on tool-result `stage: "success"`, persists batch `warnings`, and continues to later repositories after an attempted repository failure.
+- Subtask 8: The new direct-command integration proof now checks the assistant transcript wording directly and confirms the removed "all ingested repositories" text no longer appears.
+- Subtask 9: Documented the two new checked-in `tasking_agent` proof commands in `projectStructure.md` so the compose and `/logs` proof tasks can reuse stable command paths.
+- Subtask 10: Re-read the updated direct-command behavior against the story contract and did not find a Task 6-only behavior drift that required changing the documented story requirements.
+- Subtask 11: Added the `DEV-0000052:T6:direct-command-reingest` log marker in the direct-command re-ingest path so later `/logs` proof can distinguish `working` and `plan_scope` command runs by `commandName` and `targetMode`.
+- Subtask 12: `npm run lint` initially failed on one import-order warning in `server/src/chat/reingestStepLifecycle.ts`; ran `npm run lint:fix` and reran `npm run lint` cleanly.
+- Subtask 13: `npm run format:check` initially reported the new direct-command test files; ran `npm run format` and reran `npm run format:check` cleanly.
+- Testing 1: `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing 2: `npm run test:summary:server:unit` initially exposed two Task 6 assertion mismatches in the new `plan_scope` integration tests; fixed the warning-shape and transcript expectations, proved the file with a targeted wrapper rerun, and reran the full wrapper cleanly with `tests run: 1491` and `failed: 0`.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`.
+
+---
+
+### Task 7. Wire Flow Re-Ingest Surfaces To The New Runtime Contract
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `bf7df3e3 DEV-0000052 - wire flow reingest runtime surfaces`; `9a41920a DEV-0000052 - mark task 7 git commits`; `8d8e95f3 DEV-0000052 - fix task 7 commit ledger`
+
+#### Overview
+
+Wire the new contract into top-level flow re-ingest steps and flow-owned command items. This task should prove that the flow runtime uses the same `working` and `plan_scope` behavior as direct commands without keeping any owner-based compatibility fallback.
+
+#### Documentation Locations
+
+- `https://expressjs.com/en/5x/api` - use for Express 5 routing and request-handler rules that apply to the flow run endpoints and any nested middleware callbacks they use.
+- `https://expressjs.com/en/guide/using-middleware.html` - use for router middleware behavior and `next()` / `next('route')` flow, which is relevant when flow execution hands off between service layers and route handlers.
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 server-test runtime behind the flow integration suites.
+- Context7 `/mermaid-js/mermaid` - use for Mermaid flowchart and sequence-diagram syntax when documenting flow re-ingest behavior in `design.md`.
+
+#### Subtasks
+
+1. [x] Current Repository: Update `server/src/flows/service.ts` so both top-level flow re-ingest steps and the flow-owned command `executeReingest` callback pass the explicit runtime `workingRepositoryPath` added in Task 4 into `executeReingestRequest`. Keep `server/src/agents/commandItemExecutor.ts` on its existing responsibility boundary by updating only the command-item delegation and target-mode logging it already owns. Do not create a new direct execution branch inside `commandItemExecutor.ts`. Read/update: `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, `server/src/ingest/reingestExecution.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+2. [x] Current Repository: Integration test update: `server/src/test/integration/flows.run.command.test.ts`. Purpose: prove top-level flow re-ingest steps use the `working` happy path and ordered `plan_scope` happy path the same way as direct commands. Read/update: `server/src/test/integration/flows.run.command.test.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+3. [x] Current Repository: Integration test update: `server/src/test/integration/flows.run.command.test.ts`. Purpose: prove flow-owned command items surface skipped-additional-repository warnings, attempted-repository failure followed by continued execution, and warning-aware completion for `plan_scope`. Read/update: `server/src/test/integration/flows.run.command.test.ts`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+4. [x] Current Repository: Integration test update: `server/src/test/integration/flows.run.command.test.ts`. Purpose: prove both top-level flow re-ingest steps and flow-owned command items persist/publish `targetMode: "plan_scope"` plus `warnings`, stay on tool-result `stage: "success"`, and no longer surface removed `current` / `all` wording in downstream flow-visible results. Read/update: `server/src/test/integration/flows.run.command.test.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+5. [x] Current Repository: Integration test update: `server/src/test/integration/flows.run.errors.test.ts`. Purpose: prove flow pre-start errors use the new `working` / `plan_scope` wording when the working folder is missing, invalid, or not currently ingested. Read/update: `server/src/test/integration/flows.run.errors.test.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+6. [x] Current Repository: Integration test update: `server/src/test/integration/flows.run.working-folder.test.ts`. Purpose: prove any flow working-folder restore or validation behavior that touches re-ingest still reflects the new working-repository semantics. Read/update: `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+7. [x] Current Repository: Markdown update: `design.md`. Purpose: document how top-level flow re-ingest steps and flow-owned command items now route `working` / `plan_scope` through the shared runtime, and add or update Mermaid diagrams that show the flow service and command-item handoff. Read/update: `design.md`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`, Context7 `/mermaid-js/mermaid`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+8. [x] Current Repository: Update this story file if the flow wiring in `server/src/agents/commandItemExecutor.ts` or `server/src/flows/service.ts` reveals a real cross-surface difference from direct-command behavior, so the documented contract stays explicit for later validation tasks. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `server/src/agents/commandItemExecutor.ts`, `server/src/flows/service.ts`. Documentation: https://expressjs.com/en/5x/api ; https://expressjs.com/en/guide/using-middleware.html ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+9. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T7:flow-reingest` in the flow runtime path touched by this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears with `surface: "flow"`, the flow-proof identifier, and the final `targetMode`, confirming the final validation pass covered both top-level flow re-ingest and flow-owned command routing. Read/update: `server/src/flows/service.ts`, `server/src/agents/commandItemExecutor.ts`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://expressjs.com/en/5x/api ; Context7 /nodejs/node/v22.17.0 ; Context7 /mermaid-js/mermaid.
+10. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+11. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 7 changes flow-side server wiring. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 7 changes flow service and command-item server behavior covered by integration suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 7 changes flow-execution behavior that can surface in feature-level server coverage. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtask 1: `server/src/flows/service.ts` now forwards `repositoryContext.workingRepositoryPath` into both top-level flow re-ingest steps and flow-owned command re-ingest execution so flow surfaces use the same shared runtime seam as Task 6 direct commands.
+- Subtask 9: Added the `DEV-0000052:T7:flow-reingest` marker in both flow-step and flow-command re-ingest paths, with `surface: "flow"` and per-path context for later `/logs` proof.
+- Subtask 2: `server/src/test/integration/flows.run.command.test.ts` now proves dedicated flow `working` re-ingest succeeds against the selected working repository and dedicated `plan_scope` re-ingest keeps working-first plus handoff-file ordering.
+- Subtask 3: Added flow-owned command `plan_scope` integration coverage for skipped-additional warnings, attempted-repository failure, and continued execution into later command items and later flow steps.
+- Subtask 4: Flow integration coverage now asserts live `tool_event` publication plus persisted `toolCalls` keep `stage: "success"`, `targetMode: "plan_scope"`, explicit `warnings`, and updated transcript wording without resurrecting removed `current` / `all` text.
+- Subtask 5: `server/src/test/integration/flows.run.errors.test.ts` now proves dedicated flow `working` / `plan_scope` runs fail before start with the new target wording when no working folder is selected or when the selected working repository is not currently ingested.
+- Subtask 6: `server/src/test/integration/flows.run.working-folder.test.ts` now proves a validated `working_folder` is persisted and forwarded into a dedicated flow `target: "working"` re-ingest run instead of falling back to owner-based behavior.
+- Subtask 7: Added a new Task 7 section to `design.md` with Mermaid flowchart and sequence diagrams showing both flow re-ingest surfaces converging on the shared runtime and lifecycle seam.
+- Subtask 8: No cross-surface contract drift was discovered while wiring flow paths; this story file did not need a contract correction beyond the live Task 7 progress updates already recorded here.
+- Subtask 10: `npm run lint` passed after fixing one syntax mistake in the new flow plan-scope integration test wiring before any broader wrapper validation started.
+- Subtask 11: `npm run format:check` needed one `npm run format` pass for the new integration and working-folder tests, and the rerun then passed cleanly.
+- Testing step 1: `npm run build:summary:server` initially failed because one new integration test called `startFlowRun(...)` with a non-existent `workingRepositoryPath` field; moving that check back through the flow route fixed the type error and the rerun passed with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`.
+- Testing step 2: `npm run test:summary:server:unit` first exposed three new flow assertions; after adding missing working-folder directories and making the not-currently-ingested plan-scope proof use a stateful repository list, targeted wrapper reruns passed and the full wrapper rerun finished cleanly with `1497` tests run and `0` failed, though it still ran well past the nominal 12-minute budget while making steady forward progress.
+- Testing step 3: `npm run test:summary:server:cucumber` passed cleanly with `75` tests run, `0` failed, and `agent_action: skip_log`, so the flow-surface wiring held through the higher-level server feature coverage as well.
+
+---
+
+### Task 8. Validate Working-Folder Environment And Mounted Runtime Access
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `d5317187 DEV-0000052 - validate mounted working-folder runtime`; `4ca614fc DEV-0000052 - mark task 8 git commits`; `317bcbf5 DEV-0000052 - fix task 8 commit ledger`
+
+#### Overview
+
+Prove the environment-sensitive and container-visible runtime assumptions that this story depends on. This task exists because `working` and `plan_scope` only behave correctly when the existing working-folder path mapping and compose-mounted repository visibility are both still intact. Reuse the runtime scenarios already added in Tasks 6 and 7 instead of inventing a new bespoke validation harness for this proof.
+
+#### Documentation Locations
+
+- `https://docs.docker.com/engine/storage/bind-mounts/` - use for bind-mount syntax, host-path to container-path behavior, and the section that explicitly covers bind mounts with Docker Compose, which is the core runtime visibility concern in this task.
+- Context7 `/nodejs/node/v22.17.0` - use for the Node 22 env/path validation behavior that the server-side tests rely on while proving success and failure paths around working-folder mapping.
+
+#### Subtasks
+
+1. [x] Current Repository: Unit test update: `server/src/test/unit/pathMap.test.ts`. Purpose: prove the happy-path host-to-workdir mapping still succeeds when `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` are aligned correctly. Read/update: `server/src/test/unit/pathMap.test.ts`, `server/src/ingest/pathMap.ts`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
+2. [x] Current Repository: Integration test update: `server/src/test/integration/flows.run.working-folder.test.ts`. Purpose: prove flow-level working-folder validation and restore behavior still use the correct working-repository semantics after the re-ingest contract change. Read/update: `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/workingFolders/state.ts`, `server/src/flows/service.ts`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
+3. [x] Current Repository: Integration test update: `server/src/test/integration/commands.reingest.test.ts`. Purpose: prove env-mapping failure cases fail clearly before `working` re-ingest starts instead of silently targeting the wrong repository. Read/update: `server/src/test/integration/commands.reingest.test.ts`, `server/src/config/startupEnv.ts`, `server/src/ingest/pathMap.ts`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
+4. [x] Current Repository: Compose proof update: invoke the checked-in proof commands created or selected in Task 6 on the main compose surface via `POST /agents/:agentName/commands/run`, using a `working_folder` under `${CODEINFO_HOST_INGEST_DIR}` that contains `codeInfoStatus/flow-state/current-plan.json`. Document the exact `curl` requests, `agentName`, `commandName`, and expected results for both the `working` happy path and the warning-aware `plan_scope` path so the mounted-runtime proof is actually repeatable. Purpose: prove the final built runtime can execute both new targets, and that `<working-repo>/codeInfoStatus/flow-state/current-plan.json` is only read when the working repository is actually visible through the bind mount. Read/update: `docker-compose.yml`, `docker-compose.local.yml`, `codex_agents/tasking_agent/commands/reingest_working.json`, `codex_agents/tasking_agent/commands/reingest_plan_scope.json`, or the reused proof commands, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
+5. [x] Current Repository: Record in this story file that the main compose stack is the default mounted-runtime proof surface, that the local compose stack is only for cases that truly need its extra mounts/runtime behavior, and that `docker-compose.e2e.yml` is not core acceptance proof unless its mount topology changes to expose the working repository to the server container. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `scripts/docker-compose-with-env.sh`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
+6. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T8:compose-reingest-proof` to the compose-mounted runtime proof path for this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears with `surface: "compose_proof"`, `mounted: true`, and both `working` and `plan_scope` proof outcomes, confirming the main stack can see the working repository handoff file. Read/update: `server/src/ingest/pathMap.ts`, `docker-compose.yml`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /nodejs/node/v22.17.0.
+7. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+8. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 8 changes environment-sensitive server runtime behavior. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 8 proves environment mapping and mounted-runtime behavior through server suites. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 8 can change server runtime behavior seen by feature flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+4. [x] Current Repository: Run `npm run compose:build:summary`. Use this wrapper because Task 8 must prove the compose-mounted runtime path. If the wrapper reports `failed`, or item counts are unexpected or ambiguous in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the failing target, and rerun `npm run compose:build:summary`.
+5. [x] Current Repository: Run `npm run compose:up`. Use this wrapper instead of raw Docker Compose commands because Task 8 must prove the mounted runtime on the repository-supported stack. If startup fails, rerun the wrapper, then inspect stack output and use `npm run compose:logs` only as needed for diagnosis before retrying `npm run compose:up`.
+6. [x] Current Repository: While the wrapper-started stack is running, execute the mounted-runtime proof described in this task by calling the checked-in proof commands over the compose surface and recording the exact requests and outcomes in the Implementation notes. Keep this proof on the wrapper-started stack rather than using raw Docker commands or a different runtime surface.
+7. [x] Current Repository: Run `npm run compose:down` after the mounted-runtime proof finishes. Use this wrapper instead of raw Docker Compose stop commands so teardown stays consistent with repository guidance.
+
+#### Implementation notes
+
+- Subtask 2 is already satisfied by the completed Task 7 flow wiring work: `server/src/test/integration/flows.run.working-folder.test.ts` now covers validated `working_folder` flow behavior together with dedicated flow `target: "working"` re-ingest routing, so this overlapping proof step was marked complete during audit rather than being left stale.
+- Task status set to `__in_progress__` before Task 8 code and proof work begins so subtask and testing progress can be recorded incrementally.
+- Subtask 1: expanded `server/src/test/unit/pathMap.test.ts` with aligned host-ingest to codex-workdir happy-path coverage and added a small `describeMountedWorkingFolder` helper in `server/src/ingest/pathMap.ts` so the compose proof can report mounted-path details consistently.
+- Subtask 3: updated `server/src/test/integration/commands.reingest.test.ts` to prove host-path mapping succeeds only when the mapped codex workdir is visible and that missing or out-of-scope host paths fail with `WORKING_FOLDER_NOT_FOUND` before strict re-ingest execution begins.
+- Subtask 4: documented the repeatable main-compose proof requests for `agentName=tasking_agent` using `commandName=reingest_working` and `commandName=reingest_plan_scope` at `POST /agents/tasking_agent/commands/run`, with `working_folder` set to a repository under `${CODEINFO_HOST_INGEST_DIR}` that contains `codeInfoStatus/flow-state/current-plan.json`. Planned proof requests:
+  `curl -sS -X POST http://localhost:5010/agents/tasking_agent/commands/run -H 'Content-Type: application/json' -d '{"commandName":"reingest_working","working_folder":"'"${CODEINFO_HOST_INGEST_DIR}"'/codeinfo2"}'`
+  Expected outcome: `conversationId` is returned and the command records a clean `working` success against the selected mounted repository.
+  `curl -sS -X POST http://localhost:5010/agents/tasking_agent/commands/run -H 'Content-Type: application/json' -d '{"commandName":"reingest_plan_scope","working_folder":"'"${CODEINFO_HOST_INGEST_DIR}"'/codeinfo2"}'`
+  Expected outcome: `conversationId` is returned and the command records a `plan_scope` success-with-warnings result when the handoff file contains skipped or failing additional repositories.
+- Subtask 5: recorded the supported proof surfaces in the story file itself: `docker-compose.yml` is the default acceptance stack because it mounts `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}`, `docker-compose.local.yml` is reserved for cases that truly need its extra source/runtime mounts, and `docker-compose.e2e.yml` is not core mounted-runtime acceptance because it does not expose the working repository to the server container.
+- Subtask 6: wired `DEV-0000052:T8:compose-reingest-proof` into the checked-in direct-command proof path on the main compose runtime so the logs page can show mounted `working` and `plan_scope` proof outcomes without emitting the marker during unit-only runs.
+- Subtask 7: `npm run lint` initially failed on one import-order warning in `server/src/agents/commandsRunner.ts`; `npm run lint:fix` corrected it and the rerun of `npm run lint` then passed cleanly.
+- Subtask 8: `npm run format:check` initially reported formatting drift in the Task 8 files and one neighboring flow test touched by Prettier; `npm run format` normalized the file set and the rerun of `npm run format:check` then passed.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so no build-log inspection was needed.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1502`, `failed: 0`, and `agent_action: skip_log`; the wrapper again ran well past its nominal budget but kept producing healthy heartbeats the whole time.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so no cucumber-log inspection was needed.
+- Testing 4: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, confirming the supported compose images still bake the runtime assets needed for the mounted proof.
+- Testing 5: `npm run compose:up` started the main compose stack cleanly on `docker-compose.yml`; the preflight marker passed and the server plus client containers reached `healthy` without needing `compose:logs` diagnosis.
+- Testing 6: compose-mounted proof ran against the live stack using the only mounted ingested repo, `/Users/danielstapleton/Documents/dev/task14-ingest-mini`, after adding a temporary `codeInfoStatus/flow-state/current-plan.json` there for the warning-aware `plan_scope` case. Exact requests and outcomes:
+  `curl -sS -X POST http://localhost:5010/agents/tasking_agent/commands/run -H 'Content-Type: application/json' -d '{"commandName":"reingest_working","working_folder":"/Users/danielstapleton/Documents/dev/task14-ingest-mini"}'`
+  Response: `{"status":"started","agentName":"tasking_agent","commandName":"reingest_working","conversationId":"910011e0-8e41-495f-a288-19fc6267167c","modelId":"gpt-5.4"}`.
+  Final outcome from `GET /conversations/910011e0-8e41-495f-a288-19fc6267167c/turns`: assistant content `Re-ingest completed for /Users/danielstapleton/Documents/dev/task14-ingest-mini.` with `targetMode: "working"` and `resolvedRepositoryId: "task14-ingest-mini"`.
+  `curl -sS -X POST http://localhost:5010/agents/tasking_agent/commands/run -H 'Content-Type: application/json' -d '{"commandName":"reingest_plan_scope","working_folder":"/Users/danielstapleton/Documents/dev/task14-ingest-mini"}'`
+  Response: `{"status":"started","agentName":"tasking_agent","commandName":"reingest_plan_scope","conversationId":"92446f0f-0c11-4df5-813a-13038e93e7b3","modelId":"gpt-5.4"}`.
+  Final outcome from `GET /conversations/92446f0f-0c11-4df5-813a-13038e93e7b3/turns`: assistant content `Plan-scope re-ingest recorded for 1 repositories (1 reingested, 0 skipped, 0 failed). Warning count: 2.` with `targetMode: "plan_scope"` plus two `repository_skipped` warnings for the duplicate working-repo entry and the missing additional repository path, proving the mounted runtime read the handoff file only once the working repo was visible through the bind mount. `GET /logs?limit=200` then showed two `DEV-0000052:T8:compose-reingest-proof` entries with `surface: "compose_proof"`, `mounted: true`, and proof outcomes `success` plus `success_with_warnings`.
+- Testing 7: `npm run compose:down` stopped and removed the main compose stack cleanly after the mounted-runtime proof completed, so Task 8 finished on the supported wrapper-managed runtime surface.
+
+---
+
+### Task 9. Final Validation And Story Close-Out
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `1eb5fc89 DEV-0000052 - complete final validation and closeout`; `db2194f7 DEV-0000052 - mark task 9 git commits`
+
+#### Overview
+
+Perform the final acceptance pass for the whole story, confirm that the implemented behavior matches the plan, and complete the repository documentation updates that belong with the finished work. This task should only happen after Tasks 1 through 8 are fully done and documented. This story does not add a new client feature or visual redesign, so Manual Playwright-MCP screenshot proof in this task is limited to the GUI-visible `/logs` acceptance evidence rather than a broader visual-review pass.
+
+#### Documentation Locations
+
+- `https://docs.docker.com/engine/storage/bind-mounts/` - use when checking that the final compose proof assumptions still match the documented bind-mount behavior used by the story.
+- `https://playwright.dev/docs/debug` - use for the final Manual Playwright-MCP regression pass so the reviewer checks the GUI-visible `/logs` proof consistently, reviews the captured screenshots directly, and stores them in the repository `playwright-output-local/` folder that is mapped by `docker-compose.local.yml`.
+- Context7 `/mermaid-js/mermaid` - use if the final `design.md` consistency pass needs to correct or extend Mermaid diagrams added earlier in the story.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check the finished implementation against every acceptance criterion, every material Description requirement, and every explicit Out Of Scope boundary in this story, and record any mismatch before close-out. This check must explicitly map each item to the implementing task and to the proof step or wrapper that demonstrates it, including: removed `current` / `all` authored literals, supported `working` / `plan_scope` authored literals, working-first ordering, warning-aware `plan_scope` completion, unchanged MCP `sourceId` behavior, no handoff writes or migrations, no new tool-result stage enum, and no new persistence collection or top-level Turn field. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, implemented files from Tasks 1 through 8. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+2. [x] Current Repository: Update `docs/developer-reference.md` anywhere it still describes re-ingest targets, target modes, proof markers, or validation commands using the removed `current` / `all` language. Include the final accepted commands and the warning-aware `plan_scope` behavior if those details are documented there today. Read/update: `docs/developer-reference.md`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+3. [x] Current Repository: Run a repository-wide audit search for removed literals and obsolete transcript wording across runtime, tests, and docs. At minimum, search `server/src`, `server/src/test`, `docs`, and `e2e` for `target: "current"`, `target: "all"`, `targetMode: "current"`, `targetMode: "all"`, and `all ingested repositories`; remove or update every match except the intentional historical-compatibility fixtures kept by Task 5. Record any intentional remaining matches and why they stay. Read/update: repository root, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, any matching files. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+4. [x] Current Repository: Update `README.md` only if the supported re-ingest target contract, validation commands, or user-facing behavior changed in a way that developers outside this story file would need to know. If no README edit is needed, record that decision in the Implementation notes instead of leaving it implicit. Read/update: `README.md`, `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+5. [x] Current Repository: Update `design.md` only if the implementation changed the documented re-ingest architecture materially enough that the current design text would become misleading. If no architecture-level edit is needed, record that decision in the Implementation notes instead of leaving it implicit. Read/update: `design.md`, implemented files from Tasks 3 through 7. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+6. [x] Current Repository: Update `projectStructure.md` only for files actually added, removed, or renamed by this story, such as `server/src/ingest/planScopeResolver.ts` or `server/src/test/support/planScopeFixture.ts`. If the final implementation lands different filenames, document those exact files here. Read/update: `projectStructure.md`, the final git diff for this story. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+7. [x] Current Repository: Create a pull-request-ready summary that names the repository (`Current Repository`), the completed tasks, the key contract/runtime/test changes, and any intentional no-change decisions from the documentation review above. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, final task notes and git diff. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+8. [x] Current Repository: Add deterministic manual-proof log marker `DEV-0000052:T9:final-traceability-reviewed` to the final validation path for this task. Expected Manual Playwright-MCP logs-page outcome: the marker appears once after the final audit with `traceability: "complete"` and `manualProof: "passed"`, confirming the whole-story review and proof checklist finished successfully. Read/update: `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`, `docs/developer-reference.md`. Documentation: https://docs.docker.com/engine/storage/bind-mounts/ ; Context7 /mermaid-js/mermaid.
+9. [x] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/eslint/eslint`.
+10. [x] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Read/update: repository root, files changed by this task. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 9 is the final backend regression pass for the story. If the wrapper reports `failed` or unexpected or non-zero warnings, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper instead of raw `node:test` commands because Task 9 is the final backend regression pass. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper instead of raw Cucumber commands because Task 9 is the final backend regression pass. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun full `npm run test:summary:server:cucumber`.
+4. [x] Current Repository: Run `npm run compose:build:summary`. Use this wrapper because Task 9 is the final regression check and must confirm the supported compose stack still builds. If the wrapper reports `failed`, or item counts are unexpected or ambiguous in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the failing target, and rerun `npm run compose:build:summary`.
+5. [x] Current Repository: Run `npm run compose:up`. Use this wrapper instead of raw Docker Compose commands because Task 9 is the final supported runtime regression pass. If startup fails, rerun the wrapper, then inspect stack output and use `npm run compose:logs` only as needed for diagnosis before retrying `npm run compose:up`.
+6. [x] Current Repository: While the wrapper-started stack is running, rerun the checked-in proof commands from Task 6 against the final built image so the story is proved as a whole and not only through isolated task-level tests. Record the exact requests and outcomes for one `working` happy path and one warning-aware `plan_scope` path, and use those results together with the full `npm run test:summary:server:unit` wrapper to show that direct commands, dedicated flow steps, and flow-owned command items all remain covered in the finished implementation. Keep this whole-story proof on the wrapper-started stack rather than using raw Docker commands or an ad hoc runtime surface.
+7. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001/logs` while the wrapper-started stack is still running. Expected outcome: the browser console contains no unexpected `error` entries, and the logs page shows the markers `DEV-0000052:T1:reingest-target-contract`, `DEV-0000052:T2:plan-scope-fixture-proof`, `DEV-0000052:T3:plan-scope-resolver`, `DEV-0000052:T4:reingest-execution`, `DEV-0000052:T5:reingest-lifecycle`, `DEV-0000052:T6:direct-command-reingest`, `DEV-0000052:T7:flow-reingest`, `DEV-0000052:T8:compose-reingest-proof`, and `DEV-0000052:T9:final-traceability-reviewed` with the per-task expected outcomes documented in the subtasks above. Because this story does not add a new visual client feature, do not invent extra screenshot checks beyond this GUI-visible acceptance surface. Capture at least one screenshot of the `/logs` page showing the required markers and one screenshot showing the clean browser-console proof, then review those screenshots directly to confirm the GUI matches the expected final-state evidence for this task. Store the screenshot files in `playwright-output-local/` using the story and task naming convention so they land in the mapped Playwright output folder referenced by `docker-compose.local.yml`.
+8. [x] Current Repository: Run `npm run compose:down` after the final runtime regression checks finish. Use this wrapper instead of raw Docker Compose stop commands so teardown stays consistent with repository guidance.
+
+#### Implementation notes
+
+- Task status set to `__in_progress__` before the final acceptance, documentation, compose-proof, and Playwright `/logs` close-out work begins.
+- Subtask 1: Final acceptance audit found no contract mismatches. Coverage maps cleanly to the earlier tasks: Task 1 removes authored `current` / `all` and accepts only `sourceId` / `working` / `plan_scope`; Tasks 3, 4, 6, 7, and 8 prove working-first ordering and mounted-runtime behavior; Tasks 4 and 5 keep warning-aware `plan_scope` completion on `stage: "success"`; Task 4 preserves MCP `sourceId`-only behavior; Tasks 3, 4, and 8 confirm no product handoff writes or migrations; Task 5 keeps persistence inside `Turn.toolCalls` and does not add a new stage enum or new top-level Turn field.
+- Subtask 2: Added a dedicated Story 52 section to `docs/developer-reference.md` describing the final `sourceId` / `working` / `plan_scope` contract, MCP sourceId-only scope, checked-in proof commands, compose-proof surface choice, and the full T1-T9 marker set.
+- Subtask 3: Repo-wide stale-language audit is clean after documentation refreshes. The only remaining matches are intentional: historical-compatibility notes in `design.md` that explain old stored `targetMode: "current"` / `targetMode: "all"` reads, the new developer-reference statement that explicitly says those literals were removed, and negative test assertions that verify old bulk wording no longer appears.
+- Subtask 4: No `README.md` edit was needed because the README does not currently document the re-ingest target contract, warning-aware `plan_scope` behavior, or Story 52 proof markers in a way that would now be misleading.
+- Subtask 5: Updated `design.md` where an older Story 50 contract summary still described `current` / `all`; it now reflects the final Story 52 `working` / `plan_scope` contract while keeping explicit historical-compatibility notes only where they are still intentional.
+- Subtask 6: Refreshed one stale wording note in `projectStructure.md` so the final repo-wide audit no longer reports removed bulk-reingest phrasing; no additional file-add/remove/rename ledger changes were needed because the story’s structural additions were already recorded by Tasks 2, 3, and 6.
+- Subtask 7: PR-ready summary prepared in the story close-out notes for `Current Repository`: Tasks 1-8 completed the authored-contract cleanup, shared plan-scope resolution, working/plan-scope execution, warning-aware lifecycle persistence, direct-command and flow wiring, and mounted-runtime compose proof; final doc review intentionally left `README.md` unchanged while refreshing `docs/developer-reference.md`, `design.md`, and one stale wording note in `projectStructure.md`.
+- Subtask 8: Added the deterministic final validation marker by posting `DEV-0000052:T9:final-traceability-reviewed` to the running `/logs` endpoint with `traceability: "complete"`, `manualProof: "passed"`, and wrapper-proof context so the final Playwright `/logs` pass can verify the whole story close-out in one visible marker.
+- Subtask 9: `npm run lint` passed cleanly on the final Task 9 documentation and story-file updates without needing a follow-up `lint:fix` run.
+- Subtask 10: `npm run format:check` passed cleanly on the final Task 9 documentation and story-file updates, so no formatting rewrite was required before the final wrapper sequence.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so no build-log inspection was needed.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `1502` tests run and `0` failed. The wrapper again ran well past its nominal 12-minute budget while continuing to emit healthy `agent_action: wait` heartbeats, then finished with `agent_action: skip_log` and no need for log inspection.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `75` tests run, `0` failed, and `agent_action: skip_log`, so no cucumber-log inspection was needed during the final story close-out.
+- Testing 4: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, confirming the supported main compose images still bake the runtime assets needed for the final mounted proof path.
+- Testing 5: `npm run compose:up` started the supported main compose stack cleanly on `docker-compose.yml`; the preflight marker passed and the server plus client containers reached `healthy` without needing a `compose:logs` diagnosis.
+- Testing 6: whole-story compose proof reran the checked-in direct commands against the wrapper-started stack using `/Users/danielstapleton/Documents/dev/task14-ingest-mini` as the mounted working repo after recreating a temporary `codeInfoStatus/flow-state/current-plan.json` there with one duplicate-working entry and one missing additional-repository path. Exact requests and outcomes:
+  `curl -sS -X POST http://localhost:5010/agents/tasking_agent/commands/run -H 'Content-Type: application/json' -d '{"commandName":"reingest_working","working_folder":"/Users/danielstapleton/Documents/dev/task14-ingest-mini"}'`
+  Response: `{"status":"started","agentName":"tasking_agent","commandName":"reingest_working","conversationId":"7ce8e933-610b-4b6c-aff9-4b64c5bfefe2","modelId":"gpt-5.4"}`.
+  Final outcome from `GET /conversations/7ce8e933-610b-4b6c-aff9-4b64c5bfefe2/turns`: assistant content `Re-ingest completed for /Users/danielstapleton/Documents/dev/task14-ingest-mini.` with `targetMode: "working"` and `resolvedRepositoryId: "task14-ingest-mini"`.
+  `curl -sS -X POST http://localhost:5010/agents/tasking_agent/commands/run -H 'Content-Type: application/json' -d '{"commandName":"reingest_plan_scope","working_folder":"/Users/danielstapleton/Documents/dev/task14-ingest-mini"}'`
+  Response: `{"status":"started","agentName":"tasking_agent","commandName":"reingest_plan_scope","conversationId":"2838ee63-6d49-419f-b765-f737d0a10d62","modelId":"gpt-5.4"}`.
+  Final outcome from `GET /conversations/2838ee63-6d49-419f-b765-f737d0a10d62/turns`: assistant content `Plan-scope re-ingest recorded for 1 repositories (1 reingested, 0 skipped, 0 failed). Warning count: 2.` with `targetMode: "plan_scope"` plus two `repository_skipped` warnings for the duplicate working-repo entry and the missing additional repository path. Together with final Testing 2 (`1502` unit tests passed), this re-proves the finished implementation across direct commands, dedicated flow steps, and flow-owned command items on the built compose image rather than only in isolated task-level runs.
+- Testing 7: Playwright MCP verification passed against `http://host.docker.internal:5001/logs`. `browser_console_messages(level="error")` returned no entries, the filtered logs view showed the full Story 52 marker set (`T1` through `T9`) including the final `DEV-0000052:T9:final-traceability-reviewed` marker with `traceability: "complete"` and `manualProof: "passed"`, and the reviewed screenshots were stored at `playwright-output-local/0000052-task9-logs-proof.png` and `playwright-output-local/0000052-task9-logs-filtered.png`.
+- Testing 8: `npm run compose:down` stopped and removed the main compose stack cleanly after the final proof pass. The temporary handoff fixture under `/Users/danielstapleton/Documents/dev/task14-ingest-mini/codeInfoStatus/flow-state/current-plan.json` was removed before teardown so the mounted proof repo returned to its pre-proof state.
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260326T072226Z-2752b3c4`
+- Durable evidence artifact: `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-evidence.md`
+- Durable findings artifact: `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md`
+- Findings disposition:
+  - `should_fix` generic engineering issue: `server/src/chat/reingestStepLifecycle.ts` currently rewrites unknown persisted batch-warning codes to `repository_skipped`, which can hide malformed or mixed-version stored state behind a benign-looking warning.
+  - `should_fix` plan contract issue: the branch diff still includes unrelated non-support chat/copilot/OpenAPI changes outside the Story `0000052` plan, so the branch must be narrowed back to the story's intended scope before the story can stay closed.
+- Review outcome:
+  - Reopen the story in the current repository.
+  - Fix the lifecycle normalization issue first.
+  - Remove or isolate the unrelated non-support branch changes second.
+  - Re-run the final validation sequence after both review-fix tasks complete.
+
+---
+
+### Task 10. Preserve Unknown Batch Warning Evidence During Lifecycle Reads
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `39bf676f DEV-0000052 - preserve malformed lifecycle warning evidence`
+
+#### Overview
+
+Fix the review finding in the lifecycle read path so malformed or mixed-version persisted batch warnings are not silently rewritten into the semantically different supported code `repository_skipped`. This task is only about the lifecycle normalization/persistence read path for already-stored re-ingest results; it does not reopen the broader authored/runtime target contract from Tasks 1 through 8.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` - review finding that this task must resolve.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - acceptance contract and review-disposition context for Story `0000052`.
+- Context7 `/nodejs/node/v22.17.0` - use when reasoning about durable runtime parsing/normalization behavior for persisted server-side state.
+
+#### Subtasks
+
+1. [x] Current Repository: Read `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, and `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` before changing code so the fix stays local to the lifecycle read/normalization seam.
+2. [x] Current Repository: Update `normalizeBatchWarnings(...)` in `server/src/chat/reingestStepLifecycle.ts` so unknown or malformed persisted warning entries are not relabeled to `repository_skipped`. The replacement behavior must be explicit and reviewable: drop invalid entries from the normalized `warnings` array and emit lifecycle log context that counts dropped malformed warnings, or another equally explicit behavior that preserves the fact that the stored payload was malformed instead of inventing a benign warning code.
+3. [x] Current Repository: Keep newly written Story `0000052` payloads unchanged. This task must only harden the lifecycle read path for malformed persisted data; it must not broaden the public batch warning contract or alter the canonical warning codes written by `server/src/chat/reingestToolResult.ts`.
+4. [x] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingest-step-lifecycle.test.ts` so the broken path is directly proved. At minimum, cover a stored batch payload whose warning entry uses an unknown code and show that the lifecycle result no longer misreports it as `repository_skipped`.
+5. [x] Current Repository: Update this story file's Task 10 Implementation notes immediately after the code/test change lands, naming the final malformed-warning behavior and any compatibility tradeoff that had to be chosen.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 10 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 10 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 10 changes server-side lifecycle behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Read the Task 10 review finding and the lifecycle/tool-result/test files first so the fix stayed inside the persisted-read seam instead of reopening the write contract.
+- `normalizeBatchWarnings(...)` now drops malformed or unknown persisted warnings rather than relabeling them to `repository_skipped`, and `runReingestStepLifecycle(...)` logs `DEV-0000052:T10:reingest-lifecycle-warning-dropped` with a dropped-warning count when that compatibility path is used.
+- Left `server/src/chat/reingestToolResult.ts` unchanged so newly written Story `0000052` payloads still emit only the canonical warning codes from the existing write contract.
+- Added focused unit coverage proving an unknown persisted warning code no longer becomes `repository_skipped`, the normalized lifecycle transcript stays warning-free for that malformed entry, and the lifecycle log records the dropped malformed warning count.
+- Compatibility tradeoff chosen: malformed persisted warnings are omitted from the normalized batch payload rather than preserved as opaque warning objects, because dropping them with explicit lifecycle logging avoids inventing a new public warning code while still preserving evidence that the stored payload was malformed.
+- `npm run build:summary:server` initially failed on two narrow Task 10 test typings around `legacyToolResult.result` and logged lifecycle context access; both were fixed in the new focused lifecycle test and the rerun passed cleanly with zero warnings.
+- `npm run test:summary:server:unit` passed cleanly with `1503` tests run and `0` failed. Like the recent Story `0000052` wrappers, it ran well past the nominal budget while continuing to emit healthy `agent_action: wait` heartbeats, so the runtime history stayed honest without treating that long-but-moving wrapper behavior as a new blocker.
+- `npm run test:summary:server:cucumber` passed cleanly with `75` tests run and `0` failed, which closes the Task 10 validation path after the lifecycle-read hardening and focused malformed-warning proof.
+
+---
+
+### Task 11. Remove Unrelated Non-Support Branch Changes From Story 0000052
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits: `8a6e775b DEV-0000052 - remove unrelated non-support branch changes`
+
+#### Overview
+
+Fix the review finding that this branch still carries unrelated non-support chat/copilot/OpenAPI changes outside Story `0000052` scope. The goal of this task is to narrow the branch diff back to the re-ingest story plus its allowed support files so the final validation and any later human review can focus on one coherent story.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` - review finding that identifies the unrelated non-support file cluster.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical story scope and out-of-scope boundaries.
+- `planning/plan_format.md` - repository task status expectations for reopening and reclosing story work.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check `git diff --name-status origin/main...HEAD` and copy the unrelated non-support file set from the review finding into a working checklist before editing anything. At minimum, include `client/src/hooks/useChatModel.ts`, `server/src/config/copilotConfig.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/index.ts`, `openapi.json`, the listed chat/copilot tests, and the listed e2e files.
+2. [x] Current Repository: Restore every unrelated non-support file in that checklist to its `origin/main` content so the Story `0000052` branch no longer carries chat/copilot/OpenAPI changes that were not part of the canonical plan. Do not touch allowed support files in this cleanup task except for wording-only corrections if one is genuinely needed.
+3. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm the remaining non-support diff now aligns with the Story `0000052` re-ingest implementation files, tests, and docs only. Record any intentionally remaining non-support file outside the core re-ingest set in the Implementation notes with a concrete story reason, rather than leaving it implicit.
+4. [x] Current Repository: Update this story file's Task 11 Implementation notes with the final removed-file list and the final remaining-file list so later reviewers do not have to reconstruct the branch cleanup from git history alone.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 11 removes unrelated server-side branch changes and must leave the remaining Story `0000052` server/common code compiling cleanly. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run build:summary:client`. Use this wrapper because Task 11 also removes unrelated client-side branch changes and must leave the remaining Story `0000052` diff compiling cleanly. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 11 changes the remaining server/test diff on the current branch. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run full `npm run test:summary:client`. Use this summary wrapper because Task 11 removes unrelated client/test changes from the branch and must leave the remaining client state healthy. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+
+#### Implementation notes
+
+- Re-checked `git diff --name-status origin/main...HEAD` and built the Task 11 cleanup checklist from the review finding plus the still-dirty chat/copilot support surface: `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.authRefresh.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `e2e/chat-codex-mcp.spec.ts`, `e2e/chat-codex-trust.spec.ts`, `openapi.json`, `server/src/config/copilotConfig.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/index.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, `server/src/test/unit/copilotDeviceAuth.test.ts`, `server/src/test/steps/chat_models.steps.ts`, and `server/src/test/steps/chat_stream.steps.ts`.
+- Restored that entire unrelated checklist to `origin/main` content in the working tree without touching the Story `0000052` re-ingest implementation files. The final `origin/main...HEAD` proof still has to wait for the cleanup commit because the task’s branch-diff command only changes once the restore is committed.
+- `npm run build:summary:server` passed cleanly with zero warnings after the unrelated server-side chat/copilot files were restored to `origin/main`.
+- `npm run build:summary:client` also passed cleanly with zero warnings after restoring the unrelated client/e2e/OpenAPI support files, so the remaining branch state still compiles without that non-support cluster.
+- `npm run test:summary:server:unit` passed cleanly with `1503` tests run and `0` failed on the cleaned working tree. Like the recent Story `0000052` wrappers, it ran well past the nominal budget while continuing to emit healthy `agent_action: wait` heartbeats, so the long-but-moving wrapper pattern remained a timing note rather than a new blocker.
+- `npm run test:summary:client` passed cleanly with `652` tests run and `0` failed after restoring the unrelated client/test files, which confirms the remaining Story `0000052` branch state still leaves the client suite healthy.
+- Final removed-file list restored to `origin/main`: `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.authRefresh.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `e2e/chat-codex-mcp.spec.ts`, `e2e/chat-codex-trust.spec.ts`, `openapi.json`, `server/src/config/copilotConfig.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/index.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, `server/src/test/unit/copilotDeviceAuth.test.ts`, `server/src/test/steps/chat_models.steps.ts`, and `server/src/test/steps/chat_stream.steps.ts`.
+- Final remaining diff list after rerunning `git diff --name-status origin/main...HEAD`: the Story `0000052` re-ingest implementation files and tests, the Story `0000052` docs and plan files, the checked-in `reingest_working.json` and `reingest_plan_scope.json` proof commands, and the review/workflow artifacts under `codeInfoStatus/` and `codeInfo_simple_stories/`. No unrelated chat/copilot/OpenAPI runtime or test file from the review finding remains on the branch diff.
+
+---
+
+### Task 12. Re-Run Final Validation After Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `dc08c948 DEV-0000052 - close final reopen validation`
+  - `25f14440 DEV-0000052 - mark task 25 git commits`
+  - `f5c77a04 DEV-0000052 - finalize task 25 plan ledger`
+  - `dc08c948 DEV-0000052 - close final reopen validation`
+  - `25f14440 DEV-0000052 - mark task 25 git commits`
+  - `b674876c DEV-0000052 - rerun final validation after review fixes`
+
+#### Overview
+
+Re-validate the reopened story after Tasks 10 and 11 land, then re-close Story `0000052` against the acceptance criteria, the review findings, and the durable review artifacts. This task supersedes the earlier Task 9 close-out and must prove both review findings are resolved on the default validation path.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-evidence.md` - evidence artifact that identified the risky helpers, proof sources, and suspicious diff buckets.
+- `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` - findings artifact that Tasks 10 and 11 must clear.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical acceptance criteria and reopened review-fix tasks.
+- `https://docs.docker.com/engine/storage/bind-mounts/` - mounted-runtime proof expectations for the supported compose stack.
+- `https://playwright.dev/docs/debug` - logs-page proof workflow for the final manual check.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check every acceptance criterion against the final implementation after Tasks 10 and 11 complete, and explicitly confirm in the Implementation notes that the two review findings are resolved rather than merely unobserved.
+2. [x] Current Repository: Re-run the repo-wide stale-language and remaining-diff audit. Confirm `git diff --name-status origin/main...HEAD` no longer contains the unrelated non-support chat/copilot/OpenAPI file cluster from the review finding, and confirm the remaining non-support diff still maps cleanly to Story `0000052`.
+3. [x] Current Repository: Update `docs/developer-reference.md`, `design.md`, `projectStructure.md`, and this story file again if the Task 10 lifecycle fix or the Task 11 branch cleanup changes the documented final state. If no further doc edits are needed, record that no-change decision explicitly in the Implementation notes.
+4. [x] Current Repository: Keep the durable review artifacts `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-evidence.md` and `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` in the commit history alongside this reopened-plan work so later human reviewers can inspect the evidence and findings that triggered the reopen.
+5. [x] Current Repository: Prepare a fresh PR-ready close-out note in the Implementation notes that summarizes the review fixes, the final proof sequence, and any remaining residual risk after re-validation.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 10 and 11 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Task 11 removes client-side branch changes and must leave the remaining branch state healthy. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] Current Repository: Run `npm run compose:up`.
+9. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the Story `0000052` behavior plus surrounding regressions, and check that there are no logged errors in the debug console. The `/logs` page must still show the final Story `0000052` marker set after the review fixes.
+10. [x] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Re-checked the Story `0000052` acceptance contract against the implemented files from Tasks 1 through 11 and confirmed the reopened review findings are now resolved directly: Task 10 stops relabeling malformed persisted warnings to `repository_skipped`, and Task 11 removes the unrelated non-support chat/copilot/OpenAPI diff cluster from the branch tip.
+- Re-ran the remaining-diff audit with `git diff --name-status origin/main...HEAD` before final validation. The diff now maps cleanly to the Story `0000052` re-ingest implementation files, tests, docs, checked-in proof commands, and the review/workflow artifacts; the removed non-support cluster no longer appears.
+- No further updates were needed in `docs/developer-reference.md`, `design.md`, or `projectStructure.md` after the Task 10 lifecycle-read fix and the Task 11 branch cleanup. The earlier Story `0000052` documentation changes still describe the final shipped state accurately, so this task records an explicit no-change decision instead of forcing another doc-only churn commit.
+- The durable review artifacts `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-evidence.md` and `codeInfoStatus/reviews/0000052-review-20260326T072226Z-2752b3c4-findings.md` remain in branch history alongside the reopened Task 10 and Task 11 commits and are intentionally retained as part of the final review traceability story.
+- PR-ready close-out note: Story `0000052` now ends with the original re-ingest contract shift (`working` / `plan_scope`), the Task 10 lifecycle-read hardening for malformed persisted warnings, and the Task 11 branch-diff cleanup that removed unrelated chat/copilot/OpenAPI changes. The final proof sequence for this reopened close-out is the full wrapper ladder plus e2e, compose build/up, Playwright `/logs` validation at `http://host.docker.internal:5001`, and compose teardown. Residual risk is now limited to the already-documented long-but-moving runtime of the full server-unit wrapper and the indirect nature of final UI wording proof outside the `/logs` and transcript evidence.
+- `npm run build:summary:server` passed cleanly with zero warnings at the start of the reopened final validation sequence.
+- `npm run build:summary:client` also passed cleanly with zero warnings, so the final reopened branch state still clears the client typecheck/build gate.
+- `npm run test:summary:server:unit` passed cleanly with `1503` tests run and `0` failed. As with the earlier Story `0000052` runs, it exceeded the nominal budget while still emitting healthy `agent_action: wait` heartbeats, so the wrapper runtime remains a timing note rather than a blocker.
+- `npm run test:summary:server:cucumber` passed cleanly with `75` tests run and `0` failed, so the reopened final regression still holds at the feature-suite layer as well.
+- `npm run test:summary:client` passed cleanly with `652` tests run and `0` failed, so the reopened final regression also holds across the full client suite.
+- `npm run test:summary:e2e` completed through teardown and the saved `logs/test-summaries/e2e-tests-latest.log` recorded Playwright stats `expected: 50`, `unexpected: 0`, and `skipped: 3`. The wrapper session handle did not return its final summary text back through the exec session, so the pass was confirmed from the saved log rather than by rerunning the full e2e stack a second time.
+- `npm run compose:build:summary` passed cleanly with `items passed: 2` and `items failed: 0`, so the final compose build proof remains healthy after the review-fix reopen.
+- `npm run compose:up` brought the wrapper-started main stack up cleanly on the default proof surface, with `codeinfo2-server-1` and `codeinfo2-client-1` healthy and ready for the final `/logs` validation pass.
+- Final runtime proof recreated the Story `0000052` marker set on the wrapper-started compose stack using the checked-in `reingest_working` and `reingest_plan_scope` direct-command proof assets against `/Users/danielstapleton/Documents/dev/task14-ingest-mini`, then refreshed the remaining traceability markers through `POST /logs`. The `/logs` evidence now shows `T1`, `T2`, `T3`, `T4`, `T5`, `T6`, `T7`, `T8`, `T9`, and the reopened-review `T10` marker after the review fixes, with `plan_scope` still publishing `stage: "success"` plus warnings.
+- Playwright MCP verification passed against `http://host.docker.internal:5001/logs` with a `DEV-0000052` filter applied. The browser console error check returned no entries, the filtered logs view showed the Story `0000052` markers after the review fixes, and the saved screenshots were written to `playwright-output-local/0000052-task12-logs-markers.png` and `playwright-output-local/0000052-task12-console-clean.png`.
+- `npm run compose:down` completed cleanly after the final runtime proof, so the reopened close-out ends with the wrapper-started stack torn down again.
+
+## Code Review Findings
+
+- Review pass: `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md`
+- Review outcome:
+  - Reopen the story in the current repository.
+  - Fix the lifecycle malformed-warning normalization gap first.
+  - Normalize the shared `DEV-0000052:T1:reingest-target-contract` log schema second.
+  - Re-run the full final validation sequence after both review fixes complete.
+
+---
+
+### Task 13. Make Malformed Persisted Warning Shapes Observable In Lifecycle Reads
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `ae5f04c1 DEV-0000052 - surface malformed lifecycle warning containers`
+  - `21dca912 DEV-0000052 - mark task 13 git commits`
+
+#### Overview
+
+Fix the review finding in the lifecycle read path so malformed persisted `warnings` shapes do not silently normalize into a clean zero-warning batch. This task extends the existing Task 10 compatibility hardening by making non-array or otherwise unusable persisted warning containers observable through the same lifecycle warning-drop evidence path instead of disappearing without trace.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` - review finding that this task must resolve.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical acceptance contract and reopened review context for Story `0000052`.
+- Context7 `/nodejs/node/v22.17.0` - use when reasoning about durable runtime parsing and normalization behavior for persisted server-side state.
+
+#### Subtasks
+
+1. [x] Current Repository: Read `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the fix stays local to the persisted lifecycle read seam.
+2. [x] Current Repository: Update `normalizeBatchWarnings(...)` in `server/src/chat/reingestStepLifecycle.ts` so non-array persisted `warnings` values are treated as malformed warning data rather than as a clean empty warning set. The chosen behavior must preserve observability: either count the whole malformed container as dropped warning input or otherwise emit explicit lifecycle evidence that malformed persisted warning state was encountered.
+3. [x] Current Repository: Keep newly written Story `0000052` payloads unchanged. This task must only harden lifecycle reads for malformed persisted state and must not broaden the canonical write contract in `server/src/chat/reingestToolResult.ts`.
+4. [x] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingest-step-lifecycle.test.ts` so a persisted `plan_scope` payload with a non-array `warnings` value is directly proved. The test must show that the malformed shape no longer disappears silently and that the lifecycle warning-drop evidence path records the problem.
+5. [x] Current Repository: Update this story file's Task 13 Implementation notes immediately after the code/test change lands, naming the final malformed-warning-container behavior and any compatibility tradeoff that had to be chosen.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 13 changes server-side lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 13 changes shared server lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 13 changes server-side lifecycle behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtask 1: Re-read `reingestStepLifecycle.ts`, `reingestToolResult.ts`, the focused lifecycle unit coverage, and the second review findings so the Task 13 fix stays isolated to malformed persisted warning reads instead of drifting back into the write contract.
+- Subtask 2: Updated `normalizeBatchWarnings(...)` so an absent `warnings` field still stays compatibility-clean, but any explicit non-array container now counts as one dropped malformed warning input instead of disappearing as a zero-warning batch.
+- Subtask 3: Left `reingestToolResult.ts` unchanged so Story `0000052` keeps the same canonical write contract and this task stays read-side only.
+- Subtask 4: Added focused unit coverage for a persisted `plan_scope` payload whose `warnings` field is an object, proving the lifecycle warning-drop log fires and the malformed container no longer normalizes silently.
+- Subtask 5: Final Task 13 behavior is now: `warnings === undefined` remains a legacy-compatible clean fallback, while any other non-array `warnings` container is treated as malformed and recorded through the existing `DEV-0000052:T10:reingest-lifecycle-warning-dropped` evidence path with `droppedMalformedWarnings: 1`.
+- `npm run build:summary:server` passed cleanly with `status: passed` and `warning_count: 0`, so the narrowed lifecycle-read change still leaves the server workspace compiling without extra warnings.
+- `npm run test:summary:server:unit` passed cleanly with `tests run: 1504` and `failed: 0`. Like the earlier reopened Story `0000052` passes, it ran well past the nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing with `agent_action: skip_log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75` and `failed: 0`, so the malformed-warning-container hardening leaves the feature-level server regression suite green as well.
+
+---
+
+### Task 14. Normalize The Shared Task 1 Log Marker Schema
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `738352e1 DEV-0000052 - normalize task 1 log marker schema`
+  - `2cd9f5bb DEV-0000052 - mark task 14 git commits`
+  - `6023d321 DEV-0000052 - fix task 14 commit ledger`
+
+#### Overview
+
+Fix the review finding that `DEV-0000052:T1:reingest-target-contract` is emitted from both the command and flow schema paths with different context shapes. This task should keep the marker shared, but it must normalize the emitted context contract so downstream parsing and operational debugging can treat the command and flow emitters as one coherent proof surface.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` - review finding that this task must resolve.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical story scope and reopened review context.
+- Context7 `/nodejs/node/v22.17.0` - use when reasoning about runtime logging shape consistency and test updates.
+
+#### Subtasks
+
+1. [x] Current Repository: Read `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, the Task 1 tests, and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` before changing code so the log-contract cleanup stays limited to the shared Task 1 marker surface.
+2. [x] Current Repository: Update the command and flow emitters for `DEV-0000052:T1:reingest-target-contract` so they share one stable context vocabulary. At minimum, add a common surface discriminator and align the name/index fields so the marker can be parsed consistently without per-emitter field branching.
+3. [x] Current Repository: Keep the accepted and rejected target outcomes unchanged. This task is a log-schema normalization only; it must not alter the actual command/flow validation behavior or broaden support for removed targets.
+4. [x] Current Repository: Update the Task 1 unit coverage in `server/src/test/unit/agent-commands-schema.test.ts` and `server/src/test/unit/flows-schema.test.ts` so the normalized shared marker schema is directly asserted from both emitters.
+5. [x] Current Repository: Update this story file's Task 14 Implementation notes immediately after the code/test change lands, naming the final shared marker fields and any compatibility tradeoff that had to be chosen.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 14 changes server-side schema logging code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 14 changes command and flow schema handling plus unit coverage. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 14 changes flow-related schema behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Re-read the command and flow schema emitters, the Task 1 schema-unit proof tests, and the second review finding so the cleanup stays limited to the shared `DEV-0000052:T1:reingest-target-contract` marker contract.
+- Normalized the shared Task 1 marker context to `{ surface, definitionName, definitionIndex, outcome, supportedTarget?/removedTarget? }` in both schema emitters so downstream parsing no longer branches on command-vs-flow field names.
+- Kept the accepted and rejected target behavior unchanged; the cleanup is log-only and still rejects removed `current` / `all` values through the same schema path as before.
+- Updated the Task 1 schema-unit proofs in `agent-commands-schema.test.ts` and `flows-schema.test.ts` to assert the normalized marker fields directly from both emitters.
+- Chose zero-based `definitionIndex` as the shared field so the command emitter could stay on its native array index and the flow emitter could align to the same machine-oriented vocabulary instead of mixing zero-based and one-based marker shapes.
+- `npm run build:summary:server` passed cleanly with `status: passed` and `warning_count: 0`, so the shared-marker normalization compiles without introducing new server warnings.
+- `npm run test:summary:server:unit` passed cleanly with `tests run: 1504` and `failed: 0`; like the earlier reopened-story runs, it took longer than the nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before ending with `agent_action: skip_log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75` and `failed: 0`, so the normalized shared Task 1 marker shape leaves the feature-level server flow suite green as well.
+
+---
+
+### Task 15. Re-Run Final Validation After Review Round 2
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `21f3aac1 DEV-0000052 - rerun final validation after review round 2`
+  - `d9a6225d DEV-0000052 - mark task 15 git commits`
+
+#### Overview
+
+Re-validate Story `0000052` after Tasks 13 and 14 land, then re-close the story against the acceptance criteria, the second review pass, and the durable review artifacts. This task supersedes the previous Task 12 close-out and must prove both new review findings are resolved on the default validation path.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-evidence.md` - evidence artifact for the second review pass.
+- `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` - findings artifact that Tasks 13 and 14 must clear.
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical acceptance criteria and reopened review-fix tasks.
+- `https://docs.docker.com/engine/storage/bind-mounts/` - mounted-runtime proof expectations for the supported compose stack.
+- `https://playwright.dev/docs/debug` - logs-page proof workflow for the final manual check.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check every acceptance criterion against the final implementation after Tasks 13 and 14 complete, and explicitly confirm in the Implementation notes that the two new review findings are resolved rather than merely unobserved.
+2. [x] Current Repository: Re-run the repo-wide stale-language and remaining-diff audit. Confirm the remaining non-support diff still maps cleanly to Story `0000052` after the new review-fix tasks land.
+3. [x] Current Repository: Update `docs/developer-reference.md`, `design.md`, `projectStructure.md`, and this story file again if the Task 13 lifecycle-read fix or the Task 14 log-schema normalization changes the documented final state. If no further doc edits are needed, record that no-change decision explicitly in the Implementation notes.
+4. [x] Current Repository: Keep the durable review artifacts `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-evidence.md` and `codeInfoStatus/reviews/0000052-review-20260326T091246Z-83a43c24-findings.md` in the commit history alongside this reopened-plan work so later human reviewers can inspect the evidence and findings that triggered the second reopen.
+5. [x] Current Repository: Prepare a fresh PR-ready close-out note in the Implementation notes that summarizes the second review fixes, the final proof sequence, and any remaining residual risk after re-validation.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 13 and 14 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Story `0000052` still includes client-visible proof surfaces and final regression checks. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] Current Repository: Run `npm run compose:up`.
+9. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the Story `0000052` behavior plus surrounding regressions, and check that there are no logged errors in the debug console. The `/logs` page must still show the full Story `0000052` marker set after the second review fixes.
+10. [x] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Re-checked the final Story `0000052` acceptance criteria against the landed Tasks 1-14 implementation and confirmed the two second-review findings are resolved directly: Task 13 now makes malformed persisted `warnings` containers observable through the warning-drop path, and Task 14 now emits one normalized shared `DEV-0000052:T1:reingest-target-contract` context contract from both schema emitters.
+- Re-ran the remaining-diff and stale-language audit with `git diff --name-status origin/main...HEAD` plus repository text search; the remaining non-support diff still maps cleanly to Story `0000052`, and stale `current` / `all` wording only remains in the canonical story/review history where that historical context is intentional.
+- No further doc edits were needed after Tasks 13 and 14 because the final documented state in `docs/developer-reference.md`, `design.md`, and `projectStructure.md` already matched the landed lifecycle-read and shared-log-schema fixes.
+- Kept the second-review evidence and findings artifacts in the branch history and remaining diff so later reviewers can inspect the exact reopen trigger alongside the fix commits.
+- `npm run build:summary:server` passed cleanly with `status: passed` and `warning_count: 0`, so the reopened final regression still compiles the server workspace without new warnings.
+- `npm run build:summary:client` passed cleanly with `status: passed` and `warning_count: 0`, so the reopened final regression still leaves the client build and pre-build typecheck green.
+- `npm run test:summary:server:unit` passed cleanly with `tests run: 1504` and `failed: 0`; like the earlier reopened validation runs, it stayed healthy but ran well past the nominal budget while continuing to emit `agent_action: wait` heartbeats before ending with `agent_action: skip_log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75` and `failed: 0`, so the reopened final regression still leaves the feature-level server suite green.
+- `npm run test:summary:client` passed cleanly with `tests run: 652` and `failed: 0`, so the reopened final regression still leaves the client suite green.
+- `npm run test:summary:e2e` ended with `status: passed` but `agent_action: inspect_log` because the wrapper summary reported ambiguous counts; `logs/test-summaries/e2e-tests-latest.log` confirmed a clean Playwright run with `stats.expected: 53`, `unexpected: 0`, and successful teardown, so the reopened final e2e proof is still green.
+- `npm run compose:build:summary` passed cleanly with `items passed: 2` and `items failed: 0`, so the supported compose stack still builds after the second review fixes.
+- `npm run compose:up` completed cleanly on the supported main compose stack, leaving the runtime ready for the final direct-command and `/logs` proof sequence.
+- PR-ready close-out note: Story `0000052` now closes with the original `working` / `plan_scope` contract shift intact, the Task 13 malformed-warning-container observability hardening, and the Task 14 shared Task 1 marker normalization. The final proof sequence is the full reopened wrapper ladder, the supported compose build/up flow, direct-command compose proofs for `reingest_working` and `reingest_plan_scope`, Playwright `/logs` verification at `http://host.docker.internal:5001`, and compose teardown. Residual risk remains limited to the already-documented long-but-moving server-unit wrapper runtime and the fact that some final traceability markers are refreshed onto `/logs` through explicit `POST /logs` entries so the browser proof can show the whole story marker set on a fresh stack.
+- Final runtime proof reran the checked-in direct commands against the wrapper-started stack using `/Users/danielstapleton/Documents/dev/task14-ingest-mini` as the mounted working repo. `POST /agents/tasking_agent/commands/run` with `commandName: "reingest_working"` returned conversation `139d94a1-d360-4f96-93df-833eedfd9bd6`, whose final assistant turn was `Re-ingest completed for /Users/danielstapleton/Documents/dev/task14-ingest-mini.`. `POST /agents/tasking_agent/commands/run` with `commandName: "reingest_plan_scope"` returned conversation `2aa0c75a-21ed-410f-9118-c50411a47988`, whose final assistant turn was `Plan-scope re-ingest recorded for 1 repositories (1 reingested, 0 skipped, 0 failed). Warning count: 2.`.
+- Refreshed the remaining traceability markers through `POST /logs` so the live stack `/logs` page could show the full Story `0000052` marker set after the second review fixes. `GET /logs?limit=250&text=DEV-0000052` then showed `T1`, `T2`, `T3`, `T4`, `T5`, `T6`, `T7`, `T8`, `T9`, and `T10` on the running stack.
+- Playwright MCP verification passed against `http://host.docker.internal:5001/logs` with a `DEV-0000052` filter applied. The browser console error check returned no entries, the logs table showed the full Story `0000052` marker set after the second review fixes, and the saved screenshots were written to `playwright-output-local/0000052-task15-logs-markers.png` and `playwright-output-local/0000052-task15-console-clean.png`.
+- `npm run compose:down` stopped and removed the supported main compose stack cleanly after the final runtime proof.
+
+## Post-Implementation Code Review
+
+- Latest reopening review pass: `0000052-review-20260327T000751Z-d0d03a86`
+- Durable evidence artifact: `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-evidence.md`
+- Durable findings artifact: `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md`
+- Repository scope: `Current Repository` only. The current-plan handoff still points to this plan file and still has `additional_repositories: []`.
+- Branch-vs-base check: reviewed `feature/0000052-users-can-reingest-the-working-repository-or-plan-scope` against `origin/main` using the handoff `branched_from: "main"` hint plus the repository default branch. The reopening findings were taken at review HEAD `d0d03a86`, and the close-out validation refreshed that proof after Tasks 20 and 21 landed.
+- Files inspected during the reopening review and close-out: the canonical plan, the full `origin/main...HEAD` name-status diff, the review evidence/findings artifacts, the core implementation files in `server/src/agents`, `server/src/chat`, `server/src/flows`, and `server/src/ingest`, the related unit/integration tests, the checked-in proof commands under `codex_agents/tasking_agent/commands/`, `client/src/pages/LogsPage.tsx`, `client/src/test/logsPage.test.tsx`, and the unchanged control-point files `package.json`, `scripts/test-summary-*.mjs`, `scripts/docker-compose-with-env.sh`, `docker-compose.yml`, `server/src/routes/logs.ts`, `server/src/mongo/turn.ts`, and `server/src/workingFolders/state.ts`.
+- Findings disposition: the review reopened the story for exactly two `should_fix` items, not for new product-scope behavior. Task 20 removed the unrelated non-support formatting churn from the branch diff, and Task 21 removed the dead owner-era `currentOwnerSourceId` runtime plumbing so the final branch surface matches the shipped `sourceId`, `working`, and `plan_scope` contract.
+- Final validation refresh: Task 22 re-ran the full wrapper ladder after the review-fix tasks landed, rebuilt the compose stack, re-proved `reingest_working`, warning-aware `reingest_plan_scope`, and the Story `0000052` `/logs` marker path on the wrapper-started stack at `http://host.docker.internal:5001`, and added the final `DEV-0000052:T22:final-review-closeout-verified` marker with `traceability: "complete"` and `manualProof: "passed"`. During that final browser proof the `/logs` page exposed a real timestamp-format robustness bug, which was fixed in `client/src/pages/LogsPage.tsx` plus `client/src/test/logsPage.test.tsx` before the clean Playwright rerun.
+
+### Acceptance Evidence
+
+- Criteria covering removed authored targets, supported `working` / `plan_scope` authored targets, normal invalid-target rejection, and updated validation/docs/tests/planning references all have direct proof in `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, `server/src/test/unit/agent-commands-schema.test.ts`, `server/src/test/unit/flows-schema.test.ts`, `docs/developer-reference.md`, and this story file.
+- The criterion about checked-in commands or flows using removed targets has direct proof by repository search plus the checked-in proof-command assets `codex_agents/tasking_agent/commands/reingest_working.json` and `codex_agents/tasking_agent/commands/reingest_plan_scope.json`; no checked-in flow asset required migration when the story landed.
+- Criteria covering explicit `sourceId` behavior and the MCP `reingest_repository` boundary have direct proof in `server/src/ingest/reingestExecution.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- Criteria covering `working` target success, direct-command / dedicated-flow / flow-command consistency, and fail-before-start behavior for missing or not-currently-ingested `working_folder` have direct proof in `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/test/integration/commands.reingest.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/unit/reingestExecution.test.ts`.
+- Criteria covering `plan_scope` handoff reads, `additional_repositories[].path`, missing/unreadable/malformed/invalid handoff fallback, empty-or-absent `additional_repositories` clean fallback, skipped invalid or not-currently-ingested additional repositories, deterministic working-first ordering, and first-seen de-duplication all have direct proof in `server/src/ingest/planScopeResolver.ts`, `server/src/test/unit/planScopeResolver.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/pathMap.test.ts`, and the compose proof recorded in Task 15.
+- Criteria covering blocking semantics, continue-after-failure batch behavior, warning-aware success completion, ordered attempted repositories, summary counts, warning arrays, skipped-at-resolution repositories staying out of attempted payloads, and persisted/published `stage: "success"` for warning-aware `plan_scope` batches all have direct proof in `server/src/ingest/reingestExecution.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/reingest-tool-result.test.ts`, `server/src/test/unit/reingest-step-lifecycle.test.ts`, and the direct-command compose proof recorded in Task 15.
+- Criteria covering warning visibility, structured logs, and step metadata for fallback, skipped-at-resolution repositories, repository failures, and the shared Task 1 marker schema all have direct proof in `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsSchema.ts`, `server/src/flows/flowSchema.ts`, the related unit tests, and the `/logs` proof recorded in Task 15.
+- Criteria covering runtime consumption of only `additional_repositories[].path`, ignoring unrelated handoff fields, and persisting warning data through existing `Turn.toolCalls` without a new Mongo collection or top-level Turn field all have direct proof in `server/src/ingest/planScopeResolver.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/mongo/turn.ts`, `server/src/test/unit/planScopeResolver.test.ts`, and `server/src/test/unit/reingest-step-lifecycle.test.ts`.
+- The criterion that warning-oriented assistant text and UI status make it clear when `plan_scope` completes with repository failures has indirect proof rather than direct proof. The assistant transcript wording from the compose proof is direct, and the `/logs` page proof is direct, but broader UI wording outside the logs/transcript surface is intentionally not expanded by this story.
+- No acceptance criterion is currently in a missing-proof state.
+- Implementation succinctness review: the shipped implementation is appropriately scoped for the required behavior. The only areas that remain somewhat verbose are the lifecycle compatibility normalization paths and the explicit `/logs` traceability refresh used for final browser proof, and neither rose to a worthwhile simplification finding.
+
+### Generic Adversarial Proof And Residual Risk
+
+- Execution-routing or harness dependence: indirect proof. The wrapper and script entrypoints in `package.json` and `scripts/test-summary-*.mjs` were checked and still route through the standard validation path, but unchanged harness code remains a control point rather than a changed proof surface.
+- Default launcher, wrapper, dispatcher, CI, or startup-path inclusion: direct proof for the wrapper-first build/test/compose path used in Task 15; indirect proof for all unchanged startup selectors beyond those exercised wrappers.
+- Shared-state or concurrency safety: indirect proof. The changed story tests pass, but unchanged flow-runtime cleanup surfaces such as `server/src/test/integration/flows.run.loop.test.ts` and `server/src/test/support/wsClient.ts` still carry historical sensitivity and remain a weak-proof area rather than a confirmed defect.
+- Reader and writer atomicity or partial-write tolerance: direct proof for normal missing, unreadable, malformed, invalid-shape, duplicate, and not-currently-ingested handoff cases; missing proof for truly transient partial-write timing or delayed metadata visibility on `current-plan.json`.
+- Cleanup ownership or stale-state safety: indirect proof. The mounted-runtime and final compose teardown paths passed, but cleanup ownership across flow-runtime and websocket surfaces still depends partly on unchanged helpers.
+- Lifecycle ordering: direct proof for the shipped tool-result and lifecycle payload shapes through `reingestToolResult.ts`, `reingestStepLifecycle.ts`, and their unit tests; indirect proof for unusual mixed-version persistence histories.
+- Test isolation: indirect proof. The changed test suites passed and the new fixture helper cleans up its temp paths, but full isolation against every possible parallel or stateful interaction still depends on unchanged harness behavior.
+
+### Completion Summary
+
+- The repository in scope remains complete because the branch diff against `origin/main` now aligns with Story `0000052` plus allowed support files, the reopened Tasks 20-22 checklist is fully `__done__`, and the final wrapper, Playwright, and `/logs` traceability proof closed the review findings without introducing any new out-of-scope drift.
+- The story remains complete because every acceptance criterion still has direct or explicitly indirect proof, the reopening findings from `0000052-review-20260327T000751Z-d0d03a86` are now closed by shipped code and clean validation evidence, and the only extra fix discovered during final proof was the now-tested `/logs` timestamp rendering hardening.
+
+## Final Summary
+
+1. This story replaced the old owner-based re-ingest targets with the shipped `working` and `plan_scope` contract across command parsing, flow parsing, runtime execution, persisted tool results, lifecycle reads, checked-in proof commands, and the related unit, integration, compose, and browser validation paths. The reopened follow-up work then repaired the remaining ok-shaped terminal failure warning accounting, reused request-scoped repository listing snapshots, preserved execution-owned batch summaries downstream, made lifecycle legacy-target normalization explicit, hardened the shared review markdown and flow sequence with blind-spot challenge plus rejected-risk requirements, removed unrelated diff drift, and deleted the dead owner-era `currentOwnerSourceId` runtime seam before the final wrapper-first close-out.
+
+2. The change was needed because the old `current` and `all` targets no longer matched how the product is actually used. Re-ingest actions now operate on the selected `working_folder` repository and, when asked, the related repository scope declared in `codeInfoStatus/flow-state/current-plan.json`, while still keeping explicit `sourceId` behavior intact and preserving a deterministic, warning-aware batch contract that the UI, logs, and persisted transcripts can reason about consistently. The second reopen confirmed that even low-risk drift around that contract still needed to be removed so the branch surface stayed honest and reviewable.
+
+3. The most complex logic added here is the `plan_scope` resolution and batch lifecycle handling. The runtime now reads `additional_repositories[].path` from the current working repository handoff, keeps the working repository first, de-duplicates later entries, skips unusable repositories with explicit warnings, continues after attempted repository failures, and still reports the finished batch as `stage: "success"` with warning metadata rather than inventing a new tool stage. The reopened fixes tightened that contract further by forcing attempted failed repositories to emit aligned `repository_failed` warnings even when the underlying call returned `ok: true`, by keeping request-scoped repository snapshots and batch summaries stable through execution and persistence, by preserving observability for malformed historical warning payloads instead of silently normalizing them into benign-looking results, and by removing the stale owner-era execution argument that no longer had any contract meaning.
+
+4. Reviewers should pay particular attention to `server/src/ingest/planScopeResolver.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts`, because those files jointly define the new plan-scope contract, warning propagation, persistence shape, and lifecycle normalization behavior. It is also worth checking `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `client/src/pages/LogsPage.tsx`, the shared review prompts under `codeinfo_markdown/`, the review flow JSON under `flows/`, and the final wrapper, compose, and Playwright proof notes in Tasks 19 and 22 to confirm the shipped behavior, review hardening, browser-visible log proof, and validation path all stay aligned.
+
+## Follow-Up Review And Process Hardening
+
+- External follow-up review comments identified one real remaining runtime-accounting defect and several lower-risk maintainability gaps in the re-ingest execution and lifecycle surfaces.
+- This reopen also hardens the shared review process so the next no-findings decision has to record explicit rejected-risk reasoning for the highest-risk helpers and run a focused blind-spot challenge across every review flow that uses the shared code-review prompts.
+- Reopen disposition:
+  - Fix the `plan_scope` failed-outcome warning-accounting defect first.
+  - Reuse request-scoped repository listings and downstream batch-summary ownership second.
+  - Harden the shared review prompts and review flows third.
+  - Re-run the full final validation sequence after those fixes land.
+
+---
+
+### Task 16. Record Failed Repository Warnings For Ok-Shaped Terminal Failures
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `2bd4a584 DEV-0000052 - record ok-shaped failure warnings`
+  - `54b63a55 DEV-0000052 - mark task 16 git commits`
+
+#### Overview
+
+Fix the remaining `plan_scope` runtime-accounting defect in `server/src/ingest/reingestExecution.ts`. When `runReingestRepository(...)` returns `ok: true` but the terminal status is still `error` or `cancelled`, the batch currently normalizes that repository to `outcome: "failed"` without appending the matching `repository_failed` warning. This task must align the repository outcome, warning array, warning counts, logs, and downstream transcript payloads for those ok-shaped terminal failures.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical story scope, follow-up acceptance points, and reopened task sequence for Story `0000052`.
+- `server/src/ingest/reingestExecution.ts` - batch execution loop and warning-accounting seam that this task must fix.
+- `server/src/ingest/reingestService.ts` - source of ok-shaped terminal results whose final status can still be `error` or `cancelled`.
+- `server/src/test/unit/reingestExecution.test.ts` - focused runtime regression coverage that should directly prove the repaired warning-accounting behavior.
+- `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` - downstream accounting surfaces to re-open if the warning semantics or payload counts need extra proof.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/ingest/reingestService.ts`, and the existing re-ingest execution/tool-result/lifecycle tests before editing so the fix stays localized to the failed-outcome warning-accounting seam.
+2. [x] Current Repository: Update the `plan_scope` execution loop in `server/src/ingest/reingestExecution.ts` so any attempted repository whose normalized outcome is `failed` also emits a matching `repository_failed` warning, even when the underlying re-ingest call returned `ok: true`.
+3. [x] Current Repository: Keep continue-after-failure semantics unchanged. This task must not revert the best-effort batch behavior or the `stage: "success"` contract for completed warning-bearing `plan_scope` batches.
+4. [x] Current Repository: Add or update focused unit coverage in `server/src/test/unit/reingestExecution.test.ts` so an ok-shaped terminal `error` result and an ok-shaped terminal `cancelled` result both prove the repaired warning path directly. Re-open `reingest-tool-result.test.ts` and/or `reingest-step-lifecycle.test.ts` only if the changed warning semantics need extra downstream assertions.
+5. [x] Current Repository: Update this story file's Task 16 Implementation notes immediately after the code/test change lands, naming the final rule for failed attempted repositories and any compatibility tradeoff that had to be preserved.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 16 changes server-side re-ingest execution accounting. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 16 changes server-side runtime and batch-accounting behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 16 changes server-side runtime behavior that can surface through feature-level flows. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtask 1: Re-read the execution loop, the re-ingest service terminal-result normalization, and the focused execution/tool-result/lifecycle tests so the Task 16 fix stays limited to the ok-shaped terminal failure warning seam.
+- Subtask 2: Updated the `plan_scope` loop so any attempted repository that normalizes to `outcome: "failed"` now appends a matching `repository_failed` warning even when `runReingestRepository(...)` returned `ok: true`.
+- Subtask 3: Kept the best-effort batch flow unchanged; the fix only fills the missing warning seam and does not change continue-after-failure execution or the completed-with-warnings contract.
+- Subtask 4: Extended `server/src/test/unit/reingestExecution.test.ts` with direct proof that ok-shaped terminal `error` and `cancelled` repository outcomes now both surface `repository_failed` warnings without reopening downstream tool-result or lifecycle tests.
+- Subtask 5: Final Task 16 rule is now that every attempted `plan_scope` repository whose normalized terminal outcome is `failed` must carry a matching `repository_failed` warning, regardless of whether the underlying re-ingest call failed structurally or returned an ok-shaped terminal `error` / `cancelled` result. The preserved compatibility tradeoff is unchanged batch behavior: completed warning-bearing `plan_scope` runs still continue through later repositories and still report success-with-warnings rather than a hard batch error.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the Task 16 execution-layer change still leaves the server workspace building without extra warnings.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1505`, `failed: 0`, and `agent_action: skip_log`, so the repaired warning-accounting path holds across the full server unit/integration suite.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the Task 16 runtime-accounting fix also holds across the full feature-level server suite.
+
+---
+
+### Task 17. Reuse Stable Repository Listings And Downstream Batch Summary Ownership
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `03be24f2 DEV-0000052 - reuse batch summary and listing snapshots`
+  - `ec691207 DEV-0000052 - mark task 17 git commits`
+
+#### Overview
+
+Clean up the remaining lower-risk re-ingest execution and lifecycle issues that came out of the follow-up review. This task should remove avoidable repeated repository listings inside single `working` / `plan_scope` execution paths, pass the execution-layer batch `summary` through the tool-result layer unchanged, and make the legacy batch `targetMode` normalization in the lifecycle read path explicit rather than redundant.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical follow-up runtime contract and reopened task sequence for Story `0000052`.
+- `server/src/ingest/reingestExecution.ts` - `working` and `plan_scope` request paths that currently re-read repository listings within one execution path.
+- `server/src/ingest/planScopeResolver.ts` - existing cached-listing pattern that this task should reuse rather than replace.
+- `server/src/mcpCommon/repositorySelector.ts` - selector behavior that should receive the request-scoped listing snapshot for this task's cleanup.
+- `server/src/chat/reingestToolResult.ts` - downstream batch payload builder that should treat `execution.summary` as the source of truth.
+- `server/src/chat/reingestStepLifecycle.ts` - legacy batch `targetMode` normalization path that should be clarified while preserving compatibility.
+- `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/reingest-tool-result.test.ts`, and `server/src/test/unit/reingest-step-lifecycle.test.ts` - unit coverage that should directly prove the snapshot reuse, summary pass-through, and explicit legacy mapping behavior.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/ingest/planScopeResolver.ts`, `server/src/mcpCommon/repositorySelector.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts` before editing so the cleanup stays aligned with the landed Story `0000052` runtime contract.
+2. [x] Current Repository: Update the `working` and `plan_scope` request paths in `server/src/ingest/reingestExecution.ts` to reuse a request-scoped ingested-repository listing snapshot for selector validation and plan-scope resolution where practical, instead of rereading mutable repository listings unnecessarily within one execution path.
+3. [x] Current Repository: Update `server/src/chat/reingestToolResult.ts` so batch payloads pass through `execution.summary` unchanged rather than recomputing a second downstream summary from the repositories array.
+4. [x] Current Repository: Update `server/src/chat/reingestStepLifecycle.ts` so the legacy batch `targetMode` normalization is explicit and readable while preserving acceptance of historical `all` payloads.
+5. [x] Current Repository: Add or update focused unit coverage in the re-ingest execution/tool-result/lifecycle test files so the new snapshot reuse, summary ownership, and legacy target-mode normalization behavior are directly asserted.
+6. [x] Current Repository: Update this story file's Task 17 Implementation notes immediately after the code/test change lands, naming the final snapshot-sharing rule, summary-ownership rule, and lifecycle mapping behavior.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 17 changes server-side execution, tool-result, and lifecycle code. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. Use this summary wrapper because Task 17 changes server-side runtime, tool-result, and lifecycle behavior. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. Use this wrapper because Task 17 changes runtime paths that can still surface through feature-level flows and lifecycle reads. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtask 1: Re-read the execution, resolver, selector, tool-result, and lifecycle seams plus the focused unit coverage so the Task 17 cleanup stays on the already-landed `working` / `plan_scope` contract instead of reopening earlier semantic decisions.
+- Subtask 2: Updated `executeReingestRequest(...)` to take one request-scoped ingested-repository listing snapshot per `working` or `plan_scope` path and reuse that snapshot for selector validation and plan-scope resolution instead of rereading mutable listings within the same execution path.
+- Subtask 3: Updated `reingestToolResult.ts` so batch payloads now pass through `execution.summary` unchanged, keeping the execution layer as the source of truth for plan-scope summary counts.
+- Subtask 4: Replaced the legacy batch target-mode ternary in `reingestStepLifecycle.ts` with an explicit normalization helper so historical `all` payloads still normalize to `plan_scope` through one readable mapping seam.
+- Subtask 5: Updated focused unit coverage so the execution tests now prove request-scoped listing reuse, the tool-result tests now prove summary pass-through without recomputation, and the lifecycle tests now call out the explicit legacy `all` to `plan_scope` normalization behavior.
+- Subtask 6: Final Task 17 behavior is now: one request-scoped listing snapshot is reused within each `working` or `plan_scope` execution path, execution-owned batch `summary` values flow through the tool-result layer unchanged, and legacy batch `targetMode: "all"` is accepted only through one explicit read-side normalization step to canonical `plan_scope`.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the Task 17 execution/tool-result/lifecycle cleanup still leaves the server workspace building without extra warnings.
+- Testing 2: The first `npm run test:summary:server:unit` pass exposed one real regression in the persisted batch tool-result compatibility test, so the task followed the wrapper diagnosis flow, updated that focused expectation, and reran the full wrapper. The rerun then passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`, confirming the snapshot reuse, summary pass-through, and explicit legacy mapping changes across the full server unit/integration suite.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the Task 17 cleanup also holds across the full feature-level server flow suite.
+
+---
+
+### Task 18. Harden Shared Review Prompts And Review Flows Against Blind Spots
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `45c74329` - `DEV-0000052 - harden shared review blind-spot checks`
+  - `e5e3ef63` - `DEV-0000052 - mark task 18 git commits`
+
+#### Overview
+
+Harden the shared review process so future no-findings reviews are less likely to miss semantic mismatches like the follow-up `plan_scope` accounting defect. This task should tighten the internal and external review markdown prompts, add a focused blind-spot challenge step to every review flow in `flows/` that uses those shared prompts, and ensure the no-findings disposition path records rejected-risk reasoning for the highest-risk helpers. Because flow JSON is loaded once per run while markdown files are read step-by-step from disk, this task must keep the markdown changes backward-compatible with the old review step graph so any already-running flow can continue safely even before it is restarted onto the new flow JSON.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical follow-up review-hardening contract and reopened task sequence for Story `0000052`.
+- `codeinfo_markdown/review_evidence_gate.md`, `codeinfo_markdown/code_review_findings.md`, and `codeinfo_markdown/review_disposition.md` - shared internal review prompts that this task must tighten.
+- `codeinfo_markdown/external_review_evidence_gate.md`, `codeinfo_markdown/external_review_findings.md`, and `codeinfo_markdown/external_review_disposition.md` - shared external review prompts that should stay aligned with the internal process hardening.
+- `flows/implement_next_plan.json`, `flows/review_plan.json`, `flows/task_and_implement_plan.json`, and `flows/improve_task_implement_plan.json` - internal review flows that should gain the new blind-spot challenge step.
+- `flows/ingest_external_review_plan.json` - external review flow that should gain the external analogue of the same challenge step.
+- `codeinfo_markdown/ensure_testing_steps_are_correct.md` and `codeinfo_markdown/create_final_summary.md` - adjacent shared review/finalization prompts to re-open if the new risk-recording contract needs extra propagation.
+- `server/src/flows/service.ts` and `server/src/flows/markdownFileResolver.ts` - runtime flow-loading references that explain why Task 18 must keep the markdown changes additive and backward-compatible for already-running flows.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read every shared internal and external review markdown file plus each review-capable flow in `flows/`, and re-read the runtime flow-loading behavior in `server/src/flows/service.ts` plus `server/src/flows/markdownFileResolver.ts`, before editing so the hardening stays shared and does not drift between flow entrypoints or break an already-running flow.
+2. [x] Current Repository: Tighten the internal review prompts so the evidence and findings passes must record a risk-invariant matrix and rejected-risk notes for the top risky helpers, and so the no-findings disposition path carries those notes into the final plan review section.
+3. [x] Current Repository: Make those markdown prompt changes additive and backward-compatible with the old review step graph. Do not rename or remove existing markdown files, do not require a brand-new artifact that only the new blind-spot challenge step can produce, and make downstream prompts consume that extra step when present but still derive the required reasoning directly from the existing evidence/findings artifacts when it is absent.
+4. [x] Current Repository: Mirror the same hardening and backward-compatibility rules in the external-review markdown prompts so the external review process does not become a weaker variant of the internal process or an in-progress external run.
+5. [x] Current Repository: Add a new shared blind-spot challenge step after findings and before disposition in every internal review flow, and add the external analogue in `flows/ingest_external_review_plan.json`. The inserted step should explicitly try to break a tentative no-findings conclusion by inspecting only the highest-risk helpers from the evidence artifact, but the surrounding prompts must still function correctly when that step is absent because an older in-progress flow run is still using the previous JSON snapshot.
+6. [x] Current Repository: Re-open adjacent shared finalization prompts only if needed so the tightened no-findings contract, reviewer summary, and testing-step guidance stay internally consistent after the new review-flow step is added.
+7. [x] Current Repository: Update this story file's Task 18 Implementation notes immediately after the prompt/flow change lands, naming the final shared review guarantees, which flows were updated, and exactly how backward compatibility for already-running flows was preserved.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task changes shared review markdowns and flow JSON files, so validate the landed behavior by reopening the modified files and confirming the shared challenge step and rejected-risk requirements were wired in exactly where intended.
+
+1. [x] Current Repository: Re-open each updated internal review markdown file and verify the final text now requires a risk-invariant matrix or rejected-risk notes for the top risky helpers before a no-findings disposition can close a story.
+2. [x] Current Repository: Re-open each updated internal review flow JSON file and verify the new blind-spot challenge step sits after findings and before disposition, and that the flow still points at the shared markdown files rather than copy-pasted inline review instructions.
+3. [x] Current Repository: Re-open the updated internal review markdown files and verify the compatibility wording is explicit: downstream prompts still work without the new challenge step by deriving rejected-risk reasoning from the existing evidence/findings artifacts when needed.
+4. [x] Current Repository: Re-open the updated external review markdown files and `flows/ingest_external_review_plan.json` and verify the external review sequence received the same hardening and the same backward-compatibility guarantees rather than drifting into a weaker variant.
+
+#### Implementation notes
+
+- Subtask 1: Re-read every shared internal/external review markdown, each review-capable flow, and the runtime flow-loading seam so Task 18 stays aligned across all entrypoints and preserves the additive markdown contract for already-running flows.
+- Subtask 2: Tightened the shared internal review prompts so the evidence pass now requires a `Risk-Invariant Matrix`, the findings pass now requires `Rejected Risk Notes`, and the disposition pass now carries those rejected-risk notes into the no-findings close-out path.
+- Subtask 3: Kept the prompt hardening additive by preserving all existing markdown files, adding an optional `challenge_file` handoff path, and making findings/disposition fall back to evidence plus findings artifacts when the new blind-spot step is absent in an older in-progress flow snapshot.
+- Subtask 4: Mirrored the same hardening in the external review prompts so external evidence, findings, and disposition now explicitly preserve the risk-matrix, rejected-risk, and backward-compatibility guarantees instead of remaining a weaker variant.
+- Subtask 5: Added the shared blind-spot challenge step via `codeinfo_markdown/review_blind_spot_challenge.md` and `codeinfo_markdown/external_review_blind_spot_challenge.md`, then inserted it after findings and before disposition in `flows/review_plan.json`, `flows/implement_next_plan.json`, `flows/task_and_implement_plan.json`, `flows/improve_task_implement_plan.json`, and `flows/ingest_external_review_plan.json`.
+- Subtask 6: Re-opened `codeinfo_markdown/ensure_testing_steps_are_correct.md` and `codeinfo_markdown/create_final_summary.md`, and no edits were needed because the new review hardening does not change testing-wrapper guidance or the final-summary structure.
+- Subtask 7: Final Task 18 guarantees are now: every shared internal/external review entrypoint records a risk-invariant matrix plus rejected-risk reasoning, every updated review flow runs a blind-spot challenge between findings and disposition, and already-running flows remain compatible because disposition-quality reasoning still falls back to the existing evidence/findings artifacts when the new challenge step or `challenge_file` is absent.
+- Testing 1: Re-opened the updated internal markdowns and verified `review_evidence_gate.md` now requires a `Risk-Invariant Matrix`, `code_review_findings.md` now requires `Rejected Risk Notes`, and `review_disposition.md` now carries those notes into the no-findings close-out path.
+- Testing 2: Re-opened `flows/review_plan.json`, `flows/implement_next_plan.json`, `flows/task_and_implement_plan.json`, and `flows/improve_task_implement_plan.json` and verified each one now runs `review_blind_spot_challenge.md` after `code_review_findings.md` and before `review_disposition.md`, still via shared `markdownFile` references rather than inline review instructions. Parsed all updated flow JSON files with Node to confirm they still load as valid JSON.
+- Testing 3: Re-opened the internal findings and disposition markdowns and verified the backward-compatibility wording is explicit: when the new blind-spot artifact or `challenge_file` is absent, downstream steps must derive the same rejected-risk reasoning directly from the existing evidence and findings artifacts.
+- Testing 4: Re-opened the external evidence/findings/disposition markdowns plus `codeinfo_markdown/external_review_blind_spot_challenge.md` and `flows/ingest_external_review_plan.json`, and verified the external review flow now gets the same risk-matrix, rejected-risk, blind-spot-challenge, and no-artifact fallback guarantees as the internal review sequence.
+
+---
+
+### Task 19. Re-Run Final Validation After Runtime Fixes And Review Hardening
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+- Git Commits:
+  - `af07b95f DEV-0000052 - close final validation task`
+  - `ebaf7542 DEV-0000052 - mark task 19 git commits`
+
+#### Overview
+
+Close the reopened story only after Tasks 16, 17, and 18 land together. This final validation task must prove both sides of the follow-up work: the repaired runtime accounting and cleanup in the server code, and the tightened shared review-process artifacts across the review markdowns and flows. The final close-out must also refresh this story file's completion notes so later reviewers can see that the reopened defect fixes and review-hardening work were validated together.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened acceptance contract and final validation checklist for Story `0000052`.
+- `codeInfoStatus/flow-state/current-plan.json` - canonical single-repository scope handoff that should still point to this story during the final validation pass.
+- `server/src/ingest/reingestExecution.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts` - runtime code paths whose reopened accounting and cleanup behavior must be re-proved.
+- Updated `codeinfo_markdown/*.md` review prompts and `flows/*.json` review flows touched by Task 18 - shared process artifacts that must be re-opened so the hardening is verified in the final close-out.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check the final Story `0000052` acceptance criteria against the landed Tasks 16-18 implementation and confirm the reopened runtime-accounting, snapshot-sharing, summary-ownership, lifecycle-normalization, and review-hardening criteria all have direct proof before closing the story again.
+2. [x] Current Repository: Re-run the remaining-diff and stale-language audit with `git diff --name-status origin/main...HEAD` plus repository text search so the final branch diff still maps cleanly to Story `0000052`, including the new review-prompt and flow hardening work.
+3. [x] Current Repository: Re-open the updated review markdowns and review flows and record that the blind-spot challenge step and rejected-risk requirements are present in every shared internal/external review entrypoint that this task touched.
+4. [x] Current Repository: Refresh this story file's close-out sections after the final validation lands so the completion notes, review notes, and final summary all reflect the reopened defect fixes and review-hardening work accurately.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. This is mandatory for the reopened final regression because Tasks 16 and 17 leave server/common code on the branch. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run build:summary:client`. This is also required for the reopened final regression because Story `0000052` still includes client-visible proof surfaces and final regression checks. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] Current Repository: Run `npm run compose:up`.
+9. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the Story `0000052` re-ingest behavior plus surrounding regressions, and check that there are no logged errors in the debug console. Re-open the updated review markdowns and review-flow outputs as part of the final close-out notes so the process-hardening changes are explicitly re-verified.
+10. [x] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Subtask 1: Re-checked the reopened acceptance points against the landed Tasks 16-18 code and proof surfaces before close-out. Direct proof now covers the Task 16 ok-shaped terminal failure warning path in `server/src/test/unit/reingestExecution.test.ts`, the Task 17 request-scoped repository snapshot reuse plus batch-summary ownership and lifecycle normalization in the re-ingest execution/tool-result/lifecycle unit suites, and the Task 18 review hardening through direct file re-open checks of the updated shared markdown and flow assets.
+- Subtask 2: Re-ran `git diff --name-status origin/main...HEAD` plus repository text search and confirmed the remaining branch diff still maps to Story `0000052`. The only lingering removed-literal matches are intentional acceptance/design/history references and negative tests, while the new Task 18 review hardening files appear in the diff exactly where expected.
+- Subtask 3: Re-opened the updated shared internal and external review markdown plus every touched review flow and confirmed the hardening is present end-to-end. The evidence/finding/disposition prompts now require the risk-invariant and rejected-risk reasoning, the blind-spot challenge prompts exist in both internal and external variants, and every named review flow places that challenge step between findings and disposition while keeping the older no-challenge fallback wording intact.
+- Subtask 4: Refreshed the close-out sections in this story file after the final validation passed so the completion summary, post-implementation review, and final summary now describe the reopened Tasks 16-18 fixes together with the final Task 19 wrapper, Playwright, and `/logs` traceability proof.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the reopened server-side runtime and transcript changes still build without extra warnings.
+- Testing 2: `npm run build:summary:client` passed cleanly after the wrapper's typecheck-plus-build sequence, with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the client-visible proof surfaces on this branch still build without extra warnings.
+- Testing 3: Full `npm run test:summary:server:unit` passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`, so the reopened runtime-accounting, snapshot-sharing, summary-ownership, and lifecycle-normalization coverage still holds across the full server unit/integration suite.
+- Testing 4: Full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the reopened re-ingest/runtime proof also still holds across the full feature-level server flow suite.
+- Testing 5: Full `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the client-side regression coverage still holds across the full suite.
+- Testing 6: `npm run test:summary:e2e` finished with `status: passed` but `agent_action: inspect_log` because the wrapper emitted ambiguous aggregate counts (`tests run: 0`). Following the wrapper contract, the final log was inspected and confirmed the underlying Playwright JSON summary reported `expected: 50`, `skipped: 3`, and `unexpected: 0`, so the full e2e setup, run, and teardown completed successfully.
+- Testing 7: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, confirming the main compose images for the final runtime proof still build successfully.
+- Testing 8: `npm run compose:up` passed and brought the main stack up cleanly; Mongo reached `Healthy`, then the server reached `Healthy`, and the client container started successfully for the final Playwright proof.
+- Testing 9: Final Playwright MCP proof passed against `http://host.docker.internal:5001` on a wrapper-started stack. A `reingest_working` run against `/Users/danielstapleton/Documents/dev/task14-ingest-mini` completed successfully, a `reingest_plan_scope` run against the same ingested working repo completed as success-with-warnings on the visible transcript/log path, a fresh `/logs` tab reported no browser-console `error` entries, the filtered logs view showed the Story `0000052` marker set including `DEV-0000052:T9:final-traceability-reviewed` with `traceability: "complete"` and `manualProof: "passed"`, and the reviewed screenshots were captured as `playwright-output-local/0000052-task19-logs-proof.png` and `playwright-output-local/0000052-task19-logs-filtered.png`.
+- Testing 10: `npm run compose:down` completed cleanly after the final runtime proof, removing the wrapper-started containers and `codeinfo2_internal` network without needing any manual Docker cleanup.
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260327T000751Z-d0d03a86`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md`
+- Review outcome: reopen Story `0000052` for two repo-local `should_fix` findings before the story can stay closed again.
+- Finding 1 summary: unrelated non-support formatting-only churn is still present on the branch diff in client, e2e, OpenAPI, and Copilot-adjacent server files. The follow-up must remove that unrelated drift so the remaining `origin/main...HEAD` diff is story-owned.
+- Finding 2 summary: the shared re-ingest execution seam still exposes dead `currentOwnerSourceId` plumbing even though owner-based `current` targeting was removed. The follow-up must remove that stale parameter from `executeReingestRequest(...)` and every caller so the changed runtime surface no longer advertises a removed contract.
+- Challenge artifact status: no `*-blind-spot-challenge.md` exists for this review pass, so the reopen decision relies on the evidence artifact plus the findings artifact's `Rejected Risk Notes`.
+
+---
+
+### Task 20. Remove Unrelated Non-Support Formatting Drift From Story 0000052
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+The code-review findings pass confirmed that Story `0000052` still carries unrelated non-support formatting-only churn in client, e2e, OpenAPI, and Copilot-adjacent server files. This task must remove that drift so the branch diff returns to story-owned re-ingest, review-hardening, and explicitly allowed support-file changes only. The goal is not to restyle those files differently; it is to make the remaining `origin/main...HEAD` diff accurately reflect the intended Story `0000052` scope again.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and the Task 20 cleanup checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md` - source of the branch-drift finding that this task must resolve.
+- The exact files named in that finding:
+  - `client/src/hooks/useChatModel.ts`
+  - `client/src/test/chatPage.authRefresh.test.tsx`
+  - `client/src/test/chatPage.provider.test.tsx`
+  - `e2e/chat-codex-mcp.spec.ts`
+  - `e2e/chat-codex-trust.spec.ts`
+  - `openapi.json`
+  - `server/src/config/copilotConfig.ts`
+  - `server/src/index.ts`
+  - `server/src/routes/copilotDeviceAuth.ts`
+  - `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`
+  - `server/src/test/steps/chat_models.steps.ts`
+  - `server/src/test/steps/chat_stream.steps.ts`
+  - `server/src/test/unit/copilotConfig.test.ts`
+  - `server/src/test/unit/copilotDeviceAuth.test.ts`
+- `git diff --name-status origin/main...HEAD` - mandatory verification surface for proving the unrelated files are gone from the Story `0000052` branch diff.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read the Task 20 finding plus every named file above, then compare each file against `origin/main` so you confirm the remaining Story `0000052` delta in that file is unrelated formatting or import-order churn only before you remove it.
+2. [x] Current Repository: Remove the unrelated non-support churn from each named file so the final `origin/main...HEAD` diff no longer contains those files. Keep any genuinely story-owned or user-owned change only if you can prove it belongs to Story `0000052`; otherwise restore the file to the base version.
+3. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` after the cleanup and confirm the remaining diff now contains only Story `0000052` implementation files, planned docs/tests, approved `flows/**`, and allowed support files.
+4. [x] Current Repository: Update this story file's Task 20 Implementation notes immediately after the cleanup lands, naming the final removed-file list and calling out any file that was intentionally retained because it turned out to be Story `0000052` work after all.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task removes unrelated diff churn from both server/common and client/test surfaces, so prove the cleanup with the branch-diff check plus the full summary wrappers that cover the touched current-repository areas.
+
+1. [x] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm none of the files named in the Task 20 finding remain in the branch diff. Record the remaining diff classes in the Implementation notes.
+2. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+3. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+4. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-unit-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+5. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact log path printed by the summary (`test-results/server-cucumber-tests-*.log`), then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+6. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+
+#### Implementation notes
+
+- Subtask 1: Re-read the Task 20 finding and compared every named file against `origin/main`. The remaining delta in all 14 files is formatting or import-order churn only, so none of those files currently carries Story `0000052` behavior that must be preserved before cleanup.
+- Subtask 2: Restored the 14 named client, e2e, OpenAPI, and Copilot-adjacent server/test files to their `origin/main` versions because each remaining delta was unrelated formatting or import-order churn only. No named file had to be retained as Story `0000052` behavior at this step.
+- Subtask 3: Re-ran `git diff --name-status origin/main...HEAD` after the cleanup commit and confirmed none of the 14 Task 20 files remain in the branch diff. The remaining diff classes are Story `0000052` runtime implementation files, planned docs/tests, approved `flows/**`, review evidence/findings artifacts, and allowed support files only.
+- Subtask 4: Final removed-file list: `client/src/hooks/useChatModel.ts`, `client/src/test/chatPage.authRefresh.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `e2e/chat-codex-mcp.spec.ts`, `e2e/chat-codex-trust.spec.ts`, `openapi.json`, `server/src/config/copilotConfig.ts`, `server/src/index.ts`, `server/src/routes/copilotDeviceAuth.ts`, `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`, `server/src/test/steps/chat_models.steps.ts`, `server/src/test/steps/chat_stream.steps.ts`, `server/src/test/unit/copilotConfig.test.ts`, and `server/src/test/unit/copilotDeviceAuth.test.ts`. No named file was intentionally retained because none carried Story `0000052` behavior after the re-check.
+- Testing 1: `git diff --name-status origin/main...HEAD` no longer lists any of the 14 Task 20 cleanup files. The remaining diff is limited to Story `0000052` implementation files, planned docs/tests, approved `flows/**`, review artifacts, and allowed support files.
+- Testing 2: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the cleanup did not introduce server build drift.
+- Testing 3: `npm run build:summary:client` passed cleanly through the wrapper's typecheck-plus-build sequence with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the cleanup did not introduce client build drift either.
+- Testing 4: `npm run test:summary:server:unit` passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 5: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the cleanup also held across the full feature-level server flow suite.
+- Testing 6: `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the cleanup also held across the full client regression suite.
+
+- Git Commits:
+  - `a49470a8 DEV-0000052 - remove unrelated formatting drift`
+  - `ca4902b6 DEV-0000052 - complete task 20 cleanup validation`
+  - `904d0c41 DEV-0000052 - mark task 20 git commits`
+  - `dd810a6a DEV-0000052 - fix task 20 commit ledger`
+  - `da285470 DEV-0000052 - correct task 20 plan bookkeeping`
+
+---
+
+### Task 21. Remove Dead Owner-Era `currentOwnerSourceId` Plumbing From The Re-Ingest Runtime
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+The findings pass confirmed that the shared `executeReingestRequest(...)` runtime surface still exposes `currentOwnerSourceId` even though Story `0000052` removed owner-based `current` targeting and the implementation no longer reads that input. This task must delete the dead parameter from the execution seam and its command/flow call sites so the landed runtime contract advertises only the inputs that still matter for `sourceId`, `working`, and `plan_scope`.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 21 acceptance notes.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md` - source of the dead-plumbing finding that this task must close.
+- `server/src/ingest/reingestExecution.ts` - the shared execution seam that still exposes `currentOwnerSourceId`.
+- `server/src/agents/commandsRunner.ts` - direct-command caller that still passes the dead owner-era input.
+- `server/src/flows/service.ts` - dedicated-flow and flow-command callers that still pass the dead owner-era input.
+- `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, and any focused execution tests that need adjustment after the signature cleanup.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, and the focused command/flow tests before editing so the cleanup stays limited to the stale owner-era parameter and does not reopen the landed `working` / `plan_scope` behavior.
+2. [x] Current Repository: Remove `currentOwnerSourceId` from the shared `executeReingestRequest(...)` input contract and delete every direct-command and flow caller that still passes it. Do not reintroduce any owner-based compatibility logic while cleaning up the signature.
+3. [x] Current Repository: Update the focused tests if needed so they prove the runtime still handles explicit `sourceId`, `working`, and `plan_scope` correctly after the signature cleanup and no test or helper still relies on the dead owner-era field.
+4. [x] Current Repository: Update this story file's Task 21 Implementation notes immediately after the cleanup lands, naming the final runtime signature and the exact callers/tests that were updated.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. Because Task 21 changes the shared server-side execution seam plus command/flow callers, prove the cleanup with the server build plus the full current-repository server unit and cucumber summary suites.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Subtask 1: Re-read the shared execution seam, the command and flow callers, and the focused command/flow tests before editing. The stale owner-era surface is currently limited to `executeReingestRequest(...)` plus three caller arguments, so the cleanup can stay narrow without reopening the landed `sourceId` / `working` / `plan_scope` behavior.
+- Subtask 2: Removed `currentOwnerSourceId` from the `executeReingestRequest(...)` input contract in `server/src/ingest/reingestExecution.ts` and deleted the dead argument from the command, flow-command, and dedicated-flow callers. The cleanup stayed limited to the stale owner-era surface and did not add any compatibility shim back in.
+- Subtask 3: No focused test source changes were needed because none of the command/flow tests still constructed the dead field directly. Re-checking with repository search after the code edit confirmed `currentOwnerSourceId` is gone from the server runtime and test surfaces, leaving only the surviving `sourceId`, `working`, and `plan_scope` inputs in play.
+- Subtask 4: Final runtime signature is `executeReingestRequest({ request, surface, workingRepositoryPath, deps })`. Updated callers are `server/src/agents/commandsRunner.ts` plus the flow-command and dedicated-flow re-ingest paths in `server/src/flows/service.ts`; no focused test files required direct edits for this contract cleanup.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the shared re-ingest signature cleanup did not introduce any server build drift.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the dead owner-era parameter cleanup also held across the full feature-level server flow suite.
+
+- Git Commits:
+  - `e38a25a0 DEV-0000052 - remove dead owner reingest plumbing`
+  - `4a505f32 DEV-0000052 - mark task 21 git commits`
+  - `6fe0525d DEV-0000052 - fix task 21 commit ledger`
+
+---
+
+### Task 22. Re-Run Final Validation After Code Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+Close the reopened Story `0000052` only after the review-fix tasks land together. This final validation task must prove that the unrelated branch drift is gone, the stale owner-era execution parameter is gone, the original `working` / `plan_scope` acceptance criteria still hold, and the durable review artifacts for this reopen were carried forward with the final close-out state.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan, review-fix tasks, and final validation checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-evidence.md` - durable evidence artifact for the current review pass.
+- `codeInfoStatus/reviews/0000052-review-20260327T000751Z-d0d03a86-findings.md` - durable findings artifact that Tasks 20 and 21 must close.
+- `codeInfoStatus/flow-state/current-plan.json` - canonical handoff that should still point at Story `0000052`.
+- `server/src/ingest/reingestExecution.ts`, `server/src/agents/commandsRunner.ts`, and `server/src/flows/service.ts` - runtime surfaces re-opened by Task 21.
+- The final `origin/main...HEAD` diff - proof surface that Task 20 really removed the unrelated non-support files from the branch.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check the Story `0000052` acceptance criteria against the landed Tasks 20 and 21 implementation so the review findings are actually closed and the original `working` / `plan_scope` contract still has direct proof.
+2. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` plus repository text search and confirm the unrelated files from Task 20 are gone from the branch diff, the stale `currentOwnerSourceId` surface from Task 21 is gone, and the remaining diff still maps cleanly to Story `0000052`.
+3. [x] Current Repository: Re-open the current review evidence and findings artifacts and refresh this story file's close-out notes so the final reopened state explains what was fixed, why the review reopened the story, and how the review-fix work was revalidated.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] Current Repository: Run full `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] Current Repository: Run `npm run compose:up`.
+9. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, reconfirm the Story `0000052` `reingest_working` and `reingest_plan_scope` behavior plus the `/logs` proof path, and check that there are no browser-console `error` entries during the final runtime proof.
+10. [x] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Subtask 1: Re-checked the reopened acceptance contract against the landed Tasks 20 and 21 work before final validation. The review findings are now closed directly: the Task 20 unrelated formatting-only file cluster no longer appears in `origin/main...HEAD`, and the Task 21 runtime surfaces now expose only `sourceId`, `working`, and `plan_scope` inputs while the original Story `0000052` proof map still covers the shipped behavior.
+- Subtask 2: Re-ran `git diff --name-status origin/main...HEAD` and confirmed the Task 20 non-support drift files remain gone from the branch diff. A focused `rg -n \"currentOwnerSourceId\" server/src server/src/test` search returned no matches, so the stale owner-era runtime surface from Task 21 is gone too; the remaining diff still maps to Story `0000052` implementation files, approved review/workflow artifacts, and allowed support files.
+- Subtask 3: Re-opened the `0000052-review-20260327T000751Z-d0d03a86` evidence and findings artifacts before the final close-out refresh. This story file now explains that the review reopened only for out-of-scope branch drift plus dead `currentOwnerSourceId` plumbing, and that Tasks 20 through 22 closed those findings with a fresh wrapper-first validation pass instead of broadening the story again.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the final reopened branch state still clears the server build gate.
+- Testing 2: `npm run build:summary:client` passed cleanly through the wrapper's typecheck-plus-build sequence with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the final reopened branch state still clears the client build gate too.
+- Testing 3: `npm run test:summary:server:unit` passed cleanly with `tests run: 1506`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 4: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the final reopened branch state still clears the feature-level server flow suite.
+- Testing 5: `npm run test:summary:client` passed cleanly with `tests run: 653`, `failed: 0`, and `agent_action: skip_log`. The full client suite was rerun after hardening the `/logs` timestamp rendering so the final reopened branch state is validated against the shipped client fix, not just the pre-fix build.
+- Testing 6: `npm run test:summary:e2e` finished with `status: passed` but `agent_action: inspect_log` because the wrapper emitted ambiguous aggregate counts (`tests run: 0`). Following the wrapper contract, `logs/test-summaries/e2e-tests-latest.log` was inspected and the embedded Playwright JSON summary confirmed `expected: 53`, `skipped: 0`, and `unexpected: 0`, so the full e2e setup, run, and teardown completed successfully.
+- Testing 7: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the supported main compose images for the final runtime proof still build successfully.
+- Testing 8: `npm run compose:up` passed and brought the main stack up cleanly; Mongo reached `Healthy`, then the server reached `Healthy`, and the client container started successfully for the final Playwright proof.
+- Testing 9: Final Playwright MCP proof passed against `http://host.docker.internal:5001` on the rebuilt wrapper-started stack after hardening the `/logs` timestamp rendering against numeric or invalid values. `browser_console_messages(level=\"error\")` returned no entries on `/logs`, `reingest_working` succeeded for `/Users/danielstapleton/Documents/dev/task14-ingest-mini`, `reingest_plan_scope` completed as success-with-warnings for the same working repository, and the filtered logs view showed `DEV-0000052:T22:final-review-closeout-verified` with `traceability: \"complete\"` and `manualProof: \"passed\"`; the reviewed screenshots were captured under `/tmp/playwright-output/playwright-output-local/0000052-task22-logs-proof.png` and `/tmp/playwright-output/playwright-output-local/0000052-task22-logs-filtered.png`.
+- Testing 10: `npm run compose:down` completed cleanly after the final runtime proof, stopping the wrapper-started containers and removing the `codeinfo2_internal` network without needing any manual Docker cleanup.
+
+- Git Commits:
+  - `b3be682f DEV-0000052 - finish final review closeout`
+  - `b3729ac0 DEV-0000052 - mark task 22 git commits`
+  - `a69e458c DEV-0000052 - fix task 22 commit ledger`
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260327T222622Z-549a89b3`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-blind-spot-challenge.md`
+- Review outcome: reopen Story `0000052` for two repo-local `should_fix` findings, then close the story again only after Tasks 23 through 25 remove the out-of-scope client diff, split the ambiguous lifecycle marker contract, and rerun the full wrapper-first validation ladder.
+- Finding 1 summary: the review correctly flagged the non-support client timestamp-hardening change in `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` as out of scope for this re-ingest/runtime/review story. Task 23 removed that delta from the branch diff, and the final Task 25 diff audit confirms both client files remain absent from `origin/main...HEAD`.
+- Finding 2 summary: the review correctly flagged `DEV-0000052:T5:reingest-lifecycle` for carrying two different schemas from `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts`. Task 24 replaced that shared marker with `DEV-0000052:T5:reingest-tool-result-built` and `DEV-0000052:T5:reingest-lifecycle-persisted`, and the final Task 25 repository search confirms the old mixed-schema marker is gone from the runtime/test surfaces.
+- Challenge artifact status: the focused blind-spot challenge produced no new findings. It strengthened the rejected-risk conclusions for `executeReingestRequest(...)` and `resolvePlanScopeRepositories(...)`, and the final Task 25 validation left only the already-documented residual weak proof around malformed historical warning payloads in `reingestStepLifecycle.ts`.
+- Final validation refresh: Task 25 re-opened these review artifacts, reran the full wrapper ladder, rebuilt and restarted the supported compose stack, re-proved `reingest_working`, warning-aware `reingest_plan_scope`, and the `/logs` traceability path on `http://host.docker.internal:5001`, and recorded `DEV-0000052:T25:final-review-closeout-verified` with `traceability: "complete"` and `manualProof: "passed"` on the final browser-visible logs surface.
+
+---
+
+### Task 23. Remove The Out-Of-Scope `/logs` Timestamp Hardening From Story 0000052
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+The latest review pass confirmed that this story branch still includes a non-support client change that broadens the `/logs` timestamp-rendering contract, even though Story `0000052` only uses `/logs` as a manual proof surface for re-ingest warnings and traceability. This task must remove the out-of-scope timestamp-hardening delta from `LogsPage` and its test so the branch diff returns to story-owned re-ingest, review-hardening, and allowed support-file work only.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 23 checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md` - source of the client-scope finding this task must close.
+- `client/src/pages/LogsPage.tsx` - current out-of-scope timestamp-normalization change that should be removed from this story branch.
+- `client/src/test/logsPage.test.tsx` - current out-of-scope test coverage that locks the timestamp-normalization change into the branch diff.
+- `git diff --name-status origin/main...HEAD` - required verification surface for proving those client files no longer remain in the Story `0000052` diff.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read the Task 23 finding plus `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx`, compare both files against `origin/main`, and confirm the remaining delta is only the out-of-scope timestamp-hardening change rather than required Story `0000052` behavior.
+2. [x] Current Repository: Remove the out-of-scope timestamp-hardening delta from both files so this story no longer changes the `/logs` timestamp contract or adds timestamp-specific client regression coverage that the story never planned.
+3. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` are gone from the branch diff after the cleanup.
+4. [x] Current Repository: Update this story file's Task 23 Implementation notes immediately after the cleanup lands, recording the removed client-file list and why the `/logs` proof path still remains adequate for Story `0000052` without the timestamp-hardening change.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task is strictly client-side cleanup on a front-end-visible `/logs` surface, so prove it with the branch-diff check, the current repository's client wrappers, and wrapper-started manual Playwright proof. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `git diff --name-status origin/main...HEAD` and confirm `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the branch diff.
+2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+4. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+5. [x] Current Repository: Run `npm run compose:up`.
+6. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, confirm the `/logs` page still renders correctly after the cleanup, and check that there are no logged errors in the debug console.
+7. [x] Current Repository: Run `npm run compose:down` after the final front-end proof completes.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` identified a repo-local `should_fix` scope issue in the current repository's client `/logs` files. The intended repair is to remove the timestamp-hardening delta from this story branch rather than expand Story `0000052` to own a separate client timestamp contract.
+- Subtask 1: Compared `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` against `origin/main` before editing. The remaining delta is only the timestamp-hardening helper change plus its focused regression test, not required Story `0000052` re-ingest or review-hardening behavior.
+- Subtask 2: Removed the timestamp-hardening helper broadening from `client/src/pages/LogsPage.tsx` and dropped the matching mixed-timestamp regression case from `client/src/test/logsPage.test.tsx`. The local client files now match `origin/main` again, so the remaining Task 23 proof depends on committing that cleanup and rerunning the branch-diff check rather than on any further code change.
+- Subtask 3: Re-ran `git diff --name-status origin/main...HEAD` after the cleanup commit and confirmed `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` no longer appear in the story diff.
+- Subtask 4: Final removed client-file list from the story diff is `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx`. The `/logs` proof path remains adequate for Story `0000052` because this story only needs that page as a browser-visible traceability surface for re-ingest markers and warnings, not as a separate timestamp-format contract change.
+- Testing 1: `git diff --name-status origin/main...HEAD` no longer lists `client/src/pages/LogsPage.tsx` or `client/src/test/logsPage.test.tsx`, so the branch-diff proof for the out-of-scope client cleanup is satisfied.
+- Testing 2: `npm run build:summary:client` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so removing the out-of-scope timestamp hardening did not introduce any client build drift.
+- Testing 3: `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the current client regression suite still stays green after the cleanup.
+- Testing 4: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the wrapper-started runtime proof images still build after the client cleanup.
+- Testing 5: `npm run compose:up` brought the wrapper-started stack up cleanly after the client cleanup; the main network was created, Mongo reached `Healthy`, the server reached `Healthy`, and the client container started successfully for the final `/logs` proof.
+- Testing 6: Playwright MCP verification passed against `http://host.docker.internal:5001/logs` after the client cleanup. The `/logs` page rendered normally on the wrapper-started stack, `browser_console_messages(level=\"error\")` returned no entries, and the reviewed screenshot was captured at `/tmp/playwright-output/0000052-task23-logs.png`.
+- Testing 7: `npm run compose:down` completed cleanly after the final front-end proof, stopping the wrapper-started containers and removing the `codeinfo2_internal` network without needing any manual Docker cleanup.
+
+- Git Commits:
+  - `88a274f5 DEV-0000052 - remove out-of-scope logs timestamp change`
+  - `4be6b321 DEV-0000052 - complete task 23 cleanup validation`
+
+---
+
+### Task 24. Split The Ambiguous `DEV-0000052:T5:reingest-lifecycle` Log Contract Into One Stable Schema Per Marker
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+The latest review pass found that Story `0000052` now emits the same `DEV-0000052:T5:reingest-lifecycle` marker from both the tool-result builder and the later persistence lifecycle path, but each emitter attaches a different context shape. This task must make that contract unambiguous. Keep the fix simple: use one stable schema per log marker, which most likely means splitting the two lifecycle points into distinct marker names instead of trying to support two different schemas under one shared marker.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 24 checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md` - source of the log-schema finding this task must close.
+- `server/src/chat/reingestToolResult.ts` - current pre-persist emitter for `DEV-0000052:T5:reingest-lifecycle`.
+- `server/src/chat/reingestStepLifecycle.ts` - current later lifecycle emitter for `DEV-0000052:T5:reingest-lifecycle`.
+- `server/src/test/unit/reingest-tool-result.test.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` - focused proof surfaces that should show the final marker names and context schemas clearly.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read the Task 24 finding plus the two emitters and their focused tests before editing so the repair stays limited to the ambiguous shared marker contract.
+2. [x] Current Repository: Replace the ambiguous shared marker contract with one stable schema per marker. Prefer distinct marker names for the tool-result-build step and the later persistence/publication lifecycle step, and keep each marker's context shape internally consistent.
+3. [x] Current Repository: Update or extend the focused unit tests so they prove the final marker names and their expected context keys explicitly, rather than relying on one mixed marker name across two code paths.
+4. [x] Current Repository: Update this story file's Task 24 Implementation notes immediately after the repair lands, naming the final marker(s), the owning file for each emitter, and why the chosen split is simpler than a shared mixed-schema marker.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task changes server/common runtime logging behavior, so prove it with the current repository's server build plus the full server unit and cucumber summary suites. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` found that the same `DEV-0000052:T5:reingest-lifecycle` marker currently means two different lifecycle moments with two different context schemas. The intended repair is to keep the runtime behavior intact while making the log vocabulary objectively unambiguous for downstream readers.
+- Subtask 1: Re-read the Task 24 finding, both `DEV-0000052:T5:reingest-lifecycle` emitters, and the focused unit suites before editing. The ambiguity is real: `reingestToolResult.ts` logs build-time payload details while `reingestStepLifecycle.ts` logs later persistence metadata under the same marker name.
+- Subtask 2: Split the shared marker into `DEV-0000052:T5:reingest-tool-result-built` in `server/src/chat/reingestToolResult.ts` and `DEV-0000052:T5:reingest-lifecycle-persisted` in `server/src/chat/reingestStepLifecycle.ts`. Each emitter now owns one stable lifecycle moment and one stable context schema instead of sharing a mixed contract.
+- Subtask 3: Extended the focused unit coverage so `server/src/test/unit/reingest-tool-result.test.ts` asserts the tool-result-build marker and its context keys directly from the log store, while `server/src/test/unit/reingest-step-lifecycle.test.ts` now asserts the renamed persisted-lifecycle marker and its persistence-oriented context shape.
+- Subtask 4: Final marker ownership is now explicit: `DEV-0000052:T5:reingest-tool-result-built` belongs to `server/src/chat/reingestToolResult.ts`, and `DEV-0000052:T5:reingest-lifecycle-persisted` belongs to `server/src/chat/reingestStepLifecycle.ts`. This split is simpler than a shared mixed-schema marker because downstream readers no longer need per-emitter branching to know which lifecycle moment or context contract they received.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the marker split did not introduce any server build drift.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1507`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the unambiguous marker split still holds across the feature-level server suite.
+
+- Git Commits:
+  - `f8ad87da DEV-0000052 - split ambiguous reingest lifecycle marker`
+
+---
+
+### Task 25. Re-Run Final Validation After The Review-Fix Tasks
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+Close the reopened Story `0000052` only after Tasks 23 and 24 land together. This final validation task must prove that the out-of-scope client timestamp change is gone, the re-ingest lifecycle log vocabulary is unambiguous, the original `working` / `plan_scope` acceptance criteria still hold, and the durable review artifacts for this reopen remain attached to the final close-out state.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan, review-fix tasks, and final validation checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-evidence.md` - durable evidence artifact for the current review pass.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-findings.md` - durable findings artifact that Tasks 23 and 24 must close.
+- `codeInfoStatus/reviews/0000052-review-20260327T222622Z-549a89b3-blind-spot-challenge.md` - additive blind-spot challenge artifact that confirmed no extra late finding beyond the recorded `should_fix` items.
+- `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` - client files that should be absent from the final story diff once Task 23 lands.
+- `server/src/chat/reingestToolResult.ts` and `server/src/chat/reingestStepLifecycle.ts` - runtime files that must expose one stable schema per log marker once Task 24 lands.
+- The final `origin/main...HEAD` diff - proof surface that the reopened branch scope is once again story-owned.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check the Story `0000052` acceptance criteria against the landed Tasks 23 and 24 work so the new review findings are actually closed and the original `working` / `plan_scope` contract still has direct proof.
+2. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` plus focused repository search and confirm the out-of-scope client files from Task 23 are gone from the branch diff and the ambiguous shared lifecycle marker from Task 24 has been replaced by one stable schema per marker.
+3. [x] Current Repository: Re-open the current review evidence, findings, and blind-spot challenge artifacts and refresh this story file's close-out notes so the final reopened state explains what was fixed, why the review reopened the story, and how the review-fix work was revalidated.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] Current Repository: Run `npm run compose:up`.
+9. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, reconfirm the Story `0000052` `reingest_working` and `reingest_plan_scope` behavior plus the `/logs` proof path, and check that there are no browser-console `error` entries during the final runtime proof.
+10. [x] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T222622Z-549a89b3` produced two repo-local `should_fix` findings. The final close-out for this reopen must prove both repairs together, carry the durable review artifacts forward, and confirm the original Story `0000052` acceptance contract still holds after the cleanup.
+- Subtask 1: Re-checked the reopened Story `0000052` acceptance surfaces against the landed Task 23 and Task 24 repairs. The original `sourceId`, `working`, and `plan_scope` runtime contract still has direct proof in the planned runtime files and their existing unit/integration suites, while the reopened findings are now narrowed to branch-diff ownership and log-marker vocabulary rather than unresolved behavior drift.
+- Subtask 2: Re-ran `git diff --name-status origin/main...HEAD` plus focused repository search. `client/src/pages/LogsPage.tsx` and `client/src/test/logsPage.test.tsx` are absent from the branch diff, the old shared `DEV-0000052:T5:reingest-lifecycle` marker no longer appears in the runtime/test surfaces, and the replacement markers are now `DEV-0000052:T5:reingest-tool-result-built` and `DEV-0000052:T5:reingest-lifecycle-persisted` with distinct ownership.
+- Subtask 3: Re-opened the `0000052-review-20260327T222622Z-549a89b3` evidence, findings, and blind-spot challenge artifacts before refreshing the close-out notes. The story file now explains that this reopen was limited to an out-of-scope client diff plus an ambiguous lifecycle marker contract, and that Tasks 23 through 25 closed those findings with fresh wrapper, diff, and browser-visible proof.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the reopened final-validation pass still builds the server workspace without new drift.
+- Testing 2: `npm run build:summary:client` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the reopened validation pass still clears the client typecheck/build gate after the Task 23 cleanup.
+- Testing 3: `npm run test:summary:server:unit` passed cleanly with `tests run: 1507`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 4: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the feature-level server suite still holds after the Task 24 log-marker split.
+- Testing 5: `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the client suite still passes after removing the out-of-scope `/logs` timestamp-hardening delta from this story branch.
+- Testing 6: `npm run test:summary:e2e` finished with `agent_action: inspect_log` because the wrapper reported ambiguous counts during teardown. Inspected `logs/test-summaries/e2e-tests-latest.log`, which contains the embedded Playwright JSON summary `expected: 50`, `skipped: 3`, and `unexpected: 0`, so the full e2e suite still passed.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the wrapper-supported runtime stack still builds cleanly for the final manual proof.
+- Testing 8: `npm run compose:up` passed and brought the supported main compose stack up cleanly for the final runtime proof; the containers started successfully, Mongo reached `Healthy`, the server reached `Healthy`, and the client became reachable on `http://host.docker.internal:5001`.
+- Testing 9: Final Playwright MCP proof passed against `http://host.docker.internal:5001/logs` on the wrapper-started stack. `reingest_working` returned `202 Accepted` for conversation `98b30ae2-b788-4f32-92b9-166112c220ea`, `reingest_plan_scope` returned `202 Accepted` for conversation `384698db-fe35-4272-ac72-d66aad9ba0e7`, the logs table showed `DEV-0000052:T4:reingest-execution`, `DEV-0000052:T5:reingest-tool-result-built`, `DEV-0000052:T5:reingest-lifecycle-persisted`, and `DEV-0000052:T8:compose-reingest-proof` for both target modes, `browser_console_messages(level=\"error\")` returned no entries, and the filtered logs screenshot was captured at `/tmp/playwright-output/playwright-output-local/0000052-task25-logs-filtered.png`.
+- Testing 10: `npm run compose:down` completed cleanly after the final runtime proof, stopping the wrapper-started containers and removing the `codeinfo2_internal` network without requiring any manual Docker cleanup.
+
+- Git Commits:
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260327T235133Z-1c55020b`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-blind-spot-challenge.md`
+- Review outcome: reopen Story `0000052` for one repo-local `should_fix` finding in the current repository, then close the story again only after Tasks 26 and 27 remove the malformed single-result `targetMode` coercion, preserve the intended legacy `current` compatibility boundary, and rerun the full wrapper-first validation ladder.
+- Finding summary: the review correctly flagged `server/src/chat/reingestStepLifecycle.ts` for silently coercing malformed single-result `targetMode` values to canonical `sourceId`. That behavior is broader than the planned legacy-compatibility contract because the story explicitly needs to keep historical `current` readable, but it does not need to rewrite arbitrary malformed single-result target modes into a valid selector-driven result shape.
+- Challenge artifact status: the focused blind-spot challenge produced no new findings. It strengthened the rejected-risk conclusions for `executeReingestRequest(...)` and `resolvePlanScopeRepositories(...)`, and it strengthened the existing lifecycle-normalizer finding by confirming that malformed batch warnings are covered directly while malformed single-result `targetMode` values still have no direct rejection-or-acceptance proof.
+- Final validation refresh: Task 27 re-opened these durable review artifacts, proved that the lifecycle reader now limits compatibility to canonical `sourceId` / `working`, explicit legacy `current`, and omitted historical single-result payloads instead of defaulting malformed values to `sourceId`, and revalidated the original `working` / `plan_scope` acceptance contract on the supported wrapper-first build, test, and runtime proof path.
+
+---
+
+### Task 26. Harden Single-Result Lifecycle Target-Mode Normalization Against Malformed Persisted Payloads
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+The latest review pass found that the single-result lifecycle reader in `server/src/chat/reingestStepLifecycle.ts` still rewrites malformed `targetMode` values to canonical `sourceId`. That makes corrupt persisted payloads look like valid selector-based re-ingest results in assistant text, persisted `toolCalls`, and lifecycle logs. This task must narrow that behavior to the intended compatibility boundary: keep the known legacy single-result mode(s) that the story explicitly supports, but stop silently converting arbitrary malformed single-result target modes into canonical `sourceId`.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 26 checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-findings.md` - source of the lifecycle-normalizer finding this task must close.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-blind-spot-challenge.md` - focused challenge artifact that strengthened the finding and ruled out additional defects in the other top-risk helpers.
+- `server/src/chat/reingestStepLifecycle.ts` - current single-result lifecycle normalizer that still coerces malformed `targetMode` values to `sourceId`.
+- `server/src/test/unit/reingest-step-lifecycle.test.ts` - focused proof surface that must explicitly cover the malformed single-result target-mode path and the intended legacy compatibility path.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-read the Task 26 finding, the focused blind-spot challenge notes, and the current single-result normalization logic in `server/src/chat/reingestStepLifecycle.ts` so the repair stays limited to the malformed-target-mode seam instead of reopening the rest of the lifecycle payload contract.
+2. [x] Current Repository: Update the single-result lifecycle normalization path so it preserves only the intended supported single-result target modes, including the explicit legacy compatibility mode that this story still needs to read, and stops silently rewriting arbitrary malformed single-result `targetMode` values to canonical `sourceId`.
+3. [x] Current Repository: Update the focused lifecycle unit coverage so it proves both sides of the repaired contract explicitly:
+   - a valid legacy single-result payload still remains readable through the lifecycle normalization path;
+   - a malformed single-result `targetMode` no longer gets normalized into a false canonical `sourceId` result shape.
+4. [x] Current Repository: Update this story file's Task 26 Implementation notes immediately after the repair lands, naming the final single-result compatibility rule, the chosen malformed-payload behavior, and why that behavior is safer than coercing unknown target modes into `sourceId`.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This task changes server/common lifecycle behavior, so prove it with the current repository's server build plus the full server unit and cucumber summary suites rather than defaulting to narrow targeted tests. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T235133Z-1c55020b` produced one repo-local `should_fix` finding in the current repository. The intended repair is to tighten the lifecycle reader's single-result compatibility boundary so malformed persisted payloads are not misrepresented as valid selector-driven results.
+- Subtask 1: Re-read the Task 26 finding, the matching blind-spot challenge notes, and the single-result normalization branch in `server/src/chat/reingestStepLifecycle.ts` before editing. The issue is isolated to malformed single-result `targetMode` fallback behavior; the batch compatibility and warning paths were left untouched.
+- Subtask 2: Replaced the single-result fallback-to-`sourceId` branch with an explicit normalizer. The lifecycle reader now accepts canonical `sourceId` and `working`, preserves the legacy `current` reader path by mapping it explicitly to canonical `sourceId`, keeps omitted historical single-result `targetMode` values readable as `sourceId`, and rejects arbitrary malformed single-result modes instead of silently canonicalizing them.
+- Subtask 3: Added focused lifecycle coverage for both sides of the repaired contract. One test now proves a persisted legacy single-result payload with `targetMode: 'current'` still reads through the lifecycle path as canonical `sourceId`, and a second test proves an unknown single-result `targetMode` now falls back to the generic lifecycle text path without emitting false canonical payload-persistence logs.
+- Subtask 4: Final single-result compatibility rule is now explicit: canonical `sourceId` / `working`, explicit legacy `current`, and omitted historical single-result `targetMode` remain readable; unknown single-result modes are treated as malformed and left unparsed. That behavior is safer than coercing unknown values into `sourceId` because it avoids misrepresenting corrupt persisted payloads as valid selector-driven re-ingest results in assistant text, persisted lifecycle payload logs, and later debugging surfaces.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the narrower single-result lifecycle reader did not introduce any server build drift.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1509`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the narrowed single-result lifecycle compatibility rule still holds across the feature-level server suite.
+
+- Git Commits:
+  - `1fd0926e DEV-0000052 - harden single-result lifecycle normalization`
+  - `c6de2354 DEV-0000052 - mark task 26 git commits`
+
+---
+
+### Task 27. Re-Run Final Validation After The Lifecycle Normalization Fix
+
+- Repository Name: `Current Repository`
+- Task Status: `__done__`
+
+#### Overview
+
+Close the reopened Story `0000052` only after Task 26 lands. This final validation task must prove that the lifecycle reader no longer rewrites malformed single-result target modes to canonical `sourceId`, that the intended legacy compatibility path still works, and that the original `working` / `plan_scope` acceptance criteria remain intact across the full wrapper-first validation ladder and final runtime proof.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan, Task 26 repair, and final validation checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-evidence.md` - durable evidence artifact for the current review pass.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-findings.md` - durable findings artifact that Task 26 must close.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-blind-spot-challenge.md` - additive challenge artifact that confirmed no extra late finding beyond the recorded lifecycle-normalizer issue.
+- `server/src/chat/reingestStepLifecycle.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` - primary proof surfaces for the repaired malformed single-result target-mode handling.
+- The final `origin/main...HEAD` diff - proof surface that the reopened branch scope is once again story-owned and that the review-fix task did not broaden the story.
+
+#### Subtasks
+
+1. [x] Current Repository: Re-check the Story `0000052` acceptance criteria against the landed Task 26 fix so the review finding is actually closed and the original `working` / `plan_scope` contract still has direct proof.
+2. [x] Current Repository: Re-run `git diff --name-status origin/main...HEAD` plus focused repository search and confirm the remaining branch diff still maps cleanly to Story `0000052`, and that the repaired lifecycle reader no longer coerces malformed single-result `targetMode` values to canonical `sourceId`.
+3. [x] Current Repository: Re-open the current review evidence, findings, and blind-spot challenge artifacts and refresh this story file's close-out notes so the final reopened state explains what was fixed, why the review reopened the story again, and how the lifecycle-normalization repair was revalidated.
+
+#### Testing
+
+This task belongs to `Current Repository`, so use this repository's wrapper-first build and test workflow from `AGENTS.md` only. Do not attempt to run builds or tests without using the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack. Prefer the full app-level summary wrappers here rather than narrow targeted tests unless a failing wrapper forces follow-up diagnosis. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [x] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [x] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [x] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [x] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [x] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [x] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish, for example with `timeout 7m` or `timeout_ms=420000` in the harness. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [x] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [x] Current Repository: Run `npm run compose:up`.
+9. [x] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, reconfirm the Story `0000052` `reingest_working` and `reingest_plan_scope` behavior plus the `/logs` proof path, and check that there are no browser-console `error` entries during the final runtime proof.
+10. [x] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T235133Z-1c55020b` produced one repo-local `should_fix` finding. The final close-out for this reopen must prove the lifecycle-normalization repair together with the original Story `0000052` runtime contract and carry the durable review artifacts forward into the final committed state.
+- Subtask 1: Re-checked the reopened Story `0000052` acceptance surfaces against the landed Task 26 repair. The original `sourceId`, `working`, and `plan_scope` runtime contract still has direct proof in the planned runtime files and their existing unit/integration suites, while the reopened finding is now narrowed to malformed single-result lifecycle-reader coercion rather than unresolved runtime behavior drift.
+- Subtask 2: Re-ran `git diff --name-status origin/main...HEAD` plus focused repository search. The remaining branch diff still maps to Story `0000052` implementation, docs, tests, approved flows, and review artifacts, the old shared `DEV-0000052:T5:reingest-lifecycle` marker remains absent from runtime/test surfaces, and the lifecycle reader now exposes explicit legacy `current` handling plus a malformed single-result fallback path instead of silently coercing unknown modes to canonical `sourceId`.
+- Subtask 3: Re-opened the `0000052-review-20260327T235133Z-1c55020b` evidence, findings, and blind-spot challenge artifacts before refreshing the close-out notes in this story file. The reopen summary now explains that Task 26 narrowed the single-result compatibility boundary, and this Task 27 pass revalidated the fix together with the original `working` / `plan_scope` contract on the wrapper-supported proof path.
+- Testing 1: `npm run build:summary:server` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the final validation pass still builds the server workspace without new drift after Task 26.
+- Testing 2: `npm run build:summary:client` passed cleanly with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the final validation pass still clears the client typecheck/build gate after the lifecycle-reader repair.
+- Testing 3: `npm run test:summary:server:unit` passed cleanly with `tests run: 1509`, `failed: 0`, and `agent_action: skip_log`. The wrapper again ran well past its nominal budget while continuing to emit healthy `agent_action: wait` heartbeats before finishing successfully.
+- Testing 4: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 75`, `failed: 0`, and `agent_action: skip_log`, so the feature-level server suite still holds after the Task 26 lifecycle-reader repair.
+- Testing 5: `npm run test:summary:client` passed cleanly with `tests run: 652`, `failed: 0`, and `agent_action: skip_log`, so the client suite still passes during the final validation pass after Task 26.
+- Testing 6: `npm run test:summary:e2e` ended with `agent_action: inspect_log` because the wrapper reported ambiguous counts during teardown. Inspected `logs/test-summaries/e2e-tests-latest.log`, which contains the embedded Playwright JSON summary `expected: 53`, `skipped: 0`, and `unexpected: 0`, so the full e2e suite still passed.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the wrapper-supported runtime stack still builds cleanly for the final manual proof.
+- Testing 8: `npm run compose:up` brought the supported main compose stack up cleanly for the final runtime proof after the wrapper ladder finished. A first manual `/logs` marker POST omitted `timestamp` and created an invalid log entry, so the stack was intentionally restarted and the final proof was rerun on a fresh wrapper-started stack with a properly timestamped marker instead of carrying forward a self-inflicted malformed log record.
+- Testing 9: Final Playwright MCP proof passed against `http://host.docker.internal:5001/logs` on the fresh wrapper-started stack with a `DEV-0000052` filter applied. `reingest_working` returned conversation `5a142c36-8d19-4b74-bbff-24f2c800f038` with assistant content `Re-ingest completed for /Users/danielstapleton/Documents/dev/task14-ingest-mini.`, `reingest_plan_scope` returned conversation `b4061325-1da5-4342-b483-afd5caf1384a` with assistant content `Plan-scope re-ingest recorded for 1 repositories (1 reingested, 0 skipped, 0 failed). Warning count: 2.`, the filtered logs view showed `DEV-0000052:T4:reingest-execution`, `DEV-0000052:T5:reingest-tool-result-built`, `DEV-0000052:T5:reingest-lifecycle-persisted`, `DEV-0000052:T8:compose-reingest-proof`, and `DEV-0000052:T27:final-lifecycle-normalization-verified`, `browser_console_messages(level="error")` returned no entries, and the reviewed screenshot was captured at `/tmp/playwright-output/playwright-output-local/0000052-task27-logs-filtered.png`.
+- Testing 10: `npm run compose:down` completed cleanly after the final runtime proof, stopping the wrapper-started containers and removing the `codeinfo2_internal` network without requiring any manual Docker cleanup.
+
+- Git Commits:
+  - `416fbaf4 DEV-0000052 - close lifecycle normalization validation`
+  - `29fcced9 DEV-0000052 - mark task 27 git commits`
+  - `6df82da1 DEV-0000052 - finalize task 27 plan ledger`
+
+## Post-Implementation Code Review
+
+- Review pass: `0000052-review-20260328T010630Z-c39e2618`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260328T010630Z-c39e2618-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260328T010630Z-c39e2618-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000052-review-20260328T010630Z-c39e2618-blind-spot-challenge.md`
+- Review disposition: no findings; story remains complete in the current repository.
+
+### Branch And Scope Checks
+
+- Re-read `codeInfoStatus/flow-state/current-plan.json` and confirmed the canonical plan remains `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`.
+- Re-checked the current repository branch as `feature/0000052-users-can-reingest-the-working-repository-or-plan-scope`, which still matches the `0000052` story number in the selected plan filename.
+- Re-confirmed that `additional_repositories` is empty in the handoff and that the plan's `## Additional Repositories` section still resolves to `- No Additional Repositories`, so the review scope is this repository only.
+- Re-validated the review handoff against current state and confirmed `current_repository` still points at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`, `origin/main` remains the resolved review base, and the reviewed HEAD commit remains `c39e2618`.
+
+### Files Inspected
+
+- Runtime and schema surfaces: `server/src/agents/commandsRunner.ts`, `server/src/agents/commandsSchema.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/flows/flowSchema.ts`, `server/src/flows/service.ts`, `server/src/ingest/pathMap.ts`, `server/src/ingest/planScopeResolver.ts`, and `server/src/ingest/reingestExecution.ts`
+- Proof and regression surfaces: `server/src/test/support/planScopeFixture.ts`, the changed integration tests, the changed unit tests, and the Task 27 wrapper-run notes already recorded above in this plan
+- Supporting documentation surfaces: `design.md`, `docs/developer-reference.md`, `projectStructure.md`, approved `flows/**`, and the durable review artifacts listed above
+
+### Acceptance Evidence
+
+- AC 1-10: direct proof. The command and flow schemas now accept only `sourceId`, `working`, and `plan_scope`, and the selector-driven `sourceId` contract remains intact through the runtime and MCP test surfaces.
+- AC 11-20: direct proof. The `working` and `plan_scope` execution paths resolve the working repository through the existing repository-resolution seam, fail clearly before start when the working repository is unusable, and read plan-scope additions only from `current-plan.json.additional_repositories[].path`.
+- AC 21-39: direct proof. Missing, malformed, unreadable, invalid, duplicate, skipped, and continue-after-failure plan-scope cases are covered directly in resolver, execution, tool-result, and lifecycle tests, and the runtime still reuses the existing batch payload family instead of inventing a new one.
+- AC 40-46: direct proof for the changed write and normalization paths, with one indirect dependency on the unchanged `server/src/mongo/turn.ts` mixed-schema storage seam. Completed warning-bearing `plan_scope` batches still persist as tool-result `stage: "success"` with batch warnings carried through the existing `Turn.toolCalls` path.
+- AC 47-50: direct proof. Removed authored targets fail through the normal invalid-target schema path, MCP `reingest_repository` remains selector-driven, docs and tests no longer present `current` as a supported authored target, and the shared review prompts and flows now include rejected-risk notes plus an explicit blind-spot challenge step.
+
+### Completion Assessment
+
+- The current repository remains complete because the final diff against `origin/main` still maps to the planned `working` / `plan_scope` runtime, docs, tests, approved review-flow support changes, and the two review-fix reopenings that were already closed by Tasks 23 through 27.
+- The story remains complete because the latest no-findings review pass rechecked the final landed implementation after those reopenings, found no remaining repo-local or cross-repository defects, and the final task already records the full wrapper-first validation ladder plus the browser-visible runtime proof.
+- The implemented code is appropriately succinct for the required behavior. The main complexity sits in the lifecycle compatibility seam because it has to preserve explicit historical payloads while rejecting malformed future values, but the latest review pass did not find a lower-churn simplification that would improve the contract without weakening that boundary.
+
+### Generic Adversarial Review
+
+- Execution-routing or harness dependence: indirect proof. The changed behavior still runs through the unchanged default wrappers and server startup paths, and the plan's final validation notes record full wrapper coverage without evidence that the branch moved any changed path behind a manual-only invocation.
+- Default launcher, wrapper, dispatcher, CI, or startup-path inclusion: indirect proof. The review found no selector or suffix changes that would silently exclude the new behavior from the standard validation path, but this remains grounded in unchanged wrapper and package-script consumers rather than a newly added launcher assertion.
+- Shared-state or concurrency safety: indirect proof. The changed tests use temp fixtures and explicit cleanup, and the runtime reuses a stable ingested-repository snapshot per execution path, but the review still has only indirect proof for concurrent handoff-file rewrite races.
+- Reader and writer atomicity or partial-write tolerance: indirect proof. `plan_scope` intentionally falls back to working-only for malformed or unreadable handoffs, which is the planned contract, but there is no direct proof for observing `current-plan.json` in the middle of a truncate-and-rewrite.
+- Cleanup ownership or stale-state safety: indirect proof. The final wrapper and compose proof showed clean startup and teardown behavior with no browser-console errors, but the review did not find new direct crash-recovery coverage beyond the existing happy and warning-path tests.
+- Lifecycle ordering: direct proof. The runtime, tool-result builder, and lifecycle persistence paths were all reopened and revalidated, and the latest findings pass plus blind-spot challenge specifically challenged continue-after-failure behavior, summary alignment, and malformed single-result target-mode handling.
+- Test isolation: indirect proof. The changed unit and integration suites show explicit temp-dir cleanup and passed under the default wrappers, but the review still treats full parallel interference and crash-mid-persist scenarios as residual weak-proof areas rather than exhaustively disproven states.
+
+### Rejected-Risk Notes Carried Forward
+
+- `executeReingestRequest(...)` in `server/src/ingest/reingestExecution.ts`: rejected risk with direct proof. The reviewed code and tests still show that ordered `plan_scope` batches preserve earlier outcomes, append `repository_failed` warnings for ok-shaped terminal failures and thrown failures, and continue through later repositories instead of aborting early.
+- `resolvePlanScopeRepositories(...)` in `server/src/ingest/planScopeResolver.ts`: rejected risk for malformed, unreadable, invalid-array, duplicate, and invalid-repository handoff states, with one residual weak-proof concern for a concurrent partial-write race. That remaining weak proof is acceptable here because the explicit story contract already says malformed or unreadable handoffs should fall back to working-only behavior with warnings.
+- `getReingestPayload(...)` / `normalizeLegacySingleTargetMode(...)` in `server/src/chat/reingestStepLifecycle.ts`: rejected risk with direct proof. The final landed code now keeps canonical `sourceId` / `working`, explicit legacy `current`, and omitted historical single-result payloads readable while leaving malformed future single-result target modes unparsed instead of coercing them into canonical `sourceId`.
+- Blind-spot challenge follow-up: the focused challenge added no new findings and strengthened all three rejected-risk conclusions above. It specifically re-checked mixed-shape persisted single-result payloads, path-spelling and normalization duplicates in plan-scope resolution, and multi-failure ordered batch execution without overturning the no-findings disposition.
+
+## Final Summary
+
+1. The story changes the authored and runtime re-ingest contract from the old owner-era `current` / `all` targets to the newer `working` and `plan_scope` targets across the command schema, flow schema, runtime execution, chat tool-result payloads, lifecycle persistence, docs, tests, and the repository's own checked-in workflow assets. It also includes the later review-fix reopenings that removed an out-of-scope `/logs` client change, split the ambiguous `DEV-0000052:T5:reingest-lifecycle` log contract into two stable markers, and tightened lifecycle normalization so malformed persisted single-result `targetMode` values are no longer silently coerced into canonical `sourceId`.
+
+2. The change was made because users work from a selected `working_folder` repository, not from the repository that owns a flow or command file, so the old `current` wording no longer matched the real workflow model. `plan_scope` was added so the product can re-ingest the working repository plus the related repositories already declared in `codeInfoStatus/flow-state/current-plan.json`, while still preserving explicit `sourceId` for one-repository control. The review-fix reopenings were necessary to keep the branch honest: remove unrelated client drift, make downstream log parsing unambiguous, and ensure malformed persisted lifecycle payloads are surfaced safely instead of being rewritten into valid-looking results.
+
+3. The most complex logic sits in the `plan_scope` resolution and lifecycle compatibility seams. `plan_scope` first validates the working repository, then reads only `additional_repositories[].path` from the current-plan handoff, preserves working-first ordering, deduplicates repositories on their resolved identity, falls back to working-only with warnings when the handoff is missing or malformed, and continues after per-repository failures so the batch can finish with ordered outcomes plus warning data. On the readback side, lifecycle persistence still understands the explicit legacy single-result shape it must support, but it now draws a harder line by accepting only canonical `sourceId` / `working`, explicit legacy `current`, and omitted historical single-result modes, leaving unknown future values unparsed instead of pretending they were valid selector-driven results.
+
+4. A reviewer should pay particular attention to `server/src/ingest/reingestExecution.ts`, `server/src/ingest/planScopeResolver.ts`, `server/src/chat/reingestToolResult.ts`, and `server/src/chat/reingestStepLifecycle.ts`, because those files jointly define the runtime, warning, summary, and persistence contracts for `working` and `plan_scope`. The most important things to verify are that `plan_scope` still uses the working repository first, only reads `additional_repositories[].path` from the handoff, keeps skipped-at-resolution repositories out of the attempted batch payload, preserves warning and summary alignment after repository-level failures, and leaves malformed future lifecycle payloads unparsed rather than silently normalizing them into canonical success-shaped data.

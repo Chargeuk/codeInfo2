@@ -53,7 +53,7 @@ export type FlowCommandStep = {
 export type FlowReingestStep = {
   type: 'reingest';
   label?: string;
-} & ({ sourceId: string } | { target: 'current' | 'all' });
+} & ({ sourceId: string } | { target: 'working' | 'plan_scope' });
 
 export type FlowStep =
   | FlowStartLoopStep
@@ -124,19 +124,19 @@ const FlowReingestSourceIdStepSchema = z
   })
   .strict();
 
-const FlowReingestCurrentTargetStepSchema = z
+const FlowReingestWorkingTargetStepSchema = z
   .object({
     type: z.literal('reingest'),
     label: trimmedNonEmptyString.optional(),
-    target: z.literal('current'),
+    target: z.literal('working'),
   })
   .strict();
 
-const FlowReingestAllTargetStepSchema = z
+const FlowReingestPlanScopeTargetStepSchema = z
   .object({
     type: z.literal('reingest'),
     label: trimmedNonEmptyString.optional(),
-    target: z.literal('all'),
+    target: z.literal('plan_scope'),
   })
   .strict();
 
@@ -147,9 +147,80 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowCommandStepSchema,
     FlowReingestSourceIdStepSchema,
-    FlowReingestCurrentTargetStepSchema,
-    FlowReingestAllTargetStepSchema,
+    FlowReingestWorkingTargetStepSchema,
+    FlowReingestPlanScopeTargetStepSchema,
   ]);
+}
+
+function emitReingestTargetContractLogs(params: {
+  flowName: string;
+  raw: unknown;
+  parsedOk: boolean;
+}) {
+  if (
+    !params.parsedOk &&
+    typeof params.raw === 'object' &&
+    params.raw !== null
+  ) {
+    const steps = (params.raw as { steps?: unknown }).steps;
+    if (!Array.isArray(steps)) return;
+
+    for (const [stepIndex, step] of steps.entries()) {
+      if (typeof step !== 'object' || step === null) continue;
+      const target = (step as { target?: unknown; type?: unknown }).target;
+      const type = (step as { target?: unknown; type?: unknown }).type;
+      if (type === 'reingest' && (target === 'current' || target === 'all')) {
+        append({
+          level: 'info',
+          message: 'DEV-0000052:T1:reingest-target-contract',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'flow',
+            definitionName: params.flowName,
+            definitionIndex: stepIndex,
+            outcome: 'rejected_removed_target',
+            removedTarget: target,
+          },
+        });
+      }
+    }
+    return;
+  }
+
+  if (
+    !params.parsedOk ||
+    typeof params.raw !== 'object' ||
+    params.raw === null ||
+    !Array.isArray((params.raw as { steps?: unknown }).steps)
+  ) {
+    return;
+  }
+
+  const steps = (params.raw as { steps: unknown[] }).steps;
+  for (const [stepIndex, step] of steps.entries()) {
+    if (typeof step !== 'object' || step === null) continue;
+    const target = (step as { target?: unknown; type?: unknown }).target;
+    const type = (step as { target?: unknown; type?: unknown }).type;
+    if (
+      type === 'reingest' &&
+      (target === 'working' || target === 'plan_scope')
+    ) {
+      append({
+        level: 'info',
+        message: 'DEV-0000052:T1:reingest-target-contract',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          surface: 'flow',
+          definitionName: params.flowName,
+          definitionIndex: stepIndex,
+          outcome: 'accepted_supported_target',
+          supportedTarget: target,
+        },
+      });
+    }
+  }
 }
 
 const FlowFileSchema = z
@@ -200,6 +271,13 @@ export function parseFlowFile(
   }
 
   const parsed = FlowFileSchema.safeParse(raw);
+  if (metadata?.emitSchemaParseLogs) {
+    emitReingestTargetContractLogs({
+      flowName: metadata.flowName?.trim() || '(unknown)',
+      raw,
+      parsedOk: parsed.success,
+    });
+  }
   if (!parsed.success) return { ok: false };
 
   if (metadata?.emitSchemaParseLogs) {

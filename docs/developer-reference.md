@@ -143,7 +143,40 @@ Use this document for API contracts, protocol details, and advanced runtime beha
   - request args: `{ "sourceId": "<absolute-normalized-container-path>" }`
   - success payload (terminal-only): `{ "status": "completed" | "cancelled" | "error", "operation": "reembed", "runId": "...", "sourceId": "...", "durationMs": <number>, "files": <number>, "chunks": <number>, "embedded": <number>, "errorCode": "<string | null>" }`
   - failure mappings: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; busy -> `error.code=429`, `error.message="BUSY"`
-  - error retry guidance includes deterministic `fieldErrors.reason` plus `reingestableRepositoryIds` and `reingestableSourceIds`.
+- error retry guidance includes deterministic `fieldErrors.reason` plus `reingestableRepositoryIds` and `reingestableSourceIds`.
+
+### Story 52 re-ingest contract
+
+- Authored re-ingest requests for direct commands, top-level flow steps, and flow-owned command items now support only three shapes:
+  - `{ "type": "reingest", "sourceId": "<selector>" }`
+  - `{ "type": "reingest", "target": "working" }`
+  - `{ "type": "reingest", "target": "plan_scope" }`
+- Removed literals `target: "current"` and `target: "all"` are no longer valid for new command or flow content.
+- Execution contract:
+  - `working` re-ingests only the selected working repository and requires an explicit resolved `working_folder` path from the calling surface.
+  - `plan_scope` re-ingests the selected working repository first, then any `additional_repositories[].path` entries from `<working-repo>/codeInfoStatus/flow-state/current-plan.json` in file order after first-seen de-duplication.
+  - malformed, unreadable, or invalid plan handoff data degrades to working-only with warnings instead of hard-failing the batch.
+  - attempted repository failures inside `plan_scope` do not stop later repositories; completed warning-aware batches still persist and publish with `stage: "success"`.
+- MCP remains selector-only:
+  - classic `POST /mcp` and MCP v2 `reingest_repository` still accept only `sourceId`.
+  - `working` and `plan_scope` are intentionally command/flow authoring targets, not MCP request shapes.
+- Checked-in HTTP proof commands:
+  - `tasking_agent` command `reingest_working`
+  - `tasking_agent` command `reingest_plan_scope`
+- Main compose validation surface:
+  - use `docker-compose.yml` as the default mounted-runtime proof stack because it bind-mounts `${CODEINFO_HOST_INGEST_DIR}` into `${CODEINFO_CODEX_WORKDIR}` for the server container.
+  - `docker-compose.local.yml` is only for cases that need its extra source/runtime mounts.
+  - `docker-compose.e2e.yml` is not the core mounted-repository acceptance stack because it does not expose the working repository to the server container.
+- Story 52 proof markers visible on `/logs`:
+  - `DEV-0000052:T1:reingest-target-contract`
+  - `DEV-0000052:T2:plan-scope-fixture-proof`
+  - `DEV-0000052:T3:plan-scope-resolver`
+  - `DEV-0000052:T4:reingest-execution`
+  - `DEV-0000052:T5:reingest-lifecycle`
+  - `DEV-0000052:T6:direct-command-reingest`
+  - `DEV-0000052:T7:flow-reingest`
+  - `DEV-0000052:T8:compose-reingest-proof`
+  - `DEV-0000052:T9:final-traceability-reviewed`
 
 ### Server `CODEINFO_` env contract
 

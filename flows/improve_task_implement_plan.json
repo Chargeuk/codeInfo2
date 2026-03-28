@@ -323,6 +323,13 @@
         },
         {
           "type": "llm",
+          "label": "Blind-spot challenge",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "review_blind_spot_challenge.md"
+        },
+        {
+          "type": "llm",
           "label": "Review disposition",
           "agentType": "planning_agent",
           "identifier": "planner",

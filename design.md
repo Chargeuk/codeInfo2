@@ -11,6 +11,96 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000052 Task 4 working and plan-scope execution
+
+- `server/src/ingest/reingestExecution.ts` now treats authored re-ingest requests as one runtime contract with only three modes: explicit `sourceId`, single-repository `working`, and batch `plan_scope`.
+- `working` is now the execution-layer replacement for the removed owner-based `current` branch. Callers can pass `workingRepositoryPath` directly, the execution layer resolves that path against the existing ingested-repository selector seam, and the request fails before start when no usable working repository is available.
+- `plan_scope` is now the execution-layer replacement for the removed `all` branch. It delegates repository-scope discovery to `server/src/ingest/planScopeResolver.ts`, keeps working-repository-first ordering, preserves additional-repository file order after first-seen de-duplication, and records skipped-at-resolution repositories only as warnings.
+- Batch execution is intentionally best-effort at this layer. Once a repository enters the attempted batch, later repositories still run even if an earlier attempt fails, and the result payload returns ordered attempted repositories plus `summary` and `warnings` rather than aborting the whole batch.
+- MCP remains sourceId-only in this task. The shared execution seam changed, but the classic and v2 `reingest_repository` tool schemas still require `sourceId` and do not expose `working` or `plan_scope`.
+
+```mermaid
+flowchart TD
+  Request["executeReingestRequest"] --> Mode{"request mode"}
+  Mode -->|sourceId| SourceId["canonicalize selector<br/>run single repository"]
+  Mode -->|working| Working["resolve workingRepositoryPath<br/>validate currently ingested"]
+  Mode -->|plan_scope| PlanScope["validate workingRepositoryPath<br/>resolve plan scope"]
+  Working --> Single["single result<br/>targetMode=working"]
+  SourceId --> SingleSource["single result<br/>targetMode=sourceId"]
+  PlanScope --> Resolver["planScopeResolver.ts<br/>working first + file order + dedupe"]
+  Resolver --> Batch["attempt resolved repositories only"]
+  Batch --> Result["batch result<br/>repositories + summary + warnings"]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as command/flow runtime
+  participant Exec as reingestExecution.ts
+  participant Resolver as planScopeResolver.ts
+  participant Ingest as runReingestRepository
+
+  Caller->>Exec: target=plan_scope + workingRepositoryPath
+  Exec->>Exec: validate working repository is ingested
+  Exec->>Resolver: resolvePlanScopeRepositories(...)
+  Resolver-->>Exec: ordered repositories + warnings
+  loop attempted repositories
+    Exec->>Ingest: runReingestRepository(sourceId)
+    alt repository succeeds
+      Ingest-->>Exec: completed/skipped terminal result
+    else repository fails
+      Ingest-->>Exec: structured failure
+      Exec->>Exec: append repository_failed warning
+    end
+  end
+  Exec-->>Caller: completed batch payload with summary + warnings
+```
+
+## Story 0000052 Task 7 flow re-ingest surfaces
+
+- `server/src/flows/service.ts` now passes `repositoryContext.workingRepositoryPath` into the shared Task 4 execution seam for both dedicated flow `reingest` steps and flow-owned command `reingest` items.
+- Flow runtime ownership stays explicit:
+  - dedicated flow `reingest` steps still execute in the top-level flow-step path;
+  - flow-owned command items still route through `server/src/agents/commandItemExecutor.ts` for item delegation, then return to `server/src/flows/service.ts` for re-ingest execution and lifecycle handling.
+- Both flow surfaces now reuse the same `working` and `plan_scope` contract as direct commands:
+  - `working` targets the selected `working_folder` repository only;
+  - `plan_scope` resolves the selected working repository first, then `additional_repositories[].path` from that repository's `current-plan.json`, preserving file order after first-seen de-duplication;
+  - completed `plan_scope` runs with warnings still publish and persist `stage: "success"` plus explicit `warnings`.
+- Task 7 adds `DEV-0000052:T7:flow-reingest` so logs can distinguish the two flow surfaces while still proving the final `targetMode` came from the shared runtime contract.
+
+```mermaid
+flowchart LR
+  subgraph FlowStep["Dedicated flow step"]
+    StepRequest["flow step = reingest"] --> StepExec["flows/service.ts<br/>runReingestStep"]
+  end
+  subgraph FlowCommand["Flow-owned command item"]
+    CommandItem["command item = reingest"] --> ItemDelegate["commandItemExecutor.ts<br/>delegation only"]
+    ItemDelegate --> CommandExec["flows/service.ts<br/>executeReingest callback"]
+  end
+  StepExec --> SharedExec["executeReingestRequest<br/>working or plan_scope"]
+  CommandExec --> SharedExec
+  SharedExec --> Lifecycle["reingestStepLifecycle.ts"]
+  Lifecycle --> Transcript["tool_event + persisted assistant turn"]
+```
+
+```mermaid
+sequenceDiagram
+  participant Route as /flows/:flowName/run
+  participant Flow as flows/service.ts
+  participant Exec as reingestExecution.ts
+  participant Life as reingestStepLifecycle.ts
+
+  Route->>Flow: start flow with sourceId + optional working_folder
+  alt dedicated flow step
+    Flow->>Exec: reingest step + workingRepositoryPath
+  else flow-owned command item
+    Flow->>Flow: commandItemExecutor delegates item
+    Flow->>Exec: executeReingest callback + workingRepositoryPath
+  end
+  Exec-->>Flow: single or batch execution payload
+  Flow->>Life: publish/persist shared tool-result lifecycle
+  Life-->>Route: stage=success, targetMode, warnings
+```
+
 ## Story 0000051 final architecture closeout
 
 - Story `0000051` completes a chat-only third-provider integration for GitHub Copilot. The top-level product provider contract is now one ordered list shared by server defaults, client bootstrap, persistence enums, provider discovery, model loading, and OpenAPI: `codex`, then `copilot`, then `lmstudio`.
@@ -5051,20 +5141,17 @@ flowchart TD
 
 ## Story 0000050 Task 3: shared re-ingest target orchestration
 
-- Task 3 adds one shared orchestration seam in `server/src/ingest/reingestExecution.ts` above the strict single-repository `runReingestRepository(...)` service.
-- Request modes now resolve like this before strict execution starts:
-  - explicit `sourceId` tries the existing repository selector first and falls back to the original selector when no canonical match is found, so the strict service still owns the final validation categories;
-  - `target: "current"` uses the already-threaded owner for the current surface:
-    - direct command: command file repository;
-    - top-level flow step: flow file repository;
-    - nested flow-owned command item: command file repository, not the parent flow owner;
-  - `target: "all"` resolves the currently ingested repositories in ascending canonical container-path order and executes them sequentially.
-- The shared orchestration result stays intentionally intermediate for Task 3:
-  - single-target runs return `{ kind: "single", targetMode, requestedSelector, resolvedSourceId, outcome }`;
-  - batch runs return `{ kind: "batch", targetMode: "all", requestedSelector: null, repositories }`;
+- Story 0000052 supersedes the original `current` / `all` authored-target contract described in this Story 0000050 Task 3 section.
+- The shared orchestration seam in `server/src/ingest/reingestExecution.ts` still sits above the strict single-repository `runReingestRepository(...)` service, but the final request modes now resolve like this before strict execution starts:
+  - explicit `sourceId` still tries the repository selector first and falls back to the original selector when no canonical match is found, so the strict service still owns the final validation categories;
+  - `target: "working"` requires an explicit selected working repository path from the calling surface and re-ingests only that repository;
+  - `target: "plan_scope"` validates the selected working repository first, then resolves `additional_repositories[].path` from `<working-repo>/codeInfoStatus/flow-state/current-plan.json` in file order after first-seen de-duplication.
+- The shared orchestration result stays intentionally intermediate:
+  - single-target runs return `{ kind: "single", targetMode: "sourceId" | "working", requestedSelector, outcome }`;
+  - batch runs return `{ kind: "batch", targetMode: "plan_scope", requestedSelector: null, repositories, summary, warnings }`;
   - each batch repository item keeps `sourceId`, `resolvedRepositoryId`, normalized `outcome`, lower-level `status` and `completionMode`, counts, `runId`, `errorCode`, and `errorMessage`.
-- `target: "all"` keeps running after per-repository failures. A strict-service validation refusal or terminal error becomes one failed repository item in the ordered batch result rather than aborting the remainder of the run.
-- The shared helper emits `DEV-0000050:T03:reingest_targets_resolved` before strict execution begins so manual proof can confirm `surface`, `targetMode`, `requestedSelector`, `resolvedCount`, and the ordered `resolvedPaths`.
+- `plan_scope` keeps running after attempted per-repository failures. A strict-service validation refusal or terminal error becomes one failed repository item in the ordered batch result rather than aborting the remainder of the run, and skipped-at-resolution repositories are surfaced only through warnings.
+- The shared helper still emits `DEV-0000050:T03:reingest_targets_resolved` before strict execution begins so manual proof can confirm `surface`, `targetMode`, `requestedSelector`, `resolvedCount`, and the ordered `resolvedPaths`.
 
 ```mermaid
 flowchart TD
@@ -5113,14 +5200,15 @@ flowchart LR
 
 ## Story 0000050 Task 4: re-ingest transcript payload lifecycle
 
+- Story 0000052 supersedes the original `current` / `all` transcript wording described in this Story 0000050 Task 4 section while keeping the same persistence channel.
 - Task 4 keeps the existing synthetic-turn and `Turn.toolCalls` persistence channel, but it widens the re-ingest tool payload contract so transcript readers can distinguish richer single-target metadata from one true batch result.
 - `server/src/chat/reingestToolResult.ts` now owns two payload shapes:
-  - `reingest_step_result` for `sourceId` and `current` single-target runs;
-  - `reingest_step_batch_result` for one `target: "all"` batch run.
+  - `reingest_step_result` for `sourceId` and `working` single-target runs;
+  - `reingest_step_batch_result` for one `target: "plan_scope"` batch run.
 - The single payload stays backward compatible on `sourceId` while adding `targetMode`, `requestedSelector`, `resolvedRepositoryId`, normalized `outcome`, and `completionMode`.
-- The batch payload stores one ordered `repositories` array plus a precomputed `summary` object, so later readers and validation paths do not need to recompute counts or reconstruct ordering from multiple synthetic turns.
+- The batch payload stores one ordered `repositories` array plus precomputed `summary` and explicit `warnings`, so later readers and validation paths do not need to recompute counts, reconstruct ordering, or infer warning-aware completion from multiple synthetic turns.
 - `server/src/chat/reingestStepLifecycle.ts` still persists one user turn and one assistant turn for a re-ingest action, but batch runs now summarize the whole batch in those synthetic turns rather than pretending they were a single-repository result.
-- Older stored single-result payloads remain readable because the lifecycle parser normalizes omitted optional fields from the mixed `toolCalls` payload instead of assuming the latest nested shape is always present.
+- Older stored payloads remain readable because the lifecycle parser normalizes omitted optional fields from the mixed `toolCalls` payload and still accepts historical `targetMode: "current"` / `targetMode: "all"` values for display compatibility.
 - The Task 4 persistence proof marker is `DEV-0000050:T04:reingest_payload_persisted`, emitted after assistant-turn persistence with `payloadKind`, `targetMode`, `repositoryCount`, and `conversationId`.
 
 ```mermaid
@@ -5167,6 +5255,40 @@ flowchart TD
   J -- no --> M[Return shared instruction result]
   L --> N[Caller skips execution and persists nothing]
   M --> O[Caller executes normal command or flow instruction path]
+```
+
+## Story 0000052 Task 5: warning-aware re-ingest lifecycle payloads
+
+- Task 5 keeps re-ingest persistence on the existing synthetic-turn plus `Turn.toolCalls` path, but it updates the payload contract so new writes reflect the `working` and `plan_scope` execution model from Task 4 instead of the removed `current` and `all` wording.
+- `server/src/chat/reingestToolResult.ts` now writes:
+  - `reingest_step_result` for `targetMode: "sourceId" | "working"`;
+  - `reingest_step_batch_result` for `targetMode: "plan_scope"` with ordered attempted `repositories`, explicit `summary`, and explicit `warnings`.
+- Completed `plan_scope` batches stay on `ChatToolResultEvent.stage = "success"` even when warnings include `repository_failed`, `repository_skipped`, `handoff_missing`, or `handoff_invalid`. Warning-aware completion is represented inside the payload rather than by inventing a third top-level stage.
+- `server/src/chat/reingestStepLifecycle.ts` still persists one synthetic user turn and one synthetic assistant turn, but it now publishes plan-scope-specific wording and makes warning-style completion visible in transcript text without degrading the whole batch into a hard error.
+- Historical stored payloads remain readable. The lifecycle parser still accepts older `targetMode: "current"` and `targetMode: "all"` payloads from `Turn.toolCalls`, normalizes omitted `warnings` to `[]`, and presents them through the current transcript-facing path.
+- `server/src/mongo/turn.ts` does not add a new top-level field for this task. Re-ingest payloads remain nested under `Turn.toolCalls`, and writes stay on the existing fresh `appendTurn(...)` path rather than an in-place `Schema.Types.Mixed` mutation flow.
+- The Task 5 lifecycle proof marker is `DEV-0000052:T5:reingest-lifecycle`, emitted with `stage`, `targetMode`, and `warningCount` once the lifecycle has published and persisted the tool result.
+
+```mermaid
+sequenceDiagram
+    participant Exec as reingestExecution.ts
+    participant Builder as reingestToolResult.ts
+    participant Lifecycle as reingestStepLifecycle.ts
+    participant Persist as Turn.toolCalls
+    participant Reader as Transcript readers
+
+    Exec->>Builder: single or batch execution result
+    alt single result
+        Builder->>Lifecycle: reingest_step_result targetMode=sourceId|working
+    else plan_scope batch
+        Builder->>Lifecycle: reingest_step_batch_result + warnings
+        Builder->>Lifecycle: stage=success
+    end
+    Lifecycle->>Lifecycle: build transcript-facing user/assistant text
+    Lifecycle->>Persist: assistant turn with toolCalls.calls[0]
+    Lifecycle-->>Lifecycle: DEV-0000052:T5:reingest-lifecycle
+    Persist->>Reader: stored mixed payload
+    Reader->>Reader: normalize historical current/all payloads for display
 ```
 
 ## Story 0000050 Task 6: shared MCP placeholder normalization
@@ -5301,16 +5423,19 @@ flowchart TD
     Helper --> UnitTests[server/src/test/unit/test-summary-host-network-main.test.ts]
 ```
 
-## Story 0000050 final contract summary
+## Story 0000050 / 0000052 current re-ingest contract summary
 
-- Re-ingest requests now support three explicit target modes across commands, flow steps, and flow-owned command items:
+- Story 0000052 supersedes the older `current` / `all` authored target contract from Story 0000050 for commands and flows.
+- Re-ingest requests now support three explicit authored shapes across commands, top-level flow steps, and flow-owned command items:
   - `sourceId: "<selector>"`
-  - `target: "current"`
-  - `target: "all"`
+  - `target: "working"`
+  - `target: "plan_scope"`
 - The shared orchestration seam in `server/src/ingest/reingestExecution.ts` resolves those requests into one intermediate result family before persistence:
-  - single target: `{ kind: "single", targetMode, requestedSelector, resolvedSourceId, outcome }`
-  - batch target: `{ kind: "batch", targetMode: "all", requestedSelector: null, repositories, summary }`
-- Persisted transcript payloads stay on one synthetic user turn plus one synthetic assistant turn, with `reingest_step_result` for single-target runs and `reingest_step_batch_result` for ordered `target: "all"` runs.
+  - single target: `{ kind: "single", targetMode: "sourceId" | "working", requestedSelector, outcome }`
+  - batch target: `{ kind: "batch", targetMode: "plan_scope", requestedSelector: null, repositories, summary, warnings }`
+- `plan_scope` resolves the selected working repository first, then `additional_repositories[].path` from `<working-repo>/codeInfoStatus/flow-state/current-plan.json` in file order after first-seen de-duplication.
+- Persisted transcript payloads stay on one synthetic user turn plus one synthetic assistant turn, with `reingest_step_result` for single-target runs and `reingest_step_batch_result` for ordered `target: "plan_scope"` runs. Warning-aware `plan_scope` completion stays on tool-result `stage: "success"` and is represented in the payload via explicit `warnings`.
+- MCP remains selector-only in the finished Story 52 contract: classic and v2 `reingest_repository` still accept only `sourceId`.
 - Blank markdown remains a repository-resolution feature, not a transcript feature. Missing, traversal, decode, and read failures still fail the step, while whitespace-only markdown now exits through the explicit Task 5 skip seam and does not fabricate turns or tool-call payloads.
 - The final runtime contract keeps four distinct host-visible surfaces:
   - REST plus classic `/mcp` on `CODEINFO_SERVER_PORT`
@@ -5322,12 +5447,12 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Request["reingest request"] --> Mode{sourceId | current | all}
+    Request["reingest request"] --> Mode{sourceId | working | plan_scope}
     Mode --> Resolve["reingestExecution.ts resolves targets"]
     Resolve --> Single["kind=single"]
     Resolve --> Batch["kind=batch"]
     Single --> PersistSingle["reingest_step_result"]
-    Batch --> PersistBatch["reingest_step_batch_result + summary"]
+    Batch --> PersistBatch["reingest_step_batch_result + summary + warnings"]
     PersistSingle --> Transcript["synthetic user + assistant turns"]
     PersistBatch --> Transcript
     Markdown["markdownFile resolution"] --> Blank{trimmed content empty?}

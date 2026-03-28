@@ -210,7 +210,8 @@ describe('Chat page auth refresh', () => {
           }) as unknown as Response;
         }
         if (href.includes('/chat/models')) {
-          const provider = new URL(href).searchParams.get('provider') ?? 'codex';
+          const provider =
+            new URL(href).searchParams.get('provider') ?? 'codex';
           return Promise.resolve({
             ok: true,
             status: 200,

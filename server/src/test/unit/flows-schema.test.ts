@@ -240,10 +240,10 @@ describe('flow schema (v1)', () => {
     });
   });
 
-  test('reingest steps parse with target current', () => {
+  test('reingest steps parse with target working', () => {
     const json = JSON.stringify({
       description: 'Sample flow',
-      steps: [{ type: 'reingest', target: 'current' }],
+      steps: [{ type: 'reingest', target: 'working' }],
     });
 
     const parsed = parseFlowFile(json);
@@ -252,14 +252,14 @@ describe('flow schema (v1)', () => {
 
     assert.deepEqual(parsed.flow.steps[0], {
       type: 'reingest',
-      target: 'current',
+      target: 'working',
     });
   });
 
-  test('reingest steps parse with target all', () => {
+  test('reingest steps parse with target plan_scope', () => {
     const json = JSON.stringify({
       description: 'Sample flow',
-      steps: [{ type: 'reingest', target: 'all' }],
+      steps: [{ type: 'reingest', target: 'plan_scope' }],
     });
 
     const parsed = parseFlowFile(json);
@@ -268,7 +268,7 @@ describe('flow schema (v1)', () => {
 
     assert.deepEqual(parsed.flow.steps[0], {
       type: 'reingest',
-      target: 'all',
+      target: 'plan_scope',
     });
   });
 
@@ -288,7 +288,27 @@ describe('flow schema (v1)', () => {
   test('reingest steps reject sourceId and target together', () => {
     const json = JSON.stringify({
       description: 'Sample flow',
-      steps: [{ type: 'reingest', sourceId: '/tmp/repo', target: 'current' }],
+      steps: [{ type: 'reingest', sourceId: '/tmp/repo', target: 'working' }],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest steps reject removed target current', () => {
+    const json = JSON.stringify({
+      description: 'Sample flow',
+      steps: [{ type: 'reingest', target: 'current' }],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest steps reject removed target all', () => {
+    const json = JSON.stringify({
+      description: 'Sample flow',
+      steps: [{ type: 'reingest', target: 'all' }],
     });
 
     const parsed = parseFlowFile(json);
@@ -465,5 +485,46 @@ describe('flow schema (v1)', () => {
     assert.equal('messages' in step, true);
     if (!('messages' in step)) return;
     assert.deepEqual(step.messages[0].content, ['first', 'second']);
+  });
+
+  test('emits Task 1 proof logs for accepted and rejected reingest targets', () => {
+    resetStore();
+
+    const accepted = parseFlowFile(
+      JSON.stringify({
+        description: 'Sample flow',
+        steps: [{ type: 'reingest', target: 'plan_scope' }],
+      }),
+      {
+        flowName: 'accepted-target',
+        emitSchemaParseLogs: true,
+      },
+    );
+    assert.equal(accepted.ok, true);
+
+    const rejected = parseFlowFile(
+      JSON.stringify({
+        description: 'Sample flow',
+        steps: [{ type: 'reingest', target: 'all' }],
+      }),
+      {
+        flowName: 'rejected-target',
+        emitSchemaParseLogs: true,
+      },
+    );
+    assert.equal(rejected.ok, false);
+
+    const logs = query({ text: 'DEV-0000052:T1:reingest-target-contract' });
+    assert.equal(logs.length, 2);
+    assert.equal(logs[0]?.context?.surface, 'flow');
+    assert.equal(logs[0]?.context?.definitionName, 'accepted-target');
+    assert.equal(logs[0]?.context?.definitionIndex, 0);
+    assert.equal(logs[0]?.context?.outcome, 'accepted_supported_target');
+    assert.equal(logs[0]?.context?.supportedTarget, 'plan_scope');
+    assert.equal(logs[1]?.context?.surface, 'flow');
+    assert.equal(logs[1]?.context?.definitionName, 'rejected-target');
+    assert.equal(logs[1]?.context?.definitionIndex, 0);
+    assert.equal(logs[1]?.context?.outcome, 'rejected_removed_target');
+    assert.equal(logs[1]?.context?.removedTarget, 'all');
   });
 });

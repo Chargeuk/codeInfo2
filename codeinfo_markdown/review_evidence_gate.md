@@ -111,9 +111,15 @@ Record the final per-repository resolved base branch and the reason it was chose
     - malformed, missing, incomplete, or contradictory state that could be transient rather than stale, including partially written files, half-created directories, and delayed metadata visibility;
     - rename, ignore-rule, suffix, tag, project-assignment, or classification changes that may silently exclude tests, routes, jobs, or code paths from the default validation path.
 16. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
-17. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
-18. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-19. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+17. Add a `Risk-Invariant Matrix` section to the evidence summary for the top risky helpers/functions. For each one, record:
+    - the helper/function name and repository scope;
+    - the semantic invariant or contract it must preserve;
+    - the highest-risk contradictory input, state, or mixed-shape condition that could break that invariant;
+    - whether current proof is direct, indirect, or missing;
+    - which later review step must challenge that invariant explicitly.
+18. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
+19. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+20. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 
@@ -154,6 +160,7 @@ Before you finish this step, verify all of the following:
 - every repository in scope has a stable alias recorded in the handoff;
 - every acceptance criterion has a proof source or an explicit weak/missing-proof note;
 - cross-repository evidence was added when the story spans multiple repositories;
+- the evidence summary contains a `Risk-Invariant Matrix` for the top risky helpers/functions;
 - the top 3 risky helpers/functions were named;
 - the generic adversarial review checklist was recorded;
 - the evidence file path and handoff file path are correct and consistent with the current HEAD commits.

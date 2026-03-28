@@ -1,3 +1,4 @@
+import type { ReingestPlanScopeWarning } from '../ingest/planScopeResolver.js';
 import type {
   ReingestExecutionBatchResult,
   ReingestExecutionResult,
@@ -15,7 +16,7 @@ export type ReingestUserFacingOutcome = 'reingested' | 'skipped' | 'failed';
 export type ReingestStepResultPayload = {
   kind: 'reingest_step_result';
   stepType: 'reingest';
-  targetMode: 'sourceId' | 'current';
+  targetMode: 'sourceId' | 'working';
   requestedSelector: string | null;
   sourceId: string;
   resolvedRepositoryId: string | null;
@@ -39,10 +40,11 @@ export type ReingestStepBatchSummary = {
 export type ReingestStepBatchResultPayload = {
   kind: 'reingest_step_batch_result';
   stepType: 'reingest';
-  targetMode: 'all';
+  targetMode: 'plan_scope';
   requestedSelector: null;
   repositories: ReingestRepositoryExecutionOutcome[];
   summary: ReingestStepBatchSummary;
+  warnings: ReingestPlanScopeWarning[];
 };
 
 export type ReingestToolResultPayload =
@@ -50,6 +52,7 @@ export type ReingestToolResultPayload =
   | ReingestStepBatchResultPayload;
 
 const REINGEST_TOOL_NAME = 'reingest_repository';
+const REINGEST_TOOL_RESULT_LOG = 'DEV-0000052:T5:reingest-tool-result-built';
 
 function toUserFacingOutcome(
   outcome: ReingestSuccess,
@@ -80,28 +83,17 @@ function buildSinglePayload(
   };
 }
 
-function buildBatchSummary(
-  repositories: ReingestExecutionBatchResult['repositories'],
-): ReingestStepBatchSummary {
-  return repositories.reduce<ReingestStepBatchSummary>(
-    (summary, repository) => {
-      summary[repository.outcome] += 1;
-      return summary;
-    },
-    { reingested: 0, skipped: 0, failed: 0 },
-  );
-}
-
 function buildBatchPayload(
   execution: ReingestExecutionBatchResult,
 ): ReingestStepBatchResultPayload {
   return {
     kind: 'reingest_step_batch_result',
     stepType: 'reingest',
-    targetMode: 'all',
+    targetMode: execution.targetMode,
     requestedSelector: null,
     repositories: execution.repositories,
-    summary: buildBatchSummary(execution.repositories),
+    summary: execution.summary,
+    warnings: execution.warnings,
   };
 }
 
@@ -115,7 +107,7 @@ function toPayload(
 
 function toToolStage(payload: ReingestToolResultPayload): 'success' | 'error' {
   if (payload.kind === 'reingest_step_batch_result') {
-    return payload.summary.failed > 0 ? 'error' : 'success';
+    return 'success';
   }
   return payload.status === 'completed' ? 'success' : 'error';
 }
@@ -128,13 +120,18 @@ export function buildReingestToolResult(params: {
 
   append({
     level: 'info',
-    message: 'DEV-0000045:T7:reingest_tool_result_built',
+    message: REINGEST_TOOL_RESULT_LOG,
     timestamp: new Date().toISOString(),
     source: 'server',
     context: {
       callId: params.callId,
       payloadKind: result.kind,
       targetMode: result.targetMode,
+      stage: toToolStage(result),
+      warningCount:
+        result.kind === 'reingest_step_batch_result'
+          ? result.warnings.length
+          : 0,
       sourceId: result.kind === 'reingest_step_result' ? result.sourceId : null,
       repositoryCount:
         result.kind === 'reingest_step_batch_result'

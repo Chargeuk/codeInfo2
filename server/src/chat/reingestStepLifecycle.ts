@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 
+import type { ReingestPlanScopeWarning } from '../ingest/planScopeResolver.js';
 import { append } from '../logStore.js';
 import { appendTurn, updateConversationMeta } from '../mongo/repo.js';
 import type { Turn, TurnCommandMetadata, TurnSource } from '../mongo/turn.js';
@@ -27,6 +28,14 @@ import type {
   ReingestStepResultPayload,
   ReingestToolResultPayload,
 } from './reingestToolResult.js';
+
+type LegacyBatchTargetMode =
+  | ReingestStepBatchResultPayload['targetMode']
+  | 'all';
+type LegacyBatchPayload = Omit<ReingestStepBatchResultPayload, 'targetMode'> & {
+  targetMode: LegacyBatchTargetMode;
+  warnings?: unknown;
+};
 
 type PersistedTurnResult = { turnId?: string };
 
@@ -65,6 +74,8 @@ const defaultDeps: LifecycleDeps = {
   now: () => new Date(),
   createInflightId: () => crypto.randomUUID(),
 };
+const REINGEST_LIFECYCLE_PERSISTED_LOG =
+  'DEV-0000052:T5:reingest-lifecycle-persisted';
 
 let lifecycleDeps: LifecycleDeps = defaultDeps;
 
@@ -103,10 +114,38 @@ const toLiveToolEvent = (toolResult: ChatToolResultEvent): ToolEvent => ({
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object';
 
-const isValidSingleTargetMode = (
+const normalizeLegacySingleTargetMode = (
   value: unknown,
-): value is ReingestStepResultPayload['targetMode'] =>
-  value === 'sourceId' || value === 'current';
+): ReingestStepResultPayload['targetMode'] | null => {
+  if (value === undefined || value === null) {
+    return 'sourceId';
+  }
+  switch (value) {
+    case 'sourceId':
+      return 'sourceId';
+    case 'working':
+      return 'working';
+    case 'current':
+      return 'sourceId';
+    default:
+      return null;
+  }
+};
+
+const isValidBatchTargetMode = (
+  value: unknown,
+): value is LegacyBatchTargetMode => value === 'all' || value === 'plan_scope';
+
+const normalizeLegacyBatchTargetMode = (
+  value: LegacyBatchTargetMode,
+): ReingestStepBatchResultPayload['targetMode'] => {
+  switch (value) {
+    case 'plan_scope':
+      return 'plan_scope';
+    case 'all':
+      return 'plan_scope';
+  }
+};
 
 const isValidOutcome = (
   value: unknown,
@@ -123,15 +162,77 @@ const isValidCompletionMode = (
 ): value is ReingestStepResultPayload['completionMode'] =>
   value === 'reingested' || value === 'skipped' || value === null;
 
+const isValidWarningCode = (
+  value: unknown,
+): value is ReingestPlanScopeWarning['code'] =>
+  value === 'handoff_missing' ||
+  value === 'handoff_invalid' ||
+  value === 'repository_skipped' ||
+  value === 'repository_failed';
+
+const normalizeBatchWarnings = (
+  value: unknown,
+): {
+  warnings: ReingestStepBatchResultPayload['warnings'];
+  droppedCount: number;
+} => {
+  if (value === undefined) {
+    return { warnings: [], droppedCount: 0 };
+  }
+  if (!Array.isArray(value)) {
+    return { warnings: [], droppedCount: 1 };
+  }
+
+  const warnings: ReingestStepBatchResultPayload['warnings'] = [];
+  let droppedCount = 0;
+
+  for (const warning of value) {
+    if (!isRecord(warning) || !isValidWarningCode(warning.code)) {
+      droppedCount += 1;
+      continue;
+    }
+
+    warnings.push({
+      code: warning.code,
+      message:
+        typeof warning.message === 'string'
+          ? warning.message
+          : 'plan_scope warning recorded',
+      repositoryPath:
+        warning.repositoryPath === undefined ||
+        warning.repositoryPath === null ||
+        typeof warning.repositoryPath === 'string'
+          ? ((warning.repositoryPath as string | null | undefined) ?? null)
+          : null,
+      resolvedRepositoryId:
+        warning.resolvedRepositoryId === undefined ||
+        warning.resolvedRepositoryId === null ||
+        typeof warning.resolvedRepositoryId === 'string'
+          ? ((warning.resolvedRepositoryId as string | null | undefined) ??
+            null)
+          : null,
+    });
+  }
+
+  return { warnings, droppedCount };
+};
+
+type ParsedReingestPayload = {
+  payload: ReingestToolResultPayload;
+  droppedMalformedWarnings: number;
+};
+
 const getReingestPayload = (
   toolResult: ChatToolResultEvent,
-): ReingestToolResultPayload | null => {
+): ParsedReingestPayload | null => {
   const result = toolResult.result;
   if (!isRecord(result)) return null;
   if (result.stepType !== 'reingest') return null;
 
   if (result.kind === 'reingest_step_batch_result') {
-    if (result.targetMode !== 'all') return null;
+    if (!isValidBatchTargetMode(result.targetMode)) {
+      return null;
+    }
     if (result.requestedSelector !== null) return null;
     if (!Array.isArray(result.repositories)) return null;
     if (!isRecord(result.summary)) return null;
@@ -145,7 +246,18 @@ const getReingestPayload = (
       return null;
     }
 
-    return result as ReingestStepBatchResultPayload;
+    const normalizedWarnings = normalizeBatchWarnings(
+      (result as LegacyBatchPayload).warnings,
+    );
+
+    return {
+      payload: {
+        ...(result as LegacyBatchPayload),
+        targetMode: normalizeLegacyBatchTargetMode(result.targetMode),
+        warnings: normalizedWarnings.warnings,
+      },
+      droppedMalformedWarnings: normalizedWarnings.droppedCount,
+    };
   }
 
   if (result.kind !== 'reingest_step_result') return null;
@@ -165,9 +277,10 @@ const getReingestPayload = (
     return null;
   }
 
-  const normalizedTargetMode = isValidSingleTargetMode(payload.targetMode)
-    ? payload.targetMode
-    : 'sourceId';
+  const normalizedTargetMode = normalizeLegacySingleTargetMode(
+    payload.targetMode,
+  );
+  if (!normalizedTargetMode) return null;
   const normalizedRequestedSelector =
     payload.requestedSelector === undefined ||
     payload.requestedSelector === null
@@ -196,38 +309,51 @@ const getReingestPayload = (
       : 'failed';
 
   return {
-    kind: 'reingest_step_result',
-    stepType: 'reingest',
-    targetMode: normalizedTargetMode,
-    requestedSelector: normalizedRequestedSelector,
-    sourceId: payload.sourceId,
-    resolvedRepositoryId: normalizedResolvedRepositoryId,
-    outcome: normalizedOutcome,
-    status: payload.status,
-    completionMode: normalizedCompletionMode,
-    operation: payload.operation,
-    runId: payload.runId,
-    files: payload.files,
-    chunks: payload.chunks,
-    embedded: payload.embedded,
-    errorCode: payload.errorCode ?? null,
+    payload: {
+      kind: 'reingest_step_result',
+      stepType: 'reingest',
+      targetMode: normalizedTargetMode,
+      requestedSelector: normalizedRequestedSelector,
+      sourceId: payload.sourceId,
+      resolvedRepositoryId: normalizedResolvedRepositoryId,
+      outcome: normalizedOutcome,
+      status: payload.status,
+      completionMode: normalizedCompletionMode,
+      operation: payload.operation,
+      runId: payload.runId,
+      files: payload.files,
+      chunks: payload.chunks,
+      embedded: payload.embedded,
+      errorCode: payload.errorCode ?? null,
+    },
+    droppedMalformedWarnings: 0,
   };
 };
 
 const buildUserTurnContent = (toolResult: ChatToolResultEvent): string => {
-  const payload = getReingestPayload(toolResult);
-  if (!payload) return 'Record re-ingest step result';
+  const parsedPayload = getReingestPayload(toolResult);
+  if (!parsedPayload) {
+    return 'Record re-ingest step result';
+  }
+  const { payload } = parsedPayload;
   if (payload.kind === 'reingest_step_batch_result') {
-    return 'Record re-ingest result for all ingested repositories';
+    return payload.warnings.length > 0
+      ? 'Record re-ingest result for plan scope with warnings'
+      : 'Record re-ingest result for plan scope';
   }
   return `Record re-ingest result for ${payload.sourceId}`;
 };
 
 const buildAssistantTurnContent = (toolResult: ChatToolResultEvent): string => {
-  const payload = getReingestPayload(toolResult);
-  if (!payload) return 'Re-ingest step result recorded.';
+  const parsedPayload = getReingestPayload(toolResult);
+  if (!parsedPayload) return 'Re-ingest step result recorded.';
+  const { payload } = parsedPayload;
   if (payload.kind === 'reingest_step_batch_result') {
-    return `Batch re-ingest recorded for ${payload.repositories.length} repositories (${payload.summary.reingested} reingested, ${payload.summary.skipped} skipped, ${payload.summary.failed} failed).`;
+    const warningSuffix =
+      payload.warnings.length > 0
+        ? ` Warning count: ${payload.warnings.length}.`
+        : '';
+    return `Plan-scope re-ingest recorded for ${payload.repositories.length} repositories (${payload.summary.reingested} reingested, ${payload.summary.skipped} skipped, ${payload.summary.failed} failed).${warningSuffix}`;
   }
   switch (payload.status) {
     case 'completed':
@@ -312,7 +438,8 @@ export async function runReingestStepLifecycle(params: {
   const userContent = buildUserTurnContent(params.toolResult);
   const assistantContent = buildAssistantTurnContent(params.toolResult);
   const liveToolEvent = toLiveToolEvent(params.toolResult);
-  const payload = getReingestPayload(params.toolResult);
+  const parsedPayload = getReingestPayload(params.toolResult);
+  const payload = parsedPayload?.payload ?? null;
 
   lifecycleDeps.createInflight({
     conversationId: params.conversationId,
@@ -424,6 +551,21 @@ export async function runReingestStepLifecycle(params: {
     });
 
     if (payload) {
+      if (parsedPayload?.droppedMalformedWarnings) {
+        lifecycleDeps.appendLog({
+          level: 'warn',
+          message: 'DEV-0000052:T10:reingest-lifecycle-warning-dropped',
+          timestamp: lifecycleDeps.now().toISOString(),
+          source: 'server',
+          context: {
+            conversationId: params.conversationId,
+            callId: params.toolResult.callId,
+            targetMode: payload.targetMode,
+            droppedMalformedWarnings: parsedPayload.droppedMalformedWarnings,
+          },
+        });
+      }
+
       lifecycleDeps.appendLog({
         level: 'info',
         message: 'DEV-0000050:T04:reingest_payload_persisted',
@@ -437,6 +579,23 @@ export async function runReingestStepLifecycle(params: {
             payload.kind === 'reingest_step_batch_result'
               ? payload.repositories.length
               : 1,
+        },
+      });
+
+      lifecycleDeps.appendLog({
+        level: 'info',
+        message: REINGEST_LIFECYCLE_PERSISTED_LOG,
+        timestamp: lifecycleDeps.now().toISOString(),
+        source: 'server',
+        context: {
+          conversationId: params.conversationId,
+          callId: params.toolResult.callId,
+          stage: params.toolResult.stage ?? null,
+          targetMode: payload.targetMode,
+          warningCount:
+            payload.kind === 'reingest_step_batch_result'
+              ? payload.warnings.length
+              : 0,
         },
       });
     }

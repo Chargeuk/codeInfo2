@@ -16,6 +16,7 @@ import {
 import type { ReingestError } from '../../ingest/reingestService.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
+import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -1023,74 +1024,55 @@ describe('agent commands runner (v1)', () => {
     assert.deepEqual(messageSteps, [2]);
   });
 
-  test('target all reingest carries batch execution metadata and ordered per-repository outcomes', async () => {
+  test('target working reingest forwards the working repository path and logs direct-command target mode', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
 
     await writeCommandFile({
       agentHome,
-      commandName: 'reingest-all-batch',
+      commandName: 'reingest-working-target',
       jsonText: JSON.stringify({
-        Description: 'Reingest all',
+        Description: 'Reingest working repo',
         items: [
-          { type: 'reingest', target: 'all' },
+          { type: 'reingest', target: 'working' },
           { type: 'message', role: 'user', content: ['after'] },
         ],
       }),
     });
 
+    const lifecycleTargetModes: string[] = [];
     const reingestCalls: string[] = [];
-    const lifecycleCalls: string[] = [];
     const messageSteps: number[] = [];
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async ({ sourceId }) => {
         reingestCalls.push(sourceId ?? '(missing)');
-        if (sourceId === '/repo/a') {
-          return {
-            ok: true,
-            value: buildReingestSuccess({
-              sourceId,
-              resolvedRepositoryId: 'repo-a',
-            }),
-          };
-        }
-        if (sourceId === '/repo/b') {
-          return {
-            ok: false,
-            error: buildReingestError({
-              message: 'BUSY',
-              code: 'BUSY',
-              fieldMessage:
-                'reingest is currently locked by another ingest operation',
-            }),
-          };
-        }
         return {
           ok: true,
           value: buildReingestSuccess({
-            sourceId,
-            resolvedRepositoryId: 'repo-c',
-            completionMode: 'skipped',
+            sourceId: sourceId ?? '/repo/source-a',
+            resolvedRepositoryId: 'repo-a',
           }),
         };
       },
       runReingestStepLifecycle: async (params) => {
-        lifecycleCalls.push(params.command.name);
+        lifecycleTargetModes.push(
+          (params.toolResult.result as { targetMode?: string }).targetMode ??
+            '(missing)',
+        );
       },
     });
 
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
-      commandName: 'reingest-all-batch',
+      commandName: 'reingest-working-target',
       initialModelId: 'agent-model-1',
       source: 'REST',
+      working_folder: '/repo/source-a',
       listIngestedRepositories: async () => ({
         repos: [
-          buildRepoEntry({ id: 'repo-c', containerPath: '/repo/c' }),
-          buildRepoEntry({ id: 'repo-a', containerPath: '/repo/a' }),
-          buildRepoEntry({ id: 'repo-b', containerPath: '/repo/b' }),
+          buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
         ],
         lockedModelId: null,
       }),
@@ -1100,74 +1082,166 @@ describe('agent commands runner (v1)', () => {
       },
     });
 
-    assert.deepEqual(reingestCalls, ['/repo/a', '/repo/b', '/repo/c']);
-    assert.deepEqual(lifecycleCalls, ['reingest-all-batch']);
+    assert.deepEqual(reingestCalls, ['/repo/source-a']);
+    assert.deepEqual(lifecycleTargetModes, ['working']);
     assert.deepEqual(messageSteps, [2]);
-
-    const resolutionLog = query({
-      text: 'DEV-0000050:T03:reingest_targets_resolved',
-    }).find(
-      (entry) =>
-        entry.context?.targetMode === 'all' &&
-        entry.context?.surface === 'command',
+    const logs = query({ text: 'DEV-0000052:T6:direct-command-reingest' });
+    assert.ok(
+      logs.some(
+        (entry) =>
+          entry.context?.commandName === 'reingest-working-target' &&
+          entry.context?.surface === 'direct_command' &&
+          entry.context?.targetMode === 'working',
+      ),
     );
-    assert.deepEqual(resolutionLog?.context?.resolvedPaths, [
-      '/repo/a',
-      '/repo/b',
-      '/repo/c',
-    ]);
+  });
 
-    const batchLog = query({
-      text: 'DEV-0000045:T9:direct_command_reingest_recorded',
-    }).find(
-      (entry) =>
-        entry.context?.targetMode === 'all' &&
-        entry.context?.commandName === 'reingest-all-batch',
+  test('target plan_scope reingest surfaces batch warnings and keeps removed target wording out of lifecycle data', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    const fixture = await createPlanScopeFixture({
+      tempPrefix: 'agent-commands-plan-scope-',
+      additionalRepositories: [{ name: 'repo-a' }],
+    });
+    const duplicateWorkingPath = fixture.workingRepositoryPath;
+    const validAdditionalPath = fixture.additionalRepositoryPaths[0]!;
+    const missingAdditionalPath = path.join(fixture.rootDir, 'repo-missing');
+    await fs.writeFile(
+      fixture.currentPlanPath,
+      JSON.stringify(
+        {
+          plan_path:
+            'planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md',
+          branched_from: 'main',
+          additional_repositories: [
+            { path: duplicateWorkingPath },
+            { path: validAdditionalPath },
+            { path: missingAdditionalPath },
+            { path: validAdditionalPath },
+          ],
+        },
+        null,
+        2,
+      ),
     );
-    assert.equal(batchLog?.context?.requestedSelector, null);
-    assert.equal(batchLog?.context?.repositoryCount, 3);
-    assert.deepEqual(batchLog?.context?.repositories, [
-      {
-        sourceId: '/repo/a',
-        resolvedRepositoryId: 'repo-a',
-        outcome: 'reingested',
-        status: 'completed',
-        completionMode: 'reingested',
-        runId: 'run-123',
-        files: 3,
-        chunks: 7,
-        embedded: 7,
-        errorCode: null,
-        errorMessage: null,
-      },
-      {
-        sourceId: '/repo/b',
-        resolvedRepositoryId: 'repo-b',
-        outcome: 'failed',
-        status: 'error',
-        completionMode: null,
-        runId: null,
-        files: 0,
-        chunks: 0,
-        embedded: 0,
-        errorCode: 'BUSY',
-        errorMessage:
-          'reingest is currently locked by another ingest operation',
-      },
-      {
-        sourceId: '/repo/c',
-        resolvedRepositoryId: 'repo-c',
-        outcome: 'skipped',
-        status: 'completed',
-        completionMode: 'skipped',
-        runId: 'run-123',
-        files: 3,
-        chunks: 7,
-        embedded: 7,
-        errorCode: null,
-        errorMessage: null,
-      },
-    ]);
+
+    try {
+      await writeCommandFile({
+        agentHome,
+        commandName: 'reingest-plan-scope-batch',
+        jsonText: JSON.stringify({
+          Description: 'Reingest plan scope',
+          items: [
+            { type: 'reingest', target: 'plan_scope' },
+            { type: 'message', role: 'user', content: ['after'] },
+          ],
+        }),
+      });
+
+      const reingestCalls: string[] = [];
+      const lifecycleResults: Array<{
+        stage?: string;
+        targetMode?: string;
+        warnings?: unknown[];
+      }> = [];
+      const messageSteps: number[] = [];
+      __setAgentCommandRunnerDepsForTests({
+        runReingestRepository: async ({ sourceId }) => {
+          reingestCalls.push(sourceId ?? '(missing)');
+          if (sourceId === validAdditionalPath) {
+            return {
+              ok: false,
+              error: buildReingestError({
+                message: 'BUSY',
+                code: 'BUSY',
+                fieldMessage:
+                  'reingest is currently locked by another ingest operation',
+              }),
+            };
+          }
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? fixture.workingRepositoryPath,
+              resolvedRepositoryId:
+                sourceId === fixture.workingRepositoryPath
+                  ? 'working-repo'
+                  : 'repo-a',
+            }),
+          };
+        },
+        runReingestStepLifecycle: async (params) => {
+          lifecycleResults.push({
+            stage: params.toolResult.stage,
+            targetMode: (params.toolResult.result as { targetMode?: string })
+              .targetMode,
+            warnings: (params.toolResult.result as { warnings?: unknown[] })
+              .warnings,
+          });
+        },
+      });
+
+      await runAgentCommandRunner({
+        agentName: 'a1',
+        agentHome,
+        commandName: 'reingest-plan-scope-batch',
+        initialModelId: 'agent-model-1',
+        source: 'REST',
+        working_folder: fixture.workingRepositoryPath,
+        listIngestedRepositories: async () => ({
+          repos: [
+            buildRepoEntry({
+              id: 'working-repo',
+              containerPath: fixture.workingRepositoryPath,
+            }),
+            buildRepoEntry({
+              id: 'repo-a',
+              containerPath: validAdditionalPath,
+            }),
+          ],
+          lockedModelId: null,
+        }),
+        runAgentInstructionUnlocked: async (params) => {
+          messageSteps.push(params.command?.stepIndex ?? -1);
+          return { modelId: 'agent-model-1' };
+        },
+      });
+
+      assert.deepEqual(reingestCalls, [
+        fixture.workingRepositoryPath,
+        validAdditionalPath,
+      ]);
+      assert.deepEqual(messageSteps, [2]);
+      assert.equal(lifecycleResults.length, 1);
+      assert.equal(lifecycleResults[0]?.stage, 'success');
+      assert.equal(lifecycleResults[0]?.targetMode, 'plan_scope');
+      const warningCodes = (
+        lifecycleResults[0]?.warnings as Array<{ code?: string }> | undefined
+      )?.map((warning) => warning.code);
+      assert.deepEqual(warningCodes, [
+        'repository_skipped',
+        'repository_skipped',
+        'repository_skipped',
+        'repository_failed',
+      ]);
+      const serializedLifecycle = JSON.stringify(lifecycleResults[0]);
+      assert.match(serializedLifecycle, /plan_scope/);
+      assert.doesNotMatch(serializedLifecycle, /"all"/);
+      assert.doesNotMatch(serializedLifecycle, /"current"/);
+      const logs = query({ text: 'DEV-0000052:T6:direct-command-reingest' });
+      assert.ok(
+        logs.some(
+          (entry) =>
+            entry.context?.commandName === 'reingest-plan-scope-batch' &&
+            entry.context?.surface === 'direct_command' &&
+            entry.context?.targetMode === 'plan_scope' &&
+            entry.context?.warningCount === 4,
+        ),
+      );
+    } finally {
+      await fixture.cleanup();
+    }
   });
 
   test('terminal cancelled reingest outcomes remain non-fatal once started', async () => {

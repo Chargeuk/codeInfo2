@@ -83,7 +83,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+  );
 }
 
 function isChatModelInfo(value: unknown): value is ChatModelInfo {
@@ -130,7 +132,9 @@ function isChatProviderInfo(value: unknown): value is ChatProviderInfo {
 
 function parseProvidersResponse(
   payload: unknown,
-): { kind: 'legacy'; models: ChatModelInfo[] } | { kind: 'current'; providers: ChatProviderInfo[] } {
+):
+  | { kind: 'legacy'; models: ChatModelInfo[] }
+  | { kind: 'current'; providers: ChatProviderInfo[] } {
   if (Array.isArray(payload)) {
     if (!payload.every(isChatModelInfo)) {
       throw new Error('Malformed chat providers response');
@@ -195,9 +199,7 @@ function normalizeProviders(list: ChatProviderInfo[]): ChatProviderInfo[] {
   });
 
   return ORDERED_CHAT_PROVIDER_IDS.map(
-    (id) =>
-      provided.get(id) ??
-      buildProviderInfo(id),
+    (id) => provided.get(id) ?? buildProviderInfo(id),
   );
 }
 

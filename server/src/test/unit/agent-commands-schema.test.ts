@@ -188,10 +188,10 @@ describe('agent command schema (v1)', () => {
     });
   });
 
-  test('reingest items parse with target current', () => {
+  test('reingest items parse with target working', () => {
     const json = JSON.stringify({
       Description: 'A command',
-      items: [{ type: 'reingest', target: 'current' }],
+      items: [{ type: 'reingest', target: 'working' }],
     });
 
     const parsed = parseAgentCommandFile(json);
@@ -200,14 +200,14 @@ describe('agent command schema (v1)', () => {
 
     assert.deepEqual(parsed.command.items[0], {
       type: 'reingest',
-      target: 'current',
+      target: 'working',
     });
   });
 
-  test('reingest items parse with target all', () => {
+  test('reingest items parse with target plan_scope', () => {
     const json = JSON.stringify({
       Description: 'A command',
-      items: [{ type: 'reingest', target: 'all' }],
+      items: [{ type: 'reingest', target: 'plan_scope' }],
     });
 
     const parsed = parseAgentCommandFile(json);
@@ -216,14 +216,34 @@ describe('agent command schema (v1)', () => {
 
     assert.deepEqual(parsed.command.items[0], {
       type: 'reingest',
-      target: 'all',
+      target: 'plan_scope',
     });
   });
 
   test('reingest items reject sourceId and target together', () => {
     const json = JSON.stringify({
       Description: 'A command',
-      items: [{ type: 'reingest', sourceId: '/tmp/repo', target: 'current' }],
+      items: [{ type: 'reingest', sourceId: '/tmp/repo', target: 'working' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest items reject removed target current', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', target: 'current' }],
+    });
+
+    const parsed = parseAgentCommandFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('reingest items reject removed target all', () => {
+    const json = JSON.stringify({
+      Description: 'A command',
+      items: [{ type: 'reingest', target: 'all' }],
     });
 
     const parsed = parseAgentCommandFile(json);
@@ -326,5 +346,46 @@ describe('agent command schema (v1)', () => {
     assert.equal('content' in firstItem, true);
     if (!('content' in firstItem)) return;
     assert.deepEqual(firstItem.content, ['first', 'second']);
+  });
+
+  test('emits Task 1 proof logs for accepted and rejected reingest targets', () => {
+    resetStore();
+
+    const accepted = parseAgentCommandFile(
+      JSON.stringify({
+        Description: 'A command',
+        items: [{ type: 'reingest', target: 'working' }],
+      }),
+      {
+        commandName: 'accepted-target',
+        emitSchemaParseLogs: true,
+      },
+    );
+    assert.equal(accepted.ok, true);
+
+    const rejected = parseAgentCommandFile(
+      JSON.stringify({
+        Description: 'A command',
+        items: [{ type: 'reingest', target: 'current' }],
+      }),
+      {
+        commandName: 'rejected-target',
+        emitSchemaParseLogs: true,
+      },
+    );
+    assert.equal(rejected.ok, false);
+
+    const logs = query({ text: 'DEV-0000052:T1:reingest-target-contract' });
+    assert.equal(logs.length, 2);
+    assert.equal(logs[0]?.context?.surface, 'command');
+    assert.equal(logs[0]?.context?.definitionName, 'accepted-target');
+    assert.equal(logs[0]?.context?.definitionIndex, 0);
+    assert.equal(logs[0]?.context?.outcome, 'accepted_supported_target');
+    assert.equal(logs[0]?.context?.supportedTarget, 'working');
+    assert.equal(logs[1]?.context?.surface, 'command');
+    assert.equal(logs[1]?.context?.definitionName, 'rejected-target');
+    assert.equal(logs[1]?.context?.definitionIndex, 0);
+    assert.equal(logs[1]?.context?.outcome, 'rejected_removed_target');
+    assert.equal(logs[1]?.context?.removedTarget, 'current');
   });
 });

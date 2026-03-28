@@ -45,13 +45,13 @@ test('Codex disabled banner shows when provider is unavailable (mock)', async ({
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-        body: JSON.stringify({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: [{ key: 'mock-lm', displayName: 'Mock LM', type: 'gguf' }],
-        }),
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-lm', displayName: 'Mock LM', type: 'gguf' }],
       }),
+    }),
   );
 
   await page.goto(`${baseUrl}/chat`);

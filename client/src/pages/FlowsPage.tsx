@@ -1052,9 +1052,12 @@ export default function FlowsPage() {
             streamStatus: 'failed',
             createdAt: new Date().toISOString(),
           };
+          const errorHistory = isNewConversation
+            ? [errorMessage]
+            : [...messages, errorMessage];
           hydrateHistory(
             nextConversationId,
-            [...messages, errorMessage],
+            errorHistory,
             'replace',
           );
           setRunError(errorMessage.content);
@@ -1069,9 +1072,12 @@ export default function FlowsPage() {
           streamStatus: 'failed',
           createdAt: new Date().toISOString(),
         };
+        const errorHistory = isNewConversation
+          ? [errorMessage]
+          : [...messages, errorMessage];
         hydrateHistory(
           nextConversationId,
-          [...messages, errorMessage],
+          errorHistory,
           'replace',
         );
         setRunError(message);

@@ -783,6 +783,94 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
+  it('does not clone stale transcript turns into a failed fresh run conversation', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              role: 'assistant',
+              content: 'Earlier flow output',
+              model: 'gpt-5',
+              provider: 'codex',
+              toolCalls: null,
+              status: 'ok',
+              createdAt: now,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              code: 'FLOW_FAILED',
+              message: 'Flow request failed',
+            }),
+            {
+              status: 500,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    expect(await screen.findByText('Earlier flow output')).toBeInTheDocument();
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    expect(await screen.findByText('Flow request failed')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText('Earlier flow output')).not.toBeInTheDocument(),
+    );
+  });
+
   it('keeps the earlier assistant bubble visible while the next flow step streams and stale earlier-step replays arrive', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const harness = setupFlowsRunHarness();

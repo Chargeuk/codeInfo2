@@ -77,11 +77,20 @@ Overall, when the story is complete, users should be able to ingest repositories
 
 ### Questions
 
-None. The high-value scope decisions for this story are already fixed:
+1. Should OpenAI batching get its own setting, or should max in-flight requests be the only tuning knob?
+   - Why this is important: Batching and concurrency are different limits, and mixing them together would make provider guardrails harder to reason about.
+   - Best Answer: Give OpenAI a separate batch-size setting and keep max in-flight for request concurrency, with both defaulting to `1`. The repo already treats OpenAI and LM Studio differently at the provider layer, OpenAI already supports multi-input embedding requests, and OpenAI's official limits apply both per input and across the full request.
+   - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), and [lmstudioEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/lmstudioEmbeddingProvider.ts). External evidence: OpenAI embeddings API reference, Context7 `/openai/openai-node`, and DeepWiki `openai/openai-node`.
 
-- use a large-text prose splitter for Markdown and similar text files rather than only the current code-oriented chunk path;
-- allow provider-aware embedding concurrency with provider-specific environment variables;
-- keep AST correctness conservative by rebuilding the full AST whenever any AST-supported file changes, and only skipping AST when no AST-supported files changed at all.
+2. Should the waiting chunk queue get its own setting, or should it stay an internal limit tied to max in-flight requests?
+   - Why this is important: The queue is the in-memory list of chunks waiting to be embedded, so this decision controls whether large files stay memory-safe without adding too many new operator settings.
+   - Best Answer: Keep the queue bound internal and tie it to max in-flight requests with a small fixed multiplier instead of adding another env var. The current repo already uses `flushEvery` for persistence cadence rather than buffering control, and Node's backpressure guidance favors bounded buffers over unbounded producer output.
+   - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [config.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/config.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [ingest-batch-flush.feature](/home/d_a_s/code/codeInfo2/server/src/test/features/ingest-batch-flush.feature). External evidence: Node stream docs via Context7 `/nodejs/node`, DeepWiki `nodejs/node`, and the official Node.js stream backpressure guide.
+
+3. Should file moves stay as delete-plus-add, or should this story add real rename detection?
+   - Why this is important: The current delta planner only compares file paths and hashes, so "effective rename" needs a clear rule or implementers may accidentally add extra scope.
+   - Best Answer: Keep file moves as delete-plus-add in this story, and treat any AST-supported move as AST-relevant so it still triggers the existing full AST rebuild. That matches the current delta planner, keeps AST behavior conservative, and avoids inventing new rename-detection logic inside a performance story.
+   - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [deltaPlan.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/deltaPlan.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md](/home/d_a_s/code/codeInfo2/planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md). External evidence: external SDK and API docs were reviewed, but this recommendation is driven by repo-specific ingest semantics rather than a third-party contract.
 
 ## Implementation Ideas
 

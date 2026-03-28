@@ -2341,3 +2341,99 @@ Use this repository's wrapper-first workflow only. Do not attempt to run builds 
 - Testing 10: `npm run compose:down` completed cleanly after the final runtime proof, stopping the wrapper-started containers and removing the `codeinfo2_internal` network without requiring any manual Docker cleanup.
 
 - Git Commits:
+
+## Code Review Findings
+
+- Review pass: `0000052-review-20260327T235133Z-1c55020b`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-blind-spot-challenge.md`
+- Review outcome: reopen Story `0000052` for one repo-local `should_fix` finding in the current repository, then close the story again only after Tasks 26 and 27 remove the malformed single-result `targetMode` coercion, preserve the intended legacy `current` compatibility boundary, and rerun the full wrapper-first validation ladder.
+- Finding summary: the review correctly flagged `server/src/chat/reingestStepLifecycle.ts` for silently coercing malformed single-result `targetMode` values to canonical `sourceId`. That behavior is broader than the planned legacy-compatibility contract because the story explicitly needs to keep historical `current` readable, but it does not need to rewrite arbitrary malformed single-result target modes into a valid selector-driven result shape.
+- Challenge artifact status: the focused blind-spot challenge produced no new findings. It strengthened the rejected-risk conclusions for `executeReingestRequest(...)` and `resolvePlanScopeRepositories(...)`, and it strengthened the existing lifecycle-normalizer finding by confirming that malformed batch warnings are covered directly while malformed single-result `targetMode` values still have no direct rejection-or-acceptance proof.
+- Final validation refresh requirement: Task 27 must re-open these durable review artifacts, prove that the lifecycle reader now limits compatibility to the intended legacy single-result mode(s) instead of defaulting malformed values to `sourceId`, and revalidate the original `working` / `plan_scope` acceptance contract on the supported wrapper-first build, test, and runtime proof path.
+
+---
+
+### Task 26. Harden Single-Result Lifecycle Target-Mode Normalization Against Malformed Persisted Payloads
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+The latest review pass found that the single-result lifecycle reader in `server/src/chat/reingestStepLifecycle.ts` still rewrites malformed `targetMode` values to canonical `sourceId`. That makes corrupt persisted payloads look like valid selector-based re-ingest results in assistant text, persisted `toolCalls`, and lifecycle logs. This task must narrow that behavior to the intended compatibility boundary: keep the known legacy single-result mode(s) that the story explicitly supports, but stop silently converting arbitrary malformed single-result target modes into canonical `sourceId`.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan and Task 26 checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-findings.md` - source of the lifecycle-normalizer finding this task must close.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-blind-spot-challenge.md` - focused challenge artifact that strengthened the finding and ruled out additional defects in the other top-risk helpers.
+- `server/src/chat/reingestStepLifecycle.ts` - current single-result lifecycle normalizer that still coerces malformed `targetMode` values to `sourceId`.
+- `server/src/test/unit/reingest-step-lifecycle.test.ts` - focused proof surface that must explicitly cover the malformed single-result target-mode path and the intended legacy compatibility path.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the Task 26 finding, the focused blind-spot challenge notes, and the current single-result normalization logic in `server/src/chat/reingestStepLifecycle.ts` so the repair stays limited to the malformed-target-mode seam instead of reopening the rest of the lifecycle payload contract.
+2. [ ] Current Repository: Update the single-result lifecycle normalization path so it preserves only the intended supported single-result target modes, including the explicit legacy compatibility mode that this story still needs to read, and stops silently rewriting arbitrary malformed single-result `targetMode` values to canonical `sourceId`.
+3. [ ] Current Repository: Update the focused lifecycle unit coverage so it proves both sides of the repaired contract explicitly:
+   - a valid legacy single-result payload still remains readable through the lifecycle normalization path;
+   - a malformed single-result `targetMode` no longer gets normalized into a false canonical `sourceId` result shape.
+4. [ ] Current Repository: Update this story file's Task 26 Implementation notes immediately after the repair lands, naming the final single-result compatibility rule, the chosen malformed-payload behavior, and why that behavior is safer than coercing unknown target modes into `sourceId`.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This task changes server/common lifecycle behavior, so prove it with the current repository's server build plus the full server unit and cucumber summary suites. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T235133Z-1c55020b` produced one repo-local `should_fix` finding in the current repository. The intended repair is to tighten the lifecycle reader's single-result compatibility boundary so malformed persisted payloads are not misrepresented as valid selector-driven results.
+
+---
+
+### Task 27. Re-Run Final Validation After The Lifecycle Normalization Fix
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Close the reopened Story `0000052` only after Task 26 lands. This final validation task must prove that the lifecycle reader no longer rewrites malformed single-result target modes to canonical `sourceId`, that the intended legacy compatibility path still works, and that the original `working` / `plan_scope` acceptance criteria remain intact across the full wrapper-first validation ladder and final runtime proof.
+
+#### Documentation Locations
+
+- `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md` - canonical reopened plan, Task 26 repair, and final validation checklist.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-evidence.md` - durable evidence artifact for the current review pass.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-findings.md` - durable findings artifact that Task 26 must close.
+- `codeInfoStatus/reviews/0000052-review-20260327T235133Z-1c55020b-blind-spot-challenge.md` - additive challenge artifact that confirmed no extra late finding beyond the recorded lifecycle-normalizer issue.
+- `server/src/chat/reingestStepLifecycle.ts` and `server/src/test/unit/reingest-step-lifecycle.test.ts` - primary proof surfaces for the repaired malformed single-result target-mode handling.
+- The final `origin/main...HEAD` diff - proof surface that the reopened branch scope is once again story-owned and that the review-fix task did not broaden the story.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-check the Story `0000052` acceptance criteria against the landed Task 26 fix so the review finding is actually closed and the original `working` / `plan_scope` contract still has direct proof.
+2. [ ] Current Repository: Re-run `git diff --name-status origin/main...HEAD` plus focused repository search and confirm the remaining branch diff still maps cleanly to Story `0000052`, and that the repaired lifecycle reader no longer coerces malformed single-result `targetMode` values to canonical `sourceId`.
+3. [ ] Current Repository: Re-open the current review evidence, findings, and blind-spot challenge artifacts and refresh this story file's close-out notes so the final reopened state explains what was fixed, why the review reopened the story again, and how the lifecycle-normalization repair was revalidated.
+
+#### Testing
+
+Use this repository's wrapper-first workflow only. Do not attempt to run builds or tests without the wrapper. This is the fresh full revalidation gate for the reopened story, so rerun the full wrapper ladder plus the final runtime proof on the supported compose stack. Only open full logs when a wrapper reports failure, unexpected warnings, or unknown or ambiguous counts.
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-server-latest.log`, resolve the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run build:summary:client`. If status is `failed` or warnings are unexpected or non-zero, inspect `logs/test-summaries/build-client-latest.log`, resolve the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run full `npm run test:summary:server:unit`. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:server:unit`.
+4. [ ] Current Repository: Run full `npm run test:summary:server:cucumber`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the summary, then diagnose with targeted wrapper commands such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`. After fixes, rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Current Repository: Run full `npm run test:summary:client`. If `failed > 0`, inspect the exact log path printed by the summary under `test-results/client-tests-*.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`. After fixes, rerun full `npm run test:summary:client`.
+6. [ ] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper commands such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`. After fixes, rerun full `npm run test:summary:e2e`.
+7. [ ] Current Repository: Run `npm run compose:build:summary`. If status is `failed`, or item counts indicate failures or unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+8. [ ] Current Repository: Run `npm run compose:up`.
+9. [ ] Current Repository: Use the Playwright MCP tools against `http://host.docker.internal:5001` while the wrapper-started stack is running, reconfirm the Story `0000052` `reingest_working` and `reingest_plan_scope` behavior plus the `/logs` proof path, and check that there are no browser-console `error` entries during the final runtime proof.
+10. [ ] Current Repository: Run `npm run compose:down` after the final runtime proof completes.
+
+#### Implementation notes
+
+- Added by review disposition after `0000052-review-20260327T235133Z-1c55020b` produced one repo-local `should_fix` finding. The final close-out for this reopen must prove the lifecycle-normalization repair together with the original Story `0000052` runtime contract and carry the durable review artifacts forward into the final committed state.

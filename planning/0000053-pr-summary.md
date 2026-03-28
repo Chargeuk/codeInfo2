@@ -9,7 +9,12 @@ Story 53 keeps the flow execution model simple while making repeated runs safe. 
 1. Task 1 introduced execution-scoped parent flow state by persisting `flags.flow.executionId`, backfilling legacy stopped parent flows, and ensuring fresh starts open new parent conversations instead of reusing old ones.
 2. Task 2 extended that execution boundary to flow-created child agent conversations by persisting `flags.flowChild.executionId`, validating child ownership on resume, and keeping the child conversation itself as the live source of truth when users manually chat while a flow is stopped.
 3. Task 3 aligned the browser UI by making `Run` always start a fresh parent conversation, keeping `Resume` on the existing stopped conversation, and rendering `Run <shortExecutionId>` in shared sidebar metadata for both parent flow rows and flow-created child agent rows.
-4. Task 4 closes the story by syncing docs, recording the final acceptance mapping, and rerunning the full repository validation plus the final manual Playwright MCP proof.
+4. Task 4 synced docs, recorded the initial acceptance mapping, and ran the first full repository validation plus the manual Playwright MCP proof.
+5. Task 5 fixed the legacy-resume ordering risk by persisting the parent `flags.flow.executionId` before child execution-marker validation or backfill could depend on it.
+6. Task 6 restored the intended fresh-run custom-title contract by correcting the Flows-page proof and the small UI gating mismatch that had crept in during review follow-up.
+7. Task 7 reran the full Story 53 validation path after those review fixes and refreshed the durable review trail without changing the final contract.
+8. Task 8 closed the remaining proof-semantics follow-up by preventing stale disabled `customTitle` from leaking into fresh Run payloads and by rewriting the stale working-folder proofs so their names and assertions match the post-Story-53 fresh-run replacement behavior.
+9. Task 9 reran the full Story 53 validation path, rechecked the three follow-up comments against the final proofs, and closed the story again with wrapper-backed regression evidence plus a final manual Playwright MCP pass.
 
 ## Execution-state contract
 
@@ -64,4 +69,42 @@ Story 53 keeps the flow execution model simple while making repeated runs safe. 
   - `npm run test:summary:e2e` with wrapper `status: passed` and log-confirmed Playwright stats `expected: 54`, `skipped: 0`, `unexpected: 0`
   - `npm run compose:up`
   - manual Playwright MCP validation at `http://host.docker.internal:5001/flows` and `/agents`, with screenshots `playwright-output-local/0000053-4-main-flows.png` and `playwright-output-local/0000053-4-main-agents.png`
+  - `npm run compose:down`
+- Task 5 wrapper evidence:
+  - `npm run build:summary:server`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:server:cucumber`
+- Task 6 wrapper evidence:
+  - `npm run build:summary:client`
+  - `npm run test:summary:client`
+- Task 7 revalidation evidence:
+  - `npm run compose:build:summary`
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:server:cucumber`
+  - `npm run test:summary:client`
+  - `npm run test:summary:e2e` with log-confirmed Playwright stats `expected: 51`, `skipped: 3`, `unexpected: 0`
+  - `npm run compose:up`
+  - manual Playwright MCP validation at `http://host.docker.internal:5001/flows` and `/agents`, with screenshots `playwright-output-local/0000053-7-main-flows.png` and `playwright-output-local/0000053-7-main-agents.png`
+  - `npm run compose:down`
+- Task 8 wrapper evidence:
+  - `npm run lint`
+  - `npm run format:check`
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:client`
+- Task 9 final revalidation evidence:
+  - `npm run lint`
+  - `npm run format:check`
+  - `npm run compose:build:summary`
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:server:cucumber`
+  - `npm run test:summary:client`
+  - `npm run test:summary:e2e` with wrapper `status: passed` and log-confirmed Playwright stats `expected: 54`, `skipped: 0`, `unexpected: 0`
+  - `npm run compose:up`
+  - final manual Playwright MCP validation at `http://host.docker.internal:5001/flows` and `/agents`, confirming the two `Story53 manual echo` parent rows still show distinct `Run <shortExecutionId>` clues, the `planning_agent` child rows show the matching run clues, ordinary `Command:` rows remain unchanged, and there were no error-level console messages; no fresh screenshots were needed because the existing Task 7 artifacts remained representative
   - `npm run compose:down`

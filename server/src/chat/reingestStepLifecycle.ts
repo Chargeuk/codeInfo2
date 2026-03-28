@@ -122,6 +122,24 @@ const isValidSingleTargetMode = (
 ): value is LegacySingleTargetMode =>
   value === 'sourceId' || value === 'current' || value === 'working';
 
+const normalizeLegacySingleTargetMode = (
+  value: unknown,
+): ReingestStepResultPayload['targetMode'] | null => {
+  if (value === undefined || value === null) {
+    return 'sourceId';
+  }
+  switch (value) {
+    case 'sourceId':
+      return 'sourceId';
+    case 'working':
+      return 'working';
+    case 'current':
+      return 'sourceId';
+    default:
+      return null;
+  }
+};
+
 const isValidBatchTargetMode = (
   value: unknown,
 ): value is LegacyBatchTargetMode => value === 'all' || value === 'plan_scope';
@@ -267,9 +285,10 @@ const getReingestPayload = (
     return null;
   }
 
-  const normalizedTargetMode = isValidSingleTargetMode(payload.targetMode)
-    ? payload.targetMode
-    : 'sourceId';
+  const normalizedTargetMode = normalizeLegacySingleTargetMode(
+    payload.targetMode,
+  );
+  if (!normalizedTargetMode) return null;
   const normalizedRequestedSelector =
     payload.requestedSelector === undefined ||
     payload.requestedSelector === null

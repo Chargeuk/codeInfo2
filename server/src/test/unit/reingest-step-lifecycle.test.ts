@@ -587,6 +587,109 @@ test('older single-result payloads still parse and persist correctly', async () 
   });
 });
 
+test('legacy current single-result payloads still normalize explicitly to sourceId behavior', async () => {
+  const legacyToolResult: ChatToolResultEvent = {
+    type: 'tool-result',
+    callId: 'legacy-reingest-current',
+    name: 'reingest_repository',
+    stage: 'success',
+    result: {
+      kind: 'reingest_step_result',
+      stepType: 'reingest',
+      targetMode: 'current',
+      requestedSelector: null,
+      sourceId: '/repo/current',
+      status: 'completed',
+      operation: 'reembed',
+      runId: 'legacy-current-run',
+      files: 2,
+      chunks: 8,
+      embedded: 8,
+      errorCode: null,
+    },
+    error: null,
+  };
+  const harness = buildHarness({
+    toolResult: legacyToolResult,
+  });
+
+  await harness.run();
+
+  assert.equal(
+    harness.publishedUserTurns[0].content,
+    'Record re-ingest result for /repo/current',
+  );
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.deepEqual(assistantTurn.toolCalls, {
+    calls: [legacyToolResult],
+  });
+  assert.deepEqual(harness.appendLogs[2]?.context, {
+    conversationId: 'conversation-1',
+    callId: 'legacy-reingest-current',
+    stage: 'success',
+    targetMode: 'sourceId',
+    warningCount: 0,
+  });
+});
+
+test('malformed single-result targetMode no longer normalizes into a false sourceId payload', async () => {
+  const malformedToolResult: ChatToolResultEvent = {
+    type: 'tool-result',
+    callId: 'legacy-reingest-malformed-target-mode',
+    name: 'reingest_repository',
+    stage: 'success',
+    result: {
+      kind: 'reingest_step_result',
+      stepType: 'reingest',
+      targetMode: 'future_mode',
+      requestedSelector: '/repo/future',
+      sourceId: '/repo/future',
+      status: 'completed',
+      operation: 'reembed',
+      runId: 'legacy-future-run',
+      files: 2,
+      chunks: 8,
+      embedded: 8,
+      errorCode: null,
+    },
+    error: null,
+  };
+  const harness = buildHarness({
+    toolResult: malformedToolResult,
+  });
+
+  await harness.run();
+
+  assert.equal(
+    harness.publishedUserTurns[0].content,
+    'Record re-ingest step result',
+  );
+  const assistantTurn = harness.persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.ok(assistantTurn);
+  assert.equal(assistantTurn.content, 'Re-ingest step result recorded.');
+  assert.deepEqual(assistantTurn.toolCalls, {
+    calls: [malformedToolResult],
+  });
+  assert.equal(
+    harness.appendLogs.some(
+      (entry) => entry.message === 'DEV-0000050:T04:reingest_payload_persisted',
+    ),
+    false,
+  );
+  assert.equal(
+    harness.appendLogs.some(
+      (entry) =>
+        entry.message === 'DEV-0000052:T5:reingest-lifecycle-persisted',
+    ),
+    false,
+  );
+});
+
 test('older batch payloads with targetMode all still normalize explicitly to plan_scope behavior', async () => {
   const legacyToolResult: ChatToolResultEvent = {
     type: 'tool-result',

@@ -23,6 +23,7 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 <required_plan_updates>
 
 - Improve any unclear Description, Acceptance Criteria, Out Of Scope, or other plan sections that are not specific enough for a junior developer.
+- Make each Acceptance Criterion and meaningful edge case specific enough that a later tasking pass can map it to named proof locations rather than only generic wrapper commands.
 - Add or update `## Implementation Ideas` based on the researched evidence.
 - Add or update message-contract and storage-shape details when the story needs them.
 - Add or update a test-harness section only if new harness work is actually required.
@@ -31,6 +32,7 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Add further relevant sections only when they are genuinely helpful for the selected plan.
 - Make prerequisite work explicit when capabilities are missing or assumptions are invalid.
 - Make runtime, deployment, Docker, test, and validation expectations explicit when those areas matter to the story.
+- When the story changes UI state, mode switching, create-vs-reuse behavior, or hidden/disabled fields, state the expected submission behavior explicitly, including whether stale state must be cleared or merely excluded from payloads and persistence.
 - If the story is multi-repository, state which repository owns each planned change and describe dependency direction, sequencing, and compatibility expectations.
 - If the story does not require a new frontend or backend, state that plainly where it matters instead of inventing work.
   </required_plan_updates>
@@ -40,6 +42,7 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Remove contradictions across the plan.
 - Ensure repository names used by tasks or planned work stay in sync with the plan's `Additional Repositories` section.
 - Ensure proof and validation steps described in the story are realistic for the sequence of work being planned.
+- Ensure proof and validation expectations are granular enough that the later tasking pass can name exact test files or proof artifacts for each acceptance path and not only broad wrapper runs.
 - Only add `## Questions` items for issues that remain genuinely blocked after research; otherwise resolve the issue directly in the plan.
   </consistency_rules>
 

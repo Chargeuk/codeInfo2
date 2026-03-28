@@ -83,12 +83,14 @@ Record the final per-repository resolved base branch and the reason it was chose
     - normalization-before-validate logic;
     - bootstrap or existence checks;
     - helpers that return warnings/errors/reason metadata;
+    - changed test titles or descriptions whose assertions may no longer match the invariant they claim to prove;
     - shared log markers or shared response fields;
     - fallback-selection logic;
     - duplicate/conflicting object keys;
     - deleted/moved/conditional validation;
     - partial-failure handling;
     - dead-field or dead-branch risk;
+    - UI enable/disable/visibility or mode-gating logic versus the payload, persistence, or submission path it is supposed to control;
     - any helper that could hide misconfiguration by defaulting too early;
     - any alias-migration or backward-compatibility helper where legacy and canonical fields can partially coexist in mixed-shape configs.
 12. Identify any changed external contract surfaces OUTSIDE the allowed spelling/grammar-only support-file set that need explicit before/after comparison in findings:
@@ -118,8 +120,9 @@ Record the final per-repository resolved base branch and the reason it was chose
     - whether current proof is direct, indirect, or missing;
     - which later review step must challenge that invariant explicitly.
 18. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
-19. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-20. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+19. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
+20. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+21. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 

@@ -42,7 +42,9 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - For systems where a back end is paired with a front end, include the Playwright end-to-end path plus manual Playwright MCP validation when the tooling exists.
 - If any of those expected harnesses are missing for the system being changed, add the harness work early in the story before later tasks rely on it.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
-- Add explicit test subtasks when code must be written or updated to create the proof.
+- Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
+- When proof depends on renamed or repurposed tests, add an explicit subtask to rename or rewrite the proof so the test title and assertions still describe the same invariant.
+- When UI state can become disabled, hidden, mode-gated, or resettable, require proof for stale-state behavior: whether the stale value must be cleared, retained locally, or merely excluded from submission.
 - Ensure each relevant external library referenced by the tasking has an appropriate `Documentation Locations` entry, such as Context7, DeepWiki, or an official URL.
 - Ensure cleanup, migration, compatibility, env/config, deployment, and observability work is covered when the story needs it.
 - Ensure no task relies on a missing prerequisite capability; if one is missing, create or move the prerequisite task earlier.
@@ -52,15 +54,17 @@ Audit the generated task list so every task has realistic proof, testing, and co
 <verification_loop>
 
 - Before finishing this pass, check whether each task's exit criteria can actually be proved by its testing steps.
+- Check whether each task's implementation subtasks name the exact proof files that must be added or updated, instead of leaving the proof implied by only wrapper commands.
 - Check whether the necessary runtime, harness, dependencies, scripts, and repos will exist by the point each proof step is reached.
 - Check whether each task's testing section reflects the task's repository and affected projects rather than copying a generic list blindly.
 - Check whether the generated testing order matches the repository's primary proof workflow, including Docker or Compose build steps where those are the primary build mechanism.
 - Check whether each subtask is specific enough for a weak developer to execute without guessing file targets, commands, documentation, or expected outcomes.
+- Check whether mode-specific or stateful UI behavior has explicit proof for contradictory mixed states such as create-vs-reuse, run-vs-resume, and disabled or hidden field submission.
 - Check whether required lint, format, and static-analysis subtasks are explicit, separate, and placed at the end of the subtask list when the repository workflow expects them there.
   </verification_loop>
 
 <output_contract>
 
 - Update tasks, subtasks, testing steps, and documentation references directly.
-- Keep the testing sections generic in policy but specific in the commands and tooling that repository evidence supports.
+- Keep the testing sections wrapper-first and specific in the commands and tooling that repository evidence supports, while keeping exact test-file references in the subtasks and proof map rather than stripping them out.
   </output_contract>

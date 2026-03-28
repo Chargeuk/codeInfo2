@@ -1,0 +1,25 @@
+{
+  "Description": "Task up the active story plan using a scoped, evidence-backed workflow with generic wrapper-first proof rules.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/01-preflight.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/02-generate.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/03-proof-and-testing.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/04-finalize.md"
+    }
+  ]
+}

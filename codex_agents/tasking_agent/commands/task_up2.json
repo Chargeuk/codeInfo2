@@ -14,12 +14,27 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/03-proof-and-testing.md"
+      "markdownFile": "task_up/03-proof-matrix.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/04-finalize.md"
+      "markdownFile": "task_up/04-stateful-ui-proof.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/05-proof-and-testing.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/06-test-semantics-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/07-finalize.md"
     }
   ]
 }

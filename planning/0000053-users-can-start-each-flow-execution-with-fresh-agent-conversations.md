@@ -722,7 +722,7 @@ Address the three valid follow-up review comments without broadening Story 53. T
 - Task Dependencies: `Task 8`
 - Task Status: `__done__`
 - Git Commits:
-  - `None yet`
+  - `10630afc` - `DEV-0000053 - finish final story revalidation`
 
 #### Overview
 

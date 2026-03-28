@@ -17,6 +17,8 @@ This story introduces a dedicated `executionId` for flow runs. Each fresh flow s
 
 This story must stay simple. The user does not want a large redesign of flow execution history, child-conversation visibility, or agent restrictions. Child agent conversations created by a flow should continue to appear in the normal Agents sidebar just like today. The user must be able to open those conversations directly, keep chatting with the agent manually, and then return to the stopped flow later and resume it. When repeated executions need to be distinguished in the sidebar, that clue should be the lightweight label `Run <shortExecutionId>` shown as extra small text or a small chip in the existing metadata area rather than being baked into the main conversation title. The same clue should be reused anywhere the product lists flow-related conversations whose main titles may otherwise collide, including parent flow conversations in Flows and flow-created child agent conversations in Agents.
 
+This story changes the existing server flow runtime, persisted conversation metadata, and the existing shared conversation sidebar UI. It does not require a new backend service, a new frontend page, a new Docker or Compose service, or a new runtime listener.
+
 That means the flow should treat child agent conversations as normal first-class agent chats that it references, not as hidden or locked internal resources. A stopped flow may later resume one of those same child conversations after the user has manually extended it on the Agents page. The child conversation therefore remains the live source of truth for the agent thread and latest resumed context, while the flow stores enough information to know which child conversation belongs to each agent slot for the current execution.
 
 The intended behavior is:
@@ -43,6 +45,8 @@ This story should preserve the current lightweight shape wherever possible. The 
 - Starting the same flow again as a new execution creates fresh child agent conversations even if the flow file, `agentType`, and `identifier` values are unchanged from an earlier execution.
 - Resuming a stopped flow continues the same `executionId`.
 - Resuming a stopped flow continues using the same child agent conversations that belong to that execution.
+- Flow parent conversations persist their execution identity under `conversation.flags.flow.executionId`.
+- Flow-created child agent conversations persist a child-specific execution marker in conversation flags so the Agents sidebar can derive `Run <shortExecutionId>` without parsing titles and without polluting the existing `flowName` list filter used by the Flows page.
 - Child agent conversations created by a flow remain visible in the normal Agents page sidebar.
 - If repeated executions create parent flow conversations or child agent conversations with otherwise identical titles, the relevant sidebar shows the lightweight execution clue `Run <shortExecutionId>` so users can tell those conversations apart.
 - The execution clue label is derived directly from the current `executionId` using a shortened stable fragment and does not require a separate persisted run ordinal or global numbering registry.
@@ -54,11 +58,13 @@ This story should preserve the current lightweight shape wherever possible. The 
 - The child agent conversation remains a normal agent conversation and is not hidden, locked, or made flow-only by this story.
 - Stopping a flow preserves enough execution state to resume later, including the `executionId`, agent slot conversation mapping, and any required thread-identification data.
 - Starting a new flow execution does not copy or inherit the previous execution's child agent slot mapping.
+- Existing stopped flow conversations created before this story remain resumable: if a saved parent flow state is missing `executionId`, the first compatible resume or state-save path mints one and persists it before later slot reuse continues.
 - Fresh executions of the same flow are allowed to run concurrently when they are started in different parent flow conversations and therefore use different `executionId` values.
 - Existing `RUN_IN_PROGRESS` protection remains scoped to a single conversation; this story does not add a flow-name-wide queue or block for new executions.
 - Existing agent sidebar behavior remains intact apart from showing the normal child conversations that the flow already creates.
 - Existing flow behavior for using `agentType` and `identifier` to define reusable slots within one execution remains intact.
 - If a stored child conversation cannot be resumed because it is missing or belongs to the wrong agent, the flow fails clearly rather than silently starting an unrelated replacement conversation under the same execution slot.
+- If a stored child conversation already carries a different execution marker than the parent flow execution, resume fails clearly rather than silently reusing that child conversation under the wrong execution.
 - The story does not require a broader multi-execution history model beyond what is needed to distinguish a fresh execution from a resumed execution.
 
 ### Out Of Scope
@@ -69,6 +75,7 @@ This story should preserve the current lightweight shape wherever possible. The 
 - Reworking the main conversation title format when a metadata-area clue is sufficient.
 - Creating a full multi-execution history browser or execution registry UI.
 - Creating a separate per-flow run ordinal, counter, or numbering registry for sidebar display.
+- Adding a new conversation-list endpoint, a new server listener, or new Docker or Compose runtime infrastructure for this story.
 - Changing the existing meaning of `agentType` and `identifier` within one execution.
 - Replacing the existing child-conversation model with a separate private flow-only conversation type.
 - Adding flow-name-wide concurrency blocking, queueing, or cancel-previous orchestration across different parent flow conversations.
@@ -116,6 +123,24 @@ No Further Questions.
    - Where the answer came from: Repo evidence from `server/src/agents/runLock.ts`, `server/src/flows/service.ts`, and existing conflict tests showing the current lock is per conversation rather than per flow name; repo evidence from this story's out-of-scope boundary against broader execution-history and orchestration work; external precedent from GitHub Actions, which allows concurrent runs by default and makes stronger concurrency limits opt-in, plus Temporal docs showing that duplicate-blocking behavior is a separate conflict-policy decision rather than something implied by run identity alone.
    - Why it is the best answer: The new `executionId` already solves the leakage problem this story is meant to fix. Adding flow-name-wide blocking or queueing would require new global state, extra UX, and edge-case handling that go beyond the KISS scope of this story.
 
+## Message Contracts And Storage Shapes
+
+- Parent flow conversation state stays under `conversation.flags.flow`, but this story extends that persisted object to include `executionId: string` alongside the existing `stepPath`, `loopStack`, `agentConversations`, optional `agentWorkingFolders`, and `agentThreads`.
+- The parent flow conversation remains the source of truth for resume bookkeeping. The persisted `agentConversations` map continues to use `${agentType}:${identifier}` keys, but those keys are only valid inside one `executionId`.
+- Flow-created child agent conversations need their own lightweight persisted flow-origin metadata because the current conversation summary contract already reaches the client with `flags`, `agentName`, `flowName`, and `title`, but child conversations do not currently carry parent-flow identity in a safe dedicated field. Use a child-specific flags shape such as `flags.flowChild.executionId` so the Agents sidebar can derive `Run <shortExecutionId>` without inferring state from the title text and without reusing the top-level `flowName` filter that already scopes Flows-page conversation lists.
+- Conversation list APIs do not need a new endpoint for this story. The existing summary contract already returns `flags`, `flowName`, and `agentName`, so the UI should derive the sidebar clue from those persisted values instead of adding duplicate top-level response fields.
+- Legacy stopped parent flow conversations that already have `flags.flow` but no `executionId` must be normalized in-place on the first compatible resume or state-save path by minting and persisting an `executionId` before later execution-scoped slot reuse continues.
+- If a linked child conversation has no child execution marker yet but is being reused by the current execution, the server should stamp the current execution marker onto that child conversation at the same point it becomes the confirmed child for that execution. If a linked child conversation already carries a conflicting execution marker, resume must fail clearly.
+
+## Edge Cases And Failure Modes
+
+- Fresh starts and resumes must stay distinct even when the user starts from an older selected parent conversation in the UI. A fresh start creates a new parent conversation and new `executionId`; only an explicit resume path is allowed to reuse an existing parent conversation.
+- Existing stopped parent flow conversations without `executionId` are a compatibility seam, not a reason to drop resume support. The story should backfill `executionId` when those conversations are resumed or when later resume-state saves occur.
+- Flow-created child agent conversations must not start using the top-level `flowName` field just to render the sidebar clue. The Flows page already filters conversation lists by `flowName`, so reusing that field on child agent conversations would leak child chats into the parent-flow list.
+- The shared `ConversationList` should show the execution clue only when the relevant persisted execution marker exists. Ordinary chat conversations and unrelated agent conversations must remain visually unchanged.
+- If the stored parent mapping points at a missing child conversation, an agent-name mismatch, or a conflicting child execution marker, the run must fail clearly instead of silently reassigning the slot to some other conversation.
+- Because the current flow service keeps `agentConversationState` in a process-global map, the implementation must ensure that fresh starts do not hydrate or persist stale entries from an earlier execution before the new execution-scoped state is initialized.
+
 ## Implementation Ideas
 
 - Add `executionId` to the persisted `conversation.flags.flow` shape and treat it as the identity of the current flow execution.
@@ -125,10 +150,13 @@ No Further Questions.
 - Keep the conceptual `agentConversations` map keyed by `${agentType}:${identifier}`, but only inside one execution-scoped flow state object.
 - Replace the current process-wide flow agent reuse map with execution-scoped runtime state so unrelated executions cannot collide.
 - Keep child agent conversations as normal persisted agent conversations with normal sidebar visibility and normal manual-chat behavior.
+- Persist lightweight child execution metadata on flow-created agent conversations so the Agents sidebar can render `Run <shortExecutionId>` from stored data instead of parsing titles.
 - Reuse the shared `ConversationList` metadata area to show the same lightweight execution clue on both parent flow conversations in Flows and flow-created child agent conversations in Agents without changing the main title.
 - When resuming a stopped flow, reuse the stored child conversation for each execution slot instead of generating a replacement conversation.
+- Backfill `executionId` onto legacy stopped parent flows, and stamp the current execution marker onto reused child conversations that predate this story before later reuse depends on that marker.
 - Prefer the linked child conversation's current persisted thread metadata and live persisted conversation state when resuming so manual chat added while the flow was stopped is reflected in the resumed execution.
 - Keep concurrency control scoped to the existing per-conversation lock; do not introduce a separate flow-name-wide queue or block for fresh executions in this story.
+- Reuse the existing flow `node:test` integration files, the existing server Cucumber Testcontainers support, the existing `ConversationList` and page-level RTL coverage, and the existing wrapper-backed Playwright e2e stack; this story should not introduce a new test harness or runtime seam.
 - Keep the implementation lightweight: use `executionId` as the new scope boundary and avoid introducing a larger execution-history subsystem unless the existing code truly requires it.
 
 ## Questions

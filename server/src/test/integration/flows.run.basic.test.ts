@@ -106,6 +106,27 @@ class InstantChat extends ChatInterface {
   }
 }
 
+class DelayedInstantChat extends ChatInterface {
+  constructor(private readonly delayMs: number) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _flags;
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    await delay(this.delayMs);
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 class CapturingChat extends ChatInterface {
   constructor(
     private readonly messages: string[],
@@ -244,6 +265,15 @@ const collectAgentConversationIds = (conversationId: string) => {
     flow?: { agentConversations?: Record<string, string> };
   };
   return Object.values(flags.flow?.agentConversations ?? {});
+};
+
+const getFlowExecutionId = (conversationId: string) => {
+  const conversation = memoryConversations.get(conversationId);
+  const flags = (conversation?.flags ?? {}) as {
+    flow?: { executionId?: string };
+  };
+  assert.equal(typeof flags.flow?.executionId, 'string');
+  return flags.flow?.executionId as string;
 };
 
 const withMarkdownFlowHarness = async (
@@ -539,6 +569,159 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
     memoryTurns.delete(conversationId);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('fresh flow start creates a new parent conversation when an older conversationId is supplied', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const localFixturesDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../fixtures/flows',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-fresh-parent-'),
+  );
+  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const oldConversationId = 'flow-basic-existing-parent';
+  let newConversationId: string | undefined;
+  memoryConversations.set(oldConversationId, {
+    _id: oldConversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Flow: llm-basic',
+    flowName: 'llm-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'legacy-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: { 'coding_agent:basic': 'legacy-agent-conv' },
+        agentThreads: {},
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastMessageAt: new Date(),
+    archivedAt: null,
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: oldConversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+    newConversationId = result.conversationId;
+
+    assert.notEqual(result.conversationId, oldConversationId);
+    await waitForTurns(result.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    assert.equal(
+      memoryConversations.get(oldConversationId)?._id,
+      oldConversationId,
+    );
+    assert.equal(getFlowExecutionId(oldConversationId), 'legacy-execution');
+    assert.notEqual(
+      getFlowExecutionId(result.conversationId),
+      'legacy-execution',
+    );
+  } finally {
+    cleanupMemory(
+      oldConversationId,
+      ...collectAgentConversationIds(oldConversationId),
+    );
+    if (newConversationId) {
+      cleanupMemory(
+        newConversationId,
+        ...collectAgentConversationIds(newConversationId),
+      );
+    }
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('fresh executions of the same flow can run concurrently in different parent conversations', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const localFixturesDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../fixtures/flows',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-concurrent-'),
+  );
+  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const flowRunA = startFlowRun({
+    flowName: 'llm-basic',
+    conversationId: 'flow-concurrent-a',
+    source: 'REST',
+    chatFactory: () => new DelayedInstantChat(75),
+  });
+  const flowRunB = startFlowRun({
+    flowName: 'llm-basic',
+    conversationId: 'flow-concurrent-b',
+    source: 'REST',
+    chatFactory: () => new DelayedInstantChat(75),
+  });
+
+  try {
+    const [resultA, resultB] = await Promise.all([flowRunA, flowRunB]);
+    assert.notEqual(resultA.conversationId, resultB.conversationId);
+
+    await Promise.all([
+      waitForTurns(resultA.conversationId, (turns) =>
+        turns.some((turn) => turn.role === 'assistant'),
+      ),
+      waitForTurns(resultB.conversationId, (turns) =>
+        turns.some((turn) => turn.role === 'assistant'),
+      ),
+    ]);
+
+    assert.notEqual(
+      getFlowExecutionId(resultA.conversationId),
+      getFlowExecutionId(resultB.conversationId),
+    );
+  } finally {
+    cleanupMemory(
+      'flow-concurrent-a',
+      ...collectAgentConversationIds('flow-concurrent-a'),
+      'flow-concurrent-b',
+      ...collectAgentConversationIds('flow-concurrent-b'),
+    );
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;
@@ -867,7 +1050,7 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
   });
 
   try {
-    await startFlowRun({
+    const result = await startFlowRun({
       flowName: 'llm-basic',
       conversationId,
       working_folder: workingFolder,
@@ -879,12 +1062,14 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
       }),
     });
 
+    assert.notEqual(result.conversationId, conversationId);
+
     await waitForTurns(
-      conversationId,
+      result.conversationId,
       (turns) => turns.filter((turn) => turn.role === 'assistant').length > 0,
     );
 
-    const conversation = memoryConversations.get(conversationId);
+    const conversation = memoryConversations.get(result.conversationId);
     const flags = (conversation?.flags ?? {}) as {
       workingFolder?: string;
       flow?: {
@@ -903,6 +1088,10 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
     assert.equal(
       typeof flags.flow?.agentConversations?.['coding_agent:basic'],
       'string',
+    );
+    cleanupMemory(
+      result.conversationId,
+      ...collectAgentConversationIds(result.conversationId),
     );
   } finally {
     cleanupMemory(

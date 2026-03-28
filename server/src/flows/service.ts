@@ -115,6 +115,7 @@ import {
 import type {
   FlowAgentState,
   FlowChatFactory,
+  FlowExecutionRuntimeState,
   FlowRunError,
   FlowRunErrorCode,
   FlowRunStartParams,
@@ -129,8 +130,6 @@ const T07_ERROR_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
 const DEV_0000040_T11_FLOW_RESOLUTION_ORDER =
   'DEV_0000040_T11_FLOW_RESOLUTION_ORDER';
-const agentConversationState = new Map<string, FlowAgentState>();
-
 type FlowServiceDeps = {
   runReingestRepository: (args: {
     sourceId?: string;
@@ -245,6 +244,10 @@ const parseFlowResumeState = (
 ): FlowResumeState | null => {
   const flow = flags?.flow;
   if (!isRecord(flow)) return null;
+  const executionId =
+    typeof flow.executionId === 'string' && flow.executionId.trim().length > 0
+      ? flow.executionId.trim()
+      : undefined;
 
   const stepPath = normalizeNumberArray(flow.stepPath);
   const loopStack = Array.isArray(flow.loopStack)
@@ -268,12 +271,20 @@ const parseFlowResumeState = (
     : [];
 
   const agentConversations = normalizeStringMap(flow.agentConversations);
+  const agentWorkingFolders = normalizeStringMap(flow.agentWorkingFolders);
   const agentThreads = normalizeStringMap(flow.agentThreads);
 
   return {
+    executionId: executionId ?? crypto.randomUUID(),
     stepPath,
     loopStack,
+    ...(typeof flow.workingFolder === 'string' && flow.workingFolder.trim()
+      ? { workingFolder: flow.workingFolder.trim() }
+      : {}),
     agentConversations,
+    ...(Object.keys(agentWorkingFolders).length > 0
+      ? { agentWorkingFolders }
+      : {}),
     agentThreads,
   };
 };
@@ -582,6 +593,7 @@ const getAgentKey = (agentType: string, identifier: string) =>
 const getStepPathKey = (stepPath: number[]) => stepPath.join('.');
 
 const ensureAgentState = async (params: {
+  runtimeState: FlowExecutionRuntimeState;
   agentType: string;
   identifier: string;
   flowName: string;
@@ -591,7 +603,7 @@ const ensureAgentState = async (params: {
   source: 'REST' | 'MCP';
 }): Promise<{ state: FlowAgentState; isNew: boolean }> => {
   const key = getAgentKey(params.agentType, params.identifier);
-  const existing = agentConversationState.get(key);
+  const existing = params.runtimeState.get(key);
   if (existing) {
     await ensureFlowAgentConversation({
       conversationId: existing.conversationId,
@@ -611,7 +623,7 @@ const ensureAgentState = async (params: {
     conversationId: crypto.randomUUID(),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
   } satisfies FlowAgentState;
-  agentConversationState.set(key, state);
+  params.runtimeState.set(key, state);
   await ensureFlowAgentConversation({
     conversationId: state.conversationId,
     flowName: params.flowName,
@@ -667,18 +679,20 @@ const resolveFlowAgentRuntimeExecution = async (params: {
 };
 
 const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
-  if (!resumeState) return;
+  const runtimeState: FlowExecutionRuntimeState = new Map();
+  if (!resumeState) return runtimeState;
   Object.entries(resumeState.agentConversations).forEach(
     ([key, conversationId]) => {
       const threadId = resumeState.agentThreads[key];
       const workingFolder = resumeState.agentWorkingFolders?.[key];
-      agentConversationState.set(key, {
+      runtimeState.set(key, {
         conversationId,
         threadId,
         ...(workingFolder ? { workingFolder } : {}),
       });
     },
   );
+  return runtimeState;
 };
 
 const persistAgentThreadId = async (params: {
@@ -1518,6 +1532,8 @@ type LoopFrame = {
 };
 
 const buildFlowResumeState = (params: {
+  executionId: string;
+  runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
   workingFolder?: string;
@@ -1525,7 +1541,7 @@ const buildFlowResumeState = (params: {
   const agentConversations: Record<string, string> = {};
   const agentWorkingFolders: Record<string, string> = {};
   const agentThreads: Record<string, string> = {};
-  agentConversationState.forEach((state, key) => {
+  params.runtimeState.forEach((state, key) => {
     agentConversations[key] = state.conversationId;
     if (state.workingFolder) {
       agentWorkingFolders[key] = state.workingFolder;
@@ -1536,6 +1552,7 @@ const buildFlowResumeState = (params: {
   });
 
   return {
+    executionId: params.executionId,
     stepPath: [...params.stepPath],
     loopStack: params.loopStack.map((frame) => ({
       loopStepPath: [...frame.loopStepPath],
@@ -1552,11 +1569,15 @@ const buildFlowResumeState = (params: {
 
 const persistFlowResumeState = async (params: {
   conversationId: string;
+  executionId: string;
+  runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
   workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
+    executionId: params.executionId,
+    runtimeState: params.runtimeState,
     stepPath: params.stepPath,
     loopStack: params.loopStack,
     workingFolder: params.workingFolder,
@@ -2187,6 +2208,7 @@ async function runFlowUnlocked(params: {
   flow: FlowFile;
   repositoryContext: FlowCommandRepositoryContext;
   conversationId: string;
+  executionId: string;
   inflightId: string;
   modelId: string;
   workingDirectoryOverride?: string;
@@ -2201,6 +2223,7 @@ async function runFlowUnlocked(params: {
 }) {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
+  const runtimeState = hydrateFlowAgentState(params.resumeState ?? null);
 
   const loopStack: LoopFrame[] = [];
   const maxStepAttempts = getFlowAndCommandRetries();
@@ -2315,6 +2338,7 @@ async function runFlowUnlocked(params: {
     const modelId = runtime.modelId;
 
     const { state: agentState, isNew } = await ensureAgentState({
+      runtimeState,
       agentType: instructionParams.agentType,
       identifier: instructionParams.identifier,
       flowName: params.flowName,
@@ -2326,6 +2350,8 @@ async function runFlowUnlocked(params: {
     if (isNew) {
       await persistFlowResumeState({
         conversationId: params.conversationId,
+        executionId: params.executionId,
+        runtimeState,
         stepPath: lastCompletedStepPath,
         loopStack,
         workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -2401,6 +2427,8 @@ async function runFlowUnlocked(params: {
           });
           void persistFlowResumeState({
             conversationId: params.conversationId,
+            executionId: params.executionId,
+            runtimeState,
             stepPath: lastCompletedStepPath,
             loopStack,
             workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3104,6 +3132,8 @@ async function runFlowUnlocked(params: {
     lastCompletedStepPath = nextPath;
     await persistFlowResumeState({
       conversationId: params.conversationId,
+      executionId: params.executionId,
+      runtimeState,
       stepPath: lastCompletedStepPath,
       loopStack,
       workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3175,6 +3205,8 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           await persistFlowResumeState({
             conversationId: params.conversationId,
+            executionId: params.executionId,
+            runtimeState,
             stepPath: lastCompletedStepPath,
             loopStack,
             workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3184,6 +3216,8 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         await persistFlowResumeState({
           conversationId: params.conversationId,
+          executionId: params.executionId,
+          runtimeState,
           stepPath: lastCompletedStepPath,
           loopStack,
           workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3212,6 +3246,8 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           await persistFlowResumeState({
             conversationId: params.conversationId,
+            executionId: params.executionId,
+            runtimeState,
             stepPath: lastCompletedStepPath,
             loopStack,
             workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3221,6 +3257,8 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         await persistFlowResumeState({
           conversationId: params.conversationId,
+          executionId: params.executionId,
+          runtimeState,
           stepPath: lastCompletedStepPath,
           loopStack,
           workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3256,6 +3294,8 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           await persistFlowResumeState({
             conversationId: params.conversationId,
+            executionId: params.executionId,
+            runtimeState,
             stepPath: lastCompletedStepPath,
             loopStack,
             workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3265,6 +3305,8 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         await persistFlowResumeState({
           conversationId: params.conversationId,
+          executionId: params.executionId,
+          runtimeState,
           stepPath: lastCompletedStepPath,
           loopStack,
           workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3293,6 +3335,8 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           await persistFlowResumeState({
             conversationId: params.conversationId,
+            executionId: params.executionId,
+            runtimeState,
             stepPath: lastCompletedStepPath,
             loopStack,
             workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3302,6 +3346,8 @@ async function runFlowUnlocked(params: {
         lastCompletedStepPath = nextPath;
         await persistFlowResumeState({
           conversationId: params.conversationId,
+          executionId: params.executionId,
+          runtimeState,
           stepPath: lastCompletedStepPath,
           loopStack,
           workingFolder: params.repositoryContext.workingRepositoryPath,
@@ -3331,10 +3377,17 @@ export async function startFlowRun(
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
   const sourceId = params.sourceId?.trim() || undefined;
-  const conversationId = params.conversationId ?? crypto.randomUUID();
+  const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
   const listRepos = params.listIngestedRepositories ?? listIngestedRepositories;
+  let existingConversation = requestedConversationId
+    ? await getConversation(requestedConversationId)
+    : null;
+  const conversationId =
+    resumeStepPath || !existingConversation
+      ? (requestedConversationId ?? crypto.randomUUID())
+      : crypto.randomUUID();
 
   if (!tryAcquireConversationLock(conversationId)) {
     throw toFlowRunError(
@@ -3353,6 +3406,7 @@ export async function startFlowRun(
   let modelId = FALLBACK_MODEL_ID;
   let resumeState: FlowResumeState | null = null;
   let repositoryContext: FlowCommandRepositoryContext | null = null;
+  let executionId: string = crypto.randomUUID();
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -3412,7 +3466,14 @@ export async function startFlowRun(
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
     }
 
-    const existingConversation = await getConversation(conversationId);
+    if (resumeStepPath && !requestedConversationId) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'resumeStepPath requires an existing conversationId',
+      );
+    }
+    existingConversation =
+      conversationId === requestedConversationId ? existingConversation : null;
     if (existingConversation?.archivedAt) {
       throw toFlowRunError('CONVERSATION_ARCHIVED');
     }
@@ -3444,10 +3505,16 @@ export async function startFlowRun(
         | undefined,
     );
     if (resumeStepPath) {
+      if (!resumeState) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'resumeStepPath requires saved flow state',
+        );
+      }
       validateResumeStepPath(flow.steps, resumeStepPath);
       await validateResumeAgentConversations(resumeState);
     }
-    hydrateFlowAgentState(resumeState);
+    executionId = resumeState?.executionId ?? executionId;
 
     const firstAgentStep = findFirstAgentStep(flow.steps);
     const discovered = await discoverAgents();
@@ -3517,6 +3584,17 @@ export async function startFlowRun(
         workingFolder: effectiveWorkingFolder,
       });
     }
+    await persistFlowResumeState({
+      conversationId,
+      executionId,
+      runtimeState: hydrateFlowAgentState(resumeState),
+      stepPath: resumeState?.stepPath ?? [],
+      loopStack: (resumeState?.loopStack ?? []).map((frame) => ({
+        loopStepPath: [...frame.loopStepPath],
+        iteration: frame.iteration,
+      })),
+      workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
+    });
     params.working_folder = effectiveWorkingFolder;
   } catch (err) {
     cleanupPendingConversationCancel({ conversationId, runToken });
@@ -3549,6 +3627,7 @@ export async function startFlowRun(
         flow,
         repositoryContext,
         conversationId,
+        executionId,
         inflightId,
         modelId,
         workingDirectoryOverride,

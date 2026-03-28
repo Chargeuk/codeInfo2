@@ -1,4 +1,5 @@
 export type FlowResumeState = {
+  executionId: string;
   stepPath: number[];
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
   workingFolder?: string;

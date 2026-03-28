@@ -1056,12 +1056,14 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-cleanup-fallback-conv';
+      let secondConversationId: string | undefined;
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       try {
-        await supertest(baseUrl)
+        const firstRun = await supertest(baseUrl)
           .post('/flows/llm-basic/run')
           .send({ conversationId })
           .expect(202);
+        assert.equal(firstRun.body.conversationId, conversationId);
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
@@ -1086,10 +1088,16 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 
         await waitForRuntimeCleanup(conversationId);
 
-        await supertest(baseUrl)
+        const secondRun = await supertest(baseUrl)
           .post('/flows/llm-basic/run')
           .send({ conversationId })
           .expect(202);
+        secondConversationId = secondRun.body.conversationId as string;
+        assert.notEqual(secondConversationId, conversationId);
+        sendJson(wsUrl, {
+          type: 'subscribe_conversation',
+          conversationId: secondConversationId,
+        });
 
         await waitForEvent({
           ws: wsUrl,
@@ -1103,14 +1111,17 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
             };
             return (
               e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
+              e.conversationId === secondConversationId &&
               e.status === 'ok'
             );
           },
           timeoutMs: 5000,
         });
       } finally {
-        await cleanupConversationRuntime(conversationId);
+        await cleanupConversationRuntime(
+          conversationId,
+          ...(secondConversationId ? [secondConversationId] : []),
+        );
       }
     },
     {

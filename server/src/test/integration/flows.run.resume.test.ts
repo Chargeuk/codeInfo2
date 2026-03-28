@@ -69,6 +69,15 @@ class MinimalChat extends ChatInterface {
   }
 }
 
+const getFlowExecutionId = (conversationId: string) => {
+  const conversation = memoryConversations.get(conversationId);
+  const flags = (conversation?.flags ?? {}) as {
+    flow?: { executionId?: string };
+  };
+  assert.equal(typeof flags.flow?.executionId, 'string');
+  return flags.flow?.executionId as string;
+};
+
 const buildApp = () => {
   const app = express();
   app.use(
@@ -128,6 +137,7 @@ test('startFlowRun resumes after resumeStepPath', async () => {
     source: 'REST',
     flags: {
       flow: {
+        executionId: 'resume-execution-1',
         stepPath: [0],
         loopStack: [{ loopStepPath: [0], iteration: 1 }],
         agentConversations: {},
@@ -154,6 +164,7 @@ test('startFlowRun resumes after resumeStepPath', async () => {
     assert.equal(captured[0], 'Step 2');
     const conversation = memoryConversations.get(conversationId);
     assert.equal(conversation?.title, originalTitle);
+    assert.equal(getFlowExecutionId(conversationId), 'resume-execution-1');
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
@@ -227,6 +238,7 @@ test('POST /flows/:flowName/run rejects agent mismatch', async () => {
     source: 'REST',
     flags: {
       flow: {
+        executionId: 'resume-execution-2',
         stepPath: [0],
         loopStack: [],
         agentConversations: {
@@ -264,6 +276,159 @@ test('POST /flows/:flowName/run rejects agent mismatch', async () => {
     memoryConversations.delete(flowConversationId);
     memoryConversations.delete(agentConversationId);
     memoryTurns.delete(flowConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun backfills legacy executionId on resume', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-backfill-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-conv-legacy';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        stepPath: [],
+        loopStack: [],
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName: 'resume-basic',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.equal(result.conversationId, conversationId);
+    await waitFor(() => (memoryTurns.get(conversationId) ?? []).length >= 2, 5000);
+
+    const conversation = memoryConversations.get(conversationId);
+    const flags = (conversation?.flags ?? {}) as {
+      flow?: { executionId?: string };
+    };
+
+    assert.equal(typeof flags.flow?.executionId, 'string');
+  } finally {
+    const conversation = memoryConversations.get(conversationId);
+    const flags = (conversation?.flags ?? {}) as {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+    const childConversationIds = Object.values(
+      flags.flow?.agentConversations ?? {},
+    );
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    childConversationIds.forEach((childConversationId) => {
+      memoryConversations.delete(childConversationId);
+      memoryTurns.delete(childConversationId);
+    });
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('fresh start reuses the same agent slot inside one execution', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-same-slot-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  let conversationId: string | undefined;
+  try {
+    const result = await startFlowRun({
+      flowName: 'resume-basic',
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+    conversationId = result.conversationId;
+    assert.ok(conversationId);
+    const runConversationId = conversationId;
+    await waitFor(
+      () => (memoryTurns.get(runConversationId) ?? []).length >= 4,
+      5000,
+    );
+
+    const conversation = memoryConversations.get(runConversationId);
+    const flags = (conversation?.flags ?? {}) as {
+      flow?: {
+        executionId?: string;
+        agentConversations?: Record<string, string>;
+      };
+    };
+
+    assert.equal(typeof flags.flow?.executionId, 'string');
+    assert.deepEqual(Object.keys(flags.flow?.agentConversations ?? {}), [
+      'coding_agent:resume-test',
+    ]);
+    assert.equal(
+      typeof flags.flow?.agentConversations?.['coding_agent:resume-test'],
+      'string',
+    );
+  } finally {
+    const conversation = conversationId
+      ? memoryConversations.get(conversationId)
+      : undefined;
+    const flags = (conversation?.flags ?? {}) as {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+    const childConversationIds = Object.values(
+      flags.flow?.agentConversations ?? {},
+    );
+    if (conversationId) {
+      memoryConversations.delete(conversationId);
+      memoryTurns.delete(conversationId);
+    }
+    childConversationIds.forEach((childConversationId) => {
+      memoryConversations.delete(childConversationId);
+      memoryTurns.delete(childConversationId);
+    });
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

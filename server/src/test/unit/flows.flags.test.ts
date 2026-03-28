@@ -46,6 +46,7 @@ test('updateConversationFlowState persists flags.flow via $set', async () => {
     await updateConversationFlowState({
       conversationId: 'flow-1',
       flow: {
+        executionId: 'execution-1',
         stepPath: [1, 2],
         loopStack: [{ loopStepPath: [0], iteration: 2 }],
         workingFolder: '/repos/flow-root',
@@ -67,6 +68,7 @@ test('updateConversationFlowState persists flags.flow via $set', async () => {
   assert.deepEqual(captured[0]?.update, {
     $set: {
       'flags.flow': {
+        executionId: 'execution-1',
         stepPath: [1, 2],
         loopStack: [{ loopStepPath: [0], iteration: 2 }],
         workingFolder: '/repos/flow-root',
@@ -178,6 +180,7 @@ test('listConversations surfaces flags.workingFolder plus expanded flags.flow st
               flags: {
                 workingFolder: '/repos/working-root',
                 flow: {
+                  executionId: 'execution-1',
                   stepPath: [0, 1],
                   loopStack: [],
                   workingFolder: '/repos/working-root',
@@ -205,6 +208,7 @@ test('listConversations surfaces flags.workingFolder plus expanded flags.flow st
     assert.deepEqual(items[0]?.flags, {
       workingFolder: '/repos/working-root',
       flow: {
+        executionId: 'execution-1',
         stepPath: [0, 1],
         loopStack: [],
         workingFolder: '/repos/working-root',

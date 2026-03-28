@@ -1,5 +1,54 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000053 structural change ledger
+
+Added files:
+
+- `e2e/flows-execution-runs.spec.ts`
+- `planning/0000053-pr-summary.md`
+- `server/src/test/features/flows-execution-runs.feature`
+- `server/src/test/steps/flows-execution-runs.steps.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/api/conversations.ts`
+- `client/src/components/chat/ConversationList.tsx`
+- `client/src/hooks/useConversations.ts`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/agentsPage.sidebarWs.test.tsx`
+- `client/src/test/chatSidebar.test.tsx`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/flowsPage.stop.test.tsx`
+- `design.md`
+- `docs/developer-reference.md`
+- `planning/0000053-users-can-start-each-flow-execution-with-fresh-agent-conversations.md`
+- `projectStructure.md`
+- `server/src/flows/flowState.ts`
+- `server/src/flows/service.ts`
+- `server/src/flows/types.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/routes/flowsRun.ts`
+- `server/src/test/integration/conversations.flowname.test.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/integration/flows.run.resume.test.ts`
+- `server/src/test/integration/flows.run.working-folder.test.ts`
+- `server/src/test/unit/flows.flags.test.ts`
+
+Story notes:
+
+- Story 53 introduces execution-scoped flow identity without changing the overall child-conversation model: parent flow state now persists `flags.flow.executionId`, child agent conversations persist `flags.flowChild.executionId`, and fresh runs no longer reuse agent slots from older executions.
+- The shared client conversation list now renders `Run <shortExecutionId>` from persisted flags in both Flows and Agents, while keeping the main titles unchanged and preserving the existing `flowName`-based filtering contract.
+- Proof spans server unit/integration/cucumber, focused client regression suites, and a dedicated Playwright spec so fresh-run parent replacement, same-execution resume, legacy backfill, child ownership, and sidebar run metadata are all covered before the final close-out task.
+
 ## Story 0000052 Task 6 structural change ledger
 
 Added files:

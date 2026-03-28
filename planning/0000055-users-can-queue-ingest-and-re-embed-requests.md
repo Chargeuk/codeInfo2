@@ -15,7 +15,7 @@ This story adds a durable whole-request queue for ingest and re-embed work. The 
 
 The queue should use one MongoDB collection for both waiting and currently running items. The currently running item stays in the collection until it reaches a terminal outcome. Once that run completes, the server must remove that queue record before it attempts to start the next oldest item. This ordering matters because a restart should be able to look at the same collection and simply start the oldest remaining item again without relying on a second persistent "in progress" state.
 
-This story also fixes duplicate-request behavior. If a request arrives for a canonical embed target path that is already queued or already running, the server should not insert a second queue item. Instead, it should return success, reuse the existing queue request id, report the current queue state, and log that the duplicate was intentionally collapsed. This dedupe rule applies across both start-ingest and re-embed requests once the server has resolved them to the same canonical embed target path.
+This story also fixes duplicate-request behavior. If a request arrives for a canonical embed target path that is already waiting in the queue, the server should not insert a second queue item. Instead, it should update that existing waiting item's stored settings in place, keep the same queue request id and queue position, return success, and log that the queued work was intentionally updated rather than duplicated. If the matching item is already running, the server should still avoid creating a second queue item, but it should not try to mutate the active run's settings mid-flight. This latest-settings-wins rule for waiting items applies across both start-ingest and re-embed requests once the server has resolved them to the same canonical embed target path.
 
 MongoDB is required for this queue feature. If Mongo is unavailable, queueable ingest and re-embed requests should be rejected before they start. This story does not provide a degraded "run immediately without persistence" mode because that would break the durable queue contract and make restart behavior inconsistent.
 
@@ -37,9 +37,11 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - On server startup, if no ingest is active and the queue collection contains leftover items, the server attempts to start the oldest remaining item automatically.
 - When an ingest or re-embed run reaches a terminal outcome, the server attempts to delete that queue item before it attempts to start the next queued item.
 - If queue-item deletion fails after a terminal run, the server does not start the next queued item until that queue-record removal problem is resolved or retried.
-- If a request arrives for a canonical embed target path that is already queued or already running, the server does not create a duplicate queue item.
+- If a request arrives for a canonical embed target path that is already waiting in the queue, the server does not create a duplicate queue item.
+- For a matching waiting queue item, the newer request updates the stored queued settings in place, keeps the same queue request id, and keeps the same queue position.
+- If a matching queue item is already running, the server still avoids creating a duplicate queue item, but it does not mutate the active run's settings mid-flight.
 - The duplicate-request rule applies across both start-ingest and re-embed requests once they resolve to the same canonical embed target path.
-- When a duplicate request is collapsed, the server returns success and reuses the existing queue request id instead of returning a duplicate-specific error.
+- When a duplicate request is collapsed onto an existing queue item, the server returns success and reuses the existing queue request id instead of returning a duplicate-specific error.
 - Queue-aware success responses expose `queued`, `requestId`, and `queuePosition`.
 - Queue-aware success responses do not expose a separate `deduped` field in this story.
 - For an immediately started request, the success payload includes the queue request id and a non-waiting queue state.
@@ -71,11 +73,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 ### Questions
 
-1. If the same repository is already queued with different settings, should the first request stay or should the newer one replace it?
-   - Why this is important: Dedupe by canonical embed path is already part of the story, but we still need one clear rule for conflicting provider or model choices on that same path.
-   - Best Answer: Keep the first queued or running request unchanged and reuse its `requestId` and queue state for the newer duplicate. This is the safest option because blocking callers can keep waiting on one stable run, the queue item does not change under an older caller's feet, and the durable queue behaves like a true dedupe rather than a hidden replace-in-place system.
-   - Where this answer came from: Repo evidence from [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), and [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), which show that ingest settings are validated up front and blocking callers wait on one terminal run; external evidence from DeepWiki's BullMQ docs showing durable dedupe normally ignores later duplicates instead of mutating the stored job payload; Context7 could not be queried because the workspace quota is exhausted today; and official MongoDB docs on retryable writes, which reinforce that persistence failures and duplicate handling need a deterministic application contract rather than hidden payload changes.
-2. If removing the finished queue item fails, should the server keep retrying automatically or stop and wait for a manual fix?
+1. If removing the finished queue item fails, should the server keep retrying automatically or stop and wait for a manual fix?
    - Why this is important: The story already says the next queued run must not start before the finished queue record is removed, so we still need to decide whether recovery is automatic or purely manual.
    - Best Answer: Retry deletion automatically with backoff, and keep the queue stalled until that delete succeeds. This is the best fit because transient MongoDB failures should self-heal where possible, while the queue still preserves FIFO ordering and never advances past an uncleared finished item.
    - Where this answer came from: Repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md) and [server/src/ingest/lock.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/lock.ts), which already frame this story around single-flight ordering and delete-before-next semantics; external evidence from official MongoDB retryable-write guidance showing MongoDB is designed to recover from transient write failures with bounded retries; DeepWiki's BullMQ queue docs, which treat cleanup and stalled-job recovery as automatic retry territory rather than purely manual intervention; and Context7 could not be queried because the workspace quota is exhausted today.
@@ -88,6 +86,12 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
    - What the answer is: Count only waiting requests, so the first waiting job shows `queuePosition: 1`, and an already running job uses the non-waiting state without a queue position.
    - Where the answer came from: User decision in this planning session, supported by repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md), [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), and [server/src/routes/ingestRoots.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestRoots.ts), plus external evidence from DeepWiki's BullMQ docs noting that user-facing queue position is application-level logic built on waiting-versus-active job lists. Context7 could not be queried because the workspace quota is exhausted today.
    - Why it is the best answer: It is clearer for users because `1` means “next in line,” and it matches the story's existing rule that immediately started work should return a non-waiting queue state instead of pretending it is still queued.
+2. Newer settings should replace older settings for a matching waiting queue item.
+   - The question being addressed: If the same repository is already queued with different settings, should the first request stay or should the newer one replace it?
+   - Why the question matters: Dedupe by canonical embed path is already part of the story, but we still need one clear rule for conflicting provider or model choices on that same path.
+   - What the answer is: If the matching queue item is still waiting, the newer request replaces the stored queued settings in place while keeping the same `requestId` and queue position. If the matching item is already running, the server still avoids creating a second queue item, but it does not mutate the active run's settings mid-flight.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), and [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), plus external evidence from DeepWiki's BullMQ docs showing queues often dedupe on one job identity while the product still chooses how to treat later duplicates. Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: It lets users correct a queued request without losing its place in line, while still avoiding the higher-risk behavior of trying to rewrite an ingest that has already started.
 
 ## Implementation Ideas
 
@@ -96,7 +100,8 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - Add a shared `enqueueOrReuseIngestRequest(...)` helper that:
   - resolves the canonical embed target path first;
   - rejects immediately if Mongo is unavailable;
-  - reuses an existing queued/running item for the same canonical target path;
+  - updates an existing waiting queue item in place for the same canonical target path while preserving its `requestId` and queue position;
+  - reuses an existing running item for the same canonical target path without mutating the active run's settings;
   - otherwise inserts a new queue item and returns its request id.
 - Add one shared `pumpIngestQueue()` function that starts the oldest queue item only when the existing in-memory ingest lock is idle.
 - Keep the active queue document in Mongo while the run is executing; on terminal completion, delete it first and only then call `pumpIngestQueue()` again.

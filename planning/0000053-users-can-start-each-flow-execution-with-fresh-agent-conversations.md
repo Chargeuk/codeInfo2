@@ -159,5 +159,175 @@ No Further Questions.
 - Reuse the existing flow `node:test` integration files, the existing server Cucumber Testcontainers support, the existing `ConversationList` and page-level RTL coverage, and the existing wrapper-backed Playwright e2e stack; this story should not introduce a new test harness or runtime seam.
 - Keep the implementation lightweight: use `executionId` as the new scope boundary and avoid introducing a larger execution-history subsystem unless the existing code truly requires it.
 
+# Tasks
+
+### Task 1. Persist Execution-Scoped Parent Flow State
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Add the parent-flow execution identity and make the runtime treat that identity as the boundary for slot reuse. This task is only about parent flow state, fresh-start versus resume semantics, and eliminating cross-run leakage from the current process-global slot map before any child-conversation sidebar work is attempted.
+
+#### Task Exit Criteria
+
+- Fresh flow starts always persist `flags.flow.executionId`, use a fresh parent flow conversation, and cannot reuse child slot mappings from an older execution.
+- Resume keeps the existing parent conversation and existing execution, including legacy saved flow conversations that still have `flags.flow` but do not yet have `executionId`.
+
+#### Documentation Locations
+
+- `https://nodejs.org/api/crypto.html#cryptorandomuuidoptions` - use for the Node 22 `crypto.randomUUID()` contract because this story mints a new stable execution identifier for every fresh flow run.
+- `https://www.mongodb.com/docs/manual/reference/operator/update/set/` - use for the Mongo `$set` behavior that already persists nested `flags.flow` state and must now include `executionId` without inventing a second persistence path.
+
+#### Subtasks
+
+1. [ ] Current Repository: Read the existing parent-flow runtime and persistence seams before changing code. Inspect `server/src/flows/flowState.ts`, `server/src/flows/types.ts`, `server/src/flows/service.ts`, `server/src/mongo/repo.ts`, `server/src/routes/flowsRun.ts`, `server/src/ws/sidebar.ts`, and this story file so you can keep the execution-scoped change inside the existing flow service and conversation persistence path. Documentation: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions ; https://www.mongodb.com/docs/manual/reference/operator/update/set/ .
+2. [ ] Current Repository: In `server/src/flows/flowState.ts`, `server/src/flows/service.ts`, and `server/src/mongo/repo.ts`, extend the parent flow resume-state contract to include `executionId: string` under `flags.flow.executionId`. Parse it, build it, and persist it through the existing `updateConversationFlowState(...)` path instead of inventing a second field or collection. When resuming a legacy stopped flow that still has `flags.flow` but no `executionId`, mint the missing `executionId` and persist it before later slot reuse depends on it. Documentation: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions ; https://www.mongodb.com/docs/manual/reference/operator/update/set/ .
+3. [ ] Current Repository: In `server/src/flows/service.ts` and `server/src/flows/types.ts`, replace the current process-global flow-agent reuse behavior with execution-scoped runtime state so slot reuse is keyed by `executionId` plus `${agentType}:${identifier}`, not just by `${agentType}:${identifier}` alone. Preserve the existing within-one-execution reuse rule, but make sure a fresh execution cannot hydrate or persist stale slot entries from any earlier execution before the new runtime state is initialized. Documentation: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions .
+4. [ ] Current Repository: In `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts`, keep start and resume as distinct paths. A fresh run must create a new parent flow conversation even when the caller supplies a `conversationId` that already belongs to an older flow conversation, while resume must continue the existing conversation only when `resumeStepPath` is present. Keep the current `RUN_IN_PROGRESS` lock scoped to one conversation only, and do not add any flow-name-wide concurrency block or queue in this task. Documentation: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions .
+5. [ ] Current Repository: Update the parent-flow proof files so the new execution boundary is explicit in both server harnesses that this repository actually runs. At minimum, change `server/src/test/unit/flows.flags.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.test.ts`, and `server/src/test/integration/flows.run.command.test.ts`, then add or update a focused cucumber feature such as `server/src/test/features/flows-execution-runs.feature` plus matching step definitions such as `server/src/test/steps/flows-execution-runs.steps.ts`. The `node:test` suite must prove `executionId` persistence, fresh-run parent-conversation replacement, same-execution slot reuse, legacy `executionId` backfill, and allowed concurrent fresh executions in different parent conversations. The cucumber feature must prove the same fresh-run versus resume contract through the repository's Testcontainers-backed Mongo/Chroma path instead of leaving `npm run test:summary:server:cucumber` as unrelated regression coverage only. Documentation: https://www.mongodb.com/docs/manual/reference/operator/update/set/ .
+6. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Documentation: Context7 `/eslint/eslint`.
+7. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 1 changes server flow types and runtime behavior. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper because Task 1 changes flow state persistence, runtime slot reuse, and route-level start/resume semantics. If it fails, inspect the printed `test-results/server-unit-tests-*.log` path, use targeted reruns only for diagnosis, then rerun the full wrapper.
+3. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper because Task 1 must add or update a Story 53 flow cucumber feature that exercises fresh-run versus resume behavior through the repository's Testcontainers-backed persistence path. If it fails, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose, and rerun the full wrapper.
+
+#### Implementation notes
+
+### Task 2. Enforce Child Conversation Ownership And Compatibility
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Persist and validate child-conversation ownership so every flow-created agent conversation belongs to exactly one execution. This task keeps child conversations as normal first-class agent chats, but it adds the execution marker and mismatch guards needed so resume can safely reuse the right child conversation and fail clearly when the saved mapping is wrong.
+
+#### Task Exit Criteria
+
+- Flow-created child agent conversations persist `flags.flowChild.executionId`, and resume reuses the same child conversations for the same execution instead of silently creating replacements.
+- If a saved child conversation is missing, belongs to the wrong agent, or carries a conflicting execution marker, resume fails clearly and the child conversation still does not leak into flow-only filtering through top-level `flowName`.
+
+#### Documentation Locations
+
+- `https://www.mongodb.com/docs/manual/reference/operator/update/set/` - use for nested updates to `flags.flowChild.executionId` and any related compatibility stamping on existing conversation documents.
+- `https://www.mongodb.com/docs/manual/core/document/#dot-notation` - use for the dot-notation rules that matter when persisting child execution metadata without replacing unrelated sibling `flags` fields.
+
+#### Subtasks
+
+1. [ ] Current Repository: Read the child-conversation ownership seams before changing code. Inspect `server/src/flows/service.ts`, `server/src/mongo/repo.ts`, `server/src/routes/conversations.ts`, `server/src/ws/sidebar.ts`, `server/src/mongo/conversation.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.test.ts`, and `server/src/test/integration/conversations.flowname.test.ts`. The goal is to keep child execution markers on `flags` and reuse the existing conversation summary contract instead of inventing a new list endpoint. Documentation: https://www.mongodb.com/docs/manual/reference/operator/update/set/ ; https://www.mongodb.com/docs/manual/core/document/#dot-notation .
+2. [ ] Current Repository: In `server/src/flows/service.ts` and `server/src/mongo/repo.ts`, stamp every flow-created child agent conversation with `flags.flowChild.executionId` when that conversation becomes the confirmed child for the current execution. If a reused legacy child conversation is missing the marker, add the current execution marker at that confirmation point. Do not add top-level `flowName` to child agent conversations just to support the sidebar clue, because the Flows page already filters on `flowName`. Documentation: https://www.mongodb.com/docs/manual/reference/operator/update/set/ ; https://www.mongodb.com/docs/manual/core/document/#dot-notation .
+3. [ ] Current Repository: In `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts`, tighten resume validation so the saved `agentConversations` mapping is treated as authoritative for the current execution only. If a mapped child conversation is missing, belongs to the wrong `agentType`, or already carries a different `flags.flowChild.executionId` than the parent flow execution, fail clearly instead of silently swapping in a new conversation for that slot. Keep the resumed child conversation itself as the live source of truth so manual chat added while the flow was stopped remains part of the resumed context. Documentation: https://www.mongodb.com/docs/manual/reference/operator/update/set/ ; https://www.mongodb.com/docs/manual/core/document/#dot-notation .
+4. [ ] Current Repository: Update server proof files for the child-ownership contract in both the `node:test` and cucumber paths. At minimum, change `server/src/test/unit/flows.flags.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.test.ts`, and `server/src/test/integration/conversations.flowname.test.ts`, then extend the Story 53 cucumber feature from Task 1 such as `server/src/test/features/flows-execution-runs.feature` plus `server/src/test/steps/flows-execution-runs.steps.ts`. The `node:test` suite must prove child execution markers are persisted, legacy child conversations are stamped when reused, missing or conflicting child mappings fail clearly, manual resume still targets the same child conversation, and child conversations do not leak into `flowName`-filtered flow history. The cucumber feature must prove at least one resumed-execution path where the saved child mapping is accepted only when the ownership markers still match the parent execution. Documentation: https://www.mongodb.com/docs/manual/reference/operator/update/set/ ; https://www.mongodb.com/docs/manual/core/document/#dot-notation .
+5. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Documentation: Context7 `/eslint/eslint`.
+6. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 2 changes server-side flow ownership and conversation flag persistence. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper because Task 2 changes `flags` persistence and flow-child ownership validation. If it fails, inspect the printed `test-results/server-unit-tests-*.log` path, use targeted reruns only for diagnosis, then rerun the full wrapper.
+3. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper because Task 2 extends the Story 53 flow cucumber feature so the higher-level resume path proves child-conversation ownership checks instead of only exercising unrelated features. If it fails, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose, and rerun the full wrapper.
+
+#### Implementation notes
+
+### Task 3. Show Run Metadata And Start Fresh Flow Conversations In The UI
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Align the browser UI with the new execution boundary. The Flows page must treat Run as a fresh conversation and Resume as reuse of the stopped conversation, while the shared sidebar must show `Run <shortExecutionId>` in the existing metadata area for both parent flow conversations and flow-created child agent conversations without changing titles or affecting normal chat rows.
+
+#### Task Exit Criteria
+
+- Clicking Run always creates a new flow conversation id in the browser, while Resume keeps the selected stopped flow conversation id.
+- The shared sidebar shows `Run <shortExecutionId>` for flow parent rows and flow-created agent rows by reading existing `flags`, and ordinary chat or unrelated agent rows remain visually unchanged.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/6.4.12/api/chip.md` - use for the existing MUI `Chip` surface because the story allows a small chip in the metadata row when it keeps the clue lightweight.
+- `https://llms.mui.com/material-ui/6.4.12/api/typography.md` - use for the caption-level text treatment in the sidebar metadata row.
+- `https://llms.mui.com/material-ui/6.4.12/components/lists.md` - use for list-row composition guidance so the new run clue stays inside the existing list metadata structure instead of becoming a title rewrite.
+- `https://playwright.dev/docs/locators` - use for the browser proof file so the new run clue assertions are robust and readable in Playwright.
+- `https://playwright.dev/docs/screenshots` - use for the existing Playwright screenshot contract because this repository already keeps browser-proof image artifacts for visually checked UI stories.
+
+#### Subtasks
+
+1. [ ] Current Repository: Read the client-side flow and sidebar seams before changing code. Inspect `client/src/api/flows.ts`, `client/src/api/conversations.ts`, `client/src/hooks/useConversations.ts`, `client/src/components/chat/ConversationList.tsx`, `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/test/flowsPage.run.test.tsx`, `client/src/test/chatPage.source.test.tsx`, and this story file. Documentation: https://llms.mui.com/material-ui/6.4.12/api/chip.md ; https://llms.mui.com/material-ui/6.4.12/api/typography.md ; https://llms.mui.com/material-ui/6.4.12/components/lists.md .
+2. [ ] Current Repository: In `client/src/pages/FlowsPage.tsx` and `client/src/test/flowsPage.run.test.tsx`, change the flow-start behavior so `Run` always creates a brand-new client conversation id even when an older flow conversation is selected, and `Resume` keeps using the selected stopped conversation id. Preserve the existing custom-title rule: only include `customTitle` for brand-new runs. Documentation: https://playwright.dev/docs/locators .
+3. [ ] Current Repository: In `client/src/api/conversations.ts`, `client/src/hooks/useConversations.ts`, `client/src/components/chat/ConversationList.tsx`, `client/src/pages/FlowsPage.tsx`, and `client/src/pages/AgentsPage.tsx`, extend the list-item typing so the shared sidebar can read `flags.flow.executionId` for parent flow conversations and `flags.flowChild.executionId` for flow-created agent conversations. Render a shortened stable `Run <shortExecutionId>` clue in the existing metadata area using the current MUI `Typography` and `Chip` primitives, do not rewrite titles, do not show the clue for ordinary chat rows, and do not change the current `flowName: '__none__'` filtering on the Agents page. Documentation: https://llms.mui.com/material-ui/6.4.12/api/chip.md ; https://llms.mui.com/material-ui/6.4.12/api/typography.md ; https://llms.mui.com/material-ui/6.4.12/components/lists.md .
+4. [ ] Current Repository: Update the focused client proof files for the new UI contract. At minimum, change `client/src/test/flowsPage.run.test.tsx` to prove Run versus Resume conversation-id behavior, update `client/src/test/chatSidebar.test.tsx` because it already exercises `ConversationList`, and update `client/src/test/agentsPage.sidebarWs.test.tsx` because it already proves live Agents sidebar updates. Those tests must prove parent-flow and child-agent run clues render from `flags`, ordinary rows stay unchanged, and flow-created child conversations remain visible under Agents without title changes. Documentation: https://llms.mui.com/material-ui/6.4.12/api/chip.md ; https://llms.mui.com/material-ui/6.4.12/api/typography.md ; https://playwright.dev/docs/locators .
+5. [ ] Current Repository: Add browser-level proof in `e2e/flows-execution-runs.spec.ts`. The spec must cover two fresh executions of the same flow showing separate sidebar rows with the same main title but different `Run <shortExecutionId>` clues, plus the corresponding flow-created child conversation appearing in Agents with the same run clue and at least one ordinary non-flow row staying unchanged. Reuse the existing Playwright route-mocking and websocket-support style already used in this repository instead of inventing a second browser harness, and rely on the checked-in `playwright.config.ts` behavior so screenshots and traces are captured through the current e2e path rather than a bespoke artifact flow. Documentation: https://playwright.dev/docs/locators ; https://playwright.dev/docs/screenshots .
+6. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Documentation: Context7 `/eslint/eslint`.
+7. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use this wrapper because Task 3 changes the shared conversation sidebar rendering used by multiple client pages, and this wrapper already performs the repository's client typecheck gate before the build. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use this wrapper because Task 3 changes page-level and shared-sidebar client behavior. If it fails, inspect the printed client test log path, use targeted reruns only for diagnosis, then rerun the full wrapper.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use this wrapper because Task 3 adds browser-visible flow and agent sidebar behavior that should be proved end to end. This wrapper already performs the repository's supported compose-e2e build, startup, Playwright run, and teardown path, so do not add separate e2e stack commands around it. If it fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose, and rerun the full wrapper.
+
+#### Implementation notes
+
+### Task 4. Perform Story 53 Final Validation And Close-Out
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2, Task 3`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Run the full story acceptance pass, update the repository documentation that now describes flow execution behavior, and prepare the reviewer-facing close-out artifact. This task must prove that fresh starts, resumes, flow-created child conversations, and sidebar run clues all match the final implementation without broadening the story into a larger flow-history redesign.
+
+#### Task Exit Criteria
+
+- Every acceptance criterion, material Description requirement, and explicit Out Of Scope boundary is mapped to completed implementation work and a concrete proof step.
+- The repository documentation and Story 53 PR summary describe the final flow execution behavior truthfully, including any deliberate no-change decisions.
+
+#### Documentation Locations
+
+- `https://playwright.dev/docs/debug` - use for the final manual browser verification and any screenshot capture needed for the user-visible Flows and Agents sidebar behavior.
+- `https://playwright.dev/docs/screenshots` - use for the final screenshot artifact capture because the repository already stores manual browser proof images under checked-in screenshot folders.
+- `https://docs.github.com/en/pull-requests` - use when writing the reviewer-facing Story 53 PR summary so the close-out artifact is structured like a pull-request summary instead of ad hoc notes.
+- `https://www.markdownguide.org/basic-syntax/` - use when formatting the Story 53 PR summary markdown cleanly and consistently.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read this entire story and trace every acceptance criterion, every important Description requirement, and every explicit Out Of Scope boundary to the finished task set before marking the story complete. Record the mapping in this task’s Implementation notes so later reviewers can see where fresh-run parent replacement, execution-scoped child reuse, legacy backfill, child visibility in Agents, sidebar `Run <shortExecutionId>` clues, and unchanged out-of-scope areas were each implemented and proved. Documentation: https://docs.github.com/en/pull-requests ; https://www.markdownguide.org/basic-syntax/ .
+2. [ ] Current Repository: Update `docs/developer-reference.md` so the written flow contract matches Story 53. At minimum, document that fresh flow starts create new parent conversations, resume keeps the existing execution, flow-created child conversations remain visible in Agents, and repeated executions are distinguished by `Run <shortExecutionId>` in sidebar metadata instead of title changes. Documentation: https://www.markdownguide.org/basic-syntax/ .
+3. [ ] Current Repository: Update `design.md` anywhere it still describes flow agent reuse, resume-state storage, or sidebar behavior as if there were no `executionId` boundary. The final design notes must mention `flags.flow.executionId`, `flags.flowChild.executionId`, fresh-start versus resume conversation ownership, and the shared sidebar metadata clue for repeated executions. Documentation: https://www.markdownguide.org/basic-syntax/ .
+4. [ ] Current Repository: Update `README.md` only if the top-level user or contributor guidance would otherwise be misleading after Story 53. If no README change is needed, record that explicit no-change decision in this task’s Implementation notes instead of leaving it implicit. Documentation: https://www.markdownguide.org/basic-syntax/ .
+5. [ ] Current Repository: Update `projectStructure.md` for every file actually added, removed, or renamed by Story 53, and add the Story 53 structural-change ledger once the final file list is known. If the story lands only in-place edits for some areas, say that explicitly in the ledger instead of implying file additions that did not happen. Documentation: https://www.markdownguide.org/basic-syntax/ .
+6. [ ] Current Repository: Create `planning/0000053-pr-summary.md` as the reviewer-facing Story 53 close-out artifact. It must summarize the repository scope, the final task sequence, the execution-state contract, the user-visible Flows and Agents sidebar change, the compatibility/backfill behavior for legacy stopped flows, and the final build/test/manual validation evidence. Documentation: https://docs.github.com/en/pull-requests ; https://www.markdownguide.org/basic-syntax/ .
+7. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Documentation: Context7 `/eslint/eslint`.
+8. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run compose:build:summary`. Use this wrapper first because Story 53 changes a server-plus-client system that this repository can build through its supported compose path. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun `npm run compose:build:summary`.
+2. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 4 is the final backend regression pass for the flow runtime and persistence changes. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+3. [ ] Current Repository: Run `npm run build:summary:client`. Use this wrapper because Task 4 is the final client regression pass for the shared conversation sidebar and Flows page behavior, and it already includes the repository's client typecheck gate. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
+4. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper because Task 4 must prove the final flow-state, resume, and conversation-ownership contract on the server. If it fails, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted reruns only as needed, then rerun the full wrapper.
+5. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper because the Story 53 flow cucumber feature added in Tasks 1 and 2 must still pass on the repository's supported higher-level server proof surface. If it fails, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose, and rerun the full wrapper.
+6. [ ] Current Repository: Run `npm run test:summary:client`. Use this wrapper because Task 4 must prove the final shared-sidebar and page-level client behavior. If it fails, inspect the printed client test log path, diagnose with targeted reruns only as needed, then rerun the full wrapper.
+7. [ ] Current Repository: Run `npm run test:summary:e2e`. Use this wrapper because the story changes user-visible Flows and Agents behavior that should be proved through the repository's browser-backed test path. This wrapper already performs the supported compose-e2e build, startup, Playwright run, and teardown path. If it fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose, and rerun the full wrapper.
+8. [ ] Current Repository: Run `npm run compose:up` for the final manual verification pass only after the build and automated wrappers above are green. Use this wrapper instead of raw Docker Compose commands so the supported runtime stack is started through the repository's normal flow and the main-stack `playwright-mcp` service is available.
+9. [ ] Current Repository: Perform final manual Playwright MCP validation against the running main stack. Use the repository's Playwright MCP tooling with `http://host.docker.internal:5001/flows` and `http://host.docker.internal:5001/agents`, start the same flow twice as two fresh executions, confirm the Flows sidebar shows two rows with the same main title but different `Run <shortExecutionId>` clues, confirm the corresponding flow-created child conversation is visible in Agents with the matching run clue and remains usable as a normal agent conversation, and confirm at least one ordinary non-flow row still shows no run clue. Save at least one Flows screenshot and one Agents screenshot under `playwright-output-local` using a Story 53 prefix such as `0000053-4-main-*.png`, inspect the saved images yourself, confirm the browser console has no error-level messages during this pass, and record the exact filenames plus outcomes in this task's Implementation notes. Documentation: https://playwright.dev/docs/debug ; https://playwright.dev/docs/screenshots .
+10. [ ] Current Repository: Run `npm run compose:down` after the final manual verification finishes so the supported stack is torn down through the repository wrapper rather than a raw Docker command.
+
+#### Implementation notes
+
 ## Questions
 - No Further Questions

@@ -1001,8 +1001,12 @@ export default function FlowsPage() {
             : makeClientConversationId();
       const isNewConversation = mode === 'run';
       const trimmedCustomTitle = customTitle.trim();
+      const customTitleDisabledForSelection = Boolean(resumeStepPath);
       const shouldIncludeCustomTitle =
-        mode === 'run' && isNewConversation && trimmedCustomTitle.length > 0;
+        mode === 'run' &&
+        isNewConversation &&
+        !customTitleDisabledForSelection &&
+        trimmedCustomTitle.length > 0;
 
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });

@@ -203,7 +203,7 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
   }
 });
 
-test('a stale saved path is cleared before a flow run reuses it', async () => {
+test('a fresh run from an older flow conversation does not inherit its stale saved working folder', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -267,7 +267,7 @@ test('a stale saved path is cleared before a flow run reuses it', async () => {
   }
 });
 
-test('stale flow working-folder clear logs stale path, record type, and conversation id', async () => {
+test('a fresh run still starts a replacement conversation when the older selected flow has a stale saved working folder', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

@@ -631,6 +631,99 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
+  it('omits stale customTitle when Run starts fresh from a resumable selected conversation', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-resume-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {
+                flow: {
+                  stepPath: [0, 1],
+                },
+              },
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        const body =
+          mockFetch.mock.calls.at(-1)?.[1]?.body &&
+          typeof mockFetch.mock.calls.at(-1)?.[1]?.body === 'string'
+            ? (JSON.parse(
+                mockFetch.mock.calls.at(-1)?.[1]?.body as string,
+              ) as Record<string, unknown>)
+            : {};
+        return mockJsonResponse({
+          status: 'started',
+          flowName: 'daily',
+          conversationId:
+            typeof body.conversationId === 'string'
+              ? body.conversationId
+              : 'fresh-flow-1',
+          inflightId: 'i1',
+          modelId: 'gpt-5',
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const titleInput = await screen.findByTestId('flow-custom-title');
+    await user.type(titleInput, 'Should not leak');
+
+    await selectFirstConversation();
+    await waitFor(() => expect(titleInput).toBeDisabled());
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCall).toBeTruthy();
+      const [, init] = runCall as [unknown, RequestInit];
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.conversationId).not.toBe('flow-resume-1');
+      expect(body.customTitle).toBeUndefined();
+    });
+  });
+
   it('includes customTitle when starting a new flow run', async () => {
     const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {

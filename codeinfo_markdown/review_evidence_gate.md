@@ -1,6 +1,6 @@
 ## Task
 
-Start the 3-step review sequence for the current story. This step is the evidence gate only. It is not the findings pass and it is not the plan-editing pass.
+Start the multi-step review sequence for the current story. This step is the evidence gate only. It is not the findings pass and it is not the plan-editing pass.
 
 ## Critical Rules
 

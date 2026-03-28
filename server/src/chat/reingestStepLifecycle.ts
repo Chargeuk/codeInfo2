@@ -29,9 +29,6 @@ import type {
   ReingestToolResultPayload,
 } from './reingestToolResult.js';
 
-type LegacySingleTargetMode =
-  | ReingestStepResultPayload['targetMode']
-  | 'current';
 type LegacyBatchTargetMode =
   | ReingestStepBatchResultPayload['targetMode']
   | 'all';
@@ -116,11 +113,6 @@ const toLiveToolEvent = (toolResult: ChatToolResultEvent): ToolEvent => ({
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object';
-
-const isValidSingleTargetMode = (
-  value: unknown,
-): value is LegacySingleTargetMode =>
-  value === 'sourceId' || value === 'current' || value === 'working';
 
 const normalizeLegacySingleTargetMode = (
   value: unknown,

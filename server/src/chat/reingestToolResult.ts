@@ -52,8 +52,7 @@ export type ReingestToolResultPayload =
   | ReingestStepBatchResultPayload;
 
 const REINGEST_TOOL_NAME = 'reingest_repository';
-const REINGEST_TOOL_RESULT_LOG =
-  'DEV-0000052:T5:reingest-tool-result-built';
+const REINGEST_TOOL_RESULT_LOG = 'DEV-0000052:T5:reingest-tool-result-built';
 
 function toUserFacingOutcome(
   outcome: ReingestSuccess,

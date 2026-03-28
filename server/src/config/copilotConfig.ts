@@ -293,8 +293,7 @@ export async function inspectCopilotAuthLocations(
     const compatRealPath = await resolveRealPathIfPresent(compatPath);
     const sameTarget =
       typeof compatRealPath === 'string' &&
-      compatRealPath ===
-        (copilotHomeRealPath ?? resolvedCopilotHome);
+      compatRealPath === (copilotHomeRealPath ?? resolvedCopilotHome);
 
     return {
       homeDir,
@@ -331,7 +330,10 @@ export async function ensureCopilotAuthHomeCompatibility(
   copilotHome: string,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<CopilotAuthHomeCompatibilityResult> {
-  const initialDiagnostics = await inspectCopilotAuthLocations(copilotHome, env);
+  const initialDiagnostics = await inspectCopilotAuthLocations(
+    copilotHome,
+    env,
+  );
   if (
     initialDiagnostics.compatStatus === 'missing_home' ||
     initialDiagnostics.compatStatus === 'same_path' ||
@@ -367,7 +369,9 @@ export async function ensureCopilotAuthHomeCompatibility(
     await fs.promises.mkdir(path.dirname(initialDiagnostics.compatPath), {
       recursive: true,
     });
-    await fs.promises.mkdir(initialDiagnostics.copilotHome, { recursive: true });
+    await fs.promises.mkdir(initialDiagnostics.copilotHome, {
+      recursive: true,
+    });
     await fs.promises.symlink(
       initialDiagnostics.copilotHome,
       initialDiagnostics.compatPath,

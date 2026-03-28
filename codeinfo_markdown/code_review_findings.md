@@ -124,10 +124,12 @@ For multi-repository stories, you MUST also perform an explicit cross-repository
 19. Before raising a finding about bootstrap, existence checks, or invalid-path handling in the non-support-file changes, compare the implementation against the story's explicit edge cases or failure-mode contract and do not raise a finding solely because the code differs from a generic best practice if it matches the canonical plan's stated contract.
 20. At minimum, inspect the top 3 changed helpers/functions by review risk from the evidence artifact, excluding the allowed spelling/grammar-only support files, and explicitly ask what malformed or contradictory input could still make each one behave incorrectly even if the current tests pass.
 21. Write a `Rejected Risk Notes` section after the main findings list. For each top-risk helper/function from the evidence matrix, record:
-   - the candidate semantic mismatch or contradictory input you tried to break it with;
-   - whether that risk became an endorsed finding, a rejected risk, or a residual weak-proof concern;
-   - the direct file or test evidence that justified that decision;
-   - what still remains weak if the risk could not be fully disproven.
+
+- the candidate semantic mismatch or contradictory input you tried to break it with;
+- whether that risk became an endorsed finding, a rejected risk, or a residual weak-proof concern;
+- the direct file or test evidence that justified that decision;
+- what still remains weak if the risk could not be fully disproven.
+
 22. If `codeInfoStatus/reviews/<review_pass_id>-blind-spot-challenge.md` already exists for this pass, read it and reconcile it with the findings output. If it does not exist yet, still complete the `Rejected Risk Notes` section directly from the evidence artifact, branch diff, and current findings so downstream steps do not depend on the new challenge step to function.
 23. For each risky path above, state whether it has direct proof, indirect proof, or missing proof, and raise a finding when a risky path is only protected by happy-path coverage or is otherwise weakly proven.
 24. Look for new fields that are written but never read, branches that cannot be reached under the current contract, and diagnostics that are intentionally hidden from clients without an actionable log trail in the non-support-file changes.

@@ -13,6 +13,8 @@ Users can currently start ingest and re-embed work only when the server is idle.
 
 This story adds a durable whole-request queue for ingest and re-embed work. The queue is intentionally about request orchestration, not about how one ingest run chunks files or dispatches embeddings internally. When a request arrives, the server should normalize it to the canonical embed target path, store one queue record in MongoDB, and either start it immediately if nothing is active or leave it waiting until earlier queued work finishes.
 
+Queue-aware success responses now need two identifiers with different jobs. `requestId` is the durable queue identifier for the queued request itself. `runId` remains the runtime ingest identifier once work has actually started. A waiting item can therefore return `requestId` without an active `runId` yet, while an immediately started or later-started item can expose both.
+
 The queue should use one MongoDB collection for both waiting and currently running items. The currently running item stays in the collection until it reaches a terminal outcome. Once that run completes, the server must remove that queue record before it attempts to start the next oldest item. If that delete fails, the server should log an error, surface an error state in the frontend, and keep retrying the delete with backoff while the queue remains stalled. This ordering matters because a restart should be able to look at the same collection and simply start the oldest remaining item again without relying on a second persistent "in progress" state.
 
 This story also fixes duplicate-request behavior. If a request arrives for a canonical embed target path that is already waiting in the queue, the server should not insert a second queue item. Instead, it should update that existing waiting item's stored settings in place, keep the same queue request id and queue position, return success, and log that the queued work was intentionally updated rather than duplicated. If the matching item is already running, the server should still avoid creating a second queue item, but it should not try to mutate the active run's settings mid-flight. This latest-settings-wins rule for waiting items applies across both start-ingest and re-embed requests once the server has resolved them to the same canonical embed target path.
@@ -21,7 +23,7 @@ MongoDB is required for this queue feature. If Mongo is unavailable, queueable i
 
 Agent and workflow behavior must remain predictable. If a re-embed request is triggered from a flow, command JSON file, or MCP surface that currently waits for terminal completion, that caller should still wait until the queued request actually finishes. Queueing changes how long the caller may need to wait, but it does not change the contract from blocking completion to fire-and-forget.
 
-The frontend must also make queued work visible. When a repository is queued for re-embed, the UI should show that it is queued and show its queue position so the user knows the request was accepted and is waiting its turn. That queue position should count only waiting work, so `1` means “next in line” rather than “behind the currently running item plus everything else.” This should be a stable status in the ingest surfaces, not just a short-lived toast.
+The frontend must also make queued work visible. When a repository is queued for re-embed, the UI should show that it is queued and show its queue position so the user knows the request was accepted and is waiting its turn. That queue position should count only waiting work, so `1` means “next in line” rather than “behind the currently running item plus everything else.” The repository list is the required source of truth for this state; this story does not need a separate top-of-page queue card. This should be a stable status in the ingest surfaces, not just a short-lived toast.
 
 The queue is FIFO by creation time. On server startup, if the queue collection contains leftover items and no ingest is already active, the server should attempt to start the oldest remaining item automatically. Because the active item remains in Mongo until terminal completion, this gives the queue at-least-once recovery semantics after restart without needing a second persistent run-state table.
 
@@ -43,13 +45,15 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - The duplicate-request rule applies across both start-ingest and re-embed requests once they resolve to the same canonical embed target path.
 - When a duplicate request is collapsed onto an existing queue item, the server returns success and reuses the existing queue request id instead of returning a duplicate-specific error.
 - Queue-aware success responses expose `queued`, `requestId`, and `queuePosition`.
+- `requestId` is the durable queue identifier for this story.
+- `runId` remains the active ingest-run identifier once work has actually started.
 - Queue-aware success responses do not expose a separate `deduped` field in this story.
-- For an immediately started request, the success payload includes the queue request id and a non-waiting queue state.
-- For a waiting request, the success payload includes `queued: true`, the queue request id, and the current queue position.
+- For an immediately started request, the success payload includes the queue request id, the active `runId`, and a non-waiting queue state.
+- For a waiting request, the success payload includes `queued: true`, the queue request id, the current queue position, and no active `runId` yet.
 - `queuePosition` counts only waiting requests; an already running item uses the non-waiting state instead of reporting itself as queue position `1`.
 - Flow, command, and MCP re-embed callers that previously blocked until terminal completion still block until the queued request reaches a terminal outcome.
 - Queue wait time is treated as part of the blocking contract for those callers rather than as a reason to return early.
-- The frontend ingest surfaces show when a repository is queued for re-embed and show its queue position.
+- The frontend ingest surfaces show when a repository is queued for re-embed and show its queue position in the repository list.
 - Queued repository visibility is stable enough that a user can refresh or revisit the ingest page and still see that the request is waiting.
 - Existing single-flight ingest execution still applies at runtime: only one ingest or re-embed run is active at a time, even though multiple future requests may now be queued durably.
 - The queue request id may use the MongoDB document id generated for that queue item.
@@ -65,6 +69,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - Adding a degraded mode that still starts queueable requests when MongoDB is unavailable.
 - Returning a separate `deduped` response field instead of the queue-oriented response contract defined here.
 - Broad redesign of the ingest frontend beyond what is needed to show queued state and queue position.
+- Adding a dedicated top-of-page queue card for queued re-embed work.
 - Exactly-once execution guarantees across crashes or restarts.
 
 ### Additional Repositories
@@ -73,15 +78,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 ### Questions
 
-1. Should queue responses keep `runId`, or should `requestId` be the only ID?
-   - Why this is important: Today the ingest routes, polling, and tests all work through `runId`, but this story adds a durable `requestId` for queued work.
-   - Best Answer: Keep both. `requestId` should become the durable queue identifier, and `runId` should still be returned once the job has actually started. For a waiting item, the response can return `requestId` with no active `runId` yet. This is the safest path because it preserves existing active-run tooling while still giving queued work a stable durable ID.
-   - Where this answer came from: Repo evidence from [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), [client/src/components/ingest/IngestForm.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/IngestForm.tsx), and the current ingest step definitions under [server/src/test/steps](/home/d_a_s/code/codeInfo2/server/src/test/steps), which all still assume `runId`-based success handling today; external evidence from BullMQ docs on unique job IDs, which reinforce the value of one durable queue identifier that remains distinct from transient execution state; DeepWiki queue guidance around waiting vs active job state; Context7 could not be queried because the workspace quota is exhausted today; and web search evidence from the official BullMQ `Job Ids` docs.
-2. Should queued re-embed status show in the repository list only, or also in a top-of-page queue card?
-   - Why this is important: The story already says queued state must survive refresh, but we still need one clear primary UI surface so the frontend contract does not sprawl.
-   - Best Answer: Make the repository list the required source of truth, and treat any top-of-page queue summary as optional. The root row already matches the re-embed target, survives refresh naturally, and is the least confusing place to show `queued`, `queuePosition`, and cleanup-blocked errors for one repository.
-   - Where this answer came from: Repo evidence from [client/src/pages/IngestPage.tsx](/home/d_a_s/code/codeInfo2/client/src/pages/IngestPage.tsx), [client/src/hooks/useIngestRoots.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestRoots.ts), [client/src/hooks/useIngestStatus.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestStatus.ts), and [client/src/components/ingest/RootsTable.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/RootsTable.tsx), which show the current page already treats the roots table as the persistent per-repository surface while the active-run card is transient; external evidence from BullMQ docs and DeepWiki guidance distinguishing waiting jobs from active jobs and describing queue position as application-level state derived from waiting jobs; Context7 could not be queried because the workspace quota is exhausted today; and web search evidence from the official BullMQ `Getters` docs.
-3. Should flows, commands, and MCP wait through the whole queue, or fail after a short timeout?
+1. Should flows, commands, and MCP wait through the whole queue, or fail after a short timeout?
    - Why this is important: The story says these callers should still block until completion, but the current re-embed service only waits about 90 seconds before giving up.
    - Best Answer: They should wait through the whole queue and the actual ingest run, with a much longer safety timeout than the current short wait. That fits the user-facing contract better because queue delay is now part of normal operation, not an exceptional error, and a short timeout would make queued requests fail even when the system is behaving correctly.
    - Where this answer came from: Repo evidence from [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), [server/src/ingest/reingestExecution.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestExecution.ts), [server/src/flows/service.ts](/home/d_a_s/code/codeInfo2/server/src/flows/service.ts), and [server/src/mcp/server.ts](/home/d_a_s/code/codeInfo2/server/src/mcp/server.ts), which show the current blocking contract and its short wait budget; external evidence from DeepWiki's BullMQ documentation on `waitUntilFinished`-style blocking and the distinction between queue delay and actual execution; Context7 could not be queried because the workspace quota is exhausted today; and web search evidence from official BullMQ docs describing waiting vs active states and how active work continues until it completes.
@@ -106,6 +103,18 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
    - What the answer is: Retry deletion automatically with backoff, keep the queue stalled until that delete succeeds, log an error, and show an error state in the frontend while the queue is blocked.
    - Where the answer came from: User decision in this planning session, supported by repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md) and [server/src/ingest/lock.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/lock.ts), plus external evidence from official MongoDB retryable-write guidance showing MongoDB is designed to recover from transient write failures with bounded retries and DeepWiki's BullMQ queue docs, which treat cleanup and stalled-job recovery as automatic retry territory rather than purely manual intervention. Context7 could not be queried because the workspace quota is exhausted today.
    - Why it is the best answer: It preserves FIFO correctness, self-heals common transient failures, and still gives both operators and users a clear signal that the queue is blocked on cleanup rather than silently appearing idle.
+4. Queue responses should keep both `requestId` and `runId`.
+   - The question being addressed: Should queue responses keep `runId`, or should `requestId` be the only ID?
+   - Why the question matters: Today the ingest routes, polling, and tests all work through `runId`, but this story adds a durable `requestId` for queued work.
+   - What the answer is: Keep both. `requestId` is the durable queue identifier, and `runId` remains the active ingest identifier once work has actually started. A waiting item can therefore return `requestId` with no active `runId` yet.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), [client/src/components/ingest/IngestForm.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/IngestForm.tsx), and the current ingest step definitions under [server/src/test/steps](/home/d_a_s/code/codeInfo2/server/src/test/steps), plus external evidence from BullMQ docs on unique job IDs and DeepWiki queue guidance around waiting vs active job state. Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: It preserves existing active-run tooling while still giving queued work its own durable identifier.
+5. Queued re-embed state should live in the repository list, not a new queue card.
+   - The question being addressed: Should queued re-embed status show in the repository list only, or also in a top-of-page queue card?
+   - Why the question matters: The story already says queued state must survive refresh, but we still need one clear primary UI surface so the frontend contract does not sprawl.
+   - What the answer is: Make the repository list the required source of truth and keep a dedicated top-of-page queue card out of scope for this story.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [client/src/pages/IngestPage.tsx](/home/d_a_s/code/codeInfo2/client/src/pages/IngestPage.tsx), [client/src/hooks/useIngestRoots.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestRoots.ts), [client/src/hooks/useIngestStatus.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestStatus.ts), and [client/src/components/ingest/RootsTable.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/RootsTable.tsx), plus external evidence from BullMQ docs and DeepWiki guidance distinguishing waiting jobs from active jobs and describing queue position as application-level state derived from waiting jobs. Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: The repository row already matches the re-embed target, survives refresh naturally, and avoids expanding the UI scope with a second special-purpose queue surface.
 
 ## Implementation Ideas
 
@@ -123,8 +132,9 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - Run `pumpIngestQueue()` on server startup so leftover queue entries are resumed automatically in FIFO order.
 - Reuse the existing canonical path resolution logic so dedupe is based on the same normalized ingest target the runtime actually uses.
 - Update REST ingest/re-embed handlers to return queue-aware success payloads with `queued`, `requestId`, and `queuePosition`.
+- Keep `requestId` as the durable queue identifier while still returning `runId` once work has actually started.
 - Keep `queuePosition` waiting-only, so the next waiting job is `1` and already running work uses the non-waiting queue state instead.
 - Update blocking re-embed paths in flows, commands, and MCP so they enqueue or reuse a queue item and then wait for that queued request's terminal outcome instead of returning early.
 - Revisit blocking wait timeouts for queue-aware callers because queue delay now becomes part of the contract rather than an error path.
-- Extend ingest frontend data contracts so queued repositories can surface a stable `queued` state with queue position in the existing ingest views.
+- Extend ingest frontend data contracts so queued repositories can surface a stable `queued` state with queue position in the repository list without adding a separate queue card.
 - Add tests for FIFO ordering, duplicate collapse, startup recovery, Mongo-unavailable rejection, delete-before-next ordering, blocking flow/command waits, and frontend queued-state rendering.

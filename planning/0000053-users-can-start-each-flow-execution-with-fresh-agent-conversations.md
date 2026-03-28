@@ -391,3 +391,134 @@ Run the full story acceptance pass, update the repository documentation that now
 ## Questions
 
 - No Further Questions
+
+## Code Review Findings
+
+- Review artifacts:
+  - `codeInfoStatus/reviews/0000053-20260328T173221Z-91fa391b-evidence.md`
+  - `codeInfoStatus/reviews/0000053-20260328T173221Z-91fa391b-findings.md`
+  - `codeInfoStatus/reviews/0000053-20260328T173221Z-91fa391b-blind-spot-challenge.md`
+- Reopen reason:
+  - `must_fix` plan-contract issue: `server/src/flows/service.ts` validates and may stamp legacy child execution markers before the freshly minted parent `flags.flow.executionId` is durably persisted, which leaves a partial-failure window where a failed first resume attempt can strand a legacy stopped flow in an unrecoverable mixed parent/child execution state.
+  - `should_fix` plan-contract issue: `client/src/test/flowsPage.run.test.tsx` now asserts the opposite of the Story 53 custom-title contract for a fresh Run started from an older selected conversation, so the acceptance proof for that path is no longer trustworthy.
+- Blind-spot challenge result:
+  - No additional findings were generated, but the focused challenge strengthened both review findings. The server backfill-ordering defect remains the highest-risk runtime issue, and the client proof mismatch remains a real acceptance-proof gap rather than a stale false alarm.
+
+# Review Follow-Up Tasks
+
+### Task 5. Persist Legacy Parent Execution Identity Before Child Backfill Validation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Close the server-side review finding by removing the partial-failure window in legacy resume backfill. A compatible legacy stopped flow must never stamp or validate child execution ownership against a newly minted execution id until that same execution id is already durably persisted on the parent flow conversation.
+
+#### Task Exit Criteria
+
+- For resume paths on legacy parent flow conversations that are missing `flags.flow.executionId`, the code persists the minted parent execution id before child ownership validation or child marker backfill can depend on it.
+- A failure after that point no longer leaves the parent and child conversations in a mixed execution-identity state that makes the next resume attempt unrecoverable.
+- Existing non-legacy resume behavior, same-execution child reuse, and conflict failure behavior remain unchanged apart from the ordering fix.
+
+#### Documentation Locations
+
+- `https://nodejs.org/api/crypto.html#cryptorandomuuidoptions` - use for the execution-id minting contract so the ordering fix does not introduce a second identity source.
+- `https://www.mongodb.com/docs/manual/reference/operator/update/set/` - use for the nested `$set` behavior because the fix still needs to persist `flags.flow.executionId` and `flags.flowChild.executionId` through the existing conversation document update paths.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the review artifacts plus the current server flow runtime around `parseFlowResumeState(...)`, `validateResumeAgentConversations(...)`, `persistFlowResumeState(...)`, and `ensureFlowChildConversationOwnership(...)` in `server/src/flows/service.ts`, along with the nested persistence helpers in `server/src/mongo/repo.ts`. Confirm exactly where the parent execution id becomes durable today and where child backfill can mutate state before that point.
+2. [ ] Current Repository: In `server/src/flows/service.ts`, change the legacy resume ordering so a missing parent `flags.flow.executionId` is persisted before any child validation or child execution-marker stamping can depend on that execution id. Keep the fix inside the existing flow-state persistence path; do not add a second collection, a second parent identity field, or a story-broad transaction system.
+3. [ ] Current Repository: Preserve the existing conflict behavior for bad child mappings. After the ordering fix, a missing child conversation, wrong-agent child conversation, or conflicting child execution marker must still fail clearly, but a compatible legacy child marker backfill must no longer be able to outrun the parent backfill.
+4. [ ] Current Repository: Add focused regression proof for the review finding in the server suites that already cover Story 53. At minimum, extend `server/src/test/integration/flows.run.resume.test.ts` with a scenario that forces a failure after legacy parent execution-id minting would previously have been only in memory and then retries resume to prove the parent and child state remain recoverable. If a narrower unit seam is helpful, extend `server/src/test/unit/flows.flags.test.ts` or another existing Story 53 server proof file, but keep the final proof on the supported `node:test` path.
+5. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+6. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because the review finding is in the server flow runtime and persistence path. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper because the review finding requires direct regression proof on the server `node:test` path. If it fails, inspect the printed `test-results/server-unit-tests-*.log` path, use targeted reruns only for diagnosis, then rerun the full wrapper.
+3. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper because the Story 53 resume path must still hold on the supported higher-level server feature surface after the ordering fix. If it fails, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose, and rerun the full wrapper.
+
+#### Implementation notes
+
+### Task 6. Restore Accurate Fresh-Run Custom-Title Acceptance Proof
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Close the client-side review finding by making the Story 53 proof match the intended fresh-run contract. A fresh Run started from an older selected flow conversation must still use a new conversation id and must still preserve the normal new-run `customTitle` behavior unless the product code is intentionally changed to another explicit contract.
+
+#### Task Exit Criteria
+
+- The Story 53 client proof no longer asserts that `customTitle` is omitted for a fresh Run from an older selected conversation.
+- The runtime behavior and the proof agree on one clear contract: a fresh Run keeps the new conversation-id semantics and preserves the intended custom-title behavior for brand-new runs.
+- The updated proof still distinguishes fresh Run from Resume and does not weaken the existing Story 53 run-clue assertions.
+
+#### Documentation Locations
+
+- `https://playwright.dev/docs/locators` - use for browser-proof assertions if the focused proof is extended beyond RTL.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the review findings plus the fresh-run code path in `client/src/pages/FlowsPage.tsx`, the request-shaping logic in `client/src/api/flows.ts`, and the focused proof file `client/src/test/flowsPage.run.test.tsx`. Confirm the intended Story 53 custom-title contract for a fresh Run from an older selected conversation before changing either the proof or runtime.
+2. [ ] Current Repository: Update `client/src/test/flowsPage.run.test.tsx` so the fresh-run proof from an older selected conversation asserts the correct Story 53 behavior: the request uses a new conversation id and preserves the intended `customTitle` semantics for a brand-new run. If that proof exposes a real runtime mismatch, fix the runtime in `client/src/pages/FlowsPage.tsx` and/or `client/src/api/flows.ts` so the product matches the canonical plan before closing this task.
+3. [ ] Current Repository: Keep the existing Run-versus-Resume split explicit. The updated proof must still show that Resume reuses the selected stopped conversation id while Run does not, and it must not accidentally collapse those two cases back together while fixing the custom-title assertion.
+4. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+5. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use this wrapper because the review finding is in the client run-start proof surface and may require a small runtime correction in the Flows page or flow API helper. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use this wrapper because the review finding is specifically about incorrect client acceptance proof and the Run-versus-Resume payload contract. If it fails, inspect the printed client test log path, use targeted reruns only for diagnosis, then rerun the full wrapper.
+
+#### Implementation notes
+
+### Task 7. Revalidate Story 53 After Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 5, Task 6`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+Run a fresh Story 53 close-out pass after the review-fix tasks land. This task revalidates the acceptance criteria, confirms the review findings are closed, and refreshes the durable review and proof trail before the story is treated as complete again.
+
+#### Task Exit Criteria
+
+- The review findings are either fully fixed in code/proof or demonstrably resolved by the changed acceptance proof.
+- The full Story 53 automated validation path passes again after the review-fix tasks.
+- The final implementation notes for this task explicitly record that the review findings were rechecked and closed.
+
+#### Documentation Locations
+
+- `https://playwright.dev/docs/debug` - use for the final manual browser verification if the review-fix path touches visible Flows or Agents behavior.
+- `https://playwright.dev/docs/screenshots` - use for final screenshot capture when the manual browser pass is rerun.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the canonical Story 53 plan plus the durable review artifacts `codeInfoStatus/reviews/0000053-20260328T173221Z-91fa391b-evidence.md`, `codeInfoStatus/reviews/0000053-20260328T173221Z-91fa391b-findings.md`, and `codeInfoStatus/reviews/0000053-20260328T173221Z-91fa391b-blind-spot-challenge.md`. Record in this task’s Implementation notes exactly how Task 5 and Task 6 closed the `must_fix` and `should_fix` findings.
+2. [ ] Current Repository: If the Task 5 server fix changed the runtime path or persisted state shape in any user-visible way, refresh `planning/0000053-pr-summary.md`, `design.md`, `docs/developer-reference.md`, or `projectStructure.md` only where the final truth changed. If no document change is needed, record that explicit no-change result in this task’s Implementation notes.
+3. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by the review-fix tasks before moving on.
+4. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by the review-fix tasks before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run compose:build:summary`. Use this wrapper first because the reopened work still spans the server-plus-client Story 53 system and the final review disposition must be backed by the repository’s supported compose build path. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun `npm run compose:build:summary`.
+2. [ ] Current Repository: Run `npm run build:summary:server`. Use this wrapper because Task 5 changes the server flow runtime and resume ordering path. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+3. [ ] Current Repository: Run `npm run build:summary:client`. Use this wrapper because Task 6 may touch the Flows page proof or flow-run request helper path, and the final validation must still include the repository’s client typecheck gate. If the wrapper reports failure or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
+4. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use this wrapper because the reopened `must_fix` finding is a server lifecycle and persistence-ordering defect that needs direct regression proof. If it fails, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted reruns only as needed, then rerun the full wrapper.
+5. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use this wrapper because the Story 53 resume path must still hold on the supported higher-level server feature surface after the review-fix work. If it fails, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose, and rerun the full wrapper.
+6. [ ] Current Repository: Run `npm run test:summary:client`. Use this wrapper because the reopened `should_fix` finding is a client acceptance-proof problem and the Story 53 Run-versus-Resume client proof must still pass cleanly after correction. If it fails, inspect the printed client test log path, diagnose with targeted reruns only as needed, then rerun the full wrapper.
+7. [ ] Current Repository: Run `npm run test:summary:e2e`. Use this wrapper because Story 53 still changes user-visible Flows and Agents behavior that should remain green on the supported browser-backed path after the review-fix work. If it fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose, and rerun the full wrapper.
+8. [ ] Current Repository: If Task 5 or Task 6 changed visible Flows or Agents behavior or invalidated the previous manual screenshots, run `npm run compose:up`, repeat the final manual Playwright MCP verification against `http://host.docker.internal:5001/flows` and `/agents`, save fresh screenshots under `playwright-output-local` using the Story 53 prefix, inspect them yourself, then run `npm run compose:down`. If the review-fix work stayed server-internal or proof-only and did not change visible UI behavior, record that no-repeat-manual-proof decision explicitly in this task’s Implementation notes instead of silently skipping it.
+
+#### Implementation notes

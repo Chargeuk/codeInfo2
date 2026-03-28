@@ -665,7 +665,7 @@ Run a fresh Story 53 close-out pass after the review-fix tasks land. This task r
 - Task Dependencies: `Task 7`
 - Task Status: `__done__`
 - Git Commits:
-  - `Pending`
+  - `7094aca3` - `DEV-0000053 - correct stale run payload and proof semantics`
 
 #### Overview
 

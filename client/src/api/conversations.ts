@@ -10,9 +10,19 @@ export type ConversationApiSummary = {
   source?: 'REST' | 'MCP';
   lastMessageAt?: string;
   archived?: boolean;
-  flags?: Record<string, unknown>;
+  flags?: ConversationFlags;
   agentName?: string;
   flowName?: string;
+};
+
+export type ConversationFlags = Record<string, unknown> & {
+  flow?: {
+    executionId?: string;
+    stepPath?: unknown;
+  };
+  flowChild?: {
+    executionId?: string;
+  };
 };
 
 export type ConversationsApiErrorDetails = {
@@ -129,7 +139,7 @@ function parseConversationSummary(data: unknown): ConversationApiSummary {
         : undefined,
     archived:
       typeof record.archived === 'boolean' ? record.archived : undefined,
-    flags: hasFlags ? (flags as Record<string, unknown>) : undefined,
+    flags: hasFlags ? (flags as ConversationFlags) : undefined,
     agentName:
       typeof record.agentName === 'string' ? record.agentName : undefined,
     flowName: typeof record.flowName === 'string' ? record.flowName : undefined,

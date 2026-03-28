@@ -995,10 +995,12 @@ export default function FlowsPage() {
       setStartPending(true);
 
       const nextConversationId =
-        activeConversationId && activeConversationId.trim().length > 0
-          ? activeConversationId
-          : makeClientConversationId();
-      const isNewConversation = nextConversationId !== activeConversationId;
+        mode === 'run'
+          ? makeClientConversationId()
+          : activeConversationId && activeConversationId.trim().length > 0
+            ? activeConversationId
+            : makeClientConversationId();
+      const isNewConversation = mode === 'run';
       const trimmedCustomTitle = customTitle.trim();
       const shouldIncludeCustomTitle =
         mode === 'run' && isNewConversation && trimmedCustomTitle.length > 0;

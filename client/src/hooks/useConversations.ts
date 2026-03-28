@@ -3,6 +3,7 @@ import { getApiBaseUrl } from '../api/baseUrl';
 import {
   parseConversationSummary,
   updateConversationWorkingFolder as updateConversationWorkingFolderApi,
+  type ConversationFlags,
   type ConversationApiSummary,
 } from '../api/conversations';
 import { createLogger } from '../logging/logger';
@@ -17,7 +18,7 @@ export type ConversationSummary = {
   source?: 'REST' | 'MCP';
   lastMessageAt?: string;
   archived?: boolean;
-  flags?: Record<string, unknown>;
+  flags?: ConversationFlags;
   agentName?: string;
   flowName?: string;
 };
@@ -99,14 +100,14 @@ const isBulkErrorResponse = (
 const PAGE_SIZE = 20;
 
 function normalizeFlags(
-  flags: Record<string, unknown> | null | undefined,
-): Record<string, unknown> {
+  flags: ConversationFlags | null | undefined,
+): ConversationFlags {
   if (!flags || typeof flags !== 'object') return {};
   return { ...flags };
 }
 
 function readWorkingFolderFromFlags(
-  flags: Record<string, unknown> | null | undefined,
+  flags: ConversationFlags | null | undefined,
 ): string | undefined {
   const candidate =
     flags && typeof flags.workingFolder === 'string' ? flags.workingFolder : '';

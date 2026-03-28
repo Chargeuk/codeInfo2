@@ -167,9 +167,10 @@ Rules:
 ### Task [N]. Final Story Validation And Close-Out
 
 - Repository Name: exactly one of `Current Repository` or an alias listed in the story's `Additional Repositories` section
-- Task Dependencies: all earlier tasks required for final story proof
+- Task Dependencies: 1, 2, ..., N-1
 - Task Status: `__to_do__`
 - Git Commits:
+- Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
 #### Overview
 

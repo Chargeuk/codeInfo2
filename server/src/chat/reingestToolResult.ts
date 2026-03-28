@@ -52,6 +52,7 @@ export type ReingestToolResultPayload =
   | ReingestStepBatchResultPayload;
 
 const REINGEST_TOOL_NAME = 'reingest_repository';
+const REINGEST_TOOL_RESULT_LOG = 'DEV-0000052:T5:reingest-tool-result-built';
 
 function toUserFacingOutcome(
   outcome: ReingestSuccess,
@@ -82,18 +83,6 @@ function buildSinglePayload(
   };
 }
 
-function buildBatchSummary(
-  repositories: ReingestExecutionBatchResult['repositories'],
-): ReingestStepBatchSummary {
-  return repositories.reduce<ReingestStepBatchSummary>(
-    (summary, repository) => {
-      summary[repository.outcome] += 1;
-      return summary;
-    },
-    { reingested: 0, skipped: 0, failed: 0 },
-  );
-}
-
 function buildBatchPayload(
   execution: ReingestExecutionBatchResult,
 ): ReingestStepBatchResultPayload {
@@ -103,7 +92,7 @@ function buildBatchPayload(
     targetMode: execution.targetMode,
     requestedSelector: null,
     repositories: execution.repositories,
-    summary: buildBatchSummary(execution.repositories),
+    summary: execution.summary,
     warnings: execution.warnings,
   };
 }
@@ -131,7 +120,7 @@ export function buildReingestToolResult(params: {
 
   append({
     level: 'info',
-    message: 'DEV-0000052:T5:reingest-lifecycle',
+    message: REINGEST_TOOL_RESULT_LOG,
     timestamp: new Date().toISOString(),
     source: 'server',
     context: {

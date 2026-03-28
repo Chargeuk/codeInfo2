@@ -29,9 +29,6 @@ import type {
   ReingestToolResultPayload,
 } from './reingestToolResult.js';
 
-type LegacySingleTargetMode =
-  | ReingestStepResultPayload['targetMode']
-  | 'current';
 type LegacyBatchTargetMode =
   | ReingestStepBatchResultPayload['targetMode']
   | 'all';
@@ -77,6 +74,8 @@ const defaultDeps: LifecycleDeps = {
   now: () => new Date(),
   createInflightId: () => crypto.randomUUID(),
 };
+const REINGEST_LIFECYCLE_PERSISTED_LOG =
+  'DEV-0000052:T5:reingest-lifecycle-persisted';
 
 let lifecycleDeps: LifecycleDeps = defaultDeps;
 
@@ -115,14 +114,38 @@ const toLiveToolEvent = (toolResult: ChatToolResultEvent): ToolEvent => ({
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object';
 
-const isValidSingleTargetMode = (
+const normalizeLegacySingleTargetMode = (
   value: unknown,
-): value is LegacySingleTargetMode =>
-  value === 'sourceId' || value === 'current' || value === 'working';
+): ReingestStepResultPayload['targetMode'] | null => {
+  if (value === undefined || value === null) {
+    return 'sourceId';
+  }
+  switch (value) {
+    case 'sourceId':
+      return 'sourceId';
+    case 'working':
+      return 'working';
+    case 'current':
+      return 'sourceId';
+    default:
+      return null;
+  }
+};
 
 const isValidBatchTargetMode = (
   value: unknown,
 ): value is LegacyBatchTargetMode => value === 'all' || value === 'plan_scope';
+
+const normalizeLegacyBatchTargetMode = (
+  value: LegacyBatchTargetMode,
+): ReingestStepBatchResultPayload['targetMode'] => {
+  switch (value) {
+    case 'plan_scope':
+      return 'plan_scope';
+    case 'all':
+      return 'plan_scope';
+  }
+};
 
 const isValidOutcome = (
   value: unknown,
@@ -230,8 +253,7 @@ const getReingestPayload = (
     return {
       payload: {
         ...(result as LegacyBatchPayload),
-        targetMode:
-          result.targetMode === 'plan_scope' ? 'plan_scope' : 'plan_scope',
+        targetMode: normalizeLegacyBatchTargetMode(result.targetMode),
         warnings: normalizedWarnings.warnings,
       },
       droppedMalformedWarnings: normalizedWarnings.droppedCount,
@@ -255,9 +277,10 @@ const getReingestPayload = (
     return null;
   }
 
-  const normalizedTargetMode = isValidSingleTargetMode(payload.targetMode)
-    ? payload.targetMode
-    : 'sourceId';
+  const normalizedTargetMode = normalizeLegacySingleTargetMode(
+    payload.targetMode,
+  );
+  if (!normalizedTargetMode) return null;
   const normalizedRequestedSelector =
     payload.requestedSelector === undefined ||
     payload.requestedSelector === null
@@ -561,7 +584,7 @@ export async function runReingestStepLifecycle(params: {
 
       lifecycleDeps.appendLog({
         level: 'info',
-        message: 'DEV-0000052:T5:reingest-lifecycle',
+        message: REINGEST_LIFECYCLE_PERSISTED_LOG,
         timestamp: lifecycleDeps.now().toISOString(),
         source: 'server',
         context: {

@@ -15,15 +15,15 @@ import { buildCopilotClientOptions } from './config/copilotConfig.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
+import './flows/flowSchema.js';
+import './ingest/index.js';
+import './mongo/astCoverage.js';
 import {
   ensureStartupEnvLoaded,
   resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
-import './flows/flowSchema.js';
-import './ingest/index.js';
-import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { afterEach } from 'node:test';
 
 import type { ToolEvent } from '../../chat/inflightRegistry.js';
 import type { ChatToolResultEvent } from '../../chat/interfaces/ChatInterface.js';
@@ -11,6 +11,11 @@ import type {
   ReingestExecutionBatchResult,
   ReingestExecutionSingleResult,
 } from '../../ingest/reingestExecution.js';
+import { query, resetStore } from '../../logStore.js';
+
+afterEach(() => {
+  resetStore();
+});
 
 const buildOutcome = (
   overrides: Partial<ReingestTerminalOutcome> = {},
@@ -254,15 +259,21 @@ test('batch payload entries preserve repository identity and canonical path fiel
 test('batch payload summary counts mixed outcomes without recomputation', () => {
   const result = buildReingestToolResult({
     callId: 'reingest-step-6',
-    execution: buildBatchExecution(),
+    execution: buildBatchExecution({
+      summary: {
+        reingested: 4,
+        skipped: 3,
+        failed: 2,
+      },
+    }),
   });
 
   assert.deepEqual(
     (result.result as { summary: Record<string, number> }).summary,
     {
-      reingested: 1,
-      skipped: 1,
-      failed: 1,
+      reingested: 4,
+      skipped: 3,
+      failed: 2,
     },
   );
 });
@@ -341,11 +352,44 @@ test('remains compatible with the existing live tool-result event shape', () => 
   assert.equal(liveEvent.errorFull ?? null, null);
 });
 
+test('emits one stable tool-result build marker schema', () => {
+  buildReingestToolResult({
+    callId: 'reingest-step-log',
+    execution: buildBatchExecution(),
+  });
+
+  const marker = query(
+    {
+      text: 'DEV-0000052:T5:reingest-tool-result-built',
+      source: ['server'],
+    },
+    10,
+  ).at(-1);
+
+  assert.ok(marker);
+  assert.equal(marker.message, 'DEV-0000052:T5:reingest-tool-result-built');
+  assert.deepEqual(marker.context, {
+    callId: 'reingest-step-log',
+    payloadKind: 'reingest_step_batch_result',
+    targetMode: 'plan_scope',
+    stage: 'success',
+    warningCount: 0,
+    sourceId: null,
+    repositoryCount: 3,
+    status: null,
+  });
+});
+
 test('remains compatible with the persisted Turn.toolCalls container shape for batch payloads', () => {
   const built = buildReingestToolResult({
     callId: 'reingest-step-9',
     execution: buildBatchExecution({
       repositories: [],
+      summary: {
+        reingested: 0,
+        skipped: 0,
+        failed: 0,
+      },
     }),
   });
 

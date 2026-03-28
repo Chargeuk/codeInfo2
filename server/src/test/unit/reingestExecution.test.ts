@@ -43,9 +43,11 @@ function buildReingestSuccess(params: {
   sourceId: string;
   resolvedRepositoryId: string | null;
   completionMode?: 'reingested' | 'skipped' | null;
+  status?: 'completed' | 'cancelled' | 'error';
+  errorCode?: string | null;
 }) {
   return {
-    status: 'completed' as const,
+    status: params.status ?? ('completed' as const),
     operation: 'reembed' as const,
     runId: `run:${params.sourceId}`,
     sourceId: params.sourceId,
@@ -55,7 +57,7 @@ function buildReingestSuccess(params: {
     files: 1,
     chunks: 2,
     embedded: 2,
-    errorCode: null,
+    errorCode: params.errorCode ?? null,
   };
 }
 
@@ -197,6 +199,87 @@ describe('executeReingestRequest', () => {
     assert.equal(result.value.resolvedSourceId, '/data/repo-a');
   });
 
+  test('working and plan_scope reuse a request-scoped ingested repository listing snapshot', async () => {
+    const workingFixture = await createPlanScopeFixture();
+    const planScopeFixture = await createPlanScopeFixture({
+      additionalRepositories: [{ name: 'repo-a' }],
+    });
+    cleanups.push(workingFixture.cleanup, planScopeFixture.cleanup);
+
+    let workingListCalls = 0;
+    const workingResult = await executeReingestRequest({
+      request: { target: 'working' },
+      surface: 'command',
+      workingRepositoryPath: workingFixture.workingRepositoryPath,
+      deps: {
+        listIngestedRepositories: async () => {
+          workingListCalls += 1;
+          return {
+            repos: [
+              buildRepoEntry({
+                id: 'working-repo',
+                containerPath: workingFixture.workingRepositoryPath,
+                hostPath: workingFixture.workingRepositoryPath,
+              }),
+            ],
+            lockedModelId: 'model',
+          };
+        },
+        runReingestRepository: async ({ sourceId }) => ({
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId: sourceId ?? '/missing',
+            resolvedRepositoryId: 'working-repo',
+          }),
+        }),
+        appendLog: noopLog,
+      },
+    });
+
+    let planScopeListCalls = 0;
+    const planScopeResult = await executeReingestRequest({
+      request: { target: 'plan_scope' },
+      surface: 'command',
+      workingRepositoryPath: planScopeFixture.workingRepositoryPath,
+      deps: {
+        listIngestedRepositories: async () => {
+          planScopeListCalls += 1;
+          return {
+            repos: [
+              buildRepoEntry({
+                id: 'working-repo',
+                containerPath: planScopeFixture.workingRepositoryPath,
+                hostPath: planScopeFixture.workingRepositoryPath,
+              }),
+              buildRepoEntry({
+                id: 'repo-a',
+                containerPath: planScopeFixture.additionalRepositoryPaths[0]!,
+                hostPath: planScopeFixture.additionalRepositoryPaths[0]!,
+              }),
+            ],
+            lockedModelId: 'model',
+          };
+        },
+        runReingestRepository: async ({ sourceId }) => ({
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId: sourceId ?? '/missing',
+            resolvedRepositoryId:
+              sourceId === planScopeFixture.workingRepositoryPath
+                ? 'working-repo'
+                : 'repo-a',
+          }),
+        }),
+        appendLog: noopLog,
+      },
+    });
+
+    assert.equal(workingResult.ok, true);
+    assert.equal(planScopeResult.ok, true);
+    assert.equal(workingListCalls, 1);
+    assert.equal(planScopeListCalls, 1);
+  });
+
   test('working and plan_scope fail before start when the working repository path is missing or not currently ingested', async () => {
     const listIngestedRepositories = async () => ({
       repos: [buildRepoEntry({ id: 'Repo A', containerPath: '/data/repo-a' })],
@@ -243,6 +326,56 @@ describe('executeReingestRequest', () => {
       }
       assert.equal(resolverCalls, 0);
     }
+  });
+
+  test('plan_scope passes the resolved working repository sourceId into the resolver instead of the raw working-folder path', async () => {
+    let resolverWorkingRepositoryPath: string | undefined;
+    let capturedSourceId: string | undefined;
+
+    const result = await executeReingestRequest({
+      request: { target: 'plan_scope' },
+      surface: 'command',
+      workingRepositoryPath: '/host/repo-a',
+      deps: {
+        listIngestedRepositories: async () => ({
+          repos: [
+            buildRepoEntry({
+              id: 'Repo A',
+              containerPath: '/data/repo-a',
+              hostPath: '/host/repo-a',
+            }),
+          ],
+          lockedModelId: 'model',
+        }),
+        resolvePlanScopeRepositories: async ({ workingRepositoryPath }) => {
+          resolverWorkingRepositoryPath = workingRepositoryPath;
+          return {
+            repositories: [
+              {
+                sourceId: '/data/repo-a',
+                resolvedRepositoryId: 'Repo A',
+              },
+            ],
+            warnings: [],
+          };
+        },
+        runReingestRepository: async ({ sourceId }) => {
+          capturedSourceId = sourceId;
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId: 'Repo A',
+            }),
+          };
+        },
+        appendLog: noopLog,
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(resolverWorkingRepositoryPath, '/data/repo-a');
+    assert.equal(capturedSourceId, '/data/repo-a');
   });
 
   test('plan_scope uses working-first ordering, file-order additional repositories, and first-seen de-duplication', async () => {
@@ -597,6 +730,127 @@ describe('executeReingestRequest', () => {
     assert.deepEqual(
       result.value.warnings.map((warning) => warning.code),
       ['repository_failed'],
+    );
+  });
+
+  test('plan_scope records repository_failed warnings for ok-shaped terminal error and cancelled outcomes', async () => {
+    const fixture = await createPlanScopeFixture({
+      additionalRepositories: [{ name: 'repo-a' }, { name: 'repo-b' }],
+    });
+    cleanups.push(fixture.cleanup);
+
+    const result = await executeReingestRequest({
+      request: { target: 'plan_scope' },
+      surface: 'command',
+      workingRepositoryPath: fixture.workingRepositoryPath,
+      deps: {
+        listIngestedRepositories: async () => ({
+          repos: [
+            buildRepoEntry({
+              id: 'working-repo',
+              containerPath: fixture.workingRepositoryPath,
+              hostPath: fixture.workingRepositoryPath,
+            }),
+            buildRepoEntry({
+              id: 'repo-a',
+              containerPath: fixture.additionalRepositoryPaths[0]!,
+              hostPath: fixture.additionalRepositoryPaths[0]!,
+            }),
+            buildRepoEntry({
+              id: 'repo-b',
+              containerPath: fixture.additionalRepositoryPaths[1]!,
+              hostPath: fixture.additionalRepositoryPaths[1]!,
+            }),
+          ],
+          lockedModelId: 'model',
+        }),
+        runReingestRepository: async ({ sourceId }) => {
+          if (sourceId === fixture.additionalRepositoryPaths[0]) {
+            return {
+              ok: true,
+              value: buildReingestSuccess({
+                sourceId: sourceId ?? '/missing',
+                resolvedRepositoryId: 'repo-a',
+                status: 'error',
+                completionMode: null,
+                errorCode: 'INGEST_ERROR',
+              }),
+            };
+          }
+          if (sourceId === fixture.additionalRepositoryPaths[1]) {
+            return {
+              ok: true,
+              value: buildReingestSuccess({
+                sourceId: sourceId ?? '/missing',
+                resolvedRepositoryId: 'repo-b',
+                status: 'cancelled',
+                completionMode: null,
+              }),
+            };
+          }
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId: 'working-repo',
+            }),
+          };
+        },
+        appendLog: noopLog,
+      },
+    });
+
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.kind, 'batch');
+    assert.deepEqual(
+      result.value.repositories.map((repository) => ({
+        sourceId: repository.sourceId,
+        outcome: repository.outcome,
+        status: repository.status,
+        errorCode: repository.errorCode,
+      })),
+      [
+        {
+          sourceId: fixture.workingRepositoryPath,
+          outcome: 'reingested',
+          status: 'completed',
+          errorCode: null,
+        },
+        {
+          sourceId: fixture.additionalRepositoryPaths[0],
+          outcome: 'failed',
+          status: 'error',
+          errorCode: 'INGEST_ERROR',
+        },
+        {
+          sourceId: fixture.additionalRepositoryPaths[1],
+          outcome: 'failed',
+          status: 'cancelled',
+          errorCode: null,
+        },
+      ],
+    );
+    assert.deepEqual(result.value.summary, {
+      reingested: 1,
+      skipped: 0,
+      failed: 2,
+    });
+    assert.deepEqual(
+      result.value.warnings.map((warning) => ({
+        code: warning.code,
+        repositoryPath: warning.repositoryPath,
+      })),
+      [
+        {
+          code: 'repository_failed',
+          repositoryPath: fixture.additionalRepositoryPaths[0],
+        },
+        {
+          code: 'repository_failed',
+          repositoryPath: fixture.additionalRepositoryPaths[1],
+        },
+      ],
     );
   });
 

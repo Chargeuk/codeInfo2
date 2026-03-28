@@ -31,8 +31,10 @@ The initial defaults are also now fixed. OpenAI should start with batch size `20
 
 The AST optimization should also stay conservative. The user does not want partial AST updates that only recalculate the changed source file. Instead, the rule should be:
 
-- if no AST-supported file was added, changed, deleted, or effectively renamed, skip AST rebuild during delta re-embed;
-- if any AST-supported file was added, changed, deleted, or effectively renamed, rebuild the full AST exactly as the current full-rebuild path already does.
+- if no AST-supported file was added, changed, or deleted, skip AST rebuild during delta re-embed;
+- if any AST-supported file was added, changed, or deleted, rebuild the full AST exactly as the current full-rebuild path already does.
+
+For this story, a file move should stay as delete-plus-add rather than introducing a separate rename detector. That means an AST-supported move is treated as AST-relevant because it produces an AST-supported delete and add, which still triggers the existing full AST rebuild.
 
 That means the story is intentionally about doing less wasted work when only non-AST files changed, not about making AST indexing partially incremental for changed source files.
 
@@ -59,8 +61,9 @@ Overall, when the story is complete, users should be able to ingest repositories
 - The embedding dispatcher refills provider capacity immediately when any in-flight embedding request completes, rather than waiting for a whole wave of in-flight requests to finish before dispatching more work.
 - Chunk order, chunk metadata, and persisted vector metadata remain deterministic even when embedding requests run concurrently.
 - Cancellation and failure behavior remain coherent when multiple embedding requests are in flight.
-- During delta re-embed, AST rebuild is skipped entirely when the delta contains no AST-supported added, changed, deleted, or effectively renamed file.
-- During delta re-embed, if the delta contains any AST-supported added, changed, deleted, or effectively renamed file, the runtime rebuilds the full AST using the existing full-rebuild behavior rather than a changed-file-only AST update.
+- During delta re-embed, AST rebuild is skipped entirely when the delta contains no AST-supported added, changed, or deleted file.
+- During delta re-embed, if the delta contains any AST-supported added, changed, or deleted file, the runtime rebuilds the full AST using the existing full-rebuild behavior rather than a changed-file-only AST update.
+- File moves stay as delete-plus-add in this story rather than adding separate rename detection, so an AST-supported move still counts as AST-relevant work.
 - Markdown-only or other non-AST-only delta re-embeds no longer trigger a full AST rebuild.
 - The story preserves current correctness guarantees for AST data by avoiding partial changed-file-only AST persistence logic.
 - Existing ingest outputs, provider selection behavior, and root metadata remain compatible with the current ingest model unless a change is explicitly required for these optimizations.
@@ -72,6 +75,7 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Changing the rule that a single changed AST-supported file should trigger a full AST rebuild.
 - Changing which file extensions are considered AST-supported.
 - Replacing the current AST storage model, AST schema, or AST query model.
+- Adding a separate rename-detection system for delta re-embed decisions.
 - Broad redesign of the ingest UI beyond what is needed to surface existing progress and preserve correctness.
 - Reworking unrelated embedding-provider behavior outside repository ingest.
 - Introducing provider auto-tuning, adaptive concurrency learning, or dynamic runtime benchmarking beyond the explicit configuration discussed for this story.
@@ -92,11 +96,6 @@ Overall, when the story is complete, users should be able to ingest repositories
    - Best Answer: Keep the queue bound internal and tie it to max in-flight requests with a small fixed multiplier instead of adding another env var. The current repo already uses `flushEvery` for persistence cadence rather than buffering control, and Node's backpressure guidance favors bounded buffers over unbounded producer output.
    - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [config.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/config.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [ingest-batch-flush.feature](/home/d_a_s/code/codeInfo2/server/src/test/features/ingest-batch-flush.feature). External evidence: Node stream docs via Context7 `/nodejs/node`, DeepWiki `nodejs/node`, and the official Node.js stream backpressure guide.
 
-2. Should file moves stay as delete-plus-add, or should this story add real rename detection?
-   - Why this is important: The current delta planner only compares file paths and hashes, so "effective rename" needs a clear rule or implementers may accidentally add extra scope.
-   - Best Answer: Keep file moves as delete-plus-add in this story, and treat any AST-supported move as AST-relevant so it still triggers the existing full AST rebuild. That matches the current delta planner, keeps AST behavior conservative, and avoids inventing new rename-detection logic inside a performance story.
-   - Where this answer came from: Repo evidence first: [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [deltaPlan.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/deltaPlan.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md](/home/d_a_s/code/codeInfo2/planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md). External evidence: external SDK and API docs were reviewed, but this recommendation is driven by repo-specific ingest semantics rather than a third-party contract.
-
 ## Decisions
 
 1. Provider batching and max-in-flight controls should stay separate for each provider.
@@ -105,6 +104,13 @@ Overall, when the story is complete, users should be able to ingest repositories
    - What the answer is: Each provider should have its own batching setting and its own max-in-flight-requests setting. The runtime should clamp configured values to provider-supported limits without failing the run or logging just because the configured value was too high. LM Studio therefore keeps effective batch size `1` even if configured higher, while OpenAI can use larger batches within its own guardrails. The checked-in `.env` file should include these defaults with explanations: OpenAI batch size `20`, OpenAI max in-flight `10`, LM Studio batch size `1`, and LM Studio max in-flight `4`. The dispatcher should refill a freed in-flight slot immediately instead of waiting for the rest of a wave to complete.
    - Where the answer came from: User decision in this planning session, supported by repo evidence in [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [openaiEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/openaiEmbeddingProvider.ts), and [lmstudioEmbeddingProvider.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/providers/lmstudioEmbeddingProvider.ts), plus official OpenAI embeddings docs reviewed through web search, Context7, and DeepWiki.
    - Why it is the best answer: It preserves simple operator control, matches the fact that providers support different request shapes, keeps the dispatcher fully utilized without wave stalls, and avoids turning an over-large config value into an unnecessary run failure.
+
+2. File moves should stay as delete-plus-add in this story.
+   - The question being addressed: Should file moves stay as delete-plus-add, or should this story add real rename detection?
+   - Why the question matters: The current delta planner only compares file paths and hashes, so rename handling needs a clear rule or implementers may accidentally expand scope.
+   - What the answer is: Keep file moves as delete-plus-add in this story, and treat any AST-supported move as AST-relevant because it produces an AST-supported delete and add. That means a move still triggers the existing full AST rebuild path, but the story does not add a separate rename-detection system.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence in [deltaPlan.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/deltaPlan.ts), [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md](/home/d_a_s/code/codeInfo2/planning/0000020-ingest-delta-reembed-and-ingest-page-ux.md).
+   - Why it is the best answer: It keeps the performance story focused, matches the current delta planner, and preserves conservative AST correctness without inventing new rename logic.
 
 ## Implementation Ideas
 
@@ -119,6 +125,7 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Keep the dispatcher queue bounded so performance gains do not come at the cost of uncontrolled memory growth on very large text files.
 - Use slot-based dispatch so each completed in-flight request immediately pulls the next queued embedding work instead of waiting for an entire wave to finish.
 - Preserve deterministic metadata ordering by carrying original file and chunk indexes through the concurrent dispatch path and reassembling results in that stable order before persistence.
-- During delta re-embed, derive a separate `astRelevantDelta` check from the normal delta plan and only enter the AST rebuild path when that filtered delta contains at least one AST-supported add, change, delete, or effective rename.
+- During delta re-embed, derive a separate `astRelevantDelta` check from the normal delta plan and only enter the AST rebuild path when that filtered delta contains at least one AST-supported add, change, or delete.
+- Treat file moves as delete-plus-add rather than adding rename detection, so AST-supported moves naturally fall into the same conservative AST-relevant path.
 - Reuse the existing full AST rebuild path when `astRelevantDelta` is non-empty rather than designing a partial AST persistence model in this story.
 - Add targeted unit and integration coverage for large Markdown chunking, provider concurrency limits, concurrent result ordering, cancellation with in-flight requests, OpenAI batch guardrails, LM Studio concurrency caps, and the new AST skip/full-rebuild gate.

@@ -21,7 +21,7 @@ This story also fixes duplicate-request behavior. If a request arrives for a can
 
 MongoDB is required for this queue feature. If Mongo is unavailable, queueable ingest and re-embed requests should be rejected before they start. This story does not provide a degraded "run immediately without persistence" mode because that would break the durable queue contract and make restart behavior inconsistent.
 
-Agent and workflow behavior must remain predictable. If a re-embed request is triggered from a flow, command JSON file, or MCP surface that currently waits for terminal completion, that caller should still wait until the queued request actually finishes. Queueing changes how long the caller may need to wait, but it does not change the contract from blocking completion to fire-and-forget.
+Agent and workflow behavior must remain predictable. If a re-embed request is triggered from a flow, command JSON file, or MCP surface that currently waits for terminal completion, that caller should still wait until the queued request actually finishes. Queueing changes how long the caller may need to wait, but it does not change the contract from blocking completion to fire-and-forget. The preferred server behavior is event-driven waiting for the queue item and ingest run to reach a terminal state, not a short fixed timeout loop. A much longer safety timeout can still exist as a final guard for broken listeners or lost state, but it should not be the normal reason a correctly queued request fails.
 
 The frontend must also make queued work visible. When a repository is queued for re-embed, the UI should show that it is queued and show its queue position so the user knows the request was accepted and is waiting its turn. That queue position should count only waiting work, so `1` means “next in line” rather than “behind the currently running item plus everything else.” The repository list is the required source of truth for this state; this story does not need a separate top-of-page queue card. This should be a stable status in the ingest surfaces, not just a short-lived toast.
 
@@ -53,6 +53,8 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - `queuePosition` counts only waiting requests; an already running item uses the non-waiting state instead of reporting itself as queue position `1`.
 - Flow, command, and MCP re-embed callers that previously blocked until terminal completion still block until the queued request reaches a terminal outcome.
 - Queue wait time is treated as part of the blocking contract for those callers rather than as a reason to return early.
+- The preferred blocking path waits for real queue-item or ingest completion events rather than relying on a short fixed timeout as the normal control mechanism.
+- A much longer safety timeout may still exist as a final guard, but it is not the normal success path for correctly queued work.
 - The frontend ingest surfaces show when a repository is queued for re-embed and show its queue position in the repository list.
 - Queued repository visibility is stable enough that a user can refresh or revisit the ingest page and still see that the request is waiting.
 - Existing single-flight ingest execution still applies at runtime: only one ingest or re-embed run is active at a time, even though multiple future requests may now be queued durably.
@@ -77,11 +79,6 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - No Additional Repositories
 
 ### Questions
-
-1. Should flows, commands, and MCP wait through the whole queue, or fail after a short timeout?
-   - Why this is important: The story says these callers should still block until completion, but the current re-embed service only waits about 90 seconds before giving up.
-   - Best Answer: They should wait through the whole queue and the actual ingest run, with a much longer safety timeout than the current short wait. That fits the user-facing contract better because queue delay is now part of normal operation, not an exceptional error, and a short timeout would make queued requests fail even when the system is behaving correctly.
-   - Where this answer came from: Repo evidence from [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), [server/src/ingest/reingestExecution.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestExecution.ts), [server/src/flows/service.ts](/home/d_a_s/code/codeInfo2/server/src/flows/service.ts), and [server/src/mcp/server.ts](/home/d_a_s/code/codeInfo2/server/src/mcp/server.ts), which show the current blocking contract and its short wait budget; external evidence from DeepWiki's BullMQ documentation on `waitUntilFinished`-style blocking and the distinction between queue delay and actual execution; Context7 could not be queried because the workspace quota is exhausted today; and web search evidence from official BullMQ docs describing waiting vs active states and how active work continues until it completes.
 
 ## Decisions
 
@@ -115,6 +112,12 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
    - What the answer is: Make the repository list the required source of truth and keep a dedicated top-of-page queue card out of scope for this story.
    - Where the answer came from: User decision in this planning session, supported by repo evidence from [client/src/pages/IngestPage.tsx](/home/d_a_s/code/codeInfo2/client/src/pages/IngestPage.tsx), [client/src/hooks/useIngestRoots.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestRoots.ts), [client/src/hooks/useIngestStatus.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestStatus.ts), and [client/src/components/ingest/RootsTable.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/RootsTable.tsx), plus external evidence from BullMQ docs and DeepWiki guidance distinguishing waiting jobs from active jobs and describing queue position as application-level state derived from waiting jobs. Context7 could not be queried because the workspace quota is exhausted today.
    - Why it is the best answer: The repository row already matches the re-embed target, survives refresh naturally, and avoids expanding the UI scope with a second special-purpose queue surface.
+6. Flows, commands, and MCP should wait through the queue by default.
+   - The question being addressed: Should flows, commands, and MCP wait through the whole queue, or fail after a short timeout?
+   - Why the question matters: The story says these callers should still block until completion, but the current re-embed service only waits about 90 seconds before giving up.
+   - What the answer is: These callers should wait through the whole queue and the actual ingest run. The preferred implementation is event-driven waiting for queue-item and ingest completion, with only a much longer safety timeout as a final guard rather than as the normal control path.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), [server/src/ingest/reingestExecution.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestExecution.ts), [server/src/flows/service.ts](/home/d_a_s/code/codeInfo2/server/src/flows/service.ts), and [server/src/mcp/server.ts](/home/d_a_s/code/codeInfo2/server/src/mcp/server.ts), which show the current blocking contract and its short wait budget; external evidence from DeepWiki's BullMQ documentation on `waitUntilFinished`-style blocking and the distinction between queue delay and actual execution; Context7 could not be queried because the workspace quota is exhausted today; and web search evidence from official BullMQ docs describing waiting vs active states and how active work continues until it completes.
+   - Why it is the best answer: Queue delay becomes normal behavior in this story, so callers should not fail just because they had to wait their turn. Event-driven waiting also matches the real completion model better than treating a short timeout as the primary control mechanism.
 
 ## Implementation Ideas
 
@@ -135,6 +138,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - Keep `requestId` as the durable queue identifier while still returning `runId` once work has actually started.
 - Keep `queuePosition` waiting-only, so the next waiting job is `1` and already running work uses the non-waiting queue state instead.
 - Update blocking re-embed paths in flows, commands, and MCP so they enqueue or reuse a queue item and then wait for that queued request's terminal outcome instead of returning early.
-- Revisit blocking wait timeouts for queue-aware callers because queue delay now becomes part of the contract rather than an error path.
+- Prefer an event-driven completion wait for queue-aware callers so queue delay and actual ingest completion are treated as normal blocking behavior rather than a short timeout race.
+- Keep only a much longer safety timeout around that event-driven wait so broken listeners or lost in-memory state still fail eventually instead of hanging forever.
 - Extend ingest frontend data contracts so queued repositories can surface a stable `queued` state with queue position in the repository list without adding a separate queue card.
 - Add tests for FIFO ordering, duplicate collapse, startup recovery, Mongo-unavailable rejection, delete-before-next ordering, blocking flow/command waits, and frontend queued-state rendering.

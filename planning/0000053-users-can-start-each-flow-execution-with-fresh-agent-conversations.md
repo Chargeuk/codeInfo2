@@ -71,7 +71,10 @@ This story should preserve the current lightweight shape wherever possible. The 
 
 ### Questions
 
-None. All current high-value scope questions for this round are answered in Decisions.
+1. Should the execution clue appear as extra small text, or be added to the chat title?
+   - Why this is important: The story now requires a lightweight execution clue, but the current sidebar title area is narrow and already uses truncation, so the clue needs a defined place.
+   - Best Answer: It should appear as extra small text or a small chip in the existing sidebar metadata area, not inside the main chat title. The current `ConversationList` already shows a short title on one line, uses chips for compact status markers, and renders secondary metadata underneath. Keeping the execution clue out of the main title avoids unreadable titles while still making repeated executions easy to distinguish. Workflow tools such as GitHub Actions also keep the workflow name stable and show run-specific identity separately.
+   - Where this answer came from: Repo evidence from `client/src/components/chat/ConversationList.tsx` title, chip, and secondary metadata rendering; repo evidence from this story's accepted requirement for a lightweight execution clue; external evidence from MUI Chip docs and GitHub Actions run naming and run history docs.
 
 ## Decisions
 

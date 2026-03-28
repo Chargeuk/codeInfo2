@@ -658,3 +658,94 @@ Run a fresh Story 53 close-out pass after the review-fix tasks land. This task r
 3. The most complex logic is in the flow runtime’s ordering and ownership checks. A resume now has to make sure the parent flow conversation has a durable `flags.flow.executionId` before any child execution-marker backfill can depend on it, otherwise a failed resume could leave parent and child state out of sync. After that, child ownership validation must accept the compatible legacy case where a child conversation is missing its execution marker and needs to be stamped, while still rejecting the incompatible cases where the saved conversation is missing, belongs to the wrong agent, or already carries a conflicting execution marker. On the client side, the subtle part was keeping `Run` and `Resume` separate even when an older flow conversation is selected, so a fresh run still gets a new conversation id and keeps the intended `customTitle` behavior.
 
 4. A reviewer should look most closely at `server/src/flows/service.ts`, especially the `startFlowRun(...)` ordering around legacy parent backfill and the `ensureFlowChildConversationOwnership(...)` checks, because those two paths preserve the core execution-isolation and resume-safety contract. The other main hotspot is `client/src/pages/FlowsPage.tsx`, where the fresh Run versus Resume split and `customTitle` handling were corrected, plus the shared sidebar rendering in `client/src/components/chat/ConversationList.tsx`, which now derives the run clue from persisted flags. The best proof files to inspect alongside those runtime changes are `server/src/test/integration/flows.run.resume.test.ts`, `server/src/test/unit/flows.flags.test.ts`, `client/src/test/flowsPage.run.test.tsx`, and `e2e/flows-execution-runs.spec.ts`, because together they cover the server ordering fix, child ownership failures, the client request contract, and the browser-visible sidebar behavior.
+
+### Task 8. Correct Post-Closure Flow Proof Semantics And Disabled Custom Title Submission
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 7`
+- Task Status: `__to_do__`
+- Git Commits:
+  - `None yet`
+
+#### Overview
+
+Address the three valid follow-up review comments without broadening Story 53. The client must stop sending a stale `customTitle` when a resumable conversation disables the input but the user still clicks `Run`, and the stale working-folder integration proofs must be rewritten so each test title matches the behavior it actually proves.
+
+#### Task Exit Criteria
+
+- `Run` from a resumable-selection state does not include a stale disabled `customTitle` in the client request payload.
+- The stale working-folder integration tests in `server/src/test/integration/flows.run.working-folder.test.ts` no longer claim to prove stale-clear or stale-log behavior unless their assertions directly prove those invariants.
+- Each changed or added proof file in this task has one subtask of its own so reviewers can trace the intended invariant to the exact file update.
+
+#### Documentation Locations
+
+- `https://testing-library.com/docs/react-testing-library/intro/` - use for the React Testing Library patterns needed when proving that a disabled Flows-page input no longer leaks stale state into the run payload.
+- `https://nodejs.org/api/test.html` - use for the `node:test` structure already used by the server integration tests in this repository.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the valid follow-up comments and inspect `client/src/pages/FlowsPage.tsx`, `client/src/test/flowsPage.run.test.tsx`, and `server/src/test/integration/flows.run.working-folder.test.ts` together before editing. Record in this task’s Implementation notes the exact three invariants being corrected: disabled stale `customTitle` must not leak into `Run`, the stale-rerun working-folder proof must match the fresh-run-no-inherit path it actually exercises, and the stale-log proof must either assert the log marker on a real stale-clear path or stop claiming that behavior.
+2. [ ] Current Repository: In `client/src/pages/FlowsPage.tsx`, update the `Run` payload-construction path so a resumable-selection state cannot submit a stale disabled `customTitle`. Keep the Story 53 contract that `Run` still starts a fresh conversation and `Resume` still reuses the stopped conversation; this task only hardens stale-state handling and must not broaden the page into a larger flow-reset redesign. Documentation: https://testing-library.com/docs/react-testing-library/intro/ .
+3. [ ] Current Repository: Update `client/src/test/flowsPage.run.test.tsx` in its own proof-focused change. Add or rewrite exactly one RTL test that types a custom title, selects a resumable flow conversation, confirms the custom-title input becomes disabled, clicks `Run`, and proves the resulting `/flows/<name>/run` request does not include `customTitle`. Keep this proof isolated in its own test case rather than burying it inside an unrelated Story 53 assertion block. Documentation: https://testing-library.com/docs/react-testing-library/intro/ .
+4. [ ] Current Repository: Update the stale-rerun proof inside `server/src/test/integration/flows.run.working-folder.test.ts` in its own proof-focused change. Rename or rewrite that one test so its title and assertions match the fresh-run path it actually exercises after Story 53, namely that a fresh run started from an older flow conversation gets a new parent conversation and does not inherit the stale saved working folder automatically. Do not let this test continue to claim it proves stale-clear-on-reuse unless its assertions are moved onto the real stale-clear path. Documentation: https://nodejs.org/api/test.html .
+5. [ ] Current Repository: Update the stale-log proof inside `server/src/test/integration/flows.run.working-folder.test.ts` in its own proof-focused change. Either restore direct assertions for `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` on a real stale-clear path, including `recordType`, `stalePath`, and `conversationId`, or rename/rewrite the test so it no longer claims to prove stale-path logging. Keep this as a separate proof step from the stale-rerun test change so the semantics of the two integration proofs remain independently reviewable. Documentation: https://nodejs.org/api/test.html .
+6. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by this task before moving on. Documentation: Context7 `/eslint/eslint`.
+7. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by this task before moving on. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Do not attempt this check without the repository wrapper. Use this wrapper because Task 8 changes server integration proof files and the current-repository wrapper is the supported build path for server validation. If the wrapper reports `failed`, unexpected warnings, or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+2. [ ] Current Repository: Run `npm run build:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because Task 8 changes the Flows page request-building path and client/common checks are required before trusting the new stale-state proof. If the wrapper reports `failed`, unexpected warnings, or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
+3. [ ] Current Repository: Run `npm run test:summary:server:unit`. Do not attempt this check without the repository wrapper. Use this wrapper because Task 8 changes server `node:test` integration proof files and must prove the renamed or rewritten working-folder semantics cleanly on the supported server unit/integration path. If `failed > 0`, inspect the exact printed `test-results/server-unit-tests-*.log` path, diagnose only with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full `npm run test:summary:server:unit` wrapper.
+4. [ ] Current Repository: Run `npm run test:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because Task 8 changes the Flows-page stale-state submission path and must prove the new disabled-custom-title assertion on the supported client test path. If `failed > 0`, inspect the exact printed client test log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper reruns such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full `npm run test:summary:client` wrapper.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 9. Revalidate Story 53 After Proof-Semantics Follow-Up
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 8`
+- Task Status: `__to_do__`
+- Git Commits:
+  - `None yet`
+
+#### Overview
+
+Re-run the full Story 53 validation path after Task 8 so the story closes again with the corrected client behavior and corrected proof semantics. This task is the final regression and close-out pass for the reopened Story 53 scope only.
+
+#### Task Exit Criteria
+
+- The Task 8 stale custom-title fix and server proof-semantic corrections are validated by the full relevant wrapper path.
+- The final Story 53 notes explicitly record that the three follow-up review comments were rechecked and closed.
+- No new Story 53 regression is introduced while correcting the reopened proof and stale-state issues.
+
+#### Documentation Locations
+
+- `https://playwright.dev/docs/debug` - use for the final manual browser verification if Task 8 changes any visible Flows behavior or if the fresh-run payload contract needs browser confirmation.
+- `https://playwright.dev/docs/screenshots` - use for screenshot capture if fresh manual proof is needed after Task 8.
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read Task 8 plus the valid follow-up comments before marking the story complete again. Record in this task’s Implementation notes exactly how each comment was closed and which wrapper or manual proof confirms the final result.
+2. [ ] Current Repository: Refresh `planning/0000053-pr-summary.md`, `design.md`, `docs/developer-reference.md`, `projectStructure.md`, or this story file only if Task 8 changed the final truth described there. If no documentation update is needed, record that explicit no-change decision in this task’s Implementation notes instead of leaving it implicit.
+3. [ ] Current Repository: Run repository linting with `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues in the files changed by Task 8 and this task before moving on. Documentation: Context7 `/eslint/eslint`.
+4. [ ] Current Repository: Run repository formatting with `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues in the files changed by Task 8 and this task before moving on. Documentation: Context7 `/prettier/prettier`.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run compose:build:summary`. Do not attempt this check without the repository wrapper. Use this wrapper first because Task 9 is the final regression pass for the server-plus-client Story 53 system. If the wrapper reports `failed`, or item counts indicate failures or unknown results in a failure run, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun `npm run compose:build:summary`.
+2. [ ] Current Repository: Run `npm run build:summary:server`. Do not attempt this check without the repository wrapper. Use this wrapper because the reopened work still touches server integration proof and flow-run behavior. If the wrapper reports `failed`, unexpected warnings, or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun `npm run build:summary:server`.
+3. [ ] Current Repository: Run `npm run build:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because the reopened work changes Flows-page request construction and the final client/common regression pass must be clean. If the wrapper reports `failed`, unexpected warnings, or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun `npm run build:summary:client`.
+4. [ ] Current Repository: Run `npm run test:summary:server:unit`. Do not attempt this check without the repository wrapper. Use this wrapper because the reopened work changes server `node:test` integration proof and the final Story 53 server regression path must stay green. If `failed > 0`, inspect the exact printed `test-results/server-unit-tests-*.log` path, diagnose only with targeted wrapper reruns such as `npm run test:summary:server:unit -- --file <path>` and/or `npm run test:summary:server:unit -- --test-name <pattern>`, then rerun the full `npm run test:summary:server:unit` wrapper.
+5. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Do not attempt this check without the repository wrapper. Use this wrapper because the Story 53 higher-level flow contract must remain green after the Task 8 follow-up corrections. If `failed > 0`, inspect the exact printed `test-results/server-cucumber-tests-*.log` path, diagnose only with targeted wrapper reruns such as `npm run test:summary:server:cucumber -- --tags <expr>`, `npm run test:summary:server:cucumber -- --feature <path>`, and/or `npm run test:summary:server:cucumber -- --scenario <pattern>`, then rerun the full `npm run test:summary:server:cucumber` wrapper.
+6. [ ] Current Repository: Run `npm run test:summary:client`. Do not attempt this check without the repository wrapper. Use this wrapper because the reopened work changes the Flows-page stale-state submission path and final Story 53 client regression proof must stay green. If `failed > 0`, inspect the exact printed client test log path under `test-results/client-tests-*.log`, diagnose only with targeted wrapper reruns such as `npm run test:summary:client -- --file <path>`, `npm run test:summary:client -- --subset <pattern>`, and/or `npm run test:summary:client -- --test-name <pattern>`, then rerun the full `npm run test:summary:client` wrapper.
+7. [ ] Current Repository: Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish. Do not attempt this check without the repository wrapper. Use this wrapper because Story 53 still owns user-visible Flows and Agents behavior that must remain green after the Task 8 corrections. If `failed > 0`, setup or teardown fails, or the wrapper reports unexpected ambiguity, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose only with targeted wrapper reruns such as `npm run test:summary:e2e -- --file <path>` and/or `npm run test:summary:e2e -- --grep <pattern>`, then rerun the full `npm run test:summary:e2e` wrapper.
+8. [ ] Current Repository: Run `npm run compose:up`. Do not attempt this check without the repository wrapper. Use this wrapper because this task is the final regression check and the manual Playwright MCP pass must run against the supported main stack.
+9. [ ] Current Repository: Perform final manual Playwright MCP validation against `http://host.docker.internal:5001/flows` and `http://host.docker.internal:5001/agents`. Confirm the corrected Story 53 behavior, confirm there are no error-level console messages during the pass, and save fresh screenshots under `playwright-output-local` with the Story 53 prefix if the visible proof changed or the earlier screenshots are no longer representative. If Task 8 stayed proof-only on the server side and the earlier visible Story 53 proof remains representative, record that explicit no-repeat-screenshot decision in this task’s Implementation notes instead of silently skipping the manual verification.
+10. [ ] Current Repository: Run `npm run compose:down`. Do not attempt this check without the repository wrapper. Use this wrapper after the manual Playwright MCP validation so the supported stack is torn down through the repository workflow.
+
+#### Implementation Notes
+
+- Pending.

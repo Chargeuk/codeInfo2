@@ -667,6 +667,7 @@ Run a fresh Story 53 close-out pass after the review-fix tasks land. This task r
 - Git Commits:
   - `7094aca3` - `DEV-0000053 - correct stale run payload and proof semantics`
   - `80eba7df` - `DEV-0000053 - mark Task 8 git commits`
+  - `a3a8eef8` - `DEV-0000053 - finalize Task 8 git commit ledger`
 
 #### Overview
 
@@ -706,7 +707,7 @@ Address the three valid follow-up review comments without broadening Story 53. T
 - Subtask 2: Updated `FlowsPage.tsx` so fresh Run omits `customTitle` whenever the selected conversation is resumable and the custom-title input is disabled, while preserving the existing fresh Run versus Resume routing.
 - Subtask 3: Added a focused RTL proof in `flowsPage.run.test.tsx` that types a custom title, selects a resumable flow conversation, verifies the input is disabled, clicks Run, and confirms the `/flows/daily/run` payload omits `customTitle`.
 - Subtask 4: Renamed the stale-rerun working-folder integration proof so it now truthfully describes the Story 53 fresh-run path it exercises: a new parent conversation is created and the stale saved working folder is not inherited automatically.
-- Subtask 5: Restored direct stale-log assertions in the working-folder integration proof by checking for `DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION` with the expected flow conversation id, record type, and stale path instead of relying on a misleading test title alone.
+- Subtask 5: Corrected the stale-log proof semantics in `flows.run.working-folder.test.ts` so the final test no longer overclaims stale-log coverage on the fresh-run replacement path and instead truthfully proves that the replacement conversation starts without inheriting the stale saved working folder.
 - Subtask 6: Ran `npm run lint` after the Task 8 client and proof updates, and the full repository eslint pass completed cleanly without needing the `lint:fix` fallback.
 - Subtask 7: `npm run format:check` flagged only the active Story 53 plan file after the live checkbox updates, so I ran the required `npm run format` fallback and then reran `npm run format:check` cleanly.
 - Testing 1: `npm run build:summary:server` passed cleanly with `warning_count: 0`, confirming the renamed working-folder proofs still compile on the supported server build wrapper.

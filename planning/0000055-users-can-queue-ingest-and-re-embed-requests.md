@@ -21,7 +21,7 @@ MongoDB is required for this queue feature. If Mongo is unavailable, queueable i
 
 Agent and workflow behavior must remain predictable. If a re-embed request is triggered from a flow, command JSON file, or MCP surface that currently waits for terminal completion, that caller should still wait until the queued request actually finishes. Queueing changes how long the caller may need to wait, but it does not change the contract from blocking completion to fire-and-forget.
 
-The frontend must also make queued work visible. When a repository is queued for re-embed, the UI should show that it is queued and show its queue position so the user knows the request was accepted and is waiting its turn. This should be a stable status in the ingest surfaces, not just a short-lived toast.
+The frontend must also make queued work visible. When a repository is queued for re-embed, the UI should show that it is queued and show its queue position so the user knows the request was accepted and is waiting its turn. That queue position should count only waiting work, so `1` means “next in line” rather than “behind the currently running item plus everything else.” This should be a stable status in the ingest surfaces, not just a short-lived toast.
 
 The queue is FIFO by creation time. On server startup, if the queue collection contains leftover items and no ingest is already active, the server should attempt to start the oldest remaining item automatically. Because the active item remains in Mongo until terminal completion, this gives the queue at-least-once recovery semantics after restart without needing a second persistent run-state table.
 
@@ -44,6 +44,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - Queue-aware success responses do not expose a separate `deduped` field in this story.
 - For an immediately started request, the success payload includes the queue request id and a non-waiting queue state.
 - For a waiting request, the success payload includes `queued: true`, the queue request id, and the current queue position.
+- `queuePosition` counts only waiting requests; an already running item uses the non-waiting state instead of reporting itself as queue position `1`.
 - Flow, command, and MCP re-embed callers that previously blocked until terminal completion still block until the queued request reaches a terminal outcome.
 - Queue wait time is treated as part of the blocking contract for those callers rather than as a reason to return early.
 - The frontend ingest surfaces show when a repository is queued for re-embed and show its queue position.
@@ -78,10 +79,15 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
    - Why this is important: The story already says the next queued run must not start before the finished queue record is removed, so we still need to decide whether recovery is automatic or purely manual.
    - Best Answer: Retry deletion automatically with backoff, and keep the queue stalled until that delete succeeds. This is the best fit because transient MongoDB failures should self-heal where possible, while the queue still preserves FIFO ordering and never advances past an uncleared finished item.
    - Where this answer came from: Repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md) and [server/src/ingest/lock.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/lock.ts), which already frame this story around single-flight ordering and delete-before-next semantics; external evidence from official MongoDB retryable-write guidance showing MongoDB is designed to recover from transient write failures with bounded retries; DeepWiki's BullMQ queue docs, which treat cleanup and stalled-job recovery as automatic retry territory rather than purely manual intervention; and Context7 could not be queried because the workspace quota is exhausted today.
-3. Should queue position count only waiting requests, or should it also count the request that is already running?
-   - Why this is important: The frontend and API both need one stable meaning for `queuePosition`, especially when one request is already running and another is next in line.
-   - Best Answer: Count only waiting requests, so the first waiting job shows `queuePosition: 1`, and an already running job uses the non-waiting state without a queue position. That is clearer for users because `1` means “next in line,” and it matches the story's existing rule that immediately started work should return a non-waiting queue state instead of pretending it is still queued.
-   - Where this answer came from: Repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md), [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), and [server/src/routes/ingestRoots.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestRoots.ts), which show the current API already distinguishes active work from waiting work; external evidence from DeepWiki's BullMQ docs noting that user-facing queue position is application-level logic built on waiting-versus-active job lists; Context7 could not be queried because the workspace quota is exhausted today; and official MongoDB docs were not needed beyond the persistence background because this is mainly a product UX contract for this repository.
+
+## Decisions
+
+1. Queue position should count only waiting requests.
+   - The question being addressed: Should queue position count only waiting requests, or should it also count the request that is already running?
+   - Why the question matters: The frontend and API both need one stable meaning for `queuePosition`, especially when one request is already running and another is next in line.
+   - What the answer is: Count only waiting requests, so the first waiting job shows `queuePosition: 1`, and an already running job uses the non-waiting state without a queue position.
+   - Where the answer came from: User decision in this planning session, supported by repo evidence from [planning/0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md), [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), and [server/src/routes/ingestRoots.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestRoots.ts), plus external evidence from DeepWiki's BullMQ docs noting that user-facing queue position is application-level logic built on waiting-versus-active job lists. Context7 could not be queried because the workspace quota is exhausted today.
+   - Why it is the best answer: It is clearer for users because `1` means “next in line,” and it matches the story's existing rule that immediately started work should return a non-waiting queue state instead of pretending it is still queued.
 
 ## Implementation Ideas
 
@@ -97,6 +103,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 - Run `pumpIngestQueue()` on server startup so leftover queue entries are resumed automatically in FIFO order.
 - Reuse the existing canonical path resolution logic so dedupe is based on the same normalized ingest target the runtime actually uses.
 - Update REST ingest/re-embed handlers to return queue-aware success payloads with `queued`, `requestId`, and `queuePosition`.
+- Keep `queuePosition` waiting-only, so the next waiting job is `1` and already running work uses the non-waiting queue state instead.
 - Update blocking re-embed paths in flows, commands, and MCP so they enqueue or reuse a queue item and then wait for that queued request's terminal outcome instead of returning early.
 - Revisit blocking wait timeouts for queue-aware callers because queue delay now becomes part of the contract rather than an error path.
 - Extend ingest frontend data contracts so queued repositories can surface a stable `queued` state with queue position in the existing ingest views.

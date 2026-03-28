@@ -251,7 +251,6 @@ export default function FlowsPage() {
       ),
     [activeConversationId, flowConversations],
   );
-  const selectedFlowHasHistory = Boolean(selectedConversation);
 
   const resumeStepPath = useMemo(() => {
     const flags = selectedConversation?.flags;

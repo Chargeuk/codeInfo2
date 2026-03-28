@@ -2466,3 +2466,55 @@ This task belongs to `Current Repository`, so use this repository's wrapper-firs
   - `416fbaf4 DEV-0000052 - close lifecycle normalization validation`
   - `29fcced9 DEV-0000052 - mark task 27 git commits`
   - `6df82da1 DEV-0000052 - finalize task 27 plan ledger`
+
+## Post-Implementation Code Review
+
+- Review pass: `0000052-review-20260328T010630Z-c39e2618`
+- Evidence artifact: `codeInfoStatus/reviews/0000052-review-20260328T010630Z-c39e2618-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000052-review-20260328T010630Z-c39e2618-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000052-review-20260328T010630Z-c39e2618-blind-spot-challenge.md`
+- Review disposition: no findings; story remains complete in the current repository.
+
+### Branch And Scope Checks
+
+- Re-read `codeInfoStatus/flow-state/current-plan.json` and confirmed the canonical plan remains `planning/0000052-users-can-reingest-the-working-repository-or-plan-scope.md`.
+- Re-checked the current repository branch as `feature/0000052-users-can-reingest-the-working-repository-or-plan-scope`, which still matches the `0000052` story number in the selected plan filename.
+- Re-confirmed that `additional_repositories` is empty in the handoff and that the plan's `## Additional Repositories` section still resolves to `- No Additional Repositories`, so the review scope is this repository only.
+- Re-validated the review handoff against current state and confirmed `current_repository` still points at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`, `origin/main` remains the resolved review base, and the reviewed HEAD commit remains `c39e2618`.
+
+### Files Inspected
+
+- Runtime and schema surfaces: `server/src/agents/commandsRunner.ts`, `server/src/agents/commandsSchema.ts`, `server/src/chat/reingestStepLifecycle.ts`, `server/src/chat/reingestToolResult.ts`, `server/src/flows/flowSchema.ts`, `server/src/flows/service.ts`, `server/src/ingest/pathMap.ts`, `server/src/ingest/planScopeResolver.ts`, and `server/src/ingest/reingestExecution.ts`
+- Proof and regression surfaces: `server/src/test/support/planScopeFixture.ts`, the changed integration tests, the changed unit tests, and the Task 27 wrapper-run notes already recorded above in this plan
+- Supporting documentation surfaces: `design.md`, `docs/developer-reference.md`, `projectStructure.md`, approved `flows/**`, and the durable review artifacts listed above
+
+### Acceptance Evidence
+
+- AC 1-10: direct proof. The command and flow schemas now accept only `sourceId`, `working`, and `plan_scope`, and the selector-driven `sourceId` contract remains intact through the runtime and MCP test surfaces.
+- AC 11-20: direct proof. The `working` and `plan_scope` execution paths resolve the working repository through the existing repository-resolution seam, fail clearly before start when the working repository is unusable, and read plan-scope additions only from `current-plan.json.additional_repositories[].path`.
+- AC 21-39: direct proof. Missing, malformed, unreadable, invalid, duplicate, skipped, and continue-after-failure plan-scope cases are covered directly in resolver, execution, tool-result, and lifecycle tests, and the runtime still reuses the existing batch payload family instead of inventing a new one.
+- AC 40-46: direct proof for the changed write and normalization paths, with one indirect dependency on the unchanged `server/src/mongo/turn.ts` mixed-schema storage seam. Completed warning-bearing `plan_scope` batches still persist as tool-result `stage: "success"` with batch warnings carried through the existing `Turn.toolCalls` path.
+- AC 47-50: direct proof. Removed authored targets fail through the normal invalid-target schema path, MCP `reingest_repository` remains selector-driven, docs and tests no longer present `current` as a supported authored target, and the shared review prompts and flows now include rejected-risk notes plus an explicit blind-spot challenge step.
+
+### Completion Assessment
+
+- The current repository remains complete because the final diff against `origin/main` still maps to the planned `working` / `plan_scope` runtime, docs, tests, approved review-flow support changes, and the two review-fix reopenings that were already closed by Tasks 23 through 27.
+- The story remains complete because the latest no-findings review pass rechecked the final landed implementation after those reopenings, found no remaining repo-local or cross-repository defects, and the final task already records the full wrapper-first validation ladder plus the browser-visible runtime proof.
+- The implemented code is appropriately succinct for the required behavior. The main complexity sits in the lifecycle compatibility seam because it has to preserve explicit historical payloads while rejecting malformed future values, but the latest review pass did not find a lower-churn simplification that would improve the contract without weakening that boundary.
+
+### Generic Adversarial Review
+
+- Execution-routing or harness dependence: indirect proof. The changed behavior still runs through the unchanged default wrappers and server startup paths, and the plan's final validation notes record full wrapper coverage without evidence that the branch moved any changed path behind a manual-only invocation.
+- Default launcher, wrapper, dispatcher, CI, or startup-path inclusion: indirect proof. The review found no selector or suffix changes that would silently exclude the new behavior from the standard validation path, but this remains grounded in unchanged wrapper and package-script consumers rather than a newly added launcher assertion.
+- Shared-state or concurrency safety: indirect proof. The changed tests use temp fixtures and explicit cleanup, and the runtime reuses a stable ingested-repository snapshot per execution path, but the review still has only indirect proof for concurrent handoff-file rewrite races.
+- Reader and writer atomicity or partial-write tolerance: indirect proof. `plan_scope` intentionally falls back to working-only for malformed or unreadable handoffs, which is the planned contract, but there is no direct proof for observing `current-plan.json` in the middle of a truncate-and-rewrite.
+- Cleanup ownership or stale-state safety: indirect proof. The final wrapper and compose proof showed clean startup and teardown behavior with no browser-console errors, but the review did not find new direct crash-recovery coverage beyond the existing happy and warning-path tests.
+- Lifecycle ordering: direct proof. The runtime, tool-result builder, and lifecycle persistence paths were all reopened and revalidated, and the latest findings pass plus blind-spot challenge specifically challenged continue-after-failure behavior, summary alignment, and malformed single-result target-mode handling.
+- Test isolation: indirect proof. The changed unit and integration suites show explicit temp-dir cleanup and passed under the default wrappers, but the review still treats full parallel interference and crash-mid-persist scenarios as residual weak-proof areas rather than exhaustively disproven states.
+
+### Rejected-Risk Notes Carried Forward
+
+- `executeReingestRequest(...)` in `server/src/ingest/reingestExecution.ts`: rejected risk with direct proof. The reviewed code and tests still show that ordered `plan_scope` batches preserve earlier outcomes, append `repository_failed` warnings for ok-shaped terminal failures and thrown failures, and continue through later repositories instead of aborting early.
+- `resolvePlanScopeRepositories(...)` in `server/src/ingest/planScopeResolver.ts`: rejected risk for malformed, unreadable, invalid-array, duplicate, and invalid-repository handoff states, with one residual weak-proof concern for a concurrent partial-write race. That remaining weak proof is acceptable here because the explicit story contract already says malformed or unreadable handoffs should fall back to working-only behavior with warnings.
+- `getReingestPayload(...)` / `normalizeLegacySingleTargetMode(...)` in `server/src/chat/reingestStepLifecycle.ts`: rejected risk with direct proof. The final landed code now keeps canonical `sourceId` / `working`, explicit legacy `current`, and omitted historical single-result payloads readable while leaving malformed future single-result target modes unparsed instead of coercing them into canonical `sourceId`.
+- Blind-spot challenge follow-up: the focused challenge added no new findings and strengthened all three rejected-risk conclusions above. It specifically re-checked mixed-shape persisted single-result payloads, path-spelling and normalization duplicates in plan-scope resolution, and multi-failure ordered batch execution without overturning the no-findings disposition.

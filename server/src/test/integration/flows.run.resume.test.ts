@@ -54,6 +54,32 @@ const writeResumeFlow = async (dir: string) => {
   );
 };
 
+const writeResumeDualAgentFlow = async (dir: string) => {
+  const flow = {
+    description: 'Resume dual-agent test flow',
+    steps: [
+      {
+        type: 'llm',
+        label: 'Step 1',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 1'] }],
+      },
+      {
+        type: 'llm',
+        label: 'Step 2',
+        agentType: 'coding_agent',
+        identifier: 'resume-test-2',
+        messages: [{ role: 'user', content: ['Step 2'] }],
+      },
+    ],
+  };
+  await fs.writeFile(
+    path.join(dir, 'resume-dual-agent.json'),
+    JSON.stringify(flow, null, 2),
+  );
+};
+
 class MinimalChat extends ChatInterface {
   async execute(
     _message: string,
@@ -487,6 +513,151 @@ test('startFlowRun backfills legacy child executionId on resume', async () => {
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun persists legacy parent executionId before child backfill validation failures', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-parent-backfill-order-'),
+  );
+  await writeResumeDualAgentFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-conv-parent-backfill-order';
+  const firstChildConversationId = 'agent-resume-conv-parent-backfill-first';
+  const secondChildConversationId = 'agent-resume-conv-parent-backfill-second';
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-dual-agent',
+    flowName: 'resume-dual-agent',
+    source: 'REST',
+    flags: {
+      flow: {
+        stepPath: [],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': firstChildConversationId,
+          'coding_agent:resume-test-2': secondChildConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(firstChildConversationId, {
+    _id: firstChildConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-dual-agent (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {},
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(secondChildConversationId, {
+    _id: secondChildConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-dual-agent (resume-test-2)',
+    agentName: 'planning_agent',
+    source: 'REST',
+    flags: {},
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        startFlowRun({
+          flowName: 'resume-dual-agent',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) => {
+        assert.equal((error as { code?: string })?.code, 'AGENT_MISMATCH');
+        return true;
+      },
+    );
+
+    const backfilledExecutionId = getFlowExecutionId(conversationId);
+    assert.equal(
+      getFlowChildExecutionId(firstChildConversationId),
+      backfilledExecutionId,
+    );
+
+    memoryConversations.set(secondChildConversationId, {
+      ...(memoryConversations.get(secondChildConversationId) ?? {
+        _id: secondChildConversationId,
+      }),
+      provider: 'codex',
+      model: 'gpt-5.2-codex',
+      title: 'Flow: resume-dual-agent (resume-test-2)',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: {},
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await startFlowRun({
+      flowName: 'resume-dual-agent',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    await waitFor(
+      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+      5000,
+    );
+    assert.equal(getFlowExecutionId(conversationId), backfilledExecutionId);
+    assert.equal(
+      getFlowChildExecutionId(firstChildConversationId),
+      backfilledExecutionId,
+    );
+    assert.equal(
+      getFlowChildExecutionId(secondChildConversationId),
+      backfilledExecutionId,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(firstChildConversationId);
+    memoryTurns.delete(firstChildConversationId);
+    memoryConversations.delete(secondChildConversationId);
+    memoryTurns.delete(secondChildConversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

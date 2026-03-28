@@ -316,6 +316,20 @@ const getFlowChildExecutionId = (
   return null;
 };
 
+const getFlowExecutionId = (
+  flags: Record<string, unknown> | undefined,
+): string | null => {
+  const flow = flags?.flow;
+  if (!isRecord(flow)) return null;
+  if (
+    typeof flow.executionId === 'string' &&
+    flow.executionId.trim().length > 0
+  ) {
+    return flow.executionId.trim();
+  }
+  return null;
+};
+
 const persistFlowChildExecutionId = async (params: {
   conversationId: string;
   executionId: string;
@@ -3599,11 +3613,11 @@ export async function startFlowRun(
       );
     }
 
-    resumeState = parseFlowResumeState(
-      (existingConversation?.flags ?? undefined) as
-        | Record<string, unknown>
-        | undefined,
-    );
+    const existingFlags = (existingConversation?.flags ?? undefined) as
+      | Record<string, unknown>
+      | undefined;
+    const persistedResumeExecutionId = getFlowExecutionId(existingFlags);
+    resumeState = parseFlowResumeState(existingFlags);
     if (resumeStepPath) {
       if (!resumeState) {
         throw toFlowRunError(
@@ -3612,6 +3626,19 @@ export async function startFlowRun(
         );
       }
       validateResumeStepPath(flow.steps, resumeStepPath);
+      if (!persistedResumeExecutionId) {
+        await persistFlowResumeState({
+          conversationId,
+          executionId: resumeState.executionId,
+          runtimeState: hydrateFlowAgentState(resumeState),
+          stepPath: resumeState.stepPath,
+          loopStack: resumeState.loopStack.map((frame) => ({
+            loopStepPath: [...frame.loopStepPath],
+            iteration: frame.iteration,
+          })),
+          workingFolder: effectiveWorkingFolder ?? resumeState.workingFolder,
+        });
+      }
       await validateResumeAgentConversations(resumeState);
     }
     executionId = resumeState?.executionId ?? executionId;

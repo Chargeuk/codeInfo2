@@ -815,7 +815,7 @@ This task closes the reviewed race where cancellation can land after `embedBatch
 - Task Dependencies: `Task 3`
 - Task Status: `__done__`
 - Git Commits:
-  - None yet
+  - `d377a19f` - `DEV-[54] - Remove cancel-route dimension probes`
 
 #### Overview
 

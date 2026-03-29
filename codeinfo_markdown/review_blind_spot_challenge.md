@@ -33,11 +33,15 @@ Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact'
 6. For one changed orchestration function, attempt a focused failure-ordering challenge: assume the external provider, model bootstrap, or dispatcher setup fails before any real work begins, and verify whether a no-op, metadata-only, delete-only, or zero-work fast path would still complete correctly. Prefer paths where the existing tests prove terminal status semantics but do not explicitly prove behavior under provider or bootstrap failure.
 7. For one changed producer-consumer error path, attempt a wrapped-error mismatch challenge: assume the lower layer now emits a normalized or provider-specific error instead of the old raw SDK error shape, and verify whether the caller still reaches the correct cancel, retry, ignore, or terminal branch.
 8. For one changed test used as proof, attempt a weak-proof challenge: if the test proves that something has not happened yet, verify whether it relies on an arbitrary elapsed-time sleep instead of a deterministic scheduler, resource, or state boundary, and decide whether that makes the proof flaky or only residual weak proof.
-9. For each challenge, decide whether it:
-   - creates a new endorsed finding;
-   - strengthens a rejected-risk conclusion;
-   - or leaves only residual weak proof.
-10. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge, the one failure-ordering challenge, the wrapped-error mismatch challenge, and the one weak-proof test challenge. Do not restart the whole review.
+9. For one changed env/config parser, attempt a domain-mismatch challenge using empty string, whitespace, zero, negative, or oversized values and verify whether downstream invariants still hold or whether the parser should clamp, fallback, or reject earlier.
+10. For one changed query/filter/bulk selector in a large-repository or large-file path, attempt a scale-shape challenge: identify whether the filter or payload grows with repository, file, chunk, or symbol count and verify whether the implementation bounds that growth.
+11. For each challenge, decide whether it:
+
+- creates a new endorsed finding;
+- strengthens a rejected-risk conclusion;
+- or leaves only residual weak proof.
+
+12. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge, the one failure-ordering challenge, the wrapped-error mismatch challenge, the one weak-proof test challenge, the one env/config domain challenge, and the one scale-shape challenge. Do not restart the whole review.
 
 ## Output Contract
 

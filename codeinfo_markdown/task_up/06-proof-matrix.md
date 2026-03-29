@@ -13,6 +13,7 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 <proof_matrix_rules>
 
 - For each task, identify every acceptance path, important edge case, and meaningful failure mode that task is responsible for.
+- Treat invalid env/config inputs, blank or whitespace-only inputs, out-of-range numeric values, and large-input scale behavior as proof obligations whenever the task changes constrained config parsing or large-repository query/filter logic.
 - Rewrite or add subtasks so each proof obligation names:
   1. the requirement or invariant being proved;
   2. the implementation files that own the behavior;

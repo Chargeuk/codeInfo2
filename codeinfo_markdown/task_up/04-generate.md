@@ -31,6 +31,8 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Keep prerequisite work earlier than downstream tasks that depend on it.
 - Add cleanup or removal tasks when the story replaces or supersedes existing behavior.
 - Add migration or compatibility tasks when the story changes contracts, storage, env vars, build/runtime wiring, or deployment behavior.
+- Add explicit implementation and proof-authoring work when the story changes env/config inputs with constrained domains, including invalid-input, blank-input, and oversized-input handling.
+- Add explicit implementation and proof-authoring work when the story introduces or changes query/filter/bulk-selector logic that must stay bounded as repository or file counts grow.
 - Add observability or diagnosability work when the story would be difficult to prove or debug without it.
 - Add documentation tasks only when the story actually changes documentation-relevant behavior, files, architecture, commands, contracts, or screenshots.
   </task_generation_rules>

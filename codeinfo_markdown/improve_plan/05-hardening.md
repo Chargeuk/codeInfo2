@@ -27,12 +27,14 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Make each Acceptance Criterion and meaningful edge case specific enough that a later tasking pass can map it to named proof locations rather than only generic wrapper commands.
 - Add or update `## Implementation Ideas` based on the researched evidence.
 - Add or update message-contract and storage-shape details when the story needs them.
+- Add or update env/config domain details when the story introduces or changes numeric limits, margins, percentages, timeouts, queue caps, concurrency knobs, or other constrained values.
 - Add or update a test-harness section only if new harness work is actually required.
 - Add or update `Edge Cases and Failure Modes` when needed.
 - Preserve the standard named planning sections used by this planning system when they are relevant, such as `Feasibility Proof Pass`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, and `Log Or Proof Markers`.
 - Add further relevant sections only when they are genuinely helpful for the selected plan.
 - Make prerequisite work explicit when capabilities are missing or assumptions are invalid.
 - Make runtime, deployment, Docker, test, and validation expectations explicit when those areas matter to the story.
+- Make scale-bounding expectations explicit when a query, delete filter, or bulk selector could otherwise grow with repository, file, chunk, or symbol count.
 - When the story changes UI state, mode switching, create-vs-reuse behavior, or hidden/disabled fields, state the expected submission behavior explicitly, including whether stale state must be cleared or merely excluded from payloads and persistence.
 - If the story is multi-repository, state which repository owns each planned change and describe dependency direction, sequencing, and compatibility expectations.
 - If the story does not require a new frontend or backend, state that plainly where it matters instead of inventing work.

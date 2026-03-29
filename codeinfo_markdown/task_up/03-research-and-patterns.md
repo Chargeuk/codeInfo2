@@ -24,6 +24,8 @@ Confirm the tasking against existing repository patterns and external contract e
 - Re-read the active plan from disk before researching so you are checking the current text rather than memory.
 - For each planned implementation seam, identify the strongest matching existing internal pattern and note whether it is reusable, partially reusable, or missing.
 - For each planned external contract surface, confirm the message structure, env/config names, lifecycle expectations, and failure behavior from evidence.
+- For each planned env/config input, confirm the valid domain, blank/whitespace behavior, lower bounds, upper bounds, and whether invalid values must clamp, fallback, or fail before task generation begins.
+- For each planned query/filter/bulk selector that could grow with repository, file, chunk, or symbol count, confirm the intended bounding strategy now instead of leaving it to a later implementation subtask.
 - If the contract is still ambiguous after repository and official-doc review, create or run the smallest safe proving example needed to settle the uncertainty now.
 - Feed any newly confirmed pattern or contract detail back into the plan immediately when the current plan text is still too vague for clean task generation.
 - If a prerequisite capability, harness, or contract adapter is missing, make it explicit in the plan before task generation instead of burying it in a later subtask.
@@ -34,6 +36,7 @@ Confirm the tasking against existing repository patterns and external contract e
 - Treat this pass as incomplete until each planned seam either has a confirmed internal pattern, a confirmed external contract, or an explicit prerequisite in the plan.
 - Check whether any remaining unknown would force a final task to say “investigate,” “confirm,” “spike,” or “figure out.” If so, resolve it now or rewrite the plan first.
 - Check whether the planned proof files and wrappers still make sense for the confirmed pattern rather than only the originally guessed one.
+- Check whether the plan now explicitly names config-domain constraints and scale-bounded query expectations so the later task list can avoid research-shaped subtasks.
   </verification_loop>
 
 <output_contract>

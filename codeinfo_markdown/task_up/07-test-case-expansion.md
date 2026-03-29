@@ -13,6 +13,8 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 
 - Re-read the active plan from disk before editing.
 - For each acceptance path, important edge case, error path, recovery path, and mixed-state path, add or refine a proof-authoring subtask that names the exact proof file or artifact to create or edit.
+- When a task changes env/config parsing, add separate proof subtasks for blank input, whitespace-only input, out-of-range values, and the accepted in-range path whenever those behaviors affect correctness.
+- When a task changes query/filter/bulk-selector logic in a large-repository or large-file path, add a proof subtask that explicitly verifies the implementation uses a bounded strategy rather than one unbounded request or filter.
 - If one proof file will cover multiple distinct invariants, create separate subtasks that point to the same file but use different `Purpose` language.
 - Require each proof subtask to make these four details explicit when they are not already obvious from the plan format:
   1. Test type or proof type.

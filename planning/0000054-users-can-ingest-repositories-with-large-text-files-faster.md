@@ -870,7 +870,7 @@ This task fixes the reviewed cancel-route defect where Story 54 can still send a
 - Task Dependencies: `Task 6, Task 7, Task 8`
 - Task Status: `__done__`
 - Git Commits:
-  - None yet
+  - `881d16c9` - `DEV-[54] - Revalidate story 54 after review fixes`
 
 #### Overview
 

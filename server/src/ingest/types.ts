@@ -31,4 +31,9 @@ export type IngestConfig = {
   fallbackTokenLimit: number;
   flushEvery: number;
   largeTextThresholdBytes: number;
+  openAiMaxBatchSize: number;
+  openAiMaxInFlight: number;
+  lmStudioMaxBatchSize: number;
+  lmStudioMaxInFlight: number;
+  maxQueueSize: number;
 };

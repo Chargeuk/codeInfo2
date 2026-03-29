@@ -64,8 +64,11 @@ test('LM Studio ingest retries log warn on retry and error on terminal exhaustio
     }),
   });
   const model = await provider.getModel('text-embedding-nomic-embed-text-v1.5');
+  const controller = new AbortController();
 
-  await assert.rejects(() => model.embedText('hello world'));
+  await assert.rejects(() =>
+    model.embedText('hello world', { signal: controller.signal }),
+  );
   assert.equal(calls, 3);
 
   const entries = query(

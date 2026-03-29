@@ -13,11 +13,14 @@ import {
   setOpenAiTokenizerFactoryForTests,
 } from '../../ingest/providers/index.js';
 import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
+import type { IngestConfig } from '../../ingest/types.js';
 
 const mockModel = (
   ctx: number,
   tokenPerChar = 0.2,
 ): ProviderEmbeddingModel => ({
+  effectiveBatchSize: 1,
+  supportsAbort: false,
   async getContextLength() {
     return ctx;
   },
@@ -28,17 +31,23 @@ const mockModel = (
     void text;
     return [];
   },
+  async embedBatch(texts: string[]) {
+    return Promise.all(texts.map(async () => []));
+  },
 });
 
-const createConfig = (
-  overrides: Partial<NonNullable<Parameters<typeof chunkText>[2]>> = {},
-) => ({
+const createConfig = (overrides: Partial<IngestConfig> = {}): IngestConfig => ({
   includes: [],
   excludes: [],
   tokenSafetyMargin: 0.85,
   fallbackTokenLimit: 30,
   flushEvery: 20,
   largeTextThresholdBytes: 65536,
+  openAiMaxBatchSize: 20,
+  openAiMaxInFlight: 10,
+  lmStudioMaxBatchSize: 1,
+  lmStudioMaxInFlight: 4,
+  maxQueueSize: -1,
   ...overrides,
 });
 
@@ -133,6 +142,8 @@ test('chunk sizing uses the shared tokenizer-backed helper for OpenAI models', a
   }));
 
   const model: ProviderEmbeddingModel = {
+    effectiveBatchSize: 1,
+    supportsAbort: true,
     modelKey: 'text-embedding-3-small',
     async getContextLength() {
       return 12;
@@ -144,6 +155,9 @@ test('chunk sizing uses the shared tokenizer-backed helper for OpenAI models', a
     },
     async embedText() {
       return [];
+    },
+    async embedBatch(texts: string[]) {
+      return Promise.all(texts.map(async () => []));
     },
   };
 
@@ -167,6 +181,8 @@ test('tokenizer count failure during chunking raises a clear error without white
   }));
 
   const model: ProviderEmbeddingModel = {
+    effectiveBatchSize: 1,
+    supportsAbort: true,
     modelKey: 'text-embedding-3-small',
     async getContextLength() {
       return 20;
@@ -176,6 +192,9 @@ test('tokenizer count failure during chunking raises a clear error without white
     },
     async embedText() {
       return [];
+    },
+    async embedBatch(texts: string[]) {
+      return Promise.all(texts.map(async () => []));
     },
   };
 

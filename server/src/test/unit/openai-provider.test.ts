@@ -15,7 +15,7 @@ function createClientDouble(options: {
 }) {
   const calls: Array<{
     body: { model: string; input: string[] };
-    options?: { timeout?: number; maxRetries?: number };
+    options?: { timeout?: number; maxRetries?: number; signal?: AbortSignal };
   }> = [];
 
   return {
@@ -24,7 +24,11 @@ function createClientDouble(options: {
       embeddings: {
         create: async (
           body: { model: string; input: string[] },
-          requestOptions?: { timeout?: number; maxRetries?: number },
+          requestOptions?: {
+            timeout?: number;
+            maxRetries?: number;
+            signal?: AbortSignal;
+          },
         ) => {
           calls.push({ body, options: requestOptions });
           if (options.throwError) {
@@ -63,6 +67,34 @@ test('embeddings call uses timeout 30000 and SDK maxRetries=0', async () => {
   assert.equal(double.calls.length, 1);
   assert.equal(double.calls[0]?.options?.timeout, OPENAI_REQUEST_TIMEOUT_MS);
   assert.equal(double.calls[0]?.options?.maxRetries, 0);
+});
+
+test('OpenAI provider exposes multi-input batch embedding with stable response ordering and abort state', async () => {
+  const controller = new AbortController();
+  const double = createClientDouble({
+    embeddingData: [
+      { index: 1, embedding: [0.4, 0.5, 0.6] },
+      { index: 0, embedding: [0.1, 0.2, 0.3] },
+    ],
+  });
+  const provider = createOpenAiEmbeddingProvider({
+    apiKey: 'sk-test',
+    clientFactory: () => double.client,
+  });
+
+  const model = await provider.getModel('text-embedding-3-small');
+  const vectors = await model.embedBatch(['first', 'second'], {
+    signal: controller.signal,
+  });
+
+  assert.equal(model.effectiveBatchSize, 2048);
+  assert.equal(model.supportsAbort, true);
+  assert.deepEqual(vectors, [
+    [0.1, 0.2, 0.3],
+    [0.4, 0.5, 0.6],
+  ]);
+  assert.deepEqual(double.calls[0]?.body.input, ['first', 'second']);
+  assert.equal(double.calls[0]?.options?.signal, controller.signal);
 });
 
 test('rejects empty and non-numeric vectors with deterministic errors', async () => {

@@ -1,6 +1,15 @@
+import { OPENAI_MAX_INPUTS_PER_REQUEST } from './providers/openaiConstants.js';
 import { IngestConfig } from './types.js';
 
 const DEFAULT_LARGE_TEXT_THRESHOLD_BYTES = 65536;
+export const DEFAULT_OPENAI_MAX_BATCH_SIZE = 20;
+export const DEFAULT_OPENAI_MAX_INFLIGHT = 10;
+export const DEFAULT_LMSTUDIO_MAX_BATCH_SIZE = 1;
+export const DEFAULT_LMSTUDIO_MAX_INFLIGHT = 4;
+export const DEFAULT_INGEST_MAX_QUEUE_SIZE = -1;
+export const MAX_OPENAI_INFLIGHT = 10;
+export const MAX_LMSTUDIO_BATCH_SIZE = 1;
+export const MAX_LMSTUDIO_INFLIGHT = 4;
 
 const defaultIncludes = [
   'ts',
@@ -67,6 +76,23 @@ function parseFiniteNumberWithFallback(
   return parsed;
 }
 
+function parseClampedIntegerWithFallback(
+  rawValue: string | undefined,
+  fallback: number,
+  { min, max }: { min?: number; max?: number } = {},
+): number {
+  const parsed = parseFiniteNumberWithFallback(rawValue, fallback, { min });
+  const floored = Math.floor(parsed);
+  if (typeof max === 'number' && floored > max) return max;
+  return floored;
+}
+
+function parseQueueCap(rawValue: string | undefined): number {
+  const parsed = Number(rawValue ?? DEFAULT_INGEST_MAX_QUEUE_SIZE);
+  if (!Number.isFinite(parsed)) return DEFAULT_INGEST_MAX_QUEUE_SIZE;
+  return Math.max(DEFAULT_INGEST_MAX_QUEUE_SIZE, Math.floor(parsed));
+}
+
 export function resolveConfig(): IngestConfig {
   const envIncludes =
     process.env.CODEINFO_INGEST_INCLUDE?.split(',')
@@ -100,6 +126,41 @@ export function resolveConfig(): IngestConfig {
       { min: 1 },
     ),
   );
+  const openAiMaxBatchSize = parseClampedIntegerWithFallback(
+    process.env.CODEINFO_INGEST_OPENAI_MAX_BATCH_SIZE,
+    DEFAULT_OPENAI_MAX_BATCH_SIZE,
+    {
+      min: 1,
+      max: OPENAI_MAX_INPUTS_PER_REQUEST,
+    },
+  );
+  const openAiMaxInFlight = parseClampedIntegerWithFallback(
+    process.env.CODEINFO_INGEST_OPENAI_MAX_INFLIGHT,
+    DEFAULT_OPENAI_MAX_INFLIGHT,
+    {
+      min: 1,
+      max: MAX_OPENAI_INFLIGHT,
+    },
+  );
+  const lmStudioMaxBatchSize = parseClampedIntegerWithFallback(
+    process.env.CODEINFO_INGEST_LMSTUDIO_MAX_BATCH_SIZE,
+    DEFAULT_LMSTUDIO_MAX_BATCH_SIZE,
+    {
+      min: 1,
+      max: MAX_LMSTUDIO_BATCH_SIZE,
+    },
+  );
+  const lmStudioMaxInFlight = parseClampedIntegerWithFallback(
+    process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT,
+    DEFAULT_LMSTUDIO_MAX_INFLIGHT,
+    {
+      min: 1,
+      max: MAX_LMSTUDIO_INFLIGHT,
+    },
+  );
+  const maxQueueSize = parseQueueCap(
+    process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE,
+  );
 
   return {
     includes,
@@ -108,5 +169,10 @@ export function resolveConfig(): IngestConfig {
     fallbackTokenLimit,
     flushEvery,
     largeTextThresholdBytes,
+    openAiMaxBatchSize,
+    openAiMaxInFlight,
+    lmStudioMaxBatchSize,
+    lmStudioMaxInFlight,
+    maxQueueSize,
   };
 }

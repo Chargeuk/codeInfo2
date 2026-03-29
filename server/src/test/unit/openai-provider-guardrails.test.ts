@@ -4,6 +4,7 @@ import {
   OPENAI_MAX_INPUTS_PER_REQUEST,
   OPENAI_MAX_TOTAL_TOKENS_PER_REQUEST,
   OpenAiEmbeddingError,
+  createOpenAiEmbeddingProvider,
   disposeOpenAiTokenizer,
   resolveOpenAiModelTokenLimit,
   setOpenAiTokenizerFactoryForTests,
@@ -157,4 +158,36 @@ test('an input at 8193 tokens is rejected with oversized-input classification', 
       return true;
     },
   );
+});
+
+test('provider batch requests still honor max input count guardrails before any OpenAI call is sent', async () => {
+  installLengthTokenizer();
+  let sdkCalls = 0;
+  const provider = createOpenAiEmbeddingProvider({
+    apiKey: 'sk-test',
+    clientFactory: () => ({
+      embeddings: {
+        create: async () => {
+          sdkCalls += 1;
+          return { data: [] };
+        },
+      },
+      models: {
+        list: async () => ({ data: [] }),
+      },
+    }),
+  });
+  const model = await provider.getModel('text-embedding-3-small');
+
+  await assert.rejects(
+    () => model.embedBatch(buildInputs(OPENAI_MAX_INPUTS_PER_REQUEST + 1, 'x')),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenAiEmbeddingError);
+      assert.equal(error.code, 'OPENAI_INPUT_TOO_LARGE');
+      assert.match(error.message, /max input count/i);
+      return true;
+    },
+  );
+
+  assert.equal(sdkCalls, 0);
 });

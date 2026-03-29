@@ -15,10 +15,6 @@ import {
   clearAstReferencesByRoot,
   clearAstSymbolsByRoot,
   clearIngestFilesByRoot,
-  deleteAstEdgesByRelPaths,
-  deleteAstModuleImportsByRelPaths,
-  deleteAstReferencesByRelPaths,
-  deleteAstSymbolsByRelPaths,
   deleteIngestFilesByRelPaths,
   listIngestFilesByRoot,
   upsertAstCoverage,
@@ -48,7 +44,11 @@ import {
   InvalidLockMetadataError,
   setLockedModel,
 } from './chromaClient.js';
-import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
+import {
+  buildDeltaPlan,
+  resolveDeltaAstMode,
+  type DiscoveredFileHash,
+} from './deltaPlan.js';
 import { createEmbeddingDispatcher } from './embeddingDispatcher.js';
 import * as ingestLock from './lock.js';
 import {
@@ -527,6 +527,28 @@ async function processRun(runId: string, input: IngestJobInput) {
           deltaPlan.changed.length +
           deltaPlan.deleted.length
         : null;
+    const deltaAstMode =
+      operation === 'reembed' && deltaMode === 'delta' && deltaPlan
+        ? resolveDeltaAstMode({
+            plan: deltaPlan,
+            isAstSupported,
+          })
+        : null;
+    const shouldSkipAstForDelta =
+      deltaAstMode?.mode === 'ast_skip_non_ast_delta';
+    const shouldRebuildAstForDelta = deltaAstMode?.mode === 'ast_full_rebuild';
+
+    if (deltaAstMode) {
+      logLifecycle('info', 'DEV-0000054:delta_ast_mode_selected', {
+        runId,
+        root,
+        mode: deltaAstMode.mode,
+        astRelevantDeltaCount: deltaAstMode.astRelevantDeltaCount,
+        deltaAdded: deltaPlan?.added.length ?? 0,
+        deltaChanged: deltaPlan?.changed.length ?? 0,
+        deltaDeleted: deltaPlan?.deleted.length ?? 0,
+      });
+    }
 
     const workFiles: {
       absPath: string;
@@ -594,6 +616,11 @@ async function processRun(runId: string, input: IngestJobInput) {
     const astReferences: AstReferenceRecord[] = [];
     const astModuleImports: AstModuleImportRecord[] = [];
     let astGrammarFailureLogged = false;
+    const shouldRunAstIndexing = !(
+      operation === 'reembed' &&
+      deltaMode === 'delta' &&
+      shouldSkipAstForDelta
+    );
     const deltaSkipMessage =
       operation === 'reembed' && deltaMode === 'delta' && deltaWorkCount === 0
         ? `No changes detected for ${root}`
@@ -941,7 +968,11 @@ async function processRun(runId: string, input: IngestJobInput) {
             deltaDeleted: deltaPlan.deleted.length,
           },
         );
-        if (deltaPlan.deleted.length > 0 && workFiles.length === 0) {
+        if (
+          deltaPlan.deleted.length > 0 &&
+          workFiles.length === 0 &&
+          !shouldRebuildAstForDelta
+        ) {
           logLifecycle('info', '0000020 ingest delta deletions-only', {
             root,
             deleted: deltaPlan.deleted.length,
@@ -959,24 +990,6 @@ async function processRun(runId: string, input: IngestJobInput) {
             root,
             relPaths: deltaPlan.deleted.map((f) => f.relPath),
           });
-          if (astWritesEnabled) {
-            const deletedPaths = deltaPlan.deleted.map((file) => file.relPath);
-            if (deletedPaths.length > 0) {
-              await deleteAstSymbolsByRelPaths({
-                root,
-                relPaths: deletedPaths,
-              });
-              await deleteAstEdgesByRelPaths({ root, relPaths: deletedPaths });
-              await deleteAstReferencesByRelPaths({
-                root,
-                relPaths: deletedPaths,
-              });
-              await deleteAstModuleImportsByRelPaths({
-                root,
-                relPaths: deletedPaths,
-              });
-            }
-          }
           const counts = { files: 0, chunks: 0, embedded: 0 };
           const rootEmbeddingDim = await resolveRootEmbeddingDim({
             existingRootDim,
@@ -1036,14 +1049,14 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     }
 
-    if (!astWritesEnabled && !dryRun) {
+    if (shouldRunAstIndexing && !astWritesEnabled && !dryRun) {
       logWarning('AST indexing skipped; MongoDB is unavailable', {
         root,
         reason: 'mongo_disconnected',
       });
     }
 
-    if (astCounts.skippedFileCount > 0) {
+    if (shouldRunAstIndexing && astCounts.skippedFileCount > 0) {
       logWarning('AST indexing skipped for unsupported language files', {
         root,
         skippedFileCount: astCounts.skippedFileCount,
@@ -1055,7 +1068,8 @@ async function processRun(runId: string, input: IngestJobInput) {
 
     if (
       operation === 'start' ||
-      (operation === 'reembed' && deltaMode !== 'delta')
+      (operation === 'reembed' &&
+        (deltaMode !== 'delta' || shouldRebuildAstForDelta))
     ) {
       if (astWritesEnabled) {
         await clearAstSymbolsByRoot(root);
@@ -1144,56 +1158,58 @@ async function processRun(runId: string, input: IngestJobInput) {
       return true;
     };
 
-    for (const [idx, file] of files.entries()) {
-      const fileIndex = idx + 1;
-      if (await handleCancellation(fileIndex, file.relPath)) {
-        return;
-      }
-
-      const astExt = file.ext ?? path.extname(file.relPath).slice(1);
-      if (!isAstSupported(astExt)) {
-        continue;
-      }
-
-      const text = await fs.readFile(file.absPath, 'utf8');
-      const fileHash =
-        discoveredHashByRelPath.get(file.relPath) ??
-        (await hashFile(file.absPath));
-      fileHashesByRelPath.set(file.relPath, fileHash);
-
-      const astResult = await parseAstSource({
-        root,
-        text,
-        relPath: file.relPath,
-        fileHash,
-      });
-      if (astResult.status === 'ok') {
-        astSymbols.push(...astResult.symbols);
-        astEdges.push(...astResult.edges);
-        astReferences.push(...astResult.references);
-        astModuleImports.push(...astResult.imports);
-      } else {
-        astCounts.failedFileCount += 1;
-        if (astFailedExamples.length < 5) {
-          astFailedExamples.push({
-            relPath: file.relPath,
-            error: astResult.error,
-            ...(astResult.details ? { details: astResult.details } : {}),
-          });
+    if (shouldRunAstIndexing) {
+      for (const [idx, file] of files.entries()) {
+        const fileIndex = idx + 1;
+        if (await handleCancellation(fileIndex, file.relPath)) {
+          return;
         }
-        const errorMessage = astResult.error.toLowerCase();
-        if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
-          astGrammarFailureLogged = true;
-          logWarning('Tree-sitter grammar failed to load', {
-            root,
-            relPath: file.relPath,
-            error: astResult.error,
-          });
+
+        const astExt = file.ext ?? path.extname(file.relPath).slice(1);
+        if (!isAstSupported(astExt)) {
+          continue;
+        }
+
+        const text = await fs.readFile(file.absPath, 'utf8');
+        const fileHash =
+          discoveredHashByRelPath.get(file.relPath) ??
+          (await hashFile(file.absPath));
+        fileHashesByRelPath.set(file.relPath, fileHash);
+
+        const astResult = await parseAstSource({
+          root,
+          text,
+          relPath: file.relPath,
+          fileHash,
+        });
+        if (astResult.status === 'ok') {
+          astSymbols.push(...astResult.symbols);
+          astEdges.push(...astResult.edges);
+          astReferences.push(...astResult.references);
+          astModuleImports.push(...astResult.imports);
+        } else {
+          astCounts.failedFileCount += 1;
+          if (astFailedExamples.length < 5) {
+            astFailedExamples.push({
+              relPath: file.relPath,
+              error: astResult.error,
+              ...(astResult.details ? { details: astResult.details } : {}),
+            });
+          }
+          const errorMessage = astResult.error.toLowerCase();
+          if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
+            astGrammarFailureLogged = true;
+            logWarning('Tree-sitter grammar failed to load', {
+              root,
+              relPath: file.relPath,
+              error: astResult.error,
+            });
+          }
         }
       }
     }
 
-    if (astCounts.failedFileCount > 0) {
+    if (shouldRunAstIndexing && astCounts.failedFileCount > 0) {
       logWarning('AST indexing failed for file(s)', {
         root,
         failedFileCount: astCounts.failedFileCount,
@@ -1411,25 +1427,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     }
 
-    if (astWritesEnabled) {
-      if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
-        const deleteRelPaths = [...deltaPlan.changed, ...deltaPlan.deleted].map(
-          (file) => file.relPath,
-        );
-        if (deleteRelPaths.length > 0) {
-          await deleteAstSymbolsByRelPaths({ root, relPaths: deleteRelPaths });
-          await deleteAstEdgesByRelPaths({ root, relPaths: deleteRelPaths });
-          await deleteAstReferencesByRelPaths({
-            root,
-            relPaths: deleteRelPaths,
-          });
-          await deleteAstModuleImportsByRelPaths({
-            root,
-            relPaths: deleteRelPaths,
-          });
-        }
-      }
-
+    if (astWritesEnabled && shouldRunAstIndexing) {
       await upsertAstSymbols({ root, symbols: astSymbols });
       await upsertAstEdges({ root, edges: astEdges });
       await upsertAstReferences({ root, references: astReferences });

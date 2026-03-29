@@ -1,3 +1,4 @@
+import path from 'path';
 import { append } from '../logStore.js';
 
 append({
@@ -21,12 +22,36 @@ export type DiscoveredFileHash = {
   size?: number;
 };
 
-type DeltaPlan = {
+export type DeltaPlan = {
   unchanged: IndexedFile[];
   changed: DiscoveredFileHash[];
   added: DiscoveredFileHash[];
   deleted: IndexedFile[];
 };
+
+export type DeltaAstMode = 'ast_skip_non_ast_delta' | 'ast_full_rebuild';
+
+export function resolveDeltaAstMode(params: {
+  plan: DeltaPlan;
+  isAstSupported: (ext: string) => boolean;
+}): { mode: DeltaAstMode; astRelevantDeltaCount: number } {
+  const hasAstSupport = (file: { relPath: string; ext?: string }) => {
+    const ext = (file.ext ?? path.extname(file.relPath).slice(1)).toLowerCase();
+    return ext.length > 0 && params.isAstSupported(ext);
+  };
+
+  const astRelevantDeltaCount = [
+    ...params.plan.added,
+    ...params.plan.changed,
+    ...params.plan.deleted,
+  ].filter(hasAstSupport).length;
+
+  return {
+    mode:
+      astRelevantDeltaCount > 0 ? 'ast_full_rebuild' : 'ast_skip_non_ast_delta',
+    astRelevantDeltaCount,
+  };
+}
 
 function byRelPath(a: { relPath: string }, b: { relPath: string }) {
   return a.relPath.localeCompare(b.relPath);

@@ -627,7 +627,7 @@ test('mongo disconnect skips AST writes with warning', async () => {
   }
 });
 
-test('delta reembed deletes and upserts AST records', async () => {
+test('delta reembed with AST-supported changes clears and rebuilds the full AST', async () => {
   const repoMocks = mongoMocks;
   const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
     ...baseAstResult,
@@ -650,11 +650,14 @@ test('delta reembed deletes and upserts AST records', async () => {
   const { root, cleanup } = await createTempRepo({
     'src/added.ts': 'export const added = 1;\n',
     'src/changed.ts': 'export const changed = 2;\n',
+    'src/unchanged.ts': 'export const unchanged = 3;\n',
   });
 
   try {
     const changedHash = await hashFile(path.join(root, 'src/changed.ts'));
+    const unchangedHash = await hashFile(path.join(root, 'src/unchanged.ts'));
     repoMocks.setIngestFileRows([
+      { relPath: 'src/unchanged.ts', fileHash: unchangedHash },
       { relPath: 'src/changed.ts', fileHash: `${changedHash}-old` },
       { relPath: 'src/deleted.ts', fileHash: 'deleted-hash' },
     ]);
@@ -665,16 +668,20 @@ test('delta reembed deletes and upserts AST records', async () => {
     );
     await waitForTerminal(runId);
 
-    assert.equal(parseMock.mock.calls.length, 2);
+    assert.equal(parseMock.mock.calls.length, 3);
+    const parsedRelPaths = parseMock.mock.calls.map(
+      (call) => call.arguments[0].relPath,
+    );
+    assert.deepEqual(
+      new Set(parsedRelPaths),
+      new Set(['src/added.ts', 'src/changed.ts', 'src/unchanged.ts']),
+    );
     const deleteCall = repoMocks.astSymbolsDeleteMany.mock.calls.at(-1) as
-      | { arguments: [{ relPath?: { $in?: string[] } }] }
+      | { arguments: [{ root?: string; relPath?: { $in?: string[] } }] }
       | undefined;
     if (!deleteCall) throw new Error('Expected delete call');
-    const relPaths = deleteCall.arguments[0].relPath?.$in ?? [];
-    assert.deepEqual(
-      new Set(relPaths),
-      new Set(['src/changed.ts', 'src/deleted.ts']),
-    );
+    assert.equal(deleteCall.arguments[0].root, root);
+    assert.equal(deleteCall.arguments[0].relPath, undefined);
     const upsertSymbols = repoMocks.astSymbolsBulkWrite.mock.calls.at(-1) as
       | {
           arguments: [
@@ -689,7 +696,7 @@ test('delta reembed deletes and upserts AST records', async () => {
     );
     assert.deepEqual(
       new Set(symbolRelPaths),
-      new Set(['src/added.ts', 'src/changed.ts']),
+      new Set(['src/added.ts', 'src/changed.ts', 'src/unchanged.ts']),
     );
     const coverageCall = repoMocks.astCoverageUpdateOne.mock.calls.at(-1) as
       | { arguments: [unknown, { $set: Record<string, unknown> }] }
@@ -699,14 +706,24 @@ test('delta reembed deletes and upserts AST records', async () => {
       supportedFileCount: number;
       skippedFileCount: number;
     };
-    assert.equal(coverage.supportedFileCount, 2);
+    assert.equal(coverage.supportedFileCount, 3);
     assert.equal(coverage.skippedFileCount, 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }
 });
 
-test('delta reembed skips unchanged files', async () => {
+test('delta reembed with only non-AST delta work skips AST entirely', async () => {
   const repoMocks = mongoMocks;
   const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
     ...baseAstResult,
@@ -727,15 +744,15 @@ test('delta reembed skips unchanged files', async () => {
     ],
   }));
   const { root, cleanup } = await createTempRepo({
-    'src/unchanged.ts': 'export const unchanged = 1;\n',
-    'src/changed.ts': 'export const changed = 2;\n',
+    'src/keep.ts': 'export const keep = 1;\n',
+    'docs/changed.md': '# changed\n\ntext\n',
   });
 
   try {
-    const unchangedHash = await hashFile(path.join(root, 'src/unchanged.ts'));
+    const keepHash = await hashFile(path.join(root, 'src/keep.ts'));
     repoMocks.setIngestFileRows([
-      { relPath: 'src/unchanged.ts', fileHash: unchangedHash },
-      { relPath: 'src/changed.ts', fileHash: 'old-hash' },
+      { relPath: 'src/keep.ts', fileHash: keepHash },
+      { relPath: 'docs/changed.md', fileHash: 'old-hash' },
     ]);
 
     const runId = await startIngest(
@@ -744,13 +761,19 @@ test('delta reembed skips unchanged files', async () => {
     );
     await waitForTerminal(runId);
 
-    assert.equal(parseMock.mock.calls.length, 2);
-    const parsedRelPaths = parseMock.mock.calls.map(
-      (call) => call.arguments[0].relPath,
-    );
-    assert.deepEqual(
-      new Set(parsedRelPaths),
-      new Set(['src/changed.ts', 'src/unchanged.ts']),
+    assert.equal(parseMock.mock.calls.length, 0);
+    assert.equal(repoMocks.astSymbolsDeleteMany.mock.calls.length, 0);
+    assert.equal(repoMocks.astSymbolsBulkWrite.mock.calls.length, 0);
+    assert.equal(repoMocks.astCoverageUpdateOne.mock.calls.length, 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_skip_non_ast_delta' &&
+          entry.context?.root === root,
+      ),
     );
   } finally {
     await cleanup();
@@ -790,19 +813,50 @@ test('delta reembed no-change returns completed before AST parse and embedding c
       text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
     });
     assert.equal(deltaPathLogs.length, 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_skip_non_ast_delta' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }
 });
 
-test('delta reembed deletions-only returns completed and does not claim no changes', async () => {
+test('delta reembed AST-relevant deletions rebuild AST and do not claim no changes', async () => {
+  const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
+        },
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
   const { root, cleanup } = await createTempRepo({
+    'src/keep.ts': 'export const keep = 2;\n',
     'src/deleted.ts': 'export const deleted = 1;\n',
   });
 
   try {
+    const keepHash = await hashFile(path.join(root, 'src/keep.ts'));
     const deletedHash = await hashFile(path.join(root, 'src/deleted.ts'));
     mongoMocks.setIngestFileRows([
+      { relPath: 'src/keep.ts', fileHash: keepHash },
       { relPath: 'src/deleted.ts', fileHash: deletedHash },
     ]);
     await fs.rm(path.join(root, 'src/deleted.ts'));
@@ -819,6 +873,19 @@ test('delta reembed deletions-only returns completed and does not claim no chang
       text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
     });
     assert.ok(deltaPathLogs.length > 0);
+    assert.equal(parseMock.mock.calls.length, 1);
+    assert.equal(parseMock.mock.calls[0]?.arguments[0].relPath, 'src/keep.ts');
+    assert.equal(mongoMocks.astCoverageUpdateOne.mock.calls.length, 1);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }
@@ -848,6 +915,16 @@ test('delta reembed mixed changes returns completed', async () => {
       text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
     });
     assert.ok(deltaPathLogs.length > 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }

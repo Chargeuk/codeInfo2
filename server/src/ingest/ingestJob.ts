@@ -351,14 +351,14 @@ async function resolveRootEmbeddingDim(params: {
   vectorDim?: number;
   modelKey: string;
 }): Promise<number> {
+  if (params.vectorDim && params.vectorDim > 1) {
+    return params.vectorDim;
+  }
   if (params.existingRootDim && params.existingRootDim > 0) {
     return params.existingRootDim;
   }
   if (params.collectionDim && params.collectionDim > 0) {
     return params.collectionDim;
-  }
-  if (params.vectorDim && params.vectorDim > 1) {
-    return params.vectorDim;
   }
 
   try {
@@ -441,14 +441,14 @@ function resolveKnownRootEmbeddingDim(params: {
   vectorDim?: number;
   lockedDim?: number | null;
 }) {
+  if (params.vectorDim && params.vectorDim > 1) {
+    return params.vectorDim;
+  }
   if (params.existingRootDim && params.existingRootDim > 0) {
     return params.existingRootDim;
   }
   if (params.collectionDim && params.collectionDim > 0) {
     return params.collectionDim;
-  }
-  if (params.vectorDim && params.vectorDim > 1) {
-    return params.vectorDim;
   }
   if (params.lockedDim && params.lockedDim > 0) {
     return params.lockedDim;
@@ -658,6 +658,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     const astEdges: AstEdgeRecord[] = [];
     const astReferences: AstReferenceRecord[] = [];
     const astModuleImports: AstModuleImportRecord[] = [];
+    const successfulAstFiles: Array<{ relPath: string; fileHash: string }> = [];
     let astGrammarFailureLogged = false;
     const shouldRunAstIndexing = !(
       operation === 'reembed' &&
@@ -1368,6 +1369,10 @@ async function processRun(runId: string, input: IngestJobInput) {
           astEdges.push(...astResult.edges);
           astReferences.push(...astResult.references);
           astModuleImports.push(...astResult.imports);
+          successfulAstFiles.push({
+            relPath: file.relPath,
+            fileHash,
+          });
         } else {
           astCounts.failedFileCount += 1;
           if (astFailedExamples.length < 5) {
@@ -1678,19 +1683,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     }
 
     if (astWritesEnabled && shouldRunAstIndexing) {
-      const currentAstFiles = files
-        .filter((file) =>
-          isAstSupported(file.ext ?? path.extname(file.relPath).slice(1)),
-        )
-        .map((file) => {
-          const fileHash = fileHashesByRelPath.get(file.relPath);
-          if (!fileHash) {
-            throw new Error(
-              `AST file hash missing during finalization for ${file.relPath}`,
-            );
-          }
-          return { relPath: file.relPath, fileHash };
-        });
+      const currentAstFiles = successfulAstFiles;
       if (
         await runFinalizationStep(() =>
           upsertAstSymbols({ root, symbols: astSymbols }),

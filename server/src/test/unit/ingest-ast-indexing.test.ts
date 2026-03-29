@@ -606,6 +606,42 @@ test('ingest increments failed count for parse failures', async () => {
   }
 });
 
+test('full rebuild parse failures drop failed files from the AST prune keep-set', async () => {
+  const repoMocks = mongoMocks;
+  const { root, cleanup } = await createTempRepo({
+    'src/a.ts': 'export const a = 1;\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'src/a.ts'));
+    repoMocks.setIngestFileRows([{ relPath: 'src/a.ts', fileHash }]);
+    mockParseAstSource(async () => ({
+      status: 'failed' as const,
+      language: 'typescript' as const,
+      error: 'parse error',
+    }));
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model' },
+      buildDeps(),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    const deleteCall = repoMocks.astSymbolsDeleteMany.mock.calls.at(-1) as
+      | { arguments: [Record<string, unknown>] }
+      | undefined;
+    if (!deleteCall) throw new Error('Expected stale AST delete');
+    assert.deepEqual(
+      deleteCall.arguments[0],
+      { root },
+      'parse-failed files should be excluded from the AST keep-set',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test('ingest dry-run parses without writes', async () => {
   const repoMocks = mongoMocks;
   const parseMock = mockParseAstSource();

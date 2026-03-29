@@ -319,6 +319,40 @@ test('blank-only delta reembed stays provider-free when model lookup would fail'
   }
 });
 
+test('successful ingest prefers the observed vector dimension over stale persisted hints', async () => {
+  const { roots } = setupIngestChromaMocks();
+  const rootsWithDimension = roots as typeof roots & { dimension?: number };
+  rootsWithDimension.dimension = 1;
+  roots.get = async () => ({ embeddings: [[0.1]] });
+  const deps = buildIngestDeps();
+  const { root, cleanup } = await createTempRepo({
+    'large.md': '# heading\n\n' + 'alpha beta gamma '.repeat(5000),
+  });
+
+  try {
+    const runId = await startIngest(
+      { path: root, name: 'fresh-vector-dimension', model: 'embed-model' },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(roots.add.mock.calls.length, 1);
+    const addCall = roots.add.mock.calls[0] as unknown as {
+      arguments: [
+        {
+          embeddings: number[][];
+          metadatas: Array<{ embeddingDimensions?: number }>;
+        },
+      ];
+    };
+    assert.equal(addCall.arguments[0].embeddings[0]?.length, 3);
+    assert.equal(addCall.arguments[0].metadatas[0]?.embeddingDimensions, 3);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('deletions-only delta reembed keeps a numeric zero-file terminal percent', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({

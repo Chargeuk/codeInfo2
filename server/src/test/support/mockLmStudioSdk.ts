@@ -201,29 +201,39 @@ export function getControlledEmbeddingCalls() {
   }));
 }
 
+export function getControlledEmbeddingWaiterCount() {
+  return controlledEmbeddingWaiters.length;
+}
+
 export async function waitForControlledEmbeddingCalls(
   count: number,
   timeoutMs = 5000,
 ) {
   if (controlledEmbeddingCalls.length >= count) return;
-  await Promise.race([
-    new Promise<void>((resolve) => {
-      const waiter = () => {
-        if (controlledEmbeddingCalls.length >= count) {
-          controlledEmbeddingWaiters = controlledEmbeddingWaiters.filter(
-            (candidate) => candidate !== waiter,
-          );
-          resolve();
-        }
-      };
-      controlledEmbeddingWaiters.push(waiter);
-    }),
-    delay(timeoutMs).then(() => {
-      throw new Error(
-        `Timed out waiting for ${count} controlled embedding call(s)`,
+  let waiter: (() => void) | null = null;
+  try {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        waiter = () => {
+          if (controlledEmbeddingCalls.length >= count) {
+            resolve();
+          }
+        };
+        controlledEmbeddingWaiters.push(waiter);
+      }),
+      delay(timeoutMs).then(() => {
+        throw new Error(
+          `Timed out waiting for ${count} controlled embedding call(s)`,
+        );
+      }),
+    ]);
+  } finally {
+    if (waiter) {
+      controlledEmbeddingWaiters = controlledEmbeddingWaiters.filter(
+        (candidate) => candidate !== waiter,
       );
-    }),
-  ]);
+    }
+  }
 }
 
 export function releaseControlledEmbeddingCall(

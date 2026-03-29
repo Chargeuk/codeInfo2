@@ -494,6 +494,7 @@ This task creates the provider-side contract that the ingest job will need befor
 - Task Dependencies: `Task 1, Task 2`
 - Task Status: `__done__`
 - Git Commits:
+  - `3e26cd8f` - `DEV-[54] - Add slot-driven ingest dispatch`
 
 #### Overview
 

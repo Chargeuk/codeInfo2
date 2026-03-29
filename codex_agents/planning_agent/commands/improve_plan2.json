@@ -19,22 +19,27 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "improve_plan/04-hardening.md"
+      "markdownFile": "improve_plan/04-contract-and-rd-proof.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "improve_plan/05-taskable-seams.md"
+      "markdownFile": "improve_plan/05-hardening.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "improve_plan/06-stateful-ui-risks.md"
+      "markdownFile": "improve_plan/06-taskable-seams.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "improve_plan/07-finalize.md"
+      "markdownFile": "improve_plan/07-stateful-ui-risks.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/08-finalize.md"
     }
   ]
 }

@@ -6,7 +6,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 
 - Follow the shared workflow contract from `task_up/01-shared-contract.md`.
 - Work from the active plan only.
-- Do not leave investigation subtasks in the task list; investigations must be resolved now through repository evidence and documentation.
+- Do not leave investigation subtasks in the task list; investigations must be resolved now through the earlier research passes, repository evidence, and documentation.
 - Prefer the smallest set of tasks that fully implements the story without combining unrelated work.
   </instruction_priority>
 
@@ -59,6 +59,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Treat this pass as incomplete until every Acceptance Criterion, important Description requirement, and explicit Out Of Scope boundary has a plausible place in the task list or is explicitly marked out of scope by the story itself.
 - Treat this pass as incomplete until each Acceptance Criterion, edge case, and meaningful failure mode has both implementation subtasks and named proof-authoring subtasks, even though the later Testing section may still execute only broad wrapper commands.
 - If existing tasks are too large, split them only when the split improves clarity, sequencing, or proof without making the work more fragmented or less testable.
+- If a still-unknown contract, runtime seam, or library behavior would force the task list to include “investigate” or “confirm” work, stop and push that clarification back into the plan instead of leaking it into the tasks.
   </verification_loop>
 
 <output_contract>

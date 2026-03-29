@@ -14,47 +14,52 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/03-generate.md"
+      "markdownFile": "task_up/03-research-and-patterns.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/04-subtask-granularity.md"
+      "markdownFile": "task_up/04-generate.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/05-proof-matrix.md"
+      "markdownFile": "task_up/05-subtask-granularity.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/06-test-case-expansion.md"
+      "markdownFile": "task_up/06-proof-matrix.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/07-stateful-ui-proof.md"
+      "markdownFile": "task_up/07-test-case-expansion.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/08-proof-and-testing.md"
+      "markdownFile": "task_up/08-stateful-ui-proof.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/09-test-semantics-audit.md"
+      "markdownFile": "task_up/09-proof-and-testing.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/10-junior-executor-audit.md"
+      "markdownFile": "task_up/10-test-semantics-audit.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/11-finalize.md"
+      "markdownFile": "task_up/11-junior-executor-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/12-finalize.md"
     }
   ]
 }

@@ -147,6 +147,8 @@ const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
 const cancelledRuns = new Set<string>();
 const activeDispatchers = new Map<string, { cancel: () => void }>();
 const finalizationBarriers = new Map<string, Promise<void>>();
+let beforeTerminalStatusPublishHook: ((runId: string) => Promise<void>) | null =
+  null;
 const terminalStates = new Set<IngestRunState>([
   'completed',
   'cancelled',
@@ -1269,6 +1271,55 @@ async function processRun(runId: string, input: IngestJobInput) {
       return { result, cancelled };
     };
 
+    const publishTerminalStatus = async () => {
+      const published = await withFinalizationBarrier(async () => {
+        if (beforeTerminalStatusPublishHook) {
+          await beforeTerminalStatusPublishHook(runId);
+        }
+        if (cancelledRuns.has(runId) || cancelCleanupStarted) {
+          return false;
+        }
+        setStatusAndPublish(runId, {
+          runId,
+          state: resultState,
+          counts,
+          ast: astCounts,
+          message:
+            resultState === 'skipped'
+              ? (finalSkipMessage ?? 'No changes detected')
+              : 'Completed',
+          lastError: null,
+          error: null,
+          currentFile: lastFileRelPath,
+          fileIndex: fileTotal,
+          fileTotal,
+          percent: Number(((fileTotal / fileTotal) * 100).toFixed(1)),
+          etaMs: 0,
+        });
+        logLifecycle(
+          'info',
+          resultState === 'skipped' ? 'ingest skipped' : 'ingest completed',
+          {
+            runId,
+            operation,
+            path: startPath,
+            root,
+            model: embeddingModel,
+            embeddingProvider,
+            embeddingModel,
+            name,
+            description,
+            state: resultState,
+            counts,
+          },
+        );
+        return true;
+      });
+      if (!published) {
+        await handleCancellation(fileTotal, lastFileRelPath ?? root);
+      }
+    };
+
     if (shouldRunAstIndexing) {
       for (const [idx, file] of files.entries()) {
         const fileIndex = idx + 1;
@@ -1645,40 +1696,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       });
     }
 
-    setStatusAndPublish(runId, {
-      runId,
-      state: resultState,
-      counts,
-      ast: astCounts,
-      message:
-        resultState === 'skipped'
-          ? (finalSkipMessage ?? 'No changes detected')
-          : 'Completed',
-      lastError: null,
-      error: null,
-      currentFile: lastFileRelPath,
-      fileIndex: fileTotal,
-      fileTotal,
-      percent: Number(((fileTotal / fileTotal) * 100).toFixed(1)),
-      etaMs: 0,
-    });
-    logLifecycle(
-      'info',
-      resultState === 'skipped' ? 'ingest skipped' : 'ingest completed',
-      {
-        runId,
-        operation,
-        path: startPath,
-        root,
-        model: embeddingModel,
-        embeddingProvider,
-        embeddingModel,
-        name,
-        description,
-        state: resultState,
-        counts,
-      },
-    );
+    await publishTerminalStatus();
   } catch (err) {
     const mappedError = mapIngestError(err);
     const errorMessage = mappedError.message;
@@ -1910,12 +1928,19 @@ export function __setStatusAndPublishForTest(
   setStatusAndPublish(runId, status);
 }
 
+export function __setBeforeTerminalStatusPublishHookForTest(
+  hook: ((runId: string) => Promise<void>) | null,
+) {
+  beforeTerminalStatusPublishHook = hook;
+}
+
 export function __resetIngestJobsForTest() {
   if (process.env.NODE_ENV !== 'test') return;
   jobs.clear();
   jobInputs.clear();
   cancelledRuns.clear();
   finalizationBarriers.clear();
+  beforeTerminalStatusPublishHook = null;
 }
 
 export function __setJobInputForTest(

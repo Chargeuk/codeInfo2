@@ -10,6 +10,7 @@ import request from 'supertest';
 import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import { createEmbeddingDispatcher } from '../../ingest/embeddingDispatcher.js';
 import {
+  __setBeforeTerminalStatusPublishHookForTest,
   __resetIngestJobsForTest,
   cancelRun,
   getStatus,
@@ -45,6 +46,7 @@ test.beforeEach(() => {
 });
 
 test.afterEach(() => {
+  __setBeforeTerminalStatusPublishHookForTest(null);
   __resetIngestJobsForTest();
   resetCollectionsForTests();
   release();
@@ -528,6 +530,66 @@ test('cancel after dispatcher drain does not overwrite terminal state back to co
       'late cancel should prevent the worker from publishing completed',
     );
   } finally {
+    await cleanup();
+  }
+});
+
+test('cancel after the last fenced finalization step does not publish completed or skipped', async () => {
+  const { roots } = setupChromaMocks();
+  const beforeTerminalPublishStarted = createDeferred<void>();
+  const releaseTerminalPublish = createDeferred<void>();
+  __setBeforeTerminalStatusPublishHookForTest(async () => {
+    beforeTerminalPublishStarted.resolve();
+    await releaseTerminalPublish.promise;
+  });
+
+  const deps = buildDeps({
+    embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+  });
+  const { root, cleanup } = await createTempRepo({
+    'a.txt': 'alpha beta gamma',
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-before-final-terminal-publish',
+        model: 'embed-1',
+      },
+      deps,
+    );
+
+    await beforeTerminalPublishStarted.promise;
+    const cancelPromise = cancelRun(runId);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    releaseTerminalPublish.resolve();
+    await cancelPromise;
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(
+      roots.addCalls.at(-1)?.metadatas?.[0]?.state,
+      'cancelled',
+      'late cancel should win over the final terminal publish window',
+    );
+    assert.equal(
+      query({ text: 'ingest completed' }, 20).filter(
+        (entry) => entry.context?.runId === runId,
+      ).length,
+      0,
+      'late cancel should prevent the worker from publishing completed',
+    );
+    assert.equal(
+      query({ text: 'ingest skipped' }, 20).filter(
+        (entry) => entry.context?.runId === runId,
+      ).length,
+      0,
+      'late cancel should prevent the worker from publishing skipped',
+    );
+  } finally {
+    __setBeforeTerminalStatusPublishHookForTest(null);
     await cleanup();
   }
 });

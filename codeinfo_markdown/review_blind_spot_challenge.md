@@ -29,11 +29,12 @@ Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact'
 2. Re-open the evidence artifact's `Risk-Invariant Matrix` and identify the highest-risk helpers/functions and contradictory inputs or states recorded there.
 3. Re-open the findings artifact and inspect the current findings list plus `Rejected Risk Notes`.
 4. For each top-risk helper/function, attempt one more focused semantic challenge that is narrower and more adversarial than the general findings pass. Prefer edge conditions that could make a tentative no-findings conclusion wrong, especially disabled-or-hidden stale UI state, create-vs-reuse or run-vs-resume mode mismatches, and changed tests whose titles may no longer match their assertions.
-5. For each challenge, decide whether it:
+5. Inspect one additional changed non-helper file, if present, for a low-risk consistency or portability defect that would not naturally appear in the risk matrix. Prefer changed `README.md` or `docs/**` links, duplicated literals that should reuse a nearby canonical constant, or changed test-support mocks that accept cancellation inputs.
+6. For each challenge, decide whether it:
    - creates a new endorsed finding;
    - strengthens a rejected-risk conclusion;
    - or leaves only residual weak proof.
-6. Keep the output tightly scoped to those top-risk helpers/functions. Do not restart the whole review.
+7. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge. Do not restart the whole review.
 
 ## Output Contract
 

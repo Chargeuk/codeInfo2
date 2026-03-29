@@ -63,6 +63,7 @@ For all changed files outside the allowed support-file set, review:
 - performance;
 - security;
 - configuration/runtime correctness;
+- user-facing documentation portability;
 - documentation drift;
 - scope creep;
 - whether the code is more verbose or complex than needed and could be made more succinct without sacrificing quality.
@@ -87,12 +88,15 @@ For multi-repository stories, you MUST also perform an explicit cross-repository
    - invalid input being silently normalized into success;
    - warnings/errors/reason values produced by helpers but dropped by callers;
    - inconsistent schema or value vocabularies for the same log marker/event/response field across surfaces;
+   - duplicated literals where a nearby named constant already defines the same contract value;
    - bootstrap/existence checks that may misclassify files/directories/invalid paths;
    - duplicate or conflicting object keys/payload fields;
    - deleted/moved/conditional validation;
    - partial-failure behavior;
    - dead-field or dead-branch risk;
-   - logic that hides misconfiguration by falling back too early.
+   - logic that hides misconfiguration by falling back too early;
+   - absolute local filesystem links in changed user-facing docs such as `README.md` or `docs/**`;
+   - changed mocks or test helpers that accept `AbortSignal`, cancellation flags, or timeout controls but never inspect already-aborted or already-cancelled state at construction time.
 5. For multi-repository stories, include cross-repository generic engineering defects such as:
    - producer/consumer schema drift;
    - one-sided migrations;
@@ -135,6 +139,8 @@ For multi-repository stories, you MUST also perform an explicit cross-repository
 23. For each risky path above, state whether it has direct proof, indirect proof, or missing proof, and raise a finding when a risky path is only protected by happy-path coverage or is otherwise weakly proven.
 24. Look for new fields that are written but never read, branches that cannot be reached under the current contract, and diagnostics that are intentionally hidden from clients without an actionable log trail in the non-support-file changes.
 25. When a valid, low-risk consistency problem is found in files already changed by the story, and the fix does not change public payloads or otherwise broaden scope, prefer `should_fix` over `optional_simplification` so the cleanup is attempted rather than deferred by default. This guidance does not override the spelling/grammar-only rule for the allowed support files.
+26. After the main correctness and adversarial review, run a narrow consistency and portability scan on changed non-support implementation files plus changed user-facing docs such as `README.md` or `docs/**`. In that scan, look for duplicated literals that should reference an existing canonical constant, absolute local filesystem links, and changed mocks or test helpers that accept cancellation inputs but do not model already-aborted or already-cancelled state.
+27. Only raise low-severity findings from that consistency and portability scan unless you can prove a real behavior defect, contract break, or validation gap.
 
 ## Output Contract
 

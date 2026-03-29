@@ -169,7 +169,9 @@ Then(
     assert(lastRunId, 'runId missing');
     let lastSeenState: string | undefined;
     for (let i = 0; i < 600; i += 1) {
-      const res: Response = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
+      const res: Response = await fetch(
+        `${baseUrl}/ingest/status/${lastRunId}`,
+      );
       const body = (await res.json()) as {
         state?: string;
         message?: string;

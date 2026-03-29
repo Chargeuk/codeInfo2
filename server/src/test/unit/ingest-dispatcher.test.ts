@@ -95,7 +95,11 @@ test('dispatcher enforces queue cap for same-turn enqueue bursts and refills fre
     meta: null,
   });
 
-  assert.deepEqual(await Promise.all([first, second, third]), [true, true, true]);
+  assert.deepEqual(await Promise.all([first, second, third]), [
+    true,
+    true,
+    true,
+  ]);
 
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(requests.length, 2, 'expected two requests to fill both slots');

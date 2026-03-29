@@ -1055,11 +1055,7 @@ export default function FlowsPage() {
           const errorHistory = isNewConversation
             ? [errorMessage]
             : [...messages, errorMessage];
-          hydrateHistory(
-            nextConversationId,
-            errorHistory,
-            'replace',
-          );
+          hydrateHistory(nextConversationId, errorHistory, 'replace');
           setRunError(errorMessage.content);
           return;
         }
@@ -1075,11 +1071,7 @@ export default function FlowsPage() {
         const errorHistory = isNewConversation
           ? [errorMessage]
           : [...messages, errorMessage];
-        hydrateHistory(
-          nextConversationId,
-          errorHistory,
-          'replace',
-        );
+        hydrateHistory(nextConversationId, errorHistory, 'replace');
         setRunError(message);
       } finally {
         setStartPending(false);

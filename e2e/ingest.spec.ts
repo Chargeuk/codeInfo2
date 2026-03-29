@@ -323,7 +323,10 @@ test.describe.serial('Ingest flows', () => {
       .toContain(largeFixtureRelPath);
 
     try {
-      await waitForCompletion(page, new RegExp(`${fixtureName}-large-text`, 'i'));
+      await waitForCompletion(
+        page,
+        new RegExp(`${fixtureName}-large-text`, 'i'),
+      );
     } catch (err) {
       ingestSkip = `ingest did not complete: ${(err as Error).message}`;
       test.skip(ingestSkip);

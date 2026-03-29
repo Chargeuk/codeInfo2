@@ -4,6 +4,7 @@ Perform a final verification pass, then make one coherent commit if the command 
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
 - Do not create tasks.
 - Use fresh disk reads for the final verification.
 - Prefer one coherent commit over many small commits.

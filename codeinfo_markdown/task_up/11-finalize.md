@@ -4,6 +4,7 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
 - Use fresh disk reads for the final pass.
 - Keep the final task list concrete, traceable, and in scope.
 - Prefer one coherent commit over many small commits.

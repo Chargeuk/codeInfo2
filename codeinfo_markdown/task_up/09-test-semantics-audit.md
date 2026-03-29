@@ -4,6 +4,7 @@ Audit the planned proof files so changed or reused tests still claim and prove t
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
 - Treat misleading proof as a tasking defect, not a cosmetic issue.
 - Keep the audit focused on proof semantics, not general test style.
 - Do not remove valid proof; rename or rewrite it when semantics drift.

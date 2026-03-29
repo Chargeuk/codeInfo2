@@ -4,6 +4,7 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
 - Do not create tasks.
 - Prefer the smallest set of plan edits that closes real gaps.
 - Keep wording concrete and junior-friendly.
@@ -45,6 +46,13 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Ensure proof and validation expectations are granular enough that the later tasking pass can name exact test files or proof artifacts for each acceptance path and not only broad wrapper runs.
 - Only add `## Questions` items for issues that remain genuinely blocked after research; otherwise resolve the issue directly in the plan.
   </consistency_rules>
+
+<verification_loop>
+
+- Re-read the edited plan and check whether it is now ready for a later tasking pass without hidden senior interpretation.
+- Check whether any broad implementation area still needs to be split into clearer seams before later tasking.
+- Check whether each added detail is supported by repository evidence or official documentation.
+  </verification_loop>
 
 <output_contract>
 

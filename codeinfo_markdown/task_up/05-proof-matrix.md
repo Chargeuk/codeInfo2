@@ -4,6 +4,7 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
 - Keep the matrix lightweight, but do not allow proof to remain implied.
 - Preserve the repository-specific task structure already created in earlier steps.
 - Do not replace wrapper-first testing with narrow execution commands.

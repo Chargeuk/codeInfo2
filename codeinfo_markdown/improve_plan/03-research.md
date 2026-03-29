@@ -4,6 +4,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
 - Do not create tasks.
 - Keep the plan aligned to the KISS principle.
 - Prefer upstream or shared fixes over downstream duplication when repository evidence supports that direction.
@@ -55,11 +56,12 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - Do not dump raw notes into the plan unless they materially improve the plan.
   </classification_contract>
 
-<completeness_contract>
+<verification_loop>
 
 - Treat this pass as incomplete until every relevant planning area above is either supported by evidence and ready to write into the plan, or explicitly marked not applicable.
 - If a lookup returns empty, partial, or suspiciously narrow results, retry with at least one better-targeted fallback before concluding there is no evidence.
-  </completeness_contract>
+- Before moving on, check whether any broad implementation area still hides an unstated prerequisite, runtime seam, or proof gap that later passes must make explicit.
+  </verification_loop>
 
 <output_contract>
 

@@ -1335,3 +1335,157 @@ This final revalidation task closes the latest Story 54 review loop. It must pro
 - Testing 9: Manual Playwright MCP proof on `/ingest` used `/fixtures/repo/large-planning-doc.md` and the active `/ingest/reembed` route. Completed ingest run `4fbe0b15-9f7b-41cd-a205-ce8ceb99a0aa` finished `completed` with `Files/Chunks/Embedded = 28/28/28` after I seeded temporary runtime-only fixture files inside the server container, and [logs/server.9.log](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/logs/server.9.log) captures both `DEV-0000054:large_text_path_selected` and `DEV-0000054:embedding_dispatch_slot_filled` for that run. After removing those runtime-only files, re-embed run `025cdbb0-3561-4e3b-a8b7-d98072225872` was started from the UI and cancelled from the UI on the active `/ingest/reembed` path; the ingest table converged to `cancelled` with `Files/Chunks/Embedded = 0/0/0`, [logs/server.9.log](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/logs/server.9.log) records `operation":"reembed"` with terminal `state":"cancelled"` for that run, and no error-level browser console entries were emitted during the proof.
 - Testing 10: `npm run compose:down` completed cleanly, so the final Story 54 regression proof did not leave shared runtime services running.
 - Subtask 2: Updated these notes as the final proof chain completed. Direct proof now covers the wrapper-first build/test path, the browser-visible large-text runtime markers on a completed ingest, and the browser-visible active `/ingest/reembed` cancel path converging to one `cancelled` terminal state without any completed/skipped overwrite in the runtime logs. The exact late fast-path publish window still relies on the deterministic Task 14 unit tests by design rather than the browser run, which is acceptable because those tests are the only proof that can pin the reviewed timing seam precisely and the full wrapper revalidation stayed green, so no further review-fix tasks are needed.
+
+## Code Review Findings – 2026-03-29 Dispatcher Queue Cap And Zero-File Terminal Percent Review
+
+Story 54 is reopened again because review pass `0000054-20260329T124735Z-50482725` endorsed two repository-local `should_fix` findings in the active server ingest path. The durable review artifacts for this reopen decision are:
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md)
+
+The current review findings that must be fixed before Story 54 can stay complete are:
+
+1. `createEmbeddingDispatcher(...)` only upholds the bounded waiting-queue contract when callers serialize `enqueue(...)` calls. A same-turn burst can overfill the queue before the microtask pump marks anything as in-flight.
+2. `publishTerminalStatus()` still computes `percent` as `fileTotal / fileTotal`, so AST-relevant deletions-only re-embeds with `fileTotal === 0` publish `NaN` and serialize that terminal percent as `null`.
+
+What changed and why:
+
+- These are both live runtime-contract issues in files already changed by Story 54, not speculative cleanup and not support-file scope creep.
+- The dispatcher issue is a queue-bound correctness gap in a concurrency-sensitive helper, and the current proof only covers the serialized caller path.
+- The terminal-percent issue is a quiet payload inconsistency on an active AST-relevant delete-only re-embed path that the story itself added.
+- The follow-up tasks below keep ownership in `Current Repository`, separate the helper-contract repair from the terminal-payload repair, and finish with one fresh full wrapper-first revalidation task.
+
+---
+
+### Task 16. Repair Dispatcher Queue-Cap Enforcement For Same-Turn Enqueue Bursts
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 15`
+- Task Status: `__to_do__`
+
+#### Overview
+
+This task fixes the reviewed bounded-queue contract gap in `createEmbeddingDispatcher(...)`. The current helper refills slots correctly for the serialized production caller, but it can still over-admit waiting work if multiple `enqueue(...)` calls arrive in the same turn before the microtask pump updates in-flight state. The fix must make the helper itself honor the configured queue cap without depending on caller-side serialization.
+
+#### Task Exit Criteria
+
+- `createEmbeddingDispatcher(...)` enforces the waiting-queue cap correctly even when multiple `enqueue(...)` calls are fired in the same turn.
+- The repaired helper still refills provider capacity immediately when a request finishes and still ignores late results after cancel.
+- Direct deterministic proof exists for the same-turn burst case that triggered the review finding, not only for the serialized-await case in `processRun(...)`.
+
+#### Documentation Locations
+
+- Findings: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the current Story 54 findings and blind-spot challenge artifacts, then inspect [server/src/ingest/embeddingDispatcher.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/embeddingDispatcher.ts), [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), and [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts) so the fix stays scoped to the reviewed queue-cap contract.
+2. [ ] Update [server/src/ingest/embeddingDispatcher.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/embeddingDispatcher.ts) so the dispatcher enforces its waiting-queue bound from inside the helper even when same-turn enqueue bursts arrive before the pump runs. Do not weaken the immediate slot-refill behavior or the late-result-ignore behavior while repairing the queue bound.
+3. [ ] Keep [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts) on the existing dispatch path unless a caller-side contract change is proven unavoidable. The preferred repair is helper-local, not a new requirement that production callers serialize work forever.
+4. [ ] Expand [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts) with deterministic proof for the reviewed same-turn burst case, while preserving proof for immediate slot refill, deterministic persistence order, and late-result handling after cancel.
+5. [ ] Update any touched test names, inline descriptions, and assertions so they still describe the exact invariant being proved after the helper repair rather than only adjacent serialized behavior.
+
+#### Testing
+
+1. [ ] Do not attempt to run build commands for this task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not attempt narrow server validation before the wrapper path succeeds for this task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the repaired dispatcher contract in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts), then rerun full `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Added during review disposition on 2026-03-29 because review pass `0000054-20260329T124735Z-50482725` found that the dispatcher’s queue-cap invariant is still only indirectly true through the current serialized caller pattern in `processRun(...)`.
+- This task is intentionally scoped to the helper contract, its direct unit proof, and any minimal caller touch needed to keep the existing runtime path honest.
+- Record exactly how the helper now reserves or accounts for waiting capacity across same-turn enqueue bursts, why that closes the review finding, and whether any unchanged caller assumptions had to be revisited.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 17. Normalize Zero-File Terminal Percent For AST-Relevant Delete-Only Re-embeds
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 16`
+- Task Status: `__to_do__`
+
+#### Overview
+
+This task fixes the reviewed terminal-status payload inconsistency for AST-relevant deletions-only re-embeds. When that path finishes with `fileTotal === 0`, the generic terminal publish helper currently computes `fileTotal / fileTotal`, which yields `NaN` and serializes `percent` as `null`. The fix must make the terminal payload deterministic and numeric on that zero-file completion path without changing the active re-embed route shape.
+
+#### Task Exit Criteria
+
+- AST-relevant deletions-only re-embeds no longer publish `NaN` or `null` terminal percent values when `fileTotal === 0`.
+- The chosen zero-file terminal percent is consistent across the generic terminal publish path and any related re-embed fast paths that can complete with zero work files.
+- Direct proof exists for the exact zero-file terminal payload that triggered the review finding.
+
+#### Documentation Locations
+
+- Findings: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the current Story 54 findings and blind-spot challenge artifacts, then inspect [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/test/unit/ingest-reembed.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-reembed.test.ts), and [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature) so the repair stays scoped to the reviewed zero-file terminal payload.
+2. [ ] Update [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts) so generic terminal publish uses a deterministic numeric percent when terminal state is reached with `fileTotal === 0` on AST-relevant deletions-only re-embeds. Do not leave this path dependent on `NaN`, `Infinity`, or JSON `null` conversion.
+3. [ ] Add direct proof in the smallest honest server test surface for the reviewed path. Prefer unit or focused integration proof that asserts the terminal payload shape directly; keep feature-surface expansion minimal unless one API-visible proof is needed to show the path still completes correctly.
+4. [ ] Update any touched runtime marker, test description, or assertion text so the proof clearly states that the repaired invariant is the zero-file terminal payload shape, not only the broader completed/cancelled state.
+
+#### Testing
+
+1. [ ] Do not attempt to run build commands for this task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not attempt narrow server validation before the wrapper path succeeds for this task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the normalized zero-file terminal percent in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for the touched re-embed proof file, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber` if the final proof for this task relies on the changed delete-only re-embed feature path, and confirm the full wrapper still passes without `agent_action: inspect_log`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature), then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Added during review disposition on 2026-03-29 because review pass `0000054-20260329T124735Z-50482725` found that AST-relevant deletions-only re-embeds can complete with `fileTotal === 0`, causing the generic terminal publish path to emit `NaN` and serialize `percent` as `null`.
+- This task is intentionally scoped to terminal payload consistency in the active delete-only AST path and the smallest honest proof surface that can assert that payload directly.
+- Record the exact numeric terminal percent rule chosen for zero-file terminal states, why it fits the existing runtime contract, and which proof now covers that branch directly.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 18. Revalidate Story 54 After The Dispatcher Queue-Cap And Zero-File Terminal-Percent Fixes
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 17`
+- Task Status: `__to_do__`
+
+#### Overview
+
+This final revalidation task closes the latest Story 54 review loop. It must prove that the Task 16 and Task 17 repairs resolve the current review findings without regressing the already-finished large-text chunking, provider dispatch, AST delta-mode, documentation, and browser/runtime proof that Story 54 previously completed.
+
+#### Task Exit Criteria
+
+- Both current `should_fix` review findings are fixed, the current durable review artifacts remain in history with the reopened plan, and Story 54 again satisfies its acceptance criteria through the repository’s wrapper-first validation flow.
+- Revalidation explicitly proves both the original Story 54 behavior and the repaired dispatcher queue-cap plus zero-file terminal-percent paths.
+
+#### Documentation Locations
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T124735Z-50482725-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 54 plan plus the current evidence, findings, and blind-spot challenge artifacts, then trace both current review findings back to the fixes delivered in Tasks 16 and 17 while confirming that Tasks 1 through 15 still cover the original Story 54 scope.
+2. [ ] Update Task 18 implementation notes as revalidation proceeds so the final close-out explicitly records which acceptance criteria still have direct proof, which still rely on indirect proof by plan design, and why no further review-fix tasks are needed.
+3. [ ] If any proof command fails during this revalidation task, capture the exact failure in the implementation notes and reopen the plan again only if a new review-fix task is genuinely required.
+
+#### Testing
+
+1. [ ] Do not attempt to run build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not attempt to run client build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-client-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+3. [ ] Do not attempt narrow server validation before the wrapper path succeeds for this final validation task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the Task 16 and Task 17 fixes in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:unit`.
+4. [ ] Do not attempt narrow Cucumber validation before the wrapper path succeeds for this final validation task. Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers wrapper passes with the Task 16 and Task 17 fixes in place. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Do not attempt client tests for this final validation task outside the repository wrappers. Run `npm run test:summary:client` and confirm the client wrapper passes for the unchanged browser-facing regression surface. If `failed > 0`, inspect the exact `test-results/client-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:client`.
+6. [ ] Do not attempt Playwright directly as the primary automated proof for this final validation task. Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish while it proves the existing ingest UI flow and Story 54 browser path. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:e2e`.
+7. [ ] Because this is the fresh final regression task and the browser-visible path remains in scope, run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper reports failure or an ambiguous result.
+8. [ ] Run `npm run compose:up` before manual validation so the standard runtime stack is available through the repository wrapper path.
+9. [ ] Perform one manual Playwright MCP validation against `http://host.docker.internal:5001/ingest` using `/fixtures/repo/large-planning-doc.md`, confirm the Story 54 runtime markers plus the repaired dispatcher queue-cap and zero-file terminal-percent behavior, and check that the browser debug console shows no logged errors during the proof.
+10. [ ] Run `npm run compose:down` after manual Playwright MCP validation completes so the final regression proof does not leave shared runtime services running.
+
+#### Implementation notes
+
+- Added during review disposition on 2026-03-29 because review pass `0000054-20260329T124735Z-50482725` reopened Story 54 for two repository-local `should_fix` issues on the active server ingest path.
+- This task must record the exact wrapper and manual proof chain for the Task 16 and Task 17 repairs, which acceptance criteria remain directly proven, which still rely on acceptable indirect proof by plan design, and why Story 54 can be closed again once this task is complete.
+- If any wrapper reports failure, unexpected warnings, or ambiguous counts, record the follow-up log inspection path and the final conclusion before deciding whether another reopen is required.

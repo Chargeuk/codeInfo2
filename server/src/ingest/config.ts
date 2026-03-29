@@ -1,5 +1,7 @@
 import { IngestConfig } from './types.js';
 
+const DEFAULT_LARGE_TEXT_THRESHOLD_BYTES = 65536;
+
 const defaultIncludes = [
   'ts',
   'tsx',
@@ -54,6 +56,17 @@ const defaultExcludes = [
   'vendor',
 ];
 
+function parseFiniteNumberWithFallback(
+  rawValue: string | undefined,
+  fallback: number,
+  { min }: { min?: number } = {},
+): number {
+  const parsed = Number(rawValue ?? fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (typeof min === 'number' && parsed < min) return fallback;
+  return parsed;
+}
+
 export function resolveConfig(): IngestConfig {
   const envIncludes =
     process.env.CODEINFO_INGEST_INCLUDE?.split(',')
@@ -67,26 +80,33 @@ export function resolveConfig(): IngestConfig {
       .map((s) => s.trim()) ?? [];
   const excludes = Array.from(new Set([...defaultExcludes, ...envExcludes]));
 
-  const tokenSafetyMargin = Number(
-    process.env.CODEINFO_INGEST_TOKEN_MARGIN ?? 0.85,
+  const tokenSafetyMargin = parseFiniteNumberWithFallback(
+    process.env.CODEINFO_INGEST_TOKEN_MARGIN,
+    0.85,
   );
-  const fallbackTokenLimit = Number(
-    process.env.CODEINFO_INGEST_FALLBACK_TOKENS ?? 2048,
+  const fallbackTokenLimit = parseFiniteNumberWithFallback(
+    process.env.CODEINFO_INGEST_FALLBACK_TOKENS,
+    2048,
+    { min: 1 },
   );
   const rawFlushEvery = Number(process.env.CODEINFO_INGEST_FLUSH_EVERY ?? 20);
   const flushEvery = Number.isFinite(rawFlushEvery)
     ? Math.min(500, Math.max(1, Math.floor(rawFlushEvery)))
     : 20;
+  const largeTextThresholdBytes = Math.floor(
+    parseFiniteNumberWithFallback(
+      process.env.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES,
+      DEFAULT_LARGE_TEXT_THRESHOLD_BYTES,
+      { min: 1 },
+    ),
+  );
 
   return {
     includes,
     excludes,
-    tokenSafetyMargin: Number.isFinite(tokenSafetyMargin)
-      ? tokenSafetyMargin
-      : 0.85,
-    fallbackTokenLimit: Number.isFinite(fallbackTokenLimit)
-      ? fallbackTokenLimit
-      : 2048,
+    tokenSafetyMargin,
+    fallbackTokenLimit,
     flushEvery,
+    largeTextThresholdBytes,
   };
 }

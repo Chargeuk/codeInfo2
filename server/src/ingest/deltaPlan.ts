@@ -17,6 +17,8 @@ export type DiscoveredFileHash = {
   absPath: string;
   relPath: string;
   fileHash: string;
+  ext?: string;
+  size?: number;
 };
 
 type DeltaPlan = {

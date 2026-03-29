@@ -36,6 +36,7 @@ test('skips excluded directories and files', async () => {
   const { files } = await discoverFiles(tmpDir, resolveConfig());
   assert.equal(files.length, 1);
   assert.equal(files[0].relPath, path.join('src', 'file.ts'));
+  assert.equal(files[0].size, Buffer.byteLength('export const a = 1;', 'utf8'));
 });
 
 test('respects env include overrides', async () => {
@@ -45,6 +46,7 @@ test('respects env include overrides', async () => {
   const { files } = await discoverFiles(tmpDir);
   assert.equal(files.length, 1);
   assert.equal(files[0].relPath, 'README.md');
+  assert.equal(files[0].size, Buffer.byteLength('# hello', 'utf8'));
 });
 
 test('git repo uses tracked files only', async () => {
@@ -66,6 +68,7 @@ test('git repo uses tracked files only', async () => {
   const { files } = await discoverFiles(repo);
   assert.equal(files.length, 1);
   assert.equal(files[0].relPath, 'tracked.ts');
+  assert.equal(files[0].size, Buffer.byteLength('export const t = 1;', 'utf8'));
 });
 
 test('falls back to walkDir when git ls-files fails', async () => {
@@ -77,4 +80,5 @@ test('falls back to walkDir when git ls-files fails', async () => {
   const { files } = await discoverFiles(repo);
   assert.equal(files.length, 1);
   assert.equal(files[0].relPath, 'fallback.ts');
+  assert.equal(files[0].size, Buffer.byteLength('export const f = 1;', 'utf8'));
 });

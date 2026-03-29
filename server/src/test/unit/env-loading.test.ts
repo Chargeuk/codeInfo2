@@ -10,6 +10,7 @@ import {
   resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from '../../config/startupEnv.js';
+import { resolveConfig } from '../../ingest/config.js';
 import { createOpenAiEmbeddingProvider } from '../../ingest/providers/index.js';
 
 const repoRoot = path.resolve(
@@ -179,6 +180,49 @@ test('runtime startup env resolution also surfaces CODEINFO_CHAT_MCP_PORT when i
   );
 });
 
+test('large-text threshold env resolves through startup env loading with default and invalid fallback', () => {
+  const previousThreshold =
+    process.env.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES;
+  const serverRoot = createServerRoot();
+  const targetEnv: Record<string, string | undefined> = {};
+
+  writeEnvFile(
+    serverRoot,
+    '.env',
+    ['CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES=77777', ''].join('\n'),
+  );
+
+  const result = loadStartupEnv({ serverRoot, targetEnv });
+  assert.equal(targetEnv.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES, '77777');
+  assert.equal(
+    resolveCodeinfoEnvResolutions({
+      env: targetEnv,
+      loadResult: result,
+    }).find(
+      (entry) => entry.name === 'CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES',
+    )?.source,
+    'server/.env',
+  );
+
+  try {
+    delete process.env.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES;
+    assert.equal(resolveConfig().largeTextThresholdBytes, 65536);
+
+    process.env.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES = 'not-a-number';
+    assert.equal(resolveConfig().largeTextThresholdBytes, 65536);
+
+    process.env.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES = '77777';
+    assert.equal(resolveConfig().largeTextThresholdBytes, 77777);
+  } finally {
+    if (previousThreshold === undefined) {
+      delete process.env.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES;
+    } else {
+      process.env.CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES =
+        previousThreshold;
+    }
+  }
+});
+
 test('runtime pre-seeded renamed CODEINFO values override file defaults', () => {
   const serverRoot = createServerRoot();
   const targetEnv: Record<string, string | undefined> = {
@@ -270,6 +314,7 @@ test('checked-in defaults and wrappers seed only renamed CODEINFO server env nam
     legacyServerEnv('INGEST', 'INCLUDE'),
     legacyServerEnv('INGEST', 'EXCLUDE'),
     legacyServerEnv('INGEST', 'FLUSH', 'EVERY'),
+    legacyServerEnv('INGEST', 'LARGE', 'TEXT', 'THRESHOLD', 'BYTES'),
     legacyServerEnv('INGEST', 'COLLECTION'),
     legacyServerEnv('INGEST', 'ROOTS', 'COLLECTION'),
     legacyServerEnv('INGEST', 'TEST', 'GIT', 'PATHS'),

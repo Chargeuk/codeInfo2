@@ -470,6 +470,8 @@ async function processRun(runId: string, input: IngestJobInput) {
             absPath: file.absPath,
             relPath: file.relPath,
             fileHash: await hashFile(file.absPath),
+            ext: file.ext,
+            size: file.size,
           })),
         );
 
@@ -507,7 +509,13 @@ async function processRun(runId: string, input: IngestJobInput) {
           deltaPlan.deleted.length
         : null;
 
-    const workFiles: { absPath: string; relPath: string; fileHash?: string }[] =
+    const workFiles: {
+      absPath: string;
+      relPath: string;
+      fileHash?: string;
+      ext?: string;
+      size?: number;
+    }[] =
       operation === 'reembed' && deltaMode === 'delta' && deltaPlan
         ? [...deltaPlan.added, ...deltaPlan.changed]
         : files;
@@ -1055,6 +1063,11 @@ async function processRun(runId: string, input: IngestJobInput) {
         logContext: {
           runId,
           relPath: file.relPath,
+        },
+        fileInfo: {
+          relPath: file.relPath,
+          ext: file.ext,
+          sizeBytes: file.size ?? Buffer.byteLength(text, 'utf8'),
         },
       });
       for (const chunk of chunks) {

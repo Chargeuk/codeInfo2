@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { exampleOne, longRun } from '../../ingest/__fixtures__/sample.js';
+import {
+  exampleOne,
+  longProseParagraph,
+  longRun,
+  prosePlanningDoc,
+} from '../../ingest/__fixtures__/sample.js';
 import { chunkText } from '../../ingest/chunker.js';
 import {
   disposeOpenAiTokenizer,
@@ -25,6 +30,18 @@ const mockModel = (
   },
 });
 
+const createConfig = (
+  overrides: Partial<NonNullable<Parameters<typeof chunkText>[2]>> = {},
+) => ({
+  includes: [],
+  excludes: [],
+  tokenSafetyMargin: 0.85,
+  fallbackTokenLimit: 30,
+  flushEvery: 20,
+  largeTextThresholdBytes: 65536,
+  ...overrides,
+});
+
 test.afterEach(() => {
   disposeOpenAiTokenizer();
   setOpenAiTokenizerFactoryForTests();
@@ -40,13 +57,7 @@ test('splits on boundary markers first', async () => {
 
 test('falls back to slicing when chunk exceeds limit', async () => {
   const model = mockModel(50, 1); // low context limit to trigger slicing
-  const config = {
-    includes: [],
-    excludes: [],
-    tokenSafetyMargin: 0.85,
-    fallbackTokenLimit: 30,
-    flushEvery: 20,
-  };
+  const config = createConfig();
   const maxTokens = Math.floor(50 * config.tokenSafetyMargin);
   const chunks = await chunkText(longRun, model, config);
   assert.ok(chunks.length > 1, 'expected slices');
@@ -74,13 +85,10 @@ test('drops leading blank boundary output before the first real chunk', async ()
 
 test('filters whitespace-only slices from the fallback slice path', async () => {
   const model = mockModel(10, 1);
-  const config = {
-    includes: [],
-    excludes: [],
+  const config = createConfig({
     tokenSafetyMargin: 1,
     fallbackTokenLimit: 10,
-    flushEvery: 20,
-  };
+  });
 
   const chunks = await chunkText(`abcdefgh${' '.repeat(12)}`, model, config);
 
@@ -140,11 +148,9 @@ test('chunk sizing uses the shared tokenizer-backed helper for OpenAI models', a
   };
 
   const chunks = await chunkText('abcdefghijklmno', model, {
-    includes: [],
-    excludes: [],
+    ...createConfig(),
     tokenSafetyMargin: 1,
     fallbackTokenLimit: 12,
-    flushEvery: 20,
   });
 
   assert.ok(encodeCalls > 0);
@@ -183,4 +189,104 @@ test('tokenizer count failure during chunking raises a clear error without white
       return true;
     },
   );
+});
+
+test('large prose markdown files take the prose route and prefer headings, lists, and fenced blocks', async () => {
+  const chunks = await chunkText(
+    prosePlanningDoc,
+    mockModel(45, 0.35),
+    createConfig({
+      tokenSafetyMargin: 1,
+      largeTextThresholdBytes: 10,
+    }),
+    {
+      logContext: {
+        runId: 'run-1',
+        relPath: 'planning/story.md',
+      },
+      fileInfo: {
+        relPath: 'planning/story.md',
+        ext: 'md',
+        sizeBytes: Buffer.byteLength(prosePlanningDoc, 'utf8'),
+      },
+    },
+  );
+
+  assert.ok(chunks.length >= 2);
+  assert.ok(chunks[0].text.startsWith('# Story Heading'));
+  assert.ok(chunks.some((chunk) => chunk.text.includes('## Goals')));
+  assert.ok(
+    chunks.some((chunk) => chunk.text.includes("return 'fenced block';")),
+  );
+});
+
+test('small markdown files stay on the generic path', async () => {
+  const smallMarkdown = '# Small heading\n\nJust a small note.';
+  const chunks = await chunkText(
+    smallMarkdown,
+    mockModel(200),
+    createConfig(),
+    {
+      fileInfo: {
+        relPath: 'notes/small.md',
+        ext: 'md',
+        sizeBytes: Buffer.byteLength(smallMarkdown, 'utf8'),
+      },
+    },
+  );
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.text),
+    [smallMarkdown],
+  );
+});
+
+test('large non-prose extensions stay on the generic path', async () => {
+  const chunks = await chunkText(
+    exampleOne,
+    mockModel(200),
+    createConfig({ largeTextThresholdBytes: 1 }),
+    {
+      fileInfo: {
+        relPath: 'src/example.ts',
+        ext: 'ts',
+        sizeBytes: Buffer.byteLength(exampleOne, 'utf8'),
+      },
+    },
+  );
+
+  assert.ok(chunks.length >= 2);
+  assert.ok(chunks[0].text.includes('function alpha'));
+  assert.ok(chunks[1].text.includes('class Beta'));
+});
+
+test('large prose route still enforces token limits and removes blank chunks', async () => {
+  const model = mockModel(35, 1);
+  const config = createConfig({
+    tokenSafetyMargin: 1,
+    fallbackTokenLimit: 20,
+    largeTextThresholdBytes: 10,
+  });
+  const maxTokens = 35;
+  const text = `# Heading
+
+${longProseParagraph}
+
+
+${' '.repeat(32)}
+
+- bullet one
+- bullet two`;
+
+  const chunks = await chunkText(text, model, config, {
+    fileInfo: {
+      relPath: 'planning/large.txt',
+      ext: 'txt',
+      sizeBytes: Buffer.byteLength(text, 'utf8'),
+    },
+  });
+
+  assert.ok(chunks.length > 1);
+  assert.ok(chunks.every((chunk) => chunk.tokenCount <= maxTokens));
+  assert.ok(chunks.every((chunk) => chunk.text.trim().length > 0));
 });

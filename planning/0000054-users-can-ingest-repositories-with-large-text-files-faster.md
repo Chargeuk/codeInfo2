@@ -420,7 +420,7 @@ This task adds the upstream inputs that let the ingest pipeline recognize genuin
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `7b736f42` - `DEV-[54] - Add provider dispatch contract and config`
 

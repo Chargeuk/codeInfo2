@@ -676,3 +676,202 @@ This final task proves the story as one coherent runtime change rather than as i
 ## Questions
 
 - No Further Questions
+
+## Code Review Findings
+
+Story 54 is reopened because the review found three `must_fix` cancellation-path defects in the current repository. The durable review artifacts for this reopen decision are:
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-blind-spot-challenge.md)
+
+The review findings that must be fixed before Story 54 can stay complete are:
+
+1. Post-production cancellation can deadlock the ingest worker if queued embedding work still exists when cancel lands.
+2. The late-result fence still allows cancelled runs to persist vectors if cancel lands after `embedBatch()` resolves but before ordered persistence finishes.
+3. The exported cancel route can still trigger a fresh embedding-dimension probe after cancel if collection-dimension lookup falls back to `null`.
+
+The follow-up tasks below keep repository ownership explicit, fix only the reviewed defects, and end with a full Story 54 revalidation pass against the acceptance criteria.
+
+---
+
+### Task 6. Fix Post-Production Cancel Deadlock In The Dispatcher And Ingest Worker
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 3`
+- Task Status: `__to_do__`
+- Git Commits:
+  - None yet
+
+#### Overview
+
+This task fixes the cancellation defect where Story 54's slot-driven dispatcher can leave queued work stranded after production is already complete, which in turn leaves `processRun(...)` blocked in `waitForIdle()`. The fix must keep the dispatcher bounded and provider-aware, but it must also guarantee that cancellation always drives the dispatcher to a terminal state even when queued work still exists behind aborted in-flight requests.
+
+#### Task Exit Criteria
+
+- Cancelling after `dispatcher.completeProduction()` but before all queued work has drained no longer leaves `processRun(...)` blocked in `waitForIdle()`.
+- Dispatcher cancel semantics explicitly decide what happens to queued-but-not-yet-dispatched work and make that terminal state observable to the caller instead of depending on a happy-path drain.
+- The fix is proved by direct unit coverage for the post-production cancel window and by existing cancel-path integration coverage still passing afterward.
+
+#### Documentation Locations
+
+- Story 54 findings artifact: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md)
+
+#### Subtasks
+
+1. [ ] Re-read the Story 54 cancellation acceptance criteria plus the review findings and blind-spot challenge, then inspect `server/src/ingest/embeddingDispatcher.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-dispatcher.test.ts`, `server/src/test/unit/ingest-cancel.test.ts`, and `server/src/test/features/ingest-cancel.feature` so the fix targets the exact post-production cancel gap instead of changing unrelated dispatch behavior.
+2. [ ] Update `server/src/ingest/embeddingDispatcher.ts` so `cancel()` drives the dispatcher to a true terminal state even when queued work still exists. The implementation must make a clear decision for queued-but-not-yet-dispatched items, ensure `waitForIdle()` can resolve after cancel, and preserve the existing bounded queue and slot-refill behavior for non-cancelled runs.
+3. [ ] Update `server/src/ingest/ingestJob.ts` so the Story 54 ingest worker can always reach its cancellation cleanup path after production has completed, even if cancel lands while queued work is still pending behind aborted provider requests.
+4. [ ] Add or extend direct unit coverage in `server/src/test/unit/ingest-dispatcher.test.ts` to prove the exact reviewed failure mode: cancel after `completeProduction()` with queued work still present must not deadlock `waitForIdle()`.
+5. [ ] Extend `server/src/test/unit/ingest-cancel.test.ts` so the higher-level Story 54 cancel proof covers the post-production cancel window in addition to the existing cancel-before-result path.
+6. [ ] Update `server/src/test/features/ingest-cancel.feature` only if the existing integration proof needs one focused scenario to show that the API-visible cancel path still reaches a single terminal cancelled outcome after the post-production window is exercised.
+7. [ ] Run `npx eslint server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
+8. [ ] Run `npx prettier --check server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/features/ingest-cancel.feature`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-dispatcher.test.ts` and confirm the dispatcher post-production cancel proof passes.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` and confirm the higher-level cancel proofs still pass after the terminal-state change.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-cancel.feature` and confirm the API-visible cancel path still reaches one terminal cancelled outcome.
+
+#### Implementation notes
+
+- Update this section during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 7. Fence Cancelled Results Before Ordered Persistence Writes
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 3, Task 6`
+- Task Status: `__to_do__`
+- Git Commits:
+  - None yet
+
+#### Overview
+
+This task closes the reviewed race where cancellation can land after `embedBatch()` returns but before Story 54's ordered persistence buffer finishes writing vectors. The fix must ensure that a cancelled run cannot write new vectors or chunk metadata after cancellation cleanup has started, even when a provider result is already in hand.
+
+#### Task Exit Criteria
+
+- Story 54's late-result fence now covers the `embedBatch() resolved but onCompleted()/queuePersist() not finished yet` gap.
+- Cancel cleanup and ordered persistence no longer race in a way that can leave stray vectors or chunk metadata for a cancelled run.
+- Direct unit proof exists for the reviewed race rather than only the simpler cancel-before-result case.
+
+#### Documentation Locations
+
+- Story 54 findings artifact: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md)
+
+#### Subtasks
+
+1. [ ] Re-read the Story 54 cancellation acceptance criteria and the review findings, then inspect `server/src/ingest/embeddingDispatcher.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-cancel.test.ts`, and `server/src/test/features/ingest-cancel.feature` so the fix targets the exact `cancel-after-result-before-persist` race.
+2. [ ] Update `server/src/ingest/embeddingDispatcher.ts` and/or `server/src/ingest/ingestJob.ts` so a cancelled run cannot move provider results into the pending ordered-persistence path after cancel cleanup starts. The chosen fence must be explicit, deterministic, and local to the Story 54 ordered-persistence design rather than relying on timing.
+3. [ ] Ensure the fix keeps deterministic sequence ordering for non-cancelled runs and does not broaden scope into unrelated persistence refactors.
+4. [ ] Add direct unit coverage in `server/src/test/unit/ingest-cancel.test.ts` for the exact reviewed race: cancel after provider result resolution but before ordered persistence completes must not write vectors for the cancelled run.
+5. [ ] Extend `server/src/test/unit/ingest-dispatcher.test.ts` only if one focused lower-level case is needed to prove the dispatcher-side portion of the fence separately from the ingest worker.
+6. [ ] Update `server/src/test/features/ingest-cancel.feature` only if the integration proof needs one focused marker-backed scenario that shows cancelled runs do not persist late results after cleanup starts.
+7. [ ] Run `npx eslint server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/unit/ingest-dispatcher.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
+8. [ ] Run `npx prettier --check server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/features/ingest-cancel.feature`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` and confirm the new cancel-after-result-before-persist proof passes.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-dispatcher.test.ts` if that file was changed, and confirm the dispatcher-side fence proof passes.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-cancel.feature` if the feature changed, and confirm cancelled runs still avoid late writes in the API-visible path.
+
+#### Implementation notes
+
+- Update this section during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 8. Remove Fresh Embedding Probes From The Exported Cancel Route Fallback Path
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 3`
+- Task Status: `__to_do__`
+- Git Commits:
+  - None yet
+
+#### Overview
+
+This task fixes the reviewed cancel-route defect where Story 54 can still send a fresh embedding-dimension probe after cancellation if collection-dimension lookup falls back to `null`. The exported `cancelRun(...)` path used by `/ingest/cancel/:runId` must stay bounded and must not issue new provider work after a user has already cancelled the run.
+
+#### Task Exit Criteria
+
+- The exported `cancelRun(...)` path no longer triggers a fresh embedding request just to discover root dimensions after cancellation.
+- If collection-dimension lookup cannot recover a usable dimension, the fallback behavior remains explicit and safe without hiding the condition behind a new provider call.
+- Direct unit proof exists for the lookup-fails cancel path rather than only the happy path where dimensions are already known.
+
+#### Documentation Locations
+
+- Story 54 findings artifact: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md)
+
+#### Subtasks
+
+1. [ ] Re-read the Story 54 cancellation acceptance criteria plus the review findings, then inspect `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestCancel.ts`, and `server/src/test/unit/ingest-cancel.test.ts` so the fix targets the exported cancel-route fallback path rather than only the in-worker `handleCancellation(...)` helper.
+2. [ ] Update `server/src/ingest/ingestJob.ts` so the exported `cancelRun(...)` path never issues a fresh embedding probe after cancellation. If collection-dimension lookup fails, choose a bounded fallback that does not send new provider work and make that fallback explicit in code and logs.
+3. [ ] Keep the route contract in `server/src/routes/ingestCancel.ts` unchanged unless a review-proven contract change is unavoidable; this task should stay inside Story 54’s existing cancel API surface.
+4. [ ] Add direct unit coverage in `server/src/test/unit/ingest-cancel.test.ts` for the lookup-fails cancel path so the test proves no fresh embedding probe occurs after cancellation even when collection-dimension recovery does not succeed.
+5. [ ] Extend any existing cancel-route proof only as needed to show the `/ingest/cancel/:runId` path still returns cleanly after the bounded fallback change.
+6. [ ] Run `npx eslint server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
+7. [ ] Run `npx prettier --check server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` and confirm the lookup-fails cancel-path proof passes without a fresh embedding probe.
+3. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-cancel.feature` if the feature or cancel route proof changed, and confirm the API-visible cancel path still completes cleanly.
+
+#### Implementation notes
+
+- Update this section during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 9. Revalidate Story 54 After Code Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 6, Task 7, Task 8`
+- Task Status: `__to_do__`
+- Git Commits:
+  - None yet
+
+#### Overview
+
+This final revalidation task closes the reopened code-review loop for Story 54. It must prove that the review-fix tasks resolved the cancellation defects without regressing the already-finished large-text, provider-dispatch, AST delta-mode, and end-to-end validation behavior that Story 54 originally completed.
+
+#### Task Exit Criteria
+
+- The review findings are fixed, the durable review artifacts remain in history with the reopened plan, and Story 54 again satisfies its acceptance criteria through the repo’s wrapper-first validation flow.
+- Revalidation explicitly proves both the original Story 54 behavior and the reopened cancellation-path fixes.
+
+#### Documentation Locations
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T043447Z-665f74d9-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 54 plan plus the three review artifacts and trace every reopened review finding back to the fix delivered in Tasks 6 through 8, while also confirming that Tasks 1 through 5 still cover the original large-text, dispatcher, AST, and documentation scope.
+2. [ ] Update Task 9 Implementation notes as the revalidation proceeds so the final close-out explicitly records which acceptance criteria have direct proof, which still rely on indirect proof by design, and why no further review-fix tasks are needed.
+3. [ ] If any proof command fails during this revalidation task, capture the exact failure in the implementation notes and reopen the plan again only if a new review-fix task is genuinely required.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes with the review fixes in place.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers suite passes with the review fixes in place.
+4. [ ] Run `npm run test:summary:e2e` and confirm the existing ingest UI flow and Story 54 browser proof still pass through the default wrapper path.
+5. [ ] Run `npm run compose:up`, repeat one manual Playwright MCP large-file ingest validation against `/ingest` using `/fixtures/repo/large-planning-doc.md`, confirm the Story 54 runtime markers plus the repaired cancellation behavior, then run `npm run compose:down`.
+
+#### Implementation notes
+
+- Update this section during implementation with concise notes describing what was revalidated, what artifacts were checked, what issues were encountered, and why Story 54 can be closed again once this task is complete.
+- Record final validation outcomes, important proof artifacts, and any residual indirect-proof areas that remain acceptable under the canonical plan.

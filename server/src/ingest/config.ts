@@ -76,6 +76,24 @@ function parseFiniteNumberWithFallback(
   return parsed;
 }
 
+function parseTokenSafetyMargin(rawValue: string | undefined): number {
+  if (typeof rawValue !== 'string') {
+    return 0.85;
+  }
+
+  const trimmed = rawValue.trim();
+  if (trimmed.length === 0) {
+    return 0.85;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0.85;
+  }
+
+  return Math.min(parsed, 1);
+}
+
 function parseClampedIntegerWithFallback(
   rawValue: string | undefined,
   fallback: number,
@@ -106,9 +124,8 @@ export function resolveConfig(): IngestConfig {
       .map((s) => s.trim()) ?? [];
   const excludes = Array.from(new Set([...defaultExcludes, ...envExcludes]));
 
-  const tokenSafetyMargin = parseFiniteNumberWithFallback(
+  const tokenSafetyMargin = parseTokenSafetyMargin(
     process.env.CODEINFO_INGEST_TOKEN_MARGIN,
-    0.85,
   );
   const fallbackTokenLimit = parseFiniteNumberWithFallback(
     process.env.CODEINFO_INGEST_FALLBACK_TOKENS,

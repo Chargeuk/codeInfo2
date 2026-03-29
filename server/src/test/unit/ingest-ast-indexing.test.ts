@@ -89,6 +89,7 @@ const buildDeps = (options?: {
   onEmbedStart?: () => void;
 }) => {
   let embedCalls = 0;
+  let modelCalls = 0;
   const embeddingModel = {
     embed: async (_text?: string, embedOptions?: { signal?: AbortSignal }) => {
       embedCalls += 1;
@@ -126,10 +127,14 @@ const buildDeps = (options?: {
     lmClientFactory: () =>
       ({
         embedding: {
-          model: async () => embeddingModel,
+          model: async () => {
+            modelCalls += 1;
+            return embeddingModel;
+          },
         },
       }) as unknown as LMStudioClient,
     getEmbedCalls: () => embedCalls,
+    getModelCalls: () => modelCalls,
   };
 };
 
@@ -185,13 +190,25 @@ const setupMongoMocks = () => {
 
   const astSymbolsBulkWrite = mock.fn(async () => ({}));
   const astSymbolsDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
+  const astSymbolsDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
+  }));
   const astEdgesBulkWrite = mock.fn(async () => ({}));
   const astEdgesDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
+  const astEdgesDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
+  }));
   const astReferencesBulkWrite = mock.fn(async () => ({}));
   const astReferencesDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
+  const astReferencesDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
+  }));
   const astModuleImportsBulkWrite = mock.fn(async () => ({}));
   const astModuleImportsDeleteMany = mock.fn(() => ({
     exec: async () => ({}),
+  }));
+  const astModuleImportsDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
   }));
   const astCoverageUpdateOne = mock.fn(() => ({ exec: async () => ({}) }));
   const astCoverageDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
@@ -200,12 +217,16 @@ const setupMongoMocks = () => {
 
   mock.method(AstSymbolModel, 'bulkWrite', astSymbolsBulkWrite);
   mock.method(AstSymbolModel, 'deleteMany', astSymbolsDeleteMany);
+  mock.method(AstSymbolModel, 'distinct', astSymbolsDistinct);
   mock.method(AstEdgeModel, 'bulkWrite', astEdgesBulkWrite);
   mock.method(AstEdgeModel, 'deleteMany', astEdgesDeleteMany);
+  mock.method(AstEdgeModel, 'distinct', astEdgesDistinct);
   mock.method(AstReferenceModel, 'bulkWrite', astReferencesBulkWrite);
   mock.method(AstReferenceModel, 'deleteMany', astReferencesDeleteMany);
+  mock.method(AstReferenceModel, 'distinct', astReferencesDistinct);
   mock.method(AstModuleImportModel, 'bulkWrite', astModuleImportsBulkWrite);
   mock.method(AstModuleImportModel, 'deleteMany', astModuleImportsDeleteMany);
+  mock.method(AstModuleImportModel, 'distinct', astModuleImportsDistinct);
   mock.method(AstCoverageModel, 'updateOne', astCoverageUpdateOne);
   mock.method(AstCoverageModel, 'deleteMany', astCoverageDeleteMany);
   mock.method(IngestFileModel, 'bulkWrite', ingestFilesBulkWrite);
@@ -221,12 +242,16 @@ const setupMongoMocks = () => {
   return {
     astSymbolsBulkWrite,
     astSymbolsDeleteMany,
+    astSymbolsDistinct,
     astEdgesBulkWrite,
     astEdgesDeleteMany,
+    astEdgesDistinct,
     astReferencesBulkWrite,
     astReferencesDeleteMany,
+    astReferencesDistinct,
     astModuleImportsBulkWrite,
     astModuleImportsDeleteMany,
+    astModuleImportsDistinct,
     astCoverageUpdateOne,
     astCoverageDeleteMany,
     ingestFilesBulkWrite,
@@ -923,6 +948,46 @@ test('delta reembed AST-relevant deletions rebuild AST and do not claim no chang
     assert.equal(parseMock.mock.calls.length, 1);
     assert.equal(parseMock.mock.calls[0]?.arguments[0].relPath, 'src/keep.ts');
     assert.equal(mongoMocks.astCoverageUpdateOne.mock.calls.length, 1);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta reembed AST-only deletions stay provider-free when model lookup would fail', async () => {
+  const deps = buildDeps({
+    modelError: new Error('provider unavailable'),
+  });
+  const { root, cleanup } = await createTempRepo({
+    'src/deleted.ts': 'export const deleted = 1;\n',
+  });
+
+  try {
+    const deletedHash = await hashFile(path.join(root, 'src/deleted.ts'));
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/deleted.ts', fileHash: deletedHash },
+    ]);
+    await fs.rm(path.join(root, 'src/deleted.ts'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(deps.getModelCalls(), 0);
     const astModeLogs = query({
       text: 'DEV-0000054:delta_ast_mode_selected',
     });

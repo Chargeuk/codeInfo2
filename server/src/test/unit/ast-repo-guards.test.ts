@@ -12,6 +12,7 @@ import {
   clearAstModuleImportsByRoot,
   clearAstReferencesByRoot,
   clearAstSymbolsByRoot,
+  deleteStaleAstSymbolsByRootFiles,
   listAstCoverageByRoot,
   listAstEdgesByRoot,
   listAstModuleImportsByRoot,
@@ -286,3 +287,84 @@ for (const testCase of clearCases) {
     }
   });
 }
+
+test('deleteStaleAstSymbolsByRootFiles returns null when Mongo is disconnected', async () => {
+  const restoreReadyState = overrideReadyState(0);
+  const restoreDeleteMany = stubModelMethod(
+    AstSymbolModel as unknown as ModelLike,
+    'deleteMany',
+    (() => {
+      throw new Error('unexpected mongo call: deleteMany');
+    }) as unknown as (typeof AstSymbolModel)['deleteMany'],
+  );
+  const restoreDistinct = stubModelMethod(
+    AstSymbolModel as unknown as ModelLike,
+    'distinct',
+    (() => {
+      throw new Error('unexpected mongo call: distinct');
+    }) as unknown as (typeof AstSymbolModel)['distinct'],
+  );
+
+  try {
+    const result = await deleteStaleAstSymbolsByRootFiles({
+      root: 'r1',
+      files: [{ relPath: 'a.ts', fileHash: 'hash-a' }],
+    });
+    assert.equal(result, null);
+  } finally {
+    restoreDistinct();
+    restoreDeleteMany();
+    restoreReadyState();
+  }
+});
+
+test('deleteStaleAstSymbolsByRootFiles batches stale deletes and mismatched hashes', async () => {
+  const restoreReadyState = overrideReadyState(1);
+  const distinctCalls: Array<[string, Record<string, unknown>]> = [];
+  const deleteCalls: Record<string, unknown>[] = [];
+  const restoreDistinct = stubModelMethod(
+    AstSymbolModel as unknown as ModelLike,
+    'distinct',
+    ((field: string, query: Record<string, unknown>) => {
+      distinctCalls.push([field, query]);
+      return {
+        exec: async () => ['stale.ts'],
+      };
+    }) as unknown as (typeof AstSymbolModel)['distinct'],
+  );
+  const restoreDeleteMany = stubModelMethod(
+    AstSymbolModel as unknown as ModelLike,
+    'deleteMany',
+    ((query: Record<string, unknown>) => {
+      deleteCalls.push(query);
+      return { exec: async () => ({}) };
+    }) as unknown as (typeof AstSymbolModel)['deleteMany'],
+  );
+
+  try {
+    const files = Array.from({ length: 205 }, (_, index) => ({
+      relPath: `src/file-${index}.ts`,
+      fileHash: `hash-${index}`,
+    }));
+
+    const result = await deleteStaleAstSymbolsByRootFiles({
+      root: 'r1',
+      files,
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(distinctCalls.length, 1);
+    assert.deepEqual(distinctCalls[0], ['relPath', { root: 'r1' }]);
+    assert.equal(deleteCalls.length, 3);
+    assert.deepEqual(deleteCalls[0], {
+      root: 'r1',
+      relPath: { $in: ['stale.ts'] },
+    });
+    assert.equal((deleteCalls[1].$or as unknown[]).length, 200);
+    assert.equal((deleteCalls[2].$or as unknown[]).length, 5);
+  } finally {
+    restoreDeleteMany();
+    restoreDistinct();
+    restoreReadyState();
+  }
+});

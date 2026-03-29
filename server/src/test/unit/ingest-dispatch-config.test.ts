@@ -104,3 +104,27 @@ test('queue cap preserves -1, 0, and positive integers', () => {
     assert.equal(resolveConfig().maxQueueSize, 7);
   });
 });
+
+test('token margin treats blank input as unset and clamps to a safe range', () => {
+  withEnv({ CODEINFO_INGEST_TOKEN_MARGIN: undefined }, () => {
+    assert.equal(resolveConfig().tokenSafetyMargin, 0.85);
+  });
+  withEnv({ CODEINFO_INGEST_TOKEN_MARGIN: '' }, () => {
+    assert.equal(resolveConfig().tokenSafetyMargin, 0.85);
+  });
+  withEnv({ CODEINFO_INGEST_TOKEN_MARGIN: '   ' }, () => {
+    assert.equal(resolveConfig().tokenSafetyMargin, 0.85);
+  });
+  withEnv({ CODEINFO_INGEST_TOKEN_MARGIN: '0' }, () => {
+    assert.equal(resolveConfig().tokenSafetyMargin, 0.85);
+  });
+  withEnv({ CODEINFO_INGEST_TOKEN_MARGIN: '-1' }, () => {
+    assert.equal(resolveConfig().tokenSafetyMargin, 0.85);
+  });
+  withEnv({ CODEINFO_INGEST_TOKEN_MARGIN: '0.9' }, () => {
+    assert.equal(resolveConfig().tokenSafetyMargin, 0.9);
+  });
+  withEnv({ CODEINFO_INGEST_TOKEN_MARGIN: '1.2' }, () => {
+    assert.equal(resolveConfig().tokenSafetyMargin, 1);
+  });
+});

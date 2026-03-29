@@ -35,13 +35,15 @@ Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact'
 8. For one changed test used as proof, attempt a weak-proof challenge: if the test proves that something has not happened yet, verify whether it relies on an arbitrary elapsed-time sleep instead of a deterministic scheduler, resource, or state boundary, and decide whether that makes the proof flaky or only residual weak proof.
 9. For one changed env/config parser, attempt a domain-mismatch challenge using empty string, whitespace, zero, negative, or oversized values and verify whether downstream invariants still hold or whether the parser should clamp, fallback, or reject earlier.
 10. For one changed query/filter/bulk selector in a large-repository or large-file path, attempt a scale-shape challenge: identify whether the filter or payload grows with repository, file, chunk, or symbol count and verify whether the implementation bounds that growth.
-11. For each challenge, decide whether it:
+11. For one changed async helper or test-support utility, attempt a leaked-registration challenge: if timeout, rejection, cancellation, or early return wins, verify whether any shared waiter, listener, callback, subscription, or queue registration is still unregistered before the helper exits.
+12. For one changed fallback-selection or precedence helper, attempt a stale-hint challenge: assume an earlier cancelled or degraded run persisted a weak fallback value, then verify whether a later successful run with fresher observed state can override it correctly.
+13. For each challenge, decide whether it:
 
 - creates a new endorsed finding;
 - strengthens a rejected-risk conclusion;
 - or leaves only residual weak proof.
 
-12. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge, the one failure-ordering challenge, the wrapped-error mismatch challenge, the one weak-proof test challenge, the one env/config domain challenge, and the one scale-shape challenge. Do not restart the whole review.
+14. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge, the one failure-ordering challenge, the wrapped-error mismatch challenge, the one weak-proof test challenge, the one env/config domain challenge, the one scale-shape challenge, the one leaked-registration challenge, and the one stale-hint challenge. Do not restart the whole review.
 
 ## Output Contract
 

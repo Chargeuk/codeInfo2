@@ -17,6 +17,8 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 - When a task changes query/filter/bulk-selector logic in a large-repository or large-file path, add a proof subtask that explicitly verifies the implementation uses a bounded strategy rather than one unbounded request or filter.
 - When a task changes reader/writer behavior over a persisted artifact, add proof subtasks for partial-state tolerance, stale-state cleanup ownership, and reader/writer compatibility whenever those behaviors affect correctness.
 - When a task changes cancellation, teardown, or other lifecycle-sensitive logic, add proof subtasks that name the failure-ordering or cleanup-ordering invariant rather than only the happy-path outcome.
+- When a task changes async coordination helpers or test-support utilities that register shared waiters, listeners, callbacks, subscriptions, or queue entries, add proof subtasks for timeout, rejection, cancellation, and early-return cleanup whenever those exits exist.
+- When a task changes fallback or precedence helpers that can see both stale persisted hints and fresh observed values, add proof subtasks that explicitly cover both conditions rather than only the stale-only or fresh-only path.
 - If one proof file will cover multiple distinct invariants, create separate subtasks that point to the same file but use different `Purpose` language.
 - Require each proof subtask to make these four details explicit when they are not already obvious from the plan format:
   1. Test type or proof type.

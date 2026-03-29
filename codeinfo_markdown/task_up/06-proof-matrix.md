@@ -18,6 +18,8 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 - Treat cancel, retry, teardown, crash-recovery, and destructive-cleanup ordering as proof obligations whenever the task changes lifecycle-sensitive orchestration.
 - Treat default launcher, wrapper, startup, CI, selector, and feature-flag reachability as proof obligations whenever the task changes how behavior becomes runnable.
 - Treat deterministic observable boundaries, teardown ordering, shared-state safety, and worker or parallel-safety as proof obligations whenever the task changes tests or harness code.
+- Treat shared waiter, listener, callback, subscription, or queue cleanup on timeout, rejection, cancellation, and early return as proof obligations whenever the task changes async coordination helpers or test-support utilities.
+- Treat stale persisted hints versus fresh observed values as proof obligations whenever the task changes precedence or fallback helpers that may be used in both degraded and successful paths.
 - Rewrite or add subtasks so each proof obligation names:
   1. the requirement or invariant being proved;
   2. the implementation files that own the behavior;

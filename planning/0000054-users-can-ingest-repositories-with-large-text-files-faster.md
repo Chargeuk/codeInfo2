@@ -701,7 +701,7 @@ The follow-up tasks below keep repository ownership explicit, fix only the revie
 - Task Dependencies: `Task 3`
 - Task Status: `__done__`
 - Git Commits:
-  - None yet
+  - `7a201e65` - `DEV-[54] - Fix post-production cancel deadlock`
 
 #### Overview
 

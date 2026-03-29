@@ -1187,3 +1187,119 @@ This final revalidation task closes the latest Story 54 review loop. It must pro
 - The remaining acceptable indirect-proof areas are unchanged from the latest review artifacts: the prose-splitter efficiency claim still relies on code-path inspection rather than benchmark instrumentation, and some harness-surface compatibility claims still rely on unchanged UI/route behavior plus wrapper coverage rather than new dedicated seams. Those limits remain acceptable because the canonical plan explicitly avoids benchmark/SLA gates and no further review findings were uncovered during Task 13.
 - Record the exact wrapper and manual proof chain for the Task 12 fix, which acceptance criteria remain directly proven, which still rely on acceptable indirect proof by plan design, and why Story 54 can be closed again once this task is complete.
 - If any wrapper reports failure, unexpected warnings, or ambiguous counts, record the follow-up log inspection path and the final conclusion before deciding whether another reopen is required.
+
+## Code Review Findings – 2026-03-29 Delta Re-embed Fast-Path Cancel Review
+
+Story 54 is reopened again because the current review pass endorsed one `must_fix` issue on the active re-embed runtime path. The durable review artifacts for this reopen decision are:
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-blind-spot-challenge.md)
+
+The current review finding that must be fixed before Story 54 can stay complete is:
+
+1. The delta no-op and deletions-only re-embed fast paths in `processRun(...)` still bypass the finalization-barrier cancel fences added by Tasks 10 through 12. A late `/ingest/cancel/:runId` can therefore complete its cleanup and publish `cancelled`, then still be overwritten back to `completed` by those direct fast-path writes.
+
+What changed and why:
+
+- The earlier review-fix tasks proved the dispatcher-driven finalization path is fenced correctly, but the latest findings pass and blind-spot challenge showed that two direct re-embed completion branches still skip the shared barrier helpers.
+- Those branches are part of the active `/ingest/reembed` runtime path, so this is not a speculative cleanup or scope-creep concern. It is a live contract bug against Story 54's coherent-cancel acceptance criteria.
+- The new follow-up tasks below keep ownership in `Current Repository`, narrow the implementation work to the exact unfenced re-embed branches, require deterministic proof for that specific late-cancel seam, and finish with one fresh full wrapper-first revalidation task.
+
+---
+
+### Task 14. Fence Delta Re-embed Fast-Path Completion Against Late Cancel
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 13`
+- Task Status: `__to_do__`
+
+#### Overview
+
+This task fixes the remaining late-cancel gap identified by the current review pass. The dispatcher-driven completion path is already fenced, but the delta no-op and deletions-only re-embed branches still publish terminal `completed` state directly. This task must route those fast paths through the same cancel-aware finalization model, or an equivalent shared fence, so a late cancel cannot be overwritten on the active re-embed route.
+
+#### Task Exit Criteria
+
+- If cancel lands during the delta no-op re-embed completion path, the run still converges on `cancelled` instead of drifting back to `completed`.
+- If cancel lands during the deletions-only re-embed completion path, the run still converges on `cancelled` instead of drifting back to `completed`.
+- The re-embed fast paths no longer publish root metadata or terminal status outside the shared cancel-aware finalization fence.
+- Direct proof exists for the exact reviewed timing windows, not just for the earlier dispatcher-driven finalization path.
+
+#### Documentation Locations
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the current Story 54 evidence, findings, and blind-spot challenge artifacts, then inspect [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/routes/ingestCancel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestCancel.ts), [server/src/test/unit/ingest-reembed.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-reembed.test.ts), [server/src/test/unit/ingest-cancel.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-cancel.test.ts), and [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature) so the fix stays tightly scoped to the delta no-op and deletions-only late-cancel windows.
+2. [ ] Update [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts) so both the delta no-op re-embed branch and the deletions-only re-embed branch use the same cancel-aware finalization fence as the dispatcher-driven completion path, or another equivalent shared helper that proves the same invariant. The fix must prevent any direct fast-path `roots.add(...)` or terminal `setStatusAndPublish(...)` call from bypassing the late-cancel fence.
+3. [ ] Keep [server/src/routes/ingestCancel.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestCancel.ts) on the existing API surface unless a route contract change is proven unavoidable. The preferred repair is still inside the ingest worker, not in a new browser-visible cancel mode or route behavior change.
+4. [ ] Add direct deterministic unit coverage in [server/src/test/unit/ingest-cancel.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-cancel.test.ts) for both exact reviewed timing windows:
+   - delta no-op re-embed delayed at the terminal metadata or status write, then cancelled, must finish `cancelled`;
+   - deletions-only re-embed delayed at the terminal metadata or status write, then cancelled, must finish `cancelled`.
+5. [ ] Update [server/src/test/unit/ingest-reembed.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-reembed.test.ts) and [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature) only if one focused API-visible proof is genuinely needed to show those fast paths still complete correctly when no cancel occurs. If the existing happy-path coverage remains sufficient, record that decision in the implementation notes instead of widening the feature surface.
+6. [ ] Run `npx eslint server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/unit/ingest-reembed.test.ts server/src/test/steps/ingest-delta-reembed.steps.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any touched `.ts` file, rerun the same command with `--fix` before making manual style edits. If [server/src/test/steps/ingest-delta-reembed.steps.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/steps/ingest-delta-reembed.steps.ts) is unchanged, remove it from the command when running it.
+7. [ ] Run `npx prettier --check server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/unit/ingest-reembed.test.ts server/src/test/features/ingest-delta-reembed.feature server/src/test/steps/ingest-delta-reembed.steps.ts`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits. If the feature or step files are unchanged, remove them from the command when running it.
+
+#### Testing
+
+1. [ ] Do not attempt to run build or test commands for this task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not attempt narrow server validation for this task before the wrapper path succeeds. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes for the Task 14 delta fast-path late-cancel fix. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for [server/src/test/unit/ingest-cancel.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-cancel.test.ts) and [server/src/test/unit/ingest-reembed.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-reembed.test.ts), then rerun full `npm run test:summary:server:unit`.
+3. [ ] Do not attempt to run the Cucumber feature directly as the primary proof for this task. Run `npm run test:summary:server:cucumber` and confirm the API-visible re-embed and cancel path still converges on one coherent terminal outcome after the Task 14 fast-path fence. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature), then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Added during review disposition on 2026-03-29 because review pass `0000054-20260329T102937Z-ef3d27a0` found that the delta no-op and deletions-only re-embed fast paths still bypass the finalization-barrier cancel fences and can overwrite a late cancel back to `completed`.
+- This task is intentionally narrower than the earlier cancellation fixes: it should touch only the unfenced re-embed fast paths, keep the existing cancel route contract intact, and add deterministic proof for both exact reviewed timing windows before the story is revalidated again.
+- Record exactly which shared helper or fence the fast paths now use, why it closes the review finding, and whether any happy-path delta tests or feature steps needed expansion beyond the new deterministic unit coverage.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 15. Revalidate Story 54 After The Delta Fast-Path Cancel Fence
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 14`
+- Task Status: `__to_do__`
+
+#### Overview
+
+This final revalidation task closes the latest Story 54 review loop. It must prove that the Task 14 re-embed fast-path fence resolves the new late-cancel finding without regressing the already-finished large-text chunking, provider dispatch, AST delta-mode, documentation, and browser/runtime proof that Story 54 previously completed.
+
+#### Task Exit Criteria
+
+- The current `must_fix` review finding is fixed, the current durable review artifacts remain in history with the reopened plan, and Story 54 again satisfies its acceptance criteria through the repository's wrapper-first validation flow.
+- Revalidation explicitly proves both the original Story 54 behavior and the repaired delta fast-path late-cancel behavior on the active `/ingest/reembed` route.
+
+#### Documentation Locations
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T102937Z-ef3d27a0-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 54 plan plus the current evidence, findings, and blind-spot challenge artifacts, then trace the delta fast-path late-cancel finding back to the fix delivered in Task 14 while also confirming that Tasks 1 through 13 still cover the original Story 54 scope.
+2. [ ] Update Task 15 implementation notes as revalidation proceeds so the final close-out explicitly records which acceptance criteria still have direct proof, which still rely on indirect proof by plan design, and why no further review-fix tasks are needed.
+3. [ ] If any proof command fails during this revalidation task, capture the exact failure in the implementation notes and reopen the plan again only if a new review-fix task is genuinely required.
+
+#### Testing
+
+1. [ ] Do not attempt to run build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not attempt to run client build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-client-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+3. [ ] Do not attempt narrow server validation before the wrapper path succeeds for this final validation task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the Task 14 delta fast-path fix in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:unit`.
+4. [ ] Do not attempt narrow Cucumber validation before the wrapper path succeeds for this final validation task. Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers wrapper passes with the Task 14 fix in place. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Do not attempt client tests for this final validation task outside the repository wrappers. Run `npm run test:summary:client` and confirm the client wrapper passes for the unchanged browser-facing regression surface. If `failed > 0`, inspect the exact `test-results/client-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:client`.
+6. [ ] Do not attempt Playwright directly as the primary automated proof for this final validation task. Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish while it proves the existing ingest UI flow and Story 54 browser path. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:e2e`.
+7. [ ] Because this is the fresh final regression task and the browser-visible path remains in scope, run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper reports failure or an ambiguous result.
+8. [ ] Run `npm run compose:up` before manual validation so the standard runtime stack is available through the repository wrapper path.
+9. [ ] Perform one manual Playwright MCP validation against `http://host.docker.internal:5001/ingest` using `/fixtures/repo/large-planning-doc.md`, confirm the Story 54 runtime markers plus the repaired delta fast-path late-cancel behavior, and check that the browser debug console shows no logged errors during the proof.
+10. [ ] Run `npm run compose:down` after manual Playwright MCP validation completes so the final regression proof does not leave shared runtime services running.
+
+#### Implementation notes
+
+- Added during review disposition on 2026-03-29 because the current review pass reopened Story 54 for one repository-local `must_fix` issue on the active delta re-embed cancel path, and the story must be revalidated again after Task 14 before it can honestly return to `__done__`.
+- This task must record the exact wrapper and manual proof chain for the Task 14 fix, which acceptance criteria remain directly proven, which still rely on acceptable indirect proof by plan design, and why the delta re-embed fast paths now satisfy the same coherent-cancel contract as the dispatcher-driven completion path.
+- If any wrapper reports failure, unexpected warnings, or ambiguous counts, record the follow-up log inspection path and the final conclusion before deciding whether another reopen is required.

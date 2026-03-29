@@ -87,7 +87,15 @@ Before({ tags: '@embedding-dispatch' }, async () => {
 After({ tags: '@embedding-dispatch' }, async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve, reject) => {
+      server!.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
     server = null;
   }
   if (tempDir) {

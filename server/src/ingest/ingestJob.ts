@@ -9,12 +9,11 @@ import { parseAstSource } from '../ast/parser.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import {
-  clearAstCoverageByRoot,
-  clearAstEdgesByRoot,
-  clearAstModuleImportsByRoot,
-  clearAstReferencesByRoot,
-  clearAstSymbolsByRoot,
   clearIngestFilesByRoot,
+  deleteStaleAstEdgesByRootFiles,
+  deleteStaleAstModuleImportsByRootFiles,
+  deleteStaleAstReferencesByRootFiles,
+  deleteStaleAstSymbolsByRootFiles,
   deleteIngestFilesByRelPaths,
   listIngestFilesByRoot,
   upsertAstCoverage,
@@ -665,6 +664,10 @@ async function processRun(runId: string, input: IngestJobInput) {
       deltaMode === 'delta' &&
       shouldSkipAstForDelta
     );
+    const shouldReplaceAstByPrune =
+      operation === 'start' ||
+      (operation === 'reembed' &&
+        (deltaMode !== 'delta' || shouldRebuildAstForDelta));
     const deltaSkipMessage =
       operation === 'reembed' && deltaMode === 'delta' && deltaWorkCount === 0
         ? `No changes detected for ${root}`
@@ -1167,20 +1170,6 @@ async function processRun(runId: string, input: IngestJobInput) {
       });
     }
 
-    if (
-      operation === 'start' ||
-      (operation === 'reembed' &&
-        (deltaMode !== 'delta' || shouldRebuildAstForDelta))
-    ) {
-      if (astWritesEnabled) {
-        await clearAstSymbolsByRoot(root);
-        await clearAstEdgesByRoot(root);
-        await clearAstReferencesByRoot(root);
-        await clearAstModuleImportsByRoot(root);
-        await clearAstCoverageByRoot(root);
-      }
-    }
-
     if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
       finalSkipMessage = undefined;
     }
@@ -1668,6 +1657,19 @@ async function processRun(runId: string, input: IngestJobInput) {
     }
 
     if (astWritesEnabled && shouldRunAstIndexing) {
+      const currentAstFiles = files
+        .filter((file) =>
+          isAstSupported(file.ext ?? path.extname(file.relPath).slice(1)),
+        )
+        .map((file) => {
+          const fileHash = fileHashesByRelPath.get(file.relPath);
+          if (!fileHash) {
+            throw new Error(
+              `AST file hash missing during finalization for ${file.relPath}`,
+            );
+          }
+          return { relPath: file.relPath, fileHash };
+        });
       if (
         await runFinalizationStep(() =>
           upsertAstSymbols({ root, symbols: astSymbols }),
@@ -1709,6 +1711,48 @@ async function processRun(runId: string, input: IngestJobInput) {
         )
       ) {
         return;
+      }
+      if (shouldReplaceAstByPrune) {
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstSymbolsByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstEdgesByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstReferencesByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstModuleImportsByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
+        }
       }
       logLifecycle('info', 'DEV-0000032:T5:ast-index-complete', {
         event: 'DEV-0000032:T5:ast-index-complete',

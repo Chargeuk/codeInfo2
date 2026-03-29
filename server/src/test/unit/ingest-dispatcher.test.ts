@@ -19,6 +19,12 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
+function waitForNextTurn() {
+  return new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
+}
+
 function baseConfig(overrides?: Partial<IngestConfig>): IngestConfig {
   return {
     includes: ['md', 'txt', 'ts'],
@@ -105,7 +111,7 @@ test('dispatcher enforces queue cap for same-turn enqueue bursts and refills fre
     true,
   ]);
 
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await waitForNextTurn();
   assert.equal(requests.length, 2, 'expected two requests to fill both slots');
   assert.deepEqual(dispatcher.snapshot(), {
     queueDepth: 1,
@@ -118,7 +124,7 @@ test('dispatcher enforces queue cap for same-turn enqueue bursts and refills fre
   void blockedFourth.then(() => {
     fourthResolved = true;
   });
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await waitForNextTurn();
   assert.equal(
     fourthResolved,
     false,
@@ -126,7 +132,7 @@ test('dispatcher enforces queue cap for same-turn enqueue bursts and refills fre
   );
 
   requests[0]?.deferred.resolve([[0.1]]);
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await waitForNextTurn();
   assert.equal(
     requests.length,
     3,
@@ -141,7 +147,7 @@ test('dispatcher enforces queue cap for same-turn enqueue bursts and refills fre
   await blockedFourth;
   requests[1]?.deferred.resolve([[0.2]]);
   requests[2]?.deferred.resolve([[0.3]]);
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await waitForNextTurn();
   assert.equal(
     requests.length,
     4,

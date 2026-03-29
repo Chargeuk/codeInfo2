@@ -1008,6 +1008,76 @@ export async function clearAstCoverageByRoot(
   return { ok: true };
 }
 
+function buildStaleAstByFileQuery(
+  root: string,
+  files: Array<{ relPath: string; fileHash: string }>,
+) {
+  if (files.length === 0) {
+    return { root };
+  }
+
+  return {
+    root,
+    $or: [
+      {
+        relPath: { $nin: files.map((file) => file.relPath) },
+      },
+      ...files.map((file) => ({
+        relPath: file.relPath,
+        fileHash: { $ne: file.fileHash },
+      })),
+    ],
+  };
+}
+
+export async function deleteStaleAstSymbolsByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await AstSymbolModel.deleteMany(buildStaleAstByFileQuery(root, files)).exec();
+  return { ok: true };
+}
+
+export async function deleteStaleAstEdgesByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await AstEdgeModel.deleteMany(buildStaleAstByFileQuery(root, files)).exec();
+  return { ok: true };
+}
+
+export async function deleteStaleAstReferencesByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await AstReferenceModel.deleteMany(
+    buildStaleAstByFileQuery(root, files),
+  ).exec();
+  return { ok: true };
+}
+
+export async function deleteStaleAstModuleImportsByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await AstModuleImportModel.deleteMany(
+    buildStaleAstByFileQuery(root, files),
+  ).exec();
+  return { ok: true };
+}
+
 export async function deleteAstSymbolsByRelPaths(params: {
   root: string;
   relPaths: string[];

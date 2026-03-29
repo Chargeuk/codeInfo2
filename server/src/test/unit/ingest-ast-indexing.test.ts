@@ -73,11 +73,48 @@ const waitForTerminal = async (runId: string) => {
   throw new Error(`Timed out waiting for ingest ${runId}`);
 };
 
-const buildDeps = () => {
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
+const buildDeps = (options?: {
+  modelError?: Error;
+  blockOnAbort?: boolean;
+  onEmbedStart?: () => void;
+}) => {
   let embedCalls = 0;
   const embeddingModel = {
-    embed: async () => {
+    embed: async (_text?: string, embedOptions?: { signal?: AbortSignal }) => {
       embedCalls += 1;
+      options?.onEmbedStart?.();
+      if (options?.modelError) {
+        throw options.modelError;
+      }
+      if (options?.blockOnAbort) {
+        return await new Promise<{ embedding: number[] }>(
+          (_resolve, reject) => {
+            const abortError = new Error('aborted');
+            abortError.name = 'AbortError';
+            if (embedOptions?.signal?.aborted) {
+              reject(abortError);
+              return;
+            }
+            embedOptions?.signal?.addEventListener(
+              'abort',
+              () => reject(abortError),
+              {
+                once: true,
+              },
+            );
+          },
+        );
+      }
       return { embedding: [0.1, 0.2, 0.3] };
     },
     getContextLength: async () => 256,
@@ -677,11 +714,21 @@ test('delta reembed with AST-supported changes clears and rebuilds the full AST'
       new Set(['src/added.ts', 'src/changed.ts', 'src/unchanged.ts']),
     );
     const deleteCall = repoMocks.astSymbolsDeleteMany.mock.calls.at(-1) as
-      | { arguments: [{ root?: string; relPath?: { $in?: string[] } }] }
+      | {
+          arguments: [
+            {
+              root?: string;
+              $or?: Array<
+                | { relPath: { $nin: string[] } }
+                | { relPath: string; fileHash: { $ne: string } }
+              >;
+            },
+          ];
+        }
       | undefined;
     if (!deleteCall) throw new Error('Expected delete call');
     assert.equal(deleteCall.arguments[0].root, root);
-    assert.equal(deleteCall.arguments[0].relPath, undefined);
+    assert.ok(Array.isArray(deleteCall.arguments[0].$or));
     const upsertSymbols = repoMocks.astSymbolsBulkWrite.mock.calls.at(-1) as
       | {
           arguments: [
@@ -951,6 +998,102 @@ test('delta reembed changed-file AST parse failures remain non-terminal and pres
     const status = await waitForTerminal(runId);
     assert.equal(status.state, 'completed');
     assert.equal(status.ast?.failedFileCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta AST full rebuild cancel does not clear live AST data before finalization', async () => {
+  const embedStarted = createDeferred<void>();
+  mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
+        },
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
+  const { root, cleanup } = await createTempRepo({
+    'src/changed.ts': 'export const changed = 2;\n',
+  });
+
+  try {
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/changed.ts', fileHash: 'old-hash' },
+    ]);
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps({
+        blockOnAbort: true,
+        onEmbedStart: () => embedStarted.resolve(),
+      }),
+    );
+    await embedStarted.promise;
+    await cancelRun(runId);
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'cancelled');
+    assert.equal(mongoMocks.astSymbolsDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astEdgesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astReferencesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astModuleImportsDeleteMany.mock.calls.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta AST full rebuild error does not clear live AST data before finalization', async () => {
+  mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
+        },
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
+  const { root, cleanup } = await createTempRepo({
+    'src/changed.ts': 'export const changed = 2;\n',
+  });
+
+  try {
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/changed.ts', fileHash: 'old-hash' },
+    ]);
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps({
+        modelError: new Error('provider unavailable'),
+      }),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'error');
+    assert.equal(mongoMocks.astSymbolsDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astEdgesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astReferencesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astModuleImportsDeleteMany.mock.calls.length, 0);
   } finally {
     await cleanup();
   }

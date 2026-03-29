@@ -27,6 +27,7 @@ import {
   __resetIngestJobsForTest,
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
+import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -36,6 +37,8 @@ import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import {
   MockLMStudioClient,
   type MockScenario,
+  releaseControlledEmbeddingCall,
+  waitForControlledEmbeddingCalls,
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
@@ -50,7 +53,10 @@ Before(async () => {
   setDefaultTimeout(10000);
   process.env.NODE_ENV = 'test';
   __resetIngestJobsForTest();
+  resetStore();
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
+  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '1';
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -111,9 +117,12 @@ After(async () => {
   response = null;
   lastRunId = null;
   __resetIngestJobsForTest();
+  resetStore();
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
+  delete process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT;
+  delete process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE;
 });
 
 Given('ingest manage chroma stub is empty', async () => {
@@ -316,6 +325,25 @@ Then('ingest manage roots payload is fetched', async () => {
 When('I GET ingest manage roots', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
   response = { status: res.status, body: await res.json() };
+});
+
+Then(
+  'ingest manage waits for {int} controlled embedding calls',
+  async (count: number) => {
+    await waitForControlledEmbeddingCalls(count);
+  },
+);
+
+When(
+  'ingest manage releases controlled embedding call {int}',
+  (index: number) => {
+    releaseControlledEmbeddingCall(index);
+  },
+);
+
+Then('ingest manage logs include {string}', (marker: string) => {
+  const matches = query({ text: marker }, 50);
+  assert.ok(matches.length > 0, `expected log marker ${marker}`);
 });
 
 Given(

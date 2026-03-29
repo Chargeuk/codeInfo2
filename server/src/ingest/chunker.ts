@@ -361,7 +361,103 @@ async function buildProseChunks(
   return chunks;
 }
 
-export async function chunkText(
+async function* buildGenericChunkStream(
+  text: string,
+  model: ProviderEmbeddingModel,
+  maxTokens: number,
+): AsyncGenerator<Omit<Chunk, 'chunkIndex'>> {
+  const boundary =
+    /^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m;
+  const pieces = splitOnBoundaries(text, boundary);
+
+  for (const piece of pieces) {
+    const initialTokens = await count(model, piece);
+    if (initialTokens <= maxTokens) {
+      yield { text: piece, tokenCount: initialTokens };
+      continue;
+    }
+
+    const slices = await sliceToFit(model, piece, Math.floor(maxTokens * 0.85));
+    for (const slice of slices) {
+      yield {
+        text: slice,
+        tokenCount: await count(model, slice),
+      };
+    }
+  }
+}
+
+async function* buildProseChunkStream(
+  text: string,
+  model: ProviderEmbeddingModel,
+  maxTokens: number,
+): AsyncGenerator<Omit<Chunk, 'chunkIndex'>> {
+  const blocks = splitIntoProseBlocks(text);
+  let currentText = '';
+  let currentTokenCount = 0;
+
+  const flushCurrent = async function* () {
+    if (!hasEmbeddableText(currentText)) return;
+    yield {
+      text: currentText.trim(),
+      tokenCount: currentTokenCount,
+    } satisfies Omit<Chunk, 'chunkIndex'>;
+    currentText = '';
+    currentTokenCount = 0;
+  };
+
+  for (const block of blocks) {
+    const blockTokens = await count(model, block);
+
+    if (blockTokens > maxTokens) {
+      yield* flushCurrent();
+      const smallerBlocks = splitOnSentenceBoundaries(block);
+      const units = smallerBlocks.length > 1 ? smallerBlocks : [block];
+      for (const unit of units) {
+        const unitTokens = await count(model, unit);
+        if (unitTokens <= maxTokens) {
+          yield { text: unit, tokenCount: unitTokens };
+          continue;
+        }
+
+        const slices = await sliceToFitLocally(
+          model,
+          unit,
+          Math.floor(maxTokens * 0.9),
+        );
+        for (const slice of slices) {
+          yield {
+            text: slice,
+            tokenCount: await count(model, slice),
+          };
+        }
+      }
+      continue;
+    }
+
+    if (!currentText) {
+      currentText = block;
+      currentTokenCount = blockTokens;
+      continue;
+    }
+
+    const joined = `${currentText}\n\n${block}`;
+    const joinedTokens = await count(model, joined);
+    if (joinedTokens <= maxTokens) {
+      currentText = joined;
+      currentTokenCount = joinedTokens;
+      continue;
+    }
+
+    yield* flushCurrent();
+    currentText = block;
+    currentTokenCount = blockTokens;
+  }
+
+  yield* flushCurrent();
+}
+
+export async function* chunkTextStream(
   text: string,
   model: ProviderEmbeddingModel,
   cfg?: IngestConfig,
@@ -369,18 +465,21 @@ export async function chunkText(
     logContext?: ChunkTextLogContext;
     fileInfo?: ChunkTextFileInfo;
   },
-): Promise<Chunk[]> {
+): AsyncGenerator<Chunk> {
   const config = cfg ?? resolveConfig();
   const maxTokens = await getSafeLimit(model, config);
-  const candidateChunks: Array<Omit<Chunk, 'chunkIndex'>> = [];
+  const useProseChunking = shouldUseProseChunking(config, options?.fileInfo);
+  const candidateStream = useProseChunking
+    ? buildProseChunkStream(text, model, maxTokens)
+    : buildGenericChunkStream(text, model, maxTokens);
 
-  if (shouldUseProseChunking(config, options?.fileInfo)) {
-    const ext = resolveFileExtension(options.fileInfo);
+  if (useProseChunking) {
+    const ext = resolveFileExtension(options?.fileInfo);
     const context = {
       runId: options?.logContext?.runId ?? 'unknown',
-      relPath: options.fileInfo.relPath,
+      relPath: options?.fileInfo?.relPath ?? 'unknown',
       ext,
-      sizeBytes: options.fileInfo.sizeBytes,
+      sizeBytes: options?.fileInfo?.sizeBytes,
       thresholdBytes: config.largeTextThresholdBytes,
       strategy: 'prose',
     };
@@ -392,41 +491,28 @@ export async function chunkText(
       context,
     });
     baseLogger.info(context, 'DEV-0000054:large_text_path_selected');
-    candidateChunks.push(...(await buildProseChunks(text, model, maxTokens)));
-  } else {
-    const boundary =
-      /^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m;
-    const pieces = splitOnBoundaries(text, boundary);
-
-    for (const piece of pieces) {
-      const initialTokens = await count(model, piece);
-      if (initialTokens <= maxTokens) {
-        candidateChunks.push({ text: piece, tokenCount: initialTokens });
-      } else {
-        const slices = await sliceToFit(
-          model,
-          piece,
-          Math.floor(maxTokens * 0.85),
-        );
-        for (const slice of slices) {
-          const tokenCount = await count(model, slice);
-          candidateChunks.push({ text: slice, tokenCount });
-        }
-      }
-    }
   }
 
-  const filteredChunks = candidateChunks.filter((chunk) =>
-    hasEmbeddableText(chunk.text),
-  );
-  const removedBlankChunkCount = candidateChunks.length - filteredChunks.length;
+  let chunkIndex = 0;
+  let removedBlankChunkCount = 0;
+
+  for await (const chunk of candidateStream) {
+    if (!hasEmbeddableText(chunk.text)) {
+      removedBlankChunkCount += 1;
+      continue;
+    }
+    yield {
+      ...chunk,
+      chunkIndex: chunkIndex++,
+    };
+  }
 
   if (removedBlankChunkCount > 0 && options?.logContext) {
     const context = {
       runId: options.logContext.runId,
       relPath: options.logContext.relPath,
       removedBlankChunkCount,
-      survivingChunkCount: filteredChunks.length,
+      survivingChunkCount: chunkIndex,
     };
     append({
       level: 'info',
@@ -437,9 +523,20 @@ export async function chunkText(
     });
     baseLogger.info(context, 'DEV-0000046:T1:blank-chunks-filtered');
   }
+}
 
-  return filteredChunks.map((chunk, chunkIndex) => ({
-    ...chunk,
-    chunkIndex,
-  }));
+export async function chunkText(
+  text: string,
+  model: ProviderEmbeddingModel,
+  cfg?: IngestConfig,
+  options?: {
+    logContext?: ChunkTextLogContext;
+    fileInfo?: ChunkTextFileInfo;
+  },
+): Promise<Chunk[]> {
+  const chunks: Chunk[] = [];
+  for await (const chunk of chunkTextStream(text, model, cfg, options)) {
+    chunks.push(chunk);
+  }
+  return chunks;
 }

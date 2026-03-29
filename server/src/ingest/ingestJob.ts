@@ -49,6 +49,7 @@ import {
   setLockedModel,
 } from './chromaClient.js';
 import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
+import { createEmbeddingDispatcher } from './embeddingDispatcher.js';
 import * as ingestLock from './lock.js';
 import {
   appendIngestFailureLog,
@@ -66,7 +67,7 @@ import {
 import type { ProviderEmbeddingModel } from './providers/types.js';
 import type { IngestRunState } from './types.js';
 import {
-  chunkText,
+  chunkTextStream,
   discoverFiles,
   hashChunk,
   hashFile,
@@ -144,6 +145,7 @@ const jobs = new Map<string, IngestJobStatus>();
 let deps: Deps | null = null;
 const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
 const cancelledRuns = new Set<string>();
+const activeDispatchers = new Map<string, { cancel: () => void }>();
 const terminalStates = new Set<IngestRunState>([
   'completed',
   'cancelled',
@@ -394,6 +396,23 @@ async function resolveRootEmbeddingDim(params: {
   return 1;
 }
 
+function resolveKnownRootEmbeddingDim(params: {
+  existingRootDim?: number;
+  vectorDim?: number;
+  lockedDim?: number | null;
+}) {
+  if (params.existingRootDim && params.existingRootDim > 0) {
+    return params.existingRootDim;
+  }
+  if (params.vectorDim && params.vectorDim > 1) {
+    return params.vectorDim;
+  }
+  if (params.lockedDim && params.lockedDim > 0) {
+    return params.lockedDim;
+  }
+  return 1;
+}
+
 async function processRun(runId: string, input: IngestJobInput) {
   const status = jobs.get(runId);
   if (!status) return;
@@ -617,7 +636,6 @@ async function processRun(runId: string, input: IngestJobInput) {
     const embeddingsBatch: number[][] = [];
     const metadatasBatch: Record<string, unknown>[] = [];
     let vectorDim = 1;
-    let filesSinceFlush = 0;
     const fileHashesByRelPath = new Map<string, string>();
     const discoveredHashByRelPath = new Map<string, string>();
     if (discoveredWithHashes) {
@@ -631,7 +649,6 @@ async function processRun(runId: string, input: IngestJobInput) {
       documentsBatch.length = 0;
       embeddingsBatch.length = 0;
       metadatasBatch.length = 0;
-      filesSinceFlush = 0;
     };
 
     const clearAstBatches = () => {
@@ -694,6 +711,152 @@ async function processRun(runId: string, input: IngestJobInput) {
       });
     };
     const astWritesEnabled = !dryRun && mongoose.connection.readyState === 1;
+    const embeddingModelClient = await getEmbeddingModel(
+      toProviderQualifiedModelId(requestedSelection),
+      {
+        ingestFailureContext: () => ({
+          runId,
+          path: startPath,
+          root,
+          currentFile: lastFileRelPath,
+        }),
+      },
+    );
+    const effectiveBatchSize = Math.max(
+      1,
+      Math.min(
+        embeddingProvider === 'openai'
+          ? ingestConfig.openAiMaxBatchSize
+          : ingestConfig.lmStudioMaxBatchSize,
+        embeddingModelClient.effectiveBatchSize,
+      ),
+    );
+    const effectiveMaxInFlight = Math.max(
+      1,
+      embeddingProvider === 'openai'
+        ? ingestConfig.openAiMaxInFlight
+        : ingestConfig.lmStudioMaxInFlight,
+    );
+    const pendingResults = new Map<
+      number,
+      {
+        relPath: string;
+        fileHash: string;
+        chunkHash: string;
+        chunkIndex: number;
+        text: string;
+        embedding: number[];
+      }
+    >();
+    let nextSequence = 0;
+    let nextPersistSequence = 0;
+    let persistChain = Promise.resolve();
+
+    const persistReadyResults = async () => {
+      while (pendingResults.has(nextPersistSequence)) {
+        const result = pendingResults.get(nextPersistSequence);
+        pendingResults.delete(nextPersistSequence);
+        nextPersistSequence += 1;
+        if (!result) continue;
+
+        if (dryRun) {
+          counts.embedded += 1;
+          continue;
+        }
+
+        if (result.embedding.length > 0) {
+          vectorDim = result.embedding.length;
+        }
+
+        idsBatch.push(`${runId}:${result.relPath}:${result.chunkIndex}`);
+        documentsBatch.push(result.text);
+        embeddingsBatch.push(result.embedding);
+        const metadata: Metadata = {
+          runId,
+          root,
+          relPath: result.relPath,
+          fileHash: result.fileHash,
+          chunkHash: result.chunkHash,
+          embeddedAt: new Date().toISOString(),
+          ingestedAtMs,
+          model: embeddingModel,
+          embeddingProvider,
+          embeddingModel,
+          embeddingDimensions: result.embedding.length,
+          name,
+        };
+        if (description) metadata.description = description;
+        metadatasBatch.push(metadata);
+
+        if (embeddingsBatch.length >= ingestConfig.flushEvery) {
+          await flushBatch();
+        }
+      }
+    };
+
+    const queuePersist = async () => {
+      const next = persistChain.then(() => persistReadyResults());
+      persistChain = next.catch(() => undefined);
+      await next;
+    };
+
+    const dispatcher = dryRun
+      ? null
+      : createEmbeddingDispatcher({
+          model: embeddingModelClient,
+          effectiveBatchSize,
+          maxInFlight: effectiveMaxInFlight,
+          maxQueueSize: ingestConfig.maxQueueSize,
+          isCancelled: () => cancelledRuns.has(runId),
+          onDispatch: ({
+            batchSize,
+            queueDepth,
+            inFlight,
+            effectiveBatchSize,
+            effectiveMaxInFlight,
+          }) => {
+            logLifecycle('info', 'DEV-0000054:embedding_dispatch_slot_filled', {
+              runId,
+              provider: embeddingProvider,
+              batchSize,
+              queueDepth,
+              inFlight,
+              effectiveBatchSize,
+              effectiveMaxInFlight,
+            });
+          },
+          onCompleted: async (results) => {
+            for (const result of results) {
+              pendingResults.set(result.sequence, {
+                ...(result.meta as {
+                  relPath: string;
+                  fileHash: string;
+                  chunkHash: string;
+                  chunkIndex: number;
+                  text: string;
+                }),
+                embedding: result.embedding,
+              });
+            }
+            await queuePersist();
+          },
+          onLateResultIgnored: ({ batchSize, queueDepth }) => {
+            logLifecycle(
+              'info',
+              'DEV-0000054:embedding_result_ignored_after_cancel',
+              {
+                runId,
+                provider: embeddingProvider,
+                batchSize,
+                queueDepth,
+              },
+            );
+          },
+        });
+
+    if (dispatcher) {
+      activeDispatchers.set(runId, dispatcher);
+    }
 
     if (operation === 'reembed') {
       if (deltaMode === 'degraded_full') {
@@ -912,6 +1075,8 @@ async function processRun(runId: string, input: IngestJobInput) {
       currentFile: string,
     ) => {
       if (!cancelledRuns.has(runId)) return false;
+      dispatcher?.cancel();
+      activeDispatchers.delete(runId);
       clearBatch();
       clearAstBatches();
       setStatusAndPublish(runId, {
@@ -932,10 +1097,11 @@ async function processRun(runId: string, input: IngestJobInput) {
       await deleteVectors({ where: { runId } });
       await deleteRoots({ where: { root } });
       await deleteVectorsCollectionIfEmpty();
-      const rootEmbeddingDim = await resolveRootEmbeddingDim({
+      const currentLock = await getLockedEmbeddingModel();
+      const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
         existingRootDim,
         vectorDim,
-        modelKey: toProviderQualifiedModelId(requestedSelection),
+        lockedDim: currentLock?.embeddingDimensions ?? null,
       });
       const cancelMetadata: Metadata = {
         runId,
@@ -1048,65 +1214,55 @@ async function processRun(runId: string, input: IngestJobInput) {
         fileHashesByRelPath.get(file.relPath) ??
         (await hashFile(file.absPath));
       fileHashesByRelPath.set(file.relPath, fileHash);
-      const embeddingModelClient = await getEmbeddingModel(
-        toProviderQualifiedModelId(requestedSelection),
+      for await (const chunk of chunkTextStream(
+        text,
+        embeddingModelClient,
+        ingestConfig,
         {
-          ingestFailureContext: () => ({
+          logContext: {
             runId,
-            path: startPath,
-            root,
-            currentFile: lastFileRelPath,
-          }),
+            relPath: file.relPath,
+          },
+          fileInfo: {
+            relPath: file.relPath,
+            ext: file.ext,
+            sizeBytes: file.size ?? Buffer.byteLength(text, 'utf8'),
+          },
         },
-      );
-      const chunks = await chunkText(text, embeddingModelClient, ingestConfig, {
-        logContext: {
-          runId,
-          relPath: file.relPath,
-        },
-        fileInfo: {
-          relPath: file.relPath,
-          ext: file.ext,
-          sizeBytes: file.size ?? Buffer.byteLength(text, 'utf8'),
-        },
-      });
-      for (const chunk of chunks) {
+      )) {
+        counts.chunks += 1;
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
-        const embedding = await embeddingModelClient.embedText(chunk.text);
-        if (embedding.length > 0) {
-          vectorDim = embedding.length;
+        if (dryRun) {
+          counts.embedded += 1;
+          continue;
         }
-        if (!dryRun) {
-          idsBatch.push(`${runId}:${file.relPath}:${chunk.chunkIndex}`);
-          documentsBatch.push(chunk.text);
-          embeddingsBatch.push(embedding);
-          const metadata: Metadata = {
-            runId,
-            root,
+
+        const accepted = await dispatcher!.enqueue({
+          sequence: nextSequence++,
+          text: chunk.text,
+          meta: {
             relPath: file.relPath,
             fileHash,
             chunkHash,
-            embeddedAt: new Date().toISOString(),
-            ingestedAtMs,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions: embedding.length,
-            name,
-          };
-          if (description) metadata.description = description;
-          metadatasBatch.push(metadata);
+            chunkIndex: chunk.chunkIndex,
+            text: chunk.text,
+          },
+        });
+        if (!accepted || (await handleCancellation(fileIndex, file.relPath))) {
+          return;
         }
       }
-      counts.chunks += chunks.length;
-      if (dryRun) {
-        counts.embedded += chunks.length;
-      }
-      filesSinceFlush += 1;
-      if (filesSinceFlush >= ingestConfig.flushEvery) {
-        await flushBatch();
-      }
       progressSnapshot(fileIndex, file.relPath);
+    }
+
+    dispatcher?.completeProduction();
+    if (dispatcher) {
+      await dispatcher.waitForIdle();
+      await persistChain;
+      await persistReadyResults();
+      if (await handleCancellation(fileTotal, lastFileRelPath ?? root)) {
+        return;
+      }
     }
 
     await flushBatch();
@@ -1383,6 +1539,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       error: mappedError.normalized,
     });
   } finally {
+    activeDispatchers.delete(runId);
     ingestLock.release(runId);
   }
 }
@@ -1576,6 +1733,7 @@ export function __setJobInputForTest(
 
 export async function cancelRun(runId: string) {
   cancelledRuns.add(runId);
+  activeDispatchers.get(runId)?.cancel();
   const status = jobs.get(runId);
   const input = jobInputs.get(runId);
   const root = input?.root;
@@ -1602,9 +1760,11 @@ export async function cancelRun(runId: string) {
       }
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = existingRoots.embeddings?.[0]?.length;
-    const rootEmbeddingDim = await resolveRootEmbeddingDim({
+    const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
       existingRootDim,
-      modelKey: input?.model ?? '',
+      lockedDim: selected
+        ? (await getLockedEmbeddingModel())?.embeddingDimensions
+        : null,
     });
 
     const cancelMetadata: Metadata = {

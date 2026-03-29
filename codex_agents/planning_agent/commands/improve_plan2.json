@@ -34,12 +34,17 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "improve_plan/07-stateful-ui-risks.md"
+      "markdownFile": "improve_plan/07-review-preemption-risks.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "improve_plan/08-finalize.md"
+      "markdownFile": "improve_plan/08-stateful-ui-risks.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/09-finalize.md"
     }
   ]
 }

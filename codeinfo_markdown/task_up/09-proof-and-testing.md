@@ -45,6 +45,9 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.
 - When a task changes query/filter/bulk-selector logic in a large-repository or large-file path, ensure the proof covers the bounded strategy directly rather than only the small happy-path case.
+- When a task changes persisted artifacts, cleanup paths, or stale-state handling, ensure the proof covers reader and writer compatibility, partial-state tolerance where relevant, and who is allowed to delete or reset state.
+- When a task changes selectors, wrappers, startup paths, CI routing, or feature flags, ensure the proof demonstrates the changed behavior still runs through the repository's normal execution path instead of only a targeted or manual route.
+- When a task changes lifecycle-sensitive orchestration, ensure the proof covers cancellation, retry, failure, or teardown behavior when those paths are relevant to the story.
 - Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
 - When proof depends on renamed or repurposed tests, add an explicit subtask to rename or rewrite the proof so the test title and assertions still describe the same invariant.
 - When UI state can become disabled, hidden, mode-gated, or resettable, require proof for stale-state behavior: whether the stale value must be cleared, retained locally, or merely excluded from submission.
@@ -62,6 +65,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether the necessary runtime, harness, dependencies, scripts, and repos will exist by the point each proof step is reached.
 - Check whether each task's testing section reflects the task's repository and affected projects rather than copying a generic list blindly.
 - Check whether the generated testing order matches the repository's primary proof workflow, including Docker or Compose build steps where those are the primary build mechanism.
+- Check whether the generated testing order actually reaches the changed behavior through the repository's default launcher, wrapper, startup path, CI path, or selector flow when one exists.
 - Check whether each subtask is specific enough for a weak developer to execute without guessing file targets, commands, documentation, or expected outcomes.
 - Check whether mode-specific or stateful UI behavior has explicit proof for contradictory mixed states such as create-vs-reuse, run-vs-resume, and disabled or hidden field submission.
 - Check whether required lint, format, and static-analysis subtasks are explicit, separate, and placed at the end of the subtask list when the repository workflow expects them there.

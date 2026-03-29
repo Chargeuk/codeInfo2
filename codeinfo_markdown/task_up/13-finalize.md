@@ -21,6 +21,7 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 - Check that every subtask is understandable in isolation for a weak, junior, forgetful developer and does not require them to infer missing instructions from elsewhere in the story.
 - Check that each task has realistic exit criteria, dependencies, proof steps, and runnable validation.
 - Check that the final validation task proves the whole story rather than only isolated task-level behavior.
+- Check that the applicable categories from `shared/review-preemption-checklist.md` are represented honestly in the final task list or explicitly not applicable.
   </verification_loop>
 
 <final_edit_rules>

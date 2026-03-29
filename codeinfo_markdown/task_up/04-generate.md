@@ -33,6 +33,10 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Add migration or compatibility tasks when the story changes contracts, storage, env vars, build/runtime wiring, or deployment behavior.
 - Add explicit implementation and proof-authoring work when the story changes env/config inputs with constrained domains, including invalid-input, blank-input, and oversized-input handling.
 - Add explicit implementation and proof-authoring work when the story introduces or changes query/filter/bulk-selector logic that must stay bounded as repository or file counts grow.
+- Add explicit implementation and proof-authoring work when the story changes reader and writer behavior over the same persisted artifact, including partial-state handling and cleanup ownership when relevant.
+- Add explicit implementation and proof-authoring work when the story changes cancellation, retry, teardown, crash-recovery, or other lifecycle-sensitive orchestration.
+- Add explicit implementation and proof-authoring work when the story changes selectors, wrappers, startup paths, CI routing, or feature flags that affect whether the behavior runs in the default path.
+- Add explicit implementation and proof-authoring work when changed tests or harness code depend on deterministic boundaries, teardown ordering, or shared-state safety.
 - Add observability or diagnosability work when the story would be difficult to prove or debug without it.
 - Add documentation tasks only when the story actually changes documentation-relevant behavior, files, architecture, commands, contracts, or screenshots.
   </task_generation_rules>

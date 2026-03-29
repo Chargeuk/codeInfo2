@@ -14,6 +14,10 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 
 - For each task, identify every acceptance path, important edge case, and meaningful failure mode that task is responsible for.
 - Treat invalid env/config inputs, blank or whitespace-only inputs, out-of-range numeric values, and large-input scale behavior as proof obligations whenever the task changes constrained config parsing or large-repository query/filter logic.
+- Treat partial or in-progress state, cleanup ownership, reader/writer compatibility, and stale-vs-live state handling as proof obligations whenever the task changes persisted artifacts, caches, locks, files, or collections.
+- Treat cancel, retry, teardown, crash-recovery, and destructive-cleanup ordering as proof obligations whenever the task changes lifecycle-sensitive orchestration.
+- Treat default launcher, wrapper, startup, CI, selector, and feature-flag reachability as proof obligations whenever the task changes how behavior becomes runnable.
+- Treat deterministic observable boundaries, teardown ordering, shared-state safety, and worker or parallel-safety as proof obligations whenever the task changes tests or harness code.
 - Rewrite or add subtasks so each proof obligation names:
   1. the requirement or invariant being proved;
   2. the implementation files that own the behavior;

@@ -26,6 +26,9 @@ Confirm the tasking against existing repository patterns and external contract e
 - For each planned external contract surface, confirm the message structure, env/config names, lifecycle expectations, and failure behavior from evidence.
 - For each planned env/config input, confirm the valid domain, blank/whitespace behavior, lower bounds, upper bounds, and whether invalid values must clamp, fallback, or fail before task generation begins.
 - For each planned query/filter/bulk selector that could grow with repository, file, chunk, or symbol count, confirm the intended bounding strategy now instead of leaving it to a later implementation subtask.
+- For each planned persisted artifact, cleanup path, selector, launcher, wrapper, or startup seam, identify any controlling unchanged file that later implementation and proof will need to inspect honestly.
+- For each planned reader and writer pair over the same artifact, confirm how partial or in-progress state is tolerated, how stale state is distinguished from live state, and who owns cleanup.
+- For each planned lifecycle-sensitive seam, confirm the relevant cancel, retry, failure, teardown, or crash-recovery expectations from repository evidence now.
 - If the contract is still ambiguous after repository and official-doc review, create or run the smallest safe proving example needed to settle the uncertainty now.
 - Feed any newly confirmed pattern or contract detail back into the plan immediately when the current plan text is still too vague for clean task generation.
 - If a prerequisite capability, harness, or contract adapter is missing, make it explicit in the plan before task generation instead of burying it in a later subtask.
@@ -37,6 +40,7 @@ Confirm the tasking against existing repository patterns and external contract e
 - Check whether any remaining unknown would force a final task to say “investigate,” “confirm,” “spike,” or “figure out.” If so, resolve it now or rewrite the plan first.
 - Check whether the planned proof files and wrappers still make sense for the confirmed pattern rather than only the originally guessed one.
 - Check whether the plan now explicitly names config-domain constraints and scale-bounded query expectations so the later task list can avoid research-shaped subtasks.
+- Check whether the plan now names any controlling unchanged selector, launcher, wrapper, harness, reader, or cleanup surface that the later tasks must inspect.
   </verification_loop>
 
 <output_contract>

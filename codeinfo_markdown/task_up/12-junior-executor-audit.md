@@ -21,6 +21,7 @@ Perform a final readability and execution audit so the resulting task list can b
 - Rewrite vague verbs such as “handle,” “support,” “wire up,” or “update tests” into explicit actions with file targets and intended outcomes.
 - Keep sequencing obvious: if one subtask depends on another subtask's output, order them so the implementer does not have to guess.
 - Preserve the repository's testing workflow, but make sure the `Testing` section is still runnable and honest at the point the task is supposed to complete.
+- Preserve any review-preemption subtasks added by earlier passes unless repository evidence shows they are genuinely not applicable.
   </junior_executor_rules>
 
 <verification_loop>

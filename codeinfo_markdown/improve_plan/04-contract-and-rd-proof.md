@@ -21,9 +21,12 @@ Resolve external contract unknowns before tasking by confirming real message sha
 <contract_and_rd_rules>
 
 - Check inbound and outbound message structures, storage shapes, config/env names, startup assumptions, readiness dependencies, auth or header requirements, and error vocabulary when those surfaces matter to the story.
+- For changed persisted artifacts, locks, caches, or cleanup paths, confirm who writes the state, who reads it, whether writes are atomic or otherwise safe to observe, how partial or in-progress state should be handled, and who owns cleanup or stale-state deletion.
+- For changed selectors, launchers, wrappers, startup paths, or CI-facing config, confirm which unchanged file or runtime path actually determines default reachability so the plan does not assume the new behavior is on the standard path when it is still opt-in.
 - For changed env/config inputs, confirm the accepted value domain from code and evidence, including blank input, whitespace-only input, lower bounds, upper bounds, and whether invalid values must clamp, fallback, or fail.
 - For changed query/filter/bulk selectors, confirm whether the request shape remains bounded as repository, file, chunk, or symbol counts grow, and use the smallest safe proving example needed when the scale behavior is ambiguous.
 - Compare the planned contract against any existing internal producer or consumer code so the plan does not invent a one-sided shape.
+- Compare changed producer and consumer handling when the story touches wrapped errors, retryability, cancel-vs-terminal behavior, or other error-taxonomy contracts.
 - If repository evidence and official docs are still ambiguous, create or run the smallest safe proving example needed to confirm the behavior now.
 - Keep any proving example minimal and disposable. Do not leave throwaway files in the repository unless they materially improve the plan or become part of the real proof path.
 - Record the confirmed contract or behavior back into the plan in concrete language.

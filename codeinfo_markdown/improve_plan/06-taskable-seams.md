@@ -16,6 +16,9 @@ Rewrite broad implementation ideas into discrete, taskable seams without actuall
 - Split broad implementation areas into discrete seams that a later tasking pass can map to one repository-owned task each.
 - Separate implementation seams from proof seams when they would otherwise be bundled together.
 - When one requirement spans provider and consumer code, describe the ownership boundary, dependency direction, and sequencing explicitly in the plan.
+- When one requirement spans a writer and reader over the same persisted artifact or cleanup path, describe those seams separately so later tasking can assign ownership and proof to both sides.
+- When one requirement spans steady-state behavior and destructive cleanup, cancellation, or crash-recovery behavior, describe those seams separately so later proof is not collapsed into one happy-path task.
+- When one requirement spans selectors and the launcher, wrapper, startup, or CI path that consumes them, describe those seams separately so later tasking can prove default-path reachability.
 - When one requirement has multiple meaningful invariants, list those invariants separately so a later tasking pass can create one proof subtask per invariant instead of one bundled “update tests” item.
 - When the story changes contracts, storage, env/config, startup behavior, or migration sequencing, state those seams explicitly instead of leaving them implicit inside a larger implementation idea.
   </taskable_seam_rules>

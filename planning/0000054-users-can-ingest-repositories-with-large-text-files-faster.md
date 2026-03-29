@@ -561,6 +561,7 @@ This task is the runtime heart of Story 54. It must stop the ingest job from wai
 - Task Dependencies: `Task 1, Task 3`
 - Task Status: `__done__`
 - Git Commits:
+  - `797e87aa` `DEV-[54] - Add AST delta rebuild gate`
 
 #### Overview
 

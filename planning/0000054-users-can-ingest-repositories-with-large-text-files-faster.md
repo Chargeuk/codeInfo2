@@ -23,7 +23,7 @@ This story therefore introduces three tightly related ingest optimizations:
 
 The large-text chunking path should stay conservative. It should use file type plus file size to decide when a file should take the prose-oriented splitter path instead of the current general path. That prose path should prefer Markdown and paragraph boundaries such as headings, blank lines, fenced blocks, and list breaks. It should still respect token limits, but it should avoid repeatedly re-tokenizing the entire remaining tail of a huge document whenever possible. The size threshold should follow the repo's existing ingest-config pattern rather than adding a separate route-level knob: use one checked-in env var named `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES`, resolve it through `server/src/ingest/config.ts`, and default it to `65536` bytes so operators can tune it when needed without changing code.
 
-The embedding dispatcher should remain provider-aware and bounded. OpenAI batching must still obey the existing per-input and per-request token guardrails. LM Studio concurrency must still be capped so that the runtime does not accidentally flood the provider. The user wants provider-specific environment variables that set the maximum number of in-flight embedding requests. Conservative defaults should preserve current behavior until operators choose to raise them.
+The embedding dispatcher should remain provider-aware and bounded. OpenAI batching must still obey the existing per-input and per-request token guardrails. LM Studio concurrency must still be capped so that the runtime does not accidentally flood the provider. The user wants provider-specific environment variables that set the maximum number of in-flight embedding requests. The checked-in defaults should stay conservative and bounded, but they should reflect the agreed initial dispatch settings for this story rather than pretending the runtime will remain fully serial by default.
 
 The user has now fixed the provider-control contract more precisely. Each provider should have its own batching setting and its own max-in-flight-requests setting. The runtime should apply provider-specific hard caps when it reads those values, so a value that is too large is silently clamped to what that provider actually supports instead of failing the run or emitting a warning just because the configured number was high. For example, LM Studio should continue to behave as batch size `1` even if its configured batching value is higher, while OpenAI can use larger batches when its own guardrails still allow them. These environment variables should be present in the checked-in `.env` file with sensible defaults and short explanations of how each one affects dispatch.
 
@@ -46,7 +46,7 @@ That same conservative rule also applies when a move crosses the AST-supported b
 
 That means the story is intentionally about doing less wasted work when only non-AST files changed, not about making AST indexing partially incremental for changed source files.
 
-Overall, when the story is complete, users should be able to ingest repositories with large planning documents or other prose-heavy text files much faster, while preserving the existing correctness guarantees around token limits, provider behavior, AST consistency, cancellation, and persisted ingest outputs. Proof for this story should stay practical: deterministic functional coverage plus one reproducible large-file validation scenario are required, but the story does not introduce a mandatory millisecond SLA or percentage-improvement benchmark gate.
+Overall, when the story is complete, users should be able to ingest repositories with large planning documents or other prose-heavy text files much faster, while preserving the existing correctness guarantees around token limits, provider behavior, AST consistency, cancellation, and persisted ingest outputs. Repository evidence also shows this story can stay inside the existing server ingest flow and existing ingest UI: it does not require a new frontend surface, a new server listener, or a separate worker service. Proof for this story should stay practical: deterministic functional coverage plus one reproducible large-file validation scenario are required, but the story does not introduce a mandatory millisecond SLA or percentage-improvement benchmark gate.
 
 ### Acceptance Criteria
 
@@ -59,7 +59,7 @@ Overall, when the story is complete, users should be able to ingest repositories
 - The embedding pipeline supports provider-aware dispatch with bounded concurrency rather than only one serial embedding call per chunk.
 - OpenAI embedding dispatch can submit multi-input requests while still honoring the existing OpenAI guardrails for per-input size, total token count, and input count per request.
 - LM Studio embedding dispatch can process multiple embedding requests concurrently up to a configured provider-specific limit.
-- Provider-specific environment variables control the maximum number of in-flight embedding requests, with conservative defaults that preserve current behavior unless explicitly changed.
+- Provider-specific environment variables control the maximum number of in-flight embedding requests, with conservative checked-in defaults that match the agreed initial dispatch behavior for this story.
 - Provider-specific environment variables also control batching where the provider supports it, with conservative defaults present in the checked-in `.env` file and brief documentation explaining how they work.
 - Effective provider settings are clamped to provider-supported limits without failing the run or emitting a warning solely because a configured value was too large.
 - LM Studio's effective batch size remains `1` even if its configured batching value is higher.
@@ -80,6 +80,7 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Markdown-only or other non-AST-only delta re-embeds no longer trigger a full AST rebuild.
 - The story preserves current correctness guarantees for AST data by avoiding partial changed-file-only AST persistence logic.
 - Existing ingest outputs, provider selection behavior, and root metadata remain compatible with the current ingest model unless a change is explicitly required for these optimizations.
+- Existing ingest REST entrypoints and current ingest UI submission flow remain the active runtime path for this story; the story does not require a new browser surface or a second ingest API.
 - Tests and documentation are updated to describe the new large-text chunking path, provider concurrency controls, and the refined AST rebuild trigger.
 - Validation includes deterministic functional coverage plus one reproducible large-file proof scenario, without requiring a hard millisecond SLA or minimum percent-improvement threshold for acceptance.
 
@@ -99,12 +100,178 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Parallelizing whole ingest runs across multiple repositories or relaxing the existing ingest busy-state contract.
 - Any unrelated performance work in chat, flows, commands, or non-ingest indexing paths.
 - Adding a dedicated benchmark harness or a required minimum millisecond or percentage improvement threshold for this story.
+- Adding a new frontend surface, a new ingest REST route, a new server listener, or a separate worker service just to deliver these optimizations.
+- Changing websocket or browser-facing ingest contracts unless repository evidence later proves one is unavoidable.
 
 ### Additional Repositories
 
 - No Additional Repositories
 
-### Questions
+## Feasibility Proof Pass
+
+### 1. Large-text chunking path
+
+- Existing capabilities:
+  - `server/src/ingest/discovery.ts` already discovers eligible text files by extension and text detection and returns `absPath`, `relPath`, and `ext`.
+  - `server/src/ingest/chunker.ts` already has token-budget logic, context-length fallback logic, and a boundary-first split path before a generic slice fallback.
+  - `server/src/ingest/config.ts` and `server/src/config/startupEnv.ts` already provide the repo's normal ingest env/config path.
+- Missing prerequisite capabilities:
+  - `DiscoveredFile` in `server/src/ingest/types.ts` does not currently include file size, so the ingest pipeline cannot choose a large-text path by size without re-statting files later.
+  - `IngestConfig` in `server/src/ingest/types.ts` and `resolveConfig()` in `server/src/ingest/config.ts` do not currently expose a large-text threshold env var.
+  - `chunkText(...)` in `server/src/ingest/chunker.ts` is generic and code-boundary-oriented today; there is no prose-specific Markdown splitter path selected by file type and size.
+- Assumptions currently invalid:
+  - It is false to assume the current chunker already prefers Markdown headings, fenced blocks, list boundaries, and paragraph breaks for very large prose files.
+  - It is also false to assume discovery already preserves the size metadata this story wants to use for routing.
+- Feasibility and sequencing note:
+  - The lowest-risk upstream change is to add size to `DiscoveredFile`, extend ingest config with the large-text threshold env var, and let the server ingest layer choose between the current generic chunker path and a new prose-oriented path without adding a new route or service.
+
+### 2. Provider-aware embedding dispatch and cancellation
+
+- Existing capabilities:
+  - `server/src/ingest/ingestJob.ts` already owns the main ingest orchestration, Chroma persistence, busy locking, status updates, and cancellation checks.
+  - `server/src/ingest/providers/openaiEmbeddingProvider.ts` already has an internal multi-input OpenAI call path and token guardrail validation before sending a request.
+  - `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` already has retry/error mapping for single-request LM Studio embeddings.
+  - `server/src/ingest/requestContracts.ts` already resolves canonical embedding provider and model selection for ingest requests.
+- Missing prerequisite capabilities:
+  - `ProviderEmbeddingModel` in `server/src/ingest/providers/types.ts` only exposes single-item `embedText(...)`; there is no batch-oriented or abort-aware provider contract for the ingest layer to target.
+  - `ingestJob.ts` currently embeds each chunk sequentially inside the file loop and only uses `flushEvery` for persistence batching, not provider-request concurrency.
+  - There is no provider-aware dispatcher, no provider-specific batch/max-in-flight config surface, and no queue-cap setting in `server/src/ingest/config.ts` or `server/.env`.
+  - There is no late-result fencing mechanism for multiple in-flight embedding requests because the current model is still single-flight and sequential.
+- Assumptions currently invalid:
+  - It is false to assume the current ingest path already supports bounded concurrent embedding requests.
+  - It is also false to assume the current cancel path can safely ignore late results from multiple already-dispatched embedding requests, because that concurrency model does not exist yet.
+- Feasibility and sequencing note:
+  - The most maintainable fix is an upstream server-side dispatcher and provider-surface extension in the ingest layer, rather than route-local or provider-specific one-off concurrency logic.
+
+### 3. Delta re-embed AST behavior
+
+- Existing capabilities:
+  - `server/src/ingest/deltaPlan.ts` already computes added, changed, unchanged, and deleted files by `relPath` and `fileHash`.
+  - `server/src/ingest/ingestJob.ts` already has explicit delta no-op and deletions-only fast paths during re-embed.
+  - `ingestJob.ts` already deletes and upserts AST records by changed/deleted `relPath` during delta re-embed.
+- Missing prerequisite capabilities:
+  - There is no separate `astRelevantDelta` decision layer that distinguishes generic delta work from AST-relevant delta work.
+  - There is no existing branch that says "non-AST-only delta skips AST entirely, AST-relevant delta clears and rebuilds the full AST."
+- Assumptions currently invalid:
+  - It is false to assume the repo already rebuilds the full AST whenever a delta re-embed touches an AST-supported file.
+  - The current delta path already performs partial AST updates by changed/deleted path, so the story must deliberately change that behavior if it wants the more conservative full-rebuild rule.
+- Feasibility and sequencing note:
+  - The safest implementation point is the existing delta decision area in `server/src/ingest/ingestJob.ts`, reusing the current full-clear/full-upsert path for AST-relevant delta runs instead of inventing a second AST persistence model.
+
+## Runtime And Repo Prerequisites
+
+Repository evidence says Story 54 is a single-repository, server-heavy optimization story that can ride on the runtime surfaces that already exist.
+
+- Existing runtime entrypoints already cover the ingest flow:
+  - `server/src/routes/ingestStart.ts`
+  - `server/src/routes/ingestReembed.ts`
+  - `server/src/routes/ingestCancel.ts`
+- Existing server health/info listeners already exist in `server/src/index.ts`:
+  - `/health`
+  - `/version`
+  - `/info`
+- Existing build and runtime wrappers already exist in the root `package.json` and `scripts/docker-compose-with-env.sh`; Story 54 should keep using the wrapper-first workflow from `AGENTS.md`.
+- No new frontend, separate backend service, HTTP listener, readiness endpoint, or Compose service is currently required by the repository evidence for this story. The existing ingest UI, server routes, and health surfaces are already present.
+- New ingest env vars should follow the repo's existing server-env path:
+  - whitelist and startup loading in `server/src/config/startupEnv.ts`
+  - runtime parsing in `server/src/ingest/config.ts`
+  - checked-in defaults in `server/.env`
+  - environment-specific defaults in `server/.env.local` / `server/.env.e2e` when needed
+  - user-facing docs in `README.md`
+
+## Docker And Compose Constraints
+
+Repository evidence shows that the current Docker and Compose model already supports this story and should be preserved.
+
+- `server/Dockerfile` and `client/Dockerfile` copy repository code into images and build there. The story should preserve that image-build model rather than introducing host-source bind mounts for application code.
+- The main runtime and e2e runtime are already defined in:
+  - `docker-compose.yml`
+  - `docker-compose.e2e.yml`
+- Existing host-visible ports are already allocated and should be treated as reserved unless evidence later proves a new surface is unavoidable:
+  - main stack: `5001`, `5010`, `5011`, `5012`, `8000`, `27517`, `4317`, `4318`, `9411`, `8932`
+  - e2e stack: `6001`, `6010`, `6011`, `6012`, `8800`, `27617`, `4417`, `4418`, `9511`
+- Existing `.dockerignore` files are already present:
+  - `.dockerignore`
+  - `client/.dockerignore`
+  - `server/.dockerignore`
+- Because this story should not add a new runtime service or source bind mount, Docker-related work is likely limited to env propagation and, only if required by new files, small ignore-file updates so unnecessary generated output is not sent into build context.
+- Generated artifacts and persistent runtime data should continue to use the existing Docker-managed volumes and existing log mounts instead of new source-tree bind mounts.
+
+## Message Contracts And Storage Shapes
+
+Story 54 does not currently require a new REST route, websocket event type, or frontend payload shape.
+
+- Existing ingest request-contract ownership already lives in `server/src/ingest/requestContracts.ts`, `server/src/routes/ingestStart.ts`, and `server/src/routes/ingestReembed.ts`.
+- Existing persisted vector/root metadata already carries stable ingest identifiers and ordering inputs in `server/src/ingest/ingestJob.ts`, including `runId`, `root`, `relPath`, `fileHash`, `chunkHash`, `embeddingProvider`, and `embeddingModel`.
+- Existing delta detection shape already lives in `server/src/ingest/deltaPlan.ts` and is based on `relPath` plus `fileHash`, not rename detection.
+- Acceptable new shapes in this story should stay internal to the server ingest implementation, for example:
+  - `DiscoveredFile` gaining `size`
+  - `IngestConfig` gaining provider batch/max-in-flight/queue-cap settings
+  - internal dispatcher queue items, batch items, or abort bookkeeping
+  - provider helper methods for batch or abort-aware embedding calls
+- The story should avoid introducing new browser-visible message contracts or storage schemas unless repository evidence later proves one is unavoidable. If concurrent embedding mixes files in the same OpenAI request, persisted metadata and final vector ordering must still remain deterministic.
+
+## Test Harnesses
+
+Repository evidence shows that Story 54 can use the existing test and validation harnesses rather than inventing new ones.
+
+- Existing server unit tests already cover core ingest pieces such as:
+  - `server/src/test/unit/chunker.test.ts`
+  - `server/src/test/unit/ingest-delta-plan.test.ts`
+  - `server/src/test/unit/ingest-ast-indexing.test.ts`
+- Existing Cucumber/Testcontainers integration support already exists in:
+  - `server/cucumber.js`
+  - `server/src/test/support/chromaContainer.ts`
+  - `server/src/test/support/mongoContainer.ts`
+- Existing ingest-facing Cucumber features already exist under `server/src/test/features/`, including:
+  - `ingest-batch-flush.feature`
+  - `ingest-cancel.feature`
+  - `ingest-delta-reembed.feature`
+  - `ingest-reembed.feature`
+  - `ingest-start.feature`
+  - `ingest-status.feature`
+- Existing browser/e2e proof already exists in:
+  - `playwright.config.ts`
+  - `e2e/ingest.spec.ts`
+- Existing manual runtime proof paths are already documented in `README.md`, and the repo also has a Playwright MCP service in the checked-in main Compose stack.
+- If Story 54 needs deterministic control over concurrent embedding timing, retries, or abort behavior, the first extension point should be the existing server test-support area, especially `server/src/test/support/mockLmStudioSdk.ts`, rather than a brand-new harness.
+- Because the story changes backend ingest behavior behind an existing frontend, the final validation path should still expect server unit coverage, server Cucumber/Testcontainers coverage, e2e ingest coverage, and manual Playwright-MCP validation against the existing ingest UI.
+- Later tasking should map proof locations explicitly rather than relying only on wrapper names:
+  - large-text chunking behavior should point at `server/src/test/unit/chunker.test.ts` and the ingest start/status integration path;
+  - dispatcher/concurrency/cancel behavior should point at `server/src/test/features/ingest-batch-flush.feature`, `server/src/test/features/ingest-cancel.feature`, and any focused support helper added under `server/src/test/support/`;
+  - AST skip-vs-full-rebuild behavior should point at `server/src/test/unit/ingest-ast-indexing.test.ts` plus `server/src/test/features/ingest-delta-reembed.feature`;
+  - browser-visible proof should continue through `e2e/ingest.spec.ts` and one manual Playwright-MCP pass against the existing ingest page, with screenshots only if the UI itself changes meaningfully.
+
+## Log Or Proof Markers
+
+- Large-text routing proof marker: `DEV-0000054:large_text_path_selected`
+  - Expected outcome: one runtime log line per large-file prose-path selection with `runId`, `relPath`, `ext`, `sizeBytes`, `thresholdBytes`, and `strategy='prose'`, so manual validation can confirm the large-text route was chosen for the intended files.
+- Embedding dispatcher proof marker: `DEV-0000054:embedding_dispatch_slot_filled`
+  - Expected outcome: runtime logs show provider, effective batch size, effective max in-flight, queue depth, and immediate slot refill when a request completes, so reviewers can prove the dispatcher is slot-driven rather than wave-driven.
+- Cancel late-result proof marker: `DEV-0000054:embedding_result_ignored_after_cancel`
+  - Expected outcome: runtime logs show that a late provider result arrived after cancel and was ignored instead of being written, so cancellation semantics are provable even when provider abort is imperfect.
+- Delta AST mode proof marker: `DEV-0000054:delta_ast_mode_selected`
+  - Expected outcome: runtime logs show whether a delta re-embed chose `ast_skip_non_ast_delta` or `ast_full_rebuild`, together with the triggering file count, so the new AST rule is directly inspectable during integration and manual proof.
+
+## Edge Cases And Failure Modes
+
+- Large-file routing must stay narrow:
+  - large `.md`, `.mdx`, and `.txt` files above the threshold should use the prose-oriented path;
+  - smaller files and non-prose extensions should continue using the current generic chunker path unless the story explicitly changes that rule.
+- Existing blank-input and blank-chunk guards must remain truthful:
+  - `chunkText(...)` already filters blank chunks;
+  - providers already reject blank embedding input.
+- The story should preserve the existing no-change and deletions-only delta fast paths in `server/src/ingest/ingestJob.ts`, while making the AST rule explicit for those cases.
+- Mixed-file OpenAI batching must preserve deterministic persisted metadata and result ordering even when chunks from different files share one request.
+- Cancellation must stay coherent after concurrency is introduced:
+  - stop scheduling new work immediately;
+  - attempt best-effort aborts where the provider path supports them;
+  - ignore late results from already-dispatched requests that finish after cancellation.
+- Provider config above supported limits must clamp safely and not turn into a run failure just because an operator chose a large value.
+- The dispatcher must not simply trade CPU slowness for unbounded memory growth. Queue-cap behavior and queue ownership must be explicit before implementation tasks are created.
+- Because the current delta AST path is already partial by changed/deleted path, the story must be explicit about where the new conservative full-rebuild behavior begins and where AST work is skipped entirely, or implementers will accidentally preserve the current behavior.
+
+### Resolved Questions
 
 No Further Questions
 
@@ -168,11 +335,12 @@ No Further Questions
 - Add a prose-oriented chunking strategy in the ingest chunker for large `.md`, `.mdx`, and `.txt` files that splits on headings, blank lines, fenced code blocks, and list boundaries before local fallback cuts.
 - Convert chunk production into a streaming or incremental shape so large-file chunking and embedding can overlap instead of forcing a full-file chunking pause up front.
 - Introduce an embedding dispatcher that preserves chunk order while supporting provider-aware batching and provider-aware request concurrency.
+- Extend `ProviderEmbeddingModel` or an adjacent provider helper surface so the ingest layer can request batch-oriented and abort-aware embedding work without pushing dispatcher logic into routes or UI callers.
 - Add provider-specific configuration such as `CODEINFO_INGEST_OPENAI_MAX_BATCH_SIZE`, `CODEINFO_INGEST_OPENAI_MAX_INFLIGHT`, `CODEINFO_INGEST_LMSTUDIO_MAX_BATCH_SIZE`, and `CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT`, documented in the checked-in `.env` file with short explanations of what each setting controls.
 - Seed the checked-in `.env` file with the initial agreed defaults and explanations: OpenAI batch size `20`, OpenAI max in-flight `10`, LM Studio batch size `1`, and LM Studio max in-flight `4`.
 - Add a server queue-cap env var such as `CODEINFO_INGEST_MAX_QUEUE_SIZE=-1`, documented in `server/.env` so operators know that `-1` disables the extra cap, `0` disables the waiting queue, and positive values cap queue depth.
 - Clamp configured provider values to provider-supported limits at runtime, so unsupported high values degrade safely instead of failing the run or emitting a warning for that reason alone.
-- Extend the provider model interface so ingest can use a batch-oriented embedding method when available and fall back to bounded concurrent single-item requests otherwise.
+- Keep the dispatcher inside the existing server ingest path in `server/src/ingest/ingestJob.ts` or closely related ingest helpers instead of adding a new route, worker service, or browser-facing mode switch.
 - Keep the dispatcher queue bounded so performance gains do not come at the cost of uncontrolled memory growth on very large text files.
 - Allow OpenAI batches to mix chunks from different files, but preserve stable file and chunk indexes so persistence order stays deterministic.
 - Use slot-based dispatch so each completed in-flight request immediately pulls the next queued embedding work instead of waiting for an entire wave to finish.
@@ -184,6 +352,7 @@ No Further Questions
 - Treat moves across the AST-supported boundary as AST-relevant if either side of the move is AST-supported.
 - Reuse the existing full AST rebuild path when `astRelevantDelta` is non-empty rather than designing a partial AST persistence model in this story.
 - Add targeted unit and integration coverage for large Markdown chunking, provider concurrency limits, concurrent result ordering, cancellation with in-flight requests, OpenAI batch guardrails, LM Studio concurrency caps, and the new AST skip/full-rebuild gate.
+- Extend existing server test support, especially `server/src/test/support/mockLmStudioSdk.ts`, if deterministic concurrency or late-result timing control is needed for proof; do not create a second ingest-specific harness unless the current support layer proves insufficient.
 - Keep proof scoped to targeted automated coverage plus one reproducible large-file validation scenario instead of adding a benchmark harness or hard performance SLA.
 
 ## Questions

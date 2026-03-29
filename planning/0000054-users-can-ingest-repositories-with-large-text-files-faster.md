@@ -758,7 +758,7 @@ This task fixes the cancellation defect where Story 54's slot-driven dispatcher 
 - Task Dependencies: `Task 3, Task 6`
 - Task Status: `__done__`
 - Git Commits:
-  - None yet
+  - `1fb0849f` - `DEV-[54] - Fence cancelled ordered persistence writes`
 
 #### Overview
 

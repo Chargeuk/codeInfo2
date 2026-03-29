@@ -947,7 +947,7 @@ The follow-up tasks below keep repository ownership explicit, fix only this late
 - Task Dependencies: `Task 9`
 - Task Status: `__done__`
 - Git Commits:
-  - None yet
+  - `6b80035b` - `DEV-[54] - Fence late finalization cancel window`
 
 #### Overview
 

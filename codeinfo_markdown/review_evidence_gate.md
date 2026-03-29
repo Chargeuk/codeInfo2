@@ -81,6 +81,7 @@ Record the final per-repository resolved base branch and the reason it was chose
 11. For each changed file or helper OUTSIDE the allowed spelling/grammar-only support-file set, record any review hotspots that the findings pass must inspect explicitly:
     - merge-before-validate logic;
     - normalization-before-validate logic;
+    - provider, client, dispatcher, lock, or bootstrap setup that may happen before the code proves real work still exists on no-op, metadata-only, delete-only, or zero-work fast paths;
     - bootstrap or existence checks;
     - helpers that return warnings/errors/reason metadata;
     - changed test titles or descriptions whose assertions may no longer match the invariant they claim to prove;
@@ -102,7 +103,10 @@ Record the final per-repository resolved base branch and the reason it was chose
     - legacy alias/deprecated-input compatibility where old and new field shapes may coexist.
 13. Note where backward-compatibility risk exists and where the canonical plan explicitly permits an edge-case deviation from generic best practice.
 14. Name the top 3 changed helpers/functions by review risk from the non-support-file changes across the whole review scope, and record the worst malformed or contradictory input each one should reject or survive, plus whether that path currently has direct proof, indirect proof, or missing proof.
-15. Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
+15. For each changed orchestration function that initializes external providers, clients, dispatchers, locks, or other runtime dependencies, record whether any no-op, metadata-only, delete-only, or zero-work fast path can complete before that initialization happens. If the answer is unclear, add that ordering question to the review hotspots and the Risk-Invariant Matrix.
+16. When a fast path is intended to complete without embedding, network, model, or provider work, record the exact dependency-free invariant that the findings pass must challenge explicitly.
+17. If an acceptance test proves only terminal status semantics for a fast path, but does not prove behavior under provider or bootstrap failure, mark that proof as indirect rather than direct.
+18. Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
     - execution-routing or harness-selection rules that may live in unchanged files, including `testMatch`/`testIgnore`, filename or suffix conventions, tags, worker-count or project assignment, startup registration, feature flags, and env wiring;
     - default launcher, wrapper, dispatcher, CI, or startup entrypoints to verify the changed behavior still runs in the standard path without manual overrides;
     - shared-state surfaces touched by the change, including lock files or directories, temp paths, caches, singleton resources, ports, persisted artifacts, and cross-test fixtures;
@@ -112,17 +116,17 @@ Record the final per-repository resolved base branch and the reason it was chose
     - tests that mutate shared state or rely on serialization, including what prevents interference with parallel suites, other projects, retries, or stateful variants;
     - malformed, missing, incomplete, or contradictory state that could be transient rather than stale, including partially written files, half-created directories, and delayed metadata visibility;
     - rename, ignore-rule, suffix, tag, project-assignment, or classification changes that may silently exclude tests, routes, jobs, or code paths from the default validation path.
-16. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
-17. Add a `Risk-Invariant Matrix` section to the evidence summary for the top risky helpers/functions. For each one, record:
+19. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
+20. Add a `Risk-Invariant Matrix` section to the evidence summary for the top risky helpers/functions. For each one, record:
     - the helper/function name and repository scope;
     - the semantic invariant or contract it must preserve;
     - the highest-risk contradictory input, state, or mixed-shape condition that could break that invariant;
     - whether current proof is direct, indirect, or missing;
     - which later review step must challenge that invariant explicitly.
-18. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
-19. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
-20. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-21. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+21. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
+22. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
+23. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+24. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 

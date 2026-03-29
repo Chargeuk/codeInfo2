@@ -89,6 +89,7 @@ For multi-repository stories, you MUST also perform an explicit cross-repository
    - warnings/errors/reason values produced by helpers but dropped by callers;
    - inconsistent schema or value vocabularies for the same log marker/event/response field across surfaces;
    - duplicated literals where a nearby named constant already defines the same contract value;
+   - dependency or bootstrap initialization that happens before the code proves real work exists, especially on no-op, delete-only, metadata-only, or zero-work fast paths;
    - bootstrap/existence checks that may misclassify files/directories/invalid paths;
    - duplicate or conflicting object keys/payload fields;
    - deleted/moved/conditional validation;
@@ -96,7 +97,8 @@ For multi-repository stories, you MUST also perform an explicit cross-repository
    - dead-field or dead-branch risk;
    - logic that hides misconfiguration by falling back too early;
    - absolute local filesystem links in changed user-facing docs such as `README.md` or `docs/**`;
-   - changed mocks or test helpers that accept `AbortSignal`, cancellation flags, or timeout controls but never inspect already-aborted or already-cancelled state at construction time.
+   - changed mocks or test helpers that accept `AbortSignal`, cancellation flags, or timeout controls but never inspect already-aborted or already-cancelled state at construction time;
+   - fast paths that are supposed to be provider-free but still depend on fallback helpers that can call the provider or network indirectly.
 5. For multi-repository stories, include cross-repository generic engineering defects such as:
    - producer/consumer schema drift;
    - one-sided migrations;
@@ -127,20 +129,23 @@ For multi-repository stories, you MUST also perform an explicit cross-repository
 17. For fallback-selection logic OUTSIDE the allowed spelling/grammar-only support-file set, verify that precedence still matches the canonical plan and does not override explicit user intent.
 18. For partial-failure logic outside that set, verify what happens when only part of the resolution succeeds and whether the resulting behavior is explicit, safe, and observable.
 19. Before raising a finding about bootstrap, existence checks, or invalid-path handling in the non-support-file changes, compare the implementation against the story's explicit edge cases or failure-mode contract and do not raise a finding solely because the code differs from a generic best practice if it matches the canonical plan's stated contract.
-20. At minimum, inspect the top 3 changed helpers/functions by review risk from the evidence artifact, excluding the allowed spelling/grammar-only support files, and explicitly ask what malformed or contradictory input, mixed UI state, or stale hidden value could still make each one behave incorrectly even if the current tests pass.
-21. Write a `Rejected Risk Notes` section after the main findings list. For each top-risk helper/function from the evidence matrix, record:
+20. For every changed orchestration path with a no-op, metadata-only, delete-only, or zero-work fast return, verify that external dependency setup such as model lookup, provider client creation, dispatcher creation, lock acquisition, or network/bootstrap probes happens only after the code proves that real work still exists, unless the canonical plan explicitly requires that dependency for the fast path.
+21. If a fast path is meant to complete without embedding work, compare every helper it calls against that contract and raise a finding when a fallback helper can still reach the provider, network, or runtime dependency indirectly.
+22. Treat terminal-state tests for fast paths as incomplete proof unless at least one test or direct code inspection also proves behavior when the external provider or bootstrap dependency is unavailable.
+23. At minimum, inspect the top 3 changed helpers/functions by review risk from the evidence artifact, excluding the allowed spelling/grammar-only support files, and explicitly ask what malformed or contradictory input, mixed UI state, stale hidden value, or premature dependency initialization could still make each one behave incorrectly even if the current tests pass.
+24. Write a `Rejected Risk Notes` section after the main findings list. For each top-risk helper/function from the evidence matrix, record:
 
 - the candidate semantic mismatch or contradictory input you tried to break it with;
 - whether that risk became an endorsed finding, a rejected risk, or a residual weak-proof concern;
 - the direct file or test evidence that justified that decision;
 - what still remains weak if the risk could not be fully disproven.
 
-22. If `codeInfoStatus/reviews/<review_pass_id>-blind-spot-challenge.md` already exists for this pass, read it and reconcile it with the findings output. If it does not exist yet, still complete the `Rejected Risk Notes` section directly from the evidence artifact, branch diff, and current findings so downstream steps do not depend on the new challenge step to function.
-23. For each risky path above, state whether it has direct proof, indirect proof, or missing proof, and raise a finding when a risky path is only protected by happy-path coverage or is otherwise weakly proven.
-24. Look for new fields that are written but never read, branches that cannot be reached under the current contract, and diagnostics that are intentionally hidden from clients without an actionable log trail in the non-support-file changes.
-25. When a valid, low-risk consistency problem is found in files already changed by the story, and the fix does not change public payloads or otherwise broaden scope, prefer `should_fix` over `optional_simplification` so the cleanup is attempted rather than deferred by default. This guidance does not override the spelling/grammar-only rule for the allowed support files.
-26. After the main correctness and adversarial review, run a narrow consistency and portability scan on changed non-support implementation files plus changed user-facing docs such as `README.md` or `docs/**`. In that scan, look for duplicated literals that should reference an existing canonical constant, absolute local filesystem links, and changed mocks or test helpers that accept cancellation inputs but do not model already-aborted or already-cancelled state.
-27. Only raise low-severity findings from that consistency and portability scan unless you can prove a real behavior defect, contract break, or validation gap.
+25. If `codeInfoStatus/reviews/<review_pass_id>-blind-spot-challenge.md` already exists for this pass, read it and reconcile it with the findings output. If it does not exist yet, still complete the `Rejected Risk Notes` section directly from the evidence artifact, branch diff, and current findings so downstream steps do not depend on the new challenge step to function.
+26. For each risky path above, state whether it has direct proof, indirect proof, or missing proof, and raise a finding when a risky path is only protected by happy-path coverage or is otherwise weakly proven.
+27. Look for new fields that are written but never read, branches that cannot be reached under the current contract, and diagnostics that are intentionally hidden from clients without an actionable log trail in the non-support-file changes.
+28. When a valid, low-risk consistency problem is found in files already changed by the story, and the fix does not change public payloads or otherwise broaden scope, prefer `should_fix` over `optional_simplification` so the cleanup is attempted rather than deferred by default. This guidance does not override the spelling/grammar-only rule for the allowed support files.
+29. After the main correctness and adversarial review, run a narrow consistency and portability scan on changed non-support implementation files plus changed user-facing docs such as `README.md` or `docs/**`. In that scan, look for duplicated literals that should reference an existing canonical constant, absolute local filesystem links, and changed mocks or test helpers that accept cancellation inputs but do not model already-aborted or already-cancelled state.
+30. Only raise low-severity findings from that consistency and portability scan unless you can prove a real behavior defect, contract break, or validation gap.
 
 ## Output Contract
 

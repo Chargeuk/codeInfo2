@@ -355,6 +355,254 @@ No Further Questions
 - Extend existing server test support, especially `server/src/test/support/mockLmStudioSdk.ts`, if deterministic concurrency or late-result timing control is needed for proof; do not create a second ingest-specific harness unless the current support layer proves insufficient.
 - Keep proof scoped to targeted automated coverage plus one reproducible large-file validation scenario instead of adding a benchmark harness or hard performance SLA.
 
+# Tasks
+
+### Task 1. Add Large-Text Discovery Metadata, Threshold Config, And Prose Chunk Routing
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task adds the upstream inputs that let the ingest pipeline recognize genuinely large prose files before embedding begins. It must carry file size out of discovery, expose the checked-in large-text threshold through the normal ingest config path, and add a prose-oriented chunking strategy for large `.md`, `.mdx`, and `.txt` files without changing the existing behavior for other file types.
+
+#### Task Exit Criteria
+
+- Discovery returns file size metadata, the server config exposes `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES` with default `65536`, and large prose files can be routed to a prose-specific chunking path without an extra filesystem stat later.
+- The prose chunker prefers headings, blank lines, fenced blocks, and list boundaries, still respects token limits, still filters blank chunks truthfully, and is proved by focused unit coverage.
+
+#### Documentation Locations
+
+- OpenAI embeddings API reference: https://developers.openai.com/api-reference/embeddings/create . Use this to keep the prose chunking path aligned with the single-input constraints that still apply before batching.
+- OpenAI embeddings guide: https://platform.openai.com/docs/guides/embeddings . Use this to keep the new chunking route compatible with the existing embedding model budget assumptions already enforced in the repo.
+
+#### Subtasks
+
+1. [ ] Read the Story 54 Description, Acceptance Criteria, Edge Cases, and Log Or Proof Markers, then inspect `server/src/ingest/types.ts`, `server/src/ingest/discovery.ts`, `server/src/ingest/config.ts`, `server/src/config/startupEnv.ts`, `server/src/ingest/chunker.ts`, `server/src/ingest/__fixtures__/sample.ts`, `server/src/test/unit/discovery.test.ts`, `server/src/test/unit/env-loading.test.ts`, and `server/src/test/unit/chunker.test.ts` so the change starts from the current discovery/config/chunker contracts instead of guessing at them.
+2. [ ] Update `server/src/ingest/types.ts` and `server/src/ingest/discovery.ts` so every `DiscoveredFile` includes byte size taken from the existing `fs.stat()` result that discovery already performs. Preserve the current include/exclude filtering, text-file detection, and path normalization behavior; do not add a second stat pass later in the pipeline.
+3. [ ] Add `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES` to the checked-in ingest env/config path by updating `server/src/config/startupEnv.ts`, `server/src/ingest/types.ts`, `server/src/ingest/config.ts`, and `server/.env`. Parse it into typed ingest config, default it to `65536`, and clamp invalid or non-finite values back to that default instead of crashing startup.
+4. [ ] Extend `server/src/ingest/chunker.ts` so large `.md`, `.mdx`, and `.txt` files can take a prose-oriented route selected by file extension plus `DiscoveredFile.size`. The prose route must prefer Markdown headings, blank-line paragraph breaks, fenced code blocks, and list breaks before local slice fallback, must avoid repeatedly re-tokenizing the whole remaining tail when a local boundary cut is available, and must emit `DEV-0000054:large_text_path_selected` with `runId`, `relPath`, `ext`, `sizeBytes`, `thresholdBytes`, and `strategy='prose'` when the large-text path is chosen during ingest.
+5. [ ] Update `server/src/test/unit/discovery.test.ts` to prove the requirement “discovery keeps file size metadata for later large-text routing” against the implementation owned by `server/src/ingest/discovery.ts` and `server/src/ingest/types.ts`. The assertions should confirm that eligible files now include byte size and that existing include/exclude/text-detection behavior still works with the new shape.
+6. [ ] Update `server/src/test/unit/env-loading.test.ts` to prove the requirement “`CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES` resolves through the checked-in env/config path with default `65536` and safe fallback on invalid values” against the implementation owned by `server/src/config/startupEnv.ts`, `server/src/ingest/config.ts`, and `server/src/ingest/types.ts`.
+7. [ ] Update `server/src/ingest/__fixtures__/sample.ts` and `server/src/test/unit/chunker.test.ts` to prove the requirements “only large `.md` / `.mdx` / `.txt` files take the prose route,” “the prose route prefers headings / blank lines / fenced blocks / list breaks before fallback slicing,” and “the prose route still enforces token limits and blank-chunk filtering” against the implementation owned by `server/src/ingest/chunker.ts`. If any existing test name now implies the old generic-only behavior, rename that test at the same time so the title still matches the assertion.
+8. [ ] Run `npx eslint server/src/ingest/types.ts server/src/ingest/discovery.ts server/src/ingest/config.ts server/src/config/startupEnv.ts server/src/ingest/chunker.ts server/src/ingest/__fixtures__/sample.ts server/src/test/unit/discovery.test.ts server/src/test/unit/env-loading.test.ts server/src/test/unit/chunker.test.ts --max-warnings=0`. The pass condition is zero errors and zero warnings. If ESLint can fix an issue automatically, try the same command again with `--fix` before making manual style edits.
+9. [ ] Run `npx prettier --check server/src/ingest/types.ts server/src/ingest/discovery.ts server/src/ingest/config.ts server/src/config/startupEnv.ts server/src/ingest/chunker.ts server/src/ingest/__fixtures__/sample.ts server/src/test/unit/discovery.test.ts server/src/test/unit/env-loading.test.ts server/src/test/unit/chunker.test.ts`. The pass condition is that every listed file is already formatted. If Prettier reports differences, run the same file list with `npx prettier --write` before making manual formatting changes.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/discovery.test.ts` and confirm the discovery-size proof passes.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts` and confirm the large-text threshold env proof passes.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chunker.test.ts` and confirm the prose-chunker routing and token-limit proofs pass.
+
+#### Implementation notes
+
+- Starts empty.
+- Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 2. Add Provider Dispatch Settings And A Batch-Aware Embedding Provider Contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task creates the provider-side contract that the ingest job will need before it can dispatch embeddings concurrently. It must add provider-specific batching and max-in-flight settings, clamp those settings to provider-supported limits, and expose a batch-aware, abort-aware provider seam that keeps OpenAI and LM Studio behavior explicit instead of hiding provider differences inside `ingestJob.ts`.
+
+#### Task Exit Criteria
+
+- Typed ingest config exposes provider-specific batch-size, max-in-flight, and absolute queue-cap settings with the story defaults and provider-specific clamp behavior.
+- The ingest layer has a provider contract it can call for multi-input OpenAI requests and abort-aware LM Studio/OpenAI embedding work, while LM Studio still behaves as effective batch size `1` and OpenAI still obeys existing guardrails.
+
+#### Documentation Locations
+
+- OpenAI embeddings API reference: https://developers.openai.com/api-reference/embeddings/create . Use this for the multi-input request shape and response ordering expectations.
+- OpenAI embeddings guide: https://platform.openai.com/docs/guides/embeddings . Use this to keep provider-side batching inside the supported embeddings workflow rather than inventing a repo-specific contract.
+- MDN AbortController / AbortSignal documentation: https://developer.mozilla.org/en-US/docs/Web/API/AbortController . Use this for the best-effort abort semantics the provider contract should expose to the ingest dispatcher.
+
+#### Subtasks
+
+1. [ ] Read the Story 54 Decisions, Acceptance Criteria, and Log Or Proof Markers, then inspect `server/src/ingest/types.ts`, `server/src/ingest/config.ts`, `server/src/config/startupEnv.ts`, `server/.env`, `server/src/ingest/providers/types.ts`, `server/src/ingest/providers/openaiConstants.ts`, `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/providers/openaiGuardrails.ts`, `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`, `server/src/test/unit/openai-provider.test.ts`, `server/src/test/unit/openai-provider-guardrails.test.ts`, `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, and `server/src/test/unit/env-loading.test.ts` so the provider contract follows the current retry, guardrail, and env-loading patterns already used in this repo.
+2. [ ] Extend the typed ingest config and env-loading path in `server/src/ingest/types.ts`, `server/src/ingest/config.ts`, `server/src/config/startupEnv.ts`, and `server/.env` with the Story 54 settings: `CODEINFO_INGEST_OPENAI_MAX_BATCH_SIZE`, `CODEINFO_INGEST_OPENAI_MAX_INFLIGHT`, `CODEINFO_INGEST_LMSTUDIO_MAX_BATCH_SIZE`, `CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT`, and `CODEINFO_INGEST_MAX_QUEUE_SIZE`. Default them to OpenAI batch `20`, OpenAI max in-flight `10`, LM Studio batch `1`, LM Studio max in-flight `4`, and queue cap `-1`; clamp over-large values to provider-supported limits without warning or failure; treat queue cap `-1`, `0`, and positive values exactly as described in the story.
+3. [ ] Replace the single-item-only provider seam in `server/src/ingest/providers/types.ts` with a contract the ingest job can use for provider-aware dispatch. Update `server/src/ingest/providers/openaiEmbeddingProvider.ts` to expose a reusable multi-input embedding call with abort support and preserved response-index ordering, and update `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` so the ingest layer can launch multiple single-input LM Studio requests concurrently while still reporting effective batch size `1`. Keep provider-specific batching logic in the provider layer or a dedicated ingest-provider helper, not inside routes or the UI.
+4. [ ] Update `server/.env` in its own documentation subtask so the checked-in file explains the new provider dispatch knobs and the queue-cap behavior in plain language next to the actual defaults. Do not hide these defaults only in code or README text.
+5. [ ] Create `server/src/test/unit/ingest-dispatch-config.test.ts` to prove the requirement “provider dispatch settings resolve to the Story 54 defaults and clamp to provider-supported effective values” against the implementation owned by `server/src/ingest/config.ts`, `server/src/ingest/types.ts`, and `server/src/config/startupEnv.ts`. Cover OpenAI batch `20`, OpenAI max in-flight `10`, LM Studio effective batch `1`, LM Studio max in-flight `4`, and queue-cap values `-1`, `0`, and positive integers.
+6. [ ] Update `server/src/test/unit/env-loading.test.ts` to prove the requirement “the new provider dispatch env vars are actually loaded from the checked-in startup env path and survive the same whitelist rules as the existing ingest env vars” against the implementation owned by `server/src/config/startupEnv.ts` and `server/.env`.
+7. [ ] Update `server/src/test/unit/openai-provider.test.ts` to prove the requirements “OpenAI can accept multi-input embedding requests through the new provider contract,” “response ordering remains stable after index sorting,” and “the provider contract can carry abort-aware request state” against the implementation owned by `server/src/ingest/providers/types.ts` and `server/src/ingest/providers/openaiEmbeddingProvider.ts`. If an existing test title still claims only single-input behavior, rename or split that test so the title matches the broader multi-input invariant.
+8. [ ] Update `server/src/test/unit/openai-provider-guardrails.test.ts` to prove the requirement “OpenAI batching still honors existing per-request guardrails even when config asks for a larger batch” against the implementation owned by `server/src/ingest/providers/openaiGuardrails.ts`, `server/src/ingest/providers/openaiConstants.ts`, and `server/src/ingest/providers/openaiEmbeddingProvider.ts`. If an existing test title only claims generic validation, rename it so the batching guardrail invariant is explicit.
+9. [ ] Create `server/src/test/unit/lmstudio-provider-dispatch.test.ts` to prove the requirement “LM Studio still behaves as effective batch size `1` even when configured higher” against the implementation owned by `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` and `server/src/ingest/providers/types.ts`. Do not overload `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` with this new invariant, because that file name already claims retry/logging semantics rather than dispatch-shape semantics.
+10. [ ] Update `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` only for the requirement “the LM Studio provider contract still preserves retry and error logging behavior under the new dispatch seam” against the implementation owned by `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`. If a test in that file drifts away from retry/logging and starts proving dispatch shape instead, split it into `server/src/test/unit/lmstudio-provider-dispatch.test.ts` instead of keeping a misleading title.
+11. [ ] Run `npx eslint server/src/ingest/types.ts server/src/ingest/config.ts server/src/config/startupEnv.ts server/src/ingest/providers/types.ts server/src/ingest/providers/openaiConstants.ts server/src/ingest/providers/openaiEmbeddingProvider.ts server/src/ingest/providers/openaiGuardrails.ts server/src/ingest/providers/lmstudioEmbeddingProvider.ts server/src/test/unit/ingest-dispatch-config.test.ts server/src/test/unit/env-loading.test.ts server/src/test/unit/openai-provider.test.ts server/src/test/unit/openai-provider-guardrails.test.ts server/src/test/unit/lmstudio-provider-dispatch.test.ts server/src/test/unit/lmstudio-provider-retry-logging.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings. If the linter can fix an issue automatically, rerun with `--fix` before editing by hand.
+12. [ ] Run `npx prettier --check server/src/ingest/types.ts server/src/ingest/config.ts server/src/config/startupEnv.ts server/src/ingest/providers/types.ts server/src/ingest/providers/openaiConstants.ts server/src/ingest/providers/openaiEmbeddingProvider.ts server/src/ingest/providers/openaiGuardrails.ts server/src/ingest/providers/lmstudioEmbeddingProvider.ts server/src/test/unit/ingest-dispatch-config.test.ts server/src/test/unit/env-loading.test.ts server/src/test/unit/openai-provider.test.ts server/src/test/unit/openai-provider-guardrails.test.ts server/src/test/unit/lmstudio-provider-dispatch.test.ts server/src/test/unit/lmstudio-provider-retry-logging.test.ts server/.env`. The pass condition is that every listed file is already formatted. If Prettier reports differences, run the same list with `npx prettier --write` before manual formatting changes.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts` and confirm the new provider dispatch env-default and clamping proofs pass.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider.test.ts` and confirm the OpenAI batch contract proofs pass.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-guardrails.test.ts` and confirm the OpenAI request-limit guardrail proofs pass.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts` and confirm the LM Studio effective-batch-size dispatch proofs pass.
+6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` and confirm the LM Studio retry and logging proofs still pass under the new contract.
+7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-dispatch-config.test.ts` and confirm the effective dispatch-config matrix passes.
+
+#### Implementation notes
+
+- Starts empty.
+- Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 3. Replace The Serial Ingest Loop With A Slot-Driven Dispatcher And Late-Result Fencing
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task is the runtime heart of Story 54. It must stop the ingest job from waiting on one chunk at a time, overlap chunk production with embedding dispatch, keep memory bounded, preserve deterministic persisted ordering even when OpenAI batches mix files, and make cancel coherent when requests are already in flight.
+
+#### Task Exit Criteria
+
+- The ingest job dispatches embeddings through a slot-driven provider-aware queue, starts embedding work before a large prose file has been fully chunked, and preserves deterministic vector metadata and persistence order.
+- Cancel stops new dispatch immediately, attempts best-effort aborts where supported, ignores late results that arrive after cancellation, and emits the Story 54 dispatch/cancel proof markers.
+
+#### Documentation Locations
+
+- OpenAI embeddings API reference: https://developers.openai.com/api-reference/embeddings/create . Use this for mixed-input request ordering and multi-input response handling.
+- OpenAI embeddings guide: https://platform.openai.com/docs/guides/embeddings . Use this to keep runtime batching behavior inside the documented embeddings flow.
+- MDN AbortController / AbortSignal documentation: https://developer.mozilla.org/en-US/docs/Web/API/AbortController . Use this for best-effort cancellation wiring and late-result handling around aborted requests.
+
+#### Subtasks
+
+1. [ ] Read the Story 54 Description, Acceptance Criteria, Edge Cases, Decisions, and Log Or Proof Markers, then inspect `server/src/ingest/ingestJob.ts`, `server/src/ingest/chunker.ts`, `server/src/ingest/types.ts`, `server/src/ingest/providers/types.ts`, `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/ingest-cancel.test.ts`, `server/src/test/features/ingest-batch-flush.feature`, `server/src/test/steps/ingest-batch-flush.steps.ts`, `server/src/test/features/ingest-cancel.feature`, `server/src/test/steps/ingest-manage.steps.ts`, `e2e/ingest.spec.ts`, and the root `fixtures/repo` ingest fixture area so the dispatcher work fits the real ingest orchestration and proof harnesses already present.
+2. [ ] Refactor the serial embedding path in `server/src/ingest/ingestJob.ts` into a slot-driven provider-aware dispatcher. If the logic becomes too large for `ingestJob.ts`, extract a focused helper such as `server/src/ingest/embeddingDispatcher.ts`, but keep it inside the existing server ingest layer. The dispatcher must: overlap chunk production with embedding dispatch for large files, size the waiting queue from max-in-flight behavior, apply `CODEINFO_INGEST_MAX_QUEUE_SIZE` as an absolute ceiling, refill a free slot immediately instead of waiting for a whole wave to finish, and preserve deterministic `relPath`, `chunkIndex`, `chunkHash`, and persistence ordering even when one OpenAI request contains chunks from multiple files.
+3. [ ] Update the ingest cancellation path in `server/src/ingest/ingestJob.ts` and any helper created in this task so cancel stops new embedding work immediately, creates and passes abort signals into provider requests where the provider contract supports them, and fences off late-arriving results so they are ignored rather than written after cancellation. Emit `DEV-0000054:embedding_dispatch_slot_filled` when the dispatcher refills capacity and `DEV-0000054:embedding_result_ignored_after_cancel` when a late result is intentionally dropped after cancel.
+4. [ ] Add or update the deterministic proof fixtures and harness seams needed for this task. Update `server/src/test/support/mockLmStudioSdk.ts` and any affected ingest step helper such as the new `server/src/test/steps/ingest-embedding-dispatch.steps.ts` or the existing `server/src/test/steps/ingest-manage.steps.ts` so the test suite can reproduce concurrent completion order, queue-depth backpressure, cancel-after-dispatch, and large-file overlap without relying on fragile timing guesses. Add or update a deterministic large-text fixture under `fixtures/repo` if the existing fixture set is too small to prove the large-file path.
+5. [ ] Add or update the reproducible proof artifact `fixtures/repo/large-planning-doc.md` to prove the requirement “there is one deterministic large-file scenario that exercises the large-text route through the normal ingest path” against the implementation owned by `server/src/ingest/chunker.ts` and `server/src/ingest/ingestJob.ts`.
+6. [ ] Create `server/src/test/unit/ingest-dispatcher.test.ts` to prove the requirements “the dispatcher refills a free slot immediately,” “waiting work stays bounded by the derived queue plus `CODEINFO_INGEST_MAX_QUEUE_SIZE`,” “OpenAI mixed-file batches still persist deterministic metadata order,” and “large-text chunk production can overlap with first embedding dispatch” against the implementation owned by `server/src/ingest/ingestJob.ts` and `server/src/ingest/embeddingDispatcher.ts` if that helper is created.
+7. [ ] Update `server/src/test/unit/ingest-cancel.test.ts` to prove the requirements “cancel stops new embedding work immediately” and “late results are ignored after cancellation instead of being written” against the implementation owned by `server/src/ingest/ingestJob.ts` plus the abort-aware provider contract added in Task 2.
+8. [ ] Create `server/src/test/features/ingest-embedding-dispatch.feature` and `server/src/test/steps/ingest-embedding-dispatch.steps.ts` to prove the integration-level invariant “dispatch is slot-driven rather than wave-driven” and to capture `DEV-0000054:embedding_dispatch_slot_filled` from behavior owned by `server/src/ingest/ingestJob.ts`. Do not overload `server/src/test/features/ingest-batch-flush.feature` for this proof, because that feature title claims flush cadence semantics rather than dispatcher-slot semantics.
+9. [ ] Update `server/src/test/features/ingest-cancel.feature` and `server/src/test/steps/ingest-manage.steps.ts` to prove the integration-level invariants “cancel blocks new dispatch immediately” and “late provider results are ignored after cancel,” and to capture `DEV-0000054:embedding_result_ignored_after_cancel` from behavior owned by `server/src/ingest/ingestJob.ts`. If an existing scenario title only says “cancel an in-flight ingest,” add a separate scenario or rename it so the late-result invariant is explicit.
+10. [ ] Run `npx eslint server/src/ingest/ingestJob.ts server/src/ingest/embeddingDispatcher.ts server/src/test/support/mockLmStudioSdk.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/steps/ingest-embedding-dispatch.steps.ts server/src/test/steps/ingest-manage.steps.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the lintable files touched by this task. If ESLint can auto-fix any touched `.ts` file, rerun the same command with `--fix` before editing by hand. If `server/src/ingest/embeddingDispatcher.ts` is not created, remove it from the command when running it.
+11. [ ] Run `npx prettier --check server/src/ingest/ingestJob.ts server/src/ingest/embeddingDispatcher.ts server/src/test/support/mockLmStudioSdk.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/features/ingest-embedding-dispatch.feature server/src/test/steps/ingest-embedding-dispatch.steps.ts server/src/test/features/ingest-cancel.feature server/src/test/steps/ingest-manage.steps.ts fixtures/repo/large-planning-doc.md`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun against the same touched files with `npx prettier --write` before manual formatting edits. If `server/src/ingest/embeddingDispatcher.ts` is not created, remove it from the command when running it.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-dispatcher.test.ts` and confirm the slot-driven dispatch, ordering, bounded queue, and large-file overlap proofs pass.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` and confirm the cancel plus late-result fencing proofs pass.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-embedding-dispatch.feature` and confirm the slot-refill / bounded-dispatch integration proof passes.
+5. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-cancel.feature` and confirm the cancel / ignored-late-result integration proof passes.
+#### Implementation notes
+
+- Starts empty.
+- Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 4. Replace Partial Delta AST Updates With An AST-Relevance Gate And Full-Rebuild Reuse
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 3`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task narrows AST work during delta re-embed without introducing incremental AST persistence complexity. It must explicitly skip AST work when the delta only touches non-AST files, and it must deliberately reuse the current full AST rebuild path whenever the delta includes any AST-supported add, change, delete, or move-across-boundary case.
+
+#### Task Exit Criteria
+
+- Delta re-embed now decides AST work through one explicit `astRelevantDelta` rule: non-AST-only deltas skip AST entirely, while any AST-relevant delta triggers the existing full rebuild path.
+- The old changed-path-only AST delete/upsert behavior is removed from delta re-embed, the no-op and deletions-only vector fast paths stay coherent, and the new AST mode is proved by unit and Cucumber coverage plus the Story 54 AST proof marker.
+
+#### Documentation Locations
+
+- Mongoose `Model.bulkWrite()` docs: https://mongoosejs.com/docs/api/model.html#Model.bulkWrite() . Use this to keep the full-rebuild persistence path aligned with the existing bulk-write model rather than inventing ad hoc AST writes.
+- Mongoose `Model.deleteMany()` docs: https://mongoosejs.com/docs/api/model.html#Model.deleteMany() . Use this when replacing the old delta-path AST delete behavior with the conservative skip-or-full-rebuild rule.
+
+#### Subtasks
+
+1. [ ] Read the Story 54 Description, Acceptance Criteria, Edge Cases, Decisions, and Out Of Scope section, then inspect `server/src/ingest/ingestJob.ts`, `server/src/ingest/deltaPlan.ts`, `server/src/ast/parser.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/ingest-delta-plan.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, and `server/src/test/steps/ingest-delta-reembed.steps.ts` so the AST change reuses the current full rebuild path instead of inventing partial AST logic.
+2. [ ] Update the delta re-embed decision logic in `server/src/ingest/ingestJob.ts` (and extract a small helper if it makes the logic clearer) so AST work is decided separately from generic vector delta work. When the delta contains no AST-supported add/change/delete, skip AST entirely and log `DEV-0000054:delta_ast_mode_selected` with `ast_skip_non_ast_delta`; when the delta contains any AST-supported add/change/delete, including delete-plus-add moves and moves across the AST-supported boundary, clear and rebuild the full AST using the existing full-rebuild persistence path instead of per-path partial updates.
+3. [ ] Remove or replace the old delta-path AST changed/deleted-path write logic in `server/src/ingest/ingestJob.ts` so the runtime no longer performs partial AST updates during delta re-embed. Preserve the current vector-side no-op and deletions-only fast paths where they still apply, and make sure the new AST rule does not claim “no changes” when only non-AST files were deleted.
+4. [ ] Update `server/src/test/unit/ingest-ast-indexing.test.ts` to prove the requirements “a delta with no AST-supported add / change / delete skips AST entirely” and “a delta with AST-supported changes reuses the existing full AST rebuild path” against the implementation owned by `server/src/ingest/ingestJob.ts`.
+5. [ ] Create `server/src/test/unit/ingest-ast-delta-mode.test.ts` to prove the requirement “AST-supported delete-plus-add moves, including moves across the AST-supported boundary, are treated as AST-relevant and therefore choose full rebuild mode” against the implementation owned by `server/src/ingest/ingestJob.ts` and any helper extracted for AST relevance calculation.
+6. [ ] Update `server/src/test/features/ingest-delta-reembed.feature` and `server/src/test/steps/ingest-delta-reembed.steps.ts` to prove the integration-level invariants “non-AST-only delta re-embed skips AST,” “AST-relevant delta re-embed performs full rebuild,” and “the runtime emits `DEV-0000054:delta_ast_mode_selected` with the correct mode.” If any scenario title still implies partial AST updates remain supported, rename that scenario when you update the proof.
+7. [ ] Run `npx eslint server/src/ingest/ingestJob.ts server/src/ingest/deltaPlan.ts server/src/test/unit/ingest-ast-indexing.test.ts server/src/test/unit/ingest-ast-delta-mode.test.ts server/src/test/steps/ingest-delta-reembed.steps.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
+8. [ ] Run `npx prettier --check server/src/ingest/ingestJob.ts server/src/ingest/deltaPlan.ts server/src/test/unit/ingest-ast-indexing.test.ts server/src/test/unit/ingest-ast-delta-mode.test.ts server/src/test/features/ingest-delta-reembed.feature server/src/test/steps/ingest-delta-reembed.steps.ts`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-ast-indexing.test.ts` and confirm the AST skip-versus-full-rebuild proofs pass.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-ast-delta-mode.test.ts` and confirm the AST-relevance move / cross-boundary proofs pass.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` and confirm the delta re-embed integration proof passes with the new AST rule.
+
+#### Implementation notes
+
+- Starts empty.
+- Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 5. Validate Story 54 End To End And Update Operator-Facing Documentation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2, Task 3, Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This final validation task normally depends on all earlier tasks required for final story proof.
+
+#### Overview
+
+This final task proves the story as one coherent runtime change rather than as isolated code edits. It must validate the Acceptance Criteria through the repository’s wrapper-first workflow, document the new env knobs and delta AST behavior for operators, and run one reproducible large-file ingest scenario that confirms the new large-text and dispatcher markers in the real runtime path.
+
+#### Task Exit Criteria
+
+- Every in-scope Story 54 behavior is implemented, documented, and proved through the repo’s standard wrappers plus one reproducible large-file runtime check.
+- README guidance, checked-in env defaults, and final proof steps all reflect the finished runtime behavior without claiming any out-of-scope benchmark SLA or partial AST feature.
+
+#### Documentation Locations
+
+- OpenAI embeddings guide: https://platform.openai.com/docs/guides/embeddings . Use this when validating that the final batching behavior still matches the supported embeddings flow.
+- Playwright test documentation: https://playwright.dev/docs/test-intro . Use this for the existing browser proof path when updating or validating `e2e/ingest.spec.ts`.
+- MDN AbortController / AbortSignal documentation: https://developer.mozilla.org/en-US/docs/Web/API/AbortController . Use this when validating cancel semantics in the final runtime proof.
+
+#### Subtasks
+
+1. [ ] Re-read the full story in `planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md` and trace every Acceptance Criterion, important Description requirement, proof marker, and explicit Out Of Scope boundary back to Task 1 through Task 4. Add or adjust any missing task-level proof before calling the story complete; do not rely on “manual checking” to cover a missing automated proof that the story says should exist.
+2. [ ] Update `README.md` in its own documentation subtask so operators can discover the new large-text threshold, provider-specific batching and max-in-flight env vars, absolute queue-cap behavior, cancellation expectations, and the refined delta AST rebuild rule from the main repository docs. Keep the README text honest about scope: no benchmark SLA, no new ingest API, no partial AST updates.
+3. [ ] Update `e2e/ingest.spec.ts` and the proof artifact `fixtures/repo/large-planning-doc.md` to prove the final browser-visible invariant “the existing ingest UI still completes a reproducible large-text ingest flow without a new surface.” Keep this browser proof in the final validation task rather than in the lower-level server tasks, and use a dedicated Playwright test title that explicitly names large-text ingest instead of reusing a generic happy-path title.
+4. [ ] Update the proof artifact comments or nearby documentation in `fixtures/repo/large-planning-doc.md` and `e2e/ingest.spec.ts` so the final proof obligation “one reproducible large-file scenario exists and is intentionally part of Story 54 validation” is visible in the artifact itself rather than remaining tribal knowledge.
+5. [ ] Record the final proof artifacts for this story in Task 5 Implementation notes as they are produced: the wrapper commands that passed, the large-file fixture path used, and the runtime markers observed (`DEV-0000054:large_text_path_selected`, `DEV-0000054:embedding_dispatch_slot_filled`, and the AST or cancel marker relevant to the run). This keeps the end-to-end proof traceable after the wrapper pass finishes.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers suite passes.
+4. [ ] Run `npm run test:summary:e2e` and confirm the end-to-end ingest suite passes on the existing ingest UI flow.
+5. [ ] Run `npm run compose:up` so the main runtime stack is available for one manual large-file proof run against the standard ingest path. The build was already covered by `npm run compose:build:summary` in Testing step 1.
+6. [ ] Perform one manual Playwright MCP validation against the existing `/ingest` UI using the deterministic large-text fixture from this story, and confirm the runtime evidence includes `DEV-0000054:large_text_path_selected`, `DEV-0000054:embedding_dispatch_slot_filled`, and the expected cancel or AST marker for the path being exercised.
+7. [ ] Run `npm run compose:down` after the manual Playwright MCP validation completes.
+
+#### Implementation notes
+
+- Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
+
 ## Questions
 
 - No Further Questions

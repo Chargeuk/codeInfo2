@@ -195,6 +195,24 @@ export async function updateConversationFlowState({
   return updated;
 }
 
+export async function updateConversationFlowChildExecution({
+  conversationId,
+  executionId,
+}: {
+  conversationId: string;
+  executionId: string;
+}): Promise<Conversation | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const updated = await ConversationModel.findByIdAndUpdate(
+    conversationId,
+    { $set: { 'flags.flowChild.executionId': executionId } },
+    { new: true },
+  ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
+  return updated;
+}
+
 export async function updateConversationWorkingFolder({
   conversationId,
   workingFolder,

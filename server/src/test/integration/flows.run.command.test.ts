@@ -3633,8 +3633,12 @@ test('conversation-only stop prevents nested command handoff from starting', asy
 
     const flowConversation = memoryConversations.get(conversationId);
     const flowFlags = (flowConversation?.flags ?? {}) as {
-      flow?: { agentConversations?: Record<string, string> };
+      flow?: {
+        executionId?: string;
+        agentConversations?: Record<string, string>;
+      };
     };
+    assert.equal(typeof flowFlags.flow?.executionId, 'string');
     assert.equal(
       flowFlags.flow?.agentConversations?.['planning_agent:stop-check'],
       undefined,

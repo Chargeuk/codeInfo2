@@ -59,6 +59,8 @@ export type FlowAgentState = {
   workingFolder?: string;
 };
 
+export type FlowExecutionRuntimeState = Map<string, FlowAgentState>;
+
 export type FlowChatFactory = (
   provider: string,
   deps?: Record<string, unknown>,

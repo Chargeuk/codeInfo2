@@ -449,7 +449,7 @@ test('POST /flows/:flowName/run returns 400 for non-string customTitle', async (
   }
 });
 
-test('POST /flows/:flowName/run returns 410 when conversation is archived', async () => {
+test('POST /flows/:flowName/run starts a fresh parent conversation when the selected conversation is archived', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -483,8 +483,10 @@ test('POST /flows/:flowName/run returns 410 when conversation is archived', asyn
     const res = await supertest(app)
       .post('/flows/llm-basic/run')
       .send({ conversationId });
-    assert.equal(res.status, 410);
-    assert.equal(res.body.error, 'archived');
+    assert.equal(res.status, 202);
+    assert.notEqual(res.body.conversationId, conversationId);
+    memoryConversations.delete(res.body.conversationId);
+    memoryTurns.delete(res.body.conversationId);
   } finally {
     memoryConversations.delete(conversationId);
     if (prevAgentsHome) {

@@ -101,6 +101,7 @@ describe('AgentsPage sidebar WS updates', () => {
               lastMessageAt: '2025-01-01T00:00:00.000Z',
               archived: false,
               agentName: 'a1',
+              flags: { flowChild: { executionId: 'childrun01-parent' } },
             },
           ],
           nextCursor: null,
@@ -123,6 +124,11 @@ describe('AgentsPage sidebar WS updates', () => {
 
     await screen.findByTestId('agents-page');
     await screen.findByText('First agent conversation');
+    await waitFor(() =>
+      expect(screen.getAllByText('Run childrun').length).toBeGreaterThanOrEqual(
+        1,
+      ),
+    );
 
     await waitForWsSent('subscribe_sidebar');
 
@@ -139,6 +145,7 @@ describe('AgentsPage sidebar WS updates', () => {
         lastMessageAt: '2025-01-02T00:00:00.000Z',
         archived: false,
         agentName: 'a1',
+        flags: { flowChild: { executionId: 'childrun02-parent' } },
       },
     });
 
@@ -155,10 +162,12 @@ describe('AgentsPage sidebar WS updates', () => {
         lastMessageAt: '2025-01-03T00:00:00.000Z',
         archived: false,
         agentName: 'other',
+        flags: { flowChild: { executionId: 'ignored99-parent' } },
       },
     });
 
     await screen.findByText('Second agent conversation');
+    expect(screen.getAllByText('Run childrun')).toHaveLength(2);
     expect(screen.queryByText('Ignored agent conversation')).toBeNull();
 
     await waitFor(() => {
@@ -184,6 +193,7 @@ describe('AgentsPage sidebar WS updates', () => {
         lastMessageAt: '2025-01-04T00:00:00.000Z',
         archived: false,
         agentName: 'a1',
+        flags: { flowChild: { executionId: 'childrun01-parent' } },
       },
     });
 

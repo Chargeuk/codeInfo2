@@ -19,7 +19,12 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "improve_plan/04-finalize.md"
+      "markdownFile": "improve_plan/04-stateful-ui-risks.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/05-finalize.md"
     }
   ]
 }

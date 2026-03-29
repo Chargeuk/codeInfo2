@@ -251,7 +251,6 @@ export default function FlowsPage() {
       ),
     [activeConversationId, flowConversations],
   );
-  const selectedFlowHasHistory = Boolean(selectedConversation);
 
   const resumeStepPath = useMemo(() => {
     const flags = selectedConversation?.flags;
@@ -995,13 +994,19 @@ export default function FlowsPage() {
       setStartPending(true);
 
       const nextConversationId =
-        activeConversationId && activeConversationId.trim().length > 0
-          ? activeConversationId
-          : makeClientConversationId();
-      const isNewConversation = nextConversationId !== activeConversationId;
+        mode === 'run'
+          ? makeClientConversationId()
+          : activeConversationId && activeConversationId.trim().length > 0
+            ? activeConversationId
+            : makeClientConversationId();
+      const isNewConversation = mode === 'run';
       const trimmedCustomTitle = customTitle.trim();
+      const customTitleDisabledForSelection = Boolean(resumeStepPath);
       const shouldIncludeCustomTitle =
-        mode === 'run' && isNewConversation && trimmedCustomTitle.length > 0;
+        mode === 'run' &&
+        isNewConversation &&
+        !customTitleDisabledForSelection &&
+        trimmedCustomTitle.length > 0;
 
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
@@ -1047,9 +1052,12 @@ export default function FlowsPage() {
             streamStatus: 'failed',
             createdAt: new Date().toISOString(),
           };
+          const errorHistory = isNewConversation
+            ? [errorMessage]
+            : [...messages, errorMessage];
           hydrateHistory(
             nextConversationId,
-            [...messages, errorMessage],
+            errorHistory,
             'replace',
           );
           setRunError(errorMessage.content);
@@ -1064,9 +1072,12 @@ export default function FlowsPage() {
           streamStatus: 'failed',
           createdAt: new Date().toISOString(),
         };
+        const errorHistory = isNewConversation
+          ? [errorMessage]
+          : [...messages, errorMessage];
         hydrateHistory(
           nextConversationId,
-          [...messages, errorMessage],
+          errorHistory,
           'replace',
         );
         setRunError(message);
@@ -1126,8 +1137,7 @@ export default function FlowsPage() {
   const isWorkingFolderDisabled =
     flowsLoading || !!flowsError || flowWorkingFolderLocked;
   const showStop = isSending || isStopping;
-  const customTitleDisabled =
-    isSending || Boolean(resumeStepPath) || selectedFlowHasHistory;
+  const customTitleDisabled = isSending || Boolean(resumeStepPath);
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversation?.conversationId;

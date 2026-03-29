@@ -32,7 +32,7 @@ function baseConfig(overrides?: Partial<IngestConfig>): IngestConfig {
   };
 }
 
-test('dispatcher refills a freed slot immediately and bounds waiting work with queue cap', async () => {
+test('dispatcher enforces queue cap for same-turn enqueue bursts and refills freed slots immediately', async () => {
   const requests: Array<{
     texts: string[];
     deferred: ReturnType<typeof createDeferred<number[][]>>;
@@ -74,33 +74,37 @@ test('dispatcher refills a freed slot immediately and bounds waiting work with q
     onLateResultIgnored: () => {},
   });
 
-  const first = await dispatcher.enqueue({
+  const first = dispatcher.enqueue({
     sequence: 0,
     text: 'chunk-1',
     meta: null,
   });
-  const second = await dispatcher.enqueue({
+  const second = dispatcher.enqueue({
     sequence: 1,
     text: 'chunk-2',
     meta: null,
   });
-  const third = await dispatcher.enqueue({
+  const third = dispatcher.enqueue({
     sequence: 2,
     text: 'chunk-3',
     meta: null,
   });
-  assert.equal(first, true);
-  assert.equal(second, true);
-  assert.equal(third, true);
-
   const blockedFourth = dispatcher.enqueue({
     sequence: 3,
     text: 'chunk-4',
     meta: null,
   });
 
+  assert.deepEqual(await Promise.all([first, second, third]), [true, true, true]);
+
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(requests.length, 2, 'expected two requests to fill both slots');
+  assert.deepEqual(dispatcher.snapshot(), {
+    queueDepth: 1,
+    inFlight: 2,
+    queueLimit: 1,
+    dispatchCount: 2,
+  });
 
   let fourthResolved = false;
   void blockedFourth.then(() => {
@@ -119,6 +123,11 @@ test('dispatcher refills a freed slot immediately and bounds waiting work with q
     requests.length,
     3,
     'expected freed slot to dispatch next queued item immediately',
+  );
+  assert.equal(
+    dispatcher.snapshot().queueDepth,
+    1,
+    'expected the newly admitted fourth item to remain bounded as one waiting entry',
   );
 
   await blockedFourth;

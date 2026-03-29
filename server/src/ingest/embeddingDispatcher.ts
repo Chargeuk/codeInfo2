@@ -98,8 +98,15 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
     waiters.clear();
   };
 
-  const isQueueAtCapacity = () =>
-    queue.length >= queueLimit && controllers.size >= params.maxInFlight;
+  const projectedWaitingCount = (queuedItemCount: number) => {
+    const immediateCapacity =
+      Math.max(0, params.maxInFlight - controllers.size) *
+      params.effectiveBatchSize;
+    return Math.max(0, queuedItemCount - immediateCapacity);
+  };
+
+  const wouldExceedQueueLimit = (queuedItemCount: number) =>
+    projectedWaitingCount(queuedItemCount) > queueLimit;
 
   const maybeResolveIdle = () => {
     if (
@@ -194,7 +201,11 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
 
   return {
     async enqueue<TMeta>(item: EmbeddingDispatchItem<TMeta>) {
-      while (!terminalError && !params.isCancelled() && isQueueAtCapacity()) {
+      while (
+        !terminalError &&
+        !params.isCancelled() &&
+        wouldExceedQueueLimit(queue.length + 1)
+      ) {
         const waiter = createDeferred();
         waiters.add(waiter);
         await waiter.promise;

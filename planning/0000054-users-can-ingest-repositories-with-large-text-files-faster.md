@@ -1362,7 +1362,7 @@ What changed and why:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 15`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -1381,16 +1381,16 @@ This task fixes the reviewed bounded-queue contract gap in `createEmbeddingDispa
 
 #### Subtasks
 
-1. [ ] Re-read the current Story 54 findings and blind-spot challenge artifacts, then inspect [server/src/ingest/embeddingDispatcher.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/embeddingDispatcher.ts), [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), and [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts) so the fix stays scoped to the reviewed queue-cap contract.
-2. [ ] Update [server/src/ingest/embeddingDispatcher.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/embeddingDispatcher.ts) so the dispatcher enforces its waiting-queue bound from inside the helper even when same-turn enqueue bursts arrive before the pump runs. Do not weaken the immediate slot-refill behavior or the late-result-ignore behavior while repairing the queue bound.
-3. [ ] Keep [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts) on the existing dispatch path unless a caller-side contract change is proven unavoidable. The preferred repair is helper-local, not a new requirement that production callers serialize work forever.
-4. [ ] Expand [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts) with deterministic proof for the reviewed same-turn burst case, while preserving proof for immediate slot refill, deterministic persistence order, and late-result handling after cancel.
-5. [ ] Update any touched test names, inline descriptions, and assertions so they still describe the exact invariant being proved after the helper repair rather than only adjacent serialized behavior.
+1. [x] Re-read the current Story 54 findings and blind-spot challenge artifacts, then inspect [server/src/ingest/embeddingDispatcher.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/embeddingDispatcher.ts), [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), and [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts) so the fix stays scoped to the reviewed queue-cap contract.
+2. [x] Update [server/src/ingest/embeddingDispatcher.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/embeddingDispatcher.ts) so the dispatcher enforces its waiting-queue bound from inside the helper even when same-turn enqueue bursts arrive before the pump runs. Do not weaken the immediate slot-refill behavior or the late-result-ignore behavior while repairing the queue bound.
+3. [x] Keep [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts) on the existing dispatch path unless a caller-side contract change is proven unavoidable. The preferred repair is helper-local, not a new requirement that production callers serialize work forever.
+4. [x] Expand [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts) with deterministic proof for the reviewed same-turn burst case, while preserving proof for immediate slot refill, deterministic persistence order, and late-result handling after cancel.
+5. [x] Update any touched test names, inline descriptions, and assertions so they still describe the exact invariant being proved after the helper repair rather than only adjacent serialized behavior.
 
 #### Testing
 
-1. [ ] Do not attempt to run build commands for this task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
-2. [ ] Do not attempt narrow server validation before the wrapper path succeeds for this task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the repaired dispatcher contract in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts), then rerun full `npm run test:summary:server:unit`.
+1. [x] Do not attempt to run build commands for this task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [x] Do not attempt narrow server validation before the wrapper path succeeds for this task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the repaired dispatcher contract in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for [server/src/test/unit/ingest-dispatcher.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-dispatcher.test.ts), then rerun full `npm run test:summary:server:unit`.
 
 #### Implementation notes
 
@@ -1398,6 +1398,13 @@ This task fixes the reviewed bounded-queue contract gap in `createEmbeddingDispa
 - This task is intentionally scoped to the helper contract, its direct unit proof, and any minimal caller touch needed to keep the existing runtime path honest.
 - Record exactly how the helper now reserves or accounts for waiting capacity across same-turn enqueue bursts, why that closes the review finding, and whether any unchanged caller assumptions had to be revisited.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+- Subtask 1: Re-read the current findings and blind-spot challenge, then inspected the dispatcher helper, the unchanged `processRun(...)` caller path, and the existing dispatcher unit proof so the repair stayed scoped to helper-local queue accounting.
+- Subtask 2: Updated `server/src/ingest/embeddingDispatcher.ts` to compute projected waiting work after immediate free-slot capacity is consumed, so same-turn enqueue bursts are blocked only when they would exceed the configured waiting-queue bound rather than depending on a later pump turn to catch up.
+- Subtask 3: Left `server/src/ingest/ingestJob.ts` unchanged because the queue-cap repair held helper-local and did not require a new caller-side serialization contract.
+- Subtask 4: Expanded `server/src/test/unit/ingest-dispatcher.test.ts` so the queue-cap proof now fires four enqueues in the same turn, verifies only three items are admitted before capacity reopens, and still proves immediate slot refill once one request resolves.
+- Subtask 5: Renamed the direct dispatcher proof and tightened the snapshot/assertion text so the test now explicitly describes the same-turn burst invariant rather than only the older serialized-await behavior.
+- Testing 1: `npm run build:summary:server` passed with `agent_action: skip_log`, so the helper-local queue-cap repair clears the standard server build wrapper without needing log inspection.
+- Testing 2: The first full `npm run test:summary:server:unit` rerun caught one local assertion mismatch in the new Task 16 dispatcher proof, so I inspected [test-results/server-unit-tests-2026-03-29T13-07-41-077Z.log](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/test-results/server-unit-tests-2026-03-29T13-07-41-077Z.log), corrected the queue-depth assertion to reflect one newly admitted waiting item after capacity reopened, verified the focused dispatcher wrapper passed `1/1`, and then reran full `npm run test:summary:server:unit` successfully with `1551/1551` and `agent_action: skip_log`.
 
 ---
 

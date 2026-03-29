@@ -48,6 +48,7 @@ test.afterEach(() => {
   __resetIngestJobsForTest();
   resetCollectionsForTests();
   release();
+  delete process.env.CODEINFO_INGEST_FLUSH_EVERY;
   delete process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT;
   delete process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE;
   delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
@@ -108,22 +109,78 @@ async function waitForStatus(
   throw new Error(`Timed out waiting for matching status for ${runId}`);
 }
 
+async function waitForCondition(
+  label: string,
+  predicate: () => boolean,
+  timeoutMs = 2_000,
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+}
+
 function setupChromaMocks() {
+  const storedVectors = new Map<string, Record<string, unknown>>();
+  const extractWhereValue = (
+    where: Record<string, unknown> | undefined,
+    key: string,
+  ): unknown => {
+    if (!where) return undefined;
+    if (key in where) {
+      return where[key];
+    }
+    const andConditions = Array.isArray(where.$and)
+      ? (where.$and as Record<string, unknown>[])
+      : [];
+    for (const condition of andConditions) {
+      if (key in condition) {
+        return condition[key];
+      }
+    }
+    return undefined;
+  };
   const vectors = {
     addCalls: [] as Array<{ ids: string[] }>,
+    deleteCalls: [] as Array<{ where?: Record<string, unknown> }>,
     metadata: { lockedModelId: null as string | null },
-    add: async (payload: { ids: string[] }) => {
+    add: async (payload: {
+      ids: string[];
+      metadatas?: Record<string, unknown>[];
+    }) => {
       vectors.addCalls.push(payload);
+      for (const [index, id] of payload.ids.entries()) {
+        storedVectors.set(id, payload.metadatas?.[index] ?? {});
+      }
     },
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
-    delete: async () => {},
+    delete: async (payload?: { where?: Record<string, unknown> }) => {
+      vectors.deleteCalls.push(payload ?? {});
+      const runId = extractWhereValue(payload?.where, 'runId');
+      const root = extractWhereValue(payload?.where, 'root');
+      const relPath = extractWhereValue(payload?.where, 'relPath');
+      for (const [id, metadata] of storedVectors.entries()) {
+        if (
+          (runId === undefined || metadata.runId === runId) &&
+          (root === undefined || metadata.root === root) &&
+          (relPath === undefined || metadata.relPath === relPath)
+        ) {
+          storedVectors.delete(id);
+        }
+      }
+    },
     modify: async ({ metadata }: { metadata?: Record<string, unknown> }) => {
       vectors.metadata = {
         ...(vectors.metadata ?? {}),
         ...(metadata ?? {}),
       } as { lockedModelId: string | null };
     },
-    count: async () => 0,
+    count: async () => storedVectors.size,
+    storedVectors,
   };
   const roots = {
     addCalls: [] as Array<{
@@ -342,6 +399,76 @@ test('cancel after production completes still reaches cancelled cleanup with que
       vectors.addCalls.length,
       0,
       'cancelled run should not persist embeddings after queued work is dropped',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('cancel after provider result resolution does not leave vectors behind', async () => {
+  const { vectors } = setupChromaMocks();
+  process.env.CODEINFO_INGEST_FLUSH_EVERY = '1';
+  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
+  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '-1';
+  const persistStarted = createDeferred<void>();
+  const releasePersist = createDeferred<void>();
+  const originalAdd = vectors.add;
+  vectors.add = async (payload) => {
+    persistStarted.resolve();
+    await releasePersist.promise;
+    await originalAdd(payload);
+  };
+
+  const deps = buildDeps({
+    embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+  });
+  const { root, cleanup } = await createTempRepo({
+    'a.txt': 'alpha beta gamma',
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-after-result-before-persist',
+        model: 'embed-1',
+      },
+      deps,
+    );
+
+    await persistStarted.promise;
+    const cancelPromise = cancelRun(runId);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(
+      vectors.storedVectors.size,
+      0,
+      'persist should still be blocked when cancel cleanup starts',
+    );
+
+    releasePersist.resolve();
+    await cancelPromise;
+    const finalStatus = await waitForTerminal(runId);
+    await waitForCondition('cancelled vector cleanup', () => {
+      return vectors.storedVectors.size === 0;
+    });
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(
+      vectors.storedVectors.size,
+      0,
+      'cancelled run should not retain vectors written during the fenced persist window',
+    );
+    assert.ok(
+      vectors.deleteCalls.some((call) => {
+        const where = call.where ?? {};
+        return (
+          where.runId === runId ||
+          (
+            (where.$and as Array<Record<string, unknown>> | undefined) ?? []
+          ).some((condition) => condition.runId === runId)
+        );
+      }),
+      'expected cancel cleanup to delete vectors for the cancelled run',
     );
   } finally {
     await cleanup();

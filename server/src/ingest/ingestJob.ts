@@ -741,6 +741,12 @@ async function processRun(runId: string, input: IngestJobInput) {
         metadatas: metadatasBatch as Metadata[],
       });
 
+      if (shouldFencePersistence()) {
+        await deleteVectors({ ids: [...idsBatch] });
+        clearBatch();
+        return;
+      }
+
       vectorDim = embeddingsBatch[0]?.length ?? vectorDim;
       counts.embedded += embeddingsBatch.length;
       const locked = await getLockedEmbeddingModel();
@@ -820,9 +826,28 @@ async function processRun(runId: string, input: IngestJobInput) {
     let nextSequence = 0;
     let nextPersistSequence = 0;
     let persistChain = Promise.resolve();
+    let cancelCleanupStarted = false;
+
+    const shouldFencePersistence = () =>
+      cancelledRuns.has(runId) || cancelCleanupStarted;
+
+    const clearPendingPersistenceState = () => {
+      pendingResults.clear();
+      clearBatch();
+    };
 
     const persistReadyResults = async () => {
+      if (shouldFencePersistence()) {
+        clearPendingPersistenceState();
+        return;
+      }
+
       while (pendingResults.has(nextPersistSequence)) {
+        if (shouldFencePersistence()) {
+          clearPendingPersistenceState();
+          return;
+        }
+
         const result = pendingResults.get(nextPersistSequence);
         pendingResults.delete(nextPersistSequence);
         nextPersistSequence += 1;
@@ -864,6 +889,10 @@ async function processRun(runId: string, input: IngestJobInput) {
     };
 
     const queuePersist = async () => {
+      if (shouldFencePersistence()) {
+        clearPendingPersistenceState();
+        return;
+      }
       const next = persistChain.then(() => persistReadyResults());
       persistChain = next.catch(() => undefined);
       await next;
@@ -895,6 +924,10 @@ async function processRun(runId: string, input: IngestJobInput) {
             });
           },
           onCompleted: async (results) => {
+            if (shouldFencePersistence()) {
+              clearPendingPersistenceState();
+              return;
+            }
             for (const result of results) {
               pendingResults.set(result.sequence, {
                 ...(result.meta as {
@@ -1133,9 +1166,11 @@ async function processRun(runId: string, input: IngestJobInput) {
       currentFile: string,
     ) => {
       if (!cancelledRuns.has(runId)) return false;
+      cancelCleanupStarted = true;
       dispatcher?.cancel();
       activeDispatchers.delete(runId);
-      clearBatch();
+      clearPendingPersistenceState();
+      await persistChain;
       clearAstBatches();
       setStatusAndPublish(runId, {
         runId,

@@ -435,7 +435,13 @@ export async function clearLockedModel(options?: {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('ChromaNotFoundError')) {
+    const errorName =
+      err instanceof Error && typeof err.name === 'string' ? err.name : '';
+    if (
+      errorName.includes('ChromaNotFoundError') ||
+      message.includes('ChromaNotFoundError') ||
+      message.includes('requested resource could not be found')
+    ) {
       baseLogger.info('clearLockedModel skipped; collection missing');
       return;
     }

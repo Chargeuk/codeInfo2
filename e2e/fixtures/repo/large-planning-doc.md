@@ -1,6 +1,7 @@
 # Story 54 Large Planning Fixture
 
 This file is intentionally oversized so the mounted runtime path `/fixtures/repo/large-planning-doc.md` crosses the large-text threshold during Story 54 validation.
+`e2e/ingest.spec.ts` uses this checked-in artifact as the browser-visible large-text proof, and the compose-backed manual validation uses the same mounted path so Story 54 does not depend on tribal knowledge.
 
 ## Planning Section 0001
 

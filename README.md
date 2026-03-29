@@ -265,6 +265,22 @@ codex_agents/<agentName>/
 - Explicit `Stop` remains the only Chat action that cancels an active run. Hidden conversations continue in the background until they finish or the user stops them directly.
 - Revisiting a hidden conversation reuses the existing `/conversations/:id/turns` transcript plus optional inflight snapshot so the visible page rehydrates the correct persisted state.
 
+## Story 54 Ingest Tuning
+
+- The existing `/ingest` UI and `/ingest/start` plus `/ingest/reembed/:root` routes remain the runtime path for large-text ingest. Story 54 adds no new ingest API and no new browser surface.
+- Large `.md`, `.mdx`, and `.txt` files now switch to a prose-oriented chunking path once they reach `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES` in `server/.env`. The checked-in default is `65536`, and the runtime logs `DEV-0000054:large_text_path_selected` when that path is selected.
+- Provider dispatch is now bounded per provider:
+  - `CODEINFO_INGEST_OPENAI_MAX_BATCH_SIZE=20`
+  - `CODEINFO_INGEST_OPENAI_MAX_INFLIGHT=10`
+  - `CODEINFO_INGEST_LMSTUDIO_MAX_BATCH_SIZE=1`
+  - `CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT=4`
+  - `CODEINFO_INGEST_MAX_QUEUE_SIZE=-1`
+- OpenAI batching may mix chunks from different files, but ordering and persisted metadata stay deterministic. LM Studio still behaves as effective batch size `1` even if configured higher, and over-large configured values clamp to provider-supported limits instead of failing a run.
+- Queue-cap behavior is explicit: `-1` means no extra absolute cap beyond the normal dispatcher bounds, `0` means no waiting queue, and any positive value caps waiting work at that many queued items.
+- Cancellation is best-effort and bounded: once a run is cancelled, the dispatcher stops sending new work immediately, tries to abort in-flight provider requests where supported, and ignores late results that arrive after cancellation.
+- Delta re-embed AST behavior stays conservative: if no AST-supported file was added, changed, or deleted, AST rebuild is skipped entirely; if any AST-supported add/change/delete or boundary-crossing move is present, the runtime reuses the existing full AST rebuild path. Story 54 does not add partial AST updates or rename detection.
+- The checked-in Story 54 browser/runtime proof fixture is `[e2e/fixtures/repo/large-planning-doc.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/e2e/fixtures/repo/large-planning-doc.md)`, mounted at `/fixtures/repo/large-planning-doc.md` in the compose-backed runtime used by e2e and manual validation.
+
 ## Common Usage
 
 1. Start the local stack: `npm run compose:local`.

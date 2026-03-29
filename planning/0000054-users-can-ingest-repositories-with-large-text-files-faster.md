@@ -618,7 +618,7 @@ This task narrows AST work during delta re-embed without introducing incremental
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -639,17 +639,17 @@ This final task proves the story as one coherent runtime change rather than as i
 
 #### Subtasks
 
-1. [ ] Re-read the full story in `planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md` and trace every Acceptance Criterion, important Description requirement, proof marker, and explicit Out Of Scope boundary back to the completed outputs from Task 1 through Task 4. Record that coverage directly in Task 5 Implementation notes so final validation proves the whole story without relying on tribal knowledge or vague “manual checking.”
-2. [ ] Update `README.md` in its own documentation subtask so operators can discover the new large-text threshold, provider-specific batching and max-in-flight env vars, absolute queue-cap behavior, cancellation expectations, and the refined delta AST rebuild rule from the main repository docs. Keep the README text honest about scope: no benchmark SLA, no new ingest API, no partial AST updates.
-3. [ ] Update `e2e/ingest.spec.ts` and the checked-in proof artifact `e2e/fixtures/repo/large-planning-doc.md` to prove the final browser-visible invariant “the existing ingest UI still completes a reproducible large-text ingest flow without a new surface.” Keep this browser proof in the final validation task rather than in the lower-level server tasks, use the mounted runtime path `/fixtures/repo/large-planning-doc.md` inside the test flow, and give the Playwright case a title that explicitly names large-text ingest instead of reusing a generic happy-path title.
-4. [ ] Update the proof artifact comments or nearby documentation in `e2e/fixtures/repo/large-planning-doc.md` and `e2e/ingest.spec.ts` so the final proof obligation “one reproducible large-file scenario exists and is intentionally part of Story 54 validation” is visible in the artifact itself rather than remaining tribal knowledge.
+1. [x] Re-read the full story in `planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md` and trace every Acceptance Criterion, important Description requirement, proof marker, and explicit Out Of Scope boundary back to the completed outputs from Task 1 through Task 4. Record that coverage directly in Task 5 Implementation notes so final validation proves the whole story without relying on tribal knowledge or vague “manual checking.”
+2. [x] Update `README.md` in its own documentation subtask so operators can discover the new large-text threshold, provider-specific batching and max-in-flight env vars, absolute queue-cap behavior, cancellation expectations, and the refined delta AST rebuild rule from the main repository docs. Keep the README text honest about scope: no benchmark SLA, no new ingest API, no partial AST updates.
+3. [x] Update `e2e/ingest.spec.ts` and the checked-in proof artifact `e2e/fixtures/repo/large-planning-doc.md` to prove the final browser-visible invariant “the existing ingest UI still completes a reproducible large-text ingest flow without a new surface.” Keep this browser proof in the final validation task rather than in the lower-level server tasks, use the mounted runtime path `/fixtures/repo/large-planning-doc.md` inside the test flow, and give the Playwright case a title that explicitly names large-text ingest instead of reusing a generic happy-path title.
+4. [x] Update the proof artifact comments or nearby documentation in `e2e/fixtures/repo/large-planning-doc.md` and `e2e/ingest.spec.ts` so the final proof obligation “one reproducible large-file scenario exists and is intentionally part of Story 54 validation” is visible in the artifact itself rather than remaining tribal knowledge.
 5. [ ] Record the final proof artifacts for this story in Task 5 Implementation notes as they are produced: the wrapper commands that passed, the checked-in fixture path `e2e/fixtures/repo/large-planning-doc.md`, the mounted runtime path `/fixtures/repo/large-planning-doc.md`, and the runtime markers observed (`DEV-0000054:large_text_path_selected`, `DEV-0000054:embedding_dispatch_slot_filled`, and the AST or cancel marker relevant to the run). This keeps the end-to-end proof traceable after the wrapper pass finishes.
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers suite passes.
+1. [x] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers suite passes.
 4. [ ] Run `npm run test:summary:e2e` and confirm the end-to-end ingest suite passes on the existing ingest UI flow.
 5. [ ] Run `npm run compose:up` so the main runtime stack is available for one manual large-file proof run against the standard ingest path. The build was already covered by `npm run compose:build:summary` in Testing step 1.
 6. [ ] Perform one manual Playwright MCP validation against the existing `/ingest` UI using the mounted fixture path `/fixtures/repo/large-planning-doc.md`, and confirm the runtime evidence includes `DEV-0000054:large_text_path_selected`, `DEV-0000054:embedding_dispatch_slot_filled`, and the expected cancel or AST marker for the path being exercised.
@@ -657,6 +657,14 @@ This final task proves the story as one coherent runtime change rather than as i
 
 #### Implementation notes
 
+- Subtask 1: Re-read the full Story 54 plan and traced the current proof coverage back to completed work: Task 1 owns file-size discovery, the large-text threshold, and `DEV-0000054:large_text_path_selected`; Task 2 owns provider batch/max-in-flight config and contract clamps; Task 3 owns slot-driven dispatch, bounded queueing, `/fixtures/repo/large-planning-doc.md`, `DEV-0000054:embedding_dispatch_slot_filled`, and cancel late-result fencing; Task 4 owns the delta AST skip-or-full-rebuild rule and `DEV-0000054:delta_ast_mode_selected`. The remaining gap is final documentation plus one compose-backed browser/runtime proof that exercises those finished paths together without expanding scope into new runtime behavior.
+- Subtask 2: Added a Story 54 README section that documents the checked-in large-text threshold, provider-specific batching and max-in-flight knobs, queue-cap semantics, cancellation expectations, and the final conservative delta AST rule without claiming a new API surface or benchmark SLA.
+- Subtask 3: Reworked `e2e/ingest.spec.ts` so the browser proof explicitly targets the mounted large-file path `/fixtures/repo/large-planning-doc.md`, waits for the active ingest panel to reach `large-planning-doc.md`, and checks the runtime markers instead of relying on a generic happy-path title and completion row alone.
+- Subtask 4: Strengthened the checked-in artifact comments in `e2e/fixtures/repo/large-planning-doc.md` and the nearby e2e test comment so the Story 54 large-file proof remains visible in the artifact and test source instead of only in the planning document.
+- Testing 1: `npm run compose:build:summary` passed with `agent_action: skip_log`, confirming the compose-backed runtime images still build cleanly with the Story 54 docs and e2e proof updates in place.
+- Testing 2: `npm run test:summary:server:unit` passed with 1542/1542 tests green and `agent_action: skip_log`, so the full server unit and integration suite stayed clean after the Story 54 close-out docs and browser-proof updates.
+- Testing 3: `npm run test:summary:server:cucumber` passed with 80/80 tests green after keeping `clearLockedModel()` tolerant of already-missing Chroma collections and aligning the controlled LM Studio embedding fixture with the shared 1D Chroma test environment used across the suite.
+- **BLOCKER** Testing 4 (`npm run test:summary:e2e`) is still blocked by an unrelated full-suite failure in `e2e/chat-tools.spec.ts` (`shows vector search citation with host path` timing out on a blank page) even after the Story 54 ingest-specific cancel regression was fixed. I verified the Story 54 runtime repair separately with `npm run compose:e2e:build`, `npm run compose:e2e:up`, and a direct API repro against `http://host.docker.internal:6010` where a completed large-text ingest followed by an in-progress cancel now returns `200 {"status":"ok","cleanup":"complete"}` and leaves the run in `cancelled` with the expected Story 54 markers. The missing capability is a stable full e2e harness for the unrelated chat-tools citation test, so this task should stay in progress and resume with Testing 4 after that suite-level issue is repaired or isolated outside Story 54.
 - Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
 
 ## Questions

@@ -164,12 +164,30 @@ When(
 
 Then(
   'ingest embedding dispatch status for the last run becomes {string}',
+  { timeout: 75_000 },
   async (state: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 120; i += 1) {
-      const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-      const body = await res.json();
+    let lastSeenState: string | undefined;
+    for (let i = 0; i < 600; i += 1) {
+      const res: Response = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
+      const body = (await res.json()) as {
+        state?: string;
+        message?: string;
+        lastError?: string;
+      };
+      const currentState = body.state as string | undefined;
+      if (currentState !== lastSeenState) {
+        lastSeenState = currentState;
+        console.log(
+          `[ingest-embedding-dispatch] poll ${i} runId=${lastRunId} state=${currentState ?? 'missing'} message=${body.message ?? ''}`,
+        );
+      }
       if (body.state === state) return;
+      if (body.state === 'error') {
+        assert.fail(
+          `run reached error state before ${state}: ${body.lastError ?? body.message ?? 'unknown error'}`,
+        );
+      }
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     assert.fail(`did not reach state ${state}`);

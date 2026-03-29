@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { LogEntry } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
-import type { Metadata } from 'chromadb';
+import type { Collection, Metadata } from 'chromadb';
 import mongoose from 'mongoose';
 import { parseAstSource } from '../ast/parser.js';
 import { append as appendLog } from '../logStore.js';
@@ -345,11 +345,15 @@ async function getEmbeddingModel(
 
 async function resolveRootEmbeddingDim(params: {
   existingRootDim?: number;
+  collectionDim?: number | null;
   vectorDim?: number;
   modelKey: string;
 }): Promise<number> {
   if (params.existingRootDim && params.existingRootDim > 0) {
     return params.existingRootDim;
+  }
+  if (params.collectionDim && params.collectionDim > 0) {
+    return params.collectionDim;
   }
   if (params.vectorDim && params.vectorDim > 1) {
     return params.vectorDim;
@@ -396,13 +400,49 @@ async function resolveRootEmbeddingDim(params: {
   return 1;
 }
 
+async function resolveCollectionDimension(
+  collection: Collection,
+): Promise<number | null> {
+  const hintedDimension = (collection as Collection & { dimension?: number })
+    .dimension;
+  if (typeof hintedDimension === 'number' && hintedDimension > 0) {
+    return hintedDimension;
+  }
+
+  const rawBaseUrl = process.env.CODEINFO_CHROMA_URL?.trim() || 'http://localhost:8000';
+  const normalizedBaseUrl = rawBaseUrl.includes('://')
+    ? rawBaseUrl
+    : `http://${rawBaseUrl}`;
+  const endpoint = new URL(
+    `/api/v2/tenants/${encodeURIComponent(collection.tenant)}/databases/${encodeURIComponent(collection.database)}/collections/${encodeURIComponent(collection.name)}`,
+    normalizedBaseUrl,
+  );
+
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as { dimension?: unknown };
+    return typeof body.dimension === 'number' && body.dimension > 0
+      ? body.dimension
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveKnownRootEmbeddingDim(params: {
   existingRootDim?: number;
+  collectionDim?: number | null;
   vectorDim?: number;
   lockedDim?: number | null;
 }) {
   if (params.existingRootDim && params.existingRootDim > 0) {
     return params.existingRootDim;
+  }
+  if (params.collectionDim && params.collectionDim > 0) {
+    return params.collectionDim;
   }
   if (params.vectorDim && params.vectorDim > 1) {
     return params.vectorDim;
@@ -657,6 +697,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = rootDimsResult.embeddings?.[0]?.length;
+    const existingRootCollectionDim = await resolveCollectionDimension(roots);
 
     const idsBatch: string[] = [];
     const documentsBatch: string[] = [];
@@ -906,6 +947,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           const counts = { files: 0, chunks: 0, embedded: 0 };
           const rootEmbeddingDim = await resolveRootEmbeddingDim({
             existingRootDim,
+            collectionDim: existingRootCollectionDim,
             vectorDim,
             modelKey: toProviderQualifiedModelId(requestedSelection),
           });
@@ -993,6 +1035,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           const counts = { files: 0, chunks: 0, embedded: 0 };
           const rootEmbeddingDim = await resolveRootEmbeddingDim({
             existingRootDim,
+            collectionDim: existingRootCollectionDim,
             vectorDim,
             modelKey: toProviderQualifiedModelId(requestedSelection),
           });
@@ -1114,6 +1157,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       const currentLock = await getLockedEmbeddingModel();
       const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
         existingRootDim,
+        collectionDim: existingRootCollectionDim,
         vectorDim,
         lockedDim: currentLock?.embeddingDimensions ?? null,
       });
@@ -1359,6 +1403,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         : 'skipped';
     const rootEmbeddingDim = await resolveRootEmbeddingDim({
       existingRootDim,
+      collectionDim: existingRootCollectionDim,
       vectorDim,
       modelKey: toProviderQualifiedModelId(requestedSelection),
     });
@@ -1758,12 +1803,21 @@ export async function cancelRun(runId: string) {
       }
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = existingRoots.embeddings?.[0]?.length;
-    const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
+    const existingRootCollectionDim = await resolveCollectionDimension(roots);
+    let rootEmbeddingDim = resolveKnownRootEmbeddingDim({
       existingRootDim,
+      collectionDim: existingRootCollectionDim,
       lockedDim: selected
         ? (await getLockedEmbeddingModel())?.embeddingDimensions
         : null,
     });
+    if (rootEmbeddingDim <= 1 && selected) {
+      rootEmbeddingDim = await resolveRootEmbeddingDim({
+        existingRootDim,
+        collectionDim: existingRootCollectionDim,
+        modelKey: toProviderQualifiedModelId(selected),
+      });
+    }
 
     const cancelMetadata: Metadata = {
       runId,

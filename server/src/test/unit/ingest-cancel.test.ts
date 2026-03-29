@@ -114,11 +114,14 @@ function setupChromaMocks() {
   const roots = {
     addCalls: [] as Array<{
       ids: string[];
+      embeddings: number[][];
       metadatas: Record<string, unknown>[];
     }>,
+    dimension: 3,
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     add: async (payload: {
       ids: string[];
+      embeddings: number[][];
       metadatas: Record<string, unknown>[];
     }) => {
       roots.addCalls.push(payload);
@@ -270,6 +273,58 @@ test('cancel stops new embedding work immediately once dispatch has started', as
       vectors.addCalls.length,
       0,
       'cancelled run should not persist embeddings after cleanup',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('cancel reuses the roots collection dimension when rows were removed first', async () => {
+  const { roots } = setupChromaMocks();
+  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
+  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '0';
+  const firstEmbedding = createDeferred<{ embedding: number[] }>();
+  const embedStarted = createDeferred<void>();
+  let rootsCleared = false;
+  roots.dimension = 2560;
+  roots.get = async () => ({
+    embeddings: rootsCleared ? [] : [[0.1, 0.2, 0.3]],
+  });
+  roots.delete = async () => {
+    rootsCleared = true;
+  };
+
+  const deps = buildDeps({
+    onEmbedStart: () => {
+      embedStarted.resolve();
+    },
+    embedPromiseFactory: async () => firstEmbedding.promise,
+  });
+  const { root, cleanup } = await createTempRepo({
+    'large.md': '# heading\n\n' + 'alpha beta gamma '.repeat(5000),
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-roots-dimension',
+        model: 'embed-1',
+      },
+      deps,
+    );
+
+    await embedStarted.promise;
+    await cancelRun(runId);
+    firstEmbedding.resolve({ embedding: [0.1, 0.2, 0.3] });
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(roots.addCalls.length, 1);
+    assert.equal(roots.addCalls[0]?.embeddings[0]?.length, 2560);
+    assert.equal(
+      roots.addCalls[0]?.metadatas[0]?.embeddingDimensions,
+      2560,
     );
   } finally {
     await cleanup();

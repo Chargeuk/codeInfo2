@@ -25,6 +25,7 @@ export type IngestFailureLogContext = {
 
 export type IngestLmStudioNormalizedError = {
   error:
+    | 'LMSTUDIO_ABORTED'
     | 'LMSTUDIO_UNAVAILABLE'
     | 'LMSTUDIO_MODEL_UNAVAILABLE'
     | 'LMSTUDIO_BAD_REQUEST';
@@ -38,6 +39,7 @@ export class LmStudioEmbeddingError extends Error {
 
   constructor(
     public readonly code:
+      | 'LMSTUDIO_ABORTED'
       | 'LMSTUDIO_UNAVAILABLE'
       | 'LMSTUDIO_MODEL_UNAVAILABLE'
       | 'LMSTUDIO_BAD_REQUEST',
@@ -57,6 +59,38 @@ function sanitizeMessage(value: string): string {
     .slice(0, 300);
 }
 
+function isAbortLikeError(error: unknown): boolean {
+  if (error instanceof Error && error.name === 'AbortError') {
+    return true;
+  }
+
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const name =
+    'name' in error && typeof (error as { name?: unknown }).name === 'string'
+      ? (error as { name: string }).name
+      : '';
+  if (name === 'AbortError') {
+    return true;
+  }
+
+  const code =
+    'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : '';
+  if (code === 'ABORT_ERR') {
+    return true;
+  }
+
+  if ('cause' in error) {
+    return isAbortLikeError((error as { cause?: unknown }).cause);
+  }
+
+  return false;
+}
+
 export function mapLmStudioIngestError(
   error: unknown,
 ): IngestLmStudioNormalizedError {
@@ -67,6 +101,15 @@ export function mapLmStudioIngestError(
   );
   const lower = message.toLowerCase();
   const code = (error as { code?: unknown })?.code;
+
+  if (isAbortLikeError(error)) {
+    return {
+      error: 'LMSTUDIO_ABORTED',
+      message,
+      retryable: false,
+      provider: 'lmstudio',
+    };
+  }
 
   if (code === 'LMSTUDIO_MODEL_UNAVAILABLE') {
     return {

@@ -1,3 +1,5 @@
+import { LmStudioEmbeddingError } from './providers/ingestFailureLogging.js';
+import { OpenAiEmbeddingError } from './providers/openaiErrors.js';
 import type {
   ProviderEmbedRequestOptions,
   ProviderEmbeddingModel,
@@ -63,6 +65,22 @@ function deriveQueueLimit(
   const derived = Math.max(1, effectiveBatchSize * maxInFlight);
   if (maxQueueSize < 0) return derived;
   return Math.min(derived, maxQueueSize);
+}
+
+function isCancellationAbortEquivalent(error: unknown): boolean {
+  if (error instanceof Error && error.name === 'AbortError') {
+    return true;
+  }
+
+  if (error instanceof OpenAiEmbeddingError) {
+    return error.code === 'OPENAI_ABORTED';
+  }
+
+  if (error instanceof LmStudioEmbeddingError) {
+    return error.code === 'LMSTUDIO_ABORTED';
+  }
+
+  return false;
 }
 
 export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
@@ -169,8 +187,7 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
       if (
         params.isCancelled() &&
         controller.signal.aborted &&
-        error instanceof Error &&
-        error.name === 'AbortError'
+        isCancellationAbortEquivalent(error)
       ) {
         return;
       }

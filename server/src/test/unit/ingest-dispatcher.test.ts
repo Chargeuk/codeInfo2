@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chunkTextStream } from '../../ingest/chunker.js';
 import { createEmbeddingDispatcher } from '../../ingest/embeddingDispatcher.js';
+import {
+  LmStudioEmbeddingError,
+  OpenAiEmbeddingError,
+} from '../../ingest/providers/index.js';
 import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
 import type { IngestConfig } from '../../ingest/types.js';
 
@@ -314,6 +318,104 @@ test('cancel after production completes with queued work does not deadlock waitF
   await assert.doesNotReject(waitForIdle);
   assert.equal(dispatcher.snapshot().queueDepth, 0);
   assert.equal(dispatcher.snapshot().inFlight, 0);
+});
+
+test('cancel suppresses wrapped OpenAI aborted errors from in-flight work', async () => {
+  const request = createDeferred<number[][]>();
+  let cancelled = false;
+  const dispatcher = createEmbeddingDispatcher({
+    model: {
+      modelKey: 'openai-aborted',
+      effectiveBatchSize: 1,
+      supportsAbort: true,
+      async embedText() {
+        return [0.1];
+      },
+      async embedBatch() {
+        return request.promise;
+      },
+      async countTokens(text) {
+        return text.split(/\s+/).filter(Boolean).length;
+      },
+      async getContextLength() {
+        return 64;
+      },
+    },
+    effectiveBatchSize: 1,
+    maxInFlight: 1,
+    maxQueueSize: 1,
+    isCancelled: () => cancelled,
+    onDispatch: () => {},
+    onCompleted: async () => {},
+    onLateResultIgnored: () => {},
+  });
+
+  await dispatcher.enqueue({ sequence: 0, text: 'alpha', meta: null });
+  dispatcher.completeProduction();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  cancelled = true;
+  const waitForIdle = dispatcher.waitForIdle();
+  dispatcher.cancel();
+  request.reject(new OpenAiEmbeddingError('OPENAI_ABORTED', 'aborted', false));
+
+  await assert.doesNotReject(waitForIdle);
+  assert.deepEqual(dispatcher.snapshot(), {
+    queueDepth: 0,
+    inFlight: 0,
+    queueLimit: 1,
+    dispatchCount: 1,
+  });
+});
+
+test('cancel suppresses wrapped LM Studio aborted errors from in-flight work', async () => {
+  const request = createDeferred<number[][]>();
+  let cancelled = false;
+  const dispatcher = createEmbeddingDispatcher({
+    model: {
+      modelKey: 'lmstudio-aborted',
+      effectiveBatchSize: 1,
+      supportsAbort: true,
+      async embedText() {
+        return [0.1];
+      },
+      async embedBatch() {
+        return request.promise;
+      },
+      async countTokens(text) {
+        return text.split(/\s+/).filter(Boolean).length;
+      },
+      async getContextLength() {
+        return 64;
+      },
+    },
+    effectiveBatchSize: 1,
+    maxInFlight: 1,
+    maxQueueSize: 1,
+    isCancelled: () => cancelled,
+    onDispatch: () => {},
+    onCompleted: async () => {},
+    onLateResultIgnored: () => {},
+  });
+
+  await dispatcher.enqueue({ sequence: 0, text: 'alpha', meta: null });
+  dispatcher.completeProduction();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  cancelled = true;
+  const waitForIdle = dispatcher.waitForIdle();
+  dispatcher.cancel();
+  request.reject(
+    new LmStudioEmbeddingError('LMSTUDIO_ABORTED', 'aborted', false),
+  );
+
+  await assert.doesNotReject(waitForIdle);
+  assert.deepEqual(dispatcher.snapshot(), {
+    queueDepth: 0,
+    inFlight: 0,
+    queueLimit: 1,
+    dispatchCount: 1,
+  });
 });
 
 test('large-text chunk production can overlap with first embedding dispatch', async () => {

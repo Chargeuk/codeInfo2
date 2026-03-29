@@ -887,3 +887,49 @@ test('late provider results are ignored after cancel instead of being written', 
   );
   assert.equal(lateResultIgnored, true);
 });
+
+test('wrapped abort errors from LM Studio still converge to cancelled after cancel', async () => {
+  const embedStarted = createDeferred<void>();
+  const deps = buildDeps({
+    onEmbedStart: () => {
+      embedStarted.resolve();
+    },
+    embedPromiseFactory: async (_text, options) =>
+      await new Promise<{ embedding: number[] }>((_resolve, reject) => {
+        const abortError = new Error('aborted');
+        abortError.name = 'AbortError';
+
+        if (options?.signal?.aborted) {
+          reject(abortError);
+          return;
+        }
+
+        options?.signal?.addEventListener('abort', () => reject(abortError), {
+          once: true,
+        });
+      }),
+  });
+  const { root, cleanup } = await createTempRepo({
+    'a.txt': 'alpha beta gamma',
+    'b.txt': 'delta epsilon zeta',
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-wrapped-abort',
+        model: 'embed-1',
+      },
+      deps,
+    );
+
+    await embedStarted.promise;
+    await cancelRun(runId);
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+  } finally {
+    await cleanup();
+  }
+});

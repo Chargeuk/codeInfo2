@@ -1412,7 +1412,7 @@ This task fixes the reviewed bounded-queue contract gap in `createEmbeddingDispa
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Overview
 
@@ -1431,14 +1431,14 @@ This task fixes the reviewed terminal-status payload inconsistency for AST-relev
 
 #### Subtasks
 
-1. [ ] Re-read the current Story 54 findings and blind-spot challenge artifacts, then inspect [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/test/unit/ingest-reembed.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-reembed.test.ts), and [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature) so the repair stays scoped to the reviewed zero-file terminal payload.
-2. [ ] Update [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts) so generic terminal publish uses a deterministic numeric percent when terminal state is reached with `fileTotal === 0` on AST-relevant deletions-only re-embeds. Do not leave this path dependent on `NaN`, `Infinity`, or JSON `null` conversion.
-3. [ ] Add direct proof in the smallest honest server test surface for the reviewed path. Prefer unit or focused integration proof that asserts the terminal payload shape directly; keep feature-surface expansion minimal unless one API-visible proof is needed to show the path still completes correctly.
-4. [ ] Update any touched runtime marker, test description, or assertion text so the proof clearly states that the repaired invariant is the zero-file terminal payload shape, not only the broader completed/cancelled state.
+1. [x] Re-read the current Story 54 findings and blind-spot challenge artifacts, then inspect [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/test/unit/ingest-reembed.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/ingest-reembed.test.ts), and [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature) so the repair stays scoped to the reviewed zero-file terminal payload.
+2. [x] Update [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts) so generic terminal publish uses a deterministic numeric percent when terminal state is reached with `fileTotal === 0` on AST-relevant deletions-only re-embeds. Do not leave this path dependent on `NaN`, `Infinity`, or JSON `null` conversion.
+3. [x] Add direct proof in the smallest honest server test surface for the reviewed path. Prefer unit or focused integration proof that asserts the terminal payload shape directly; keep feature-surface expansion minimal unless one API-visible proof is needed to show the path still completes correctly.
+4. [x] Update any touched runtime marker, test description, or assertion text so the proof clearly states that the repaired invariant is the zero-file terminal payload shape, not only the broader completed/cancelled state.
 
 #### Testing
 
-1. [ ] Do not attempt to run build commands for this task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+1. [x] Do not attempt to run build commands for this task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
 2. [ ] Do not attempt narrow server validation before the wrapper path succeeds for this task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the normalized zero-file terminal percent in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for the touched re-embed proof file, then rerun full `npm run test:summary:server:unit`.
 3. [ ] Run `npm run test:summary:server:cucumber` if the final proof for this task relies on the changed delete-only re-embed feature path, and confirm the full wrapper still passes without `agent_action: inspect_log`. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for [server/src/test/features/ingest-delta-reembed.feature](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/features/ingest-delta-reembed.feature), then rerun full `npm run test:summary:server:cucumber`.
 
@@ -1448,6 +1448,12 @@ This task fixes the reviewed terminal-status payload inconsistency for AST-relev
 - This task is intentionally scoped to terminal payload consistency in the active delete-only AST path and the smallest honest proof surface that can assert that payload directly.
 - Record the exact numeric terminal percent rule chosen for zero-file terminal states, why it fits the existing runtime contract, and which proof now covers that branch directly.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+- Subtask 1: Re-read the Task 17 findings/challenge artifacts and re-inspected the terminal publish helper plus the focused re-embed unit and feature proof surfaces, which confirmed the bug is the generic `fileTotal / fileTotal` terminal percent math and that the existing unit re-embed file is the smallest honest place to prove the AST-relevant delete-only payload shape directly.
+- Subtask 2: Normalized the generic terminal publish helper to emit `0` when `fileTotal === 0`, matching the existing zero-file fast-path convention instead of relying on `NaN` collapsing to JSON `null`.
+- Subtask 3: Added direct proof in `server/src/test/unit/ingest-reembed.test.ts` by asserting the AST-relevant deletions-only re-embed reaches `completed` with `status.percent === 0`, which keeps the proof on the smallest honest server test surface and avoids widening the feature file.
+- Subtask 4: Renamed the focused re-embed test so the intent now explicitly calls out the zero-file terminal-percent invariant instead of only the broader completed-state semantics.
+- Testing 1: `npm run build:summary:server` passed with `agent_action: skip_log`, so the zero-file terminal-percent normalization clears the standard server build wrapper without needing log inspection.
+- **BLOCKER** Testing 2: `npm run test:summary:server:unit` remained in wrapper `agent_action: wait` well past the normal 12-minute budget, so I stopped before pretending the full wrapper had passed. I confirmed with `ps -o pid,ppid,etime,command -ax | rg "test-summary-server-unit|node --test|server-unit-tests|flows.run.loop|ws-chat-stream|ingest-reembed"` that the still-running child was the unrelated full-suite process `/usr/local/bin/node --test-concurrency=1 src/test/unit/mcp2.reingest.tool.test.ts`, not the touched Task 17 re-embed proof. What I tried: I let the full wrapper run to and beyond the usual budget and then checked the active child process without reading the in-progress wrapper log. Missing capability: a completed full server-unit wrapper result for the repo-wide suite. This task should stay in the current order and does not need to be split or rewritten, but Task 17 cannot honestly be marked complete until the unrelated full-suite hold resolves or converges.
 
 ---
 

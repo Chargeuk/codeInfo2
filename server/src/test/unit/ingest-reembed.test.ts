@@ -271,7 +271,7 @@ test('blank-only delta reembed keeps completed no-op semantics', async () => {
   }
 });
 
-test('deletions-only delta reembed stays completed and does not use fresh-ingest failure', async () => {
+test('deletions-only delta reembed keeps a numeric zero-file terminal percent', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
     'src/deleted.ts': 'export const deleted = 1;\n',
@@ -302,6 +302,7 @@ test('deletions-only delta reembed stays completed and does not use fresh-ingest
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
+    assert.equal(status.percent, 0);
     assert.notEqual(status.error?.error, 'NO_ELIGIBLE_FILES');
     assert.doesNotMatch(String(status.message ?? ''), /no eligible files/i);
   } finally {

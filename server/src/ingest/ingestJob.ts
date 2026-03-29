@@ -1310,7 +1310,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           currentFile: lastFileRelPath,
           fileIndex: fileTotal,
           fileTotal,
-          percent: Number(((fileTotal / fileTotal) * 100).toFixed(1)),
+          percent: fileTotal > 0 ? 100 : 0,
           etaMs: 0,
         });
         logLifecycle(

@@ -1277,7 +1277,7 @@ This task fixes the remaining late-cancel gap identified by the current review p
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 14`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Overview
 
@@ -1296,14 +1296,14 @@ This final revalidation task closes the latest Story 54 review loop. It must pro
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 54 plan plus the current evidence, findings, and blind-spot challenge artifacts, then trace the delta fast-path late-cancel finding back to the fix delivered in Task 14 while also confirming that Tasks 1 through 13 still cover the original Story 54 scope.
+1. [x] Re-read the full Story 54 plan plus the current evidence, findings, and blind-spot challenge artifacts, then trace the delta fast-path late-cancel finding back to the fix delivered in Task 14 while also confirming that Tasks 1 through 13 still cover the original Story 54 scope.
 2. [ ] Update Task 15 implementation notes as revalidation proceeds so the final close-out explicitly records which acceptance criteria still have direct proof, which still rely on indirect proof by plan design, and why no further review-fix tasks are needed.
-3. [ ] If any proof command fails during this revalidation task, capture the exact failure in the implementation notes and reopen the plan again only if a new review-fix task is genuinely required.
+3. [x] If any proof command fails during this revalidation task, capture the exact failure in the implementation notes and reopen the plan again only if a new review-fix task is genuinely required.
 
 #### Testing
 
-1. [ ] Do not attempt to run build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
-2. [ ] Do not attempt to run client build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-client-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+1. [x] Do not attempt to run build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [x] Do not attempt to run client build commands for this final validation task outside the repository wrappers. Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-client-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
 3. [ ] Do not attempt narrow server validation before the wrapper path succeeds for this final validation task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the Task 14 delta fast-path fix in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:unit`.
 4. [ ] Do not attempt narrow Cucumber validation before the wrapper path succeeds for this final validation task. Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers wrapper passes with the Task 14 fix in place. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:cucumber`.
 5. [ ] Do not attempt client tests for this final validation task outside the repository wrappers. Run `npm run test:summary:client` and confirm the client wrapper passes for the unchanged browser-facing regression surface. If `failed > 0`, inspect the exact `test-results/client-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:client`.
@@ -1318,3 +1318,7 @@ This final revalidation task closes the latest Story 54 review loop. It must pro
 - Added during review disposition on 2026-03-29 because the current review pass reopened Story 54 for one repository-local `must_fix` issue on the active delta re-embed cancel path, and the story must be revalidated again after Task 14 before it can honestly return to `__done__`.
 - This task must record the exact wrapper and manual proof chain for the Task 14 fix, which acceptance criteria remain directly proven, which still rely on acceptable indirect proof by plan design, and why the delta re-embed fast paths now satisfy the same coherent-cancel contract as the dispatcher-driven completion path.
 - If any wrapper reports failure, unexpected warnings, or ambiguous counts, record the follow-up log inspection path and the final conclusion before deciding whether another reopen is required.
+- Subtask 1: Re-read the full Story 54 plan plus the current evidence, findings, and blind-spot challenge artifacts, then traced the delta fast-path late-cancel finding back to the Task 14 fence while confirming that Tasks 1 through 14 still cover the broader Story 54 scope.
+- Testing 1: `npm run build:summary:server` passed with `agent_action: skip_log`, so the final Story 54 regression pass still clears the standard server build wrapper after the Task 14 fence.
+- Testing 2: `npm run build:summary:client` passed with `agent_action: skip_log`, confirming the unchanged browser-facing Story 54 surface still clears the normal client typecheck/build wrapper path.
+- **BLOCKER** Testing 3: the fresh full rerun `npm run test:summary:server:unit` is still hanging long after the normal wrapper budget, and the currently holding child process is `/usr/local/bin/node --test-concurrency=1 src/test/integration/flows.run.loop.test.ts` under `node ./scripts/test-summary-server-unit.mjs`, not the Task 14 delta fast-path coverage. I confirmed that with `ps -o pid,ppid,etime,command -ax | rg "test-summary-server-unit|node --test|server-unit-tests"` and then inspected the active log tail from [test-results/server-unit-tests-2026-03-29T11-38-21-908Z.log](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/test-results/server-unit-tests-2026-03-29T11-38-21-908Z.log), which is stalled in unrelated `flows.run.loop.test.ts` output rather than a Task 15 pass/fail conclusion. This task should stay in the current ordering and does not need to be split or rewritten, but the remaining Task 15 wrappers and manual proof cannot be marked complete until that unrelated full-suite hold is resolved or naturally converges.

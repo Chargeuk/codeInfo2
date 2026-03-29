@@ -161,20 +161,30 @@ const setupIngestChromaMocks = () => {
   return { vectors, roots };
 };
 
-const buildIngestDeps = () => ({
-  baseUrl: 'http://lmstudio.local',
-  lmClientFactory: () =>
-    ({
-      embedding: {
-        model: async () => ({
-          embed: async () => ({ embedding: [0.1, 0.2, 0.3] }),
-          getContextLength: async () => 256,
-          countTokens: async (text: string) =>
-            text.split(/\s+/).filter(Boolean).length,
-        }),
-      },
-    }) as unknown as LMStudioClient,
-});
+const buildIngestDeps = (options?: { modelError?: Error }) => {
+  let modelCalls = 0;
+  return {
+    baseUrl: 'http://lmstudio.local',
+    lmClientFactory: () =>
+      ({
+        embedding: {
+          model: async () => {
+            modelCalls += 1;
+            if (options?.modelError) {
+              throw options.modelError;
+            }
+            return {
+              embed: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+              getContextLength: async () => 256,
+              countTokens: async (text: string) =>
+                text.split(/\s+/).filter(Boolean).length,
+            };
+          },
+        },
+      }) as unknown as LMStudioClient,
+    getModelCalls: () => modelCalls,
+  };
+};
 
 test('ingest-reembed catch-path logs retryable failures as warn', async () => {
   const response = await request(
@@ -271,6 +281,44 @@ test('blank-only delta reembed keeps completed no-op semantics', async () => {
   }
 });
 
+test('blank-only delta reembed stays provider-free when model lookup would fail', async () => {
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'src/blank.ts': '   \n\t\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'src/blank.ts'));
+    const providerUnavailable = new Error('lmstudio unavailable');
+    const deps = buildIngestDeps({ modelError: providerUnavailable });
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [{ relPath: 'src/blank.ts', fileHash }],
+        }),
+      }),
+    }));
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'blank-reembed-provider-free',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(deps.getModelCalls(), 0);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('deletions-only delta reembed keeps a numeric zero-file terminal percent', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
@@ -305,6 +353,47 @@ test('deletions-only delta reembed keeps a numeric zero-file terminal percent', 
     assert.equal(status.percent, 0);
     assert.notEqual(status.error?.error, 'NO_ELIGIBLE_FILES');
     assert.doesNotMatch(String(status.message ?? ''), /no eligible files/i);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('deletions-only delta reembed stays provider-free when model lookup would fail', async () => {
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'docs/deleted.txt': 'to be removed\n',
+  });
+
+  try {
+    const providerUnavailable = new Error('lmstudio unavailable');
+    const deps = buildIngestDeps({ modelError: providerUnavailable });
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [
+            { relPath: 'docs/deleted.txt', fileHash: 'deleted-hash' },
+          ],
+        }),
+      }),
+    }));
+    await fs.rm(path.join(root, 'docs/deleted.txt'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'deleted-reembed-provider-free',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(deps.getModelCalls(), 0);
   } finally {
     await cleanup();
   }

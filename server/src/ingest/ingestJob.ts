@@ -789,32 +789,6 @@ async function processRun(runId: string, input: IngestJobInput) {
       });
     };
     const astWritesEnabled = !dryRun && mongoose.connection.readyState === 1;
-    const embeddingModelClient = await getEmbeddingModel(
-      toProviderQualifiedModelId(requestedSelection),
-      {
-        ingestFailureContext: () => ({
-          runId,
-          path: startPath,
-          root,
-          currentFile: lastFileRelPath,
-        }),
-      },
-    );
-    const effectiveBatchSize = Math.max(
-      1,
-      Math.min(
-        embeddingProvider === 'openai'
-          ? ingestConfig.openAiMaxBatchSize
-          : ingestConfig.lmStudioMaxBatchSize,
-        embeddingModelClient.effectiveBatchSize,
-      ),
-    );
-    const effectiveMaxInFlight = Math.max(
-      1,
-      embeddingProvider === 'openai'
-        ? ingestConfig.openAiMaxInFlight
-        : ingestConfig.lmStudioMaxInFlight,
-    );
     const pendingResults = new Map<
       number,
       {
@@ -901,67 +875,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       await next;
     };
 
-    const dispatcher = dryRun
-      ? null
-      : createEmbeddingDispatcher({
-          model: embeddingModelClient,
-          effectiveBatchSize,
-          maxInFlight: effectiveMaxInFlight,
-          maxQueueSize: ingestConfig.maxQueueSize,
-          isCancelled: () => cancelledRuns.has(runId),
-          onDispatch: ({
-            batchSize,
-            queueDepth,
-            inFlight,
-            effectiveBatchSize,
-            effectiveMaxInFlight,
-          }) => {
-            logLifecycle('info', 'DEV-0000054:embedding_dispatch_slot_filled', {
-              runId,
-              provider: embeddingProvider,
-              batchSize,
-              queueDepth,
-              inFlight,
-              effectiveBatchSize,
-              effectiveMaxInFlight,
-            });
-          },
-          onCompleted: async (results) => {
-            if (shouldFencePersistence()) {
-              clearPendingPersistenceState();
-              return;
-            }
-            for (const result of results) {
-              pendingResults.set(result.sequence, {
-                ...(result.meta as {
-                  relPath: string;
-                  fileHash: string;
-                  chunkHash: string;
-                  chunkIndex: number;
-                  text: string;
-                }),
-                embedding: result.embedding,
-              });
-            }
-            await queuePersist();
-          },
-          onLateResultIgnored: ({ batchSize, queueDepth }) => {
-            logLifecycle(
-              'info',
-              'DEV-0000054:embedding_result_ignored_after_cancel',
-              {
-                runId,
-                provider: embeddingProvider,
-                batchSize,
-                queueDepth,
-              },
-            );
-          },
-        });
-
-    if (dispatcher) {
-      activeDispatchers.set(runId, dispatcher);
-    }
+    let dispatcher: ReturnType<typeof createEmbeddingDispatcher> | null = null;
 
     async function completeReembedFastPathWithFence({
       counts,
@@ -970,11 +884,12 @@ async function processRun(runId: string, input: IngestJobInput) {
       counts: { files: number; chunks: number; embedded: number };
       message: string;
     }) {
-      const rootEmbeddingDim = await resolveRootEmbeddingDim({
+      const currentLock = await getLockedEmbeddingModel();
+      const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
         existingRootDim,
         collectionDim: existingRootCollectionDim,
         vectorDim,
-        modelKey: toProviderQualifiedModelId(requestedSelection),
+        lockedDim: currentLock?.embeddingDimensions ?? null,
       });
       const rootMetadata: Metadata = {
         runId,
@@ -1144,6 +1059,95 @@ async function processRun(runId: string, input: IngestJobInput) {
           return;
         }
       }
+    }
+
+    const embeddingModelClient = await getEmbeddingModel(
+      toProviderQualifiedModelId(requestedSelection),
+      {
+        ingestFailureContext: () => ({
+          runId,
+          path: startPath,
+          root,
+          currentFile: lastFileRelPath,
+        }),
+      },
+    );
+    const effectiveBatchSize = Math.max(
+      1,
+      Math.min(
+        embeddingProvider === 'openai'
+          ? ingestConfig.openAiMaxBatchSize
+          : ingestConfig.lmStudioMaxBatchSize,
+        embeddingModelClient.effectiveBatchSize,
+      ),
+    );
+    const effectiveMaxInFlight = Math.max(
+      1,
+      embeddingProvider === 'openai'
+        ? ingestConfig.openAiMaxInFlight
+        : ingestConfig.lmStudioMaxInFlight,
+    );
+
+    dispatcher = dryRun
+      ? null
+      : createEmbeddingDispatcher({
+          model: embeddingModelClient,
+          effectiveBatchSize,
+          maxInFlight: effectiveMaxInFlight,
+          maxQueueSize: ingestConfig.maxQueueSize,
+          isCancelled: () => cancelledRuns.has(runId),
+          onDispatch: ({
+            batchSize,
+            queueDepth,
+            inFlight,
+            effectiveBatchSize,
+            effectiveMaxInFlight,
+          }) => {
+            logLifecycle('info', 'DEV-0000054:embedding_dispatch_slot_filled', {
+              runId,
+              provider: embeddingProvider,
+              batchSize,
+              queueDepth,
+              inFlight,
+              effectiveBatchSize,
+              effectiveMaxInFlight,
+            });
+          },
+          onCompleted: async (results) => {
+            if (shouldFencePersistence()) {
+              clearPendingPersistenceState();
+              return;
+            }
+            for (const result of results) {
+              pendingResults.set(result.sequence, {
+                ...(result.meta as {
+                  relPath: string;
+                  fileHash: string;
+                  chunkHash: string;
+                  chunkIndex: number;
+                  text: string;
+                }),
+                embedding: result.embedding,
+              });
+            }
+            await queuePersist();
+          },
+          onLateResultIgnored: ({ batchSize, queueDepth }) => {
+            logLifecycle(
+              'info',
+              'DEV-0000054:embedding_result_ignored_after_cancel',
+              {
+                runId,
+                provider: embeddingProvider,
+                batchSize,
+                queueDepth,
+              },
+            );
+          },
+        });
+
+    if (dispatcher) {
+      activeDispatchers.set(runId, dispatcher);
     }
 
     if (shouldRunAstIndexing && !astWritesEnabled && !dryRun) {

@@ -2,6 +2,7 @@ import type { EmbeddingFunction } from 'chromadb';
 import { OpenAI } from 'openai';
 import { append } from '../../logStore.js';
 import {
+  OPENAI_MAX_INPUTS_PER_REQUEST,
   OPENAI_PROVIDER_ID,
   OPENAI_REQUEST_TIMEOUT_MS,
   resolveOpenAiModelTokenLimit,
@@ -247,7 +248,7 @@ export function createOpenAiEmbeddingProvider(params: {
     return new OpenAiEmbeddingModel(
       (inputs, options) => embedMany(model, inputs, options),
       model,
-      2048,
+      OPENAI_MAX_INPUTS_PER_REQUEST,
     );
   };
 

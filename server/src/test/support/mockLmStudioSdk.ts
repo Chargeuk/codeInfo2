@@ -327,7 +327,7 @@ export class MockLMStudioClient {
               (resolve, reject) => {
                 const call: ControlledEmbeddingCall = {
                   text,
-                  aborted: false,
+                  aborted: options?.signal?.aborted ?? false,
                   resolve: (embedding = [0.4]) => {
                     resolve({ modelKey, embedding });
                   },

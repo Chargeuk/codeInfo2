@@ -21,7 +21,7 @@ This story therefore introduces three tightly related ingest optimizations:
 - provider-aware embedding dispatch that can batch and/or run multiple embedding requests concurrently;
 - a narrower AST rebuild trigger during re-embed so that non-AST-only changes do not force AST work.
 
-The large-text chunking path should stay conservative. It should use file type plus file size to decide when a file should take the prose-oriented splitter path instead of the current general path. That prose path should prefer Markdown and paragraph boundaries such as headings, blank lines, fenced blocks, and list breaks. It should still respect token limits, but it should avoid repeatedly re-tokenizing the entire remaining tail of a huge document whenever possible.
+The large-text chunking path should stay conservative. It should use file type plus file size to decide when a file should take the prose-oriented splitter path instead of the current general path. That prose path should prefer Markdown and paragraph boundaries such as headings, blank lines, fenced blocks, and list breaks. It should still respect token limits, but it should avoid repeatedly re-tokenizing the entire remaining tail of a huge document whenever possible. The size threshold should follow the repo's existing ingest-config pattern rather than adding a separate route-level knob: use one checked-in env var named `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES`, resolve it through `server/src/ingest/config.ts`, and default it to `65536` bytes so operators can tune it when needed without changing code.
 
 The embedding dispatcher should remain provider-aware and bounded. OpenAI batching must still obey the existing per-input and per-request token guardrails. LM Studio concurrency must still be capped so that the runtime does not accidentally flood the provider. The user wants provider-specific environment variables that set the maximum number of in-flight embedding requests. Conservative defaults should preserve current behavior until operators choose to raise them.
 
@@ -46,12 +46,12 @@ That same conservative rule also applies when a move crosses the AST-supported b
 
 That means the story is intentionally about doing less wasted work when only non-AST files changed, not about making AST indexing partially incremental for changed source files.
 
-Overall, when the story is complete, users should be able to ingest repositories with large planning documents or other prose-heavy text files much faster, while preserving the existing correctness guarantees around token limits, provider behavior, AST consistency, cancellation, and persisted ingest outputs.
+Overall, when the story is complete, users should be able to ingest repositories with large planning documents or other prose-heavy text files much faster, while preserving the existing correctness guarantees around token limits, provider behavior, AST consistency, cancellation, and persisted ingest outputs. Proof for this story should stay practical: deterministic functional coverage plus one reproducible large-file validation scenario are required, but the story does not introduce a mandatory millisecond SLA or percentage-improvement benchmark gate.
 
 ### Acceptance Criteria
 
 - Discovery keeps file size metadata so the ingest pipeline can distinguish normal text files from very large text files without performing an extra filesystem read later.
-- Large Markdown, MDX, and plain-text files can take a dedicated prose-oriented chunking path selected by file type plus a configurable size threshold.
+- Large Markdown, MDX, and plain-text files can take a dedicated prose-oriented chunking path selected by file type plus the checked-in `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES` threshold, default `65536`.
 - The large-text chunking path prefers prose and Markdown boundaries such as headings, blank lines, fenced code blocks, and list breaks before falling back to smaller cuts.
 - The large-text chunking path still respects the active model token budget and does not emit chunks that violate existing embedding input limits.
 - The large-text chunking path avoids repeatedly re-tokenizing the whole remaining tail of a very large document whenever a local backoff or boundary-based cut can be used instead.
@@ -69,6 +69,7 @@ Overall, when the story is complete, users should be able to ingest repositories
 - The embedding dispatcher applies backpressure or another bounded-queue strategy so a very large file does not simply move the bottleneck into unbounded in-memory chunk accumulation.
 - The embedding dispatcher refills provider capacity immediately when any in-flight embedding request completes, rather than waiting for a whole wave of in-flight requests to finish before dispatching more work.
 - The server `.env` file includes an absolute waiting-queue cap setting with default `-1`, where `-1` disables the extra cap, `0` disables the waiting queue, and positive values cap the waiting queue size.
+- The server `.env` file includes `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES=65536` with a short explanation that this is the minimum file size for the prose-oriented large-text path.
 - Chunk order, chunk metadata, and persisted vector metadata remain deterministic even when embedding requests run concurrently.
 - Cancellation and failure behavior remain coherent when multiple embedding requests are in flight.
 - On cancel, the dispatcher stops sending new embedding work immediately, attempts best-effort aborts for in-flight requests where supported, and ignores late results from requests that could not be stopped in time.
@@ -80,6 +81,7 @@ Overall, when the story is complete, users should be able to ingest repositories
 - The story preserves current correctness guarantees for AST data by avoiding partial changed-file-only AST persistence logic.
 - Existing ingest outputs, provider selection behavior, and root metadata remain compatible with the current ingest model unless a change is explicitly required for these optimizations.
 - Tests and documentation are updated to describe the new large-text chunking path, provider concurrency controls, and the refined AST rebuild trigger.
+- Validation includes deterministic functional coverage plus one reproducible large-file proof scenario, without requiring a hard millisecond SLA or minimum percent-improvement threshold for acceptance.
 
 ### Out Of Scope
 
@@ -96,12 +98,15 @@ Overall, when the story is complete, users should be able to ingest repositories
 - General-purpose chunking changes for every content type when the specific user pain here is large prose-oriented text documents such as Markdown planning files.
 - Parallelizing whole ingest runs across multiple repositories or relaxing the existing ingest busy-state contract.
 - Any unrelated performance work in chat, flows, commands, or non-ingest indexing paths.
+- Adding a dedicated benchmark harness or a required minimum millisecond or percentage improvement threshold for this story.
 
 ### Additional Repositories
 
 - No Additional Repositories
 
 ### Questions
+
+No Further Questions
 
 ## Decisions
 
@@ -143,10 +148,23 @@ Overall, when the story is complete, users should be able to ingest repositories
    - What the answer is: If either side of the move is AST-supported, treat the move as AST-relevant and rebuild the full AST.
    - Where the answer came from: User decision in this planning session, supported by repo evidence from [planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md](/home/d_a_s/code/codeInfo2/planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), [server/src/ingest/deltaPlan.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/deltaPlan.ts), [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), and [server/src/test/unit/ingest-ast-indexing.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-ast-indexing.test.ts). Context7 could not be queried because the workspace quota is exhausted today.
    - Why it is the best answer: A delete-plus-add across the AST boundary changes which files belong in the AST dataset, so the conservative full rebuild rule should still apply.
+7. Use one checked-in ingest env var for the large-text threshold, defaulted to `65536` bytes.
+   - The question being addressed: What is the exact default large-text size threshold, and should it be a checked-in env var, a typed server config value, or a hard-coded-only constant?
+   - Why the question matters: The story needs one clear switch for when large prose files leave the current general chunker path, and that choice affects operator tuning, code simplicity, and whether future adjustments require source changes.
+   - What the answer is: Add one checked-in env var named `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES`, resolve it through `server/src/ingest/config.ts` into the typed ingest config, and default it to `65536` bytes. Treat that value as the minimum file size for the dedicated large-text prose path for `.md`, `.mdx`, and `.txt` files.
+   - Where the answer came from: `code_info` research in this repository and across all ingested repositories showed the closest existing pattern is env-backed ingest policy in [server/src/ingest/config.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/config.ts), [server/src/ingest/types.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/types.ts), [server/src/config/startupEnv.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/config/startupEnv.ts), and [server/.env](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/.env), not route-level query parameters. Context7 LangChain splitter docs and DeepWiki for `langchain-ai/langchain` both confirmed that Markdown splitters expose chunk-size behavior but do not define a built-in file-size threshold, so file-size gating belongs in the application. External web research also showed conservative large-text systems applying guards in this general range, including GitHub's diff limits at `100KB` of diff text per file in its large-diff performance work.
+   - Why it is the best answer: It follows the repo's existing ingest-config style, keeps the new tuning surface to one purposeful knob, avoids hard-coding a value that operators cannot adjust, and keeps the default conservative enough to target genuinely large prose files without routing every ordinary note through the special path.
+8. Use deterministic functional coverage plus one reproducible large-file proof scenario, not a hard benchmark gate.
+   - The question being addressed: Does this story need an explicit measurable proof target for "faster" ingest, such as a required before/after benchmark or minimum improvement threshold?
+   - Why the question matters: Performance stories can easily expand into benchmark-harness work or unstable timing gates, so the plan needs one explicit proof contract that stays honest without widening scope.
+   - What the answer is: Keep the acceptance bar to deterministic functional coverage plus one reproducible large-file validation scenario. The story should prove the new large-text path, overlap between chunking and embedding, bounded provider dispatch, cancellation behavior, and the AST skip/full-rebuild gate, but it should not require a minimum millisecond SLA, percentage improvement target, or new benchmark harness.
+   - Where the answer came from: `code_info` research in this repository and across all ingested repositories found the closest precedents in [planning/0000005-ingest-embeddings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000005-ingest-embeddings.md), which explicitly keeps broader benchmarking out of scope, and [planning/0000049-responsive-long-conversation-transcript-rendering.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000049-responsive-long-conversation-transcript-rendering.md), which requires a reproducible proof scenario but not a hard millisecond SLA. External web research, including GitHub's diff-performance write-up, also supports validating representative workloads and behavior changes without inventing one universal hard threshold for every run.
+   - Why it is the best answer: It gives reviewers a repeatable way to confirm the story's user-visible performance win while keeping implementation effort focused on the actual ingest behavior, tests, and logging instead of spinning up a broader benchmarking system that this story does not need.
 
 ## Implementation Ideas
 
 - Extend `DiscoveredFile` to include `size` so the chunker can choose a large-text strategy without an extra stat call later.
+- Add `CODEINFO_INGEST_LARGE_TEXT_THRESHOLD_BYTES=65536` to the checked-in server env/config path so the prose splitter threshold follows the repo's existing ingest-config pattern.
 - Add a prose-oriented chunking strategy in the ingest chunker for large `.md`, `.mdx`, and `.txt` files that splits on headings, blank lines, fenced code blocks, and list boundaries before local fallback cuts.
 - Convert chunk production into a streaming or incremental shape so large-file chunking and embedding can overlap instead of forcing a full-file chunking pause up front.
 - Introduce an embedding dispatcher that preserves chunk order while supporting provider-aware batching and provider-aware request concurrency.
@@ -166,3 +184,8 @@ Overall, when the story is complete, users should be able to ingest repositories
 - Treat moves across the AST-supported boundary as AST-relevant if either side of the move is AST-supported.
 - Reuse the existing full AST rebuild path when `astRelevantDelta` is non-empty rather than designing a partial AST persistence model in this story.
 - Add targeted unit and integration coverage for large Markdown chunking, provider concurrency limits, concurrent result ordering, cancellation with in-flight requests, OpenAI batch guardrails, LM Studio concurrency caps, and the new AST skip/full-rebuild gate.
+- Keep proof scoped to targeted automated coverage plus one reproducible large-file validation scenario instead of adding a benchmark harness or hard performance SLA.
+
+## Questions
+
+- No Further Questions

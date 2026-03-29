@@ -475,6 +475,54 @@ test('cancel after provider result resolution does not leave vectors behind', as
   }
 });
 
+test('cancel does not issue a fresh dimension probe when lookup fails', async () => {
+  const { roots } = setupChromaMocks();
+  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
+  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '0';
+  const firstEmbedding = createDeferred<{ embedding: number[] }>();
+  const embedStarted = createDeferred<void>();
+  roots.get = async () => ({ embeddings: [] });
+  Reflect.deleteProperty(roots, 'dimension');
+
+  const deps = buildDeps({
+    onEmbedStart: () => {
+      embedStarted.resolve();
+    },
+    embedPromiseFactory: async () => firstEmbedding.promise,
+  });
+  const { root, cleanup } = await createTempRepo({
+    'a.txt': 'alpha beta gamma',
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-no-dimension-probe',
+        model: 'embed-1',
+      },
+      deps,
+    );
+
+    await embedStarted.promise;
+    await cancelRun(runId);
+    firstEmbedding.resolve({ embedding: [0.1, 0.2, 0.3] });
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(
+      deps.getEmbedCalls(),
+      1,
+      'cancel fallback should not issue a second embedding call for dimension probing',
+    );
+    assert.equal(roots.addCalls.length, 1);
+    assert.equal(roots.addCalls[0]?.embeddings[0]?.length, 1);
+    assert.equal(roots.addCalls[0]?.metadatas[0]?.embeddingDimensions, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('cancel reuses the roots collection dimension when rows were removed first', async () => {
   const { roots } = setupChromaMocks();
   process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';

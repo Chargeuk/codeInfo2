@@ -813,7 +813,7 @@ This task closes the reviewed race where cancellation can land after `embedBatch
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet
 
@@ -833,22 +833,32 @@ This task fixes the reviewed cancel-route defect where Story 54 can still send a
 
 #### Subtasks
 
-1. [ ] Re-read the Story 54 cancellation acceptance criteria plus the review findings, then inspect `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestCancel.ts`, and `server/src/test/unit/ingest-cancel.test.ts` so the fix targets the exported cancel-route fallback path rather than only the in-worker `handleCancellation(...)` helper.
-2. [ ] Update `server/src/ingest/ingestJob.ts` so the exported `cancelRun(...)` path never issues a fresh embedding probe after cancellation. If collection-dimension lookup fails, choose a bounded fallback that does not send new provider work and make that fallback explicit in code and logs.
-3. [ ] Keep the route contract in `server/src/routes/ingestCancel.ts` unchanged unless a review-proven contract change is unavoidable; this task should stay inside Story 54’s existing cancel API surface.
-4. [ ] Add direct unit coverage in `server/src/test/unit/ingest-cancel.test.ts` for the lookup-fails cancel path so the test proves no fresh embedding probe occurs after cancellation even when collection-dimension recovery does not succeed.
-5. [ ] Extend any existing cancel-route proof only as needed to show the `/ingest/cancel/:runId` path still returns cleanly after the bounded fallback change.
-6. [ ] Run `npx eslint server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
-7. [ ] Run `npx prettier --check server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
+1. [x] Re-read the Story 54 cancellation acceptance criteria plus the review findings, then inspect `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestCancel.ts`, and `server/src/test/unit/ingest-cancel.test.ts` so the fix targets the exported cancel-route fallback path rather than only the in-worker `handleCancellation(...)` helper.
+2. [x] Update `server/src/ingest/ingestJob.ts` so the exported `cancelRun(...)` path never issues a fresh embedding probe after cancellation. If collection-dimension lookup fails, choose a bounded fallback that does not send new provider work and make that fallback explicit in code and logs.
+3. [x] Keep the route contract in `server/src/routes/ingestCancel.ts` unchanged unless a review-proven contract change is unavoidable; this task should stay inside Story 54’s existing cancel API surface.
+4. [x] Add direct unit coverage in `server/src/test/unit/ingest-cancel.test.ts` for the lookup-fails cancel path so the test proves no fresh embedding probe occurs after cancellation even when collection-dimension recovery does not succeed.
+5. [x] Extend any existing cancel-route proof only as needed to show the `/ingest/cancel/:runId` path still returns cleanly after the bounded fallback change.
+6. [x] Run `npx eslint server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
+7. [x] Run `npx prettier --check server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
 
 #### Testing
 
-1. [ ] Do not run build or test commands directly for this task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
-2. [ ] Do not run narrow server tests first for this task. Run `npm run test:summary:server:unit` and confirm the server unit wrapper passes for the Task 8 lookup-fails cancel-path fix. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/unit/ingest-cancel.test.ts`, then rerun full `npm run test:summary:server:unit`.
-3. [ ] Do not run the Cucumber feature directly as the primary proof for this task. Run `npm run test:summary:server:cucumber` if Task 8 changed feature or route-visible cancel proof behavior, and confirm the API-visible cancel path still completes cleanly. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with a targeted wrapper command for `server/src/test/features/ingest-cancel.feature`, then rerun full `npm run test:summary:server:cucumber`.
+1. [x] Do not run build or test commands directly for this task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [x] Do not run narrow server tests first for this task. Run `npm run test:summary:server:unit` and confirm the server unit wrapper passes for the Task 8 lookup-fails cancel-path fix. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/unit/ingest-cancel.test.ts`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Do not run the Cucumber feature directly as the primary proof for this task. Run `npm run test:summary:server:cucumber` if Task 8 changed feature or route-visible cancel proof behavior, and confirm the API-visible cancel path still completes cleanly. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with a targeted wrapper command for `server/src/test/features/ingest-cancel.feature`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
+- Subtask 1: Re-read the Story 54 cancellation acceptance criteria and review findings, then inspected the exported `cancelRun(...)` fallback path, the unchanged cancel route contract, and the current cancel unit proofs so Task 8 stays focused on the lookup-fails route path rather than the in-worker cancellation logic from Tasks 6 and 7.
+- Subtask 2: Removed the exported `cancelRun(...)` fallback to `resolveRootEmbeddingDim(...)`; when dimension lookup still resolves to `<= 1` after cancellation, the route now uses an explicit bounded `dimension=1` fallback and logs that the no-probe cancel fallback path was used.
+- Subtask 3: Kept `server/src/routes/ingestCancel.ts` unchanged because the fix stayed inside the exported cancel helper and did not require a route contract change.
+- Subtask 4: Added direct unit coverage for the lookup-fails cancel path and proved that cancel still finishes cleanly while embedding-call count stays at one instead of issuing a second dimension-probe request.
+- Subtask 5: Kept the existing route-visible cancel proof surface unchanged and left the wrapper-first validation step to confirm the `/ingest/cancel/:runId` path still completes cleanly with the bounded fallback.
+- Subtask 6: ESLint initially flagged the new bounded-fallback dimension local as `prefer-const`; after the allowed `--fix` pass, the exact Task 8 lint command passed cleanly.
+- Subtask 7: Prettier needed one `--write` pass on `server/src/test/unit/ingest-cancel.test.ts`, and the final `--check` passed cleanly for the Task 8 file set.
+- Testing 1: `npm run build:summary:server` passed with `agent_action: skip_log`, so the cancel-route fallback change compiles cleanly through the normal server wrapper path.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with 1547/1547 tests green and `agent_action: skip_log`, proving the new lookup-fails cancel-path coverage without needing a targeted wrapper fallback.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with 80/80 tests green and `agent_action: skip_log`, confirming the API-visible cancel path still completes cleanly after the bounded no-probe fallback change.
 - Update this section during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

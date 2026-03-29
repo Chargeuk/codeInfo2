@@ -1840,18 +1840,25 @@ export async function cancelRun(runId: string) {
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = existingRoots.embeddings?.[0]?.length;
     const existingRootCollectionDim = await resolveCollectionDimension(roots);
-    let rootEmbeddingDim = resolveKnownRootEmbeddingDim({
+    const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
       existingRootDim,
       collectionDim: existingRootCollectionDim,
       lockedDim: selected
         ? (await getLockedEmbeddingModel())?.embeddingDimensions
         : null,
     });
-    if (rootEmbeddingDim <= 1 && selected) {
-      rootEmbeddingDim = await resolveRootEmbeddingDim({
-        existingRootDim,
-        collectionDim: existingRootCollectionDim,
-        modelKey: toProviderQualifiedModelId(selected),
+    if (rootEmbeddingDim <= 1) {
+      logWarning('ingest cancel dimension fallback used without probe', {
+        runId,
+        root,
+        fallback: 'dimension=1',
+        reason: 'lookup_failed_after_cancel',
+        ...(selected
+          ? {
+              embeddingProvider: selected.providerId,
+              embeddingModel: selected.modelKey,
+            }
+          : {}),
       });
     }
 

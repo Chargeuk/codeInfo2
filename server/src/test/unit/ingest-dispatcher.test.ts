@@ -241,6 +241,68 @@ test('dispatcher preserves deterministic persistence order when batched results 
   assert.deepEqual(persisted, ['b.md:alpha', 'a.md:beta', 'c.md:gamma']);
 });
 
+test('cancel after production completes with queued work does not deadlock waitForIdle', async () => {
+  const firstRequest = createDeferred<number[][]>();
+  let cancelled = false;
+  const model: ProviderEmbeddingModel = {
+    modelKey: 'test-cancel-terminal-state',
+    effectiveBatchSize: 1,
+    supportsAbort: false,
+    async embedText() {
+      return [0.1];
+    },
+    async embedBatch() {
+      return firstRequest.promise;
+    },
+    async countTokens(text) {
+      return text.split(/\s+/).filter(Boolean).length;
+    },
+    async getContextLength() {
+      return 64;
+    },
+  };
+
+  const dispatcher = createEmbeddingDispatcher({
+    model,
+    effectiveBatchSize: 1,
+    maxInFlight: 1,
+    maxQueueSize: -1,
+    isCancelled: () => cancelled,
+    onDispatch: () => {},
+    onCompleted: async () => {},
+    onLateResultIgnored: () => {},
+  });
+
+  await dispatcher.enqueue({
+    sequence: 0,
+    text: 'chunk-1',
+    meta: null,
+  });
+  await dispatcher.enqueue({
+    sequence: 1,
+    text: 'chunk-2',
+    meta: null,
+  });
+  dispatcher.completeProduction();
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(dispatcher.snapshot(), {
+    queueDepth: 1,
+    inFlight: 1,
+    queueLimit: 1,
+    dispatchCount: 1,
+  });
+
+  cancelled = true;
+  const waitForIdle = dispatcher.waitForIdle();
+  dispatcher.cancel();
+  firstRequest.resolve([[0.1]]);
+
+  await assert.doesNotReject(waitForIdle);
+  assert.equal(dispatcher.snapshot().queueDepth, 0);
+  assert.equal(dispatcher.snapshot().inFlight, 0);
+});
+
 test('large-text chunk production can overlap with first embedding dispatch', async () => {
   const thirdBlockDeferred = createDeferred<number>();
   const firstEmbedStarted = createDeferred<void>();

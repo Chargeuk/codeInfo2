@@ -409,7 +409,8 @@ async function resolveCollectionDimension(
     return hintedDimension;
   }
 
-  const rawBaseUrl = process.env.CODEINFO_CHROMA_URL?.trim() || 'http://localhost:8000';
+  const rawBaseUrl =
+    process.env.CODEINFO_CHROMA_URL?.trim() || 'http://localhost:8000';
   const normalizedBaseUrl = rawBaseUrl.includes('://')
     ? rawBaseUrl
     : `http://${rawBaseUrl}`;

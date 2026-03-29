@@ -699,7 +699,7 @@ The follow-up tasks below keep repository ownership explicit, fix only the revie
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Git Commits:
   - None yet
 
@@ -719,24 +719,34 @@ This task fixes the cancellation defect where Story 54's slot-driven dispatcher 
 
 #### Subtasks
 
-1. [ ] Re-read the Story 54 cancellation acceptance criteria plus the review findings and blind-spot challenge, then inspect `server/src/ingest/embeddingDispatcher.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-dispatcher.test.ts`, `server/src/test/unit/ingest-cancel.test.ts`, and `server/src/test/features/ingest-cancel.feature` so the fix targets the exact post-production cancel gap instead of changing unrelated dispatch behavior.
-2. [ ] Update `server/src/ingest/embeddingDispatcher.ts` so `cancel()` drives the dispatcher to a true terminal state even when queued work still exists. The implementation must make a clear decision for queued-but-not-yet-dispatched items, ensure `waitForIdle()` can resolve after cancel, and preserve the existing bounded queue and slot-refill behavior for non-cancelled runs.
-3. [ ] Update `server/src/ingest/ingestJob.ts` so the Story 54 ingest worker can always reach its cancellation cleanup path after production has completed, even if cancel lands while queued work is still pending behind aborted provider requests.
-4. [ ] Add or extend direct unit coverage in `server/src/test/unit/ingest-dispatcher.test.ts` to prove the exact reviewed failure mode: cancel after `completeProduction()` with queued work still present must not deadlock `waitForIdle()`.
-5. [ ] Extend `server/src/test/unit/ingest-cancel.test.ts` so the higher-level Story 54 cancel proof covers the post-production cancel window in addition to the existing cancel-before-result path.
-6. [ ] Update `server/src/test/features/ingest-cancel.feature` only if the existing integration proof needs one focused scenario to show that the API-visible cancel path still reaches a single terminal cancelled outcome after the post-production window is exercised.
-7. [ ] Run `npx eslint server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
-8. [ ] Run `npx prettier --check server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/features/ingest-cancel.feature`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
+1. [x] Re-read the Story 54 cancellation acceptance criteria plus the review findings and blind-spot challenge, then inspect `server/src/ingest/embeddingDispatcher.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-dispatcher.test.ts`, `server/src/test/unit/ingest-cancel.test.ts`, and `server/src/test/features/ingest-cancel.feature` so the fix targets the exact post-production cancel gap instead of changing unrelated dispatch behavior.
+2. [x] Update `server/src/ingest/embeddingDispatcher.ts` so `cancel()` drives the dispatcher to a true terminal state even when queued work still exists. The implementation must make a clear decision for queued-but-not-yet-dispatched items, ensure `waitForIdle()` can resolve after cancel, and preserve the existing bounded queue and slot-refill behavior for non-cancelled runs.
+3. [x] Update `server/src/ingest/ingestJob.ts` so the Story 54 ingest worker can always reach its cancellation cleanup path after production has completed, even if cancel lands while queued work is still pending behind aborted provider requests.
+4. [x] Add or extend direct unit coverage in `server/src/test/unit/ingest-dispatcher.test.ts` to prove the exact reviewed failure mode: cancel after `completeProduction()` with queued work still present must not deadlock `waitForIdle()`.
+5. [x] Extend `server/src/test/unit/ingest-cancel.test.ts` so the higher-level Story 54 cancel proof covers the post-production cancel window in addition to the existing cancel-before-result path.
+6. [x] Update `server/src/test/features/ingest-cancel.feature` only if the existing integration proof needs one focused scenario to show that the API-visible cancel path still reaches a single terminal cancelled outcome after the post-production window is exercised.
+7. [x] Run `npx eslint server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any `.ts` file, rerun the same command with `--fix` before making manual style edits.
+8. [x] Run `npx prettier --check server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/features/ingest-cancel.feature`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-dispatcher.test.ts` and confirm the dispatcher post-production cancel proof passes.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` and confirm the higher-level cancel proofs still pass after the terminal-state change.
-4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-cancel.feature` and confirm the API-visible cancel path still reaches one terminal cancelled outcome.
+1. [x] Do not run build or test commands directly for this task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [x] Do not run narrow server tests first for this task. Run `npm run test:summary:server:unit` and confirm the server unit wrapper passes for the Task 6 cancel and dispatcher changes. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/unit/ingest-dispatcher.test.ts` and `server/src/test/unit/ingest-cancel.test.ts`, then rerun full `npm run test:summary:server:unit`.
+3. [x] Do not run the Cucumber feature directly as the primary proof for this task. Run `npm run test:summary:server:cucumber` and confirm the API-visible cancel path still reaches one terminal cancelled outcome after the Task 6 fix. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/features/ingest-cancel.feature`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
+- Subtask 1: Re-read the Story 54 cancellation acceptance criteria, the review findings, and the blind-spot challenge, then inspected the dispatcher idle/cancel path, the ingest worker wait-for-idle flow, the current cancel tests, and the existing cancel feature so Task 6 stays focused on the post-production deadlock window.
+- Subtask 2: Updated `createEmbeddingDispatcher().cancel()` to treat queued-but-not-yet-dispatched work as dropped on cancel, which lets `waitForIdle()` resolve once any already-started requests unwind without changing non-cancelled queue behavior.
+- Subtask 3: The ingest worker’s existing `completeProduction() -> waitForIdle() -> handleCancellation()` flow now reaches cleanup in the post-production window because the dispatcher no longer strands queued items after cancel; no separate ingest-worker branch was needed once the terminal dispatcher state was fixed.
+- Subtask 4: Added a dispatcher-level unit proof that cancels after `completeProduction()` with one item still queued and confirms `waitForIdle()` resolves instead of hanging.
+- Subtask 5: Extended the higher-level cancel unit coverage to start a real ingest, wait until production has queued the second chunk, cancel in that post-production window, and assert the run still reaches a single terminal `cancelled` outcome without dispatching the queued item.
+- Subtask 6: Kept `server/src/test/features/ingest-cancel.feature` unchanged because the existing API-visible cancel feature is still the right proof surface; Task 6 will rely on the required full Cucumber wrapper run to confirm that behavior stays green after the dispatcher fix.
+- Subtask 7: `npx eslint server/src/ingest/embeddingDispatcher.ts server/src/ingest/ingestJob.ts server/src/test/unit/ingest-dispatcher.test.ts server/src/test/unit/ingest-cancel.test.ts --max-warnings=0` passed cleanly for the Task 6 file set.
+- Subtask 8: Prettier needed one `--write` pass on `server/src/ingest/ingestJob.ts` and `server/src/test/unit/ingest-cancel.test.ts`, and the final `--check` passed with `prettier-plugin-gherkin` supplied for `server/src/test/features/ingest-cancel.feature`.
+- Testing 1: `npm run build:summary:server` initially failed on a mistaken `running` state assertion in the new cancel proof, so I corrected it to the real `embedding` state and reran the wrapper; the rerun passed with `agent_action: skip_log`.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with 1545/1545 tests green and `agent_action: skip_log`, so the post-production cancel fix did not require a targeted wrapper fallback.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with 80/80 tests green and `agent_action: skip_log`, confirming the API-visible cancel scenarios still converge on one terminal cancelled outcome after the dispatcher terminal-state fix.
 - Update this section during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 
@@ -777,10 +787,9 @@ This task closes the reviewed race where cancellation can land after `embedBatch
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` and confirm the new cancel-after-result-before-persist proof passes.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-dispatcher.test.ts` if that file was changed, and confirm the dispatcher-side fence proof passes.
-4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-cancel.feature` if the feature changed, and confirm cancelled runs still avoid late writes in the API-visible path.
+1. [ ] Do not run build or test commands directly for this task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not run narrow server tests first for this task. Run `npm run test:summary:server:unit` and confirm the server unit wrapper passes for the Task 7 cancel-after-result-before-persist fix. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/unit/ingest-cancel.test.ts` and `server/src/test/unit/ingest-dispatcher.test.ts` when those proofs fail, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Do not run the Cucumber feature directly as the primary proof for this task. Run `npm run test:summary:server:cucumber` if Task 7 changed any feature or step coverage, and confirm cancelled runs still avoid late writes in the API-visible path. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with a targeted wrapper command for `server/src/test/features/ingest-cancel.feature`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -823,9 +832,9 @@ This task fixes the reviewed cancel-route defect where Story 54 can still send a
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` and confirm the lookup-fails cancel-path proof passes without a fresh embedding probe.
-3. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-cancel.feature` if the feature or cancel route proof changed, and confirm the API-visible cancel path still completes cleanly.
+1. [ ] Do not run build or test commands directly for this task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not run narrow server tests first for this task. Run `npm run test:summary:server:unit` and confirm the server unit wrapper passes for the Task 8 lookup-fails cancel-path fix. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/unit/ingest-cancel.test.ts`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Do not run the Cucumber feature directly as the primary proof for this task. Run `npm run test:summary:server:cucumber` if Task 8 changed feature or route-visible cancel proof behavior, and confirm the API-visible cancel path still completes cleanly. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with a targeted wrapper command for `server/src/test/features/ingest-cancel.feature`, then rerun full `npm run test:summary:server:cucumber`.
 
 #### Implementation notes
 
@@ -865,11 +874,16 @@ This final revalidation task closes the reopened code-review loop for Story 54. 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite passes with the review fixes in place.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers suite passes with the review fixes in place.
-4. [ ] Run `npm run test:summary:e2e` and confirm the existing ingest UI flow and Story 54 browser proof still pass through the default wrapper path.
-5. [ ] Run `npm run compose:up`, repeat one manual Playwright MCP large-file ingest validation against `/ingest` using `/fixtures/repo/large-planning-doc.md`, confirm the Story 54 runtime markers plus the repaired cancellation behavior, then run `npm run compose:down`.
+1. [ ] Do not run build commands directly for this final validation task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not run client build commands directly for this final validation task. Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-client-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+3. [ ] Do not run narrow server tests first for this final validation task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the review fixes in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:unit`.
+4. [ ] Do not run narrow Cucumber features first for this final validation task. Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers wrapper passes with the review fixes in place. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Do not run client tests directly for this final validation task. Run `npm run test:summary:client` and confirm the client wrapper passes for the unchanged browser-facing regression surface. If `failed > 0`, inspect the exact `test-results/client-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:client`.
+6. [ ] Do not run Playwright directly as the primary automated proof for this final validation task. Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish while it proves the existing ingest UI flow and Story 54 browser path. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:e2e`.
+7. [ ] Run `npm run compose:build:summary` before manual runtime proof because this is the final regression task and the browser-visible path remains in scope. Confirm the wrapper finishes successfully without `agent_action: inspect_log`, and only open `logs/test-summaries/compose-build-latest.log` if the wrapper reports failure or an ambiguous result.
+8. [ ] Run `npm run compose:up` before manual validation so the standard runtime stack is available through the repository wrapper path.
+9. [ ] Perform one manual Playwright MCP validation against `http://host.docker.internal:5001/ingest` using `/fixtures/repo/large-planning-doc.md`, confirm the Story 54 runtime markers plus the repaired cancellation behavior, and check that the browser debug console shows no logged errors during the proof.
+10. [ ] Run `npm run compose:down` after manual Playwright MCP validation completes so the final regression proof does not leave shared runtime services running.
 
 #### Implementation notes
 

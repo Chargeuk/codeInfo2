@@ -94,6 +94,20 @@ async function waitForTerminal(runId: string) {
   throw new Error(`Timed out waiting for terminal status for ${runId}`);
 }
 
+async function waitForStatus(
+  runId: string,
+  predicate: (status: ReturnType<typeof getStatus>) => boolean,
+) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const status = getStatus(runId);
+    if (predicate(status)) {
+      return status;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Timed out waiting for matching status for ${runId}`);
+}
+
 function setupChromaMocks() {
   const vectors = {
     addCalls: [] as Array<{ ids: string[] }>,
@@ -279,6 +293,61 @@ test('cancel stops new embedding work immediately once dispatch has started', as
   }
 });
 
+test('cancel after production completes still reaches cancelled cleanup with queued work', async () => {
+  const { vectors } = setupChromaMocks();
+  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
+  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '-1';
+  const firstEmbedding = createDeferred<{ embedding: number[] }>();
+  const embedStarted = createDeferred<void>();
+  const deps = buildDeps({
+    onEmbedStart: () => {
+      embedStarted.resolve();
+    },
+    embedPromiseFactory: async () => firstEmbedding.promise,
+  });
+  const { root, cleanup } = await createTempRepo({
+    'a.txt': 'alpha beta gamma',
+    'b.txt': 'delta epsilon zeta',
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-post-production-deadlock',
+        model: 'embed-1',
+      },
+      deps,
+    );
+
+    await embedStarted.promise;
+    await waitForStatus(
+      runId,
+      (status) =>
+        (status?.counts.chunks ?? 0) >= 2 && status?.state === 'embedding',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await cancelRun(runId);
+    firstEmbedding.resolve({ embedding: [0.1, 0.2, 0.3] });
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(
+      deps.getEmbedCalls(),
+      1,
+      'cancel should not dispatch queued work after production completed',
+    );
+    assert.equal(
+      vectors.addCalls.length,
+      0,
+      'cancelled run should not persist embeddings after queued work is dropped',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test('cancel reuses the roots collection dimension when rows were removed first', async () => {
   const { roots } = setupChromaMocks();
   process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
@@ -322,10 +391,7 @@ test('cancel reuses the roots collection dimension when rows were removed first'
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(roots.addCalls.length, 1);
     assert.equal(roots.addCalls[0]?.embeddings[0]?.length, 2560);
-    assert.equal(
-      roots.addCalls[0]?.metadatas[0]?.embeddingDimensions,
-      2560,
-    );
+    assert.equal(roots.addCalls[0]?.metadatas[0]?.embeddingDimensions, 2560);
   } finally {
     await cleanup();
   }

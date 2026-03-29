@@ -221,6 +221,7 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
     },
 
     cancel() {
+      queue.length = 0;
       for (const controller of controllers.values()) {
         controller.abort();
       }

@@ -924,3 +924,111 @@ This final revalidation task closes the reopened code-review loop for Story 54. 
 - Final validation summary: Story 54 now has direct wrapper proof for server build, client build, full server unit, full server cucumber, full client, full e2e, compose build, and manual host-mapped browser validation after the review-fix tasks. No further review-fix work is needed because the reopened findings map cleanly to Tasks 6-8 and the final revalidation reconfirmed the original large-text, dispatch, AST, and browser proof surfaces.
 - Update this section during implementation with concise notes describing what was revalidated, what artifacts were checked, what issues were encountered, and why Story 54 can be closed again once this task is complete.
 - Record final validation outcomes, important proof artifacts, and any residual indirect-proof areas that remain acceptable under the canonical plan.
+
+## Code Review Findings – 2026-03-29 Blind-Spot Challenge
+
+Story 54 is reopened again because the latest blind-spot challenge found one additional `must_fix` issue in the current repository after the general findings pass had tentatively concluded with no endorsed findings. The durable review artifacts for this reopen decision are:
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-blind-spot-challenge.md)
+
+The late review finding that must be fixed before Story 54 can stay complete is:
+
+1. After dispatcher drain and the last explicit cancellation check, `processRun(...)` can still write final root metadata and publish `completed` if `/ingest/cancel/:runId` lands during the narrow finalization window. That breaks the story's coherent-cancel contract because a user-visible cancel can still be overwritten back to `completed`.
+
+The follow-up tasks below keep repository ownership explicit, fix only this late-reviewed defect, and end with a fresh full revalidation pass that re-proves Story 54 through the repository's wrapper-first workflow.
+
+---
+
+### Task 10. Fence The Post-Dispatch Finalization Window Against Late Cancel Overwrite
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 9`
+- Task Status: `__to_do__`
+- Git Commits:
+  - None yet
+
+#### Overview
+
+This task fixes the late blind-spot finding where Story 54's worker can still overwrite a just-cancelled run back to `completed` after dispatcher drain has already finished. The fix must keep the existing cancel route contract, but it must ensure that the narrow finalization window between the last dispatcher-drain cancellation check and the final root metadata / terminal-status writes still converges on one cancelled terminal outcome.
+
+#### Task Exit Criteria
+
+- If cancel lands after dispatcher drain but before final root metadata and status writes, the run still terminates as `cancelled` instead of being overwritten back to `completed`.
+- The worker no longer writes completed root metadata, ingest-file state, or AST persistence for a run that has already entered cancel cleanup in that narrow finalization window.
+- Direct proof exists for the exact reviewed timing window, not just the earlier cancel-before-persist or cancel-before-dispatch paths.
+
+#### Documentation Locations
+
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the Story 54 cancellation acceptance criteria plus the current evidence, findings, and blind-spot challenge artifacts, then inspect `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestCancel.ts`, `server/src/test/unit/ingest-cancel.test.ts`, and `server/src/test/features/ingest-cancel.feature` so this fix targets the exact post-dispatch finalization gap rather than reopening earlier cancellation work.
+2. [ ] Update `server/src/ingest/ingestJob.ts` so a cancel that lands after dispatcher drain and before final root metadata or terminal-status writes still takes the cancelled path. The chosen fence must prevent completed root metadata, completed status publication, ingest-file writes, and AST writes from racing ahead once cancellation is visible in that finalization window.
+3. [ ] Keep `server/src/routes/ingestCancel.ts` on the existing API surface unless a route contract change is proven unavoidable. The preferred fix is an ingest-worker finalization fence, not a new browser-visible cancel mode.
+4. [ ] Add direct unit coverage in `server/src/test/unit/ingest-cancel.test.ts` for the exact reviewed timing window: cancel after dispatcher drain but before final root metadata or terminal-status writes must still leave the run cancelled.
+5. [ ] Update `server/src/test/features/ingest-cancel.feature` and its steps only if one focused API-visible scenario is needed to prove that `/ingest/cancel/:runId` cannot be overwritten back to `completed` during the late finalization window.
+6. [ ] Run `npx eslint server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/steps/ingest-manage.steps.ts --max-warnings=0`. The pass condition is zero ESLint errors and zero warnings for the touched `.ts` files. If ESLint can auto-fix any touched `.ts` file, rerun the same command with `--fix` before making manual style edits. If `server/src/test/steps/ingest-manage.steps.ts` is unchanged, remove it from the command when running it.
+7. [ ] Run `npx prettier --check server/src/ingest/ingestJob.ts server/src/routes/ingestCancel.ts server/src/test/unit/ingest-cancel.test.ts server/src/test/features/ingest-cancel.feature server/src/test/steps/ingest-manage.steps.ts`. The pass condition is that every touched file is already formatted. If Prettier reports differences, rerun the same file list with `npx prettier --write` before manual formatting edits. If `server/src/test/steps/ingest-manage.steps.ts` is unchanged, remove it from the command when running it.
+
+#### Testing
+
+1. [ ] Do not run build or test commands directly for this task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not run narrow server tests first for this task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes for the Task 10 late-cancel finalization fix. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/unit/ingest-cancel.test.ts`, then rerun full `npm run test:summary:server:unit`.
+3. [ ] Do not run the Cucumber feature directly as the primary proof for this task. Run `npm run test:summary:server:cucumber` and confirm the API-visible cancel path still converges on one cancelled terminal outcome after the Task 10 finalization fence. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands for `server/src/test/features/ingest-cancel.feature`, then rerun full `npm run test:summary:server:cucumber`.
+
+#### Implementation notes
+
+- Update this section during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 11. Revalidate Story 54 After The Blind-Spot Review Fix
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 10`
+- Task Status: `__to_do__`
+- Git Commits:
+  - None yet
+
+#### Overview
+
+This final revalidation task closes the latest Story 54 review loop. It must prove that the Task 10 late-cancel finalization fix resolves the blind-spot finding without regressing the already-finished large-text chunking, provider dispatch, AST delta-mode, documentation, and end-to-end runtime proof that Story 54 previously completed.
+
+#### Task Exit Criteria
+
+- The late blind-spot review finding is fixed, the current durable review artifacts remain in history with the reopened plan, and Story 54 again satisfies its acceptance criteria through the repository's wrapper-first validation flow.
+- Revalidation explicitly proves both the original Story 54 behavior and the repaired late-cancel finalization path.
+
+#### Documentation Locations
+
+- Evidence: [codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-evidence.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-evidence.md)
+- Findings: [codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-findings.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-findings.md)
+- Blind-spot challenge: [codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-blind-spot-challenge.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/reviews/0000054-20260329T073223Z-b2a04d3b-blind-spot-challenge.md)
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 54 plan plus the current evidence, findings, and blind-spot challenge artifacts, and trace the new late finalization finding back to the fix delivered in Task 10 while also confirming that Tasks 1 through 9 still cover the original Story 54 scope.
+2. [ ] Update Task 11 Implementation notes as revalidation proceeds so the final close-out explicitly records which acceptance criteria still have direct proof, which still rely on indirect proof by plan design, and why no further review-fix tasks are needed.
+3. [ ] If any proof command fails during this revalidation task, capture the exact failure in the implementation notes and reopen the plan again only if a new review-fix task is genuinely required.
+
+#### Testing
+
+1. [ ] Do not run build commands directly for this final validation task. Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+2. [ ] Do not run client build commands directly for this final validation task. Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-client-latest.log` if the wrapper reports failure, unexpected warnings, or an ambiguous result.
+3. [ ] Do not run narrow server tests first for this final validation task. Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the Task 10 late-cancel finalization fix in place. If `failed > 0`, inspect the exact `test-results/server-unit-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:unit`.
+4. [ ] Do not run narrow Cucumber features first for this final validation task. Run `npm run test:summary:server:cucumber` and confirm the full server Cucumber/Testcontainers wrapper passes with the Task 10 fix in place. If `failed > 0`, inspect the exact `test-results/server-cucumber-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:server:cucumber`.
+5. [ ] Do not run client tests directly for this final validation task. Run `npm run test:summary:client` and confirm the client wrapper passes for the unchanged browser-facing regression surface. If `failed > 0`, inspect the exact `test-results/client-tests-*.log` path printed by the wrapper, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:client`.
+6. [ ] Do not run Playwright directly as the primary automated proof for this final validation task. Run `npm run test:summary:e2e` and allow up to 7 minutes for the wrapper to finish while it proves the existing ingest UI flow and Story 54 browser path. If `failed > 0` or setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper commands, then rerun full `npm run test:summary:e2e`.
+7. [ ] Because this is the fresh final regression task and the browser-visible path remains in scope, run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper reports failure or an ambiguous result.
+8. [ ] Run `npm run compose:up` before manual validation so the standard runtime stack is available through the repository wrapper path.
+9. [ ] Perform one manual Playwright MCP validation against `http://host.docker.internal:5001/ingest` using `/fixtures/repo/large-planning-doc.md`, confirm the Story 54 runtime markers plus the repaired late-cancel finalization behavior, and check that the browser debug console shows no logged errors during the proof.
+10. [ ] Run `npm run compose:down` after manual Playwright MCP validation completes so the final regression proof does not leave shared runtime services running.
+
+#### Implementation notes
+
+- Update this section during implementation with concise notes describing what was revalidated, what artifacts were checked, what issues were encountered, and why Story 54 can be closed again once this task is complete.
+- Record final validation outcomes, important proof artifacts, and any residual indirect-proof areas that remain acceptable under the canonical plan.

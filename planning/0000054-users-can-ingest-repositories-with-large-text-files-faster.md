@@ -361,7 +361,7 @@ No Further Questions
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__completed__`
+- Task Status: `__done__`
 - Git Commits:
   - `b809b9ce` - `DEV-[54] - Add large-text ingest routing`
 

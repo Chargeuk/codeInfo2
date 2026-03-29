@@ -1002,7 +1002,7 @@ This task fixes the late blind-spot finding where Story 54's worker can still ov
 - Task Dependencies: `Task 10`
 - Task Status: `__done__`
 - Git Commits:
-  - None yet
+  - `6d7d2caf` - `DEV-[54] - Revalidate story 54 after blind-spot fix`
 
 #### Overview
 

@@ -173,6 +173,7 @@ services:
         '--headless',
         '--browser',
         'chromium',
+        '--ignore-https-errors',
         '--no-sandbox',
         '--isolated',
         '--port',

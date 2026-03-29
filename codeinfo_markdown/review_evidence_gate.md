@@ -92,6 +92,7 @@ Record the final per-repository resolved base branch and the reason it was chose
     - deleted/moved/conditional validation;
     - partial-failure handling;
     - dead-field or dead-branch risk;
+    - changed tests that prove "something did not happen yet" using fixed delays instead of a deterministic scheduler, resource, or state boundary;
     - UI enable/disable/visibility or mode-gating logic versus the payload, persistence, or submission path it is supposed to control;
     - any helper that could hide misconfiguration by defaulting too early;
     - any alias-migration or backward-compatibility helper where legacy and canonical fields can partially coexist in mixed-shape configs.
@@ -127,8 +128,9 @@ Record the final per-repository resolved base branch and the reason it was chose
 21. If a changed helper wraps, normalizes, or classifies errors, record the consumer branch that interprets those errors and note whether cancellation, retry, ignore, and terminal-failure semantics still depend on the old raw error shape.
 22. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
 23. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
-24. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-25. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+24. If a changed test file is being used as acceptance proof, also record whether any negative assertion depends on an arbitrary elapsed-time sleep instead of a deterministic scheduler, resource, or state boundary, and mark that proof as weak when no stronger boundary is demonstrated.
+25. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+26. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 

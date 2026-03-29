@@ -32,11 +32,12 @@ Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact'
 5. Inspect one additional changed non-helper file, if present, for a low-risk consistency or portability defect that would not naturally appear in the risk matrix. Prefer changed `README.md` or `docs/**` links, duplicated literals that should reuse a nearby canonical constant, or changed test-support mocks that accept cancellation inputs.
 6. For one changed orchestration function, attempt a focused failure-ordering challenge: assume the external provider, model bootstrap, or dispatcher setup fails before any real work begins, and verify whether a no-op, metadata-only, delete-only, or zero-work fast path would still complete correctly. Prefer paths where the existing tests prove terminal status semantics but do not explicitly prove behavior under provider or bootstrap failure.
 7. For one changed producer-consumer error path, attempt a wrapped-error mismatch challenge: assume the lower layer now emits a normalized or provider-specific error instead of the old raw SDK error shape, and verify whether the caller still reaches the correct cancel, retry, ignore, or terminal branch.
-8. For each challenge, decide whether it:
+8. For one changed test used as proof, attempt a weak-proof challenge: if the test proves that something has not happened yet, verify whether it relies on an arbitrary elapsed-time sleep instead of a deterministic scheduler, resource, or state boundary, and decide whether that makes the proof flaky or only residual weak proof.
+9. For each challenge, decide whether it:
    - creates a new endorsed finding;
    - strengthens a rejected-risk conclusion;
    - or leaves only residual weak proof.
-9. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge, the one failure-ordering challenge, and the wrapped-error mismatch challenge. Do not restart the whole review.
+10. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge, the one failure-ordering challenge, the wrapped-error mismatch challenge, and the one weak-proof test challenge. Do not restart the whole review.
 
 ## Output Contract
 

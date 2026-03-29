@@ -475,6 +475,63 @@ test('cancel after provider result resolution does not leave vectors behind', as
   }
 });
 
+test('cancel after dispatcher drain does not overwrite terminal state back to completed', async () => {
+  const { roots } = setupChromaMocks();
+  const completedRootWriteStarted = createDeferred<void>();
+  const releaseCompletedRootWrite = createDeferred<void>();
+  const originalRootsAdd = roots.add;
+  roots.add = async (payload) => {
+    const state = payload.metadatas?.[0]?.state;
+    if (state === 'completed') {
+      completedRootWriteStarted.resolve();
+      await releaseCompletedRootWrite.promise;
+    }
+    await originalRootsAdd(payload);
+  };
+
+  const deps = buildDeps({
+    embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+  });
+  const { root, cleanup } = await createTempRepo({
+    'a.txt': 'alpha beta gamma',
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-after-dispatch-drain',
+        model: 'embed-1',
+      },
+      deps,
+    );
+
+    await completedRootWriteStarted.promise;
+    const cancelPromise = cancelRun(runId);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    releaseCompletedRootWrite.resolve();
+    await cancelPromise;
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(
+      roots.addCalls.at(-1)?.metadatas?.[0]?.state,
+      'cancelled',
+      'final root metadata should converge on cancelled after late cancel',
+    );
+    assert.equal(
+      query({ text: 'ingest completed' }, 20).filter(
+        (entry) => entry.context?.runId === runId,
+      ).length,
+      0,
+      'late cancel should prevent the worker from publishing completed',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test('cancel does not issue a fresh dimension probe when lookup fails', async () => {
   const { roots } = setupChromaMocks();
   process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';

@@ -146,6 +146,7 @@ let deps: Deps | null = null;
 const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
 const cancelledRuns = new Set<string>();
 const activeDispatchers = new Map<string, { cancel: () => void }>();
+const finalizationBarriers = new Map<string, Promise<void>>();
 const terminalStates = new Set<IngestRunState>([
   'completed',
   'cancelled',
@@ -1238,6 +1239,36 @@ async function processRun(runId: string, input: IngestJobInput) {
       return true;
     };
 
+    const withFinalizationBarrier = async <T>(step: () => Promise<T>) => {
+      const stepPromise = step();
+      const barrier = stepPromise.then(
+        () => undefined,
+        () => undefined,
+      );
+      finalizationBarriers.set(runId, barrier);
+      try {
+        return await stepPromise;
+      } finally {
+        if (finalizationBarriers.get(runId) === barrier) {
+          finalizationBarriers.delete(runId);
+        }
+      }
+    };
+
+    const runFinalizationStep = async (step: () => Promise<unknown>) => {
+      await withFinalizationBarrier(step);
+      return handleCancellation(fileTotal, lastFileRelPath ?? root);
+    };
+
+    const runFinalizationStepWithResult = async <T>(step: () => Promise<T>) => {
+      const result = await withFinalizationBarrier(step);
+      const cancelled = await handleCancellation(
+        fileTotal,
+        lastFileRelPath ?? root,
+      );
+      return { result, cancelled };
+    };
+
     if (shouldRunAstIndexing) {
       for (const [idx, file] of files.entries()) {
         const fileIndex = idx + 1;
@@ -1361,30 +1392,46 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     }
 
-    await flushBatch();
+    if (await runFinalizationStep(() => flushBatch())) {
+      return;
+    }
 
     if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
       for (const file of deltaPlan.changed) {
-        await deleteVectors({
-          where: {
-            $and: [
-              { root },
-              { relPath: file.relPath },
-              { fileHash: { $ne: file.fileHash } },
-            ],
-          },
-        });
+        if (
+          await runFinalizationStep(() =>
+            deleteVectors({
+              where: {
+                $and: [
+                  { root },
+                  { relPath: file.relPath },
+                  { fileHash: { $ne: file.fileHash } },
+                ],
+              },
+            }),
+          )
+        ) {
+          return;
+        }
       }
 
       for (const file of deltaPlan.deleted) {
-        await deleteVectors({
-          where: { $and: [{ root }, { relPath: file.relPath }] },
-        });
+        if (
+          await runFinalizationStep(() =>
+            deleteVectors({
+              where: { $and: [{ root }, { relPath: file.relPath }] },
+            }),
+          )
+        ) {
+          return;
+        }
       }
     }
 
     if (counts.embedded === 0) {
-      await deleteVectorsCollectionIfEmpty();
+      if (await runFinalizationStep(() => deleteVectorsCollectionIfEmpty())) {
+        return;
+      }
     }
 
     if (operation === 'start' && counts.embedded === 0) {
@@ -1437,12 +1484,18 @@ async function processRun(runId: string, input: IngestJobInput) {
       operation === 'reembed' || dryRun || counts.embedded > 0
         ? 'completed'
         : 'skipped';
-    const rootEmbeddingDim = await resolveRootEmbeddingDim({
-      existingRootDim,
-      collectionDim: existingRootCollectionDim,
-      vectorDim,
-      modelKey: toProviderQualifiedModelId(requestedSelection),
-    });
+    const rootEmbeddingDimResult = await runFinalizationStepWithResult(() =>
+      resolveRootEmbeddingDim({
+        existingRootDim,
+        collectionDim: existingRootCollectionDim,
+        vectorDim,
+        modelKey: toProviderQualifiedModelId(requestedSelection),
+      }),
+    );
+    if (rootEmbeddingDimResult.cancelled) {
+      return;
+    }
+    const rootEmbeddingDim = rootEmbeddingDimResult.result;
     const rootMetadata: Metadata = {
       runId,
       root,
@@ -1461,66 +1514,130 @@ async function processRun(runId: string, input: IngestJobInput) {
     attachAstMetadata(rootMetadata);
     if (description) rootMetadata.description = description;
 
-    await roots.add({
-      ids: [runId],
-      embeddings: [Array(rootEmbeddingDim).fill(0)],
-      metadatas: [rootMetadata],
-    });
+    if (
+      await runFinalizationStep(() =>
+        roots.add({
+          ids: [runId],
+          embeddings: [Array(rootEmbeddingDim).fill(0)],
+          metadatas: [rootMetadata],
+        }),
+      )
+    ) {
+      return;
+    }
 
     if (!dryRun && operation === 'start') {
-      await clearIngestFilesByRoot(root);
-      await upsertIngestFiles({
-        root,
-        files: files
-          .map((file) => ({
-            relPath: file.relPath,
-            fileHash: fileHashesByRelPath.get(file.relPath),
-          }))
-          .filter((row): row is { relPath: string; fileHash: string } =>
-            Boolean(row.fileHash),
-          ),
-      });
+      if (await runFinalizationStep(() => clearIngestFilesByRoot(root))) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertIngestFiles({
+            root,
+            files: files
+              .map((file) => ({
+                relPath: file.relPath,
+                fileHash: fileHashesByRelPath.get(file.relPath),
+              }))
+              .filter((row): row is { relPath: string; fileHash: string } =>
+                Boolean(row.fileHash),
+              ),
+          }),
+        )
+      ) {
+        return;
+      }
     }
 
     if (!dryRun && operation === 'reembed') {
       if (deltaMode === 'legacy_upgrade') {
-        await clearIngestFilesByRoot(root);
-        await upsertIngestFiles({
-          root,
-          files:
-            discoveredWithHashes?.map((file) => ({
-              relPath: file.relPath,
-              fileHash: file.fileHash,
-            })) ?? [],
-        });
+        if (await runFinalizationStep(() => clearIngestFilesByRoot(root))) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            upsertIngestFiles({
+              root,
+              files:
+                discoveredWithHashes?.map((file) => ({
+                  relPath: file.relPath,
+                  fileHash: file.fileHash,
+                })) ?? [],
+            }),
+          )
+        ) {
+          return;
+        }
       } else if (deltaMode === 'delta' && deltaPlan) {
-        await upsertIngestFiles({
-          root,
-          files: [...deltaPlan.added, ...deltaPlan.changed].map((file) => ({
-            relPath: file.relPath,
-            fileHash: file.fileHash,
-          })),
-        });
-        await deleteIngestFilesByRelPaths({
-          root,
-          relPaths: deltaPlan.deleted.map((file) => file.relPath),
-        });
+        if (
+          await runFinalizationStep(() =>
+            upsertIngestFiles({
+              root,
+              files: [...deltaPlan.added, ...deltaPlan.changed].map((file) => ({
+                relPath: file.relPath,
+                fileHash: file.fileHash,
+              })),
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteIngestFilesByRelPaths({
+              root,
+              relPaths: deltaPlan.deleted.map((file) => file.relPath),
+            }),
+          )
+        ) {
+          return;
+        }
       }
     }
 
     if (astWritesEnabled && shouldRunAstIndexing) {
-      await upsertAstSymbols({ root, symbols: astSymbols });
-      await upsertAstEdges({ root, edges: astEdges });
-      await upsertAstReferences({ root, references: astReferences });
-      await upsertAstModuleImports({ root, modules: astModuleImports });
-      await upsertAstCoverage({
-        root,
-        coverage: {
-          root,
-          ...astCounts,
-          lastIndexedAt: new Date(),
-        },
-      });
+      if (
+        await runFinalizationStep(() =>
+          upsertAstSymbols({ root, symbols: astSymbols }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstEdges({ root, edges: astEdges }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstReferences({ root, references: astReferences }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstModuleImports({ root, modules: astModuleImports }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstCoverage({
+            root,
+            coverage: {
+              root,
+              ...astCounts,
+              lastIndexedAt: new Date(),
+            },
+          }),
+        )
+      ) {
+        return;
+      }
       logLifecycle('info', 'DEV-0000032:T5:ast-index-complete', {
         event: 'DEV-0000032:T5:ast-index-complete',
         root,
@@ -1798,6 +1915,7 @@ export function __resetIngestJobsForTest() {
   jobs.clear();
   jobInputs.clear();
   cancelledRuns.clear();
+  finalizationBarriers.clear();
 }
 
 export function __setJobInputForTest(
@@ -1813,6 +1931,10 @@ export function __setJobInputForTest(
 export async function cancelRun(runId: string) {
   cancelledRuns.add(runId);
   activeDispatchers.get(runId)?.cancel();
+  const finalizationBarrier = finalizationBarriers.get(runId);
+  if (finalizationBarrier) {
+    await finalizationBarrier;
+  }
   const status = jobs.get(runId);
   const input = jobInputs.get(runId);
   const root = input?.root;
@@ -1820,6 +1942,10 @@ export async function cancelRun(runId: string) {
     input?.model && input.model.length > 0
       ? resolveInputSelection(input)
       : null;
+
+  if (status?.state === 'cancelled') {
+    return { cleanupState: 'complete', found: true } as const;
+  }
 
   if (status?.state === 'completed' || status?.state === 'error') {
     cancelledRuns.delete(runId);

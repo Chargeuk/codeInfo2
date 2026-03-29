@@ -20,6 +20,7 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
   3. Description of the scenario or invariant.
   4. Purpose: why this proof matters.
 - When a changed test title or description would become misleading, add a separate proof-maintenance subtask to rename, split, or rewrite the test so its stated invariant still matches its assertions.
+- When a story changes error wrapping, normalization, retry helpers, provider adapters, or cancellation handling, add proof-authoring subtasks that explicitly cover both raw and wrapped error paths whenever caller behavior depends on that distinction.
   </test_case_expansion_rules>
 
 <verification_loop>

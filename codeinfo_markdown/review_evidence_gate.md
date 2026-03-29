@@ -84,6 +84,7 @@ Record the final per-repository resolved base branch and the reason it was chose
     - provider, client, dispatcher, lock, or bootstrap setup that may happen before the code proves real work still exists on no-op, metadata-only, delete-only, or zero-work fast paths;
     - bootstrap or existence checks;
     - helpers that return warnings/errors/reason metadata;
+    - raw-to-wrapped error translation helpers plus any changed caller that branches on raw error names, SDK error classes, provider error codes, retryability, or cancel-vs-terminal semantics;
     - changed test titles or descriptions whose assertions may no longer match the invariant they claim to prove;
     - shared log markers or shared response fields;
     - fallback-selection logic;
@@ -123,10 +124,11 @@ Record the final per-repository resolved base branch and the reason it was chose
     - the highest-risk contradictory input, state, or mixed-shape condition that could break that invariant;
     - whether current proof is direct, indirect, or missing;
     - which later review step must challenge that invariant explicitly.
-21. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
-22. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
-23. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-24. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+21. If a changed helper wraps, normalizes, or classifies errors, record the consumer branch that interprets those errors and note whether cancellation, retry, ignore, and terminal-failure semantics still depend on the old raw error shape.
+22. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
+23. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
+24. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+25. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 

@@ -9,6 +9,7 @@ import express from 'express';
 import request from 'supertest';
 import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import { createEmbeddingDispatcher } from '../../ingest/embeddingDispatcher.js';
+import { hashFile } from '../../ingest/hashing.js';
 import {
   __setBeforeTerminalStatusPublishHookForTest,
   __resetIngestJobsForTest,
@@ -18,6 +19,7 @@ import {
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import { query, resetStore } from '../../logStore.js';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 
 function buildApp(options?: {
@@ -587,6 +589,144 @@ test('cancel after the last fenced finalization step does not publish completed 
       ).length,
       0,
       'late cancel should prevent the worker from publishing skipped',
+    );
+  } finally {
+    __setBeforeTerminalStatusPublishHookForTest(null);
+    await cleanup();
+  }
+});
+
+test('late cancel on delta no-op reembed does not overwrite terminal state back to completed', async () => {
+  const { roots } = setupChromaMocks();
+  const completedRootWriteStarted = createDeferred<void>();
+  const releaseCompletedRootWrite = createDeferred<void>();
+  const originalRootsAdd = roots.add;
+  roots.add = async (payload) => {
+    const state = payload.metadatas?.[0]?.state;
+    if (state === 'completed') {
+      completedRootWriteStarted.resolve();
+      await releaseCompletedRootWrite.promise;
+    }
+    await originalRootsAdd(payload);
+  };
+
+  const { root, cleanup } = await createTempRepo({
+    'docs/notes.txt': 'alpha beta gamma\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'docs/notes.txt'));
+    test.mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [{ relPath: 'docs/notes.txt', fileHash }],
+        }),
+      }),
+    }));
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-delta-noop-fast-path',
+        model: 'embed-1',
+        operation: 'reembed',
+      },
+      buildDeps({
+        embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+      }),
+    );
+
+    await completedRootWriteStarted.promise;
+    const cancelPromise = cancelRun(runId);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    releaseCompletedRootWrite.resolve();
+    await cancelPromise;
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(
+      roots.addCalls.at(-1)?.metadatas?.[0]?.state,
+      'cancelled',
+      'delta no-op fast path should converge on cancelled after late cancel',
+    );
+    assert.equal(
+      query({ text: 'ingest completed' }, 20).filter(
+        (entry) => entry.context?.runId === runId,
+      ).length,
+      0,
+      'late cancel should prevent delta no-op fast path from publishing completed',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('late cancel on deletions-only reembed does not publish completed or skipped', async () => {
+  const { roots } = setupChromaMocks();
+  const beforeTerminalPublishStarted = createDeferred<void>();
+  const releaseTerminalPublish = createDeferred<void>();
+  __setBeforeTerminalStatusPublishHookForTest(async () => {
+    beforeTerminalPublishStarted.resolve();
+    await releaseTerminalPublish.promise;
+  });
+
+  const { root, cleanup } = await createTempRepo({
+    'docs/deleted.txt': 'to be removed\n',
+  });
+
+  try {
+    test.mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [
+            { relPath: 'docs/deleted.txt', fileHash: 'deleted-hash' },
+          ],
+        }),
+      }),
+    }));
+    await fs.rm(path.join(root, 'docs/deleted.txt'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-delta-deletions-fast-path',
+        model: 'embed-1',
+        operation: 'reembed',
+      },
+      buildDeps({
+        embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+      }),
+    );
+
+    await beforeTerminalPublishStarted.promise;
+    const cancelPromise = cancelRun(runId);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    releaseTerminalPublish.resolve();
+    await cancelPromise;
+    const finalStatus = await waitForTerminal(runId);
+
+    assert.equal(finalStatus?.state, 'cancelled');
+    assert.equal(
+      roots.addCalls.at(-1)?.metadatas?.[0]?.state,
+      'cancelled',
+      'deletions-only fast path should converge on cancelled after late cancel',
+    );
+    assert.equal(
+      query({ text: 'ingest completed' }, 20).filter(
+        (entry) => entry.context?.runId === runId,
+      ).length,
+      0,
+      'late cancel should prevent deletions-only fast path from publishing completed',
+    );
+    assert.equal(
+      query({ text: 'ingest skipped' }, 20).filter(
+        (entry) => entry.context?.runId === runId,
+      ).length,
+      0,
+      'late cancel should prevent deletions-only fast path from publishing skipped',
     );
   } finally {
     __setBeforeTerminalStatusPublishHookForTest(null);

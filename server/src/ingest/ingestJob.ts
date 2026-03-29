@@ -963,59 +963,82 @@ async function processRun(runId: string, input: IngestJobInput) {
       activeDispatchers.set(runId, dispatcher);
     }
 
-    if (operation === 'reembed') {
-      if (deltaMode === 'degraded_full') {
-        await deleteVectors({ where: { root } });
-      } else if (deltaMode === 'legacy_upgrade') {
-        await deleteVectors({ where: { root } });
-        await deleteRoots({ where: { root } });
-      } else if (deltaMode === 'delta' && deltaPlan) {
-        if ((deltaWorkCount ?? 0) === 0) {
-          logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
-          logLifecycle(
-            'info',
-            `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=${root} runId=${runId}`,
-            { sourceId: root, runId },
-          );
-          if (cancelledRuns.has(runId)) {
-            return;
-          }
+    async function completeReembedFastPathWithFence({
+      counts,
+      message,
+    }: {
+      counts: { files: number; chunks: number; embedded: number };
+      message: string;
+    }) {
+      const rootEmbeddingDim = await resolveRootEmbeddingDim({
+        existingRootDim,
+        collectionDim: existingRootCollectionDim,
+        vectorDim,
+        modelKey: toProviderQualifiedModelId(requestedSelection),
+      });
+      const rootMetadata: Metadata = {
+        runId,
+        root,
+        name,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
+        embeddingDimensions: rootEmbeddingDim,
+        files: counts.files,
+        chunks: counts.chunks,
+        embedded: counts.embedded,
+        state: 'completed',
+        lastIngestAt: new Date().toISOString(),
+        ingestedAtMs,
+      };
+      attachAstMetadata(rootMetadata);
+      if (description) rootMetadata.description = description;
 
-          const counts = { files: 0, chunks: 0, embedded: 0 };
-          const rootEmbeddingDim = await resolveRootEmbeddingDim({
-            existingRootDim,
-            collectionDim: existingRootCollectionDim,
-            vectorDim,
-            modelKey: toProviderQualifiedModelId(requestedSelection),
-          });
-          const rootMetadata: Metadata = {
-            runId,
-            root,
-            name,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions: rootEmbeddingDim,
-            files: counts.files,
-            chunks: counts.chunks,
-            embedded: counts.embedded,
-            state: 'completed',
-            lastIngestAt: new Date().toISOString(),
-            ingestedAtMs,
-          };
-          attachAstMetadata(rootMetadata);
-          if (description) rootMetadata.description = description;
+      const writeRootMetadata = async () => {
+        const writeStarted = Promise.resolve().then(async () => {
+          if (cancelledRuns.has(runId) || cancelCleanupStarted) {
+            return false;
+          }
           await roots.add({
             ids: [runId],
             embeddings: [Array(rootEmbeddingDim).fill(0)],
             metadatas: [rootMetadata],
           });
+          return true;
+        });
+        const barrier = writeStarted.then(
+          () => undefined,
+          () => undefined,
+        );
+        finalizationBarriers.set(runId, barrier);
+        try {
+          return await writeStarted;
+        } finally {
+          if (finalizationBarriers.get(runId) === barrier) {
+            finalizationBarriers.delete(runId);
+          }
+        }
+      };
+
+      const publishedRootMetadata = await writeRootMetadata();
+      if (!publishedRootMetadata) {
+        return;
+      }
+
+      const publishedTerminalStatus = await (async () => {
+        const publishStarted = Promise.resolve().then(async () => {
+          if (beforeTerminalStatusPublishHook) {
+            await beforeTerminalStatusPublishHook(runId);
+          }
+          if (cancelledRuns.has(runId) || cancelCleanupStarted) {
+            return false;
+          }
           setStatusAndPublish(runId, {
             runId,
             state: 'completed',
             counts,
             ast: astCounts,
-            message: `No changes detected for ${root}`,
+            message,
             lastError: null,
             error: null,
             fileIndex: 0,
@@ -1035,6 +1058,50 @@ async function processRun(runId: string, input: IngestJobInput) {
             description,
             state: 'completed',
             counts,
+          });
+          return true;
+        });
+        const barrier = publishStarted.then(
+          () => undefined,
+          () => undefined,
+        );
+        finalizationBarriers.set(runId, barrier);
+        try {
+          return await publishStarted;
+        } finally {
+          if (finalizationBarriers.get(runId) === barrier) {
+            finalizationBarriers.delete(runId);
+          }
+        }
+      })();
+
+      if (!publishedTerminalStatus) {
+        return;
+      }
+    }
+
+    if (operation === 'reembed') {
+      if (deltaMode === 'degraded_full') {
+        await deleteVectors({ where: { root } });
+      } else if (deltaMode === 'legacy_upgrade') {
+        await deleteVectors({ where: { root } });
+        await deleteRoots({ where: { root } });
+      } else if (deltaMode === 'delta' && deltaPlan) {
+        if ((deltaWorkCount ?? 0) === 0) {
+          logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
+          logLifecycle(
+            'info',
+            `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=${root} runId=${runId}`,
+            { sourceId: root, runId },
+          );
+          if (cancelledRuns.has(runId)) {
+            return;
+          }
+
+          const counts = { files: 0, chunks: 0, embedded: 0 };
+          await completeReembedFastPathWithFence({
+            counts,
+            message: `No changes detected for ${root}`,
           });
           return;
         }
@@ -1070,59 +1137,9 @@ async function processRun(runId: string, input: IngestJobInput) {
             relPaths: deltaPlan.deleted.map((f) => f.relPath),
           });
           const counts = { files: 0, chunks: 0, embedded: 0 };
-          const rootEmbeddingDim = await resolveRootEmbeddingDim({
-            existingRootDim,
-            collectionDim: existingRootCollectionDim,
-            vectorDim,
-            modelKey: toProviderQualifiedModelId(requestedSelection),
-          });
-          const rootMetadata: Metadata = {
-            runId,
-            root,
-            name,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions: rootEmbeddingDim,
-            files: counts.files,
-            chunks: counts.chunks,
-            embedded: counts.embedded,
-            state: 'completed',
-            lastIngestAt: new Date().toISOString(),
-            ingestedAtMs,
-          };
-          attachAstMetadata(rootMetadata);
-          if (description) rootMetadata.description = description;
-          await roots.add({
-            ids: [runId],
-            embeddings: [Array(rootEmbeddingDim).fill(0)],
-            metadatas: [rootMetadata],
-          });
-          setStatusAndPublish(runId, {
-            runId,
-            state: 'completed',
+          await completeReembedFastPathWithFence({
             counts,
-            ast: astCounts,
             message,
-            lastError: null,
-            error: null,
-            fileIndex: 0,
-            fileTotal: 0,
-            percent: 100,
-            etaMs: 0,
-          });
-          logLifecycle('info', 'ingest completed', {
-            runId,
-            operation,
-            path: startPath,
-            root,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            name,
-            description,
-            state: 'completed',
-            counts,
           });
           return;
         }

@@ -353,6 +353,89 @@ test('successful ingest prefers the observed vector dimension over stale persist
   }
 });
 
+test('deletions-only delta reembed skips root persistence when no dimension can be trusted', async () => {
+  const { roots } = setupIngestChromaMocks();
+  const rootsWithDimension = roots as typeof roots & { dimension?: number };
+  rootsWithDimension.dimension = undefined;
+  roots.get = async () => ({ embeddings: [] });
+  const providerUnavailable = new Error('lmstudio unavailable');
+  const deletionReembedDeps = buildIngestDeps({
+    modelError: providerUnavailable,
+  });
+  const liveDeps = buildIngestDeps();
+  const { root, cleanup } = await createTempRepo({
+    'docs/deleted.txt': 'to be removed\n',
+  });
+
+  try {
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [{ relPath: 'docs/deleted.txt', fileHash: 'old' }],
+        }),
+      }),
+    }));
+    await fs.rm(path.join(root, 'docs/deleted.txt'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+
+    const deletionReembedId = await startIngest(
+      {
+        path: root,
+        name: 'deletions-reembed-no-dimension',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deletionReembedDeps,
+    );
+    const deletionReembedStatus = await waitForTerminal(deletionReembedId);
+
+    assert.equal(deletionReembedStatus.state, 'completed');
+    assert.equal(
+      deletionReembedDeps.getModelCalls(),
+      0,
+      'no-work reembed should remain provider-free when no dimension can be trusted',
+    );
+    assert.equal(
+      roots.add.mock.calls.length,
+      0,
+      'no-work reembed should skip persisting an untrusted fallback root dimension',
+    );
+
+    await fs.mkdir(path.join(root, 'src'), { recursive: true });
+    await fs.writeFile(
+      path.join(root, 'src/live.ts'),
+      'export const value = 1;\n',
+      'utf8',
+    );
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/live.ts';
+
+    const liveRunId = await startIngest(
+      {
+        path: root,
+        name: 'live-after-deletions-reembed',
+        model: 'embed-model',
+      },
+      liveDeps,
+    );
+    const liveStatus = await waitForTerminal(liveRunId);
+
+    assert.equal(liveStatus.state, 'completed');
+    assert.equal(roots.add.mock.calls.length, 1);
+    const addCall = roots.add.mock.calls[0] as unknown as {
+      arguments: [
+        {
+          embeddings: number[][];
+          metadatas: Array<{ embeddingDimensions?: number }>;
+        },
+      ];
+    };
+    assert.equal(addCall.arguments[0].embeddings[0]?.length, 3);
+    assert.equal(addCall.arguments[0].metadatas[0]?.embeddingDimensions, 3);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('deletions-only delta reembed keeps a numeric zero-file terminal percent', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({

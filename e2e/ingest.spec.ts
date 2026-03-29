@@ -1,4 +1,9 @@
-import { expect, request, test } from '@playwright/test';
+import {
+  expect,
+  request,
+  test,
+  type APIRequestContext,
+} from '@playwright/test';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -106,10 +111,7 @@ async function assertNoReembedErrors() {
   }
 }
 
-async function queryServerLogs(
-  ctx: Awaited<typeof request.newContext>,
-  text: string,
-) {
+async function queryServerLogs(ctx: APIRequestContext, text: string) {
   const res = await ctx.get(
     `${apiBase}/logs?text=${encodeURIComponent(text)}&limit=200&source=server`,
   );
@@ -126,7 +128,7 @@ async function queryServerLogs(
 }
 
 async function waitForStory54Marker(
-  ctx: Awaited<typeof request.newContext>,
+  ctx: APIRequestContext,
   options: {
     marker: string;
     runId: string;

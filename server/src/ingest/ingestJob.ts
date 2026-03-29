@@ -441,6 +441,16 @@ function resolveKnownRootEmbeddingDim(params: {
   vectorDim?: number;
   lockedDim?: number | null;
 }) {
+  const resolved = resolveKnownRootEmbeddingDimOrNull(params);
+  return resolved ?? 1;
+}
+
+function resolveKnownRootEmbeddingDimOrNull(params: {
+  existingRootDim?: number;
+  collectionDim?: number | null;
+  vectorDim?: number;
+  lockedDim?: number | null;
+}) {
   if (params.vectorDim && params.vectorDim > 1) {
     return params.vectorDim;
   }
@@ -453,7 +463,7 @@ function resolveKnownRootEmbeddingDim(params: {
   if (params.lockedDim && params.lockedDim > 0) {
     return params.lockedDim;
   }
-  return 1;
+  return null;
 }
 
 async function processRun(runId: string, input: IngestJobInput) {
@@ -1559,58 +1569,82 @@ async function processRun(runId: string, input: IngestJobInput) {
       operation === 'reembed' || dryRun || counts.embedded > 0
         ? 'completed'
         : 'skipped';
-    const rootEmbeddingDimResult = await runFinalizationStepWithResult(
+    const rootPersistenceResult = await runFinalizationStepWithResult(
       async () => {
         if (!needsEmbeddingWork) {
           const currentLock = await getLockedEmbeddingModel();
-          return resolveKnownRootEmbeddingDim({
+          const knownRootEmbeddingDim = resolveKnownRootEmbeddingDimOrNull({
             existingRootDim,
             collectionDim: existingRootCollectionDim,
             vectorDim,
             lockedDim: currentLock?.embeddingDimensions ?? null,
           });
+          if (knownRootEmbeddingDim) {
+            return {
+              embeddingDim: knownRootEmbeddingDim,
+              shouldWriteRoot: true,
+            };
+          }
+          return {
+            embeddingDim: null,
+            shouldWriteRoot: false,
+          };
         }
 
-        return resolveRootEmbeddingDim({
-          existingRootDim,
-          collectionDim: existingRootCollectionDim,
-          vectorDim,
-          modelKey: toProviderQualifiedModelId(requestedSelection),
-        });
+        return {
+          embeddingDim: await resolveRootEmbeddingDim({
+            existingRootDim,
+            collectionDim: existingRootCollectionDim,
+            vectorDim,
+            modelKey: toProviderQualifiedModelId(requestedSelection),
+          }),
+          shouldWriteRoot: true,
+        };
       },
     );
-    if (rootEmbeddingDimResult.cancelled) {
+    if (rootPersistenceResult.cancelled) {
       return;
     }
-    const rootEmbeddingDim = rootEmbeddingDimResult.result;
-    const rootMetadata: Metadata = {
-      runId,
-      root,
-      name,
-      model: embeddingModel,
-      embeddingProvider,
-      embeddingModel,
-      embeddingDimensions: rootEmbeddingDim,
-      files: counts.files,
-      chunks: counts.chunks,
-      embedded: counts.embedded,
-      state: resultState,
-      lastIngestAt: new Date().toISOString(),
-      ingestedAtMs,
-    };
-    attachAstMetadata(rootMetadata);
-    if (description) rootMetadata.description = description;
+    const { embeddingDim: rootEmbeddingDim, shouldWriteRoot } =
+      rootPersistenceResult.result;
+    if (shouldWriteRoot && rootEmbeddingDim !== null) {
+      const rootMetadata: Metadata = {
+        runId,
+        root,
+        name,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
+        embeddingDimensions: rootEmbeddingDim,
+        files: counts.files,
+        chunks: counts.chunks,
+        embedded: counts.embedded,
+        state: resultState,
+        lastIngestAt: new Date().toISOString(),
+        ingestedAtMs,
+      };
+      attachAstMetadata(rootMetadata);
+      if (description) rootMetadata.description = description;
 
-    if (
-      await runFinalizationStep(() =>
-        roots.add({
-          ids: [runId],
-          embeddings: [Array(rootEmbeddingDim).fill(0)],
-          metadatas: [rootMetadata],
-        }),
-      )
-    ) {
-      return;
+      if (
+        await runFinalizationStep(() =>
+          roots.add({
+            ids: [runId],
+            embeddings: [Array(rootEmbeddingDim).fill(0)],
+            metadatas: [rootMetadata],
+          }),
+        )
+      ) {
+        return;
+      }
+    } else {
+      logWarning('ingest root metadata skipped without trusted dimension', {
+        runId,
+        root,
+        operation,
+        resultState,
+        reason: 'no_embedding_work_dimension_unresolved',
+      });
     }
 
     if (!dryRun && operation === 'start') {

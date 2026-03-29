@@ -114,6 +114,53 @@ function filterConversations(
 }
 
 describe('ConversationList control gating', () => {
+  it('renders a run clue for parent and child flow conversations only', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          conversations: [
+            {
+              conversationId: 'parent-flow',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-02T00:00:00Z',
+              archived: false,
+              flags: { flow: { executionId: 'parent01-12345678' } },
+            },
+            {
+              conversationId: 'child-agent',
+              title: 'Planner child conversation',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-01T00:00:00Z',
+              archived: false,
+              flags: { flowChild: { executionId: 'child002-87654321' } },
+              agentName: 'planner',
+            },
+            {
+              conversationId: 'ordinary-chat',
+              title: 'Ordinary conversation',
+              provider: 'lmstudio',
+              model: 'm1',
+              lastMessageAt: '2025-01-03T00:00:00Z',
+              archived: false,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Run parent01')).toBeInTheDocument();
+    expect(screen.getByText('Run child002')).toBeInTheDocument();
+    expect(screen.getAllByTestId('conversation-run-chip')).toHaveLength(2);
+    expect(
+      within(rowByTitle('Ordinary conversation')).queryByTestId(
+        'conversation-run-chip',
+      ),
+    ).toBeNull();
+  });
+
   it('renders filters and refresh for agents when handlers are provided', () => {
     render(
       <ConversationList

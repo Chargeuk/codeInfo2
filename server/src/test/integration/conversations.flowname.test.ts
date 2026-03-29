@@ -54,3 +54,48 @@ test('GET /conversations includes flowName when set', async () => {
   assert.equal(res.body.items[0].flowName, 'daily-standup');
   assert.ok(!('flowName' in res.body.items[1]));
 });
+
+test('GET /conversations flowName filter does not pull in child agent conversations that only have flowChild flags', async () => {
+  const items: ConversationSummary[] = [
+    {
+      ...baseItem,
+      conversationId: 'flow-1',
+      title: 'Flow 1',
+      flowName: 'daily-standup',
+      flags: {
+        flow: {
+          executionId: 'execution-parent-1',
+        },
+      },
+    },
+    {
+      ...baseItem,
+      conversationId: 'child-1',
+      title: 'Flow 1 (main)',
+      agentName: 'coding_agent',
+      flags: {
+        flowChild: {
+          executionId: 'execution-parent-1',
+        },
+      },
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      listConversations: async () => ({
+        items: items.filter((item) => item.flowName === 'daily-standup'),
+      }),
+    }),
+  )
+    .get('/conversations?state=all&flowName=daily-standup')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 1);
+  assert.equal(res.body.items[0].conversationId, 'flow-1');
+  assert.deepEqual(res.body.items[0].flags, {
+    flow: {
+      executionId: 'execution-parent-1',
+    },
+  });
+});

@@ -112,7 +112,7 @@
       "label": "Improve plan",
       "agentType": "planning_agent",
       "identifier": "planner",
-      "commandName": "improve_plan"
+      "commandName": "improve_plan2"
     },
     {
       "type": "llm",
@@ -140,7 +140,7 @@
       "label": "Task Up Plan",
       "agentType": "tasking_agent",
       "identifier": "tasker",
-      "commandName": "task_up"
+      "commandName": "task_up2"
     },
     {
       "type": "llm",

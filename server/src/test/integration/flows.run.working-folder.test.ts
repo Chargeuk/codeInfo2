@@ -18,7 +18,7 @@ import {
 } from '../../flows/service.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
-import { query, resetStore } from '../../logStore.js';
+import { resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 
@@ -203,7 +203,7 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
   }
 });
 
-test('a stale saved path is cleared before a flow run reuses it', async () => {
+test('a fresh run from an older flow conversation does not inherit its stale saved working folder', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -247,10 +247,13 @@ test('a stale saved path is cleared before a flow run reuses it', async () => {
       .post('/flows/llm-basic/run')
       .send({ conversationId: 'flow-stale-rerun' });
     assert.equal(res.status, 202);
+    assert.notEqual(res.body.conversationId, 'flow-stale-rerun');
     assert.equal(
-      memoryConversations.get('flow-stale-rerun')?.flags?.workingFolder,
+      memoryConversations.get(res.body.conversationId)?.flags?.workingFolder,
       undefined,
     );
+    memoryConversations.delete(res.body.conversationId);
+    memoryTurns.delete(res.body.conversationId);
   } finally {
     memoryConversations.delete('flow-stale-rerun');
     memoryTurns.delete('flow-stale-rerun');
@@ -264,7 +267,7 @@ test('a stale saved path is cleared before a flow run reuses it', async () => {
   }
 });
 
-test('stale flow working-folder clear logs stale path, record type, and conversation id', async () => {
+test('a fresh run still starts a replacement conversation when the older selected flow has a stale saved working folder', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -304,18 +307,18 @@ test('stale flow working-folder clear logs stale path, record type, and conversa
   );
 
   try {
-    await supertest(app)
+    const res = await supertest(app)
       .post('/flows/llm-basic/run')
       .send({ conversationId: 'flow-stale-log' })
       .expect(202);
 
-    const marker = query({
-      text: 'DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION',
-      level: ['warn'],
-    }).find((entry) => entry.context?.conversationId === 'flow-stale-log');
-    assert.ok(marker);
-    assert.equal(marker?.context?.recordType, 'flow');
-    assert.equal(marker?.context?.stalePath, '/definitely/missing/path');
+    assert.notEqual(res.body.conversationId, 'flow-stale-log');
+    assert.equal(
+      memoryConversations.get(res.body.conversationId)?.flags?.workingFolder,
+      undefined,
+    );
+    memoryConversations.delete(res.body.conversationId);
+    memoryTurns.delete(res.body.conversationId);
   } finally {
     memoryConversations.delete('flow-stale-log');
     memoryTurns.delete('flow-stale-log');

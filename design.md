@@ -3085,9 +3085,9 @@ flowchart TD
 
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
-- Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.
-- Resume state is stored on the flow conversation as `flags.flow` with `{ stepPath, loopStack, agentConversations, agentThreads }`, and each save emits `flows.resume.state_saved`.
-- Resume runs accept `resumeStepPath`, log `flows.resume.requested`, and validate path indices; mismatched agent conversation mappings return `agent_mismatch`.
+- Per-agent thread reuse is now tracked per execution boundary, not process-globally. The conceptual slot key remains `${agentType}:${identifier}`, but runtime reuse is scoped by `executionId` so a fresh run cannot pick up child conversations from an older execution.
+- Resume state is stored on the flow conversation as `flags.flow` with `{ executionId, stepPath, loopStack, agentConversations, agentThreads }`, and each save emits `flows.resume.state_saved`.
+- Resume runs accept `resumeStepPath`, log `flows.resume.requested`, validate path indices, and treat the saved child mapping as authoritative for the current execution; missing or conflicting child ownership returns a clear failure instead of silently swapping in a replacement conversation.
 - Working folder validation mirrors agent runs and surfaces `WORKING_FOLDER_INVALID` / `WORKING_FOLDER_NOT_FOUND` for invalid input.
 
 ```mermaid
@@ -3159,6 +3159,15 @@ sequenceDiagram
 - The flow selector is populated by `GET /flows`, shows ingested entries as `<name> - [sourceLabel]` (locals remain unlabeled), sorts by display label, and disables invalid flows (shows description + error banner when disabled).
 - Conversations are filtered to the selected flow name and displayed via `ConversationList` (archive/restore/bulk still available).
 - Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `sourceId` (ingested flows), optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
+- Fresh `Run` always allocates a new parent flow conversation and new `executionId`; only `Resume` keeps the existing stopped parent conversation and execution.
+- Shared sidebar metadata now renders `Run <shortExecutionId>` from persisted `flags.flow.executionId` for parent flow rows and `flags.flowChild.executionId` for flow-created child agent rows. The clue stays in metadata instead of rewriting conversation titles, and child rows remain visible under Agents via the existing `flowName=__none__` filter contract.
+
+## Story 0000053 flow execution boundary
+
+- Story 53 introduces `executionId` as the scope boundary for flow execution state. A fresh flow start creates a new parent conversation, a new `flags.flow.executionId`, and a new execution-scoped child slot mapping; resume keeps the same parent conversation, `executionId`, and child mapping.
+- Parent flow state remains the resume bookkeeping source of truth under `flags.flow`, while child agent conversations remain the live source of truth for resumed context. Manual chat added to a child conversation while the parent flow is stopped is therefore preserved when the flow resumes.
+- Flow-created child agent conversations persist `flags.flowChild.executionId` so the Agents sidebar can render the same `Run <shortExecutionId>` clue as the Flows sidebar without setting top-level `flowName` on child conversations.
+- Out-of-scope behavior remains unchanged in the final design: no title rewrite, no hidden/locked child chat type, no run ordinal registry, no new conversation-list endpoint, and no flow-name-wide concurrency block.
 - The transcript uses `useChatStream` + `useChatWs` to render per-step metadata (label + agentType/identifier) alongside standard timestamp/usage/timing lines; Stop issues `cancel_inflight` over WS.
 - Flow command metadata normalization emits `flows.metadata.normalized` when flow labels are parsed for UI rendering.
 

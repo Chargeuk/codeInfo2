@@ -463,7 +463,7 @@ describe('Flows page stop control', () => {
     });
   });
 
-  it('waits for stopped finalization and allows same-conversation reuse after confirmed stop', async () => {
+  it('waits for stopped finalization and starts a fresh conversation after confirmed stop', async () => {
     const user = userEvent.setup();
     let resolveRun: ((value: Response) => void) | null = null;
     const { runBodies } = setupFlowsFetch({
@@ -536,7 +536,7 @@ describe('Flows page stop control', () => {
     await startFlowRun(user);
 
     await waitFor(() => expect(runBodies.length).toBe(2));
-    expect(runBodies[1]?.conversationId).toBe(conversationId);
+    expect(runBodies[1]?.conversationId).not.toBe(conversationId);
   });
 
   it('renders persisted stopped turns as visibly stopped after reload', async () => {

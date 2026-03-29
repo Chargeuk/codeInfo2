@@ -464,7 +464,85 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
-  it('runs a flow with working folder and conversation id', async () => {
+  it('resumes a flow with working folder and selected conversation id', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: { flow: { stepPath: [1] } },
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return mockJsonResponse({
+          status: 'started',
+          flowName: 'daily',
+          conversationId: 'flow-1',
+          inflightId: 'i1',
+          modelId: 'gpt-5',
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    const workingFolderInput = await screen.findByTestId('flow-working-folder');
+    fireEvent.change(workingFolderInput, { target: { value: '/tmp/work' } });
+
+    const resumeButton = await screen.findByTestId('flow-resume');
+    await waitFor(() => expect(resumeButton).toBeEnabled());
+    await user.click(resumeButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCall).toBeTruthy();
+      const [, init] = runCall as [unknown, RequestInit];
+      expect(init.method).toBe('POST');
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.conversationId).toBe('flow-1');
+      expect(body.working_folder).toBe('/tmp/work');
+    });
+  });
+
+  it('starts a fresh run with a new conversation id and preserved custom title even when an older flow conversation is selected', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
 
@@ -506,10 +584,20 @@ describe('Flows page run/resume controls', () => {
       }
 
       if (target.includes('/flows/daily/run')) {
+        const body =
+          mockFetch.mock.calls.at(-1)?.[1]?.body &&
+          typeof mockFetch.mock.calls.at(-1)?.[1]?.body === 'string'
+            ? (JSON.parse(
+                mockFetch.mock.calls.at(-1)?.[1]?.body as string,
+              ) as Record<string, unknown>)
+            : {};
         return mockJsonResponse({
           status: 'started',
           flowName: 'daily',
-          conversationId: 'flow-1',
+          conversationId:
+            typeof body.conversationId === 'string'
+              ? body.conversationId
+              : 'fresh-flow-1',
           inflightId: 'i1',
           modelId: 'gpt-5',
         });
@@ -522,8 +610,10 @@ describe('Flows page run/resume controls', () => {
     render(<RouterProvider router={router} />);
 
     await selectFirstConversation();
-    const workingFolderInput = await screen.findByTestId('flow-working-folder');
-    fireEvent.change(workingFolderInput, { target: { value: '/tmp/work' } });
+    await user.type(
+      await screen.findByTestId('flow-custom-title'),
+      'Daily recap',
+    );
 
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
@@ -535,10 +625,102 @@ describe('Flows page run/resume controls', () => {
       );
       expect(runCall).toBeTruthy();
       const [, init] = runCall as [unknown, RequestInit];
-      expect(init.method).toBe('POST');
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
-      expect(body.conversationId).toBe('flow-1');
-      expect(body.working_folder).toBe('/tmp/work');
+      expect(body.conversationId).not.toBe('flow-1');
+      expect(body.customTitle).toBe('Daily recap');
+    });
+  });
+
+  it('omits stale customTitle when Run starts fresh from a resumable selected conversation', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-resume-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {
+                flow: {
+                  stepPath: [0, 1],
+                },
+              },
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        const body =
+          mockFetch.mock.calls.at(-1)?.[1]?.body &&
+          typeof mockFetch.mock.calls.at(-1)?.[1]?.body === 'string'
+            ? (JSON.parse(
+                mockFetch.mock.calls.at(-1)?.[1]?.body as string,
+              ) as Record<string, unknown>)
+            : {};
+        return mockJsonResponse({
+          status: 'started',
+          flowName: 'daily',
+          conversationId:
+            typeof body.conversationId === 'string'
+              ? body.conversationId
+              : 'fresh-flow-1',
+          inflightId: 'i1',
+          modelId: 'gpt-5',
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const titleInput = await screen.findByTestId('flow-custom-title');
+    await user.type(titleInput, 'Should not leak');
+
+    await selectFirstConversation();
+    await waitFor(() => expect(titleInput).toBeDisabled());
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCall).toBeTruthy();
+      const [, init] = runCall as [unknown, RequestInit];
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.conversationId).not.toBe('flow-resume-1');
+      expect(body.customTitle).toBeUndefined();
     });
   });
 
@@ -599,6 +781,94 @@ describe('Flows page run/resume controls', () => {
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
       expect(body.customTitle).toBe('Daily recap');
     });
+  });
+
+  it('does not clone stale transcript turns into a failed fresh run conversation', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              role: 'assistant',
+              content: 'Earlier flow output',
+              model: 'gpt-5',
+              provider: 'codex',
+              toolCalls: null,
+              status: 'ok',
+              createdAt: now,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              code: 'FLOW_FAILED',
+              message: 'Flow request failed',
+            }),
+            {
+              status: 500,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    expect(await screen.findByText('Earlier flow output')).toBeInTheDocument();
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    expect(await screen.findByText('Flow request failed')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText('Earlier flow output')).not.toBeInTheDocument(),
+    );
   });
 
   it('keeps the earlier assistant bubble visible while the next flow step streams and stale earlier-step replays arrive', async () => {
@@ -955,7 +1225,7 @@ describe('Flows page run/resume controls', () => {
                   lastMessageAt: now,
                   archived: false,
                   flowName: 'daily',
-                  flags: {},
+                  flags: { flow: { stepPath: [1] } },
                 },
               ],
             });
@@ -984,9 +1254,9 @@ describe('Flows page run/resume controls', () => {
 
       expect(await screen.findByText('Earlier output')).toBeInTheDocument();
 
-      const runButton = await screen.findByTestId('flow-run');
-      await waitFor(() => expect(runButton).toBeEnabled());
-      await user.click(runButton);
+      const resumeButton = await screen.findByTestId('flow-resume');
+      await waitFor(() => expect(resumeButton).toBeEnabled());
+      await user.click(resumeButton);
 
       emitWsEvent({
         protocolVersion: 'v1',

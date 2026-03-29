@@ -26,6 +26,7 @@ import {
   Typography,
 } from '@mui/material';
 import { type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
+import type { ConversationFlags } from '../../api/conversations';
 import type { ConversationFilterState } from '../../hooks/useConversations';
 import { createLogger } from '../../logging/logger';
 
@@ -37,6 +38,9 @@ export type ConversationListItem = {
   source?: 'REST' | 'MCP';
   lastMessageAt?: string;
   archived?: boolean;
+  flags?: ConversationFlags;
+  agentName?: string;
+  flowName?: string;
 };
 
 type Props = {
@@ -84,6 +88,25 @@ function formatTimestamp(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString();
+}
+
+function readRunExecutionId(flags?: ConversationFlags) {
+  const parentExecutionId =
+    typeof flags?.flow?.executionId === 'string'
+      ? flags.flow.executionId.trim()
+      : '';
+  if (parentExecutionId.length > 0) return parentExecutionId;
+
+  const childExecutionId =
+    typeof flags?.flowChild?.executionId === 'string'
+      ? flags.flowChild.executionId.trim()
+      : '';
+  return childExecutionId.length > 0 ? childExecutionId : undefined;
+}
+
+function formatRunLabel(executionId?: string) {
+  if (!executionId) return undefined;
+  return `Run ${executionId.slice(0, 8)}`;
 }
 
 export function ConversationList({
@@ -493,6 +516,9 @@ export function ConversationList({
             <List dense disablePadding>
               {sorted.map((conversation) => {
                 const selected = selectedId === conversation.conversationId;
+                const runLabel = formatRunLabel(
+                  readRunExecutionId(conversation.flags),
+                );
                 return (
                   <ListItem
                     key={conversation.conversationId}
@@ -634,14 +660,31 @@ export function ConversationList({
                         }
                         secondary={
                           <Stack spacing={0.5} alignItems="flex-start">
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              data-testid="conversation-meta"
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              alignItems="center"
+                              flexWrap="wrap"
+                              useFlexGap
                             >
-                              {conversation.provider} · {conversation.model} ·{' '}
-                              {conversation.source ?? 'REST'}
-                            </Typography>
+                              {runLabel && (
+                                <Chip
+                                  label={runLabel}
+                                  size="small"
+                                  variant="outlined"
+                                  color="default"
+                                  data-testid="conversation-run-chip"
+                                />
+                              )}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                data-testid="conversation-meta"
+                              >
+                                {conversation.provider} · {conversation.model} ·{' '}
+                                {conversation.source ?? 'REST'}
+                              </Typography>
+                            </Stack>
                             <Typography
                               variant="caption"
                               color="text.secondary"

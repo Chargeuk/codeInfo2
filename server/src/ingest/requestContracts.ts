@@ -1,3 +1,4 @@
+import path from 'path';
 import {
   isOpenAiAllowlistedEmbeddingModel,
   resolveEmbeddingModelSelection,
@@ -21,6 +22,14 @@ export type RequestContractValidationError = {
   code: string;
   message: string;
 };
+
+export function normalizeCanonicalQueueTargetPath(rawPath: string): string {
+  const normalized = path.posix.normalize(rawPath.replace(/\\/g, '/').trim());
+  if (normalized.length > 1 && normalized.endsWith('/')) {
+    return normalized.slice(0, -1);
+  }
+  return normalized;
+}
 
 function normalizeProvider(
   provider: unknown,

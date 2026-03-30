@@ -15,6 +15,7 @@ import {
   type WaitForTerminalIngestStatusResult,
   waitForTerminalIngestStatus,
 } from './ingestJob.js';
+import { normalizeCanonicalQueueTargetPath } from './requestContracts.js';
 
 const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
@@ -123,10 +124,6 @@ export type ReingestServiceDeps = {
   waitOptions?: Partial<WaitForTerminalIngestStatusOptions>;
 };
 
-function normalizePosixPath(rawPath: string) {
-  return path.posix.normalize(rawPath.replace(/\\/g, '/'));
-}
-
 function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
   const repositoryIds = new Set<string>();
   const sourceIds = new Set<string>();
@@ -134,7 +131,7 @@ function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
   repos.repos.forEach((repo) => {
     if (repo.id) repositoryIds.add(repo.id);
     if (repo.containerPath) {
-      sourceIds.add(normalizePosixPath(repo.containerPath));
+      sourceIds.add(normalizeCanonicalQueueTargetPath(repo.containerPath));
     }
   });
 
@@ -310,7 +307,7 @@ function createValidationError(
     );
   }
 
-  const normalized = normalizePosixPath(sourceId);
+  const normalized = normalizeCanonicalQueueTargetPath(sourceId);
   if (normalized !== sourceId) {
     return invalidParamsError(
       'non_normalized',
@@ -430,7 +427,9 @@ export async function runReingestRepository(
     return { ok: false, error: validationError };
   }
 
-  const normalizedSourceId = normalizePosixPath(sourceId as string);
+  const normalizedSourceId = normalizeCanonicalQueueTargetPath(
+    sourceId as string,
+  );
   const knownRoots = new Set(retryLists.reingestableSourceIds);
   if (!knownRoots.has(normalizedSourceId)) {
     const err = notFoundError(retryLists);
@@ -445,7 +444,9 @@ export async function runReingestRepository(
   }
 
   const selectedRepo = repos.repos.find(
-    (repo) => normalizePosixPath(repo.containerPath) === normalizedSourceId,
+    (repo) =>
+      normalizeCanonicalQueueTargetPath(repo.containerPath) ===
+      normalizedSourceId,
   );
 
   try {

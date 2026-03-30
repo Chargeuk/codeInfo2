@@ -1,4 +1,5 @@
 import path from 'path';
+import { normalizeCanonicalQueueTargetPath } from './requestContracts.js';
 
 const DEFAULT_CONTAINER_ROOT = '/data';
 
@@ -15,9 +16,7 @@ export function mapIngestPath(
   hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR ||
     DEFAULT_CONTAINER_ROOT,
 ): MappedPath {
-  const normalizedContainer = path.posix.normalize(
-    containerPath.replace(/\\/g, '/'),
-  );
+  const normalizedContainer = normalizeCanonicalQueueTargetPath(containerPath);
 
   let repo = '';
   let relPath = '';

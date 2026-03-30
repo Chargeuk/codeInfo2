@@ -20,6 +20,7 @@ import {
   startIngest,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
+import { normalizeCanonicalQueueTargetPath } from '../../ingest/requestContracts.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -211,6 +212,14 @@ test('ingest-reembed catch-path logs retryable failures as warn', async () => {
       entry.context?.code === 'BUSY',
   );
   assert.ok(warnEntry, 'expected retryable reembed warn log');
+});
+
+test('ingest-reembed queue-target normalization resolves encoded route aliases to one canonical target', () => {
+  assert.equal(
+    normalizeCanonicalQueueTargetPath('/tmp/repo/'),
+    normalizeCanonicalQueueTargetPath('/tmp//repo'),
+  );
+  assert.equal(normalizeCanonicalQueueTargetPath('/tmp/repo'), '/tmp/repo');
 });
 
 test('ingest-reembed catch-path logs non-retryable failures as error', async () => {

@@ -19,6 +19,10 @@ import {
   startIngest,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
+import {
+  normalizeCanonicalQueueTargetPath,
+  resolveRequestEmbeddingSelection,
+} from '../../ingest/requestContracts.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
@@ -209,6 +213,22 @@ test('ingest-start canonical fields are authoritative when legacy model is also 
   assert.equal(capturedModel, 'openai/text-embedding-3-small');
   assert.equal(capturedProvider, 'openai');
   assert.equal(capturedEmbeddingModel, 'text-embedding-3-small');
+});
+
+test('ingest-start request contracts keep canonical embedding fields authoritative for the same canonical queue target', () => {
+  const resolved = resolveRequestEmbeddingSelection({
+    model: 'legacy-model',
+    embeddingProvider: 'openai',
+    embeddingModel: 'text-embedding-3-small',
+  });
+
+  assert.ok(!('status' in resolved));
+  assert.equal(resolved.selection.providerId, 'openai');
+  assert.equal(resolved.selection.modelKey, 'text-embedding-3-small');
+  assert.equal(
+    normalizeCanonicalQueueTargetPath('/data/example/'),
+    normalizeCanonicalQueueTargetPath('/data//example'),
+  );
 });
 
 test('ingest-start legacy model maps to lmstudio compatibility input', async () => {

@@ -10,6 +10,7 @@ export type MockScenario =
   | 'many'
   | 'empty'
   | 'timeout'
+  | 'controlled-embedding'
   | 'chat-fixture'
   | 'chat-error'
   | 'chat-stream'
@@ -18,15 +19,27 @@ export type MockScenario =
 let scenario: MockScenario = 'many';
 let lastPrediction: { cancelled: boolean } | null = null;
 let lastChatHistory: Array<{ role?: string; content?: string }> = [];
+type ControlledEmbeddingCall = {
+  text: string;
+  aborted: boolean;
+  resolve: (embedding?: number[]) => void;
+  reject: (error: Error) => void;
+};
+let controlledEmbeddingCalls: ControlledEmbeddingCall[] = [];
+let controlledEmbeddingWaiters: Array<() => void> = [];
 
 export function startMock({ scenario: next }: { scenario: MockScenario }) {
   scenario = next;
+  controlledEmbeddingCalls = [];
+  controlledEmbeddingWaiters = [];
 }
 
 export function stopMock() {
   scenario = 'many';
   lastPrediction = null;
   lastChatHistory = [];
+  controlledEmbeddingCalls = [];
+  controlledEmbeddingWaiters = [];
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -181,6 +194,65 @@ export function getLastPredictionState() {
   return lastPrediction;
 }
 
+export function getControlledEmbeddingCalls() {
+  return controlledEmbeddingCalls.map((call) => ({
+    text: call.text,
+    aborted: call.aborted,
+  }));
+}
+
+export function getControlledEmbeddingWaiterCount() {
+  return controlledEmbeddingWaiters.length;
+}
+
+export async function waitForControlledEmbeddingCalls(
+  count: number,
+  timeoutMs = 5000,
+) {
+  if (controlledEmbeddingCalls.length >= count) return;
+  let waiter: (() => void) | null = null;
+  try {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        waiter = () => {
+          if (controlledEmbeddingCalls.length >= count) {
+            resolve();
+          }
+        };
+        controlledEmbeddingWaiters.push(waiter);
+      }),
+      delay(timeoutMs).then(() => {
+        throw new Error(
+          `Timed out waiting for ${count} controlled embedding call(s)`,
+        );
+      }),
+    ]);
+  } finally {
+    if (waiter) {
+      controlledEmbeddingWaiters = controlledEmbeddingWaiters.filter(
+        (candidate) => candidate !== waiter,
+      );
+    }
+  }
+}
+
+export function releaseControlledEmbeddingCall(
+  index: number,
+  embedding?: number[],
+) {
+  const call = controlledEmbeddingCalls[index];
+  if (!call) {
+    throw new Error(`Controlled embedding call ${index} not found`);
+  }
+  call.resolve(embedding);
+}
+
+export function releaseAllControlledEmbeddingCalls(embedding?: number[]) {
+  for (let index = 0; index < controlledEmbeddingCalls.length; index += 1) {
+    releaseControlledEmbeddingCall(index, embedding);
+  }
+}
+
 const wsProtocolError = (url: string) =>
   `Failed to construct LMStudioClient. The baseUrl passed in must have protocol "ws" or "wss". Received: ${url}`;
 
@@ -259,10 +331,41 @@ export class MockLMStudioClient {
     model: async (key: string) => {
       const modelKey = key;
       return {
-        async embed(text: string) {
+        async embed(text: string, options?: { signal?: AbortSignal }) {
+          if (scenario === 'controlled-embedding') {
+            return await new Promise<{ modelKey: string; embedding: number[] }>(
+              (resolve, reject) => {
+                const call: ControlledEmbeddingCall = {
+                  text,
+                  aborted: options?.signal?.aborted ?? false,
+                  resolve: (embedding = [0.4]) => {
+                    resolve({ modelKey, embedding });
+                  },
+                  reject,
+                };
+                const abortListener = () => {
+                  call.aborted = true;
+                };
+                options?.signal?.addEventListener('abort', abortListener, {
+                  once: true,
+                });
+                controlledEmbeddingCalls.push(call);
+                for (const waiter of controlledEmbeddingWaiters) {
+                  waiter();
+                }
+              },
+            );
+          }
+
           const len = Math.max(1, Math.min(8, text.length));
           const embedding = [(len % 5) * 0.1 + 0.1];
           return { modelKey, embedding };
+        },
+        async countTokens(text: string) {
+          return text.split(/\s+/).filter(Boolean).length;
+        },
+        async getContextLength() {
+          return 4096;
         },
       };
     },

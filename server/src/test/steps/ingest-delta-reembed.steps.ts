@@ -29,7 +29,9 @@ import { resolveConfig } from '../../ingest/config.js';
 import { discoverFiles } from '../../ingest/discovery.js';
 import { hashFile } from '../../ingest/hashing.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
+import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
+import { AstCoverageModel } from '../../mongo/astCoverage.js';
 import { isMongoConnected } from '../../mongo/connection.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
@@ -53,6 +55,7 @@ const originalHashesByRelPath = new Map<string, string>();
 const previousHashesByRelPath = new Map<string, string>();
 let rememberedVectorCount: number | null = null;
 let rememberedRunId: string | null = null;
+let rememberedAstCoverageTimestamp: string | null = null;
 
 async function ensureTempDir() {
   if (tempDir) return tempDir;
@@ -79,6 +82,7 @@ async function vectorCountForRoot(root: string) {
 
 Before(async () => {
   setDefaultTimeout(60_000);
+  resetStore();
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
 
   const app = express();
@@ -141,8 +145,10 @@ After(async () => {
   lastStatus = null;
   rememberedVectorCount = null;
   rememberedRunId = null;
+  rememberedAstCoverageTimestamp = null;
   originalHashesByRelPath.clear();
   previousHashesByRelPath.clear();
+  resetStore();
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
@@ -475,6 +481,73 @@ Then(
       assert(row, `missing ingest_files row for ${relPath}`);
       assert.equal(row.fileHash, expectedHash);
     }
+  },
+);
+
+Then(
+  'I remember ingest delta AST coverage timestamp for the delta repo',
+  async () => {
+    assert(tempDir, 'temp dir missing');
+    assert(isMongoConnected(), 'mongo should be connected for this step');
+    const row = await AstCoverageModel.findOne({ root: tempDir }).lean().exec();
+    assert(row, 'missing ast coverage row');
+    const lastIndexedAt = (row as { lastIndexedAt?: Date | string })
+      .lastIndexedAt;
+    assert(lastIndexedAt, 'missing ast coverage timestamp');
+    rememberedAstCoverageTimestamp = new Date(lastIndexedAt).toISOString();
+  },
+);
+
+Then(
+  'ingest delta AST coverage timestamp for the delta repo should remain unchanged',
+  async () => {
+    assert(tempDir, 'temp dir missing');
+    assert(
+      rememberedAstCoverageTimestamp,
+      'missing remembered ast coverage timestamp',
+    );
+    assert(isMongoConnected(), 'mongo should be connected for this step');
+    const row = await AstCoverageModel.findOne({ root: tempDir }).lean().exec();
+    assert(row, 'missing ast coverage row');
+    const currentTimestamp = new Date(
+      (row as { lastIndexedAt?: Date | string }).lastIndexedAt ?? '',
+    ).toISOString();
+    assert.equal(currentTimestamp, rememberedAstCoverageTimestamp);
+  },
+);
+
+Then(
+  'ingest delta AST coverage timestamp for the delta repo should change',
+  async () => {
+    assert(tempDir, 'temp dir missing');
+    assert(
+      rememberedAstCoverageTimestamp,
+      'missing remembered ast coverage timestamp',
+    );
+    assert(isMongoConnected(), 'mongo should be connected for this step');
+    const row = await AstCoverageModel.findOne({ root: tempDir }).lean().exec();
+    assert(row, 'missing ast coverage row');
+    const currentTimestamp = new Date(
+      (row as { lastIndexedAt?: Date | string }).lastIndexedAt ?? '',
+    ).toISOString();
+    assert.notEqual(currentTimestamp, rememberedAstCoverageTimestamp);
+  },
+);
+
+Then(
+  'ingest delta runtime marker {string} should include mode {string}',
+  (marker: string, expectedMode: string) => {
+    assert(tempDir, 'temp dir missing');
+    const matches = query({ text: marker }, 50);
+    assert(matches.length > 0, `missing marker ${marker}`);
+    assert.ok(
+      matches.some(
+        (entry) =>
+          entry.context?.root === tempDir &&
+          entry.context?.mode === expectedMode,
+      ),
+      `missing ${marker} log with mode ${expectedMode}`,
+    );
   },
 );
 

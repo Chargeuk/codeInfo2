@@ -50,3 +50,13 @@ test('LM Studio ingest/provider failures map and append terminal error logs', ()
   );
   assert.equal(lmstudioError?.context?.currentFile, 'main.ts');
 });
+
+test('LM Studio aborts map to a non-retryable aborted code', () => {
+  const abortError = new Error('aborted');
+  abortError.name = 'AbortError';
+
+  const mapped = mapLmStudioIngestError(abortError);
+
+  assert.equal(mapped.error, 'LMSTUDIO_ABORTED');
+  assert.equal(mapped.retryable, false);
+});

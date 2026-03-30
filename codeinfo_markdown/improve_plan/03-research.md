@@ -4,6 +4,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
 - Do not create tasks.
 - Keep the plan aligned to the KISS principle.
 - Prefer upstream or shared fixes over downstream duplication when repository evidence supports that direction.
@@ -40,9 +41,12 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - If a frontend is required or changed, ensure the plan expects frontend unit tests plus Playwright end-to-end tests with screenshot evidence where the UI can be checked visually, and manual validation using the Playwright MCP server when the tooling exists.
 - If a backend is paired with a frontend, ensure the paired system includes the required Playwright end-to-end tests and manual Playwright MCP validation. If those harnesses are missing for the system being changed, add the prerequisite work early in the story before relying on them for new functionality.
 - Check whether new message contracts or storage shapes are required.
+- Check whether new or changed env/config inputs have an explicit valid domain, including empty-string behavior, whitespace behavior, lower bounds, upper bounds, and whether invalid values must clamp, fallback, or fail.
+- Check whether any planned query, delete filter, or bulk selector scales with repository size, file count, chunk count, or symbol count, and whether a bounded strategy is required because the story targets large files, large repositories, ingest scale, or indexing scale.
 - Check whether planned test types need new harnesses because the current repositories do not already support them.
 - Check whether planned proof steps will be runnable at the point they are reached.
 - Check for edge cases, failure modes, contradictions, and assumptions that are currently invalid.
+- Check for scale-shape risks where a logically correct query or payload could still become too large or too expensive when the story’s target dataset grows.
   </research_checklist>
 
 <classification_contract>
@@ -55,11 +59,12 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - Do not dump raw notes into the plan unless they materially improve the plan.
   </classification_contract>
 
-<completeness_contract>
+<verification_loop>
 
 - Treat this pass as incomplete until every relevant planning area above is either supported by evidence and ready to write into the plan, or explicitly marked not applicable.
 - If a lookup returns empty, partial, or suspiciously narrow results, retry with at least one better-targeted fallback before concluding there is no evidence.
-  </completeness_contract>
+- Before moving on, check whether any broad implementation area still hides an unstated prerequisite, runtime seam, or proof gap that later passes must make explicit.
+  </verification_loop>
 
 <output_contract>
 

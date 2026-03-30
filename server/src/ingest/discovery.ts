@@ -171,6 +171,7 @@ export async function discoverFiles(
       absPath,
       relPath: normalized,
       ext: path.extname(normalized).replace('.', '').toLowerCase(),
+      size: stat.size,
     });
   }
 

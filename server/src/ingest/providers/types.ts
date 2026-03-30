@@ -4,9 +4,22 @@ export type DiscoveredEmbeddingModel = {
   id: string;
 };
 
+export type ProviderEmbedRequestOptions = {
+  signal?: AbortSignal;
+};
+
 export interface ProviderEmbeddingModel {
   modelKey?: string;
-  embedText: (text: string) => Promise<number[]>;
+  readonly effectiveBatchSize: number;
+  readonly supportsAbort: boolean;
+  embedText: (
+    text: string,
+    options?: ProviderEmbedRequestOptions,
+  ) => Promise<number[]>;
+  embedBatch: (
+    texts: string[],
+    options?: ProviderEmbedRequestOptions,
+  ) => Promise<number[][]>;
   countTokens: (text: string) => Promise<number>;
   getContextLength: () => Promise<number>;
 }

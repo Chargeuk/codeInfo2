@@ -1,8 +1,15 @@
-import { expect, request, test } from '@playwright/test';
+import {
+  expect,
+  request,
+  test,
+  type APIRequestContext,
+} from '@playwright/test';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const fixturePath = '/fixtures/repo';
+const largeFixtureRelPath = 'large-planning-doc.md';
+const mountedLargeFixturePath = `${fixturePath}/${largeFixtureRelPath}`;
 const fixtureName = 'fixtures-e2e';
 
 const preferredEmbeddingModel = 'text-embedding-qwen3-embedding-4b';
@@ -102,6 +109,47 @@ async function assertNoReembedErrors() {
   } finally {
     await ctx.dispose();
   }
+}
+
+async function queryServerLogs(ctx: APIRequestContext, text: string) {
+  const res = await ctx.get(
+    `${apiBase}/logs?text=${encodeURIComponent(text)}&limit=200&source=server`,
+  );
+  if (!res.ok()) {
+    throw new Error(`logs endpoint unavailable (${res.status()})`);
+  }
+  const data = await res.json();
+  return Array.isArray(data.items)
+    ? (data.items as Array<{
+        message?: string;
+        context?: Record<string, unknown>;
+      }>)
+    : [];
+}
+
+async function waitForStory54Marker(
+  ctx: APIRequestContext,
+  options: {
+    marker: string;
+    runId: string;
+    predicate?: (entry: { context?: Record<string, unknown> }) => boolean;
+  },
+) {
+  await expect
+    .poll(
+      async () => {
+        const items = await queryServerLogs(ctx, options.marker);
+        return items.some((entry) => {
+          if (entry.context?.runId !== options.runId) return false;
+          return options.predicate ? options.predicate(entry) : true;
+        });
+      },
+      {
+        timeout: 60_000,
+        message: `waiting for ${options.marker} for run ${options.runId}`,
+      },
+    )
+    .toBe(true);
 }
 
 const waitForCompletion = async (
@@ -221,14 +269,30 @@ test.describe.serial('Ingest flows', () => {
     await waitForCompletion(page, new RegExp(`${fixtureName}-progress`, 'i'));
   });
 
-  test('happy path ingest completes', async ({ page }) => {
+  test('large-text ingest completes for the mounted Story 54 planning fixture', async ({
+    page,
+  }) => {
     await page.goto(`${baseUrl}/ingest`);
 
+    // Ingest still submits the repo root through the existing UI, but this proof
+    // explicitly tracks the mounted large file inside that repo: /fixtures/repo/large-planning-doc.md.
     await page.getByLabel('Folder path').fill(fixturePath);
-    await page.getByLabel('Display name').fill(fixtureName);
-    await page.getByLabel('Description (optional)').fill('E2E ingest fixture');
+    await page.getByLabel('Display name').fill(`${fixtureName}-large-text`);
+    await page
+      .getByLabel('Description (optional)')
+      .fill(`Story 54 large-text proof via ${mountedLargeFixturePath}`);
     await selectEmbeddingModel(page);
+    const startResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/ingest/start') &&
+        response.request().method() === 'POST',
+    );
     await page.getByTestId('start-ingest').click();
+    const startResponse = await startResponsePromise;
+    const startBody = (await startResponse.json().catch(() => ({}))) as {
+      runId?: string;
+    };
+    const runId = startBody.runId;
 
     const submitError = page.getByTestId('submit-error');
     if (await submitError.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -236,20 +300,63 @@ test.describe.serial('Ingest flows', () => {
       ingestSkip = `ingest start failed: ${message}`;
       test.skip(ingestSkip);
     }
+    if (!runId) {
+      throw new Error('ingest start response did not include a runId');
+    }
+
+    await waitForInProgress(page);
+    await expect
+      .poll(
+        async () =>
+          (
+            await page
+              .getByTestId('ingest-current-file')
+              .first()
+              .textContent()
+              .catch(() => '')
+          )
+            ?.trim()
+            .toLowerCase() ?? '',
+        {
+          timeout: 120_000,
+          message: `waiting for active ingest to reach ${largeFixtureRelPath}`,
+        },
+      )
+      .toContain(largeFixtureRelPath);
 
     try {
-      await waitForCompletion(page, new RegExp(fixtureName, 'i'));
+      await waitForCompletion(
+        page,
+        new RegExp(`${fixtureName}-large-text`, 'i'),
+      );
     } catch (err) {
       ingestSkip = `ingest did not complete: ${(err as Error).message}`;
       test.skip(ingestSkip);
     }
     const row = page
-      .getByRole('row', { name: new RegExp(fixtureName, 'i') })
+      .getByRole('row', { name: new RegExp(`${fixtureName}-large-text`, 'i') })
       .first();
     await expect(row).toBeVisible({ timeout: 30_000 });
     await expect(row.getByText(/completed/i)).toBeVisible({
       timeout: 30_000,
     });
+
+    const ctx = await request.newContext();
+    try {
+      await waitForStory54Marker(ctx, {
+        marker: 'DEV-0000054:large_text_path_selected',
+        runId,
+        predicate: (entry) =>
+          entry.context?.relPath === largeFixtureRelPath &&
+          entry.context?.strategy === 'prose',
+      });
+      await waitForStory54Marker(ctx, {
+        marker: 'DEV-0000054:embedding_dispatch_slot_filled',
+        runId,
+      });
+    } finally {
+      await ctx.dispose();
+    }
   });
 
   test('cancel in-progress ingest shows cancelled', async ({ page }) => {
@@ -261,23 +368,33 @@ test.describe.serial('Ingest flows', () => {
     await page.getByTestId('start-ingest').click();
 
     await waitForInProgress(page);
+    await expect(page.getByText(/^Run ID:/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('ingest-current-file').first()).toHaveText(
+      /\S+/,
+      {
+        timeout: 60_000,
+      },
+    );
+    await page.waitForTimeout(1_000);
 
     const cancelButton = page.getByRole('button', { name: /cancel ingest/i });
     await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
     await cancelButton.click();
 
+    await expect(
+      page.getByRole('heading', { name: /Active ingest/i }),
+    ).toBeHidden({
+      timeout: 180_000,
+    });
     const cancelRow = page
       .getByRole('row', { name: new RegExp(fixtureName, 'i') })
       .first();
-    try {
-      await waitForCompletion(page, new RegExp(`${fixtureName}-cancel`, 'i'));
-      await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
-        timeout: 120_000,
-      });
-    } catch (err) {
-      ingestSkip = `ingest cancel did not complete: ${(err as Error).message}`;
-      test.skip(ingestSkip);
-    }
+    await expect(cancelRow).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
+      timeout: 120_000,
+    });
   });
 
   test('re-embed updates row and stays locked', async ({ page }) => {

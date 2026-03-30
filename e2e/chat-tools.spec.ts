@@ -87,9 +87,11 @@ async function vectorSearch(
 
 test.describe.serial('Chat tools citations', () => {
   test('shows vector search citation with host path', async ({ page }) => {
+    test.setTimeout(240_000);
     const mockWs = await installMockChatWs(page);
 
-    // Ensure prerequisites and ingest the fixture repo
+    // This proof pays the full compose-backed ingest setup cost before it
+    // reaches /chat, so it needs the same explicit timeout treatment as ingest.spec.ts.
     const model = await pickEmbeddingModel(page.request);
     await clearRoots(page.request);
     const runId = await startIngest(page.request, model.id);

@@ -1008,6 +1008,122 @@ export async function clearAstCoverageByRoot(
   return { ok: true };
 }
 
+const STALE_AST_DELETE_BATCH_SIZE = 200;
+
+function chunkItems<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+type AstDeleteModelLike = {
+  deleteMany: (query: Record<string, unknown>) => {
+    exec: () => Promise<unknown>;
+  };
+  distinct: (
+    field: string,
+    query: Record<string, unknown>,
+  ) => { exec: () => Promise<unknown> };
+};
+
+async function deleteStaleAstRecordsByRootFiles(params: {
+  model: AstDeleteModelLike;
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}) {
+  const { model, root, files } = params;
+  if (files.length === 0) {
+    await model.deleteMany({ root }).exec();
+    return;
+  }
+
+  const currentRelPaths = new Set(files.map((file) => file.relPath));
+  const existingRelPaths = (await model
+    .distinct('relPath', { root })
+    .exec()) as string[] | undefined;
+  const staleRelPaths = (existingRelPaths ?? []).filter(
+    (relPath) => !currentRelPaths.has(relPath),
+  );
+
+  for (const batch of chunkItems(staleRelPaths, STALE_AST_DELETE_BATCH_SIZE)) {
+    await model.deleteMany({ root, relPath: { $in: batch } }).exec();
+  }
+
+  for (const batch of chunkItems(files, STALE_AST_DELETE_BATCH_SIZE)) {
+    await model
+      .deleteMany({
+        root,
+        $or: batch.map((file) => ({
+          relPath: file.relPath,
+          fileHash: { $ne: file.fileHash },
+        })),
+      })
+      .exec();
+  }
+}
+
+export async function deleteStaleAstSymbolsByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await deleteStaleAstRecordsByRootFiles({
+    model: AstSymbolModel as unknown as AstDeleteModelLike,
+    root,
+    files,
+  });
+  return { ok: true };
+}
+
+export async function deleteStaleAstEdgesByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await deleteStaleAstRecordsByRootFiles({
+    model: AstEdgeModel as unknown as AstDeleteModelLike,
+    root,
+    files,
+  });
+  return { ok: true };
+}
+
+export async function deleteStaleAstReferencesByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await deleteStaleAstRecordsByRootFiles({
+    model: AstReferenceModel as unknown as AstDeleteModelLike,
+    root,
+    files,
+  });
+  return { ok: true };
+}
+
+export async function deleteStaleAstModuleImportsByRootFiles(params: {
+  root: string;
+  files: Array<{ relPath: string; fileHash: string }>;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  await deleteStaleAstRecordsByRootFiles({
+    model: AstModuleImportModel as unknown as AstDeleteModelLike,
+    root,
+    files,
+  });
+  return { ok: true };
+}
+
 export async function deleteAstSymbolsByRelPaths(params: {
   root: string;
   relPaths: string[];

@@ -4,6 +4,7 @@ If the story changes any user-visible or stateful interaction surface, make the 
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
 - Only add detail when the story actually touches UI state, selection state, mode switches, form inputs, draft state, or persisted client-visible state.
 - If the story has no such surface, record that this pass is not applicable and do not bloat the plan.
 - Prefer precise behavioral rules over generic UI commentary.
@@ -26,6 +27,12 @@ If the story changes any user-visible or stateful interaction surface, make the 
 - Add proof expectations when a later tasking pass will need to distinguish between clearing stale state and excluding stale state from submission.
 - Do not create tasks in this pass.
   </required_plan_updates>
+
+<verification_loop>
+
+- Check whether stateful-risk clarification is genuinely needed or genuinely not applicable.
+- Check whether any added state rule is specific enough for a later tasking pass to create separate stale-state and mixed-state proof obligations.
+  </verification_loop>
 
 <output_contract>
 

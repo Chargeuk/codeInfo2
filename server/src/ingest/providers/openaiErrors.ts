@@ -2,6 +2,7 @@ import { APIConnectionError, APIConnectionTimeoutError } from 'openai';
 import { OPENAI_PROVIDER_ID } from './openaiConstants.js';
 
 export type OpenAiErrorCode =
+  | 'OPENAI_ABORTED'
   | 'OPENAI_AUTH_FAILED'
   | 'OPENAI_PERMISSION_DENIED'
   | 'OPENAI_MODEL_UNAVAILABLE'
@@ -143,6 +144,38 @@ function extractName(err: unknown): string {
   return '';
 }
 
+function isAbortLikeError(err: unknown): boolean {
+  if (err instanceof Error && err.name === 'AbortError') {
+    return true;
+  }
+
+  if (!err || typeof err !== 'object') {
+    return false;
+  }
+
+  const name =
+    'name' in err && typeof (err as { name?: unknown }).name === 'string'
+      ? (err as { name: string }).name
+      : '';
+  if (name === 'AbortError') {
+    return true;
+  }
+
+  const code =
+    'code' in err && typeof (err as { code?: unknown }).code === 'string'
+      ? (err as { code: string }).code
+      : '';
+  if (code === 'ABORT_ERR') {
+    return true;
+  }
+
+  if ('cause' in err) {
+    return isAbortLikeError((err as { cause?: unknown }).cause);
+  }
+
+  return false;
+}
+
 export function mapOpenAiError(err: unknown): OpenAiEmbeddingError {
   if (err instanceof OpenAiEmbeddingError) {
     return err;
@@ -152,6 +185,10 @@ export function mapOpenAiError(err: unknown): OpenAiEmbeddingError {
   const status = extractStatus(err);
   const apiCode = extractApiCode(err);
   const errorName = extractName(err);
+
+  if (isAbortLikeError(err) || errorName === 'AbortError') {
+    return new OpenAiEmbeddingError('OPENAI_ABORTED', message, false, status);
+  }
 
   if (
     err instanceof APIConnectionTimeoutError ||

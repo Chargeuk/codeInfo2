@@ -161,20 +161,30 @@ const setupIngestChromaMocks = () => {
   return { vectors, roots };
 };
 
-const buildIngestDeps = () => ({
-  baseUrl: 'http://lmstudio.local',
-  lmClientFactory: () =>
-    ({
-      embedding: {
-        model: async () => ({
-          embed: async () => ({ embedding: [0.1, 0.2, 0.3] }),
-          getContextLength: async () => 256,
-          countTokens: async (text: string) =>
-            text.split(/\s+/).filter(Boolean).length,
-        }),
-      },
-    }) as unknown as LMStudioClient,
-});
+const buildIngestDeps = (options?: { modelError?: Error }) => {
+  let modelCalls = 0;
+  return {
+    baseUrl: 'http://lmstudio.local',
+    lmClientFactory: () =>
+      ({
+        embedding: {
+          model: async () => {
+            modelCalls += 1;
+            if (options?.modelError) {
+              throw options.modelError;
+            }
+            return {
+              embed: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+              getContextLength: async () => 256,
+              countTokens: async (text: string) =>
+                text.split(/\s+/).filter(Boolean).length,
+            };
+          },
+        },
+      }) as unknown as LMStudioClient,
+    getModelCalls: () => modelCalls,
+  };
+};
 
 test('ingest-reembed catch-path logs retryable failures as warn', async () => {
   const response = await request(
@@ -271,7 +281,162 @@ test('blank-only delta reembed keeps completed no-op semantics', async () => {
   }
 });
 
-test('deletions-only delta reembed stays completed and does not use fresh-ingest failure', async () => {
+test('blank-only delta reembed stays provider-free when model lookup would fail', async () => {
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'src/blank.ts': '   \n\t\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'src/blank.ts'));
+    const providerUnavailable = new Error('lmstudio unavailable');
+    const deps = buildIngestDeps({ modelError: providerUnavailable });
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [{ relPath: 'src/blank.ts', fileHash }],
+        }),
+      }),
+    }));
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'blank-reembed-provider-free',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(deps.getModelCalls(), 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('successful ingest prefers the observed vector dimension over stale persisted hints', async () => {
+  const { roots } = setupIngestChromaMocks();
+  const rootsWithDimension = roots as typeof roots & { dimension?: number };
+  rootsWithDimension.dimension = 1;
+  roots.get = async () => ({ embeddings: [[0.1]] });
+  const deps = buildIngestDeps();
+  const { root, cleanup } = await createTempRepo({
+    'large.md': '# heading\n\n' + 'alpha beta gamma '.repeat(5000),
+  });
+
+  try {
+    const runId = await startIngest(
+      { path: root, name: 'fresh-vector-dimension', model: 'embed-model' },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(roots.add.mock.calls.length, 1);
+    const addCall = roots.add.mock.calls[0] as unknown as {
+      arguments: [
+        {
+          embeddings: number[][];
+          metadatas: Array<{ embeddingDimensions?: number }>;
+        },
+      ];
+    };
+    assert.equal(addCall.arguments[0].embeddings[0]?.length, 3);
+    assert.equal(addCall.arguments[0].metadatas[0]?.embeddingDimensions, 3);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('deletions-only delta reembed skips root persistence when no dimension can be trusted', async () => {
+  const { roots } = setupIngestChromaMocks();
+  const rootsWithDimension = roots as typeof roots & { dimension?: number };
+  rootsWithDimension.dimension = undefined;
+  roots.get = async () => ({ embeddings: [] });
+  const providerUnavailable = new Error('lmstudio unavailable');
+  const deletionReembedDeps = buildIngestDeps({
+    modelError: providerUnavailable,
+  });
+  const liveDeps = buildIngestDeps();
+  const { root, cleanup } = await createTempRepo({
+    'docs/deleted.txt': 'to be removed\n',
+  });
+
+  try {
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [{ relPath: 'docs/deleted.txt', fileHash: 'old' }],
+        }),
+      }),
+    }));
+    await fs.rm(path.join(root, 'docs/deleted.txt'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+
+    const deletionReembedId = await startIngest(
+      {
+        path: root,
+        name: 'deletions-reembed-no-dimension',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deletionReembedDeps,
+    );
+    const deletionReembedStatus = await waitForTerminal(deletionReembedId);
+
+    assert.equal(deletionReembedStatus.state, 'completed');
+    assert.equal(
+      deletionReembedDeps.getModelCalls(),
+      0,
+      'no-work reembed should remain provider-free when no dimension can be trusted',
+    );
+    assert.equal(
+      roots.add.mock.calls.length,
+      0,
+      'no-work reembed should skip persisting an untrusted fallback root dimension',
+    );
+
+    await fs.mkdir(path.join(root, 'src'), { recursive: true });
+    await fs.writeFile(
+      path.join(root, 'src/live.ts'),
+      'export const value = 1;\n',
+      'utf8',
+    );
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/live.ts';
+
+    const liveRunId = await startIngest(
+      {
+        path: root,
+        name: 'live-after-deletions-reembed',
+        model: 'embed-model',
+      },
+      liveDeps,
+    );
+    const liveStatus = await waitForTerminal(liveRunId);
+
+    assert.equal(liveStatus.state, 'completed');
+    assert.equal(roots.add.mock.calls.length, 1);
+    const addCall = roots.add.mock.calls[0] as unknown as {
+      arguments: [
+        {
+          embeddings: number[][];
+          metadatas: Array<{ embeddingDimensions?: number }>;
+        },
+      ];
+    };
+    assert.equal(addCall.arguments[0].embeddings[0]?.length, 3);
+    assert.equal(addCall.arguments[0].metadatas[0]?.embeddingDimensions, 3);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('deletions-only delta reembed keeps a numeric zero-file terminal percent', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
     'src/deleted.ts': 'export const deleted = 1;\n',
@@ -302,8 +467,50 @@ test('deletions-only delta reembed stays completed and does not use fresh-ingest
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
+    assert.equal(status.percent, 0);
     assert.notEqual(status.error?.error, 'NO_ELIGIBLE_FILES');
     assert.doesNotMatch(String(status.message ?? ''), /no eligible files/i);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('deletions-only delta reembed stays provider-free when model lookup would fail', async () => {
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'docs/deleted.txt': 'to be removed\n',
+  });
+
+  try {
+    const providerUnavailable = new Error('lmstudio unavailable');
+    const deps = buildIngestDeps({ modelError: providerUnavailable });
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [
+            { relPath: 'docs/deleted.txt', fileHash: 'deleted-hash' },
+          ],
+        }),
+      }),
+    }));
+    await fs.rm(path.join(root, 'docs/deleted.txt'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'deleted-reembed-provider-free',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(deps.getModelCalls(), 0);
   } finally {
     await cleanup();
   }

@@ -1,21 +1,20 @@
 # Goal
 
-Lock the active story, repository scope, and tasking format before generating or rewriting tasks.
+Lock the active plan scope before doing any research or edits.
 
 <instruction_priority>
 
-- Follow `AGENTS.md` for the current repository and any participating additional repository.
-- Treat this command as an autonomous tasking pass.
-- Do not ask the user follow-up questions unless blocked by information that cannot be retrieved from repository files, git state, MCP tools, or official documentation.
-- Keep the work aligned to the KISS principle and do not future-plan beyond the selected story.
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
+- Treat this command as an autonomous plan-improvement pass.
+- Do not create tasks in this command.
+- Do not ask the user follow-up questions unless you are blocked by information that cannot be retrieved from repository files, git state, MCP tools, or official documentation.
   </instruction_priority>
 
 <source_priority>
 
 - Use fresh disk reads and current git state, not conversational memory.
-- Use `codeInfoStatus/flow-state/current-plan.json` as the sole source of active plan scope.
+- Use `codeInfoStatus/flow-state/current-plan.json` as the sole source of active plan scope for this command.
 - Do not independently search for or select a different plan.
-- Read `codeinfo_markdown/repository_information.md` if it exists.
 - Read `plan_format.md` in the current repository if it exists.
 - If `plan_format.md` is not present in the current repository, use the copy from `codeInfo2` if it is available.
 - If it is still not available, use `code_info` to find the best matching planning template in another repository.
@@ -27,9 +26,10 @@ Lock the active story, repository scope, and tasking format before generating or
 - Determine the active `plan_path`, then normalize `additional_repositories`.
 - The current repository is the canonical plan host and is implicitly in scope.
 - If the current repository also appears in `additional_repositories`, treat that entry as redundant and ignore it.
+- Read `codeinfo_markdown/repository_information.md` if it exists, and note whether it was found.
 - Read the selected plan from disk.
 - Read the plan's `Additional Repositories` section if present, supporting both `## Additional Repositories` and `### Additional Repositories`.
-- Re-check git branch state directly from git for the current repository and each participating additional repository.
+- Re-check git branch state directly from git for the current repository and each additional repository.
   </tool_use_policy>
 
 <required_checks>
@@ -38,13 +38,19 @@ Lock the active story, repository scope, and tasking format before generating or
 - Verify that the selected plan filename story number matches the current repository branch story number.
 - Verify that each participating additional repository is readable and is either already on the matching story branch or can safely create or reuse that branch without overwriting local changes.
 - If any of those checks fail, stop and report that the current-plan handoff is stale or branch setup is blocked. Do not continue.
-- Determine whether the story is single-repository or multi-repository before tasking.
-- Determine whether the selected plan already contains tasks, and if so, whether those tasks already follow the current tasking format and repository-ownership rules.
+- If later work requires a repository that is not already listed in the plan's `Additional Repositories` section, add it to the plan before planning work in that repository.
   </required_checks>
+
+<verification_loop>
+
+- Re-check that the selected plan and repository scope are still valid before moving to research.
+- Confirm whether the story is single-repository or multi-repository so later passes do not invent unnecessary structure.
+  </verification_loop>
 
 <output_contract>
 
-- Confirm the selected story, participating repositories, whether `repository_information.md` was found, and whether the story is already partially or fully tasked.
+- First, confirm the selected story, the participating repositories, and whether `repository_information.md` was found.
+- Then state whether the story is single-repository or multi-repository.
 - If `repository_information.md` was found, keep using it as supporting repository context in later passes.
-- Do not create or rewrite tasks in this pass yet unless you must update the plan's `Additional Repositories` section to keep repository ownership truthful before later work.
+- Do not make plan edits in this pass unless you must update the plan's `Additional Repositories` section to keep repository ownership truthful before further work.
   </output_contract>

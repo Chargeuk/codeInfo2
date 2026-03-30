@@ -81,15 +81,22 @@ Record the final per-repository resolved base branch and the reason it was chose
 11. For each changed file or helper OUTSIDE the allowed spelling/grammar-only support-file set, record any review hotspots that the findings pass must inspect explicitly:
     - merge-before-validate logic;
     - normalization-before-validate logic;
+    - provider, client, dispatcher, lock, or bootstrap setup that may happen before the code proves real work still exists on no-op, metadata-only, delete-only, or zero-work fast paths;
     - bootstrap or existence checks;
+    - env/config parsers whose accepted domain is wider than the downstream code safely supports, especially empty-string handling, whitespace handling, and numeric ranges that should be clamped, rejected, or treated as unset;
     - helpers that return warnings/errors/reason metadata;
+    - raw-to-wrapped error translation helpers plus any changed caller that branches on raw error names, SDK error classes, provider error codes, retryability, or cancel-vs-terminal semantics;
+    - fallback or precedence helpers where stale persisted hints, cached values, collection-level metadata, or degraded fallback values may override fresher values observed during the current run;
+    - shared waiter, listener, callback, queue, or subscription registrations that may survive timeout, rejection, cancellation, or early return without unregistering;
     - changed test titles or descriptions whose assertions may no longer match the invariant they claim to prove;
     - shared log markers or shared response fields;
+    - query builders, delete filters, or bulk selectors whose size grows with repository, file, chunk, or symbol count, especially `$or`, `$in`, `$nin`, and per-file delete payloads;
     - fallback-selection logic;
     - duplicate/conflicting object keys;
     - deleted/moved/conditional validation;
     - partial-failure handling;
     - dead-field or dead-branch risk;
+    - changed tests that prove "something did not happen yet" using fixed delays instead of a deterministic scheduler, resource, or state boundary;
     - UI enable/disable/visibility or mode-gating logic versus the payload, persistence, or submission path it is supposed to control;
     - any helper that could hide misconfiguration by defaulting too early;
     - any alias-migration or backward-compatibility helper where legacy and canonical fields can partially coexist in mixed-shape configs.
@@ -102,7 +109,14 @@ Record the final per-repository resolved base branch and the reason it was chose
     - legacy alias/deprecated-input compatibility where old and new field shapes may coexist.
 13. Note where backward-compatibility risk exists and where the canonical plan explicitly permits an edge-case deviation from generic best practice.
 14. Name the top 3 changed helpers/functions by review risk from the non-support-file changes across the whole review scope, and record the worst malformed or contradictory input each one should reject or survive, plus whether that path currently has direct proof, indirect proof, or missing proof.
-15. Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
+15. For each changed orchestration function that initializes external providers, clients, dispatchers, locks, or other runtime dependencies, record whether any no-op, metadata-only, delete-only, or zero-work fast path can complete before that initialization happens. If the answer is unclear, add that ordering question to the review hotspots and the Risk-Invariant Matrix.
+16. When a fast path is intended to complete without embedding, network, model, or provider work, record the exact dependency-free invariant that the findings pass must challenge explicitly.
+17. If an acceptance test proves only terminal status semantics for a fast path, but does not prove behavior under provider or bootstrap failure, mark that proof as indirect rather than direct.
+18. For each changed env/config parser, record the value domain the downstream code expects, including empty-string or whitespace behavior, lower and upper bounds, and whether invalid values must clamp, fallback, or fail.
+19. For each changed query/filter/bulk selector that scales with repository, file, chunk, or symbol count, record the growth dimension, whether the implementation batches or bounds request size, and whether the active story explicitly targets large-repository or large-file behavior.
+20. If a changed helper registers waiters, listeners, callbacks, subscriptions, or queue entries into shared state, record whether every exit path unregisters them, including success, timeout, rejection, cancellation, and early-return paths.
+21. If a changed helper chooses between persisted hints and freshly observed values, record whether the current-success path needs different precedence from zero-work or degraded fallback paths.
+22. Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
     - execution-routing or harness-selection rules that may live in unchanged files, including `testMatch`/`testIgnore`, filename or suffix conventions, tags, worker-count or project assignment, startup registration, feature flags, and env wiring;
     - default launcher, wrapper, dispatcher, CI, or startup entrypoints to verify the changed behavior still runs in the standard path without manual overrides;
     - shared-state surfaces touched by the change, including lock files or directories, temp paths, caches, singleton resources, ports, persisted artifacts, and cross-test fixtures;
@@ -112,17 +126,19 @@ Record the final per-repository resolved base branch and the reason it was chose
     - tests that mutate shared state or rely on serialization, including what prevents interference with parallel suites, other projects, retries, or stateful variants;
     - malformed, missing, incomplete, or contradictory state that could be transient rather than stale, including partially written files, half-created directories, and delayed metadata visibility;
     - rename, ignore-rule, suffix, tag, project-assignment, or classification changes that may silently exclude tests, routes, jobs, or code paths from the default validation path.
-16. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
-17. Add a `Risk-Invariant Matrix` section to the evidence summary for the top risky helpers/functions. For each one, record:
+23. For any risky area above, record the controlling unchanged files, helpers, or configs that must be opened during findings even if they are outside the branch diff, and note whether current proof is direct, indirect, or missing.
+24. Add a `Risk-Invariant Matrix` section to the evidence summary for the top risky helpers/functions. For each one, record:
     - the helper/function name and repository scope;
     - the semantic invariant or contract it must preserve;
     - the highest-risk contradictory input, state, or mixed-shape condition that could break that invariant;
     - whether current proof is direct, indirect, or missing;
     - which later review step must challenge that invariant explicitly.
-18. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
-19. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
-20. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-21. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+25. If a changed helper wraps, normalizes, or classifies errors, record the consumer branch that interprets those errors and note whether cancellation, retry, ignore, and terminal-failure semantics still depend on the old raw error shape.
+26. If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
+27. If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
+28. If a changed test file is being used as acceptance proof, also record whether any negative assertion depends on an arbitrary elapsed-time sleep instead of a deterministic scheduler, resource, or state boundary, and mark that proof as weak when no stronger boundary is demonstrated.
+29. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+30. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
 ## Output Contract
 

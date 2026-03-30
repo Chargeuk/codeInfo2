@@ -4,6 +4,7 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
 - Run this pass only where the story affects UI state, mode switches, restored fields, or any client-visible state machine.
 - If the story has no such surface, leave the plan unchanged and record that this pass is not applicable.
 - Prefer concrete state transitions over generic UX wording.
@@ -21,6 +22,12 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 - Make tasks say whether the correct behavior is to clear the stale state, retain it locally, or exclude it from submission.
 - If the server must ignore or reject contradictory payloads coming from these states, make that proof explicit too.
   </stateful_ui_rules>
+
+<verification_loop>
+
+- Check whether mixed-state proof is explicit anywhere the story changes create-vs-reuse, run-vs-resume, or hidden/disabled state.
+- Leave the plan unchanged when this pass is not applicable instead of adding boilerplate.
+  </verification_loop>
 
 <output_contract>
 

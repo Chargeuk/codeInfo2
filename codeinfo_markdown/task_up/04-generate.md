@@ -4,8 +4,9 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
 - Work from the active plan only.
-- Do not leave investigation subtasks in the task list; investigations must be resolved now through repository evidence and documentation.
+- Do not leave investigation subtasks in the task list; investigations must be resolved now through the earlier research passes, repository evidence, and documentation.
 - Prefer the smallest set of tasks that fully implements the story without combining unrelated work.
   </instruction_priority>
 
@@ -23,13 +24,19 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 
 - If the story has no tasks, create them.
 - If the story already has tasks, rewrite them where needed so they match the tasking rules below.
-- Each task must implement exactly one change that can be tested as a coherent unit.
+- Each task must implement exactly one primary seam that can be tested as a coherent unit.
 - Each task must belong to exactly one repository.
 - If the story spans multiple repositories, split provider-repository and consumer-repository work into separate tasks and make the sequencing explicit.
 - Add explicit task dependencies whenever a task relies on another task's output, contract, harness, migration, or shared library change.
 - Keep prerequisite work earlier than downstream tasks that depend on it.
 - Add cleanup or removal tasks when the story replaces or supersedes existing behavior.
 - Add migration or compatibility tasks when the story changes contracts, storage, env vars, build/runtime wiring, or deployment behavior.
+- Add explicit implementation and proof-authoring work when the story changes env/config inputs with constrained domains, including invalid-input, blank-input, and oversized-input handling.
+- Add explicit implementation and proof-authoring work when the story introduces or changes query/filter/bulk-selector logic that must stay bounded as repository or file counts grow.
+- Add explicit implementation and proof-authoring work when the story changes reader and writer behavior over the same persisted artifact, including partial-state handling and cleanup ownership when relevant.
+- Add explicit implementation and proof-authoring work when the story changes cancellation, retry, teardown, crash-recovery, or other lifecycle-sensitive orchestration.
+- Add explicit implementation and proof-authoring work when the story changes selectors, wrappers, startup paths, CI routing, or feature flags that affect whether the behavior runs in the default path.
+- Add explicit implementation and proof-authoring work when changed tests or harness code depend on deterministic boundaries, teardown ordering, or shared-state safety.
 - Add observability or diagnosability work when the story would be difficult to prove or debug without it.
 - Add documentation tasks only when the story actually changes documentation-relevant behavior, files, architecture, commands, contracts, or screenshots.
   </task_generation_rules>
@@ -53,12 +60,13 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - When the repository workflow expects lint, format, or static-analysis checks as subtasks, add them as separate final subtasks with one explicit command per subtask. Each such subtask should state the exact command, the expected pass condition, and that any available auto-fix command should be tried before manual fixes.
   </task_shape_rules>
 
-<completeness_contract>
+<verification_loop>
 
 - Treat this pass as incomplete until every Acceptance Criterion, important Description requirement, and explicit Out Of Scope boundary has a plausible place in the task list or is explicitly marked out of scope by the story itself.
 - Treat this pass as incomplete until each Acceptance Criterion, edge case, and meaningful failure mode has both implementation subtasks and named proof-authoring subtasks, even though the later Testing section may still execute only broad wrapper commands.
 - If existing tasks are too large, split them only when the split improves clarity, sequencing, or proof without making the work more fragmented or less testable.
-  </completeness_contract>
+- If a still-unknown contract, runtime seam, or library behavior would force the task list to include “investigate” or “confirm” work, stop and push that clarification back into the plan instead of leaking it into the tasks.
+  </verification_loop>
 
 <output_contract>
 

@@ -9,3 +9,5 @@ Then apply these external-review-specific additions:
    - the external review comments reinforcing that risk;
    - or both together.
 4. Keep the same backward-compatibility rule as the base prompt: the external disposition step must still work when this challenge artifact is absent because an older flow snapshot is still running.
+5. Preserve the base prompt's extra non-helper consistency or portability challenge so external review can still catch issues such as duplicated literals that should use a canonical constant, absolute local filesystem links in changed user-facing docs, or changed test-support mocks with already-aborted cancellation inputs.
+6. Preserve the base prompt's failure-ordering challenge for changed orchestration functions so external review can still catch cases where a no-op, metadata-only, delete-only, or zero-work fast path depends on provider or bootstrap setup before proving real work exists.

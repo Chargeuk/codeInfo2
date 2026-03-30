@@ -27,7 +27,7 @@
       "label": "Task Up Plan",
       "agentType": "tasking_agent",
       "identifier": "tasker",
-      "commandName": "task_up"
+      "commandName": "task_up2"
     },
     {
       "type": "llm",

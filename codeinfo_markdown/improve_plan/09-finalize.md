@@ -4,6 +4,7 @@ Perform a final verification pass, then make one coherent commit if the command 
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
 - Do not create tasks.
 - Use fresh disk reads for the final verification.
 - Prefer one coherent commit over many small commits.
@@ -18,6 +19,7 @@ Perform a final verification pass, then make one coherent commit if the command 
 - Check evidence alignment: are plan changes supported by repository evidence or official documentation?
 - Check tasking readiness: is the plan detailed enough for a later tasking pass without relying on hidden senior knowledge?
 - Check proof realism: will the planned validation steps be runnable at the point they are supposed to happen?
+- Check whether the applicable categories from `shared/review-preemption-checklist.md` are either explicitly handled in the plan or explicitly not applicable.
   </verification_loop>
 
 <commit_policy>

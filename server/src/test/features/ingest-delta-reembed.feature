@@ -1,5 +1,4 @@
 Feature: Ingest delta re-embed
-
   Delta re-embed uses the per-file hash index (ingest_files) to only re-embed changed/new files
   and to delete vectors for deleted files, avoiding expensive full rebuilds.
 
@@ -88,6 +87,32 @@ Feature: Ingest delta re-embed
     Then ingest delta status for the last run becomes "completed"
     And ingest delta last status message should not be "No changes detected"
     And ingest delta vectors for "b.ts" should be absent
+
+  @mongo
+  Scenario: Non-AST-only delta re-embed skips AST work
+    Given ingest delta temp repo with file "src/app.ts" containing "export const app=1;"
+    And ingest delta temp repo with file "docs/guide.md" containing "# Guide"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    And I remember ingest delta AST coverage timestamp for the delta repo
+    When I change ingest delta temp file "docs/guide.md" to "# Guide\n\nUpdated"
+    And I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And ingest delta runtime marker "DEV-0000054:delta_ast_mode_selected" should include mode "ast_skip_non_ast_delta"
+    And ingest delta AST coverage timestamp for the delta repo should remain unchanged
+
+  @mongo
+  Scenario: AST-relevant delta re-embed chooses full rebuild mode
+    Given ingest delta temp repo with file "src/app.ts" containing "export const app=1;"
+    And ingest delta temp repo with file "src/other.ts" containing "export const other=1;"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    And I remember ingest delta AST coverage timestamp for the delta repo
+    When I delete ingest delta temp file "src/other.ts"
+    And I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And ingest delta runtime marker "DEV-0000054:delta_ast_mode_selected" should include mode "ast_full_rebuild"
+    And ingest delta AST coverage timestamp for the delta repo should change
 
   @mongo
   Scenario: Cancellation near no-change boundary yields one terminal outcome

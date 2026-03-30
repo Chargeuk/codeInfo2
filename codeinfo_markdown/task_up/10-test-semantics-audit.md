@@ -4,6 +4,7 @@ Audit the planned proof files so changed or reused tests still claim and prove t
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
 - Treat misleading proof as a tasking defect, not a cosmetic issue.
 - Keep the audit focused on proof semantics, not general test style.
 - Do not remove valid proof; rename or rewrite it when semantics drift.
@@ -15,6 +16,9 @@ Audit the planned proof files so changed or reused tests still claim and prove t
 - If an existing test would become misleading, add an explicit subtask to rename it, split it, or rewrite it.
 - Do not allow a task to rely on a proof file whose title claims one behavior while its assertions only verify adjacent behavior.
 - When a planned proof file is reused for a new behavior, make the new invariant explicit in the task instead of assuming the old test name is “close enough”.
+- When a planned proof depends on teardown or cancellation ordering, check whether the task also makes awaited teardown or cleanup completion explicit instead of assuming it.
+- When a planned proof claims that something has not happened yet, check whether the task names a deterministic boundary instead of relying on arbitrary elapsed time.
+- When a planned proof touches shared state or concurrency-sensitive behavior, check whether the task states the isolation or worker-safety assumption that keeps the proof honest.
   </test_semantics_rules>
 
 <verification_loop>

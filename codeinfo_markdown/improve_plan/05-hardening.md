@@ -4,6 +4,7 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 
 <instruction_priority>
 
+- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
 - Do not create tasks.
 - Prefer the smallest set of plan edits that closes real gaps.
 - Keep wording concrete and junior-friendly.
@@ -26,12 +27,18 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Make each Acceptance Criterion and meaningful edge case specific enough that a later tasking pass can map it to named proof locations rather than only generic wrapper commands.
 - Add or update `## Implementation Ideas` based on the researched evidence.
 - Add or update message-contract and storage-shape details when the story needs them.
+- Add or update env/config domain details when the story introduces or changes numeric limits, margins, percentages, timeouts, queue caps, concurrency knobs, or other constrained values.
+- Add or update persistence and cleanup details when the story changes files, directories, locks, caches, collections, or other persisted artifacts that have writer, reader, and stale-state ownership rules.
+- Add or update lifecycle details when the story changes create, acquire, in-progress, steady-state, retry, cancel, release, teardown, or crash-recovery behavior.
+- Add or update default-path reachability details when the story changes selectors, launchers, wrappers, startup behavior, CI wiring, or feature-flag gating.
 - Add or update a test-harness section only if new harness work is actually required.
 - Add or update `Edge Cases and Failure Modes` when needed.
 - Preserve the standard named planning sections used by this planning system when they are relevant, such as `Feasibility Proof Pass`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, and `Log Or Proof Markers`.
 - Add further relevant sections only when they are genuinely helpful for the selected plan.
 - Make prerequisite work explicit when capabilities are missing or assumptions are invalid.
 - Make runtime, deployment, Docker, test, and validation expectations explicit when those areas matter to the story.
+- Make scale-bounding expectations explicit when a query, delete filter, or bulk selector could otherwise grow with repository, file, chunk, or symbol count.
+- Make deterministic-proof expectations explicit when the story will rely on teardown behavior, shared-state serialization, or “has not happened yet” proofs that must avoid arbitrary fixed delays.
 - When the story changes UI state, mode switching, create-vs-reuse behavior, or hidden/disabled fields, state the expected submission behavior explicitly, including whether stale state must be cleared or merely excluded from payloads and persistence.
 - If the story is multi-repository, state which repository owns each planned change and describe dependency direction, sequencing, and compatibility expectations.
 - If the story does not require a new frontend or backend, state that plainly where it matters instead of inventing work.
@@ -45,6 +52,13 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - Ensure proof and validation expectations are granular enough that the later tasking pass can name exact test files or proof artifacts for each acceptance path and not only broad wrapper runs.
 - Only add `## Questions` items for issues that remain genuinely blocked after research; otherwise resolve the issue directly in the plan.
   </consistency_rules>
+
+<verification_loop>
+
+- Re-read the edited plan and check whether it is now ready for a later tasking pass without hidden senior interpretation.
+- Check whether any broad implementation area still needs to be split into clearer seams before later tasking.
+- Check whether each added detail is supported by repository evidence or official documentation.
+  </verification_loop>
 
 <output_contract>
 

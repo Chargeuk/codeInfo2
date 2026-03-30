@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { resolveConfig } from './config.js';
@@ -10,6 +11,14 @@ type ChunkTextLogContext = {
   runId: string;
   relPath: string;
 };
+
+type ChunkTextFileInfo = {
+  relPath: string;
+  ext?: string;
+  sizeBytes?: number;
+};
+
+const LARGE_TEXT_EXTENSIONS = new Set(['md', 'mdx', 'txt']);
 
 function resolveModelKey(model: ProviderEmbeddingModel): string {
   return model.modelKey ?? 'unknown';
@@ -107,6 +116,125 @@ function hasEmbeddableText(text: string): boolean {
   return text.trim().length > 0;
 }
 
+function resolveFileExtension(fileInfo: ChunkTextFileInfo | undefined): string {
+  if (fileInfo?.ext) return fileInfo.ext.toLowerCase();
+  if (fileInfo?.relPath) {
+    return path.extname(fileInfo.relPath).replace('.', '').toLowerCase();
+  }
+  return '';
+}
+
+function shouldUseProseChunking(
+  cfg: IngestConfig,
+  fileInfo: ChunkTextFileInfo | undefined,
+): fileInfo is ChunkTextFileInfo & { relPath: string; sizeBytes: number } {
+  const ext = resolveFileExtension(fileInfo);
+  return (
+    LARGE_TEXT_EXTENSIONS.has(ext) &&
+    typeof fileInfo?.sizeBytes === 'number' &&
+    fileInfo.sizeBytes >= cfg.largeTextThresholdBytes
+  );
+}
+
+function splitOnSentenceBoundaries(text: string): string[] {
+  const matches = text.match(/[^.!?\n]+[.!?]+(?:\s+|$)|[^\n]+/g);
+  return matches?.map((part) => part.trim()).filter(Boolean) ?? [];
+}
+
+function splitIntoProseBlocks(text: string): string[] {
+  const lines = text.split(/\r?\n/);
+  const blocks: string[] = [];
+  let current: string[] = [];
+  let inFence = false;
+
+  const flushCurrent = () => {
+    const block = current.join('\n').trim();
+    if (block.length > 0) blocks.push(block);
+    current = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const isFenceBoundary = /^(?:```|~~~)/.test(trimmed);
+    const isHeading = /^#{1,6}\s+/.test(trimmed);
+    const isListBoundary = /^(?:[-*+]\s+|\d+\.\s+)/.test(trimmed);
+
+    if (isFenceBoundary) {
+      if (!inFence && current.length > 0) flushCurrent();
+      current.push(line);
+      inFence = !inFence;
+      if (!inFence) flushCurrent();
+      continue;
+    }
+
+    if (inFence) {
+      current.push(line);
+      continue;
+    }
+
+    if (trimmed.length === 0) {
+      if (current.length > 0) flushCurrent();
+      continue;
+    }
+
+    if (isHeading) {
+      if (current.length > 0) flushCurrent();
+      current.push(line);
+      continue;
+    }
+
+    if (
+      isListBoundary &&
+      current.length > 0 &&
+      !/^(?:[-*+]\s+|\d+\.\s+)/.test(current[current.length - 1].trim())
+    ) {
+      flushCurrent();
+    }
+
+    current.push(line);
+  }
+
+  if (current.length > 0) flushCurrent();
+  return blocks;
+}
+
+function findLocalBoundaryCut(text: string, preferredLength: number): string {
+  if (text.length <= preferredLength) return text;
+
+  const searchWindow = Math.min(
+    text.length,
+    Math.max(preferredLength + 128, Math.floor(preferredLength * 1.15)),
+  );
+  const prefix = text.slice(0, searchWindow);
+  const floor = Math.max(32, Math.floor(preferredLength * 0.5));
+  const boundaryPatterns = [
+    /\n#{1,6}\s/g,
+    /\n(?:```|~~~)/g,
+    /\n\s*\n/g,
+    /\n(?:[-*+]\s+|\d+\.\s+)/g,
+    /(?<=[.!?])\s+/g,
+    /\n/g,
+    /\s+/g,
+  ];
+
+  let bestCut: number | null = null;
+  for (const pattern of boundaryPatterns) {
+    pattern.lastIndex = 0;
+    let match = pattern.exec(prefix);
+    while (match) {
+      const candidate = match.index + match[0].length;
+      if (candidate >= floor && candidate <= preferredLength) {
+        bestCut = candidate;
+      }
+      match = pattern.exec(prefix);
+    }
+    if (bestCut !== null) break;
+  }
+
+  const cut = bestCut ?? preferredLength;
+  return prefix.slice(0, cut).trimEnd();
+}
+
 async function sliceToFit(
   model: ProviderEmbeddingModel,
   text: string,
@@ -129,49 +257,193 @@ async function sliceToFit(
   return slices.filter(Boolean);
 }
 
-export async function chunkText(
+async function sliceToFitLocally(
+  model: ProviderEmbeddingModel,
+  text: string,
+  maxTokens: number,
+): Promise<string[]> {
+  const slices: string[] = [];
+  let remaining = text.trim();
+
+  while (remaining.length > 0) {
+    let preferredLength = Math.min(
+      remaining.length,
+      Math.max(128, maxTokens * 8),
+    );
+    let candidate = findLocalBoundaryCut(remaining, preferredLength);
+    if (!hasEmbeddableText(candidate)) {
+      candidate = remaining.slice(0, preferredLength).trim();
+    }
+    let tokens = await count(model, candidate);
+
+    while (tokens > maxTokens && candidate.length > 1) {
+      preferredLength = Math.max(1, Math.floor(candidate.length * 0.85));
+      candidate = findLocalBoundaryCut(remaining, preferredLength);
+      if (!hasEmbeddableText(candidate)) {
+        candidate = remaining.slice(0, preferredLength).trim();
+      }
+      tokens = await count(model, candidate);
+    }
+
+    slices.push(candidate);
+    remaining = remaining.slice(candidate.length).trimStart();
+  }
+
+  return slices.filter(Boolean);
+}
+
+async function* buildGenericChunkStream(
+  text: string,
+  model: ProviderEmbeddingModel,
+  maxTokens: number,
+): AsyncGenerator<Omit<Chunk, 'chunkIndex'>> {
+  const boundary =
+    /^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m;
+  const pieces = splitOnBoundaries(text, boundary);
+
+  for (const piece of pieces) {
+    const initialTokens = await count(model, piece);
+    if (initialTokens <= maxTokens) {
+      yield { text: piece, tokenCount: initialTokens };
+      continue;
+    }
+
+    const slices = await sliceToFit(model, piece, Math.floor(maxTokens * 0.85));
+    for (const slice of slices) {
+      yield {
+        text: slice,
+        tokenCount: await count(model, slice),
+      };
+    }
+  }
+}
+
+async function* buildProseChunkStream(
+  text: string,
+  model: ProviderEmbeddingModel,
+  maxTokens: number,
+): AsyncGenerator<Omit<Chunk, 'chunkIndex'>> {
+  const blocks = splitIntoProseBlocks(text);
+  let currentText = '';
+  let currentTokenCount = 0;
+
+  const flushCurrent = async function* () {
+    if (!hasEmbeddableText(currentText)) return;
+    yield {
+      text: currentText.trim(),
+      tokenCount: currentTokenCount,
+    } satisfies Omit<Chunk, 'chunkIndex'>;
+    currentText = '';
+    currentTokenCount = 0;
+  };
+
+  for (const block of blocks) {
+    const blockTokens = await count(model, block);
+
+    if (blockTokens > maxTokens) {
+      yield* flushCurrent();
+      const smallerBlocks = splitOnSentenceBoundaries(block);
+      const units = smallerBlocks.length > 1 ? smallerBlocks : [block];
+      for (const unit of units) {
+        const unitTokens = await count(model, unit);
+        if (unitTokens <= maxTokens) {
+          yield { text: unit, tokenCount: unitTokens };
+          continue;
+        }
+
+        const slices = await sliceToFitLocally(
+          model,
+          unit,
+          Math.floor(maxTokens * 0.9),
+        );
+        for (const slice of slices) {
+          yield {
+            text: slice,
+            tokenCount: await count(model, slice),
+          };
+        }
+      }
+      continue;
+    }
+
+    if (!currentText) {
+      currentText = block;
+      currentTokenCount = blockTokens;
+      continue;
+    }
+
+    const joined = `${currentText}\n\n${block}`;
+    const joinedTokens = await count(model, joined);
+    if (joinedTokens <= maxTokens) {
+      currentText = joined;
+      currentTokenCount = joinedTokens;
+      continue;
+    }
+
+    yield* flushCurrent();
+    currentText = block;
+    currentTokenCount = blockTokens;
+  }
+
+  yield* flushCurrent();
+}
+
+export async function* chunkTextStream(
   text: string,
   model: ProviderEmbeddingModel,
   cfg?: IngestConfig,
   options?: {
     logContext?: ChunkTextLogContext;
+    fileInfo?: ChunkTextFileInfo;
   },
-): Promise<Chunk[]> {
+): AsyncGenerator<Chunk> {
   const config = cfg ?? resolveConfig();
   const maxTokens = await getSafeLimit(model, config);
-  const boundary =
-    /^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m;
-  const pieces = splitOnBoundaries(text, boundary);
-  const candidateChunks: Array<Omit<Chunk, 'chunkIndex'>> = [];
+  const useProseChunking = shouldUseProseChunking(config, options?.fileInfo);
+  const candidateStream = useProseChunking
+    ? buildProseChunkStream(text, model, maxTokens)
+    : buildGenericChunkStream(text, model, maxTokens);
 
-  for (const piece of pieces) {
-    const initialTokens = await count(model, piece);
-    if (initialTokens <= maxTokens) {
-      candidateChunks.push({ text: piece, tokenCount: initialTokens });
-    } else {
-      const slices = await sliceToFit(
-        model,
-        piece,
-        Math.floor(maxTokens * 0.85),
-      );
-      for (const slice of slices) {
-        const tokenCount = await count(model, slice);
-        candidateChunks.push({ text: slice, tokenCount });
-      }
-    }
+  if (useProseChunking) {
+    const ext = resolveFileExtension(options?.fileInfo);
+    const context = {
+      runId: options?.logContext?.runId ?? 'unknown',
+      relPath: options?.fileInfo?.relPath ?? 'unknown',
+      ext,
+      sizeBytes: options?.fileInfo?.sizeBytes,
+      thresholdBytes: config.largeTextThresholdBytes,
+      strategy: 'prose',
+    };
+    append({
+      level: 'info',
+      source: 'server',
+      message: 'DEV-0000054:large_text_path_selected',
+      timestamp: new Date().toISOString(),
+      context,
+    });
+    baseLogger.info(context, 'DEV-0000054:large_text_path_selected');
   }
 
-  const filteredChunks = candidateChunks.filter((chunk) =>
-    hasEmbeddableText(chunk.text),
-  );
-  const removedBlankChunkCount = candidateChunks.length - filteredChunks.length;
+  let chunkIndex = 0;
+  let removedBlankChunkCount = 0;
+
+  for await (const chunk of candidateStream) {
+    if (!hasEmbeddableText(chunk.text)) {
+      removedBlankChunkCount += 1;
+      continue;
+    }
+    yield {
+      ...chunk,
+      chunkIndex: chunkIndex++,
+    };
+  }
 
   if (removedBlankChunkCount > 0 && options?.logContext) {
     const context = {
       runId: options.logContext.runId,
       relPath: options.logContext.relPath,
       removedBlankChunkCount,
-      survivingChunkCount: filteredChunks.length,
+      survivingChunkCount: chunkIndex,
     };
     append({
       level: 'info',
@@ -182,11 +454,20 @@ export async function chunkText(
     });
     baseLogger.info(context, 'DEV-0000046:T1:blank-chunks-filtered');
   }
+}
 
-  const chunks = filteredChunks.map((chunk, chunkIndex) => ({
-    ...chunk,
-    chunkIndex,
-  }));
-
+export async function chunkText(
+  text: string,
+  model: ProviderEmbeddingModel,
+  cfg?: IngestConfig,
+  options?: {
+    logContext?: ChunkTextLogContext;
+    fileInfo?: ChunkTextFileInfo;
+  },
+): Promise<Chunk[]> {
+  const chunks: Chunk[] = [];
+  for await (const chunk of chunkTextStream(text, model, cfg, options)) {
+    chunks.push(chunk);
+  }
   return chunks;
 }

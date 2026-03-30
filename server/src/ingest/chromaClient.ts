@@ -435,7 +435,13 @@ export async function clearLockedModel(options?: {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('ChromaNotFoundError')) {
+    const errorName =
+      err instanceof Error && typeof err.name === 'string' ? err.name : '';
+    if (
+      errorName.includes('ChromaNotFoundError') ||
+      message.includes('ChromaNotFoundError') ||
+      message.includes('requested resource could not be found')
+    ) {
       baseLogger.info('clearLockedModel skipped; collection missing');
       return;
     }
@@ -522,7 +528,22 @@ export async function clearRootsCollection(where?: Record<string, unknown>) {
   };
   const whereClause = where ?? { ingestedAtMs: { $gt: 0 } };
   baseLogger.info({ where: whereClause }, 'clearRootsCollection start');
-  await collection.delete({ where: whereClause });
+  try {
+    await collection.delete({ where: whereClause });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const errorName =
+      err instanceof Error && typeof err.name === 'string' ? err.name : '';
+    if (
+      errorName.includes('ChromaNotFoundError') ||
+      message.includes('ChromaNotFoundError') ||
+      message.includes('requested resource could not be found')
+    ) {
+      baseLogger.info('clearRootsCollection skipped; collection missing');
+      return;
+    }
+    throw err;
+  }
   baseLogger.info({ where: whereClause }, 'clearRootsCollection done');
 }
 
@@ -536,7 +557,22 @@ export async function clearVectorsCollection(where?: Record<string, unknown>) {
   };
   const whereClause = where ?? { ingestedAtMs: { $gt: 0 } };
   baseLogger.info({ where: whereClause }, 'clearVectorsCollection start');
-  await collection.delete({ where: whereClause });
+  try {
+    await collection.delete({ where: whereClause });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const errorName =
+      err instanceof Error && typeof err.name === 'string' ? err.name : '';
+    if (
+      errorName.includes('ChromaNotFoundError') ||
+      message.includes('ChromaNotFoundError') ||
+      message.includes('requested resource could not be found')
+    ) {
+      baseLogger.info('clearVectorsCollection skipped; collection missing');
+      return;
+    }
+    throw err;
+  }
   baseLogger.info({ where: whereClause }, 'clearVectorsCollection done');
 }
 

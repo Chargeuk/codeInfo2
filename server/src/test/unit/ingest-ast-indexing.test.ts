@@ -73,11 +73,49 @@ const waitForTerminal = async (runId: string) => {
   throw new Error(`Timed out waiting for ingest ${runId}`);
 };
 
-const buildDeps = () => {
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
+const buildDeps = (options?: {
+  modelError?: Error;
+  blockOnAbort?: boolean;
+  onEmbedStart?: () => void;
+}) => {
   let embedCalls = 0;
+  let modelCalls = 0;
   const embeddingModel = {
-    embed: async () => {
+    embed: async (_text?: string, embedOptions?: { signal?: AbortSignal }) => {
       embedCalls += 1;
+      options?.onEmbedStart?.();
+      if (options?.modelError) {
+        throw options.modelError;
+      }
+      if (options?.blockOnAbort) {
+        return await new Promise<{ embedding: number[] }>(
+          (_resolve, reject) => {
+            const abortError = new Error('aborted');
+            abortError.name = 'AbortError';
+            if (embedOptions?.signal?.aborted) {
+              reject(abortError);
+              return;
+            }
+            embedOptions?.signal?.addEventListener(
+              'abort',
+              () => reject(abortError),
+              {
+                once: true,
+              },
+            );
+          },
+        );
+      }
       return { embedding: [0.1, 0.2, 0.3] };
     },
     getContextLength: async () => 256,
@@ -89,10 +127,14 @@ const buildDeps = () => {
     lmClientFactory: () =>
       ({
         embedding: {
-          model: async () => embeddingModel,
+          model: async () => {
+            modelCalls += 1;
+            return embeddingModel;
+          },
         },
       }) as unknown as LMStudioClient,
     getEmbedCalls: () => embedCalls,
+    getModelCalls: () => modelCalls,
   };
 };
 
@@ -148,13 +190,25 @@ const setupMongoMocks = () => {
 
   const astSymbolsBulkWrite = mock.fn(async () => ({}));
   const astSymbolsDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
+  const astSymbolsDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
+  }));
   const astEdgesBulkWrite = mock.fn(async () => ({}));
   const astEdgesDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
+  const astEdgesDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
+  }));
   const astReferencesBulkWrite = mock.fn(async () => ({}));
   const astReferencesDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
+  const astReferencesDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
+  }));
   const astModuleImportsBulkWrite = mock.fn(async () => ({}));
   const astModuleImportsDeleteMany = mock.fn(() => ({
     exec: async () => ({}),
+  }));
+  const astModuleImportsDistinct = mock.fn(() => ({
+    exec: async () => ingestRows.map((row) => row.relPath),
   }));
   const astCoverageUpdateOne = mock.fn(() => ({ exec: async () => ({}) }));
   const astCoverageDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
@@ -163,12 +217,16 @@ const setupMongoMocks = () => {
 
   mock.method(AstSymbolModel, 'bulkWrite', astSymbolsBulkWrite);
   mock.method(AstSymbolModel, 'deleteMany', astSymbolsDeleteMany);
+  mock.method(AstSymbolModel, 'distinct', astSymbolsDistinct);
   mock.method(AstEdgeModel, 'bulkWrite', astEdgesBulkWrite);
   mock.method(AstEdgeModel, 'deleteMany', astEdgesDeleteMany);
+  mock.method(AstEdgeModel, 'distinct', astEdgesDistinct);
   mock.method(AstReferenceModel, 'bulkWrite', astReferencesBulkWrite);
   mock.method(AstReferenceModel, 'deleteMany', astReferencesDeleteMany);
+  mock.method(AstReferenceModel, 'distinct', astReferencesDistinct);
   mock.method(AstModuleImportModel, 'bulkWrite', astModuleImportsBulkWrite);
   mock.method(AstModuleImportModel, 'deleteMany', astModuleImportsDeleteMany);
+  mock.method(AstModuleImportModel, 'distinct', astModuleImportsDistinct);
   mock.method(AstCoverageModel, 'updateOne', astCoverageUpdateOne);
   mock.method(AstCoverageModel, 'deleteMany', astCoverageDeleteMany);
   mock.method(IngestFileModel, 'bulkWrite', ingestFilesBulkWrite);
@@ -184,12 +242,16 @@ const setupMongoMocks = () => {
   return {
     astSymbolsBulkWrite,
     astSymbolsDeleteMany,
+    astSymbolsDistinct,
     astEdgesBulkWrite,
     astEdgesDeleteMany,
+    astEdgesDistinct,
     astReferencesBulkWrite,
     astReferencesDeleteMany,
+    astReferencesDistinct,
     astModuleImportsBulkWrite,
     astModuleImportsDeleteMany,
+    astModuleImportsDistinct,
     astCoverageUpdateOne,
     astCoverageDeleteMany,
     ingestFilesBulkWrite,
@@ -544,6 +606,42 @@ test('ingest increments failed count for parse failures', async () => {
   }
 });
 
+test('full rebuild parse failures drop failed files from the AST prune keep-set', async () => {
+  const repoMocks = mongoMocks;
+  const { root, cleanup } = await createTempRepo({
+    'src/a.ts': 'export const a = 1;\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'src/a.ts'));
+    repoMocks.setIngestFileRows([{ relPath: 'src/a.ts', fileHash }]);
+    mockParseAstSource(async () => ({
+      status: 'failed' as const,
+      language: 'typescript' as const,
+      error: 'parse error',
+    }));
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model' },
+      buildDeps(),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    const deleteCall = repoMocks.astSymbolsDeleteMany.mock.calls.at(-1) as
+      | { arguments: [Record<string, unknown>] }
+      | undefined;
+    if (!deleteCall) throw new Error('Expected stale AST delete');
+    assert.deepEqual(
+      deleteCall.arguments[0],
+      { root },
+      'parse-failed files should be excluded from the AST keep-set',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test('ingest dry-run parses without writes', async () => {
   const repoMocks = mongoMocks;
   const parseMock = mockParseAstSource();
@@ -627,7 +725,7 @@ test('mongo disconnect skips AST writes with warning', async () => {
   }
 });
 
-test('delta reembed deletes and upserts AST records', async () => {
+test('delta reembed with AST-supported changes clears and rebuilds the full AST', async () => {
   const repoMocks = mongoMocks;
   const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
     ...baseAstResult,
@@ -650,11 +748,14 @@ test('delta reembed deletes and upserts AST records', async () => {
   const { root, cleanup } = await createTempRepo({
     'src/added.ts': 'export const added = 1;\n',
     'src/changed.ts': 'export const changed = 2;\n',
+    'src/unchanged.ts': 'export const unchanged = 3;\n',
   });
 
   try {
     const changedHash = await hashFile(path.join(root, 'src/changed.ts'));
+    const unchangedHash = await hashFile(path.join(root, 'src/unchanged.ts'));
     repoMocks.setIngestFileRows([
+      { relPath: 'src/unchanged.ts', fileHash: unchangedHash },
       { relPath: 'src/changed.ts', fileHash: `${changedHash}-old` },
       { relPath: 'src/deleted.ts', fileHash: 'deleted-hash' },
     ]);
@@ -665,16 +766,30 @@ test('delta reembed deletes and upserts AST records', async () => {
     );
     await waitForTerminal(runId);
 
-    assert.equal(parseMock.mock.calls.length, 2);
+    assert.equal(parseMock.mock.calls.length, 3);
+    const parsedRelPaths = parseMock.mock.calls.map(
+      (call) => call.arguments[0].relPath,
+    );
+    assert.deepEqual(
+      new Set(parsedRelPaths),
+      new Set(['src/added.ts', 'src/changed.ts', 'src/unchanged.ts']),
+    );
     const deleteCall = repoMocks.astSymbolsDeleteMany.mock.calls.at(-1) as
-      | { arguments: [{ relPath?: { $in?: string[] } }] }
+      | {
+          arguments: [
+            {
+              root?: string;
+              $or?: Array<
+                | { relPath: { $nin: string[] } }
+                | { relPath: string; fileHash: { $ne: string } }
+              >;
+            },
+          ];
+        }
       | undefined;
     if (!deleteCall) throw new Error('Expected delete call');
-    const relPaths = deleteCall.arguments[0].relPath?.$in ?? [];
-    assert.deepEqual(
-      new Set(relPaths),
-      new Set(['src/changed.ts', 'src/deleted.ts']),
-    );
+    assert.equal(deleteCall.arguments[0].root, root);
+    assert.ok(Array.isArray(deleteCall.arguments[0].$or));
     const upsertSymbols = repoMocks.astSymbolsBulkWrite.mock.calls.at(-1) as
       | {
           arguments: [
@@ -689,7 +804,7 @@ test('delta reembed deletes and upserts AST records', async () => {
     );
     assert.deepEqual(
       new Set(symbolRelPaths),
-      new Set(['src/added.ts', 'src/changed.ts']),
+      new Set(['src/added.ts', 'src/changed.ts', 'src/unchanged.ts']),
     );
     const coverageCall = repoMocks.astCoverageUpdateOne.mock.calls.at(-1) as
       | { arguments: [unknown, { $set: Record<string, unknown> }] }
@@ -699,14 +814,24 @@ test('delta reembed deletes and upserts AST records', async () => {
       supportedFileCount: number;
       skippedFileCount: number;
     };
-    assert.equal(coverage.supportedFileCount, 2);
+    assert.equal(coverage.supportedFileCount, 3);
     assert.equal(coverage.skippedFileCount, 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }
 });
 
-test('delta reembed skips unchanged files', async () => {
+test('delta reembed with only non-AST delta work skips AST entirely', async () => {
   const repoMocks = mongoMocks;
   const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
     ...baseAstResult,
@@ -727,15 +852,15 @@ test('delta reembed skips unchanged files', async () => {
     ],
   }));
   const { root, cleanup } = await createTempRepo({
-    'src/unchanged.ts': 'export const unchanged = 1;\n',
-    'src/changed.ts': 'export const changed = 2;\n',
+    'src/keep.ts': 'export const keep = 1;\n',
+    'docs/changed.md': '# changed\n\ntext\n',
   });
 
   try {
-    const unchangedHash = await hashFile(path.join(root, 'src/unchanged.ts'));
+    const keepHash = await hashFile(path.join(root, 'src/keep.ts'));
     repoMocks.setIngestFileRows([
-      { relPath: 'src/unchanged.ts', fileHash: unchangedHash },
-      { relPath: 'src/changed.ts', fileHash: 'old-hash' },
+      { relPath: 'src/keep.ts', fileHash: keepHash },
+      { relPath: 'docs/changed.md', fileHash: 'old-hash' },
     ]);
 
     const runId = await startIngest(
@@ -744,13 +869,19 @@ test('delta reembed skips unchanged files', async () => {
     );
     await waitForTerminal(runId);
 
-    assert.equal(parseMock.mock.calls.length, 2);
-    const parsedRelPaths = parseMock.mock.calls.map(
-      (call) => call.arguments[0].relPath,
-    );
-    assert.deepEqual(
-      new Set(parsedRelPaths),
-      new Set(['src/changed.ts', 'src/unchanged.ts']),
+    assert.equal(parseMock.mock.calls.length, 0);
+    assert.equal(repoMocks.astSymbolsDeleteMany.mock.calls.length, 0);
+    assert.equal(repoMocks.astSymbolsBulkWrite.mock.calls.length, 0);
+    assert.equal(repoMocks.astCoverageUpdateOne.mock.calls.length, 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_skip_non_ast_delta' &&
+          entry.context?.root === root,
+      ),
     );
   } finally {
     await cleanup();
@@ -790,19 +921,50 @@ test('delta reembed no-change returns completed before AST parse and embedding c
       text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
     });
     assert.equal(deltaPathLogs.length, 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_skip_non_ast_delta' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }
 });
 
-test('delta reembed deletions-only returns completed and does not claim no changes', async () => {
+test('delta reembed AST-relevant deletions rebuild AST and do not claim no changes', async () => {
+  const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
+        },
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
   const { root, cleanup } = await createTempRepo({
+    'src/keep.ts': 'export const keep = 2;\n',
     'src/deleted.ts': 'export const deleted = 1;\n',
   });
 
   try {
+    const keepHash = await hashFile(path.join(root, 'src/keep.ts'));
     const deletedHash = await hashFile(path.join(root, 'src/deleted.ts'));
     mongoMocks.setIngestFileRows([
+      { relPath: 'src/keep.ts', fileHash: keepHash },
       { relPath: 'src/deleted.ts', fileHash: deletedHash },
     ]);
     await fs.rm(path.join(root, 'src/deleted.ts'));
@@ -819,6 +981,59 @@ test('delta reembed deletions-only returns completed and does not claim no chang
       text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
     });
     assert.ok(deltaPathLogs.length > 0);
+    assert.equal(parseMock.mock.calls.length, 1);
+    assert.equal(parseMock.mock.calls[0]?.arguments[0].relPath, 'src/keep.ts');
+    assert.equal(mongoMocks.astCoverageUpdateOne.mock.calls.length, 1);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta reembed AST-only deletions stay provider-free when model lookup would fail', async () => {
+  const deps = buildDeps({
+    modelError: new Error('provider unavailable'),
+  });
+  const { root, cleanup } = await createTempRepo({
+    'src/deleted.ts': 'export const deleted = 1;\n',
+  });
+
+  try {
+    const deletedHash = await hashFile(path.join(root, 'src/deleted.ts'));
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/deleted.ts', fileHash: deletedHash },
+    ]);
+    await fs.rm(path.join(root, 'src/deleted.ts'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(deps.getModelCalls(), 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }
@@ -848,6 +1063,16 @@ test('delta reembed mixed changes returns completed', async () => {
       text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
     });
     assert.ok(deltaPathLogs.length > 0);
+    const astModeLogs = query({
+      text: 'DEV-0000054:delta_ast_mode_selected',
+    });
+    assert.ok(
+      astModeLogs.some(
+        (entry) =>
+          entry.context?.mode === 'ast_full_rebuild' &&
+          entry.context?.root === root,
+      ),
+    );
   } finally {
     await cleanup();
   }
@@ -874,6 +1099,102 @@ test('delta reembed changed-file AST parse failures remain non-terminal and pres
     const status = await waitForTerminal(runId);
     assert.equal(status.state, 'completed');
     assert.equal(status.ast?.failedFileCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta AST full rebuild cancel does not clear live AST data before finalization', async () => {
+  const embedStarted = createDeferred<void>();
+  mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
+        },
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
+  const { root, cleanup } = await createTempRepo({
+    'src/changed.ts': 'export const changed = 2;\n',
+  });
+
+  try {
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/changed.ts', fileHash: 'old-hash' },
+    ]);
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps({
+        blockOnAbort: true,
+        onEmbedStart: () => embedStarted.resolve(),
+      }),
+    );
+    await embedStarted.promise;
+    await cancelRun(runId);
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'cancelled');
+    assert.equal(mongoMocks.astSymbolsDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astEdgesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astReferencesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astModuleImportsDeleteMany.mock.calls.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta AST full rebuild error does not clear live AST data before finalization', async () => {
+  mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
+        },
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
+  const { root, cleanup } = await createTempRepo({
+    'src/changed.ts': 'export const changed = 2;\n',
+  });
+
+  try {
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/changed.ts', fileHash: 'old-hash' },
+    ]);
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps({
+        modelError: new Error('provider unavailable'),
+      }),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'error');
+    assert.equal(mongoMocks.astSymbolsDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astEdgesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astReferencesDeleteMany.mock.calls.length, 0);
+    assert.equal(mongoMocks.astModuleImportsDeleteMany.mock.calls.length, 0);
   } finally {
     await cleanup();
   }

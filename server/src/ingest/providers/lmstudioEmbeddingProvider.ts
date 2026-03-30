@@ -11,11 +11,15 @@ import type {
   EmbeddingProvider,
   LmClientResolver,
   LmProviderDeps,
+  ProviderEmbedRequestOptions,
   ProviderEmbeddingModel,
 } from './types.js';
 
 type LmStudioModelResponse = {
-  embed: (text: string) => Promise<{ embedding: number[] }>;
+  embed: (
+    text: string,
+    options?: { signal?: AbortSignal },
+  ) => Promise<{ embedding: number[] }>;
   countTokens: (text: string) => Promise<number>;
   getContextLength: () => Promise<number>;
 };
@@ -117,6 +121,9 @@ function logParityVerifiedOnce(
 }
 
 class LmStudioEmbeddingModel implements ProviderEmbeddingModel {
+  readonly effectiveBatchSize = 1;
+  readonly supportsAbort = true;
+
   constructor(
     private readonly modelProvider: () => Promise<LmStudioModelResponse>,
     public readonly modelKey: string,
@@ -146,7 +153,10 @@ class LmStudioEmbeddingModel implements ProviderEmbeddingModel {
     }
   }
 
-  async embedText(text: string): Promise<number[]> {
+  async embedText(
+    text: string,
+    options?: ProviderEmbedRequestOptions,
+  ): Promise<number[]> {
     const blankInputClassification = classifyBlankInput(text);
     if (blankInputClassification) {
       logBlankInputGuardHit({
@@ -163,10 +173,11 @@ class LmStudioEmbeddingModel implements ProviderEmbeddingModel {
       const result = await runWithRetry({
         maxAttempts: LMSTUDIO_RETRY_MAX_ATTEMPTS,
         baseDelayMs: LMSTUDIO_RETRY_BASE_DELAY_MS,
+        signal: options?.signal,
         runStep: async () => {
           attemptCounter += 1;
           const model = await this.modelProvider();
-          return model.embed(text);
+          return model.embed(text, { signal: options?.signal });
         },
         isRetryableError: (error) => mapLmStudioIngestError(error).retryable,
         onRetry: ({ attempt, delayMs, error }) => {
@@ -227,6 +238,21 @@ class LmStudioEmbeddingModel implements ProviderEmbeddingModel {
       }
       throw toLmStudioEmbeddingError(error);
     }
+  }
+
+  async embedBatch(
+    texts: string[],
+    options?: ProviderEmbedRequestOptions,
+  ): Promise<number[][]> {
+    if (texts.length > this.effectiveBatchSize) {
+      throw new LmStudioEmbeddingError(
+        'LMSTUDIO_BAD_REQUEST',
+        'LM Studio embeddings accept one input per request',
+        false,
+      );
+    }
+
+    return Promise.all(texts.map((text) => this.embedText(text, options)));
   }
 }
 

@@ -50,6 +50,10 @@ test('maps input-too-large failures including context_length_exceeded', () => {
 
 test('maps rate/quota/timeout/connection/unavailable taxonomy', () => {
   assert.equal(
+    shape({ name: 'AbortError', message: 'aborted' }).code,
+    'OPENAI_ABORTED',
+  );
+  assert.equal(
     shape({ status: 429, message: 'rate limited' }).code,
     'OPENAI_RATE_LIMITED',
   );
@@ -81,6 +85,11 @@ test('taxonomy matrix exposes expected retryability and metadata shape', () => {
     code: string;
     retryable: boolean;
   }> = [
+    {
+      input: { name: 'AbortError', message: 'aborted' },
+      code: 'OPENAI_ABORTED',
+      retryable: false,
+    },
     {
       input: { status: 401, message: 'x' },
       code: 'OPENAI_AUTH_FAILED',

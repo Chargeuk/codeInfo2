@@ -2,6 +2,7 @@ import type { EmbeddingFunction } from 'chromadb';
 import { OpenAI } from 'openai';
 import { append } from '../../logStore.js';
 import {
+  OPENAI_MAX_INPUTS_PER_REQUEST,
   OPENAI_PROVIDER_ID,
   OPENAI_REQUEST_TIMEOUT_MS,
   resolveOpenAiModelTokenLimit,
@@ -13,6 +14,7 @@ import { countOpenAiTokens } from './openaiTokenizer.js';
 import type {
   DiscoveredEmbeddingModel,
   EmbeddingProvider,
+  ProviderEmbedRequestOptions,
   ProviderEmbeddingModel,
 } from './types.js';
 
@@ -20,7 +22,11 @@ type OpenAiClientLike = {
   embeddings: {
     create: (
       body: { model: string; input: string[] },
-      options?: { timeout?: number; maxRetries?: number },
+      options?: {
+        timeout?: number;
+        maxRetries?: number;
+        signal?: AbortSignal;
+      },
     ) => Promise<{
       data: Array<{ index: number; embedding: unknown }>;
     }>;
@@ -73,17 +79,34 @@ function validateEmbeddingResponse(
 
 class OpenAiEmbeddingModel implements ProviderEmbeddingModel {
   readonly modelKey: string;
+  readonly effectiveBatchSize: number;
+  readonly supportsAbort = true;
 
   constructor(
-    private readonly embedMany: (inputs: string[]) => Promise<number[][]>,
+    private readonly embedMany: (
+      inputs: string[],
+      options?: ProviderEmbedRequestOptions,
+    ) => Promise<number[][]>,
     private readonly model: string,
+    effectiveBatchSize: number,
   ) {
     this.modelKey = model;
+    this.effectiveBatchSize = effectiveBatchSize;
   }
 
-  async embedText(text: string): Promise<number[]> {
-    const vectors = await this.embedMany([text]);
+  async embedText(
+    text: string,
+    options?: ProviderEmbedRequestOptions,
+  ): Promise<number[]> {
+    const vectors = await this.embedBatch([text], options);
     return vectors[0] ?? [];
+  }
+
+  async embedBatch(
+    texts: string[],
+    options?: ProviderEmbedRequestOptions,
+  ): Promise<number[][]> {
+    return this.embedMany(texts, options);
   }
 
   async countTokens(text: string): Promise<number> {
@@ -141,6 +164,7 @@ export function createOpenAiEmbeddingProvider(params: {
   const embedMany = async (
     model: string,
     inputs: string[],
+    options?: ProviderEmbedRequestOptions,
   ): Promise<number[][]> => {
     const { tokenEstimate } = validateOpenAiEmbeddingGuardrails({
       model,
@@ -165,6 +189,7 @@ export function createOpenAiEmbeddingProvider(params: {
       model,
       inputCount: inputs.length,
       tokenEstimate,
+      signal: options?.signal,
       sleep: params.retrySleep,
       ingestFailureContext: params.ingestFailureContext,
       runStep: async (attempt) => {
@@ -187,6 +212,7 @@ export function createOpenAiEmbeddingProvider(params: {
           },
           {
             maxRetries: 0,
+            signal: options?.signal,
             timeout: OPENAI_REQUEST_TIMEOUT_MS,
           },
         );
@@ -220,8 +246,9 @@ export function createOpenAiEmbeddingProvider(params: {
   ): Promise<ProviderEmbeddingModel> => {
     const model = modelKey.trim();
     return new OpenAiEmbeddingModel(
-      (inputs) => embedMany(model, inputs),
+      (inputs, options) => embedMany(model, inputs, options),
       model,
+      OPENAI_MAX_INPUTS_PER_REQUEST,
     );
   };
 

@@ -3,22 +3,17 @@ import fs from 'fs/promises';
 import path from 'path';
 import { LogEntry } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
-import type { Metadata } from 'chromadb';
+import type { Collection, Metadata } from 'chromadb';
 import mongoose from 'mongoose';
 import { parseAstSource } from '../ast/parser.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import {
-  clearAstCoverageByRoot,
-  clearAstEdgesByRoot,
-  clearAstModuleImportsByRoot,
-  clearAstReferencesByRoot,
-  clearAstSymbolsByRoot,
   clearIngestFilesByRoot,
-  deleteAstEdgesByRelPaths,
-  deleteAstModuleImportsByRelPaths,
-  deleteAstReferencesByRelPaths,
-  deleteAstSymbolsByRelPaths,
+  deleteStaleAstEdgesByRootFiles,
+  deleteStaleAstModuleImportsByRootFiles,
+  deleteStaleAstReferencesByRootFiles,
+  deleteStaleAstSymbolsByRootFiles,
   deleteIngestFilesByRelPaths,
   listIngestFilesByRoot,
   upsertAstCoverage,
@@ -48,7 +43,12 @@ import {
   InvalidLockMetadataError,
   setLockedModel,
 } from './chromaClient.js';
-import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
+import {
+  buildDeltaPlan,
+  resolveDeltaAstMode,
+  type DiscoveredFileHash,
+} from './deltaPlan.js';
+import { createEmbeddingDispatcher } from './embeddingDispatcher.js';
 import * as ingestLock from './lock.js';
 import {
   appendIngestFailureLog,
@@ -66,7 +66,7 @@ import {
 import type { ProviderEmbeddingModel } from './providers/types.js';
 import type { IngestRunState } from './types.js';
 import {
-  chunkText,
+  chunkTextStream,
   discoverFiles,
   hashChunk,
   hashFile,
@@ -144,6 +144,10 @@ const jobs = new Map<string, IngestJobStatus>();
 let deps: Deps | null = null;
 const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
 const cancelledRuns = new Set<string>();
+const activeDispatchers = new Map<string, { cancel: () => void }>();
+const finalizationBarriers = new Map<string, Promise<void>>();
+let beforeTerminalStatusPublishHook: ((runId: string) => Promise<void>) | null =
+  null;
 const terminalStates = new Set<IngestRunState>([
   'completed',
   'cancelled',
@@ -343,14 +347,18 @@ async function getEmbeddingModel(
 
 async function resolveRootEmbeddingDim(params: {
   existingRootDim?: number;
+  collectionDim?: number | null;
   vectorDim?: number;
   modelKey: string;
 }): Promise<number> {
+  if (params.vectorDim && params.vectorDim > 1) {
+    return params.vectorDim;
+  }
   if (params.existingRootDim && params.existingRootDim > 0) {
     return params.existingRootDim;
   }
-  if (params.vectorDim && params.vectorDim > 1) {
-    return params.vectorDim;
+  if (params.collectionDim && params.collectionDim > 0) {
+    return params.collectionDim;
   }
 
   try {
@@ -392,6 +400,70 @@ async function resolveRootEmbeddingDim(params: {
   }
 
   return 1;
+}
+
+async function resolveCollectionDimension(
+  collection: Collection,
+): Promise<number | null> {
+  const hintedDimension = (collection as Collection & { dimension?: number })
+    .dimension;
+  if (typeof hintedDimension === 'number' && hintedDimension > 0) {
+    return hintedDimension;
+  }
+
+  const rawBaseUrl =
+    process.env.CODEINFO_CHROMA_URL?.trim() || 'http://localhost:8000';
+  const normalizedBaseUrl = rawBaseUrl.includes('://')
+    ? rawBaseUrl
+    : `http://${rawBaseUrl}`;
+  const endpoint = new URL(
+    `/api/v2/tenants/${encodeURIComponent(collection.tenant)}/databases/${encodeURIComponent(collection.database)}/collections/${encodeURIComponent(collection.name)}`,
+    normalizedBaseUrl,
+  );
+
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as { dimension?: unknown };
+    return typeof body.dimension === 'number' && body.dimension > 0
+      ? body.dimension
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveKnownRootEmbeddingDim(params: {
+  existingRootDim?: number;
+  collectionDim?: number | null;
+  vectorDim?: number;
+  lockedDim?: number | null;
+}) {
+  const resolved = resolveKnownRootEmbeddingDimOrNull(params);
+  return resolved ?? 1;
+}
+
+function resolveKnownRootEmbeddingDimOrNull(params: {
+  existingRootDim?: number;
+  collectionDim?: number | null;
+  vectorDim?: number;
+  lockedDim?: number | null;
+}) {
+  if (params.vectorDim && params.vectorDim > 1) {
+    return params.vectorDim;
+  }
+  if (params.existingRootDim && params.existingRootDim > 0) {
+    return params.existingRootDim;
+  }
+  if (params.collectionDim && params.collectionDim > 0) {
+    return params.collectionDim;
+  }
+  if (params.lockedDim && params.lockedDim > 0) {
+    return params.lockedDim;
+  }
+  return null;
 }
 
 async function processRun(runId: string, input: IngestJobInput) {
@@ -470,6 +542,8 @@ async function processRun(runId: string, input: IngestJobInput) {
             absPath: file.absPath,
             relPath: file.relPath,
             fileHash: await hashFile(file.absPath),
+            ext: file.ext,
+            size: file.size,
           })),
         );
 
@@ -506,8 +580,36 @@ async function processRun(runId: string, input: IngestJobInput) {
           deltaPlan.changed.length +
           deltaPlan.deleted.length
         : null;
+    const deltaAstMode =
+      operation === 'reembed' && deltaMode === 'delta' && deltaPlan
+        ? resolveDeltaAstMode({
+            plan: deltaPlan,
+            isAstSupported,
+          })
+        : null;
+    const shouldSkipAstForDelta =
+      deltaAstMode?.mode === 'ast_skip_non_ast_delta';
+    const shouldRebuildAstForDelta = deltaAstMode?.mode === 'ast_full_rebuild';
 
-    const workFiles: { absPath: string; relPath: string; fileHash?: string }[] =
+    if (deltaAstMode) {
+      logLifecycle('info', 'DEV-0000054:delta_ast_mode_selected', {
+        runId,
+        root,
+        mode: deltaAstMode.mode,
+        astRelevantDeltaCount: deltaAstMode.astRelevantDeltaCount,
+        deltaAdded: deltaPlan?.added.length ?? 0,
+        deltaChanged: deltaPlan?.changed.length ?? 0,
+        deltaDeleted: deltaPlan?.deleted.length ?? 0,
+      });
+    }
+
+    const workFiles: {
+      absPath: string;
+      relPath: string;
+      fileHash?: string;
+      ext?: string;
+      size?: number;
+    }[] =
       operation === 'reembed' && deltaMode === 'delta' && deltaPlan
         ? [...deltaPlan.added, ...deltaPlan.changed]
         : files;
@@ -566,7 +668,17 @@ async function processRun(runId: string, input: IngestJobInput) {
     const astEdges: AstEdgeRecord[] = [];
     const astReferences: AstReferenceRecord[] = [];
     const astModuleImports: AstModuleImportRecord[] = [];
+    const successfulAstFiles: Array<{ relPath: string; fileHash: string }> = [];
     let astGrammarFailureLogged = false;
+    const shouldRunAstIndexing = !(
+      operation === 'reembed' &&
+      deltaMode === 'delta' &&
+      shouldSkipAstForDelta
+    );
+    const shouldReplaceAstByPrune =
+      operation === 'start' ||
+      (operation === 'reembed' &&
+        (deltaMode !== 'delta' || shouldRebuildAstForDelta));
     const deltaSkipMessage =
       operation === 'reembed' && deltaMode === 'delta' && deltaWorkCount === 0
         ? `No changes detected for ${root}`
@@ -603,13 +715,13 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = rootDimsResult.embeddings?.[0]?.length;
+    const existingRootCollectionDim = await resolveCollectionDimension(roots);
 
     const idsBatch: string[] = [];
     const documentsBatch: string[] = [];
     const embeddingsBatch: number[][] = [];
     const metadatasBatch: Record<string, unknown>[] = [];
     let vectorDim = 1;
-    let filesSinceFlush = 0;
     const fileHashesByRelPath = new Map<string, string>();
     const discoveredHashByRelPath = new Map<string, string>();
     if (discoveredWithHashes) {
@@ -623,7 +735,6 @@ async function processRun(runId: string, input: IngestJobInput) {
       documentsBatch.length = 0;
       embeddingsBatch.length = 0;
       metadatasBatch.length = 0;
-      filesSinceFlush = 0;
     };
 
     const clearAstBatches = () => {
@@ -646,6 +757,12 @@ async function processRun(runId: string, input: IngestJobInput) {
         embeddings: [...embeddingsBatch],
         metadatas: metadatasBatch as Metadata[],
       });
+
+      if (shouldFencePersistence()) {
+        await deleteVectors({ ids: [...idsBatch] });
+        clearBatch();
+        return;
+      }
 
       vectorDim = embeddingsBatch[0]?.length ?? vectorDim;
       counts.embedded += embeddingsBatch.length;
@@ -686,154 +803,165 @@ async function processRun(runId: string, input: IngestJobInput) {
       });
     };
     const astWritesEnabled = !dryRun && mongoose.connection.readyState === 1;
+    const pendingResults = new Map<
+      number,
+      {
+        relPath: string;
+        fileHash: string;
+        chunkHash: string;
+        chunkIndex: number;
+        text: string;
+        embedding: number[];
+      }
+    >();
+    let nextSequence = 0;
+    let nextPersistSequence = 0;
+    let persistChain = Promise.resolve();
+    let cancelCleanupStarted = false;
 
-    if (operation === 'reembed') {
-      if (deltaMode === 'degraded_full') {
-        await deleteVectors({ where: { root } });
-      } else if (deltaMode === 'legacy_upgrade') {
-        await deleteVectors({ where: { root } });
-        await deleteRoots({ where: { root } });
-      } else if (deltaMode === 'delta' && deltaPlan) {
-        if ((deltaWorkCount ?? 0) === 0) {
-          logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
-          logLifecycle(
-            'info',
-            `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=${root} runId=${runId}`,
-            { sourceId: root, runId },
-          );
-          if (cancelledRuns.has(runId)) {
-            return;
-          }
+    const shouldFencePersistence = () =>
+      cancelledRuns.has(runId) || cancelCleanupStarted;
 
-          const counts = { files: 0, chunks: 0, embedded: 0 };
-          const rootEmbeddingDim = await resolveRootEmbeddingDim({
-            existingRootDim,
-            vectorDim,
-            modelKey: toProviderQualifiedModelId(requestedSelection),
-          });
-          const rootMetadata: Metadata = {
-            runId,
-            root,
-            name,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions: rootEmbeddingDim,
-            files: counts.files,
-            chunks: counts.chunks,
-            embedded: counts.embedded,
-            state: 'completed',
-            lastIngestAt: new Date().toISOString(),
-            ingestedAtMs,
-          };
-          attachAstMetadata(rootMetadata);
-          if (description) rootMetadata.description = description;
-          await roots.add({
-            ids: [runId],
-            embeddings: [Array(rootEmbeddingDim).fill(0)],
-            metadatas: [rootMetadata],
-          });
-          setStatusAndPublish(runId, {
-            runId,
-            state: 'completed',
-            counts,
-            ast: astCounts,
-            message: `No changes detected for ${root}`,
-            lastError: null,
-            error: null,
-            fileIndex: 0,
-            fileTotal: 0,
-            percent: 100,
-            etaMs: 0,
-          });
-          logLifecycle('info', 'ingest completed', {
-            runId,
-            operation,
-            path: startPath,
-            root,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            name,
-            description,
-            state: 'completed',
-            counts,
-          });
+    const clearPendingPersistenceState = () => {
+      pendingResults.clear();
+      clearBatch();
+    };
+
+    const persistReadyResults = async () => {
+      if (shouldFencePersistence()) {
+        clearPendingPersistenceState();
+        return;
+      }
+
+      while (pendingResults.has(nextPersistSequence)) {
+        if (shouldFencePersistence()) {
+          clearPendingPersistenceState();
           return;
         }
-        logLifecycle(
-          'info',
-          `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=${deltaPlan.added.length} deltaModified=${deltaPlan.changed.length} deltaDeleted=${deltaPlan.deleted.length}`,
-          {
-            deltaAdded: deltaPlan.added.length,
-            deltaModified: deltaPlan.changed.length,
-            deltaDeleted: deltaPlan.deleted.length,
-          },
-        );
-        if (deltaPlan.deleted.length > 0 && workFiles.length === 0) {
-          logLifecycle('info', '0000020 ingest delta deletions-only', {
-            root,
-            deleted: deltaPlan.deleted.length,
-          });
-          const message = `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`;
-          if (cancelledRuns.has(runId)) {
-            return;
+
+        const result = pendingResults.get(nextPersistSequence);
+        pendingResults.delete(nextPersistSequence);
+        nextPersistSequence += 1;
+        if (!result) continue;
+
+        if (dryRun) {
+          counts.embedded += 1;
+          continue;
+        }
+
+        if (result.embedding.length > 0) {
+          vectorDim = result.embedding.length;
+        }
+
+        idsBatch.push(`${runId}:${result.relPath}:${result.chunkIndex}`);
+        documentsBatch.push(result.text);
+        embeddingsBatch.push(result.embedding);
+        const metadata: Metadata = {
+          runId,
+          root,
+          relPath: result.relPath,
+          fileHash: result.fileHash,
+          chunkHash: result.chunkHash,
+          embeddedAt: new Date().toISOString(),
+          ingestedAtMs,
+          model: embeddingModel,
+          embeddingProvider,
+          embeddingModel,
+          embeddingDimensions: result.embedding.length,
+          name,
+        };
+        if (description) metadata.description = description;
+        metadatasBatch.push(metadata);
+
+        if (embeddingsBatch.length >= ingestConfig.flushEvery) {
+          await flushBatch();
+        }
+      }
+    };
+
+    const queuePersist = async () => {
+      if (shouldFencePersistence()) {
+        clearPendingPersistenceState();
+        return;
+      }
+      const next = persistChain.then(() => persistReadyResults());
+      persistChain = next.catch(() => undefined);
+      await next;
+    };
+
+    let dispatcher: ReturnType<typeof createEmbeddingDispatcher> | null = null;
+
+    async function completeReembedFastPathWithFence({
+      counts,
+      message,
+    }: {
+      counts: { files: number; chunks: number; embedded: number };
+      message: string;
+    }) {
+      const currentLock = await getLockedEmbeddingModel();
+      const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
+        existingRootDim,
+        collectionDim: existingRootCollectionDim,
+        vectorDim,
+        lockedDim: currentLock?.embeddingDimensions ?? null,
+      });
+      const rootMetadata: Metadata = {
+        runId,
+        root,
+        name,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
+        embeddingDimensions: rootEmbeddingDim,
+        files: counts.files,
+        chunks: counts.chunks,
+        embedded: counts.embedded,
+        state: 'completed',
+        lastIngestAt: new Date().toISOString(),
+        ingestedAtMs,
+      };
+      attachAstMetadata(rootMetadata);
+      if (description) rootMetadata.description = description;
+
+      const writeRootMetadata = async () => {
+        const writeStarted = Promise.resolve().then(async () => {
+          if (cancelledRuns.has(runId) || cancelCleanupStarted) {
+            return false;
           }
-          for (const file of deltaPlan.deleted) {
-            await deleteVectors({
-              where: { $and: [{ root }, { relPath: file.relPath }] },
-            });
-          }
-          await deleteIngestFilesByRelPaths({
-            root,
-            relPaths: deltaPlan.deleted.map((f) => f.relPath),
-          });
-          if (astWritesEnabled) {
-            const deletedPaths = deltaPlan.deleted.map((file) => file.relPath);
-            if (deletedPaths.length > 0) {
-              await deleteAstSymbolsByRelPaths({
-                root,
-                relPaths: deletedPaths,
-              });
-              await deleteAstEdgesByRelPaths({ root, relPaths: deletedPaths });
-              await deleteAstReferencesByRelPaths({
-                root,
-                relPaths: deletedPaths,
-              });
-              await deleteAstModuleImportsByRelPaths({
-                root,
-                relPaths: deletedPaths,
-              });
-            }
-          }
-          const counts = { files: 0, chunks: 0, embedded: 0 };
-          const rootEmbeddingDim = await resolveRootEmbeddingDim({
-            existingRootDim,
-            vectorDim,
-            modelKey: toProviderQualifiedModelId(requestedSelection),
-          });
-          const rootMetadata: Metadata = {
-            runId,
-            root,
-            name,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions: rootEmbeddingDim,
-            files: counts.files,
-            chunks: counts.chunks,
-            embedded: counts.embedded,
-            state: 'completed',
-            lastIngestAt: new Date().toISOString(),
-            ingestedAtMs,
-          };
-          attachAstMetadata(rootMetadata);
-          if (description) rootMetadata.description = description;
           await roots.add({
             ids: [runId],
             embeddings: [Array(rootEmbeddingDim).fill(0)],
             metadatas: [rootMetadata],
           });
+          return true;
+        });
+        const barrier = writeStarted.then(
+          () => undefined,
+          () => undefined,
+        );
+        finalizationBarriers.set(runId, barrier);
+        try {
+          return await writeStarted;
+        } finally {
+          if (finalizationBarriers.get(runId) === barrier) {
+            finalizationBarriers.delete(runId);
+          }
+        }
+      };
+
+      const publishedRootMetadata = await writeRootMetadata();
+      if (!publishedRootMetadata) {
+        return;
+      }
+
+      const publishedTerminalStatus = await (async () => {
+        const publishStarted = Promise.resolve().then(async () => {
+          if (beforeTerminalStatusPublishHook) {
+            await beforeTerminalStatusPublishHook(runId);
+          }
+          if (cancelledRuns.has(runId) || cancelCleanupStarted) {
+            return false;
+          }
           setStatusAndPublish(runId, {
             runId,
             state: 'completed',
@@ -860,19 +988,199 @@ async function processRun(runId: string, input: IngestJobInput) {
             state: 'completed',
             counts,
           });
+          return true;
+        });
+        const barrier = publishStarted.then(
+          () => undefined,
+          () => undefined,
+        );
+        finalizationBarriers.set(runId, barrier);
+        try {
+          return await publishStarted;
+        } finally {
+          if (finalizationBarriers.get(runId) === barrier) {
+            finalizationBarriers.delete(runId);
+          }
+        }
+      })();
+
+      if (!publishedTerminalStatus) {
+        return;
+      }
+    }
+
+    if (operation === 'reembed') {
+      if (deltaMode === 'degraded_full') {
+        await deleteVectors({ where: { root } });
+      } else if (deltaMode === 'legacy_upgrade') {
+        await deleteVectors({ where: { root } });
+        await deleteRoots({ where: { root } });
+      } else if (deltaMode === 'delta' && deltaPlan) {
+        if ((deltaWorkCount ?? 0) === 0) {
+          logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
+          logLifecycle(
+            'info',
+            `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=${root} runId=${runId}`,
+            { sourceId: root, runId },
+          );
+          if (cancelledRuns.has(runId)) {
+            return;
+          }
+
+          const counts = { files: 0, chunks: 0, embedded: 0 };
+          await completeReembedFastPathWithFence({
+            counts,
+            message: `No changes detected for ${root}`,
+          });
+          return;
+        }
+        logLifecycle(
+          'info',
+          `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=${deltaPlan.added.length} deltaModified=${deltaPlan.changed.length} deltaDeleted=${deltaPlan.deleted.length}`,
+          {
+            deltaAdded: deltaPlan.added.length,
+            deltaModified: deltaPlan.changed.length,
+            deltaDeleted: deltaPlan.deleted.length,
+          },
+        );
+        if (
+          deltaPlan.deleted.length > 0 &&
+          workFiles.length === 0 &&
+          !shouldRebuildAstForDelta
+        ) {
+          logLifecycle('info', '0000020 ingest delta deletions-only', {
+            root,
+            deleted: deltaPlan.deleted.length,
+          });
+          const message = `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`;
+          if (cancelledRuns.has(runId)) {
+            return;
+          }
+          for (const file of deltaPlan.deleted) {
+            await deleteVectors({
+              where: { $and: [{ root }, { relPath: file.relPath }] },
+            });
+          }
+          await deleteIngestFilesByRelPaths({
+            root,
+            relPaths: deltaPlan.deleted.map((f) => f.relPath),
+          });
+          const counts = { files: 0, chunks: 0, embedded: 0 };
+          await completeReembedFastPathWithFence({
+            counts,
+            message,
+          });
           return;
         }
       }
     }
 
-    if (!astWritesEnabled && !dryRun) {
+    const needsEmbeddingWork = workFiles.length > 0;
+    let embeddingModelClient: ProviderEmbeddingModel | null = null;
+
+    if (needsEmbeddingWork) {
+      embeddingModelClient = await getEmbeddingModel(
+        toProviderQualifiedModelId(requestedSelection),
+        {
+          ingestFailureContext: () => ({
+            runId,
+            path: startPath,
+            root,
+            currentFile: lastFileRelPath,
+          }),
+        },
+      );
+      const effectiveBatchSize = Math.max(
+        1,
+        Math.min(
+          embeddingProvider === 'openai'
+            ? ingestConfig.openAiMaxBatchSize
+            : ingestConfig.lmStudioMaxBatchSize,
+          embeddingModelClient.effectiveBatchSize,
+        ),
+      );
+      const effectiveMaxInFlight = Math.max(
+        1,
+        embeddingProvider === 'openai'
+          ? ingestConfig.openAiMaxInFlight
+          : ingestConfig.lmStudioMaxInFlight,
+      );
+
+      dispatcher = dryRun
+        ? null
+        : createEmbeddingDispatcher({
+            model: embeddingModelClient,
+            effectiveBatchSize,
+            maxInFlight: effectiveMaxInFlight,
+            maxQueueSize: ingestConfig.maxQueueSize,
+            isCancelled: () => cancelledRuns.has(runId),
+            onDispatch: ({
+              batchSize,
+              queueDepth,
+              inFlight,
+              effectiveBatchSize,
+              effectiveMaxInFlight,
+            }) => {
+              logLifecycle(
+                'info',
+                'DEV-0000054:embedding_dispatch_slot_filled',
+                {
+                  runId,
+                  provider: embeddingProvider,
+                  batchSize,
+                  queueDepth,
+                  inFlight,
+                  effectiveBatchSize,
+                  effectiveMaxInFlight,
+                },
+              );
+            },
+            onCompleted: async (results) => {
+              if (shouldFencePersistence()) {
+                clearPendingPersistenceState();
+                return;
+              }
+              for (const result of results) {
+                pendingResults.set(result.sequence, {
+                  ...(result.meta as {
+                    relPath: string;
+                    fileHash: string;
+                    chunkHash: string;
+                    chunkIndex: number;
+                    text: string;
+                  }),
+                  embedding: result.embedding,
+                });
+              }
+              await queuePersist();
+            },
+            onLateResultIgnored: ({ batchSize, queueDepth }) => {
+              logLifecycle(
+                'info',
+                'DEV-0000054:embedding_result_ignored_after_cancel',
+                {
+                  runId,
+                  provider: embeddingProvider,
+                  batchSize,
+                  queueDepth,
+                },
+              );
+            },
+          });
+    }
+
+    if (dispatcher) {
+      activeDispatchers.set(runId, dispatcher);
+    }
+
+    if (shouldRunAstIndexing && !astWritesEnabled && !dryRun) {
       logWarning('AST indexing skipped; MongoDB is unavailable', {
         root,
         reason: 'mongo_disconnected',
       });
     }
 
-    if (astCounts.skippedFileCount > 0) {
+    if (shouldRunAstIndexing && astCounts.skippedFileCount > 0) {
       logWarning('AST indexing skipped for unsupported language files', {
         root,
         skippedFileCount: astCounts.skippedFileCount,
@@ -880,19 +1188,6 @@ async function processRun(runId: string, input: IngestJobInput) {
         examplePaths: astSkippedExamples,
         reason: 'unsupported_language',
       });
-    }
-
-    if (
-      operation === 'start' ||
-      (operation === 'reembed' && deltaMode !== 'delta')
-    ) {
-      if (astWritesEnabled) {
-        await clearAstSymbolsByRoot(root);
-        await clearAstEdgesByRoot(root);
-        await clearAstReferencesByRoot(root);
-        await clearAstModuleImportsByRoot(root);
-        await clearAstCoverageByRoot(root);
-      }
     }
 
     if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
@@ -904,7 +1199,11 @@ async function processRun(runId: string, input: IngestJobInput) {
       currentFile: string,
     ) => {
       if (!cancelledRuns.has(runId)) return false;
-      clearBatch();
+      cancelCleanupStarted = true;
+      dispatcher?.cancel();
+      activeDispatchers.delete(runId);
+      clearPendingPersistenceState();
+      await persistChain;
       clearAstBatches();
       setStatusAndPublish(runId, {
         runId,
@@ -924,10 +1223,12 @@ async function processRun(runId: string, input: IngestJobInput) {
       await deleteVectors({ where: { runId } });
       await deleteRoots({ where: { root } });
       await deleteVectorsCollectionIfEmpty();
-      const rootEmbeddingDim = await resolveRootEmbeddingDim({
+      const currentLock = await getLockedEmbeddingModel();
+      const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
         existingRootDim,
+        collectionDim: existingRootCollectionDim,
         vectorDim,
-        modelKey: toProviderQualifiedModelId(requestedSelection),
+        lockedDim: currentLock?.embeddingDimensions ?? null,
       });
       const cancelMetadata: Metadata = {
         runId,
@@ -970,56 +1271,141 @@ async function processRun(runId: string, input: IngestJobInput) {
       return true;
     };
 
-    for (const [idx, file] of files.entries()) {
-      const fileIndex = idx + 1;
-      if (await handleCancellation(fileIndex, file.relPath)) {
-        return;
-      }
-
-      const astExt = file.ext ?? path.extname(file.relPath).slice(1);
-      if (!isAstSupported(astExt)) {
-        continue;
-      }
-
-      const text = await fs.readFile(file.absPath, 'utf8');
-      const fileHash =
-        discoveredHashByRelPath.get(file.relPath) ??
-        (await hashFile(file.absPath));
-      fileHashesByRelPath.set(file.relPath, fileHash);
-
-      const astResult = await parseAstSource({
-        root,
-        text,
-        relPath: file.relPath,
-        fileHash,
-      });
-      if (astResult.status === 'ok') {
-        astSymbols.push(...astResult.symbols);
-        astEdges.push(...astResult.edges);
-        astReferences.push(...astResult.references);
-        astModuleImports.push(...astResult.imports);
-      } else {
-        astCounts.failedFileCount += 1;
-        if (astFailedExamples.length < 5) {
-          astFailedExamples.push({
-            relPath: file.relPath,
-            error: astResult.error,
-            ...(astResult.details ? { details: astResult.details } : {}),
-          });
+    const withFinalizationBarrier = async <T>(step: () => Promise<T>) => {
+      const stepPromise = step();
+      const barrier = stepPromise.then(
+        () => undefined,
+        () => undefined,
+      );
+      finalizationBarriers.set(runId, barrier);
+      try {
+        return await stepPromise;
+      } finally {
+        if (finalizationBarriers.get(runId) === barrier) {
+          finalizationBarriers.delete(runId);
         }
-        const errorMessage = astResult.error.toLowerCase();
-        if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
-          astGrammarFailureLogged = true;
-          logWarning('Tree-sitter grammar failed to load', {
+      }
+    };
+
+    const runFinalizationStep = async (step: () => Promise<unknown>) => {
+      await withFinalizationBarrier(step);
+      return handleCancellation(fileTotal, lastFileRelPath ?? root);
+    };
+
+    const runFinalizationStepWithResult = async <T>(step: () => Promise<T>) => {
+      const result = await withFinalizationBarrier(step);
+      const cancelled = await handleCancellation(
+        fileTotal,
+        lastFileRelPath ?? root,
+      );
+      return { result, cancelled };
+    };
+
+    const publishTerminalStatus = async () => {
+      const published = await withFinalizationBarrier(async () => {
+        if (beforeTerminalStatusPublishHook) {
+          await beforeTerminalStatusPublishHook(runId);
+        }
+        if (cancelledRuns.has(runId) || cancelCleanupStarted) {
+          return false;
+        }
+        setStatusAndPublish(runId, {
+          runId,
+          state: resultState,
+          counts,
+          ast: astCounts,
+          message:
+            resultState === 'skipped'
+              ? (finalSkipMessage ?? 'No changes detected')
+              : 'Completed',
+          lastError: null,
+          error: null,
+          currentFile: lastFileRelPath,
+          fileIndex: fileTotal,
+          fileTotal,
+          percent: fileTotal > 0 ? 100 : 0,
+          etaMs: 0,
+        });
+        logLifecycle(
+          'info',
+          resultState === 'skipped' ? 'ingest skipped' : 'ingest completed',
+          {
+            runId,
+            operation,
+            path: startPath,
             root,
+            model: embeddingModel,
+            embeddingProvider,
+            embeddingModel,
+            name,
+            description,
+            state: resultState,
+            counts,
+          },
+        );
+        return true;
+      });
+      if (!published) {
+        await handleCancellation(fileTotal, lastFileRelPath ?? root);
+      }
+    };
+
+    if (shouldRunAstIndexing) {
+      for (const [idx, file] of files.entries()) {
+        const fileIndex = idx + 1;
+        if (await handleCancellation(fileIndex, file.relPath)) {
+          return;
+        }
+
+        const astExt = file.ext ?? path.extname(file.relPath).slice(1);
+        if (!isAstSupported(astExt)) {
+          continue;
+        }
+
+        const text = await fs.readFile(file.absPath, 'utf8');
+        const fileHash =
+          discoveredHashByRelPath.get(file.relPath) ??
+          (await hashFile(file.absPath));
+        fileHashesByRelPath.set(file.relPath, fileHash);
+
+        const astResult = await parseAstSource({
+          root,
+          text,
+          relPath: file.relPath,
+          fileHash,
+        });
+        if (astResult.status === 'ok') {
+          astSymbols.push(...astResult.symbols);
+          astEdges.push(...astResult.edges);
+          astReferences.push(...astResult.references);
+          astModuleImports.push(...astResult.imports);
+          successfulAstFiles.push({
             relPath: file.relPath,
-            error: astResult.error,
+            fileHash,
           });
+        } else {
+          astCounts.failedFileCount += 1;
+          if (astFailedExamples.length < 5) {
+            astFailedExamples.push({
+              relPath: file.relPath,
+              error: astResult.error,
+              ...(astResult.details ? { details: astResult.details } : {}),
+            });
+          }
+          const errorMessage = astResult.error.toLowerCase();
+          if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
+            astGrammarFailureLogged = true;
+            logWarning('Tree-sitter grammar failed to load', {
+              root,
+              relPath: file.relPath,
+              error: astResult.error,
+            });
+          }
         }
       }
     }
 
-    if (astCounts.failedFileCount > 0) {
+    if (shouldRunAstIndexing && astCounts.failedFileCount > 0) {
       logWarning('AST indexing failed for file(s)', {
         root,
         failedFileCount: astCounts.failedFileCount,
@@ -1040,86 +1426,97 @@ async function processRun(runId: string, input: IngestJobInput) {
         fileHashesByRelPath.get(file.relPath) ??
         (await hashFile(file.absPath));
       fileHashesByRelPath.set(file.relPath, fileHash);
-      const embeddingModelClient = await getEmbeddingModel(
-        toProviderQualifiedModelId(requestedSelection),
+      for await (const chunk of chunkTextStream(
+        text,
+        embeddingModelClient!,
+        ingestConfig,
         {
-          ingestFailureContext: () => ({
+          logContext: {
             runId,
-            path: startPath,
-            root,
-            currentFile: lastFileRelPath,
-          }),
+            relPath: file.relPath,
+          },
+          fileInfo: {
+            relPath: file.relPath,
+            ext: file.ext,
+            sizeBytes: file.size ?? Buffer.byteLength(text, 'utf8'),
+          },
         },
-      );
-      const chunks = await chunkText(text, embeddingModelClient, ingestConfig, {
-        logContext: {
-          runId,
-          relPath: file.relPath,
-        },
-      });
-      for (const chunk of chunks) {
+      )) {
+        counts.chunks += 1;
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
-        const embedding = await embeddingModelClient.embedText(chunk.text);
-        if (embedding.length > 0) {
-          vectorDim = embedding.length;
+        if (dryRun) {
+          counts.embedded += 1;
+          continue;
         }
-        if (!dryRun) {
-          idsBatch.push(`${runId}:${file.relPath}:${chunk.chunkIndex}`);
-          documentsBatch.push(chunk.text);
-          embeddingsBatch.push(embedding);
-          const metadata: Metadata = {
-            runId,
-            root,
+
+        const accepted = await dispatcher!.enqueue({
+          sequence: nextSequence++,
+          text: chunk.text,
+          meta: {
             relPath: file.relPath,
             fileHash,
             chunkHash,
-            embeddedAt: new Date().toISOString(),
-            ingestedAtMs,
-            model: embeddingModel,
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions: embedding.length,
-            name,
-          };
-          if (description) metadata.description = description;
-          metadatasBatch.push(metadata);
+            chunkIndex: chunk.chunkIndex,
+            text: chunk.text,
+          },
+        });
+        if (!accepted || (await handleCancellation(fileIndex, file.relPath))) {
+          return;
         }
-      }
-      counts.chunks += chunks.length;
-      if (dryRun) {
-        counts.embedded += chunks.length;
-      }
-      filesSinceFlush += 1;
-      if (filesSinceFlush >= ingestConfig.flushEvery) {
-        await flushBatch();
       }
       progressSnapshot(fileIndex, file.relPath);
     }
 
-    await flushBatch();
+    dispatcher?.completeProduction();
+    if (dispatcher) {
+      await dispatcher.waitForIdle();
+      await persistChain;
+      await persistReadyResults();
+      if (await handleCancellation(fileTotal, lastFileRelPath ?? root)) {
+        return;
+      }
+    }
+
+    if (await runFinalizationStep(() => flushBatch())) {
+      return;
+    }
 
     if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
       for (const file of deltaPlan.changed) {
-        await deleteVectors({
-          where: {
-            $and: [
-              { root },
-              { relPath: file.relPath },
-              { fileHash: { $ne: file.fileHash } },
-            ],
-          },
-        });
+        if (
+          await runFinalizationStep(() =>
+            deleteVectors({
+              where: {
+                $and: [
+                  { root },
+                  { relPath: file.relPath },
+                  { fileHash: { $ne: file.fileHash } },
+                ],
+              },
+            }),
+          )
+        ) {
+          return;
+        }
       }
 
       for (const file of deltaPlan.deleted) {
-        await deleteVectors({
-          where: { $and: [{ root }, { relPath: file.relPath }] },
-        });
+        if (
+          await runFinalizationStep(() =>
+            deleteVectors({
+              where: { $and: [{ root }, { relPath: file.relPath }] },
+            }),
+          )
+        ) {
+          return;
+        }
       }
     }
 
     if (counts.embedded === 0) {
-      await deleteVectorsCollectionIfEmpty();
+      if (await runFinalizationStep(() => deleteVectorsCollectionIfEmpty())) {
+        return;
+      }
     }
 
     if (operation === 'start' && counts.embedded === 0) {
@@ -1172,107 +1569,239 @@ async function processRun(runId: string, input: IngestJobInput) {
       operation === 'reembed' || dryRun || counts.embedded > 0
         ? 'completed'
         : 'skipped';
-    const rootEmbeddingDim = await resolveRootEmbeddingDim({
-      existingRootDim,
-      vectorDim,
-      modelKey: toProviderQualifiedModelId(requestedSelection),
-    });
-    const rootMetadata: Metadata = {
-      runId,
-      root,
-      name,
-      model: embeddingModel,
-      embeddingProvider,
-      embeddingModel,
-      embeddingDimensions: rootEmbeddingDim,
-      files: counts.files,
-      chunks: counts.chunks,
-      embedded: counts.embedded,
-      state: resultState,
-      lastIngestAt: new Date().toISOString(),
-      ingestedAtMs,
-    };
-    attachAstMetadata(rootMetadata);
-    if (description) rootMetadata.description = description;
+    const rootPersistenceResult = await runFinalizationStepWithResult(
+      async () => {
+        if (!needsEmbeddingWork) {
+          const currentLock = await getLockedEmbeddingModel();
+          const knownRootEmbeddingDim = resolveKnownRootEmbeddingDimOrNull({
+            existingRootDim,
+            collectionDim: existingRootCollectionDim,
+            vectorDim,
+            lockedDim: currentLock?.embeddingDimensions ?? null,
+          });
+          if (knownRootEmbeddingDim) {
+            return {
+              embeddingDim: knownRootEmbeddingDim,
+              shouldWriteRoot: true,
+            };
+          }
+          return {
+            embeddingDim: null,
+            shouldWriteRoot: false,
+          };
+        }
 
-    await roots.add({
-      ids: [runId],
-      embeddings: [Array(rootEmbeddingDim).fill(0)],
-      metadatas: [rootMetadata],
-    });
+        return {
+          embeddingDim: await resolveRootEmbeddingDim({
+            existingRootDim,
+            collectionDim: existingRootCollectionDim,
+            vectorDim,
+            modelKey: toProviderQualifiedModelId(requestedSelection),
+          }),
+          shouldWriteRoot: true,
+        };
+      },
+    );
+    if (rootPersistenceResult.cancelled) {
+      return;
+    }
+    const { embeddingDim: rootEmbeddingDim, shouldWriteRoot } =
+      rootPersistenceResult.result;
+    if (shouldWriteRoot && rootEmbeddingDim !== null) {
+      const rootMetadata: Metadata = {
+        runId,
+        root,
+        name,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
+        embeddingDimensions: rootEmbeddingDim,
+        files: counts.files,
+        chunks: counts.chunks,
+        embedded: counts.embedded,
+        state: resultState,
+        lastIngestAt: new Date().toISOString(),
+        ingestedAtMs,
+      };
+      attachAstMetadata(rootMetadata);
+      if (description) rootMetadata.description = description;
+
+      if (
+        await runFinalizationStep(() =>
+          roots.add({
+            ids: [runId],
+            embeddings: [Array(rootEmbeddingDim).fill(0)],
+            metadatas: [rootMetadata],
+          }),
+        )
+      ) {
+        return;
+      }
+    } else {
+      logWarning('ingest root metadata skipped without trusted dimension', {
+        runId,
+        root,
+        operation,
+        resultState,
+        reason: 'no_embedding_work_dimension_unresolved',
+      });
+    }
 
     if (!dryRun && operation === 'start') {
-      await clearIngestFilesByRoot(root);
-      await upsertIngestFiles({
-        root,
-        files: files
-          .map((file) => ({
-            relPath: file.relPath,
-            fileHash: fileHashesByRelPath.get(file.relPath),
-          }))
-          .filter((row): row is { relPath: string; fileHash: string } =>
-            Boolean(row.fileHash),
-          ),
-      });
+      if (await runFinalizationStep(() => clearIngestFilesByRoot(root))) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertIngestFiles({
+            root,
+            files: files
+              .map((file) => ({
+                relPath: file.relPath,
+                fileHash: fileHashesByRelPath.get(file.relPath),
+              }))
+              .filter((row): row is { relPath: string; fileHash: string } =>
+                Boolean(row.fileHash),
+              ),
+          }),
+        )
+      ) {
+        return;
+      }
     }
 
     if (!dryRun && operation === 'reembed') {
       if (deltaMode === 'legacy_upgrade') {
-        await clearIngestFilesByRoot(root);
-        await upsertIngestFiles({
-          root,
-          files:
-            discoveredWithHashes?.map((file) => ({
-              relPath: file.relPath,
-              fileHash: file.fileHash,
-            })) ?? [],
-        });
+        if (await runFinalizationStep(() => clearIngestFilesByRoot(root))) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            upsertIngestFiles({
+              root,
+              files:
+                discoveredWithHashes?.map((file) => ({
+                  relPath: file.relPath,
+                  fileHash: file.fileHash,
+                })) ?? [],
+            }),
+          )
+        ) {
+          return;
+        }
       } else if (deltaMode === 'delta' && deltaPlan) {
-        await upsertIngestFiles({
-          root,
-          files: [...deltaPlan.added, ...deltaPlan.changed].map((file) => ({
-            relPath: file.relPath,
-            fileHash: file.fileHash,
-          })),
-        });
-        await deleteIngestFilesByRelPaths({
-          root,
-          relPaths: deltaPlan.deleted.map((file) => file.relPath),
-        });
+        if (
+          await runFinalizationStep(() =>
+            upsertIngestFiles({
+              root,
+              files: [...deltaPlan.added, ...deltaPlan.changed].map((file) => ({
+                relPath: file.relPath,
+                fileHash: file.fileHash,
+              })),
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteIngestFilesByRelPaths({
+              root,
+              relPaths: deltaPlan.deleted.map((file) => file.relPath),
+            }),
+          )
+        ) {
+          return;
+        }
       }
     }
 
-    if (astWritesEnabled) {
-      if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
-        const deleteRelPaths = [...deltaPlan.changed, ...deltaPlan.deleted].map(
-          (file) => file.relPath,
-        );
-        if (deleteRelPaths.length > 0) {
-          await deleteAstSymbolsByRelPaths({ root, relPaths: deleteRelPaths });
-          await deleteAstEdgesByRelPaths({ root, relPaths: deleteRelPaths });
-          await deleteAstReferencesByRelPaths({
+    if (astWritesEnabled && shouldRunAstIndexing) {
+      const currentAstFiles = successfulAstFiles;
+      if (
+        await runFinalizationStep(() =>
+          upsertAstSymbols({ root, symbols: astSymbols }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstEdges({ root, edges: astEdges }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstReferences({ root, references: astReferences }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstModuleImports({ root, modules: astModuleImports }),
+        )
+      ) {
+        return;
+      }
+      if (
+        await runFinalizationStep(() =>
+          upsertAstCoverage({
             root,
-            relPaths: deleteRelPaths,
-          });
-          await deleteAstModuleImportsByRelPaths({
-            root,
-            relPaths: deleteRelPaths,
-          });
+            coverage: {
+              root,
+              ...astCounts,
+              lastIndexedAt: new Date(),
+            },
+          }),
+        )
+      ) {
+        return;
+      }
+      if (shouldReplaceAstByPrune) {
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstSymbolsByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstEdgesByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstReferencesByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
+        }
+        if (
+          await runFinalizationStep(() =>
+            deleteStaleAstModuleImportsByRootFiles({
+              root,
+              files: currentAstFiles,
+            }),
+          )
+        ) {
+          return;
         }
       }
-
-      await upsertAstSymbols({ root, symbols: astSymbols });
-      await upsertAstEdges({ root, edges: astEdges });
-      await upsertAstReferences({ root, references: astReferences });
-      await upsertAstModuleImports({ root, modules: astModuleImports });
-      await upsertAstCoverage({
-        root,
-        coverage: {
-          root,
-          ...astCounts,
-          lastIndexedAt: new Date(),
-        },
-      });
       logLifecycle('info', 'DEV-0000032:T5:ast-index-complete', {
         event: 'DEV-0000032:T5:ast-index-complete',
         root,
@@ -1280,40 +1809,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       });
     }
 
-    setStatusAndPublish(runId, {
-      runId,
-      state: resultState,
-      counts,
-      ast: astCounts,
-      message:
-        resultState === 'skipped'
-          ? (finalSkipMessage ?? 'No changes detected')
-          : 'Completed',
-      lastError: null,
-      error: null,
-      currentFile: lastFileRelPath,
-      fileIndex: fileTotal,
-      fileTotal,
-      percent: Number(((fileTotal / fileTotal) * 100).toFixed(1)),
-      etaMs: 0,
-    });
-    logLifecycle(
-      'info',
-      resultState === 'skipped' ? 'ingest skipped' : 'ingest completed',
-      {
-        runId,
-        operation,
-        path: startPath,
-        root,
-        model: embeddingModel,
-        embeddingProvider,
-        embeddingModel,
-        name,
-        description,
-        state: resultState,
-        counts,
-      },
-    );
+    await publishTerminalStatus();
   } catch (err) {
     const mappedError = mapIngestError(err);
     const errorMessage = mappedError.message;
@@ -1370,6 +1866,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       error: mappedError.normalized,
     });
   } finally {
+    activeDispatchers.delete(runId);
     ingestLock.release(runId);
   }
 }
@@ -1544,11 +2041,19 @@ export function __setStatusAndPublishForTest(
   setStatusAndPublish(runId, status);
 }
 
+export function __setBeforeTerminalStatusPublishHookForTest(
+  hook: ((runId: string) => Promise<void>) | null,
+) {
+  beforeTerminalStatusPublishHook = hook;
+}
+
 export function __resetIngestJobsForTest() {
   if (process.env.NODE_ENV !== 'test') return;
   jobs.clear();
   jobInputs.clear();
   cancelledRuns.clear();
+  finalizationBarriers.clear();
+  beforeTerminalStatusPublishHook = null;
 }
 
 export function __setJobInputForTest(
@@ -1563,6 +2068,11 @@ export function __setJobInputForTest(
 
 export async function cancelRun(runId: string) {
   cancelledRuns.add(runId);
+  activeDispatchers.get(runId)?.cancel();
+  const finalizationBarrier = finalizationBarriers.get(runId);
+  if (finalizationBarrier) {
+    await finalizationBarrier;
+  }
   const status = jobs.get(runId);
   const input = jobInputs.get(runId);
   const root = input?.root;
@@ -1570,6 +2080,10 @@ export async function cancelRun(runId: string) {
     input?.model && input.model.length > 0
       ? resolveInputSelection(input)
       : null;
+
+  if (status?.state === 'cancelled') {
+    return { cleanupState: 'complete', found: true } as const;
+  }
 
   if (status?.state === 'completed' || status?.state === 'error') {
     cancelledRuns.delete(runId);
@@ -1589,10 +2103,28 @@ export async function cancelRun(runId: string) {
       }
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = existingRoots.embeddings?.[0]?.length;
-    const rootEmbeddingDim = await resolveRootEmbeddingDim({
+    const existingRootCollectionDim = await resolveCollectionDimension(roots);
+    const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
       existingRootDim,
-      modelKey: input?.model ?? '',
+      collectionDim: existingRootCollectionDim,
+      lockedDim: selected
+        ? (await getLockedEmbeddingModel())?.embeddingDimensions
+        : null,
     });
+    if (rootEmbeddingDim <= 1) {
+      logWarning('ingest cancel dimension fallback used without probe', {
+        runId,
+        root,
+        fallback: 'dimension=1',
+        reason: 'lookup_failed_after_cancel',
+        ...(selected
+          ? {
+              embeddingProvider: selected.providerId,
+              embeddingModel: selected.modelKey,
+            }
+          : {}),
+      });
+    }
 
     const cancelMetadata: Metadata = {
       runId,

@@ -381,6 +381,7 @@ async function scheduleQueueCleanupRetry(params: {
     queueCleanupRetryTimers.delete(params.requestId);
     void finalizeQueueRequestForRun(params.runId);
   }, delayMs);
+  handle.unref?.();
   queueCleanupRetryTimers.set(params.requestId, handle);
 }
 
@@ -393,7 +394,7 @@ async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
   const finalizePromise = (async () => {
     const requestId = queueRequestIdsByRunId.get(runId);
     if (!requestId) {
-      return true;
+      return false;
     }
 
     try {

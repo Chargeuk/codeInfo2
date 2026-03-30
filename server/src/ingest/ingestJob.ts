@@ -64,6 +64,7 @@ import {
   resolveEmbeddingModelSelection,
 } from './providers/index.js';
 import type { ProviderEmbeddingModel } from './providers/types.js';
+import * as requestQueue from './requestQueue.js';
 import type { IngestRunState } from './types.js';
 import {
   chunkTextStream,
@@ -140,19 +141,82 @@ type Deps = {
   baseUrl: string;
 };
 
+type QueueRuntimeRequest = {
+  _id: { toString: () => string };
+  canonicalTargetPath: string;
+  operation: 'start' | 'reembed';
+  queueState: 'waiting' | 'running' | 'cleanup-blocked';
+  requestPayload: Record<string, unknown>;
+  runId: string | null;
+};
+
+type QueueRuntimeOps = {
+  deleteQueueRequestById: (
+    requestId: string,
+  ) => Promise<QueueRuntimeRequest | null>;
+  ensureQueueRequestRunId: (
+    requestId: string,
+    runId: string,
+  ) => Promise<QueueRuntimeRequest | null>;
+  findOldestCleanupBlockedQueueRequest: () => Promise<QueueRuntimeRequest | null>;
+  findOldestRunningQueueRequest: () => Promise<QueueRuntimeRequest | null>;
+  getQueueRequestId: (queueRequest: QueueRuntimeRequest) => string;
+  markQueueRequestCleanupBlocked: (params: {
+    requestId: string;
+    runId: string | null;
+  }) => Promise<QueueRuntimeRequest | null>;
+  promoteOldestWaitingQueueRequest: (
+    runId: string,
+  ) => Promise<QueueRuntimeRequest | null>;
+};
+
+type RunScheduler = (task: () => void) => void;
+
 const jobs = new Map<string, IngestJobStatus>();
 let deps: Deps | null = null;
 const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
+const queueRequestIdsByRunId = new Map<string, string>();
 const cancelledRuns = new Set<string>();
 const activeDispatchers = new Map<string, { cancel: () => void }>();
 const finalizationBarriers = new Map<string, Promise<void>>();
+const queueCleanupFinalizers = new Map<string, Promise<boolean>>();
+const queueCleanupRetryTimers = new Map<
+  string,
+  ReturnType<typeof globalThis.setTimeout>
+>();
+const queueCleanupRetryAttempts = new Map<string, number>();
+const blockedCleanupStatusSnapshots = new Map<string, IngestJobStatus>();
 let beforeTerminalStatusPublishHook: ((runId: string) => Promise<void>) | null =
   null;
+let runProcessor:
+  | ((runId: string, input: IngestJobInput) => Promise<void>)
+  | null = null;
+let queueCleanupRetryDelayOverrideMs: number | null = null;
+const defaultRunScheduler: RunScheduler = (task) => {
+  setImmediate(task);
+};
+let runScheduler: RunScheduler = defaultRunScheduler;
+const defaultQueueRuntimeOps: QueueRuntimeOps = {
+  deleteQueueRequestById: requestQueue.deleteQueueRequestById,
+  ensureQueueRequestRunId: requestQueue.ensureQueueRequestRunId,
+  findOldestCleanupBlockedQueueRequest:
+    requestQueue.findOldestCleanupBlockedQueueRequest,
+  findOldestRunningQueueRequest: requestQueue.findOldestRunningQueueRequest,
+  getQueueRequestId: (queueRequest) =>
+    requestQueue.getQueueRequestId(queueRequest as never),
+  markQueueRequestCleanupBlocked: requestQueue.markQueueRequestCleanupBlocked,
+  promoteOldestWaitingQueueRequest:
+    requestQueue.promoteOldestWaitingQueueRequest,
+};
+let queueRuntimeOps: QueueRuntimeOps = defaultQueueRuntimeOps;
+const QUEUE_CLEANUP_RETRY_BASE_MS = 1_000;
+const QUEUE_CLEANUP_RETRY_MAX_MS = 30_000;
 const terminalStates = new Set<IngestRunState>([
   'completed',
   'cancelled',
   'skipped',
   'error',
+  'cleanup-blocked',
 ]);
 const astSupportedExtensions = new Set([
   'ts',
@@ -212,6 +276,195 @@ function logWarning(message: string, context: Record<string, unknown>) {
 
   appendLog(entry);
   baseLogger.warn({ ...cleanedContext }, message);
+}
+
+function getRunProcessor() {
+  return runProcessor ?? processRun;
+}
+
+function getQueueCleanupRetryDelayMs(requestId: string) {
+  if (queueCleanupRetryDelayOverrideMs !== null) {
+    const attempt = (queueCleanupRetryAttempts.get(requestId) ?? 0) + 1;
+    queueCleanupRetryAttempts.set(requestId, attempt);
+    return queueCleanupRetryDelayOverrideMs;
+  }
+  const attempt = (queueCleanupRetryAttempts.get(requestId) ?? 0) + 1;
+  queueCleanupRetryAttempts.set(requestId, attempt);
+  return Math.min(
+    QUEUE_CLEANUP_RETRY_BASE_MS * 2 ** (attempt - 1),
+    QUEUE_CLEANUP_RETRY_MAX_MS,
+  );
+}
+
+function clearQueueCleanupRetryState(requestId: string) {
+  const handle = queueCleanupRetryTimers.get(requestId);
+  if (handle) {
+    globalThis.clearTimeout(handle);
+    queueCleanupRetryTimers.delete(requestId);
+  }
+  queueCleanupRetryAttempts.delete(requestId);
+}
+
+function buildCleanupBlockedStatus(params: {
+  runId: string;
+  previousStatus: IngestJobStatus;
+  requestId: string;
+  errorMessage: string;
+}): IngestJobStatus {
+  return {
+    ...params.previousStatus,
+    runId: params.runId,
+    state: 'cleanup-blocked',
+    message: 'Queue cleanup blocked',
+    lastError: params.errorMessage,
+    currentFile: params.previousStatus.currentFile,
+    fileIndex: params.previousStatus.fileIndex,
+    fileTotal: params.previousStatus.fileTotal,
+    percent: params.previousStatus.percent,
+    etaMs: params.previousStatus.etaMs,
+  };
+}
+
+function toQueueManagedInput(queueRequest: {
+  canonicalTargetPath: string;
+  operation: 'start' | 'reembed';
+  requestPayload: Record<string, unknown>;
+}): IngestJobInput {
+  const payload = queueRequest.requestPayload;
+  const pathValue =
+    typeof payload.path === 'string' && payload.path.length > 0
+      ? payload.path
+      : queueRequest.canonicalTargetPath;
+  const nameValue =
+    typeof payload.name === 'string' && payload.name.length > 0
+      ? payload.name
+      : path.posix.basename(pathValue) || 'repo';
+
+  return {
+    path: pathValue,
+    name: nameValue,
+    ...(typeof payload.description === 'string'
+      ? { description: payload.description }
+      : {}),
+    model:
+      typeof payload.model === 'string' && payload.model.length > 0
+        ? payload.model
+        : '',
+    ...(payload.embeddingProvider === 'lmstudio' ||
+    payload.embeddingProvider === 'openai'
+      ? { embeddingProvider: payload.embeddingProvider }
+      : {}),
+    ...(typeof payload.embeddingModel === 'string' &&
+    payload.embeddingModel.length > 0
+      ? { embeddingModel: payload.embeddingModel }
+      : {}),
+    ...(typeof payload.dryRun === 'boolean' ? { dryRun: payload.dryRun } : {}),
+    operation: queueRequest.operation,
+  };
+}
+
+function releaseRunOwnership(runId: string) {
+  queueRequestIdsByRunId.delete(runId);
+  blockedCleanupStatusSnapshots.delete(runId);
+}
+
+async function scheduleQueueCleanupRetry(params: {
+  requestId: string;
+  runId: string;
+}) {
+  if (queueCleanupRetryTimers.has(params.requestId)) {
+    return;
+  }
+
+  const delayMs = getQueueCleanupRetryDelayMs(params.requestId);
+  const handle = globalThis.setTimeout(() => {
+    queueCleanupRetryTimers.delete(params.requestId);
+    void finalizeQueueRequestForRun(params.runId);
+  }, delayMs);
+  queueCleanupRetryTimers.set(params.requestId, handle);
+}
+
+async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
+  const existing = queueCleanupFinalizers.get(runId);
+  if (existing) {
+    return existing;
+  }
+
+  const finalizePromise = (async () => {
+    const requestId = queueRequestIdsByRunId.get(runId);
+    if (!requestId) {
+      return true;
+    }
+
+    try {
+      const deleted = await queueRuntimeOps.deleteQueueRequestById(requestId);
+      if (!deleted) {
+        releaseRunOwnership(runId);
+        clearQueueCleanupRetryState(requestId);
+        return true;
+      }
+
+      const blockedSnapshot = blockedCleanupStatusSnapshots.get(runId);
+      if (blockedSnapshot) {
+        setStatusAndPublish(runId, blockedSnapshot);
+      }
+      releaseRunOwnership(runId);
+      clearQueueCleanupRetryState(requestId);
+      return true;
+    } catch (error) {
+      const previousStatus = jobs.get(runId);
+      if (previousStatus) {
+        if (previousStatus.state !== 'cleanup-blocked') {
+          blockedCleanupStatusSnapshots.set(runId, previousStatus);
+        }
+        const cleanupBlockedStatus = buildCleanupBlockedStatus({
+          runId,
+          previousStatus,
+          requestId,
+          errorMessage:
+            error instanceof Error ? error.message : String(error ?? 'unknown'),
+        });
+        setStatusAndPublish(runId, cleanupBlockedStatus);
+      }
+
+      try {
+        await queueRuntimeOps.markQueueRequestCleanupBlocked({
+          requestId,
+          runId,
+        });
+      } catch (markError) {
+        logWarning('queue cleanup-blocked state update failed', {
+          runId,
+          requestId,
+          error:
+            markError instanceof Error
+              ? markError.message
+              : String(markError ?? 'unknown'),
+        });
+      }
+
+      logLifecycle('error', 'ingest queue cleanup blocked', {
+        runId,
+        requestId,
+        error:
+          error instanceof Error ? error.message : String(error ?? 'unknown'),
+      });
+      await scheduleQueueCleanupRetry({ requestId, runId });
+      return false;
+    }
+  })();
+
+  queueCleanupFinalizers.set(runId, finalizePromise);
+  let cleanupCompleted = false;
+  try {
+    cleanupCompleted = await finalizePromise;
+    return cleanupCompleted;
+  } finally {
+    queueCleanupFinalizers.delete(runId);
+    if (cleanupCompleted) {
+      void pumpIngestQueue();
+    }
+  }
 }
 
 function buildNoEligibleFilesErrorStatus(params: {
@@ -1867,8 +2120,164 @@ async function processRun(runId: string, input: IngestJobInput) {
     });
   } finally {
     activeDispatchers.delete(runId);
+    const queueCleanupCompleted = await finalizeQueueRequestForRun(runId);
+    if (queueCleanupCompleted) {
+      releaseRunOwnership(runId);
+    }
     ingestLock.release(runId);
   }
+}
+
+function startManagedRun(params: {
+  runId: string;
+  input: IngestJobInput;
+  queueRequestId?: string;
+}) {
+  setStatusAndPublish(params.runId, {
+    runId: params.runId,
+    state: 'queued',
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    message: 'Queued',
+    lastError: null,
+    error: null,
+  });
+  jobInputs.set(params.runId, { ...params.input, root: params.input.path });
+  if (params.queueRequestId) {
+    queueRequestIdsByRunId.set(params.runId, params.queueRequestId);
+  }
+  runScheduler(() => {
+    void getRunProcessor()(params.runId, {
+      ...params.input,
+      operation: params.input.operation ?? 'start',
+    });
+  });
+}
+
+export async function pumpIngestQueue() {
+  const pendingCleanupRunId = queueCleanupFinalizers.keys().next().value;
+  if (pendingCleanupRunId) {
+    return {
+      started: false,
+      blockedByCleanup: true,
+      requestId: queueRequestIdsByRunId.get(pendingCleanupRunId) ?? null,
+    };
+  }
+
+  if (ingestLock.isHeld()) {
+    return { started: false, blockedByCleanup: false, requestId: null };
+  }
+
+  const blocked = await queueRuntimeOps.findOldestCleanupBlockedQueueRequest();
+  if (blocked) {
+    const blockedRunId =
+      typeof blocked.runId === 'string' && blocked.runId.length > 0
+        ? blocked.runId
+        : null;
+    if (blockedRunId) {
+      await finalizeQueueRequestForRun(blockedRunId);
+    }
+    return {
+      started: false,
+      blockedByCleanup: true,
+      requestId: queueRuntimeOps.getQueueRequestId(blocked),
+    };
+  }
+
+  if (!deps) {
+    throw new Error('INGEST_DEPS_UNSET');
+  }
+
+  const runId = randomUUID();
+  if (!ingestLock.acquire(runId)) {
+    return { started: false, blockedByCleanup: false, requestId: null };
+  }
+
+  try {
+    const queueRequest =
+      await queueRuntimeOps.promoteOldestWaitingQueueRequest(runId);
+    if (!queueRequest) {
+      ingestLock.release(runId);
+      return { started: false, blockedByCleanup: false, requestId: null };
+    }
+
+    const requestId = queueRuntimeOps.getQueueRequestId(queueRequest);
+    const input = toQueueManagedInput(queueRequest);
+    startManagedRun({
+      runId,
+      input,
+      queueRequestId: requestId,
+    });
+    return { started: true, blockedByCleanup: false, requestId };
+  } catch (error) {
+    ingestLock.release(runId);
+    throw error;
+  }
+}
+
+export async function recoverIngestQueueOnStartup() {
+  if (ingestLock.isHeld()) {
+    return { recovered: false, blockedByActiveLock: true };
+  }
+
+  const blocked = await queueRuntimeOps.findOldestCleanupBlockedQueueRequest();
+  if (blocked) {
+    const blockedRunId =
+      typeof blocked.runId === 'string' && blocked.runId.length > 0
+        ? blocked.runId
+        : null;
+    if (blockedRunId) {
+      queueRequestIdsByRunId.set(
+        blockedRunId,
+        queueRuntimeOps.getQueueRequestId(blocked),
+      );
+      await finalizeQueueRequestForRun(blockedRunId);
+      return { recovered: true, blockedByActiveLock: false };
+    }
+  }
+
+  const running = await queueRuntimeOps.findOldestRunningQueueRequest();
+  if (running && deps) {
+    const existingRunId =
+      typeof running.runId === 'string' && running.runId.length > 0
+        ? running.runId
+        : randomUUID();
+    if (!ingestLock.acquire(existingRunId)) {
+      return { recovered: false, blockedByActiveLock: true };
+    }
+
+    try {
+      if (existingRunId !== running.runId) {
+        await queueRuntimeOps.ensureQueueRequestRunId(
+          queueRuntimeOps.getQueueRequestId(running),
+          existingRunId,
+        );
+      }
+      startManagedRun({
+        runId: existingRunId,
+        input: toQueueManagedInput(running),
+        queueRequestId: queueRuntimeOps.getQueueRequestId(running),
+      });
+      logLifecycle('info', 'QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER', {
+        recoveryState: 'running',
+        runId: existingRunId,
+        requestId: queueRuntimeOps.getQueueRequestId(running),
+        canonicalTargetPath: running.canonicalTargetPath,
+      });
+      return { recovered: true, blockedByActiveLock: false };
+    } catch (error) {
+      ingestLock.release(existingRunId);
+      throw error;
+    }
+  }
+
+  const pumpResult = await pumpIngestQueue();
+  if (pumpResult.started) {
+    logLifecycle('info', 'QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER', {
+      recoveryState: 'waiting',
+      requestId: pumpResult.requestId,
+    });
+  }
+  return { recovered: pumpResult.started, blockedByActiveLock: false };
 }
 
 export async function startIngest(input: IngestJobInput, d: Deps) {
@@ -1899,17 +2308,9 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
     (error as { code?: string }).code = 'BUSY';
     throw error;
   }
-  setStatusAndPublish(runId, {
+  startManagedRun({
     runId,
-    state: 'queued',
-    counts: { files: 0, chunks: 0, embedded: 0 },
-    message: 'Queued',
-    lastError: null,
-    error: null,
-  });
-  jobInputs.set(runId, { ...input, root: input.path });
-  setImmediate(() => {
-    void processRun(runId, { ...input, operation });
+    input: { ...input, operation },
   });
   return runId;
 }
@@ -2047,13 +2448,92 @@ export function __setBeforeTerminalStatusPublishHookForTest(
   beforeTerminalStatusPublishHook = hook;
 }
 
+export function __setRunProcessorForTest(
+  processor: ((runId: string, input: IngestJobInput) => Promise<void>) | null,
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('__setRunProcessorForTest is only available in test mode');
+  }
+  runProcessor = processor;
+}
+
+export function __setQueueCleanupRetryDelayForTest(delayMs: number | null) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__setQueueCleanupRetryDelayForTest is only available in test mode',
+    );
+  }
+  queueCleanupRetryDelayOverrideMs = delayMs;
+}
+
+export function __setRunSchedulerForTest(scheduler: RunScheduler | null) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('__setRunSchedulerForTest is only available in test mode');
+  }
+  runScheduler = scheduler ?? defaultRunScheduler;
+}
+
+export function __setQueueRuntimeOpsForTest(
+  overrides: Partial<QueueRuntimeOps> | null,
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__setQueueRuntimeOpsForTest is only available in test mode',
+    );
+  }
+  queueRuntimeOps = overrides
+    ? {
+        ...defaultQueueRuntimeOps,
+        ...overrides,
+      }
+    : defaultQueueRuntimeOps;
+}
+
+export function __setQueueRequestIdForRunForTest(
+  runId: string,
+  requestId: string | null,
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__setQueueRequestIdForRunForTest is only available in test mode',
+    );
+  }
+  if (requestId) {
+    queueRequestIdsByRunId.set(runId, requestId);
+    return;
+  }
+  queueRequestIdsByRunId.delete(runId);
+}
+
+export async function __finalizeQueueRequestForRunForTest(runId: string) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__finalizeQueueRequestForRunForTest is only available in test mode',
+    );
+  }
+  return finalizeQueueRequestForRun(runId);
+}
+
 export function __resetIngestJobsForTest() {
   if (process.env.NODE_ENV !== 'test') return;
   jobs.clear();
   jobInputs.clear();
+  queueRequestIdsByRunId.clear();
   cancelledRuns.clear();
+  activeDispatchers.clear();
   finalizationBarriers.clear();
+  queueCleanupFinalizers.clear();
+  blockedCleanupStatusSnapshots.clear();
+  for (const handle of queueCleanupRetryTimers.values()) {
+    globalThis.clearTimeout(handle);
+  }
+  queueCleanupRetryTimers.clear();
+  queueCleanupRetryAttempts.clear();
   beforeTerminalStatusPublishHook = null;
+  runProcessor = null;
+  runScheduler = defaultRunScheduler;
+  queueCleanupRetryDelayOverrideMs = null;
+  queueRuntimeOps = defaultQueueRuntimeOps;
 }
 
 export function __setJobInputForTest(
@@ -2185,6 +2665,10 @@ export async function cancelRun(runId: string) {
     state: 'cancelled',
     counts: status?.counts ?? { files: 0, chunks: 0, embedded: 0 },
   });
+  const queueCleanupCompleted = await finalizeQueueRequestForRun(runId);
+  if (queueCleanupCompleted) {
+    releaseRunOwnership(runId);
+  }
   ingestLock.release(runId);
   return { cleanupState: 'complete', found: !!status } as const;
 }

@@ -1,5 +1,6 @@
 import '../support/chromaContainer.js';
 import '../support/mockLmStudioSdk.js';
+import '../support/mongoContainer.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
@@ -16,6 +17,7 @@ import {
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
+import mongoose from 'mongoose';
 import {
   clearLockedModel,
   clearRootsCollection,
@@ -25,10 +27,16 @@ import {
 } from '../../ingest/chromaClient.js';
 import {
   __resetIngestJobsForTest,
+  __setQueueRuntimeOpsForTest,
+  __setRunProcessorForTest,
+  pumpIngestQueue,
+  recoverIngestQueueOnStartup,
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
+import { release } from '../../ingest/lock.js';
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
+import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';
@@ -48,11 +56,20 @@ let baseUrl = '';
 let response: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
+let queueRuntimeStartedPaths: string[] = [];
+let lastQueuePumpResult: {
+  started: boolean;
+  blockedByCleanup: boolean;
+  requestId: string | null;
+} | null = null;
 
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.NODE_ENV = 'test';
   __resetIngestJobsForTest();
+  if (mongoose.connection.readyState === 1) {
+    await IngestQueueRequestModel.deleteMany({}).exec();
+  }
   resetStore();
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
@@ -116,7 +133,22 @@ After(async () => {
   }
   response = null;
   lastRunId = null;
+  queueRuntimeStartedPaths = [];
+  lastQueuePumpResult = null;
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => null,
+    ensureQueueRequestRunId: async () => null,
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => null,
+    getQueueRequestId: () => 'noop',
+    markQueueRequestCleanupBlocked: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+  __setRunProcessorForTest(null);
   __resetIngestJobsForTest();
+  if (mongoose.connection.readyState === 1) {
+    await IngestQueueRequestModel.deleteMany({}).exec();
+  }
   resetStore();
   await clearRootsCollection();
   await clearVectorsCollection();
@@ -129,6 +161,10 @@ Given('ingest manage chroma stub is empty', async () => {
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
+});
+
+Given('ingest manage mongo queue is empty', async () => {
+  await IngestQueueRequestModel.deleteMany({}).exec();
 });
 
 Given('ingest manage models scenario {string}', (name: string) => {
@@ -390,3 +426,97 @@ Then(
     assert.equal((response.body as { code?: string }).code, code);
   },
 );
+
+Given(
+  'ingest manage mongo queue has running request for {string} with run id {string}',
+  async (rootPath: string, runId: string) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'running',
+      requestPayload: {
+        path: rootPath,
+        name: path.posix.basename(rootPath) || 'repo',
+        model: 'embed-1',
+      },
+      sourceSurface: 'cucumber',
+      runId,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has cleanup-blocked request for {string} with run id {string}',
+  async (rootPath: string, runId: string) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'cleanup-blocked',
+      requestPayload: {
+        path: rootPath,
+        name: path.posix.basename(rootPath) || 'repo',
+        model: 'embed-1',
+      },
+      sourceSurface: 'cucumber',
+      runId,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has waiting request for {string}',
+  async (rootPath: string) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'waiting',
+      requestPayload: {
+        path: rootPath,
+        name: path.posix.basename(rootPath) || 'repo',
+        model: 'embed-1',
+      },
+      sourceSurface: 'cucumber',
+      runId: null,
+    });
+  },
+);
+
+Given('ingest manage queue runtime records started paths', () => {
+  queueRuntimeStartedPaths = [];
+  __setRunProcessorForTest(async (runId, input) => {
+    queueRuntimeStartedPaths.push(input.path);
+    release(runId);
+  });
+});
+
+When('ingest manage startup recovery runs', async () => {
+  await recoverIngestQueueOnStartup();
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
+When('ingest manage queue pump runs', async () => {
+  lastQueuePumpResult = await pumpIngestQueue();
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
+Then(
+  'ingest manage queue runtime started paths are {string}',
+  (pathsCsv: string) => {
+    const expected =
+      pathsCsv.trim().length === 0
+        ? []
+        : pathsCsv.split(',').map((item) => item.trim());
+    assert.deepEqual(queueRuntimeStartedPaths, expected);
+  },
+);
+
+Then('ingest manage queue runtime started paths are empty', () => {
+  assert.deepEqual(queueRuntimeStartedPaths, []);
+});
+
+Then('ingest manage queue pump reports cleanup blocked', () => {
+  assert(lastQueuePumpResult, 'expected queue pump result');
+  assert.equal(lastQueuePumpResult.started, false);
+  assert.equal(lastQueuePumpResult.blockedByCleanup, true);
+});

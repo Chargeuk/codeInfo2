@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import {
   IngestQueueRequestModel,
   type IngestQueueOperation,
+  type IngestQueueState,
   type IngestQueueRequest,
 } from '../mongo/ingestQueueRequest.js';
 
@@ -29,6 +30,12 @@ export type EnqueueIngestRequestResult = {
   queueRequest: IngestQueueRequest;
 };
 
+export type QueueRequestDocumentFilter = {
+  canonicalTargetPath?: string;
+  queueState?: IngestQueueState;
+  runId?: string | null;
+};
+
 function createQueueUnavailableError(): EnqueueQueueUnavailableError {
   const error = new Error(
     'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
@@ -41,6 +48,10 @@ function createQueueUnavailableError(): EnqueueQueueUnavailableError {
 
 function toRequestId(value: IngestQueueRequest['_id']): string {
   return value.toString();
+}
+
+export function getQueueRequestId(queueRequest: IngestQueueRequest): string {
+  return toRequestId(queueRequest._id);
 }
 
 async function countOlderWaitingRequests(
@@ -140,4 +151,87 @@ export async function enqueueOrReuseIngestRequest(
     reusedExisting: false,
     updatedExisting: false,
   });
+}
+
+async function findOldestQueueRequestByState(
+  queueState: IngestQueueState,
+): Promise<IngestQueueRequest | null> {
+  return IngestQueueRequestModel.findOne({ queueState })
+    .sort({ createdAt: 1, _id: 1 })
+    .exec();
+}
+
+export async function findOldestWaitingQueueRequest() {
+  return findOldestQueueRequestByState('waiting');
+}
+
+export async function findOldestRunningQueueRequest() {
+  return findOldestQueueRequestByState('running');
+}
+
+export async function findOldestCleanupBlockedQueueRequest() {
+  return findOldestQueueRequestByState('cleanup-blocked');
+}
+
+export async function findQueueRequestById(requestId: string) {
+  return IngestQueueRequestModel.findById(requestId).exec();
+}
+
+export async function findQueueRequestByRunId(runId: string) {
+  return IngestQueueRequestModel.findOne({ runId }).exec();
+}
+
+export async function promoteOldestWaitingQueueRequest(runId: string) {
+  return IngestQueueRequestModel.findOneAndUpdate(
+    { queueState: 'waiting', runId: null },
+    {
+      $set: {
+        queueState: 'running',
+        runId,
+      },
+    },
+    {
+      new: true,
+      sort: { createdAt: 1, _id: 1 },
+    },
+  ).exec();
+}
+
+export async function ensureQueueRequestRunId(
+  requestId: string,
+  runId: string,
+): Promise<IngestQueueRequest | null> {
+  return IngestQueueRequestModel.findByIdAndUpdate(
+    requestId,
+    {
+      $set: {
+        runId,
+      },
+    },
+    {
+      new: true,
+    },
+  ).exec();
+}
+
+export async function markQueueRequestCleanupBlocked(params: {
+  requestId: string;
+  runId: string | null;
+}) {
+  return IngestQueueRequestModel.findByIdAndUpdate(
+    params.requestId,
+    {
+      $set: {
+        queueState: 'cleanup-blocked',
+        runId: params.runId,
+      },
+    },
+    {
+      new: true,
+    },
+  ).exec();
+}
+
+export async function deleteQueueRequestById(requestId: string) {
+  return IngestQueueRequestModel.findByIdAndDelete(requestId).exec();
 }

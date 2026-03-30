@@ -19,6 +19,7 @@ export type IngestRunState =
   | 'queued'
   | 'scanning'
   | 'embedding'
+  | 'cleanup-blocked'
   | 'completed'
   | 'skipped'
   | 'cancelled'

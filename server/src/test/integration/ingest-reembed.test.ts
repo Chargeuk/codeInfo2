@@ -1,103 +1,159 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach, mock } from 'node:test';
-import { ChromaClient } from 'chromadb';
-import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
-import { reembed } from '../../ingest/ingestJob.js';
+import test from 'node:test';
+import {
+  __finalizeQueueRequestForRunForTest,
+  __resetIngestJobsForTest,
+  __setQueueRequestIdForRunForTest,
+  __setQueueRuntimeOpsForTest,
+  __setRunProcessorForTest,
+  __setStatusForTest,
+  getActiveStatus,
+  pumpIngestQueue,
+  recoverIngestQueueOnStartup,
+  setIngestDeps,
+} from '../../ingest/ingestJob.js';
+import { release } from '../../ingest/lock.js';
 
-function mockCollections(opts: {
-  lockMetadata: Record<string, unknown>;
-  rootMetadata: Record<string, unknown>;
-}) {
-  const vectors = {
-    metadata: opts.lockMetadata,
-    count: async () => 1,
-    modify: async () => {},
-    delete: async () => {},
-  } as const;
-
-  const roots = {
-    get: async () => ({
-      ids: ['run-1'],
-      metadatas: [opts.rootMetadata],
-    }),
-    delete: async () => {},
-    add: async () => {},
-  } as const;
-
-  mock.method(
-    ChromaClient.prototype,
-    'getOrCreateCollection',
-    async (args: { name?: string }) => {
-      if (args.name === 'ingest_roots') return roots as never;
-      return vectors as never;
-    },
-  );
-
-  mock.method(ChromaClient.prototype, 'deleteCollection', async () => {});
+function waitForNextTurn() {
+  return new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
 }
 
-beforeEach(() => {
-  mock.restoreAll();
-  resetCollectionsForTests();
+function setNoopQueueRuntimeOps() {
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => null,
+    ensureQueueRequestRunId: async () => null,
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => null,
+    getQueueRequestId: () => 'noop',
+    markQueueRequestCleanupBlocked: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+}
+
+test.beforeEach(() => {
+  process.env.NODE_ENV = 'test';
+  __resetIngestJobsForTest();
+  release();
+  setIngestDeps({
+    lmClientFactory: () => ({}) as never,
+    baseUrl: 'ws://host.docker.internal:1234',
+  });
 });
 
-afterEach(() => {
-  mock.restoreAll();
-  resetCollectionsForTests();
+test.afterEach(() => {
+  setNoopQueueRuntimeOps();
+  __setRunProcessorForTest(null);
+  __resetIngestJobsForTest();
+  release();
 });
 
-test('reembed rejects provider/model switching away from active lock', async () => {
-  mockCollections({
-    lockMetadata: {
-      embeddingProvider: 'openai',
-      embeddingModel: 'text-embedding-3-small',
-      embeddingDimensions: 1536,
-      lockedModelId: 'text-embedding-3-small',
-    },
-    rootMetadata: {
-      root: '/data/repo-one',
-      name: 'repo-one',
-      model: 'legacy-lm-model',
-      state: 'completed',
-      lastIngestAt: '2026-01-01T00:00:00.000Z',
+test('startup recovery retries leftover running work before newer waiting work', async () => {
+  const events: string[] = [];
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () =>
+      ({
+        _id: { toString: () => 'queue-running' },
+        canonicalTargetPath: '/data/repo-running',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: {
+          path: '/data/repo-running',
+          name: 'repo-running',
+          model: 'embed-1',
+        },
+        runId: 'run-recovered',
+      }) as never,
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promoted');
+      return null;
     },
   });
-
-  await assert.rejects(
-    () =>
-      reembed('/data/repo-one', {
-        lmClientFactory: () => ({}) as never,
-        baseUrl: 'ws://host.docker.internal:1234',
-      }),
-    (err) => (err as { code?: string }).code === 'MODEL_LOCKED',
-  );
-});
-
-test('reembed rejects invalid terminal root states before starting run', async () => {
-  mockCollections({
-    lockMetadata: {
-      embeddingProvider: 'lmstudio',
-      embeddingModel: 'embed-model',
-      embeddingDimensions: 384,
-      lockedModelId: 'embed-model',
-    },
-    rootMetadata: {
-      root: '/data/repo-one',
-      name: 'repo-one',
-      embeddingProvider: 'lmstudio',
-      embeddingModel: 'embed-model',
-      embeddingDimensions: 384,
-      state: 'cancelled',
-      lastIngestAt: '2026-01-01T00:00:00.000Z',
-    },
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`started:${runId}:${input.path}`);
+    release(runId);
   });
 
-  await assert.rejects(
-    () =>
-      reembed('/data/repo-one', {
-        lmClientFactory: () => ({}) as never,
-        baseUrl: 'ws://host.docker.internal:1234',
-      }),
-    (err) => (err as { code?: string }).code === 'INVALID_REEMBED_STATE',
-  );
+  const result = await recoverIngestQueueOnStartup();
+  await waitForNextTurn();
+
+  assert.equal(result.recovered, true);
+  assert.deepEqual(events, ['started:run-recovered:/data/repo-running']);
+});
+
+test('cleanup boundary exposes a deterministic next-item-not-started state before queue advancement', async () => {
+  const deleteGate = (() => {
+    let resolve!: () => void;
+    const promise = new Promise<void>((nextResolve) => {
+      resolve = nextResolve;
+    });
+    return { promise, resolve };
+  })();
+  const events: string[] = [];
+
+  __setStatusForTest('run-finished', {
+    runId: 'run-finished',
+    state: 'completed',
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    message: 'Completed',
+    lastError: null,
+  });
+  __setQueueRequestIdForRunForTest('run-finished', 'queue-finished');
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => {
+      events.push('delete-start');
+      await deleteGate.promise;
+      events.push('delete-complete');
+      return {
+        _id: { toString: () => 'queue-finished' },
+        canonicalTargetPath: '/data/repo-finished',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: { path: '/data/repo-finished', model: 'embed-1' },
+        runId: 'run-finished',
+      } as never;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) =>
+      ({
+        _id: { toString: () => 'queue-next' },
+        canonicalTargetPath: '/data/repo-next',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: {
+          path: '/data/repo-next',
+          name: 'repo-next',
+          model: 'embed-1',
+        },
+        runId,
+      }) as never,
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`start:${input.path}`);
+    release(runId);
+  });
+
+  const finalizePromise = __finalizeQueueRequestForRunForTest('run-finished');
+  await waitForNextTurn();
+
+  assert.deepEqual(events, ['delete-start']);
+  assert.equal(getActiveStatus(), null);
+
+  const stalledWhileCleanupPending = await pumpIngestQueue();
+  assert.equal(stalledWhileCleanupPending.started, false);
+  assert.equal(stalledWhileCleanupPending.blockedByCleanup, true);
+
+  deleteGate.resolve();
+  await finalizePromise;
+  for (let attempt = 0; attempt < 10 && events.length < 3; attempt += 1) {
+    await waitForNextTurn();
+  }
+
+  assert.deepEqual(events, [
+    'delete-start',
+    'delete-complete',
+    'start:/data/repo-next',
+  ]);
 });

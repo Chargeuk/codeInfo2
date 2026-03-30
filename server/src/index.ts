@@ -15,15 +15,19 @@ import { buildCopilotClientOptions } from './config/copilotConfig.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
-import './flows/flowSchema.js';
-import './ingest/index.js';
-import './mongo/astCoverage.js';
 import {
   ensureStartupEnvLoaded,
   resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
+import './flows/flowSchema.js';
+import './ingest/index.js';
+import {
+  recoverIngestQueueOnStartup,
+  setIngestDeps,
+} from './ingest/ingestJob.js';
+import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';
@@ -58,6 +62,7 @@ import { createIngestRemoveRouter } from './routes/ingestRemove.js';
 import { createIngestRootsRouter } from './routes/ingestRoots.js';
 import { createIngestStartRouter } from './routes/ingestStart.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
+import { toWebSocketUrl } from './routes/lmstudioUrl.js';
 import { createLogsRouter } from './routes/logs.js';
 import { createToolsAstCallGraphRouter } from './routes/toolsAstCallGraph.js';
 import { createToolsAstFindDefinitionRouter } from './routes/toolsAstFindDefinition.js';
@@ -388,6 +393,12 @@ const start = async () => {
     baseLogger.error({ err }, 'Failed to connect to Mongo');
     process.exit(1);
   }
+
+  setIngestDeps({
+    lmClientFactory: clientFactory,
+    baseUrl: toWebSocketUrl(process.env.CODEINFO_LMSTUDIO_BASE_URL ?? ''),
+  });
+  await recoverIngestQueueOnStartup();
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });

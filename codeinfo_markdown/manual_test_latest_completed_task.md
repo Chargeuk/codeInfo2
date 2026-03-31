@@ -70,7 +70,8 @@ If manual testing reveals issues that require more implementation work:
 - update that same candidate task by adding new unchecked subtasks for the required follow-up work;
 - add matching new unchecked testing steps that would prove those issues are fixed;
 - set that candidate task's `Task Status` back to `__in_progress__`;
-- add an implementation note stating that manual testing was run, the key issues found, and that new subtasks/testing steps were added;
+- uncheck any existing checked testing steps whose proof is no longer honestly current because the newly added work will require them to be rerun; if the new work invalidates the task's proof broadly, uncheck the whole affected testing section rather than leaving stale checks behind;
+- add an implementation note stating that manual testing was run, the key issues found, that new subtasks or testing steps were added, and that the affected testing steps were unchecked because they must be rerun after the fixes;
 - if you make tracked changes, you MUST commit them, but do not push.
 
 If manual testing succeeds without finding further work:

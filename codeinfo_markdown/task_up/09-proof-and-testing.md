@@ -25,8 +25,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
   1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
   2. run the relevant automated tests;
   3. start the runnable system or required services if proof needs them;
-  4. perform manual Playwright or browser automation only if the change has a user-visible or browser-accessible surface and the tooling exists;
-  5. stop the system or services that were started for validation.
+  4. stop the system or services that were started for validation.
 - Prefer wrapper scripts and wrapper-first workflows over low-level direct commands.
 - If `AGENTS.md` defines wrapper-first workflows, use those.
 - If no wrapper guidance exists, use the highest-level safe commands discoverable from the repository itself.
@@ -40,7 +39,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 - For back-end systems, plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
 - For front-end systems, plan unit tests plus Playwright end-to-end tests, and include screenshot evidence where the UI can be checked visually.
-- For systems where a back end is paired with a front end, include the Playwright end-to-end path plus manual Playwright MCP validation when the tooling exists.
+- For systems where a back end is paired with a front end, include the Playwright end-to-end path plus any automated browser-proof artifacts, such as screenshots, that are needed to show the changed behaviour clearly.
 - If any of those expected harnesses are missing for the system being changed, add the harness work early in the story before later tasks rely on them.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.

@@ -31,6 +31,8 @@ Before running manual testing, read:
 
 Use those files to determine how to start the edited system and any required prerequisites. Follow the repository run workflow and prefer the documented wrapper commands where available. Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence. If the task affects a runnable system or service, you MUST prove as a baseline that it starts successfully and shuts down cleanly using the documented workflow. If the system was already running, leave it running afterwards after proving it remained healthy. If you started it for this manual test, return it to its prior stopped state when you are done.
 
+Only start the runnable systems or services that the relevant proof actually needs. Use the repository's normal launcher, wrapper, startup path, or selector flow when one exists rather than a narrow one-off route. If `AGENTS.md` does not define wrapper guidance, prefer the highest-level safe command discoverable from repository evidence.
+
 Choose manual checks according to the task's actual surface area:
 
 - use Playwright MCP tools and Chrome DevTools MCP tools when the completed behavior is browser-accessible or user-visible;
@@ -41,6 +43,7 @@ Choose manual checks according to the task's actual surface area:
 Your manual testing must, whenever applicable:
 
 - prove the relevant runnable system or service starts successfully and shuts down cleanly;
+- treat startup and shutdown as part of the repository's primary proof workflow for the affected surface rather than as an unrelated side check;
 - exercise the behaviour modified within the candidate task;
 - cover the changed happy path plus the most relevant surrounding regressions and meaningful edge cases that the task affects;
 - take and save screenshots where helpful;

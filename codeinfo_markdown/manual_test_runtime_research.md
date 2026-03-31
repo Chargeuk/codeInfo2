@@ -41,6 +41,7 @@ For each repository in scope, gather runtime evidence in this order:
 Use repository evidence first.
 Do not guess from memory.
 Do not use `code_info` for this step unless repository evidence is still genuinely ambiguous after direct inspection.
+If `AGENTS.md` does not define wrapper guidance for a repository, prefer the highest-level safe command discoverable from repository evidence rather than low-level direct commands.
 
 </source_priority>
 
@@ -56,6 +57,7 @@ Prefer exposed scripts and wrappers over low-level direct commands.
 Starting with Docker or Compose is always preferred over starting locally.
 Starting locally is acceptable only when no supported Docker or Compose path exists yet.
 If neither a supported Docker or Compose path nor a supported local wrapper path exists, record the surface as unavailable rather than inventing a startup path.
+Choose the startup path that follows the repository's normal launcher, wrapper, startup path, or selector flow rather than a narrow one-off route when repository evidence provides more than one option.
 
 </runtime_policy>
 

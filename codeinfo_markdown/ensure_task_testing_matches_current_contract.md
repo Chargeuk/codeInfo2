@@ -1,0 +1,108 @@
+# Goal
+
+Re-audit the testing and proof sections for every task in the active plan so they match the current repository-aware testing contract rather than stale or repository-specific defaults.
+
+<instruction_priority>
+
+- Rework task testing sections to match the current proof contract.
+- Keep the testing guidance repository-aware and wrapper-first.
+- Do not add manual testing steps here; manual testing is handled separately by the implementation flows.
+- Keep testing proportional to the actual change surface.
+
+</instruction_priority>
+
+<source_priority>
+
+- Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
+- Re-open the exact `plan_path` from disk before editing testing sections.
+- Read `AGENTS.md` first for each repository whose tasks appear in the plan.
+- Use `README.md` and `codeinfo_markdown/repository_information.md` as supporting runtime and product context when they exist.
+- Inspect repository-native runtime and test entry points directly, including `package.json`, `docker-compose*`, Dockerfiles, Makefiles, justfiles, CI workflows, and test directories.
+- Use `code_info` first for reusable test patterns, harnesses, wrappers, and proof locations when repository evidence is not enough.
+
+</source_priority>
+
+<testing_derivation_rules>
+
+- Derive each task's testing section from that task's `Repository Name`.
+- If the task belongs to `Current Repository`, use this repository's wrapper-first build, test, compose, startup, and shutdown workflows from `AGENTS.md`.
+- If the task belongs to an additional repository, read that repository's `AGENTS.md` first and use that repository's supported workflows.
+- Do not copy this repository's wrapper commands into another repository unless repository evidence shows that the external repository actually uses the same commands.
+- If no wrapper guidance exists for a repository, use the highest-level safe commands discoverable from that repository's evidence rather than inventing low-level direct commands.
+
+</testing_derivation_rules>
+
+<proof_and_testing_rules>
+
+- For each affected repository or project, define automated proof in this order when applicable:
+  1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
+  2. run the relevant automated tests;
+  3. if the automated proof path itself requires a running system or services, start only the runnable system or required services needed for that automated proof path;
+  4. stop the system or services that were started for automated validation;
+  5. when the task affects a runnable system, add an explicit smoke-proof step to start and then shut down the normal supported system path for that repository, using the non-agent-adjusted, non-e2e-adjusted runtime path unless repository evidence explicitly says a different normal path applies.
+- Prefer wrapper scripts and wrapper-first workflows over low-level direct commands.
+- If Docker or Compose wrapper paths are supported for the normal system, prefer those over local startup paths.
+- If the repository already has a more specific testing-policy helper or documented proof order, generate the task testing steps to match that order rather than inventing a new one.
+- If automated proof depends on starting a specific version, variant, mode, seeded environment, or test-support build of the system, state that explicitly and use the repository-supported path for doing so.
+- Keep the normal-system smoke proof separate from any special runtime variant that may later be used for manual testing.
+- If a proof step is not applicable, state why instead of inventing it.
+- If a new harness is required, create or preserve earlier prerequisite work for that harness and include at least one proof step that demonstrates the harness itself is runnable.
+- If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add those proof expectations.
+- Do not add manual Playwright, browser, or agent-driven validation steps here.
+
+</proof_and_testing_rules>
+
+<coverage_rules>
+
+- For back-end systems, require unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
+- For front-end systems, require unit tests plus Playwright end-to-end tests, and include screenshot evidence where the UI can be checked visually.
+- For systems where a back end is paired with a front end, include the Playwright end-to-end path plus any automated browser-proof artifacts, such as screenshots, that are needed to show the changed behaviour clearly.
+- If any expected automated harnesses are missing for the system being changed, add or preserve prerequisite work for them before later tasks rely on them.
+- Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
+- When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.
+- When a task changes query/filter/bulk-selector logic in a large-repository or large-file path, ensure the proof covers the bounded strategy directly rather than only the small happy-path case.
+- When a task changes persisted artifacts, cleanup paths, or stale-state handling, ensure the proof covers reader and writer compatibility, partial-state tolerance where relevant, and who is allowed to delete or reset state.
+- When a task changes selectors, wrappers, startup paths, CI routing, or feature flags, ensure the proof demonstrates the changed behavior still runs through the repository's normal execution path instead of only a targeted or manual route.
+- When a task changes lifecycle-sensitive orchestration, ensure the proof covers cancellation, retry, failure, or teardown behavior when those paths are relevant to the story.
+- When automated proof relies on a repository-specific startup mode, seeded environment, test login helper, alternate config, or other test-support runtime path, ensure the task makes that setup explicit and routes proof through the repository's supported automated workflow rather than a one-off manual shortcut.
+- Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
+- Ensure each relevant external library referenced by the tasking has an appropriate `Documentation Locations` entry, such as Context7, DeepWiki, or an official URL.
+
+</coverage_rules>
+
+<current_repository_appendix>
+
+- When a task belongs to `Current Repository`, prefer this repository's summary wrappers and compose wrappers where they are applicable, such as:
+  - `npm run build:summary:server`
+  - `npm run build:summary:client`
+  - `npm run test:summary:server:unit`
+  - `npm run test:summary:server:cucumber`
+  - `npm run test:summary:client`
+  - `npm run test:summary:e2e`
+  - `npm run compose:build:summary`
+  - `npm run compose:up`
+  - `npm run compose:down`
+- Do not add narrow individual test commands by default when this repository's wrapper guidance says to use broader summary wrappers, but still keep exact test-file references in subtasks when they define what proof must be authored.
+- Keep this appendix as a current-repository supplement only, not a global default for other repositories.
+
+</current_repository_appendix>
+
+<verification_loop>
+
+- Before finishing, check whether each task's exit criteria can actually be proved by its testing steps.
+- Check whether each task's testing section reflects that task's repository and affected projects rather than copying one repository's defaults blindly.
+- Check whether the generated testing order matches the repository's primary proof workflow, including Docker or Compose build steps where those are the primary build mechanism.
+- Check whether the generated testing order reaches the changed behavior through the repository's default launcher, wrapper, startup path, CI path, or selector flow when one exists.
+- Check whether the necessary runtime, harnesses, dependencies, scripts, and repos will exist by the point each proof step is reached.
+- Check whether each task's implementation subtasks name the exact proof files that must be added or updated, instead of leaving the proof implied by only wrapper commands.
+- Check whether manual testing steps were avoided here so that manual validation remains owned by the implementation flows.
+
+</verification_loop>
+
+<output_contract>
+
+- Update task testing steps, related subtasks, and documentation references directly where needed.
+- Keep the testing sections wrapper-first, Docker-preferred when supported, and specific to repository evidence.
+- Keep summaries concise.
+
+</output_contract>

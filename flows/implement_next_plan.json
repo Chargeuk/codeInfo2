@@ -10,9 +10,16 @@
     },
     {
       "type": "llm",
-      "label": "Explain Next Coding Work",
+      "label": "Coder Use Next Plan",
       "agentType": "coding_agent",
       "identifier": "coder",
+      "markdownFile": "use_current_plan_handoff.md"
+    },
+    {
+      "type": "llm",
+      "label": "Manual Tester Use Next Plan",
+      "agentType": "manual_testing_agent",
+      "identifier": "manual_tester",
       "markdownFile": "use_current_plan_handoff.md"
     },
     {

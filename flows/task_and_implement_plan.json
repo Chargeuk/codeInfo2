@@ -80,37 +80,58 @@
           "label": "Execution loop",
           "steps": [
             {
-              "type": "llm",
-              "label": "Explain Gotchas",
-              "agentType": "coding_agent",
-              "identifier": "coder",
-              "markdownFile": "implement_next_task_gotchas.md"
-            },
-            {
-              "type": "llm",
-              "label": "Implement next Task",
-              "agentType": "coding_agent",
-              "identifier": "coder",
-              "messages": [
+              "type": "startLoop",
+              "label": "Implementation and manual testing loop",
+              "steps": [
                 {
-                  "role": "user",
-                  "content": [
-                    "Continue using only the stored `plan_path` and `additional_repositories` in `codeInfoStatus/flow-state/current-plan.json` as the active scope for this flow. Do not switch plans or rediscover the next story independently. Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section. You must keep the subtasks tick box updated as you work through each subtask to ensure everyone understands what has been done. Then run through the testing steps, ensuring you keep the subtasks tick box updated as you work through each testing step. Note that LMStudio is running and available, and Codex has been logged in locally and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task, and any commands or output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit, write it into the implementation notes marked as **BLOCKER** and write a note describing the issue you hit. Blockers must include the exact subtask or testing step where work stopped, what you tried, the exact capability that is missing and whether you think the task should be split, re-ordered or re-written before work continues. Do not invent fake runtime seams, fake containers, fake health checks, or pretend a proof step passed when the required capability does not yet exist. Remember to keep your implementation notes concise and to the point. Remember that your normal output will not be seen by users or agents, and any issues MUST be marked as **BLOCKER** within the implementation notes to be visible to others to help you. YOU MUST commit, but not push, before finishing this request, no matter what changes you made."
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "llm",
-              "label": "Audit task completion and blockers",
-              "agentType": "planning_agent",
-              "identifier": "planner",
-              "messages": [
+                  "type": "llm",
+                  "label": "Explain Gotchas",
+                  "agentType": "coding_agent",
+                  "identifier": "coder",
+                  "markdownFile": "implement_next_task_gotchas.md"
+                },
                 {
-                  "role": "user",
-                  "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's work on that plan honestly: check whether completed work was implemented but left unmarked, and correct tasks, subtask and testing statuses if the evidence supports it. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker is local to the task or reveals a design problem within the plan. If you make tracked changes, you MUST commit them, but do not push."
+                  "type": "llm",
+                  "label": "Implement next Task",
+                  "agentType": "coding_agent",
+                  "identifier": "coder",
+                  "messages": [
+                    {
+                      "role": "user",
+                      "content": [
+                        "Continue using only the stored `plan_path` and `additional_repositories` in `codeInfoStatus/flow-state/current-plan.json` as the active scope for this flow. Do not switch plans or rediscover the next story independently. Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section. You must keep the subtasks tick box updated as you work through each subtask to ensure everyone understands what has been done. Then run through the testing steps, ensuring you keep the subtasks tick box updated as you work through each testing step. Note that LMStudio is running and available, and Codex has been logged in locally and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task, and any commands or output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit, write it into the implementation notes marked as **BLOCKER** and write a note describing the issue you hit. Blockers must include the exact subtask or testing step where work stopped, what you tried, the exact capability that is missing and whether you think the task should be split, re-ordered or re-written before work continues. Do not invent fake runtime seams, fake containers, fake health checks, or pretend a proof step passed when the required capability does not yet exist. Remember to keep your implementation notes concise and to the point. Remember that your normal output will not be seen by users or agents, and any issues MUST be marked as **BLOCKER** within the implementation notes to be visible to others to help you. YOU MUST commit, but not push, before finishing this request, no matter what changes you made."
+                      ]
+                    }
                   ]
+                },
+                {
+                  "type": "llm",
+                  "label": "Audit task completion and blockers",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "messages": [
+                    {
+                      "role": "user",
+                      "content": [
+                        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's work on that plan honestly: check whether completed work was implemented but left unmarked, and correct tasks, subtask and testing statuses if the evidence supports it. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker is local to the task or reveals a design problem within the plan. The task just worked in this loop must not remain hidden as `__to_do__`: if it is honestly complete, ensure its `Task Status` is `__done__`; if it is blocked or still requires work, ensure its `Task Status` is `__in_progress__`. After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop. If you make tracked changes, you MUST commit them, but do not push."
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "llm",
+                  "label": "Manual test latest completed task",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "manual_test_latest_completed_task.md"
+                },
+                {
+                  "type": "break",
+                  "label": "Check if manual testing added follow-up work",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__done__` or `__in_progress__`. Did your latest manual testing run add any new unchecked subtasks or new unchecked testing steps to that task? Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "breakOn": "no"
                 }
               ]
             },

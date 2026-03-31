@@ -24,12 +24,13 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - For each affected repository or project, define proof in this order when applicable:
   1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
   2. run the relevant automated tests;
-  3. start the runnable system or required services if proof needs them;
-  4. stop the system or services that were started for validation.
+  3. start the runnable system or required services only when the automated proof path itself requires them;
+  4. stop the system or services that were started for automated validation.
 - Prefer wrapper scripts and wrapper-first workflows over low-level direct commands.
 - If `AGENTS.md` defines wrapper-first workflows, use those.
 - If no wrapper guidance exists, use the highest-level safe commands discoverable from the repository itself.
 - If the repository already has a more specific testing-policy helper or documented proof order, generate the task testing steps to match that order rather than inventing a new one.
+- If automated proof depends on starting a specific version, variant, mode, seeded environment, or test-support build of the system, state that explicitly and use the repository-supported path for doing so.
 - If a proof step is not applicable, state why instead of inventing it.
 - If a new harness is required, create an earlier task for that harness and include at least one proof step that demonstrates the harness itself is runnable.
 - If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add those proof expectations.
@@ -53,6 +54,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - When proof depends on renamed or repurposed tests, add an explicit subtask to rename or rewrite the proof so the test title and assertions still describe the same invariant.
 - When UI state can become disabled, hidden, mode-gated, or resettable, require proof for stale-state behavior: whether the stale value must be cleared, retained locally, or merely excluded from submission.
 - When caller behavior depends on the difference between raw SDK errors and wrapped or normalized errors, require proof for both paths and do not treat raw `AbortError` coverage as sufficient when production code may emit provider-specific wrapped abort codes instead.
+- When automated proof relies on a repository-specific startup mode, seeded environment, test login helper, alternate config, or other test-support runtime path, ensure the task makes that setup explicit and routes proof through the repository's supported automated workflow rather than a one-off manual shortcut.
 - Ensure each relevant external library referenced by the tasking has an appropriate `Documentation Locations` entry, such as Context7, DeepWiki, or an official URL.
 - Ensure cleanup, migration, compatibility, env/config, deployment, and observability work is covered when the story needs it.
 - Ensure no task relies on a missing prerequisite capability; if one is missing, create or move the prerequisite task earlier.

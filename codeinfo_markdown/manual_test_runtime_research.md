@@ -42,6 +42,7 @@ Use repository evidence first.
 Do not guess from memory.
 Do not use `code_info` for this step unless repository evidence is still genuinely ambiguous after direct inspection.
 If `AGENTS.md` does not define wrapper guidance for a repository, prefer the highest-level safe command discoverable from repository evidence rather than low-level direct commands.
+Assume the full normal system should be used for manual proof unless `AGENTS.md`, `README.md`, or `codeinfo_markdown/repository_information.md` explicitly indicates that a specific supported variant, seeded mode, login-helper mode, alternate startup path, or test-support runtime should be preferred instead.
 
 </source_priority>
 
@@ -100,6 +101,7 @@ For every recorded startup path, identify:
 - the exact source file that justified it
 - the startup command
 - the shutdown command
+- the system variant or mode to use for manual proof, using the full normal system by default unless repository evidence says otherwise
 - prerequisites that must already exist
 - whether the path depends on build outputs, generated files, environment setup, or harness work that may not exist yet
 - whether the path is for the edited repository itself or for a connected or paired proof surface

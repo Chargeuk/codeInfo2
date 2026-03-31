@@ -4,6 +4,8 @@ Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored
 
 Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists. Determine its meaning from the information it contains rather than depending on an exact JSON shape. Treat it as a stored summary of the best supported startup, shutdown, prerequisite, surface, availability, and fallback information for the repositories in scope. Use that information to choose the best supported proof path for the candidate task, but re-check that the selected paths still exist on disk before using them. If the runtime research file is missing, unreadable, or obviously stale for the relevant repository or surface, state that the manual testing runtime research must be regenerated and do not invent a startup path.
 
+Assume the full normal system should be used for manual proof unless the runtime research file, `AGENTS.md`, `README.md`, or `codeinfo_markdown/repository_information.md` explicitly indicates that a specific supported variant, seeded mode, login-helper mode, alternate startup path, or test-support runtime should be used instead. Do not invent a special testing variant unless repository evidence explicitly supports it.
+
 Identify the candidate task for this loop iteration by scanning the plan from bottom to top and selecting the highest-numbered task whose `Task Status` is either `__done__` or `__in_progress__`.
 
 Then apply these rules in order:

@@ -25,6 +25,8 @@ If the candidate task is `__done__`, determine which runnable or externally obse
 
 If the completed task does not affect any runnable, browser-accessible, or externally observable surface, add a brief implementation note to that task stating that manual testing was assessed and is not applicable because the completed change has no relevant runnable proof surface. If you make tracked changes, you MUST commit them, but do not push. Then stop.
 
+When manual testing is applicable, explicitly map the manual proof back to the candidate task's visible acceptance-relevant behavior. Be clear about which changed requirements or acceptance-criteria-visible outcomes you proved through the frontend or other observable surfaces, and which requirements were not visually provable and therefore still relied on automated tests, logs, API checks, or other non-visual evidence.
+
 Before running manual testing, read:
 
 - `AGENTS.md`
@@ -59,6 +61,7 @@ Your manual testing must, whenever applicable:
 - exercise the behaviour modified within the candidate task;
 - cover the changed happy path plus the most relevant surrounding regressions and meaningful edge cases that the task affects;
 - when the completed task has any browser-visible or connected frontend surface, take and save screenshots for the key visible states you exercise so they can serve both as proof artifacts and as a visual quality check;
+- when browser-based manual testing is used, explicitly inspect browser console output and failed network requests so visible success is not accepted while obvious frontend errors remain present;
 - record any other observable proof signals that are needed, such as browser-visible state, console output, or logs that the task expected to change;
 - use those screenshots to assess whether the changed or added GUI is aligned, readable, usable, visually coherent, and correct for the acceptance criteria that can honestly be observed from the frontend;
 - identify whether any layout, usability, behavioural, startup, or shutdown issues remain.
@@ -77,7 +80,7 @@ If manual testing reveals issues that require more implementation work:
 If manual testing succeeds without finding further work:
 
 - leave the candidate task as `__done__`;
-- add an implementation note stating that manual testing was run, whether screenshots were captured, and that no additional subtasks were needed;
+- add an implementation note stating that manual testing was run, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the screenshot artifacts were saved, and that no additional subtasks were needed;
 - if you make tracked changes, you MUST commit them, but do not push.
 
 If you cannot honestly complete the relevant manual proof because startup, shutdown, environment, dependency, tooling, or readiness conditions are missing:

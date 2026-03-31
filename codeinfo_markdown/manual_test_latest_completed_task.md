@@ -35,6 +35,8 @@ Use those files to determine how to start the edited system and any required pre
 
 Only start the runnable systems or services that the relevant proof actually needs. Use the repository's normal launcher, wrapper, startup path, or selector flow when one exists rather than a narrow one-off route. If `AGENTS.md` does not define wrapper guidance, prefer the highest-level safe command discoverable from repository evidence.
 
+Remember that the manual testing agent container and the Playwright MCP server both use Docker host networking, so they can reach the host system through `localhost` when the host system exposes the relevant ports there.
+
 Choose manual checks according to the task's actual surface area:
 
 - use Playwright MCP tools and Chrome DevTools MCP tools when the completed behavior is browser-accessible or user-visible;

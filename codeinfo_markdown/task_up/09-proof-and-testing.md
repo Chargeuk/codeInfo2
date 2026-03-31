@@ -24,13 +24,18 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - For each affected repository or project, define proof in this order when applicable:
   1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
   2. run the relevant automated tests;
-  3. start the runnable system or required services only when the automated proof path itself requires them;
-  4. stop the system or services that were started for automated validation.
+  3. if the automated proof path itself requires a running system or services, start only the runnable system or required services needed for that automated proof path;
+  4. stop the system or services that were started for automated validation;
+  5. when the task affects a runnable system, add an explicit smoke-proof step to start and then shut down the normal supported system path for that repository, using the non-agent-adjusted, non-e2e-adjusted runtime path unless repository evidence explicitly says a different normal path applies.
+- Read `AGENTS.md` first for repository-specific wrapper, build, compose, startup, and shutdown guidance.
+- Use `README.md` and `codeinfo_markdown/repository_information.md` as supporting evidence for the normal supported runtime path when they exist.
 - Prefer wrapper scripts and wrapper-first workflows over low-level direct commands.
+- If Docker or Compose wrapper paths are supported for the normal system, prefer those over local startup paths.
 - If `AGENTS.md` defines wrapper-first workflows, use those.
 - If no wrapper guidance exists, use the highest-level safe commands discoverable from the repository itself.
 - If the repository already has a more specific testing-policy helper or documented proof order, generate the task testing steps to match that order rather than inventing a new one.
 - If automated proof depends on starting a specific version, variant, mode, seeded environment, or test-support build of the system, state that explicitly and use the repository-supported path for doing so.
+- Keep the normal-system smoke proof separate from any special runtime variant that may later be used for manual testing.
 - If a proof step is not applicable, state why instead of inventing it.
 - If a new harness is required, create an earlier task for that harness and include at least one proof step that demonstrates the harness itself is runnable.
 - If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add those proof expectations.

@@ -58,10 +58,12 @@ Your manual testing must, whenever applicable:
 - treat startup and shutdown as part of the repository's primary proof workflow for the affected surface rather than as an unrelated side check;
 - exercise the behaviour modified within the candidate task;
 - cover the changed happy path plus the most relevant surrounding regressions and meaningful edge cases that the task affects;
-- take and save screenshots where helpful;
+- when the completed task has any browser-visible or connected frontend surface, take and save screenshots for the key visible states you exercise so they can serve both as proof artifacts and as a visual quality check;
 - record any other observable proof signals that are needed, such as browser-visible state, console output, or logs that the task expected to change;
-- assess whether any relevant GUI is aligned, usable, and correct;
+- use those screenshots to assess whether the changed or added GUI is aligned, readable, usable, visually coherent, and correct for the acceptance criteria that can honestly be observed from the frontend;
 - identify whether any layout, usability, behavioural, startup, or shutdown issues remain.
+
+If the completed task has a browser-visible or connected frontend surface but you do not capture screenshots, treat the manual proof as incomplete unless a concrete tooling limitation prevents capture. If screenshot capture is blocked by tooling or environment limitations, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
 
 If manual testing reveals issues that require more implementation work:
 
@@ -74,7 +76,7 @@ If manual testing reveals issues that require more implementation work:
 If manual testing succeeds without finding further work:
 
 - leave the candidate task as `__done__`;
-- add an implementation note stating that manual testing was run and that no additional subtasks were needed;
+- add an implementation note stating that manual testing was run, whether screenshots were captured, and that no additional subtasks were needed;
 - if you make tracked changes, you MUST commit them, but do not push.
 
 If you cannot honestly complete the relevant manual proof because startup, shutdown, environment, dependency, tooling, or readiness conditions are missing:

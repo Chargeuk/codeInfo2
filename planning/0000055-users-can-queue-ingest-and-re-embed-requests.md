@@ -502,6 +502,9 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes for the queue-aware route contracts and blocking caller behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-unit-tests-*.log`, fix the exact failing proof, and rerun full `npm run test:summary:server:unit`.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full cucumber wrapper still passes for queue-aware start and re-embed routes after the transport contract change. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun full `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper explicitly requires log inspection.
+5. [ ] Run `npm run compose:up` to prove the normal supported Docker-based system path still starts successfully after the transport-contract changes.
+6. [ ] Run `npm run compose:down` and confirm the normal supported Docker-based system path shuts down cleanly after the Task 3 smoke proof.
 
 #### Implementation notes
 
@@ -575,6 +578,9 @@ This task makes queued work visible through the shared repository-list contract 
 4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full cucumber wrapper passes for queued repo-list visibility, brand-new queued-root synthesis, and waiting-only queue-position behavior through the existing Testcontainers-backed feature path. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun full `npm run test:summary:server:cucumber`.
 5. [ ] Run `npm run test:summary:client` and confirm the ingest hook, form, and table tests pass with the new queue-aware client behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed client log, fix the exact failing proof, and rerun full `npm run test:summary:client`.
 6. [ ] Run `npm run test:summary:e2e` and confirm the e2e wrapper passes for queued visibility and queueable submission behavior. If the wrapper reports failures or `agent_action: inspect_log`, open `logs/test-summaries/e2e-tests-latest.log`, fix the exact failing browser proof, and rerun full `npm run test:summary:e2e`.
+7. [ ] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper explicitly requires log inspection.
+8. [ ] Run `npm run compose:up` to prove the normal supported Docker-based system path still starts successfully after the queued-visibility UI changes.
+9. [ ] Run `npm run compose:down` and confirm the normal supported Docker-based system path shuts down cleanly after the Task 4 smoke proof.
 
 #### Implementation notes
 
@@ -617,9 +623,8 @@ This final task validates the whole durable-queue story rather than isolated sea
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`. Only inspect the saved logs if either wrapper explicitly requires log inspection.
 2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass. If any wrapper reports failures or `agent_action: inspect_log`, open the exact printed log path, fix the failing proof, and rerun the same full wrapper.
 3. [ ] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper explicitly requires log inspection.
-4. [ ] Run `npm run compose:build` and then `npm run compose:up` so the main stack is available for final runtime validation through the repository’s normal wrapper-first path.
-5. [ ] Perform final manual Playwright MCP validation against the running stack exposed by `docker-compose.yml`. Prove queued start-ingest acceptance while another run is active, queued re-embed visibility with waiting-only `queuePosition`, duplicate waiting reuse keeping the same `requestId`, cleanup-blocked visibility if that path was exercised during validation, and restart recovery ordering when queue documents remain in Mongo. Capture screenshots for at least the queued-row and recovery-visible states when they are exercised so the final browser proof leaves observable artifacts.
-6. [ ] Run `npm run compose:down` to stop the stack after final validation completes.
+4. [ ] Run `npm run compose:up` so the normal supported Docker-based system path is available for final runtime smoke proof through the repository’s wrapper-first path.
+5. [ ] Run `npm run compose:down` to stop the normal supported Docker-based system path after final validation completes.
 
 #### Implementation notes
 

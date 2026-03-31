@@ -164,6 +164,13 @@
       "markdownFile": "use_current_plan_handoff.md"
     },
     {
+      "type": "llm",
+      "label": "Manual Tester Research Runtime Paths",
+      "agentType": "manual_testing_agent",
+      "identifier": "manual_tester",
+      "markdownFile": "manual_test_runtime_research.md"
+    },
+    {
       "type": "startLoop",
       "label": "Main loop",
       "steps": [

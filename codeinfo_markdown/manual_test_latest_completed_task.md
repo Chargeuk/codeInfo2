@@ -2,6 +2,8 @@ Use fresh disk reads and current git state, not conversational memory.
 
 Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk before deciding what to test, because another agent may have just edited it.
 
+Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists. Determine its meaning from the information it contains rather than depending on an exact JSON shape. Treat it as a stored summary of the best supported startup, shutdown, prerequisite, surface, availability, and fallback information for the repositories in scope. Use that information to choose the best supported proof path for the candidate task, but re-check that the selected paths still exist on disk before using them. If the runtime research file is missing, unreadable, or obviously stale for the relevant repository or surface, state that the manual testing runtime research must be regenerated and do not invent a startup path.
+
 Identify the candidate task for this loop iteration by scanning the plan from bottom to top and selecting the highest-numbered task whose `Task Status` is either `__done__` or `__in_progress__`.
 
 Then apply these rules in order:
@@ -12,11 +14,14 @@ Then apply these rules in order:
 
 Before adding a manual-testing implementation note for any outcome, re-read that task's existing implementation notes and avoid adding a duplicate note if the same manual-testing outcome is already recorded from the latest loop pass.
 
-If the candidate task is `__done__`, determine whether the completed change affects a user-visible or browser-accessible surface and whether the required browser-testing tooling actually exists for this repository and runtime shape. Treat a GUI in the system that was edited or a GUI that the edited system connects to as valid proof surfaces.
+If the candidate task is `__done__`, determine which runnable or externally observable surfaces the completed change affects. At minimum, decide whether the task affects:
 
-- If it is not GUI-testable, add a brief implementation note to that task stating that manual testing was assessed and is not applicable because the completed change is not user-visible or browser-accessible. If you make tracked changes, you MUST commit them, but do not push. Then stop.
-- If the completed change is GUI-relevant but the required browser-testing tooling does not exist or is not runnable from repository-supported evidence, do not invent a browser proof path. Add `**BLOCKER**` to the implementation notes for that candidate task with a concise explanation of the missing tooling or missing proof path, set that candidate task's `Task Status` to `__in_progress__`, and if you make tracked changes, you MUST commit them, but do not push. Then stop.
-- If it is GUI-testable, continue.
+- a runnable system or service that should still start and stop cleanly;
+- a user-visible or browser-accessible surface;
+- an HTTP or network surface that can be proved with tools such as `curl`;
+- a paired or connected frontend where the edited behavior actually appears.
+
+If the completed task does not affect any runnable, browser-accessible, or externally observable surface, add a brief implementation note to that task stating that manual testing was assessed and is not applicable because the completed change has no relevant runnable proof surface. If you make tracked changes, you MUST commit them, but do not push. Then stop.
 
 Before running manual testing, read:
 
@@ -24,18 +29,24 @@ Before running manual testing, read:
 - `README.md`
 - `codeinfo_markdown/repository_information.md` if it exists
 
-Use those files to determine how to start the edited system and any required prerequisites. Follow the repository run workflow and prefer the documented wrapper commands where available. Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence. If the system was already running, leave it running afterwards. If you started it for this manual test, return it to its prior stopped state when you are done.
+Use those files to determine how to start the edited system and any required prerequisites. Follow the repository run workflow and prefer the documented wrapper commands where available. Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence. If the task affects a runnable system or service, you MUST prove as a baseline that it starts successfully and shuts down cleanly using the documented workflow. If the system was already running, leave it running afterwards after proving it remained healthy. If you started it for this manual test, return it to its prior stopped state when you are done.
 
-Perform manual testing using the Playwright MCP tools and the Chrome DevTools MCP tools. If the completed behavior surfaces through a paired or connected frontend rather than only through the edited repository itself, perform the browser proof through that connected user-facing surface.
+Choose manual checks according to the task's actual surface area:
 
-Your manual testing must:
+- use Playwright MCP tools and Chrome DevTools MCP tools when the completed behavior is browser-accessible or user-visible;
+- use `curl` when the completed behavior exposes an HTTP or network surface that can be proved directly that way;
+- use the connected or paired frontend when the edited behavior surfaces there rather than only in the edited repository itself;
+- combine these checks when the task affects more than one surface.
 
+Your manual testing must, whenever applicable:
+
+- prove the relevant runnable system or service starts successfully and shuts down cleanly;
 - exercise the behaviour modified within the candidate task;
 - cover the changed happy path plus the most relevant surrounding regressions and meaningful edge cases that the task affects;
 - take and save screenshots where helpful;
 - record any other observable proof signals that are needed, such as browser-visible state, console output, or logs that the task expected to change;
-- assess whether the GUI is aligned, usable, and correct;
-- identify whether any layout, usability, or behavioural issues remain.
+- assess whether any relevant GUI is aligned, usable, and correct;
+- identify whether any layout, usability, behavioural, startup, or shutdown issues remain.
 
 If manual testing reveals issues that require more implementation work:
 
@@ -51,7 +62,7 @@ If manual testing succeeds without finding further work:
 - add an implementation note stating that manual testing was run and that no additional subtasks were needed;
 - if you make tracked changes, you MUST commit them, but do not push.
 
-If the change is GUI-testable but you cannot honestly complete the manual test because startup, environment, dependency, or readiness conditions are missing:
+If you cannot honestly complete the relevant manual proof because startup, shutdown, environment, dependency, tooling, or readiness conditions are missing:
 
 - add `**BLOCKER**` to the implementation notes for that candidate task with a concise explanation of what prevented manual testing;
 - set that candidate task's `Task Status` to `__in_progress__`;

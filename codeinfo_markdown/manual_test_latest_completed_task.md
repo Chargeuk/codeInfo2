@@ -37,6 +37,14 @@ Only start the runnable systems or services that the relevant proof actually nee
 
 Remember that the manual testing agent container and the Playwright MCP server both use Docker host networking, so they can reach the host system through `localhost` when the host system exposes the relevant ports there.
 
+When repository evidence is not enough to use the browser-testing tools correctly, gather the minimum extra documentation needed before proceeding:
+
+- use Context7 for current Playwright documentation and examples;
+- use DeepWiki when an external GitHub repository's documentation or architecture is relevant to the manual proof path;
+- use official Playwright docs and targeted web research when repository evidence plus Context7 still leave MCP-tool usage, assertions, screenshots, selectors, waits, or debugging steps ambiguous.
+
+Keep that documentation lookup minimal and directly tied to the proof you need to run. Do not turn this into a broad research pass, and do not use external docs to override repository-specific startup, shutdown, wrapper, login, or environment guidance.
+
 Choose manual checks according to the task's actual surface area:
 
 - use Playwright MCP tools and Chrome DevTools MCP tools when the completed behavior is browser-accessible or user-visible;

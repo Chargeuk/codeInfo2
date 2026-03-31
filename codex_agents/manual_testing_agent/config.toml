@@ -2,9 +2,9 @@ model = "gpt-5.4"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
+web_search = "live" 
 
 [features]
-web_search_request = true
 view_image_tool = true
 
 [mcp_servers]
@@ -12,10 +12,6 @@ view_image_tool = true
 args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
 command = 'npx'
 startup_timeout_sec = 20.0
-
-[mcp_servers.mui]
-args = ['-y', '@mui/mcp@latest']
-command = 'npx'
 
 [mcp_servers.deepwiki]
 url = "https://mcp.deepwiki.com/mcp"

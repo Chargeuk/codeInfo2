@@ -12,9 +12,10 @@ Then apply these rules in order:
 
 Before adding a manual-testing implementation note for any outcome, re-read that task's existing implementation notes and avoid adding a duplicate note if the same manual-testing outcome is already recorded from the latest loop pass.
 
-If the candidate task is `__done__`, determine whether the change is testable through a GUI in the system that was edited or a GUI that the edited system connects to.
+If the candidate task is `__done__`, determine whether the completed change affects a user-visible or browser-accessible surface and whether the required browser-testing tooling actually exists for this repository and runtime shape. Treat a GUI in the system that was edited or a GUI that the edited system connects to as valid proof surfaces.
 
-- If it is not GUI-testable, add a brief implementation note to that task stating that manual testing was assessed and is not applicable because the completed change is not GUI-testable. If you make tracked changes, you MUST commit them, but do not push. Then stop.
+- If it is not GUI-testable, add a brief implementation note to that task stating that manual testing was assessed and is not applicable because the completed change is not user-visible or browser-accessible. If you make tracked changes, you MUST commit them, but do not push. Then stop.
+- If the completed change is GUI-relevant but the required browser-testing tooling does not exist or is not runnable from repository-supported evidence, do not invent a browser proof path. Add `**BLOCKER**` to the implementation notes for that candidate task with a concise explanation of the missing tooling or missing proof path, set that candidate task's `Task Status` to `__in_progress__`, and if you make tracked changes, you MUST commit them, but do not push. Then stop.
 - If it is GUI-testable, continue.
 
 Before running manual testing, read:
@@ -23,14 +24,16 @@ Before running manual testing, read:
 - `README.md`
 - `codeinfo_markdown/repository_information.md` if it exists
 
-Use those files to determine how to start the edited system and any required prerequisites. Follow the repository run workflow and prefer the documented wrapper commands where available. If the system was already running, leave it running afterwards. If you started it for this manual test, return it to its prior stopped state when you are done.
+Use those files to determine how to start the edited system and any required prerequisites. Follow the repository run workflow and prefer the documented wrapper commands where available. Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence. If the system was already running, leave it running afterwards. If you started it for this manual test, return it to its prior stopped state when you are done.
 
-Perform manual testing using the Playwright MCP tools and the Chrome DevTools MCP tools.
+Perform manual testing using the Playwright MCP tools and the Chrome DevTools MCP tools. If the completed behavior surfaces through a paired or connected frontend rather than only through the edited repository itself, perform the browser proof through that connected user-facing surface.
 
 Your manual testing must:
 
 - exercise the behaviour modified within the candidate task;
+- cover the changed happy path plus the most relevant surrounding regressions and meaningful edge cases that the task affects;
 - take and save screenshots where helpful;
+- record any other observable proof signals that are needed, such as browser-visible state, console output, or logs that the task expected to change;
 - assess whether the GUI is aligned, usable, and correct;
 - identify whether any layout, usability, or behavioural issues remain.
 

@@ -137,7 +137,7 @@
         {
           "role": "user",
           "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. The plan has now been tasked up. Please check that the tasks created fully cover that selected plan and that nothing has been missed. If you feel something is missing, please update the plan and tasks accordingly. Remember to ensure that each task has clear implementation instructions and testing steps so a developer can fully understand what to do. Please confirm once you are happy that the plan has been fully tasked up and nothing is missing. Do not ask me any questions, instead just update the plan and tasks following the KISS principle until you are happy everything is fully covered."
+            "Use fresh disk reads and current git state, not conversational memory. Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk now and read the whole selected plan again before judging the tasking output, because another agent has just edited it. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. The plan has now been tasked up. Confirm the tasking output against the freshly re-read plan on disk, including any new tasks, subtasks, testing sections, and documentation locations that were just added. Please check that the tasks created fully cover that selected plan and that nothing has been missed. If you feel something is missing, please update the plan and tasks accordingly. Remember to ensure that each task has clear implementation instructions and testing steps so a developer can fully understand what to do. Please confirm once you are happy that the plan has been fully tasked up and nothing is missing. Do not ask me any questions, instead just update the plan and tasks following the KISS principle until you are happy everything is fully covered."
           ]
         }
       ]
@@ -246,6 +246,13 @@
                   "identifier": "planner",
                   "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a `**BLOCKER**` note in its Implementation Notes? Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
+                },
+                {
+                  "type": "llm",
+                  "label": "Refresh manual testing runtime research",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "manual_test_runtime_research.md"
                 },
                 {
                   "type": "llm",

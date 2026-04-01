@@ -108,6 +108,13 @@
                 },
                 {
                   "type": "llm",
+                  "label": "Refresh manual testing runtime research",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "manual_test_runtime_research.md"
+                },
+                {
+                  "type": "llm",
                   "label": "Manual test latest completed task",
                   "agentType": "manual_testing_agent",
                   "identifier": "manual_tester",

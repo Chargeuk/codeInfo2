@@ -11,7 +11,7 @@ Identify the candidate task for this loop iteration by scanning the plan from bo
 Then apply these rules in order:
 
 1. If there is no such candidate task, report that manual testing is not applicable for this loop pass and do not edit files.
-2. If the candidate task is `__in_progress__`, or its implementation notes contain `**BLOCKER**`, or it otherwise is not honestly complete yet, do not perform manual testing. Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not complete yet. If you make tracked changes, you MUST commit them, but do not push.
+2. If the candidate task is `__in_progress__`, or its implementation notes contain an active note titled exactly `**BLOCKER**`, or it otherwise is not honestly complete yet, do not perform manual testing. Ignore `**BLOCKING ANSWER**` and ignore historical notes titled `**RESOLVED ISSUE**` when deciding whether the task is still blocked. Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not complete yet. If you make tracked changes, you MUST commit them, but do not push.
 3. Only if the candidate task is `__done__` should you continue with manual testing consideration.
 
 Before adding a manual-testing implementation note for any outcome, re-read that task's existing implementation notes and avoid adding a duplicate note if the same manual-testing outcome is already recorded from the latest loop pass.

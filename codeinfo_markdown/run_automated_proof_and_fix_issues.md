@@ -34,7 +34,7 @@ Do not perform manual testing in this step.
 
 <skip_rules>
 
-- If the candidate task contains an active note titled exactly `**BLOCKER**`, do not run automated proof. Ignore `**BLOCKING ANSWER**` and ignore historical notes titled `**RESOLVED ISSUE**`.
+- If the candidate task contains a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, do not run automated proof. Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`.
 - If the candidate task still has unchecked subtasks, do not run automated proof.
 - If you skip automated proof for either reason, return a concise explanation and leave the task `__in_progress__`.
 

@@ -116,7 +116,7 @@
                   "label": "Check for blocker before automated proof",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a `**BLOCKER**` note in its Implementation Notes? Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain an active note titled exactly `**BLOCKER**` in its Implementation Notes? Ignore `**BLOCKING ANSWER**` and ignore historical notes titled `**RESOLVED ISSUE**`. Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -138,7 +138,7 @@
                   "label": "Check for blocker before manual testing",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a `**BLOCKER**` note in its Implementation Notes? Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain an active note titled exactly `**BLOCKER**` in its Implementation Notes? Ignore `**BLOCKING ANSWER**` and ignore historical notes titled `**RESOLVED ISSUE**`. Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {

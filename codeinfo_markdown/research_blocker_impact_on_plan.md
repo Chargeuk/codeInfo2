@@ -47,6 +47,8 @@ If any of those are true, you MUST repair the story before continuing:
 
 If the blocker exists because the current task assumes a missing runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract, prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task.
 
+If the blocker has now been resolved enough for the current task to continue honestly, convert the old active blocker note titled exactly `**BLOCKER**` into a historical non-blocking note titled exactly `**RESOLVED ISSUE**` and preserve its details. Keep the `**BLOCKING ANSWER**` note as the proof of how the blocker was resolved. Only leave a note titled exactly `**BLOCKER**` in place when the task is still actively blocked after this step.
+
 </repair_rules>
 
 <behavior_rules>
@@ -54,6 +56,7 @@ If the blocker exists because the current task assumes a missing runtime seam, d
 - This step decides plan impact; it does not re-prove the blocker solution from scratch.
 - If no story repair is needed, state explicitly why not.
 - Do not leave a known plan defect in place once the blocker has proved it.
+- Do not leave an old active blocker marker in place when the task is no longer actively blocked after this step.
 - Do not invent unnecessary extra work; keep repairs aligned to the KISS principle and only add what is required to unblock honest execution.
 
 </behavior_rules>

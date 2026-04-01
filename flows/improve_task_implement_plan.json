@@ -215,14 +215,7 @@
                   "label": "Audit after implementation",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "messages": [
-                    {
-                      "role": "user",
-                      "content": [
-                        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's implementation-only work on that plan honestly: check whether completed subtasks were implemented but left unmarked, and correct subtask and task statuses if the evidence supports it. Do not mark any `Testing` section items complete in this audit unless the plan file already honestly shows they were completed earlier. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker appears local to the task or likely needs planner review later, but do not research or repair the blocker in this step. The task just worked in this loop must not remain hidden as `__to_do__`: ensure its `Task Status` is `__in_progress__` after this audit, because automated proof has not yet been completed in this loop. After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop. If you make tracked changes, you MUST commit them, but do not push."
-                      ]
-                    }
-                  ]
+                  "markdownFile": "audit_after_implementation.md"
                 },
                 {
                   "type": "break",
@@ -244,14 +237,7 @@
                   "label": "Audit after automated proof",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "messages": [
-                    {
-                      "role": "user",
-                      "content": [
-                        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's implementation and automated-proof work on that plan honestly: check whether completed work was implemented or proved but left unmarked, and correct task, subtask and testing statuses if the evidence supports it. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker appears local to the task or likely needs planner review later, but do not research or repair the blocker in this step. The task just worked in this loop must not remain hidden as `__to_do__`: if its subtasks and testing are honestly complete and no blocker remains, ensure its `Task Status` is `__done__`; if it is blocked or still requires work, ensure its `Task Status` is `__in_progress__`. After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop. If you make tracked changes, you MUST commit them, but do not push."
-                      ]
-                    }
-                  ]
+                  "markdownFile": "audit_after_automated_proof.md"
                 },
                 {
                   "type": "break",

@@ -456,6 +456,8 @@ This task makes the durable queue actually run inside the existing server proces
   - `d5e8dcfb` - `DEV-[55] - Advance task 3 automated proof`
   - `1d7d4ae2` - `DEV-[55] - Record task 3 targeted proof`
   - `dfe8f0c8` - `DEV-[55] - Rerun task 3 proof wrappers`
+  - `0e91ba7a` - `DEV-[55] - reopen task 3 after manual proof`
+  - `774ee321` - `DEV-[55] - Remap queued reembed roots`
 
 #### Overview
 
@@ -582,6 +584,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 - Finished subtask 32 by adding `resolveMountedIngestPath(...)` in `server/src/ingest/pathMap.ts` and routing queued re-embed request construction through it in `server/src/ingest/reingestService.ts`, so older listed `/data/...` roots can execute against the active compose workdir when the repo row still carries a matching `hostPath`.
 - Finished subtask 33 by extending `server/src/test/unit/pathMap.test.ts` and `server/src/test/unit/reingestService.test.ts` with the legacy-listed-root remap coverage the manual proof exposed; the new proof authors the seam without rerunning Task 3's Testing wrappers in this implementation-only step.
 - Ran `npx eslint --max-warnings=0` and `npx prettier --check` on the four touched files for this follow-up seam, fixed one import-order warning in `reingestService.ts`, and left every Task 3 Testing checkbox untouched for the later automated-proof pass.
+- Implementation-only audit on 2026-04-01: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 3 plan section from disk after the live re-embed path fix, confirmed the reopened implementation work is already represented by completed subtasks 32 and 33 plus commits `0e91ba7a` and `774ee321`, and confirmed there is still no active `**BLOCKER**` note on Task 3. No additional subtasks were newly marked complete in this audit, no Testing items were newly checked here, and Task 3 remains `__in_progress__` until the refreshed Task 3 automated-proof steps are rerun honestly.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

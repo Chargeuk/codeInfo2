@@ -450,7 +450,7 @@ This task makes the durable queue actually run inside the existing server proces
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `34b3a09b` - `DEV-[55] - Replace queueable transport contracts`
   - `d5e8dcfb` - `DEV-[55] - Advance task 3 automated proof`
@@ -541,6 +541,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 - Testing step 3 passed cleanly on 2026-04-01: `reingestService.test.ts` finished with `tests run: 21`, `passed: 21`, `failed: 0`; `reingestExecution.test.ts` finished with `tests run: 13`, `passed: 13`, `failed: 0`; `mcp.reingest.classic.test.ts` finished with `tests run: 11`, `passed: 11`, `failed: 0`; `mcp2.reingest.tool.test.ts` finished with `tests run: 11`, `passed: 11`, `failed: 0`; and `agent-commands-runner.test.ts` finished with `tests run: 44`, `passed: 44`, `failed: 0`. Every wrapper reported `agent_action: skip_log`.
 - Testing step 4 passed cleanly on 2026-04-01: `commands.reingest.test.ts` finished with `tests run: 21`, `passed: 21`, `failed: 0`, and `agent_action: skip_log`, and `flows.run.errors.test.ts` finished with `tests run: 24`, `passed: 24`, `failed: 0`, and `agent_action: skip_log`. Task 3's narrowed targeted proof boundary now reaches real terminal wrapper verdicts end to end, while the broader shared `server:unit` baseline remains intentionally owned by Task 4.
 - Implementation-plus-automated-proof audit: re-read the stored handoff and this exact plan from disk, confirmed every Task 3 subtask and all four Task 3 testing steps now have direct repo evidence, confirmed there is no active `**BLOCKER**` note left on Task 3, and marked the task `__done__` because its narrowed task-local proof boundary is complete. The broader shared full `npm run test:summary:server:unit` baseline remains intentionally out of Task 3 scope and is still owned by Task 4.
+- **BLOCKER** Manual testing could not proceed this loop because the documented startup baseline for Task 3 did not reach a runnable stack: after re-reading `AGENTS.md`, `README.md`, and the stored manual runtime research, I followed the preferred compose path with `npm run compose:build`, but the build stayed in the server image browser-install stage and never reached a completed stack that I could bring up and then shut down cleanly for proof. I confirmed the stack started this pass from a stopped state, prepared proof repositories under `${HOME}/Documents/dev`, and verified the host LM Studio model endpoint at `http://localhost:1234/v1/models` was reachable, so the blocker is current stack readiness on the documented startup path rather than missing proof data or an unavailable embedding backend.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

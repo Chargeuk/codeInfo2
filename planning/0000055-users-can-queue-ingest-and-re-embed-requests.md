@@ -450,10 +450,11 @@ This task makes the durable queue actually run inside the existing server proces
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `34b3a09b` - `DEV-[55] - Replace queueable transport contracts`
   - `d5e8dcfb` - `DEV-[55] - Advance task 3 automated proof`
+  - `1d7d4ae2` - `DEV-[55] - Record task 3 targeted proof`
 
 #### Overview
 
@@ -539,6 +540,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 - Testing step 2 passed cleanly on 2026-04-01: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` finished with `tests run: 12`, `passed: 12`, `failed: 0`, and `agent_action: skip_log`, and `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` finished with `tests run: 10`, `passed: 10`, `failed: 0`, and `agent_action: skip_log`.
 - Testing step 3 passed cleanly on 2026-04-01: `reingestService.test.ts` finished with `tests run: 21`, `passed: 21`, `failed: 0`; `reingestExecution.test.ts` finished with `tests run: 13`, `passed: 13`, `failed: 0`; `mcp.reingest.classic.test.ts` finished with `tests run: 11`, `passed: 11`, `failed: 0`; `mcp2.reingest.tool.test.ts` finished with `tests run: 11`, `passed: 11`, `failed: 0`; and `agent-commands-runner.test.ts` finished with `tests run: 44`, `passed: 44`, `failed: 0`. Every wrapper reported `agent_action: skip_log`.
 - Testing step 4 passed cleanly on 2026-04-01: `commands.reingest.test.ts` finished with `tests run: 21`, `passed: 21`, `failed: 0`, and `agent_action: skip_log`, and `flows.run.errors.test.ts` finished with `tests run: 24`, `passed: 24`, `failed: 0`, and `agent_action: skip_log`. Task 3's narrowed targeted proof boundary now reaches real terminal wrapper verdicts end to end, while the broader shared `server:unit` baseline remains intentionally owned by Task 4.
+- Implementation-plus-automated-proof audit: re-read the stored handoff and this exact plan from disk, confirmed every Task 3 subtask and all four Task 3 testing steps now have direct repo evidence, confirmed there is no active `**BLOCKER**` note left on Task 3, and marked the task `__done__` because its narrowed task-local proof boundary is complete. The broader shared full `npm run test:summary:server:unit` baseline remains intentionally out of Task 3 scope and is still owned by Task 4.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

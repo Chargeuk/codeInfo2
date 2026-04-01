@@ -450,7 +450,7 @@ This task makes the durable queue actually run inside the existing server proces
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `34b3a09b` - `DEV-[55] - Replace queueable transport contracts`
   - `d5e8dcfb` - `DEV-[55] - Advance task 3 automated proof`
@@ -562,6 +562,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 - **BLOCKING ANSWER** Why this fits the current local repo state: the blocker note already proves the compose env has diverged from the older onboarding root, and the repo has a dedicated workflow step whose whole purpose is to refresh `manual-testing-runtime.json` from current disk state without inventing commands or paths. Regenerating that file is the smallest honest fix because it updates the runtime handoff to the path the server will actually expose to `/data`, while leaving the startup wrapper path, the feature implementation, and the later manual-proof expectations unchanged.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep using `${HOME}/Documents/dev` just because older README text still mentions it, because `server/.env.local` now overrides that default and the compose mount follows the override. Do not hard-code a new proof root into the plan or into ad-hoc manual notes without regenerating the runtime handoff, because the repo’s own flow treats that handoff file as the source of truth for later manual steps. Do not bypass the compose/env mapping by inventing direct local paths or container-only payloads; the honest next step is to refresh the runtime research from current env-driven repo state and then run manual proof from that refreshed handoff.
 - Plan-impact review: no story repair was needed after this blocker research. The blocker did not expose a missing prerequisite task, a missing startup contract, or a testing gate that could never run at the Task 3 boundary; it only proved that the stored manual-testing runtime handoff had become stale and needed to be regenerated from current env-driven repo state before manual proof continued. Later task numbering, dependencies, and testing sections remain honest as written.
+- **BLOCKER** Manual testing started successfully this loop through the supported wrapper path: `npm run compose:build:summary` passed cleanly, `npm run compose:up` reached a healthy stack, and `npm run compose:down` returned the system to its prior stopped state. The proof then hit a runtime-handoff blocker instead of a transport-code failure: the refreshed runtime file still treated the mounted request path as `/data/...`, but with the current `server/.env.local` override the compose mount target follows `CODEINFO_CODEX_WORKDIR=${HOME}/code`, so the accepted start and re-embed runs errored with `ENOENT` against the stale `/data/...` path. Per the manual-testing instructions, the runtime research must be regenerated again and corrected before I can choose honest request payloads for Task 3.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

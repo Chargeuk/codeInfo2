@@ -71,7 +71,12 @@ If the completed task has a browser-visible or connected frontend surface but yo
 If manual testing reveals issues that require more implementation work:
 
 - update that same candidate task by adding new unchecked subtasks for the required follow-up work;
+- write every newly added subtask with the same level of detail and local context as the existing tasking, so a weak junior agent could execute that one subtask in isolation without guessing hidden assumptions;
+- when an issue can realistically be covered by automated proof in the affected repository and harness, add a separate new unchecked proof-authoring subtask for that one automated test change;
+- each new automated proof-authoring subtask must cover exactly one automated proof addition or update, name the exact test file, harness, or proof artifact to create or edit, and explain what behaviour it must prove;
+- if a suitable automated proof addition is not realistically possible in the affected repository or harness, do not invent one; instead add an implementation note stating why automated proof could not honestly be added for that manual finding;
 - add matching new unchecked testing steps that would prove those issues are fixed;
+- when the repository workflow expects lint, format, or static-analysis checks as subtasks, add separate final unchecked subtasks for those code-hygiene commands using the same one-command-per-subtask style as the normal tasking rules;
 - set that candidate task's `Task Status` back to `__in_progress__`;
 - uncheck any existing checked testing steps whose proof is no longer honestly current because the newly added work will require them to be rerun; if the new work invalidates the task's proof broadly, uncheck the whole affected testing section rather than leaving stale checks behind;
 - add an implementation note stating that manual testing was run, the key issues found, that new subtasks or testing steps were added, and that the affected testing steps were unchecked because they must be rerun after the fixes;

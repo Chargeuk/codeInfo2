@@ -23,9 +23,13 @@ If the candidate task is `__done__`, determine which runnable or externally obse
 - an HTTP or network surface that can be proved with tools such as `curl`;
 - a paired or connected frontend where the edited behavior actually appears.
 
+Base manual proof only on the candidate task's own Overview, Task Exit Criteria, Subtasks, and Testing section. Do not require later-task-owned UI, observability, queue-visibility, queue-removal, cleanup, or management surfaces unless the candidate task explicitly depends on them. If a later task is where that surface is planned to appear, treat its current absence as out of scope for this task rather than as an automatic blocker.
+
 If the completed task does not affect any runnable, browser-accessible, or externally observable surface, add a brief implementation note to that task stating that manual testing was assessed and is not applicable because the completed change has no relevant runnable proof surface. If you make tracked changes, you MUST commit them, but do not push. Then stop.
 
 When manual testing is applicable, explicitly map the manual proof back to the candidate task's visible acceptance-relevant behavior. Be clear about which changed requirements or acceptance-criteria-visible outcomes you proved through the frontend or other observable surfaces, and which requirements were not visually provable and therefore still relied on automated tests, logs, API checks, or other non-visual evidence.
+
+When the candidate task changes transport contracts, request or response shapes, blocking wait behavior, or other runtime behavior that is observable without later-task-owned UI or queue-management surfaces, prove only the supported surfaces needed to validate that task's owned contract. Do not extend manual proof into later-task behavior just because the stack is already running.
 
 Before running manual testing, read:
 
@@ -68,6 +72,10 @@ Your manual testing must, whenever applicable:
 
 If the completed task has a browser-visible or connected frontend surface but you do not capture screenshots, treat the manual proof as incomplete unless a concrete tooling limitation prevents capture. If screenshot capture is blocked by tooling or environment limitations, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
 
+Prefer the smallest honest manual proof that validates the candidate task's owned behavior. If one proof path contaminates later runtime state and a smaller supported proof path already demonstrated the candidate task's required behavior, stop at the smaller successful proof and record any later-task limitation as a concise implementation note rather than escalating it into a blocker.
+
+If you can honestly prove the candidate task's own changed behavior, but a later-task-owned surface prevents additional convenience, observability, cleanup, or exploratory checks, do not add `**BLOCKER**`. Instead, add a concise implementation note stating what was successfully proved, what additional proof you intentionally did not require because it depends on later planned functionality or out-of-scope surfaces, and why that limitation does not invalidate the candidate task's own exit criteria.
+
 If manual testing reveals issues that require more implementation work:
 
 - update that same candidate task by adding new unchecked subtasks for the required follow-up work;
@@ -93,6 +101,8 @@ If manual testing succeeds without finding further work:
 
 If you cannot honestly complete the relevant manual proof because startup, shutdown, environment, dependency, tooling, or readiness conditions are missing:
 
+- add `**BLOCKER**` only when you cannot honestly prove a behavior that is required by the candidate task's own exit criteria using supported surfaces that should already exist at this point in the plan;
+- do not use `**BLOCKER**` for limitations caused only by later-task-owned observability, queue-management, UI, cleanup, or convenience surfaces;
 - add `**BLOCKER**` to the implementation notes for that candidate task with a concise explanation of what prevented manual testing;
 - set that candidate task's `Task Status` to `__in_progress__`;
 - if you make tracked changes, you MUST commit them, but do not push.

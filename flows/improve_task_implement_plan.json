@@ -297,14 +297,7 @@
               "label": "Re-check plan after planner edits",
               "agentType": "coding_agent",
               "identifier": "coder",
-              "messages": [
-                {
-                  "role": "user",
-                  "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` stored there after the planning agent step. Verify that the selected plan file still exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Read the end of the plan file from disk and report the highest `### <number>.` task heading currently present. Confirm any Task Status updates or new tasks that were added, or any task renumbering that occurred, and run `git status -sb` to verify the plan file change was committed. If you conclude there is no next task, you must explicitly confirm that the highest-numbered task is `__done__` and that no later task heading exists. Then, identify the next executable task based on the updated plan, not based on what used to be blocked, and summarize the remaining tasks based on the updated plan before proceeding."
-                  ]
-                }
-              ]
+              "markdownFile": "recheck_plan_after_planner_edits.md"
             },
             {
               "type": "llm",

@@ -18,6 +18,7 @@ import {
   getStatus,
   pumpIngestQueue,
   startIngest,
+  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import {
@@ -127,13 +128,16 @@ const createTempRepo = async (files: Record<string, string>) => {
 };
 
 const waitForTerminal = async (runId: string) => {
-  const terminal = new Set(['completed', 'skipped', 'cancelled', 'error']);
-  for (let i = 0; i < 100; i += 1) {
-    const status = getStatus(runId);
-    if (status && terminal.has(status.state)) return status;
-    await new Promise((resolve) => setTimeout(resolve, 10));
+  const result = await waitForTerminalIngestStatus(runId, {
+    timeoutMs: 5_000,
+    pollMs: 10,
+  });
+  if (result.reason === 'terminal' && result.status) {
+    return result.status;
   }
-  throw new Error(`Timed out waiting for ingest ${runId}`);
+  throw new Error(
+    `Timed out waiting for ingest ${runId} (reason=${result.reason}, lastKnown=${result.lastKnown?.state ?? 'missing'})`,
+  );
 };
 
 const setupIngestChromaMocks = () => {

@@ -66,7 +66,7 @@
     },
     {
       "type": "startLoop",
-      "label": "Main loop",
+      "label": "Story Execution And Review Loop",
       "steps": [
         {
           "type": "llm",
@@ -84,11 +84,11 @@
         },
         {
           "type": "startLoop",
-          "label": "Execution loop",
+          "label": "Task Execution And Blocker Repair Loop",
           "steps": [
             {
               "type": "startLoop",
-              "label": "Implementation and manual testing loop",
+              "label": "Current Task Rework Loop",
               "steps": [
                 {
                   "type": "llm",
@@ -99,31 +99,61 @@
                 },
                 {
                   "type": "llm",
-                  "label": "Implement next Task",
+                  "label": "Implement task subtasks",
                   "agentType": "coding_agent",
                   "identifier": "coder",
-                  "messages": [
-                    {
-                      "role": "user",
-                      "content": [
-                        "Continue using only the stored `plan_path` and `additional_repositories` in `codeInfoStatus/flow-state/current-plan.json` as the active scope for this flow. Do not switch plans or rediscover the next story independently. Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section. You must keep the subtasks tick box updated as you work through each subtask to ensure everyone understands what has been done. Then run through the testing steps, ensuring you keep the subtasks tick box updated as you work through each testing step. Note that LMStudio is running and available, and Codex has been logged in locally and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task, and any commands or output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit, write it into the implementation notes marked as **BLOCKER** and write a note describing the issue you hit. Blockers must include the exact subtask or testing step where work stopped, what you tried, the exact capability that is missing and whether you think the task should be split, re-ordered or re-written before work continues. Do not invent fake runtime seams, fake containers, fake health checks, or pretend a proof step passed when the required capability does not yet exist. Remember to keep your implementation notes concise and to the point. Remember that your normal output will not be seen by users or agents, and any issues MUST be marked as **BLOCKER** within the implementation notes to be visible to others to help you. YOU MUST commit, but not push, before finishing this request, no matter what changes you made."
-                      ]
-                    }
-                  ]
+                  "markdownFile": "implement_next_task_subtasks.md"
                 },
                 {
                   "type": "llm",
-                  "label": "Audit task completion and blockers",
+                  "label": "Audit after implementation",
                   "agentType": "planning_agent",
                   "identifier": "planner",
                   "messages": [
                     {
                       "role": "user",
                       "content": [
-                        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's work on that plan honestly: check whether completed work was implemented but left unmarked, and correct tasks, subtask and testing statuses if the evidence supports it. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker is local to the task or reveals a design problem within the plan. The task just worked in this loop must not remain hidden as `__to_do__`: if it is honestly complete, ensure its `Task Status` is `__done__`; if it is blocked or still requires work, ensure its `Task Status` is `__in_progress__`. After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop. If you make tracked changes, you MUST commit them, but do not push."
+                        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's implementation-only work on that plan honestly: check whether completed subtasks were implemented but left unmarked, and correct subtask and task statuses if the evidence supports it. Do not mark any `Testing` section items complete in this audit unless the plan file already honestly shows they were completed earlier. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker appears local to the task or likely needs planner review later, but do not research or repair the blocker in this step. The task just worked in this loop must not remain hidden as `__to_do__`: ensure its `Task Status` is `__in_progress__` after this audit, because automated proof has not yet been completed in this loop. After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop. If you make tracked changes, you MUST commit them, but do not push."
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "break",
+                  "label": "Check for blocker before automated proof",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a `**BLOCKER**` note in its Implementation Notes? Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "breakOn": "yes"
+                },
+                {
+                  "type": "llm",
+                  "label": "Run automated proof and fix issues",
+                  "agentType": "coding_agent",
+                  "identifier": "coder",
+                  "markdownFile": "run_automated_proof_and_fix_issues.md"
+                },
+                {
+                  "type": "llm",
+                  "label": "Audit after automated proof",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "messages": [
+                    {
+                      "role": "user",
+                      "content": [
+                        "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Do not rediscover the story independently. Then re-open the exact relative `plan_path` from disk before auditing, because the coding agent may have just edited the plan file and your prior understanding may be stale. Audit the coding agent's implementation and automated-proof work on that plan honestly: check whether completed work was implemented or proved but left unmarked, and correct task, subtask and testing statuses if the evidence supports it. Identify any blocker notes marked **BLOCKER**. Do not stop at task status only. Capture exactly what remains incomplete and whether the blocker appears local to the task or likely needs planner review later, but do not research or repair the blocker in this step. The task just worked in this loop must not remain hidden as `__to_do__`: if its subtasks and testing are honestly complete and no blocker remains, ensure its `Task Status` is `__done__`; if it is blocked or still requires work, ensure its `Task Status` is `__in_progress__`. After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop. If you make tracked changes, you MUST commit them, but do not push."
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "break",
+                  "label": "Check for blocker before manual testing",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a `**BLOCKER**` note in its Implementation Notes? Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "breakOn": "yes"
                 },
                 {
                   "type": "llm",
@@ -218,22 +248,22 @@
         {
           "type": "llm",
           "label": "Review evidence gate",
-          "agentType": "planning_agent",
-          "identifier": "planner",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
           "markdownFile": "review_evidence_gate.md"
         },
         {
           "type": "llm",
           "label": "Code review findings",
-          "agentType": "planning_agent",
-          "identifier": "planner",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
           "markdownFile": "code_review_findings.md"
         },
         {
           "type": "llm",
           "label": "Blind-spot challenge",
-          "agentType": "planning_agent",
-          "identifier": "planner",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
           "markdownFile": "review_blind_spot_challenge.md"
         },
         {

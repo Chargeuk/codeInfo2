@@ -18,22 +18,22 @@
     {
       "type": "llm",
       "label": "Review evidence gate",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "review_agent",
+      "identifier": "reviewer",
       "markdownFile": "review_evidence_gate.md"
     },
     {
       "type": "llm",
       "label": "Code review findings",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "review_agent",
+      "identifier": "reviewer",
       "markdownFile": "code_review_findings.md"
     },
     {
       "type": "llm",
       "label": "Blind-spot challenge",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "review_agent",
+      "identifier": "reviewer",
       "markdownFile": "review_blind_spot_challenge.md"
     },
     {

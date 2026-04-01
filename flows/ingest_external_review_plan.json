@@ -18,22 +18,22 @@
     {
       "type": "llm",
       "label": "External review evidence gate",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "review_agent",
+      "identifier": "reviewer",
       "markdownFile": "external_review_evidence_gate.md"
     },
     {
       "type": "llm",
       "label": "External review findings",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "review_agent",
+      "identifier": "reviewer",
       "markdownFile": "external_review_findings.md"
     },
     {
       "type": "llm",
       "label": "External blind-spot challenge",
-      "agentType": "planning_agent",
-      "identifier": "planner",
+      "agentType": "review_agent",
+      "identifier": "reviewer",
       "markdownFile": "external_review_blind_spot_challenge.md"
     },
     {

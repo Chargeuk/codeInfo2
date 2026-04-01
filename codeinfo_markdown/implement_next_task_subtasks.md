@@ -1,13 +1,13 @@
 # Goal
 
-Implement the next executable task's `Subtasks` section only.
+Implement the active task's `Subtasks` section only.
 
 <task>
 
 Read the stored current-plan handoff and use only that scope for this step.
 Re-open the exact plan file from disk before doing any work.
-Identify the next executable task from the current plan.
-Work through that task's `Subtasks` section fully and honestly.
+Identify the active task from the current plan.
+Work through that task's `Subtasks` section fully and honestly when implementation work still remains there.
 Do not run the task's `Testing` section in this step.
 Do not mark any `Testing` section items complete in this step.
 Leave the task ready for the later automated-proof step.
@@ -26,10 +26,12 @@ Leave the task ready for the later automated-proof step.
 
 <task_selection_rules>
 
-- Identify the next executable task from the current plan as it exists on disk now.
+- If any task is currently `__in_progress__`, select the highest-numbered `__in_progress__` task as the active task for this step.
+- Only if no task is `__in_progress__` may you select the next executable `__to_do__` task from the current plan as it exists on disk now.
 - Re-read the selected task's full text before changing code so you are working from the latest text.
 - Re-read the end of the plan and confirm the highest task heading currently present so you do not miss newly added or renumbered tasks.
 - Treat the selected task as `__in_progress__` while you are working on its subtasks, unless it becomes blocked.
+- If the selected `__in_progress__` task has no unchecked subtasks, do not advance to a later task. Keep that task as the active task, make no implementation changes in this step, and leave it ready for the later automated-proof step.
 - Do not mark the task `__done__` in this step. The later audit step decides whether the task is truly complete after automated proof.
 
 </task_selection_rules>
@@ -37,6 +39,7 @@ Leave the task ready for the later automated-proof step.
 <execution_rules>
 
 - Work only through the selected task's `Subtasks` section.
+- If the selected task has no unchecked subtasks, do not implement a later task in this step.
 - Complete implementation subtasks, proof-authoring subtasks, and any lint, format, or static-analysis subtasks that are listed inside `Subtasks`.
 - Do not run the task's `Testing` section wrappers in this step.
 - Keep the plan honest while you work:
@@ -74,7 +77,7 @@ Return a concise summary that includes:
 
 1. which task you worked on;
 2. whether all subtasks are now complete;
-3. whether the task is ready for automated proof or blocked;
+3. whether the task is ready for automated proof, still needs implementation work, or is blocked;
 4. any important gotchas encountered.
 
 Do not claim the task is fully complete unless the `Testing` section has also been run later.
@@ -87,7 +90,9 @@ Do not mark `Testing` section items complete in this step.
 Before finishing:
 
 - confirm you re-read the plan from disk;
+- confirm you kept the highest-numbered `__in_progress__` task active when one existed;
 - confirm you worked only on the selected task's `Subtasks`;
+- confirm you did not advance to a later task when the active task was still `__in_progress__`;
 - confirm you did not run or check off the `Testing` section;
 - confirm completed subtasks were marked immediately;
 - confirm any blocker was written into `Implementation Notes` as `**BLOCKER**`;

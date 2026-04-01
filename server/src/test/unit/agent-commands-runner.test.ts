@@ -152,11 +152,11 @@ const buildReingestError = (params: {
   }
 
   return {
-    code: 429,
-    message: 'BUSY',
+    code: 503,
+    message: 'QUEUE_UNAVAILABLE',
     data: {
       tool: 'reingest_repository',
-      code: 'BUSY',
+      code: 'QUEUE_UNAVAILABLE',
       retryable: true,
       retryMessage: 'retry',
       reingestableRepositoryIds: [],
@@ -164,7 +164,7 @@ const buildReingestError = (params: {
       fieldErrors: [
         {
           field: 'sourceId',
-          reason: 'busy',
+          reason: 'invalid_state',
           message: params.fieldMessage,
         },
       ],
@@ -1175,10 +1175,10 @@ describe('agent commands runner (v1)', () => {
             return {
               ok: false,
               error: buildReingestError({
-                message: 'BUSY',
-                code: 'BUSY',
+                message: 'QUEUE_UNAVAILABLE',
+                code: 'QUEUE_UNAVAILABLE',
                 fieldMessage:
-                  'reingest is currently locked by another ingest operation',
+                  'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
               }),
             };
           }

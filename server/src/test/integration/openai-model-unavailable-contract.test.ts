@@ -31,7 +31,6 @@ test('POST /ingest/start rejects non-allowlisted OpenAI model with OPENAI_MODEL_
       clientFactory: () => ({}) as never,
       collectionIsEmpty: async () => true,
       getLockedEmbeddingModel: async () => null,
-      startIngest: async () => '00000000-0000-0000-0000-000000000001',
     }),
   );
 

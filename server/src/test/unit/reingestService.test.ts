@@ -6,6 +6,7 @@ import {
   runReingestRepository,
   type ReingestSuccess,
 } from '../../ingest/reingestService.js';
+import type { EnqueueIngestRequestResult } from '../../ingest/requestQueue.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 
@@ -67,13 +68,14 @@ const buildDeps = () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
     lockedModelId: 'model',
   }),
-  enqueueOrReuseIngestRequest: async () => ({
-    requestId: 'queue-request-123',
-    canonicalTargetPath: '/data/repo-a',
-    queueState: 'waiting' as const,
-    queuePosition: 1,
-    runId: null,
-  }),
+  enqueueOrReuseIngestRequest: async () =>
+    buildQueueResult({
+      requestId: 'queue-request-123',
+      canonicalTargetPath: '/data/repo-a',
+      queueState: 'waiting',
+      queuePosition: 1,
+      runId: null,
+    }),
   pumpIngestQueue: async () => ({
     started: true,
     blockedByCleanup: false,
@@ -82,6 +84,22 @@ const buildDeps = () => ({
   }),
   appendLog: noopLog,
 });
+
+function buildQueueResult(
+  overrides: Partial<EnqueueIngestRequestResult>,
+): EnqueueIngestRequestResult {
+  return {
+    requestId: 'queue-request-123',
+    canonicalTargetPath: '/data/repo-a',
+    queueState: 'waiting',
+    queuePosition: 1,
+    runId: null,
+    reusedExisting: false,
+    updatedExisting: false,
+    queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+    ...overrides,
+  };
+}
 
 test('blocking success returns completed terminal payload with required fields', async () => {
   const result = await runReingestRepository(
@@ -427,13 +445,14 @@ test('queue delay is treated as normal blocking progress before the terminal run
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      enqueueOrReuseIngestRequest: async () => ({
-        requestId: 'queue-request-delayed',
-        canonicalTargetPath: '/data/repo-a',
-        queueState: 'waiting',
-        queuePosition: 2,
-        runId: null,
-      }),
+      enqueueOrReuseIngestRequest: async () =>
+        buildQueueResult({
+          requestId: 'queue-request-delayed',
+          canonicalTargetPath: '/data/repo-a',
+          queueState: 'waiting',
+          queuePosition: 2,
+          runId: null,
+        }),
       pumpIngestQueue: async () => ({
         started: false,
         blockedByCleanup: false,

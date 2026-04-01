@@ -21,48 +21,72 @@ import {
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import { normalizeCanonicalQueueTargetPath } from '../../ingest/requestContracts.js';
+import type {
+  EnqueueIngestRequestInput,
+  EnqueueIngestRequestResult,
+} from '../../ingest/requestQueue.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 
+type PumpIngestQueueResult = Awaited<
+  ReturnType<typeof import('../../ingest/ingestJob.js').pumpIngestQueue>
+>;
+
+function buildRepoEntry(): RepoEntry {
+  return {
+    id: 'repo',
+    description: null,
+    containerPath: '/tmp/repo',
+    hostPath: '/host/tmp/repo',
+    lastIngestAt: '2025-01-01T00:00:00.000Z',
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'embed-model',
+    embeddingDimensions: 768,
+    model: 'embed-model',
+    modelId: 'embed-model',
+    lock: {
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-model',
+      embeddingDimensions: 768,
+      lockedModelId: 'embed-model',
+      modelId: 'embed-model',
+    },
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    lastError: null,
+  };
+}
+
+function buildListReposResult(): ListReposResult {
+  return {
+    repos: [buildRepoEntry()],
+    lockedModelId: 'embed-model',
+  };
+}
+
+function buildQueueResult(
+  overrides: Partial<EnqueueIngestRequestResult> = {},
+): EnqueueIngestRequestResult {
+  return {
+    requestId: 'queue-request-123',
+    canonicalTargetPath: '/tmp/repo',
+    queueState: 'waiting',
+    queuePosition: 1,
+    runId: null,
+    reusedExisting: false,
+    updatedExisting: false,
+    queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+    ...overrides,
+  };
+}
+
 function buildApp(options?: {
-  listIngestedRepositories?: () => Promise<{
-    repos: Array<{
-      id: string;
-      description: string | null;
-      containerPath: string;
-      hostPath: string;
-      lastIngestAt: string | null;
-      embeddingProvider: 'lmstudio' | 'openai';
-      embeddingModel: string;
-      embeddingDimensions: number;
-      model: string;
-      modelId: string;
-      lock: {
-        embeddingProvider: 'lmstudio' | 'openai';
-        embeddingModel: string;
-        embeddingDimensions: number;
-        lockedModelId: string;
-        modelId: string;
-      } | null;
-      counts: { files: number; chunks: number; embedded: number };
-      lastError: string | null;
-    }>;
-    lockedModelId: string | null;
-  }>;
-  enqueueOrReuseIngestRequest?: (input: Record<string, unknown>) => Promise<{
-    requestId: string;
-    canonicalTargetPath: string;
-    queueState: 'waiting' | 'running';
-    queuePosition: number | null;
-    runId: string | null;
-  }>;
-  pumpIngestQueue?: () => Promise<{
-    started: boolean;
-    blockedByCleanup: boolean;
-    requestId: string | null;
-    runId: string | null;
-  }>;
+  listIngestedRepositories?: () => Promise<ListReposResult>;
+  enqueueOrReuseIngestRequest?: (
+    input: EnqueueIngestRequestInput,
+  ) => Promise<EnqueueIngestRequestResult>;
+  pumpIngestQueue?: () => Promise<PumpIngestQueueResult>;
 }) {
   const app = express();
   app.use(express.json());
@@ -72,53 +96,22 @@ function buildApp(options?: {
       listIngestedRepositories: async () =>
         options?.listIngestedRepositories
           ? options.listIngestedRepositories()
-          : {
-              repos: [
-                {
-                  id: 'repo',
-                  description: null,
-                  containerPath: '/tmp/repo',
-                  hostPath: '/host/tmp/repo',
-                  lastIngestAt: '2025-01-01T00:00:00.000Z',
-                  embeddingProvider: 'lmstudio',
-                  embeddingModel: 'embed-model',
-                  embeddingDimensions: 768,
-                  model: 'embed-model',
-                  modelId: 'embed-model',
-                  lock: {
-                    embeddingProvider: 'lmstudio',
-                    embeddingModel: 'embed-model',
-                    embeddingDimensions: 768,
-                    lockedModelId: 'embed-model',
-                    modelId: 'embed-model',
-                  },
-                  counts: { files: 1, chunks: 1, embedded: 1 },
-                  lastError: null,
-                },
-              ],
-              lockedModelId: 'embed-model',
-            },
+          : buildListReposResult(),
       enqueueOrReuseIngestRequest: async (input) =>
         options?.enqueueOrReuseIngestRequest
           ? options.enqueueOrReuseIngestRequest(input)
-          : {
-              requestId: 'queue-request-123',
-              canonicalTargetPath: String(
-                input.canonicalTargetPath ?? '/tmp/repo',
-              ),
-              queueState: 'waiting',
-              queuePosition: 1,
-              runId: null,
-            },
+          : buildQueueResult({
+              canonicalTargetPath: input.canonicalTargetPath,
+            }),
       pumpIngestQueue: async () =>
         options?.pumpIngestQueue
           ? options.pumpIngestQueue()
-          : {
+          : ({
               started: true,
               blockedByCleanup: false,
               requestId: 'queue-request-123',
               runId: '00000000-0000-0000-0000-000000000001',
-            },
+            } satisfies PumpIngestQueueResult),
     }),
   );
   return app;

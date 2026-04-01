@@ -59,14 +59,6 @@ type NotFoundData = ReingestRetryLists & {
   fieldErrors: ValidationFieldError[];
 };
 
-type BusyData = ReingestRetryLists & {
-  tool: typeof TOOL_NAME;
-  code: 'BUSY';
-  retryable: true;
-  retryMessage: string;
-  fieldErrors: ValidationFieldError[];
-};
-
 type QueueUnavailableData = ReingestRetryLists & {
   tool: typeof TOOL_NAME;
   code: 'QUEUE_UNAVAILABLE';
@@ -85,11 +77,6 @@ export type ReingestError =
       code: 404;
       message: 'NOT_FOUND';
       data: NotFoundData;
-    }
-  | {
-      code: 429;
-      message: 'BUSY';
-      data: BusyData;
     }
   | {
       code: 503;
@@ -192,27 +179,6 @@ function notFoundError(retryLists: ReingestRetryLists): ReingestError {
           reason: 'unknown_root',
           message:
             'sourceId must match an existing ingested repository root exactly',
-        },
-      ],
-      ...retryLists,
-    },
-  };
-}
-
-function busyError(retryLists: ReingestRetryLists): ReingestError {
-  return {
-    code: 429,
-    message: 'BUSY',
-    data: {
-      tool: TOOL_NAME,
-      code: 'BUSY',
-      retryable: true,
-      retryMessage: RETRY_MESSAGE,
-      fieldErrors: [
-        {
-          field: 'sourceId',
-          reason: 'busy',
-          message: 'reingest is currently locked by another ingest operation',
         },
       ],
       ...retryLists,
@@ -487,12 +453,6 @@ export async function runReingestRepository(
     return { ok: false, error: err };
   }
 
-  if (checkBusy()) {
-    const err = busyError(retryLists);
-    logValidationResult(appendLog, { kind: 'error', error: err });
-    return { ok: false, error: err };
-  }
-
   const selectedRepo = repos.repos.find(
     (repo) =>
       normalizeCanonicalQueueTargetPath(repo.containerPath) ===
@@ -592,17 +552,11 @@ export async function runReingestRepository(
     logValidationResult(appendLog, {
       kind: 'success',
       sourceId: normalizedSourceId,
-      runId,
+      runId: success.runId,
     });
     return { ok: true, value: success };
   } catch (error) {
     const code = (error as { code?: string } | null)?.code;
-    if (code === 'BUSY') {
-      const err = busyError(retryLists);
-      logValidationResult(appendLog, { kind: 'error', error: err });
-      return { ok: false, error: err };
-    }
-
     if (code === 'NOT_FOUND') {
       const err = notFoundError(retryLists);
       logValidationResult(appendLog, { kind: 'error', error: err });

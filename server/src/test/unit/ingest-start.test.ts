@@ -16,6 +16,7 @@ import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import {
   __resetIngestJobsForTest,
   getStatus,
+  pumpIngestQueue,
   startIngest,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
@@ -23,9 +24,31 @@ import {
   normalizeCanonicalQueueTargetPath,
   resolveRequestEmbeddingSelection,
 } from '../../ingest/requestContracts.js';
+import type {
+  EnqueueIngestRequestInput,
+  EnqueueIngestRequestResult,
+} from '../../ingest/requestQueue.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
+
+type PumpIngestQueueResult = Awaited<ReturnType<typeof pumpIngestQueue>>;
+
+function buildQueueResult(
+  overrides: Partial<EnqueueIngestRequestResult> = {},
+): EnqueueIngestRequestResult {
+  return {
+    requestId: 'queue-request-123',
+    canonicalTargetPath: '/tmp/repo',
+    queueState: 'waiting',
+    queuePosition: 1,
+    runId: null,
+    reusedExisting: false,
+    updatedExisting: false,
+    queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+    ...overrides,
+  };
+}
 
 function buildApp(options?: {
   locked?: {
@@ -36,19 +59,10 @@ function buildApp(options?: {
     source: 'canonical' | 'legacy';
   } | null;
   collectionEmpty?: boolean;
-  enqueueOrReuseIngestRequest?: (input: Record<string, unknown>) => Promise<{
-    requestId: string;
-    canonicalTargetPath: string;
-    queueState: 'waiting' | 'running';
-    queuePosition: number | null;
-    runId: string | null;
-  }>;
-  pumpIngestQueue?: () => Promise<{
-    started: boolean;
-    blockedByCleanup: boolean;
-    requestId: string | null;
-    runId: string | null;
-  }>;
+  enqueueOrReuseIngestRequest?: (
+    input: EnqueueIngestRequestInput,
+  ) => Promise<EnqueueIngestRequestResult>;
+  pumpIngestQueue?: () => Promise<PumpIngestQueueResult>;
 }) {
   const app = express();
   app.use(express.json());
@@ -60,24 +74,18 @@ function buildApp(options?: {
       enqueueOrReuseIngestRequest: async (input) =>
         options?.enqueueOrReuseIngestRequest
           ? options.enqueueOrReuseIngestRequest(input)
-          : {
-              requestId: 'queue-request-123',
-              canonicalTargetPath: String(
-                input.canonicalTargetPath ?? '/tmp/repo',
-              ),
-              queueState: 'waiting',
-              queuePosition: 1,
-              runId: null,
-            },
+          : buildQueueResult({
+              canonicalTargetPath: input.canonicalTargetPath,
+            }),
       pumpIngestQueue: async () =>
         options?.pumpIngestQueue
           ? options.pumpIngestQueue()
-          : {
+          : ({
               started: true,
               blockedByCleanup: false,
               requestId: 'queue-request-123',
               runId: '00000000-0000-0000-0000-000000000001',
-            },
+            } satisfies PumpIngestQueueResult),
     }),
   );
   return app;
@@ -219,11 +227,8 @@ test('ingest-start canonical fields are authoritative when legacy model is also 
           | undefined;
         capturedEmbeddingModel = payload.embeddingModel as string | undefined;
         return {
-          requestId: 'queue-request-123',
-          canonicalTargetPath: String(input.canonicalTargetPath ?? '/tmp/repo'),
-          queueState: 'waiting',
-          queuePosition: 1,
-          runId: null,
+          ...buildQueueResult(),
+          canonicalTargetPath: input.canonicalTargetPath,
         };
       },
       pumpIngestQueue: async () => ({
@@ -282,11 +287,8 @@ test('ingest-start legacy model maps to lmstudio compatibility input', async () 
           | 'openai'
           | undefined;
         return {
-          requestId: 'queue-request-124',
-          canonicalTargetPath: String(input.canonicalTargetPath ?? '/tmp/repo'),
-          queueState: 'waiting',
-          queuePosition: 1,
-          runId: null,
+          ...buildQueueResult({ requestId: 'queue-request-124' }),
+          canonicalTargetPath: input.canonicalTargetPath,
         };
       },
       pumpIngestQueue: async () => ({

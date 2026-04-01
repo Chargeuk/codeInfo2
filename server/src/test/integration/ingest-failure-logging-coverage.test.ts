@@ -19,9 +19,9 @@ function createApp() {
       clientFactory: () => ({}) as never,
       collectionIsEmpty: async () => true,
       getLockedEmbeddingModel: async () => null,
-      startIngest: async () => {
-        const error = new Error('temporarily busy');
-        (error as { code?: string }).code = 'BUSY';
+      enqueueOrReuseIngestRequest: async () => {
+        const error = new Error('queue unavailable');
+        (error as { code?: string }).code = 'QUEUE_UNAVAILABLE';
         throw error;
       },
     }),
@@ -30,8 +30,33 @@ function createApp() {
   app.use(
     createIngestReembedRouter({
       clientFactory: () => ({}) as never,
-      isBusy: () => false,
-      reembed: async () => {
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-1',
+            description: null,
+            containerPath: '/tmp/repo',
+            hostPath: '/host/tmp/repo',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            modelId: 'embed-model',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'embed-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'embed-model',
+              modelId: 'embed-model',
+            },
+            counts: { files: 1, chunks: 1, embedded: 1 },
+            lastError: null,
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
+      enqueueOrReuseIngestRequest: async () => {
         const error = new Error('locked');
         (error as { code?: string }).code = 'MODEL_LOCKED';
         throw error;
@@ -98,7 +123,7 @@ test('ingest route failure coverage emits structured warn/error entries via /log
           entry.level === 'warn' &&
           entry.context?.surface === 'ingest/start' &&
           entry.context?.retryable === true &&
-          entry.context?.code === 'BUSY',
+          entry.context?.code === 'QUEUE_UNAVAILABLE',
       ),
     );
     assert.ok(

@@ -464,11 +464,11 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
       runReingestRepository: async () => ({
         ok: false,
         error: {
-          code: 429,
-          message: 'BUSY',
+          code: 503,
+          message: 'QUEUE_UNAVAILABLE',
           data: {
             tool: 'reingest_repository',
-            code: 'BUSY',
+            code: 'QUEUE_UNAVAILABLE',
             retryable: true,
             retryMessage: 'retry later',
             reingestableRepositoryIds: ['codeinfo2'],
@@ -476,8 +476,9 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
             fieldErrors: [
               {
                 field: 'sourceId',
-                reason: 'busy',
-                message: 'Repository is already being re-ingested',
+                reason: 'invalid_state',
+                message:
+                  'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
               },
             ],
           },
@@ -1034,11 +1035,11 @@ test('target plan_scope fails fast until the surface passes an explicit working 
           return {
             ok: false,
             error: {
-              code: 429,
-              message: 'BUSY',
+              code: 503,
+              message: 'QUEUE_UNAVAILABLE',
               data: {
                 tool: 'reingest_repository',
-                code: 'BUSY',
+                code: 'QUEUE_UNAVAILABLE',
                 retryable: true,
                 retryMessage: 'retry',
                 reingestableRepositoryIds: [],
@@ -1046,9 +1047,9 @@ test('target plan_scope fails fast until the surface passes an explicit working 
                 fieldErrors: [
                   {
                     field: 'sourceId',
-                    reason: 'busy',
+                    reason: 'invalid_state',
                     message:
-                      'reingest is currently locked by another ingest operation',
+                      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
                   },
                 ],
               },
@@ -1289,11 +1290,11 @@ test('direct command target plan_scope publishes success with warnings, continue
           return {
             ok: false,
             error: {
-              code: 429,
-              message: 'BUSY',
+              code: 503,
+              message: 'QUEUE_UNAVAILABLE',
               data: {
                 tool: 'reingest_repository',
-                code: 'BUSY',
+                code: 'QUEUE_UNAVAILABLE',
                 retryable: true,
                 retryMessage: 'retry later',
                 reingestableRepositoryIds: ['Repo A'],
@@ -1301,8 +1302,9 @@ test('direct command target plan_scope publishes success with warnings, continue
                 fieldErrors: [
                   {
                     field: 'sourceId',
-                    reason: 'busy',
-                    message: 'Repository is already being re-ingested',
+                    reason: 'invalid_state',
+                    message:
+                      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
                   },
                 ],
               },
@@ -1492,11 +1494,11 @@ test('target working fails before strict BUSY handling until the surface passes 
         return {
           ok: false,
           error: {
-            code: 429,
-            message: 'BUSY',
+            code: 503,
+            message: 'QUEUE_UNAVAILABLE',
             data: {
               tool: 'reingest_repository',
-              code: 'BUSY',
+              code: 'QUEUE_UNAVAILABLE',
               retryable: true,
               retryMessage: 'retry',
               reingestableRepositoryIds: ['Owner Repo'],
@@ -1504,9 +1506,9 @@ test('target working fails before strict BUSY handling until the surface passes 
               fieldErrors: [
                 {
                   field: 'sourceId',
-                  reason: 'busy',
+                  reason: 'invalid_state',
                   message:
-                    'reingest is currently locked by another ingest operation',
+                    'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
                 },
               ],
             },

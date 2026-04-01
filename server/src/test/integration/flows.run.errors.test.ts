@@ -183,11 +183,11 @@ const buildReingestError = (params: {
   }
 
   return {
-    code: 429,
-    message: 'BUSY',
+    code: 503,
+    message: 'QUEUE_UNAVAILABLE',
     data: {
       tool: 'reingest_repository',
-      code: 'BUSY',
+      code: 'QUEUE_UNAVAILABLE',
       retryable: true,
       retryMessage: 'retry',
       reingestableRepositoryIds: [],
@@ -195,7 +195,7 @@ const buildReingestError = (params: {
       fieldErrors: [
         {
           field: 'sourceId',
-          reason: 'busy',
+          reason: 'invalid_state',
           message: params.fieldMessage,
         },
       ],

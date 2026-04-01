@@ -2252,11 +2252,11 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
             return {
               ok: false,
               error: {
-                code: 429,
-                message: 'BUSY',
+                code: 503,
+                message: 'QUEUE_UNAVAILABLE',
                 data: {
                   tool: 'reingest_repository',
-                  code: 'BUSY',
+                  code: 'QUEUE_UNAVAILABLE',
                   retryable: true,
                   retryMessage: 'retry later',
                   reingestableRepositoryIds: ['Repo A'],
@@ -2264,8 +2264,9 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
                   fieldErrors: [
                     {
                       field: 'sourceId',
-                      reason: 'busy',
-                      message: 'Repository is already being re-ingested',
+                      reason: 'invalid_state',
+                      message:
+                        'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
                     },
                   ],
                 },

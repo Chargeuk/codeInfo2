@@ -22,6 +22,7 @@ import {
   clearVectorsCollection,
 } from '../../ingest/chromaClient.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
+import type { EnqueueIngestRequestInput } from '../../ingest/requestQueue.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import {
@@ -67,14 +68,32 @@ Before(async () => {
     createIngestStartRouter({
       clientFactory: () =>
         new MockLMStudioClient() as unknown as LMStudioClient,
-      startIngest: async (input) => {
+      enqueueOrReuseIngestRequest: async (input: EnqueueIngestRequestInput) => {
         lastStartInput = {
-          embeddingProvider: input.embeddingProvider,
-          embeddingModel: input.embeddingModel,
-          model: input.model,
+          embeddingProvider: input.requestPayload
+            .embeddingProvider as 'lmstudio' | 'openai' | undefined,
+          embeddingModel: input.requestPayload.embeddingModel as
+            | string
+            | undefined,
+          model: String(input.requestPayload.model),
         };
-        return '00000000-0000-0000-0000-000000000001';
+        return {
+          requestId: 'queue-request-123',
+          canonicalTargetPath: input.canonicalTargetPath,
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as never,
+        };
       },
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-123',
+        runId: '00000000-0000-0000-0000-000000000001',
+      }),
     }),
   );
 

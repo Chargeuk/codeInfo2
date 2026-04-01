@@ -458,6 +458,8 @@ This task makes the durable queue actually run inside the existing server proces
   - `dfe8f0c8` - `DEV-[55] - Rerun task 3 proof wrappers`
   - `0e91ba7a` - `DEV-[55] - reopen task 3 after manual proof`
   - `774ee321` - `DEV-[55] - Remap queued reembed roots`
+  - `8bdba93f` - `DEV-[55] - Record reopened task 3 audit`
+  - `0366f477` - `DEV-[55] - Record task 3 automated proof rerun`
 
 #### Overview
 
@@ -591,6 +593,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 - Testing step 5 passed on 2026-04-01: `pathMap.test.ts` finished with `tests run: 12`, `passed: 12`, `failed: 0`, and `agent_action: skip_log`, and the exact reopened seam `reingestService.test.ts` reran cleanly with `tests run: 22`, `passed: 22`, `failed: 0`, and `agent_action: skip_log` under the current workdir-mapping coverage.
 - Manual Testing step 6 remains intentionally unchecked in this automated-proof pass because this step must not perform browser, Playwright, or other live runtime validation.
 - Implementation-only audit on 2026-04-01: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 3 plan section from disk after the live re-embed path fix, confirmed the reopened implementation work is already represented by completed subtasks 32 and 33 plus commits `0e91ba7a` and `774ee321`, and confirmed there is still no active `**BLOCKER**` note on Task 3. No additional subtasks were newly marked complete in this audit, no Testing items were newly checked here, and Task 3 remains `__in_progress__` until the refreshed Task 3 automated-proof steps are rerun honestly.
+- Implementation-plus-automated-proof audit on 2026-04-01: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 3 plan section from disk, confirmed the reopened implementation seam and refreshed automated-proof notes still match the current branch `HEAD`, confirmed Testing steps 1 through 5 are now honestly complete, and confirmed there is still no active `**BLOCKER**` note on Task 3. Task 3 remains `__in_progress__` because Manual Testing step 6 is still intentionally incomplete and later live runtime validation is still required before this task can close honestly.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

@@ -452,6 +452,7 @@ This task makes the durable queue actually run inside the existing server proces
 - Task Dependencies: `1, 2`
 - Task Status: `__in_progress__`
 - Git Commits:
+  - `34b3a09b` - `DEV-[55] - Replace queueable transport contracts`
 
 #### Overview
 
@@ -515,6 +516,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 - Reworked `runReingestRepository(...)` to build re-embed queue payloads from the repo list, enqueue first, pump the queue, and wait by durable queue request identity; the shared waiter now uses `ingestJob.ts` run-status events plus a terminal snapshot cache so normal queue delay is event-driven instead of poll-driven.
 - Kept the classic MCP, MCP2, command, and flow adapters on the same structured result path by changing the service contract beneath them rather than inventing transport-specific queue wrappers; the proof updates focused on queue-aware route payloads, retryable `QUEUE_UNAVAILABLE`, queue-delay blocking, and direct timeout-listener cleanup.
 - Ran the Task 3 ESLint subtask clean after letting `--fix` reorder imports, and ran the Task 3 Prettier subtask clean on the touched transport, waiter, classifier, and proof files.
+- Implementation-only audit: re-read this plan from the stored handoff, checked the committed transport and proof files on `HEAD`, confirmed the implementation subtasks remain honestly complete, left every Task 3 `Testing` item unchecked because this audit did not treat wrapper proof as completed, and kept Task 3 `__in_progress__` pending automated proof.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

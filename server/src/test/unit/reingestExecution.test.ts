@@ -120,7 +120,6 @@ describe('executeReingestRequest', () => {
         runReingestRepository: (args) =>
           runReingestRepository(args, {
             listIngestedRepositories,
-            isBusy: () => false,
             appendLog: noopLog,
           }),
         appendLog: noopLog,

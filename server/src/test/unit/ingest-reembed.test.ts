@@ -26,20 +26,99 @@ import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 
 function buildApp(options?: {
-  reembed?: (
-    root: string,
-  ) => Promise<`${string}-${string}-${string}-${string}-${string}`>;
+  listIngestedRepositories?: () => Promise<{
+    repos: Array<{
+      id: string;
+      description: string | null;
+      containerPath: string;
+      hostPath: string;
+      lastIngestAt: string | null;
+      embeddingProvider: 'lmstudio' | 'openai';
+      embeddingModel: string;
+      embeddingDimensions: number;
+      model: string;
+      modelId: string;
+      lock: {
+        embeddingProvider: 'lmstudio' | 'openai';
+        embeddingModel: string;
+        embeddingDimensions: number;
+        lockedModelId: string;
+        modelId: string;
+      } | null;
+      counts: { files: number; chunks: number; embedded: number };
+      lastError: string | null;
+    }>;
+    lockedModelId: string | null;
+  }>;
+  enqueueOrReuseIngestRequest?: (input: Record<string, unknown>) => Promise<{
+    requestId: string;
+    canonicalTargetPath: string;
+    queueState: 'waiting' | 'running';
+    queuePosition: number | null;
+    runId: string | null;
+  }>;
+  pumpIngestQueue?: () => Promise<{
+    started: boolean;
+    blockedByCleanup: boolean;
+    requestId: string | null;
+    runId: string | null;
+  }>;
 }) {
   const app = express();
   app.use(express.json());
   app.use(
     createIngestReembedRouter({
       clientFactory: () => ({}) as never,
-      isBusy: () => false,
-      reembed: async (root) =>
-        options?.reembed
-          ? options.reembed(root)
-          : ('00000000-0000-0000-0000-000000000001' as const),
+      listIngestedRepositories: async () =>
+        options?.listIngestedRepositories
+          ? options.listIngestedRepositories()
+          : {
+              repos: [
+                {
+                  id: 'repo',
+                  description: null,
+                  containerPath: '/tmp/repo',
+                  hostPath: '/host/tmp/repo',
+                  lastIngestAt: '2025-01-01T00:00:00.000Z',
+                  embeddingProvider: 'lmstudio',
+                  embeddingModel: 'embed-model',
+                  embeddingDimensions: 768,
+                  model: 'embed-model',
+                  modelId: 'embed-model',
+                  lock: {
+                    embeddingProvider: 'lmstudio',
+                    embeddingModel: 'embed-model',
+                    embeddingDimensions: 768,
+                    lockedModelId: 'embed-model',
+                    modelId: 'embed-model',
+                  },
+                  counts: { files: 1, chunks: 1, embedded: 1 },
+                  lastError: null,
+                },
+              ],
+              lockedModelId: 'embed-model',
+            },
+      enqueueOrReuseIngestRequest: async (input) =>
+        options?.enqueueOrReuseIngestRequest
+          ? options.enqueueOrReuseIngestRequest(input)
+          : {
+              requestId: 'queue-request-123',
+              canonicalTargetPath: String(
+                input.canonicalTargetPath ?? '/tmp/repo',
+              ),
+              queueState: 'waiting',
+              queuePosition: 1,
+              runId: null,
+            },
+      pumpIngestQueue: async () =>
+        options?.pumpIngestQueue
+          ? options.pumpIngestQueue()
+          : {
+              started: true,
+              blockedByCleanup: false,
+              requestId: 'queue-request-123',
+              runId: '00000000-0000-0000-0000-000000000001',
+            },
     }),
   );
   return app;
@@ -187,31 +266,47 @@ const buildIngestDeps = (options?: { modelError?: Error }) => {
   };
 };
 
-test('ingest-reembed catch-path logs retryable failures as warn', async () => {
+test('ingest-reembed immediate queue-aware contract emits requestId and runId with QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID', async () => {
+  const response = await request(buildApp()).post(
+    '/ingest/reembed/%2Ftmp%2Frepo',
+  );
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: false,
+    requestId: 'queue-request-123',
+    runId: '00000000-0000-0000-0000-000000000001',
+  });
+
+  const entries = query({ text: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID' }, 20);
+  const acceptanceEntry = entries.find(
+    (entry) =>
+      entry.context?.endpoint === '/ingest/reembed/:root' &&
+      entry.context?.queueRequestId === 'queue-request-123' &&
+      entry.context?.runId === '00000000-0000-0000-0000-000000000001',
+  );
+  assert.ok(acceptanceEntry, 'expected queue acceptance proof marker');
+});
+
+test('ingest-reembed waiting queue-aware contract returns queued state without runId', async () => {
   const response = await request(
     buildApp({
-      reembed: async () => {
-        const error = new Error('temporarily busy');
-        (error as { code?: string }).code = 'BUSY';
-        throw error;
-      },
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: 'some-other-run',
+      }),
     }),
   ).post('/ingest/reembed/%2Ftmp%2Frepo');
 
-  assert.equal(response.status, 429);
-  assert.equal(response.body.code, 'BUSY');
-
-  const entries = query(
-    { text: 'DEV-0000036:T17:ingest_provider_failure' },
-    20,
-  );
-  const warnEntry = entries.find(
-    (entry) =>
-      entry.level === 'warn' &&
-      entry.context?.surface === 'ingest/reembed' &&
-      entry.context?.code === 'BUSY',
-  );
-  assert.ok(warnEntry, 'expected retryable reembed warn log');
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-123',
+    queuePosition: 1,
+  });
+  assert.equal('runId' in response.body, false);
 });
 
 test('ingest-reembed queue-target normalization resolves encoded route aliases to one canonical target', () => {
@@ -222,34 +317,43 @@ test('ingest-reembed queue-target normalization resolves encoded route aliases t
   assert.equal(normalizeCanonicalQueueTargetPath('/tmp/repo'), '/tmp/repo');
 });
 
-test('ingest-reembed catch-path logs non-retryable failures as error', async () => {
+test('ingest-reembed queue outage mapping returns retryable 503 QUEUE_UNAVAILABLE', async () => {
   const response = await request(
     buildApp({
-      reembed: async () => {
-        const error = new Error('model locked');
-        (error as { code?: string }).code = 'MODEL_LOCKED';
+      enqueueOrReuseIngestRequest: async () => {
+        const error = new Error(
+          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+        );
+        (
+          error as { code?: string; retryable?: boolean; status?: number }
+        ).code = 'QUEUE_UNAVAILABLE';
+        (error as { retryable?: boolean }).retryable = true;
+        (error as { status?: number }).status = 503;
         throw error;
       },
     }),
   ).post('/ingest/reembed/%2Ftmp%2Frepo');
 
-  assert.equal(response.status, 409);
-  assert.equal(response.body.code, 'MODEL_LOCKED');
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    status: 'error',
+    code: 'QUEUE_UNAVAILABLE',
+    retryable: true,
+    message:
+      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+  });
 
   const entries = query(
     { text: 'DEV-0000036:T17:ingest_provider_failure' },
     20,
   );
-  const errorEntry = entries.find(
+  const warnEntry = entries.find(
     (entry) =>
-      entry.level === 'error' &&
+      entry.level === 'warn' &&
       entry.context?.surface === 'ingest/reembed' &&
-      entry.context?.code === 'MODEL_LOCKED',
+      entry.context?.code === 'QUEUE_UNAVAILABLE',
   );
-  assert.ok(errorEntry, 'expected non-retryable reembed error log');
-  assert.equal(errorEntry?.context?.retryable, false);
-  assert.equal(errorEntry?.context?.root, '/tmp/repo');
-  assert.equal(errorEntry?.context?.runId, undefined);
+  assert.ok(warnEntry, 'expected retryable reembed queue outage warn log');
 });
 
 test('blank-only delta reembed keeps completed no-op semantics', async () => {

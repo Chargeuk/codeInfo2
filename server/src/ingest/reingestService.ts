@@ -1,21 +1,21 @@
 import path from 'path';
-import type { LMStudioClient } from '@lmstudio/sdk';
-import { getClient } from '../lmstudio/clientPool.js';
 import {
   listIngestedRepositories,
   type ListReposResult,
+  type RepoEntry,
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
-import { toWebSocketUrl } from '../routes/lmstudioUrl.js';
 import {
-  getStatus,
-  isBusy,
-  reembed,
-  type WaitForTerminalIngestStatusOptions,
-  type WaitForTerminalIngestStatusResult,
-  waitForTerminalIngestStatus,
+  pumpIngestQueue,
+  type WaitForQueueRequestTerminalStatusOptions,
+  type WaitForQueueRequestTerminalStatusResult,
+  waitForQueueRequestTerminalStatus,
 } from './ingestJob.js';
 import { normalizeCanonicalQueueTargetPath } from './requestContracts.js';
+import {
+  enqueueOrReuseIngestRequest,
+  type EnqueueIngestRequestResult,
+} from './requestQueue.js';
 
 const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
@@ -67,6 +67,14 @@ type BusyData = ReingestRetryLists & {
   fieldErrors: ValidationFieldError[];
 };
 
+type QueueUnavailableData = ReingestRetryLists & {
+  tool: typeof TOOL_NAME;
+  code: 'QUEUE_UNAVAILABLE';
+  retryable: true;
+  retryMessage: string;
+  fieldErrors: ValidationFieldError[];
+};
+
 export type ReingestError =
   | {
       code: -32602;
@@ -82,6 +90,11 @@ export type ReingestError =
       code: 429;
       message: 'BUSY';
       data: BusyData;
+    }
+  | {
+      code: 503;
+      message: 'QUEUE_UNAVAILABLE';
+      data: QueueUnavailableData;
     };
 
 type ReingestTerminalStatus = 'completed' | 'cancelled' | 'error';
@@ -106,22 +119,16 @@ export type ReingestResult =
 
 export type ReingestServiceDeps = {
   listIngestedRepositories?: () => Promise<ListReposResult>;
-  isBusy?: () => boolean;
-  reembed?: (
-    rootPath: string,
-    deps: {
-      lmClientFactory: (baseUrl: string) => LMStudioClient;
-      baseUrl: string;
-    },
-  ) => Promise<string>;
-  lmClientFactory?: (baseUrl: string) => LMStudioClient;
-  lmBaseUrl?: string;
+  enqueueOrReuseIngestRequest?: (
+    input: Parameters<typeof enqueueOrReuseIngestRequest>[0],
+  ) => Promise<EnqueueIngestRequestResult>;
   appendLog?: (entry: Parameters<typeof append>[0]) => unknown;
-  waitForTerminalIngestStatus?: (
-    runId: string,
-    options: WaitForTerminalIngestStatusOptions,
-  ) => Promise<WaitForTerminalIngestStatusResult>;
-  waitOptions?: Partial<WaitForTerminalIngestStatusOptions>;
+  pumpIngestQueue?: typeof pumpIngestQueue;
+  waitForQueueRequestTerminalStatus?: (
+    requestId: string,
+    options: WaitForQueueRequestTerminalStatusOptions,
+  ) => Promise<WaitForQueueRequestTerminalStatusResult>;
+  waitOptions?: Partial<WaitForQueueRequestTerminalStatusOptions>;
 };
 
 function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
@@ -206,6 +213,30 @@ function busyError(retryLists: ReingestRetryLists): ReingestError {
           field: 'sourceId',
           reason: 'busy',
           message: 'reingest is currently locked by another ingest operation',
+        },
+      ],
+      ...retryLists,
+    },
+  };
+}
+
+function queueUnavailableError(
+  retryLists: ReingestRetryLists,
+  message: string,
+): ReingestError {
+  return {
+    code: 503,
+    message: 'QUEUE_UNAVAILABLE',
+    data: {
+      tool: TOOL_NAME,
+      code: 'QUEUE_UNAVAILABLE',
+      retryable: true,
+      retryMessage: RETRY_MESSAGE,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message,
         },
       ],
       ...retryLists,
@@ -388,22 +419,41 @@ function logNormalizedResult(
   });
 }
 
+export function buildQueuedReingestRequest(
+  repo: RepoEntry,
+): Parameters<typeof enqueueOrReuseIngestRequest>[0] {
+  const provider = repo.lock?.embeddingProvider ?? repo.embeddingProvider;
+  const embeddingModel = repo.lock?.embeddingModel ?? repo.embeddingModel;
+  const model =
+    provider === 'openai' ? `${provider}/${embeddingModel}` : embeddingModel;
+
+  return {
+    canonicalTargetPath: normalizeCanonicalQueueTargetPath(repo.containerPath),
+    operation: 'reembed',
+    sourceSurface: 'reingest_repository',
+    requestPayload: {
+      path: normalizeCanonicalQueueTargetPath(repo.containerPath),
+      name: repo.id ?? (path.posix.basename(repo.containerPath) || 'repo'),
+      ...(repo.description ? { description: repo.description } : {}),
+      model,
+      embeddingProvider: provider,
+      embeddingModel,
+    },
+  };
+}
+
 export async function runReingestRepository(
   args: unknown,
   deps: ReingestServiceDeps = {},
 ): Promise<ReingestResult> {
   const WAIT_TIMEOUT_MS = deps.waitOptions?.timeoutMs ?? 90_000;
-  const WAIT_POLL_MS = deps.waitOptions?.pollMs ?? 100;
   const listRepos = deps.listIngestedRepositories ?? listIngestedRepositories;
-  const checkBusy = deps.isBusy ?? isBusy;
-  const runReembed = deps.reembed ?? reembed;
-  const lmClientFactory = deps.lmClientFactory ?? getClient;
-  const lmBaseUrl = toWebSocketUrl(
-    deps.lmBaseUrl ?? process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
-  );
   const appendLog = deps.appendLog ?? append;
-  const waitForTerminal =
-    deps.waitForTerminalIngestStatus ?? waitForTerminalIngestStatus;
+  const enqueueRequest =
+    deps.enqueueOrReuseIngestRequest ?? enqueueOrReuseIngestRequest;
+  const pumpQueue = deps.pumpIngestQueue ?? pumpIngestQueue;
+  const waitForQueueTerminal =
+    deps.waitForQueueRequestTerminalStatus ?? waitForQueueRequestTerminalStatus;
 
   const sourceId = isRecord(args) ? args.sourceId : undefined;
   logValidationEvaluated(appendLog, sourceId);
@@ -448,34 +498,39 @@ export async function runReingestRepository(
       normalizeCanonicalQueueTargetPath(repo.containerPath) ===
       normalizedSourceId,
   );
+  if (!selectedRepo) {
+    const err = notFoundError(retryLists);
+    logValidationResult(appendLog, { kind: 'error', error: err });
+    return { ok: false, error: err };
+  }
 
   try {
     const requestStartedAt = Date.now();
-    const runId = await runReembed(normalizedSourceId, {
-      lmClientFactory,
-      baseUrl: lmBaseUrl,
-    });
+    const queueRequest = await enqueueRequest(
+      buildQueuedReingestRequest(selectedRepo),
+    );
+    const pumpResult = await pumpQueue();
+    const queueRunId =
+      queueRequest.runId ??
+      (pumpResult.requestId === queueRequest.requestId
+        ? pumpResult.runId
+        : null);
+
     appendLog({
       level: 'info',
       source: 'server',
       timestamp: new Date().toISOString(),
-      message: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=${normalizedSourceId} runId=${runId}`,
+      message: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=${normalizedSourceId} requestId=${queueRequest.requestId} runId=${queueRunId ?? 'pending'}`,
       context: {
         sourceId: normalizedSourceId,
-        runId,
+        requestId: queueRequest.requestId,
+        runId: queueRunId,
       },
     });
 
-    const initialStatus = getStatus(runId);
-    const shouldCallWait = Boolean(deps.waitForTerminalIngestStatus)
-      ? true
-      : Boolean(initialStatus);
-    const waitResult = shouldCallWait
-      ? await waitForTerminal(runId, {
-          timeoutMs: WAIT_TIMEOUT_MS,
-          pollMs: WAIT_POLL_MS,
-        })
-      : { reason: 'missing' as const, status: null, lastKnown: null };
+    const waitResult = await waitForQueueTerminal(queueRequest.requestId, {
+      timeoutMs: WAIT_TIMEOUT_MS,
+    });
 
     const lastKnownCounts = waitResult.lastKnown?.counts ?? {
       files: 0,
@@ -489,9 +544,6 @@ export async function runReingestRepository(
     if (waitResult.reason === 'timeout') {
       terminalStatus = 'error';
       errorCode = 'WAIT_TIMEOUT';
-    } else if (waitResult.reason === 'missing') {
-      terminalStatus = 'error';
-      errorCode = 'RUN_STATUS_MISSING';
     } else if (waitResult.status?.state === 'cancelled') {
       terminalStatus = 'cancelled';
     } else if (waitResult.status?.state === 'completed') {
@@ -500,6 +552,9 @@ export async function runReingestRepository(
     } else if (waitResult.status?.state === 'skipped') {
       terminalStatus = 'completed';
       completionMode = 'skipped';
+    } else if (waitResult.status?.state === 'cleanup-blocked') {
+      terminalStatus = 'error';
+      errorCode = 'QUEUE_CLEANUP_BLOCKED';
     } else if (waitResult.status?.state === 'error') {
       terminalStatus = 'error';
       errorCode = waitResult.status.error?.error ?? 'INGEST_ERROR';
@@ -511,7 +566,7 @@ export async function runReingestRepository(
     const success: ReingestSuccess = {
       status: terminalStatus,
       operation: 'reembed',
-      runId,
+      runId: waitResult.runId ?? queueRunId ?? 'unknown-run',
       sourceId: normalizedSourceId,
       resolvedRepositoryId: selectedRepo?.id ?? null,
       completionMode,
@@ -525,9 +580,10 @@ export async function runReingestRepository(
       level: 'info',
       source: 'server',
       timestamp: new Date().toISOString(),
-      message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=${success.status} runId=${success.runId} errorCode=${success.errorCode ?? 'null'}`,
+      message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=${success.status} requestId=${queueRequest.requestId} runId=${success.runId} errorCode=${success.errorCode ?? 'null'}`,
       context: {
         status: success.status,
+        requestId: queueRequest.requestId,
         runId: success.runId,
         errorCode: success.errorCode,
       },
@@ -561,6 +617,15 @@ export async function runReingestRepository(
       const err = invalidStateError(
         'sourceId points to a repository that cannot be re-embedded in its current state',
         retryLists,
+      );
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
+    }
+
+    if (code === 'QUEUE_UNAVAILABLE') {
+      const err = queueUnavailableError(
+        retryLists,
+        'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
       );
       logValidationResult(appendLog, { kind: 'error', error: err });
       return { ok: false, error: err };

@@ -113,7 +113,7 @@ const buildReingestSuccess = (
 });
 
 const buildReingestError = (params: {
-  message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY';
+  message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY' | 'QUEUE_UNAVAILABLE';
   fieldMessage: string;
 }): ReingestError => {
   if (params.message === 'INVALID_PARAMS') {
@@ -153,6 +153,28 @@ const buildReingestError = (params: {
           {
             field: 'sourceId',
             reason: 'unknown_root',
+            message: params.fieldMessage,
+          },
+        ],
+      },
+    };
+  }
+
+  if (params.message === 'QUEUE_UNAVAILABLE') {
+    return {
+      code: 503,
+      message: 'QUEUE_UNAVAILABLE',
+      data: {
+        tool: 'reingest_repository',
+        code: 'QUEUE_UNAVAILABLE',
+        retryable: true,
+        retryMessage: 'retry',
+        reingestableRepositoryIds: [],
+        reingestableSourceIds: [],
+        fieldErrors: [
+          {
+            field: 'sourceId',
+            reason: 'invalid_state',
             message: params.fieldMessage,
           },
         ],
@@ -923,7 +945,7 @@ test('selected working repository must already be ingested for dedicated flow ta
   });
 });
 
-test('busy reingest refusal stops the dedicated flow clearly', async () => {
+test('queue-unavailable reingest refusal stops the dedicated flow clearly', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,
@@ -934,9 +956,9 @@ test('busy reingest refusal stops the dedicated flow clearly', async () => {
       runReingestRepository: async () => ({
         ok: false,
         error: buildReingestError({
-          message: 'BUSY',
+          message: 'QUEUE_UNAVAILABLE',
           fieldMessage:
-            'reingest is currently locked by another ingest operation',
+            'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
         }),
       }),
     });

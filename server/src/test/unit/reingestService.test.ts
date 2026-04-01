@@ -1,13 +1,21 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { afterEach, mock } from 'node:test';
 
+import { __getIngestEventListenerCountForTest } from '../../ingest/ingestJob.js';
 import {
   runReingestRepository,
   type ReingestSuccess,
 } from '../../ingest/reingestService.js';
+import * as requestQueue from '../../ingest/requestQueue.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 
 const noopLog = () => undefined;
+
+afterEach(() => {
+  mock.restoreAll();
+  mock.reset();
+  delete process.env.NODE_ENV;
+});
 
 const buildRepoEntry = (params: {
   id?: string;
@@ -59,8 +67,19 @@ const buildDeps = () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
     lockedModelId: 'model',
   }),
-  isBusy: () => false,
-  reembed: async () => 'ingest-123',
+  enqueueOrReuseIngestRequest: async () => ({
+    requestId: 'queue-request-123',
+    canonicalTargetPath: '/data/repo-a',
+    queueState: 'waiting' as const,
+    queuePosition: 1,
+    runId: null,
+  }),
+  pumpIngestQueue: async () => ({
+    started: true,
+    blockedByCleanup: false,
+    requestId: 'queue-request-123',
+    runId: 'ingest-123',
+  }),
   appendLog: noopLog,
 });
 
@@ -69,8 +88,10 @@ test('blocking success returns completed terminal payload with required fields',
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('completed'),
         lastKnown: buildTerminal('completed'),
       }),
@@ -99,8 +120,10 @@ test('internal skipped maps to completed with skipped completionMode', async () 
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('skipped'),
         lastKnown: buildTerminal('skipped'),
       }),
@@ -120,8 +143,10 @@ test('cancelled returns last-known counters, null completionMode, and errorCode 
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('cancelled', counts),
         lastKnown: buildTerminal('cancelled', counts),
       }),
@@ -143,8 +168,10 @@ test('terminal error contract includes null completionMode, non-null errorCode, 
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('error'),
         lastKnown: buildTerminal('error'),
       }),
@@ -169,8 +196,10 @@ test('timeout during wait returns deterministic terminal error payload', async (
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'timeout',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: null,
         lastKnown: buildTerminal('cancelled', {
           files: 2,
@@ -193,8 +222,10 @@ test('missing run status after start returns deterministic terminal error payloa
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
-        reason: 'missing',
+      waitForQueueRequestTerminalStatus: async () => ({
+        reason: 'timeout',
+        requestId: 'queue-request-123',
+        runId: null,
         status: null,
         lastKnown: null,
       }),
@@ -205,7 +236,7 @@ test('missing run status after start returns deterministic terminal error payloa
   if (!result.ok) return;
   assert.equal(result.value.status, 'error');
   assert.equal(result.value.completionMode, null);
-  assert.equal(result.value.errorCode, 'RUN_STATUS_MISSING');
+  assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
 test('missing validation failure preserves the strict INVALID_PARAMS contract', async () => {
@@ -218,8 +249,6 @@ test('missing validation failure preserves the strict INVALID_PARAMS contract', 
     {},
     {
       listIngestedRepositories,
-      isBusy: () => false,
-      reembed: async () => 'unused',
       appendLog: noopLog,
     },
   );
@@ -246,8 +275,6 @@ test('non-absolute validation failure preserves the strict INVALID_PARAMS contra
         repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
         lockedModelId: 'model',
       }),
-      isBusy: () => false,
-      reembed: async () => 'unused',
       appendLog: noopLog,
     },
   );
@@ -274,8 +301,6 @@ test('ambiguous_path validation failure preserves the strict INVALID_PARAMS cont
         repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
         lockedModelId: 'model',
       }),
-      isBusy: () => false,
-      reembed: async () => 'unused',
       appendLog: noopLog,
     },
   );
@@ -299,8 +324,10 @@ test('unsupported wait/blocking args are rejected with INVALID_PARAMS', async ()
     { sourceId: '/data/repo-a', wait: true, blocking: true },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('completed'),
         lastKnown: buildTerminal('completed'),
       }),
@@ -324,8 +351,6 @@ test('unknown root includes AI retry guidance fields', async () => {
         ],
         lockedModelId: 'model',
       }),
-      isBusy: () => false,
-      reembed: async () => 'unused',
       appendLog: noopLog,
     },
   );
@@ -350,8 +375,10 @@ test('known repository id is surfaced as resolvedRepositoryId', async () => {
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('completed'),
         lastKnown: buildTerminal('completed'),
       }),
@@ -379,8 +406,10 @@ test('missing repository id is surfaced as resolvedRepositoryId null', async () 
         ],
         lockedModelId: 'model',
       }),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('completed'),
         lastKnown: buildTerminal('completed'),
       }),
@@ -392,78 +421,97 @@ test('missing repository id is surfaced as resolvedRepositoryId null', async () 
   assert.equal(result.value.resolvedRepositoryId, null);
 });
 
-test('busy maps to canonical BUSY contract from lock and reembed', async () => {
+test('queue delay is treated as normal blocking progress before the terminal run result arrives', async () => {
+  let waitedForRequestId: string | null = null;
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      enqueueOrReuseIngestRequest: async () => ({
+        requestId: 'queue-request-delayed',
+        canonicalTargetPath: '/data/repo-a',
+        queueState: 'waiting',
+        queuePosition: 2,
+        runId: null,
+      }),
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: 'other-request',
+        runId: 'other-run',
+      }),
+      waitForQueueRequestTerminalStatus: async (requestId) => {
+        waitedForRequestId = requestId;
+        return {
+          reason: 'terminal',
+          requestId,
+          runId: 'ingest-queued',
+          status: buildTerminal('completed'),
+          lastKnown: {
+            ...buildTerminal('completed'),
+            runId: 'ingest-queued',
+          },
+        };
+      },
+    },
+  );
+
+  assert.equal(waitedForRequestId, 'queue-request-delayed');
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.runId, 'ingest-queued');
+  assert.equal(result.value.status, 'completed');
+  assert.equal(result.value.completionMode, 'reingested');
+});
+
+test('queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions', async () => {
+  process.env.NODE_ENV = 'test';
+  mock.method(requestQueue, 'findQueueRequestById', async () => null);
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitOptions: { timeoutMs: 5 },
+    },
+  );
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'error');
+  assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
+});
+
+test('queue unavailable maps to the canonical retryable QUEUE_UNAVAILABLE contract', async () => {
   const listIngestedRepositories = async () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
     lockedModelId: 'model',
   });
 
-  const lockResult = await runReingestRepository(
+  const queueUnavailableResult = await runReingestRepository(
     { sourceId: '/data/repo-a' },
     {
       listIngestedRepositories,
-      isBusy: () => true,
-      reembed: async () => 'unused',
-      appendLog: noopLog,
-    },
-  );
-
-  assert.equal(lockResult.ok, false);
-  if (!lockResult.ok) {
-    assert.equal(lockResult.error.code, 429);
-    assert.equal(lockResult.error.message, 'BUSY');
-    assert.equal(lockResult.error.data.code, 'BUSY');
-    assert.equal(lockResult.error.data.fieldErrors[0]?.reason, 'busy');
-  }
-
-  const reembedBusyResult = await runReingestRepository(
-    { sourceId: '/data/repo-a' },
-    {
-      listIngestedRepositories,
-      isBusy: () => false,
-      reembed: async () => {
-        const error = new Error('BUSY');
-        (error as { code?: string }).code = 'BUSY';
+      enqueueOrReuseIngestRequest: async () => {
+        const error = new Error(
+          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+        );
+        (error as { code?: string }).code = 'QUEUE_UNAVAILABLE';
         throw error;
       },
       appendLog: noopLog,
     },
   );
 
-  assert.equal(reembedBusyResult.ok, false);
-  if (!reembedBusyResult.ok) {
-    assert.equal(reembedBusyResult.error.code, 429);
-    assert.equal(reembedBusyResult.error.message, 'BUSY');
-    assert.equal(reembedBusyResult.error.data.code, 'BUSY');
+  assert.equal(queueUnavailableResult.ok, false);
+  if (!queueUnavailableResult.ok) {
+    assert.equal(queueUnavailableResult.error.code, 503);
+    assert.equal(queueUnavailableResult.error.message, 'QUEUE_UNAVAILABLE');
+    assert.equal(queueUnavailableResult.error.data.code, 'QUEUE_UNAVAILABLE');
+    assert.equal(queueUnavailableResult.error.data.retryable, true);
   }
-});
-
-test('busy validation failure preserves the strict BUSY contract', async () => {
-  const result = await runReingestRepository(
-    { sourceId: '/data/repo-a' },
-    {
-      listIngestedRepositories: async () => ({
-        repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
-        lockedModelId: 'model',
-      }),
-      isBusy: () => true,
-      reembed: async () => 'unused',
-      appendLog: noopLog,
-    },
-  );
-
-  assert.equal(result.ok, false);
-  if (result.ok) return;
-  assert.equal(result.error.code, 429);
-  assert.equal(result.error.message, 'BUSY');
-  assert.equal(result.error.data.code, 'BUSY');
-  assert.equal(result.error.data.retryable, true);
-  assert.equal(result.error.data.retryMessage.includes('retry'), true);
-  assert.equal(result.error.data.fieldErrors[0]?.reason, 'busy');
-  assert.equal(
-    result.error.data.fieldErrors[0]?.message,
-    'reingest is currently locked by another ingest operation',
-  );
 });
 
 test('pre-run invalid states remain protocol-level INVALID_PARAMS errors', async () => {
@@ -477,7 +525,7 @@ test('pre-run invalid states remain protocol-level INVALID_PARAMS errors', async
       { sourceId: '/data/repo-a' },
       {
         ...buildDeps(),
-        reembed: async () => {
+        enqueueOrReuseIngestRequest: async () => {
           const error = new Error(String(code));
           (error as { code?: string }).code = String(code);
           throw error;
@@ -499,8 +547,6 @@ test('unknown_root validation failure preserves the strict NOT_FOUND contract', 
         repos: [buildRepoEntry({ containerPath: '/data/repo-a' })],
         lockedModelId: 'model',
       }),
-      isBusy: () => false,
-      reembed: async () => 'unused',
       appendLog: noopLog,
     },
   );
@@ -547,8 +593,10 @@ test('success result contract omits top-level message field', async () => {
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('completed'),
         lastKnown: buildTerminal('completed'),
       }),
@@ -566,8 +614,10 @@ test('no-change terminal completed payload remains external completed with zero 
     { sourceId: '/data/repo-a' },
     {
       ...buildDeps(),
-      waitForTerminalIngestStatus: async () => ({
+      waitForQueueRequestTerminalStatus: async () => ({
         reason: 'terminal',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
         status: buildTerminal('completed', {
           files: 0,
           chunks: 0,

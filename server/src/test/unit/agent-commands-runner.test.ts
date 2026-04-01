@@ -81,8 +81,8 @@ const buildReingestSuccess = (
 });
 
 const buildReingestError = (params: {
-  message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY';
-  code: 'INVALID_SOURCE_ID' | 'NOT_FOUND' | 'BUSY';
+  message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY' | 'QUEUE_UNAVAILABLE';
+  code: 'INVALID_SOURCE_ID' | 'NOT_FOUND' | 'BUSY' | 'QUEUE_UNAVAILABLE';
   fieldMessage: string;
 }): ReingestError => {
   if (params.message === 'INVALID_PARAMS') {
@@ -122,6 +122,28 @@ const buildReingestError = (params: {
           {
             field: 'sourceId',
             reason: 'unknown_root',
+            message: params.fieldMessage,
+          },
+        ],
+      },
+    };
+  }
+
+  if (params.message === 'QUEUE_UNAVAILABLE') {
+    return {
+      code: 503,
+      message: 'QUEUE_UNAVAILABLE',
+      data: {
+        tool: 'reingest_repository',
+        code: 'QUEUE_UNAVAILABLE',
+        retryable: true,
+        retryMessage: 'retry',
+        reingestableRepositoryIds: [],
+        reingestableSourceIds: [],
+        fieldErrors: [
+          {
+            field: 'sourceId',
+            reason: 'invalid_state',
             message: params.fieldMessage,
           },
         ],
@@ -1623,7 +1645,7 @@ describe('agent commands runner (v1)', () => {
     assert.equal(messageCalls, 0);
   });
 
-  test('busy reingest refusals stop the direct command clearly', async () => {
+  test('queue-unavailable reingest refusals stop the direct command clearly', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
@@ -1645,10 +1667,10 @@ describe('agent commands runner (v1)', () => {
       runReingestRepository: async () => ({
         ok: false,
         error: buildReingestError({
-          message: 'BUSY',
-          code: 'BUSY',
+          message: 'QUEUE_UNAVAILABLE',
+          code: 'QUEUE_UNAVAILABLE',
           fieldMessage:
-            'reingest is currently locked by another ingest operation',
+            'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
         }),
       }),
     });
@@ -1671,7 +1693,7 @@ describe('agent commands runner (v1)', () => {
         (err as { code?: string; reason?: string }).code ===
           'COMMAND_INVALID' &&
         (err as { code?: string; reason?: string }).reason ===
-          'reingest is currently locked by another ingest operation',
+          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
     );
 
     assert.equal(messageCalls, 0);

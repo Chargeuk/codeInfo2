@@ -36,16 +36,19 @@ function buildApp(options?: {
     source: 'canonical' | 'legacy';
   } | null;
   collectionEmpty?: boolean;
-  startIngest?: (input: {
-    path: string;
-    name: string;
-    description?: string;
-    model: string;
-    embeddingProvider?: 'lmstudio' | 'openai';
-    embeddingModel?: string;
-    dryRun?: boolean;
-    operation?: 'start' | 'reembed';
-  }) => Promise<`${string}-${string}-${string}-${string}-${string}`>;
+  enqueueOrReuseIngestRequest?: (input: Record<string, unknown>) => Promise<{
+    requestId: string;
+    canonicalTargetPath: string;
+    queueState: 'waiting' | 'running';
+    queuePosition: number | null;
+    runId: string | null;
+  }>;
+  pumpIngestQueue?: () => Promise<{
+    started: boolean;
+    blockedByCleanup: boolean;
+    requestId: string | null;
+    runId: string | null;
+  }>;
 }) {
   const app = express();
   app.use(express.json());
@@ -54,10 +57,27 @@ function buildApp(options?: {
       clientFactory: () => ({}) as never,
       collectionIsEmpty: async () => options?.collectionEmpty ?? true,
       getLockedEmbeddingModel: async () => options?.locked ?? null,
-      startIngest: async (input) =>
-        options?.startIngest
-          ? options.startIngest(input)
-          : ('00000000-0000-0000-0000-000000000001' as const),
+      enqueueOrReuseIngestRequest: async (input) =>
+        options?.enqueueOrReuseIngestRequest
+          ? options.enqueueOrReuseIngestRequest(input)
+          : {
+              requestId: 'queue-request-123',
+              canonicalTargetPath: String(
+                input.canonicalTargetPath ?? '/tmp/repo',
+              ),
+              queueState: 'waiting',
+              queuePosition: 1,
+              runId: null,
+            },
+      pumpIngestQueue: async () =>
+        options?.pumpIngestQueue
+          ? options.pumpIngestQueue()
+          : {
+              started: true,
+              blockedByCleanup: false,
+              requestId: 'queue-request-123',
+              runId: '00000000-0000-0000-0000-000000000001',
+            },
     }),
   );
   return app;
@@ -190,12 +210,28 @@ test('ingest-start canonical fields are authoritative when legacy model is also 
   let capturedEmbeddingModel: string | undefined;
   const response = await request(
     buildApp({
-      startIngest: async (input) => {
-        capturedModel = input.model;
-        capturedProvider = input.embeddingProvider;
-        capturedEmbeddingModel = input.embeddingModel;
-        return '00000000-0000-0000-0000-000000000123';
+      enqueueOrReuseIngestRequest: async (input) => {
+        const payload = input.requestPayload as Record<string, unknown>;
+        capturedModel = String(payload.model ?? '');
+        capturedProvider = payload.embeddingProvider as
+          | 'lmstudio'
+          | 'openai'
+          | undefined;
+        capturedEmbeddingModel = payload.embeddingModel as string | undefined;
+        return {
+          requestId: 'queue-request-123',
+          canonicalTargetPath: String(input.canonicalTargetPath ?? '/tmp/repo'),
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+        };
       },
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-123',
+        runId: '00000000-0000-0000-0000-000000000123',
+      }),
     }),
   )
     .post('/ingest/start')
@@ -210,6 +246,8 @@ test('ingest-start canonical fields are authoritative when legacy model is also 
 
   assert.equal(response.status, 202);
   assert.equal(response.body.runId, '00000000-0000-0000-0000-000000000123');
+  assert.equal(response.body.requestId, 'queue-request-123');
+  assert.equal(response.body.queued, false);
   assert.equal(capturedModel, 'openai/text-embedding-3-small');
   assert.equal(capturedProvider, 'openai');
   assert.equal(capturedEmbeddingModel, 'text-embedding-3-small');
@@ -236,11 +274,27 @@ test('ingest-start legacy model maps to lmstudio compatibility input', async () 
   let capturedProvider: 'lmstudio' | 'openai' | undefined;
   const response = await request(
     buildApp({
-      startIngest: async (input) => {
-        capturedModel = input.model;
-        capturedProvider = input.embeddingProvider;
-        return '00000000-0000-0000-0000-000000000124';
+      enqueueOrReuseIngestRequest: async (input) => {
+        const payload = input.requestPayload as Record<string, unknown>;
+        capturedModel = String(payload.model ?? '');
+        capturedProvider = payload.embeddingProvider as
+          | 'lmstudio'
+          | 'openai'
+          | undefined;
+        return {
+          requestId: 'queue-request-124',
+          canonicalTargetPath: String(input.canonicalTargetPath ?? '/tmp/repo'),
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+        };
       },
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-124',
+        runId: '00000000-0000-0000-0000-000000000124',
+      }),
     }),
   )
     .post('/ingest/start')
@@ -252,8 +306,54 @@ test('ingest-start legacy model maps to lmstudio compatibility input', async () 
 
   assert.equal(response.status, 202);
   assert.equal(response.body.runId, '00000000-0000-0000-0000-000000000124');
+  assert.equal(response.body.requestId, 'queue-request-124');
+  assert.equal(response.body.queued, false);
   assert.equal(capturedModel, 'nomic-embed');
   assert.equal(capturedProvider, 'lmstudio');
+});
+
+test('ingest-start immediate queue-aware contract returns queued false with requestId and runId', async () => {
+  const response = await request(buildApp()).post('/ingest/start').send({
+    path: '/tmp/repo',
+    name: 'repo',
+    model: 'nomic-embed',
+  });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: false,
+    requestId: 'queue-request-123',
+    runId: '00000000-0000-0000-0000-000000000001',
+  });
+  assert.equal('queuePosition' in response.body, false);
+});
+
+test('ingest-start waiting queue-aware contract returns queued true with requestId and waiting-only queuePosition', async () => {
+  const response = await request(
+    buildApp({
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: 'some-other-run',
+      }),
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-123',
+    queuePosition: 1,
+  });
+  assert.equal('runId' in response.body, false);
+  assert.equal('deduped' in response.body, false);
 });
 
 test('ingest-start rejects non-allowlisted OpenAI model ids deterministically', async () => {
@@ -301,7 +401,7 @@ test('ingest-start conflict payload includes canonical lock and compatibility al
 test('ingest-start sanitizes secret-like values in generic 500 messages', async () => {
   const response = await request(
     buildApp({
-      startIngest: async () => {
+      enqueueOrReuseIngestRequest: async () => {
         throw new Error('Authorization: Bearer sk-secret-token-value');
       },
     }),
@@ -334,12 +434,18 @@ test('ingest-start sanitizes secret-like values in generic 500 messages', async 
   assert.ok(errorEntry, 'expected non-retryable error log for generic 500');
 });
 
-test('ingest-start catch-path logs retryable failures as warn', async () => {
+test('ingest-start maps queue outages to retryable 503 without Retry-After by default', async () => {
   const response = await request(
     buildApp({
-      startIngest: async () => {
-        const error = new Error('temporarily busy');
-        (error as { code?: string }).code = 'BUSY';
+      enqueueOrReuseIngestRequest: async () => {
+        const error = new Error(
+          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+        );
+        (
+          error as { code?: string; retryable?: boolean; status?: number }
+        ).code = 'QUEUE_UNAVAILABLE';
+        (error as { retryable?: boolean }).retryable = true;
+        (error as { status?: number }).status = 503;
         throw error;
       },
     }),
@@ -351,8 +457,15 @@ test('ingest-start catch-path logs retryable failures as warn', async () => {
       model: 'nomic-embed',
     });
 
-  assert.equal(response.status, 429);
-  assert.equal(response.body.code, 'BUSY');
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    status: 'error',
+    code: 'QUEUE_UNAVAILABLE',
+    retryable: true,
+    message:
+      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+  });
+  assert.equal(response.headers['retry-after'], undefined);
 
   const entries = query(
     { text: 'DEV-0000036:T17:ingest_provider_failure' },
@@ -362,9 +475,9 @@ test('ingest-start catch-path logs retryable failures as warn', async () => {
     (entry) =>
       entry.level === 'warn' &&
       entry.context?.surface === 'ingest/start' &&
-      entry.context?.code === 'BUSY',
+      entry.context?.code === 'QUEUE_UNAVAILABLE',
   );
-  assert.ok(warnEntry, 'expected retryable warn log for BUSY');
+  assert.ok(warnEntry, 'expected retryable warn log for queue outage');
 });
 
 test('blank-only fresh ingest now fails with the zero-files NO_ELIGIBLE_FILES contract', async () => {

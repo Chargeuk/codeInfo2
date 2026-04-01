@@ -66,16 +66,23 @@ const parityNotFoundError: Extract<ReingestError, { code: 404 }> = {
   },
 };
 
-const parityBusyError: Extract<ReingestError, { code: 429 }> = {
-  code: 429,
-  message: 'BUSY',
+const parityQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
+  code: 503,
+  message: 'QUEUE_UNAVAILABLE',
   data: {
     tool: 'reingest_repository',
-    code: 'BUSY',
+    code: 'QUEUE_UNAVAILABLE',
     retryable: true,
     retryMessage:
       'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
-    fieldErrors: [{ field: 'sourceId', reason: 'busy', message: 'busy' }],
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+      },
+    ],
     reingestableRepositoryIds: ['repo-a'],
     reingestableSourceIds: ['/data/repo-a'],
   },
@@ -288,11 +295,11 @@ test('MCP v2 leaves unresolved reingest selectors unchanged', async () => {
   });
 });
 
-test('MCP v2 failures use JSON-RPC error envelope for pre-run validation', async () => {
+test('MCP v2 failures use JSON-RPC error envelope for pre-run validation and queue outages', async () => {
   for (const error of [
     parityInvalidParamsError,
     parityNotFoundError,
-    parityBusyError,
+    parityQueueUnavailableError,
   ]) {
     setToolDeps({
       runReingestRepository: async () =>

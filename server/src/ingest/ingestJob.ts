@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
+import { EventEmitter } from 'node:events';
 import path from 'path';
 import { LogEntry } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
@@ -126,6 +127,18 @@ export type WaitForTerminalIngestStatusResult = {
   lastKnown: IngestJobStatus | null;
 };
 
+export type WaitForQueueRequestTerminalStatusOptions = {
+  timeoutMs: number;
+};
+
+export type WaitForQueueRequestTerminalStatusResult = {
+  reason: 'terminal' | 'timeout';
+  requestId: string;
+  runId: string | null;
+  status: IngestJobStatus | null;
+  lastKnown: IngestJobStatus | null;
+};
+
 export type ActiveIngestRunContext = {
   runId: string;
   state: IngestRunState;
@@ -186,6 +199,14 @@ const queueCleanupRetryTimers = new Map<
 >();
 const queueCleanupRetryAttempts = new Map<string, number>();
 const blockedCleanupStatusSnapshots = new Map<string, IngestJobStatus>();
+const queueRequestTerminalStatuses = new Map<
+  string,
+  {
+    runId: string;
+    status: IngestJobStatus;
+  }
+>();
+const ingestEvents = new EventEmitter();
 let beforeTerminalStatusPublishHook: ((runId: string) => Promise<void>) | null =
   null;
 let runProcessor:
@@ -233,10 +254,29 @@ const astSupportedExtensions = new Set([
   'hxx',
   'h',
 ]);
+ingestEvents.setMaxListeners(0);
+
+type RunStatusEvent = {
+  runId: string;
+  requestId: string | null;
+  status: IngestJobStatus;
+};
 
 function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
   jobs.set(runId, nextStatus);
   broadcastIngestUpdate(nextStatus);
+  const requestId = queueRequestIdsByRunId.get(runId) ?? null;
+  if (requestId && terminalStates.has(nextStatus.state)) {
+    queueRequestTerminalStatuses.set(requestId, {
+      runId,
+      status: nextStatus,
+    });
+  }
+  ingestEvents.emit('run-status', {
+    runId,
+    requestId,
+    status: nextStatus,
+  } satisfies RunStatusEvent);
 }
 
 function logLifecycle(
@@ -2161,11 +2201,17 @@ export async function pumpIngestQueue() {
       started: false,
       blockedByCleanup: true,
       requestId: queueRequestIdsByRunId.get(pendingCleanupRunId) ?? null,
+      runId: pendingCleanupRunId ?? null,
     };
   }
 
   if (ingestLock.isHeld()) {
-    return { started: false, blockedByCleanup: false, requestId: null };
+    return {
+      started: false,
+      blockedByCleanup: false,
+      requestId: null,
+      runId: ingestLock.currentOwner(),
+    };
   }
 
   const blocked = await queueRuntimeOps.findOldestCleanupBlockedQueueRequest();
@@ -2181,6 +2227,7 @@ export async function pumpIngestQueue() {
       started: false,
       blockedByCleanup: true,
       requestId: queueRuntimeOps.getQueueRequestId(blocked),
+      runId: blockedRunId,
     };
   }
 
@@ -2190,7 +2237,12 @@ export async function pumpIngestQueue() {
 
   const runId = randomUUID();
   if (!ingestLock.acquire(runId)) {
-    return { started: false, blockedByCleanup: false, requestId: null };
+    return {
+      started: false,
+      blockedByCleanup: false,
+      requestId: null,
+      runId: null,
+    };
   }
 
   try {
@@ -2198,7 +2250,12 @@ export async function pumpIngestQueue() {
       await queueRuntimeOps.promoteOldestWaitingQueueRequest(runId);
     if (!queueRequest) {
       ingestLock.release(runId);
-      return { started: false, blockedByCleanup: false, requestId: null };
+      return {
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: null,
+      };
     }
 
     const requestId = queueRuntimeOps.getQueueRequestId(queueRequest);
@@ -2208,7 +2265,7 @@ export async function pumpIngestQueue() {
       input,
       queueRequestId: requestId,
     });
-    return { started: true, blockedByCleanup: false, requestId };
+    return { started: true, blockedByCleanup: false, requestId, runId };
   } catch (error) {
     ingestLock.release(runId);
     throw error;
@@ -2342,6 +2399,135 @@ export async function waitForTerminalIngestStatus(
   }
 
   return { reason: 'timeout', status: null, lastKnown };
+}
+
+async function resolveQueueRequestRunState(requestId: string): Promise<{
+  runId: string | null;
+  status: IngestJobStatus | null;
+  terminal: {
+    runId: string;
+    status: IngestJobStatus;
+  } | null;
+}> {
+  const terminal = queueRequestTerminalStatuses.get(requestId) ?? null;
+  if (terminal) {
+    return {
+      runId: terminal.runId,
+      status: terminal.status,
+      terminal,
+    };
+  }
+
+  const queueRequest = await requestQueue.findQueueRequestById(requestId);
+  const runId =
+    queueRequest && typeof queueRequest.runId === 'string'
+      ? queueRequest.runId
+      : null;
+  return {
+    runId,
+    status: runId ? getStatus(runId) : null,
+    terminal: null,
+  };
+}
+
+export async function waitForQueueRequestTerminalStatus(
+  requestId: string,
+  options: WaitForQueueRequestTerminalStatusOptions,
+): Promise<WaitForQueueRequestTerminalStatusResult> {
+  const timeoutMs = Math.max(1, options.timeoutMs);
+  let lastKnown: IngestJobStatus | null = null;
+  let activeRunId: string | null = null;
+
+  const immediate = await resolveQueueRequestRunState(requestId);
+  if (immediate.terminal) {
+    return {
+      reason: 'terminal',
+      requestId,
+      runId: immediate.terminal.runId,
+      status: immediate.terminal.status,
+      lastKnown: immediate.terminal.status,
+    };
+  }
+  if (immediate.runId) {
+    activeRunId = immediate.runId;
+  }
+  if (immediate.status) {
+    lastKnown = immediate.status;
+    if (terminalStates.has(immediate.status.state) && activeRunId) {
+      return {
+        reason: 'terminal',
+        requestId,
+        runId: activeRunId,
+        status: immediate.status,
+        lastKnown: immediate.status,
+      };
+    }
+  }
+
+  return await new Promise((resolve) => {
+    let settled = false;
+    let settleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+
+    const cleanup = () => {
+      ingestEvents.off('run-status', onRunStatus);
+      if (settleTimer) {
+        globalThis.clearTimeout(settleTimer);
+        settleTimer = null;
+      }
+    };
+
+    const settle = (result: WaitForQueueRequestTerminalStatusResult) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    const onRunStatus = (event: RunStatusEvent) => {
+      if (event.requestId !== requestId) {
+        return;
+      }
+      activeRunId = event.runId;
+      lastKnown = event.status;
+      if (terminalStates.has(event.status.state)) {
+        settle({
+          reason: 'terminal',
+          requestId,
+          runId: event.runId,
+          status: event.status,
+          lastKnown: event.status,
+        });
+      }
+    };
+
+    ingestEvents.on('run-status', onRunStatus);
+    settleTimer = globalThis.setTimeout(async () => {
+      const terminal = queueRequestTerminalStatuses.get(requestId);
+      if (terminal) {
+        settle({
+          reason: 'terminal',
+          requestId,
+          runId: terminal.runId,
+          status: terminal.status,
+          lastKnown: terminal.status,
+        });
+        return;
+      }
+
+      const latest = await resolveQueueRequestRunState(requestId);
+      const status = latest.terminal?.status ?? latest.status ?? null;
+      settle({
+        reason: latest.terminal ? 'terminal' : 'timeout',
+        requestId,
+        runId: latest.terminal?.runId ?? latest.runId,
+        status: latest.terminal?.status ?? null,
+        lastKnown: status ?? lastKnown,
+      });
+    }, timeoutMs);
+    settleTimer.unref?.();
+  });
 }
 
 export function getActiveStatus(): IngestJobStatus | null {
@@ -2525,6 +2711,7 @@ export function __resetIngestJobsForTest() {
   finalizationBarriers.clear();
   queueCleanupFinalizers.clear();
   blockedCleanupStatusSnapshots.clear();
+  queueRequestTerminalStatuses.clear();
   for (const handle of queueCleanupRetryTimers.values()) {
     globalThis.clearTimeout(handle);
   }
@@ -2535,6 +2722,17 @@ export function __resetIngestJobsForTest() {
   runScheduler = defaultRunScheduler;
   queueCleanupRetryDelayOverrideMs = null;
   queueRuntimeOps = defaultQueueRuntimeOps;
+}
+
+export function __getIngestEventListenerCountForTest(
+  eventName: 'run-status' = 'run-status',
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__getIngestEventListenerCountForTest is only available in test mode',
+    );
+  }
+  return ingestEvents.listenerCount(eventName);
 }
 
 export function __setJobInputForTest(

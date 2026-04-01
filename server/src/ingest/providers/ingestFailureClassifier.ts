@@ -46,7 +46,11 @@ const NON_RETRYABLE_CODES = new Set([
   'LMSTUDIO_BAD_REQUEST',
 ]);
 
-const RETRYABLE_CODES = new Set(['BUSY', 'LMSTUDIO_UNAVAILABLE']);
+const RETRYABLE_CODES = new Set([
+  'BUSY',
+  'LMSTUDIO_UNAVAILABLE',
+  'QUEUE_UNAVAILABLE',
+]);
 
 function sanitizeMessage(value: string): string {
   return value

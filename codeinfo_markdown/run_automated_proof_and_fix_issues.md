@@ -7,7 +7,7 @@ Run the selected task's automated proof, fix issues that arise, and leave the ta
 Read the stored current-plan handoff and use only that scope for this step.
 Re-open the exact plan file from disk before doing any work.
 Identify the current candidate task for automated proof.
-Run only that task's `Testing` section.
+Run only the unchecked items in that task's `Testing` section.
 Fix issues that arise where possible, rerun proof honestly, and keep the plan up to date.
 Do not perform manual testing in this step.
 
@@ -36,16 +36,18 @@ Do not perform manual testing in this step.
 
 - If the candidate task contains a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, do not run automated proof. Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`.
 - If the candidate task still has unchecked subtasks, do not run automated proof.
+- If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.
 - If you skip automated proof for either reason, return a concise explanation and leave the task `__in_progress__`.
 
 </skip_rules>
 
 <proof_rules>
 
-- Run only the candidate task's `Testing` section in this step.
+- Run only the unchecked items in the candidate task's `Testing` section in this step.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
+- Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.
-- Mark each testing step complete immediately after it honestly passes.
+- Mark each unchecked testing step complete immediately after it honestly passes.
 - If a testing step fails, diagnose the exact failure, fix it if it is within the task's scope, and rerun the affected proof honestly.
 - Keep implementation notes concise as you work so later steps can see what changed and why.
 

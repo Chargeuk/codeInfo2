@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, mock } from 'node:test';
 
-import { __getIngestEventListenerCountForTest } from '../../ingest/ingestJob.js';
+import {
+  __getIngestEventListenerCountForTest,
+  __setQueueRuntimeOpsForTest,
+} from '../../ingest/ingestJob.js';
 import {
   runReingestRepository,
   type ReingestSuccess,
 } from '../../ingest/reingestService.js';
 import type { EnqueueIngestRequestResult } from '../../ingest/requestQueue.js';
-import * as requestQueue from '../../ingest/requestQueue.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 
 const noopLog = () => undefined;
@@ -15,6 +17,9 @@ const noopLog = () => undefined;
 afterEach(() => {
   mock.restoreAll();
   mock.reset();
+  if (process.env.NODE_ENV === 'test') {
+    __setQueueRuntimeOpsForTest(null);
+  }
   delete process.env.NODE_ENV;
 });
 
@@ -485,7 +490,9 @@ test('queue delay is treated as normal blocking progress before the terminal run
 
 test('queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions', async () => {
   process.env.NODE_ENV = 'test';
-  mock.method(requestQueue, 'findQueueRequestById', async () => null);
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () => null,
+  });
 
   assert.equal(__getIngestEventListenerCountForTest(), 0);
   const result = await runReingestRepository(

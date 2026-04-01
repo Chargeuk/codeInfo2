@@ -529,14 +529,17 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
     assert.equal(final.error?.code, 'COMMAND_INVALID');
     assert.equal(
       final.error?.message,
-      'Repository is already being re-ingested',
+      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
     );
     assert.equal(turns.length, 2);
     assert.equal(turns[0]?.role, 'user');
     assert.equal(turns[0]?.content, 'Re-ingest repository /repo/source-a');
     assert.equal(turns[1]?.role, 'assistant');
     assert.equal(turns[1]?.status, 'failed');
-    assert.equal(turns[1]?.content, 'Repository is already being re-ingested');
+    assert.equal(
+      turns[1]?.content,
+      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+    );
   } finally {
     await closeWs(ws);
     await wsHandle.close();

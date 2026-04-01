@@ -171,6 +171,9 @@ type QueueRuntimeOps = {
     requestId: string,
     runId: string,
   ) => Promise<QueueRuntimeRequest | null>;
+  findQueueRequestById: (
+    requestId: string,
+  ) => Promise<QueueRuntimeRequest | null>;
   findOldestCleanupBlockedQueueRequest: () => Promise<QueueRuntimeRequest | null>;
   findOldestRunningQueueRequest: () => Promise<QueueRuntimeRequest | null>;
   getQueueRequestId: (queueRequest: QueueRuntimeRequest) => string;
@@ -220,6 +223,7 @@ let runScheduler: RunScheduler = defaultRunScheduler;
 const defaultQueueRuntimeOps: QueueRuntimeOps = {
   deleteQueueRequestById: requestQueue.deleteQueueRequestById,
   ensureQueueRequestRunId: requestQueue.ensureQueueRequestRunId,
+  findQueueRequestById: requestQueue.findQueueRequestById,
   findOldestCleanupBlockedQueueRequest:
     requestQueue.findOldestCleanupBlockedQueueRequest,
   findOldestRunningQueueRequest: requestQueue.findOldestRunningQueueRequest,
@@ -2418,7 +2422,7 @@ async function resolveQueueRequestRunState(requestId: string): Promise<{
     };
   }
 
-  const queueRequest = await requestQueue.findQueueRequestById(requestId);
+  const queueRequest = await queueRuntimeOps.findQueueRequestById(requestId);
   const runId =
     queueRequest && typeof queueRequest.runId === 'string'
       ? queueRequest.runId

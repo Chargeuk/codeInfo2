@@ -1,0 +1,89 @@
+# Goal
+
+Decide whether the current blocker proves that the plan itself is wrong or incomplete, and repair the plan if needed before work continues.
+
+<task>
+
+Read the stored current-plan handoff and use only that scope for this step.
+Re-open the exact plan file from disk before deciding whether the blocker changes the plan.
+If there is no blocker, or there was a blocker but no plan repair is needed, state that explicitly.
+If the blocker proves the plan is wrong or incomplete, repair the story before work continues.
+
+</task>
+
+<scope_rules>
+
+- Read `codeInfoStatus/flow-state/current-plan.json` first.
+- Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
+- Do not rediscover the story independently.
+- Re-open the exact relative `plan_path` from disk before deciding whether the blocker changes the plan.
+- Use fresh disk reads and current git state, not conversational memory.
+
+</scope_rules>
+
+<decision_rules>
+
+If there is or was a blocker, decide whether it reveals any of the following:
+
+- missing prerequisite tasks;
+- a task that is too large and must be split;
+- a task that assumes a runtime seam, readiness contract, dependency, test harness, environment mapping, or startup contract that does not yet exist;
+- a task with testing steps that cannot honestly be run at the point the task is supposed to complete;
+- later tasks that now require renumbering or reference updates.
+
+</decision_rules>
+
+<repair_rules>
+
+If any of those are true, you MUST repair the story before continuing:
+
+- insert explicit prerequisite tasks when needed;
+- narrow or rewrite a blocked task so it depends only on already proven capabilities;
+- renumber all downstream tasks;
+- update all cross-references, note-file references, prerequisite references, and testing gates;
+- make the new subtasks detailed enough for a junior engineer to follow without asking for help;
+- ensure each testing section is runnable at the point that task completes and actually proves the intended work;
+- write what changed and why inside the task and implementation notes.
+
+If the blocker exists because the current task assumes a missing runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract, prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task.
+
+</repair_rules>
+
+<behavior_rules>
+
+- This step decides plan impact; it does not re-prove the blocker solution from scratch.
+- If no story repair is needed, state explicitly why not.
+- Do not leave a known plan defect in place once the blocker has proved it.
+- Do not invent unnecessary extra work; keep repairs aligned to the KISS principle and only add what is required to unblock honest execution.
+
+</behavior_rules>
+
+<git_rules>
+
+- If you make tracked changes, you MUST commit them before finishing this step.
+- Do not push in this step.
+
+</git_rules>
+
+<output_contract>
+
+Return a concise summary that includes:
+
+1. whether the blocker required plan repair;
+2. what plan changes were made, if any;
+3. why those changes were necessary;
+4. why no repair was needed, if that was the conclusion.
+
+</output_contract>
+
+<verification_loop>
+
+Before finishing:
+
+- confirm you re-read the plan from disk;
+- confirm the blocker's plan impact was judged from current plan state rather than memory;
+- confirm any missing prerequisite, task split, renumbering, or testing-gate changes were applied consistently;
+- confirm the updated plan is runnable and honest at each task boundary after your edits;
+- confirm tracked changes were committed if any were made.
+
+</verification_loop>

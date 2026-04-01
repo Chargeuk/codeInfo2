@@ -488,6 +488,77 @@ test('queue delay is treated as normal blocking progress before the terminal run
   assert.equal(result.value.completionMode, 'reingested');
 });
 
+test('queued reembed requests remap legacy listed container paths onto the active codex workdir when host mapping is available', async () => {
+  const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
+  process.env.CODEINFO_CODEX_WORKDIR = '/home/d_a_s/code';
+
+  try {
+    const result = await runReingestRepository(
+      { sourceId: '/data/codeInfo2/codeInfo2' },
+      {
+        listIngestedRepositories: async () => ({
+          repos: [
+            {
+              ...buildRepoEntry({
+                id: 'repo-a',
+                containerPath: '/data/codeInfo2/codeInfo2',
+              }),
+              hostPath: '/home/d_a_s/code/codeInfo2/codeInfo2',
+            },
+          ],
+          lockedModelId: 'model',
+        }),
+        enqueueOrReuseIngestRequest: async (input) => {
+          assert.equal(
+            input.canonicalTargetPath,
+            '/home/d_a_s/code/codeInfo2/codeInfo2',
+          );
+          assert.equal(
+            input.requestPayload.path,
+            '/home/d_a_s/code/codeInfo2/codeInfo2',
+          );
+          return buildQueueResult({
+            requestId: 'queue-request-remapped',
+            canonicalTargetPath: String(input.canonicalTargetPath),
+          });
+        },
+        pumpIngestQueue: async () => ({
+          started: true,
+          blockedByCleanup: false,
+          requestId: 'queue-request-remapped',
+          runId: 'ingest-remapped',
+        }),
+        waitForQueueRequestTerminalStatus: async () => ({
+          reason: 'terminal',
+          requestId: 'queue-request-remapped',
+          runId: 'ingest-remapped',
+          status: buildTerminal('completed'),
+          lastKnown: buildTerminal('completed'),
+        }),
+        appendLog: noopLog,
+        waitOptions: { timeoutMs: 5_000 },
+      },
+    );
+
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.status, 'completed');
+  } finally {
+    if (originalHostIngestDir === undefined) {
+      delete process.env.CODEINFO_HOST_INGEST_DIR;
+    } else {
+      process.env.CODEINFO_HOST_INGEST_DIR = originalHostIngestDir;
+    }
+    if (originalCodexWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalCodexWorkdir;
+    }
+  }
+});
+
 test('queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions', async () => {
   process.env.NODE_ENV = 'test';
   __setQueueRuntimeOpsForTest({

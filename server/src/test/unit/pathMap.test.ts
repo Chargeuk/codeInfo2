@@ -4,6 +4,7 @@ import {
   describeMountedWorkingFolder,
   mapHostWorkingFolderToWorkdir,
   mapIngestPath,
+  resolveMountedIngestPath,
 } from '../../ingest/pathMap.js';
 
 const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
@@ -111,6 +112,30 @@ describe('mapHostWorkingFolderToWorkdir', () => {
 
     assert.ok('error' in result);
     assert.equal(result.error.code, 'INVALID_ABSOLUTE_PATH');
+  });
+});
+
+describe('resolveMountedIngestPath', () => {
+  test('prefers the active codex workdir path when a listed root still carries a legacy /data container path', () => {
+    const result = resolveMountedIngestPath({
+      containerPath: '/data/codeInfo2/codeInfo2',
+      hostPath: '/home/d_a_s/code/codeInfo2/codeInfo2',
+      hostIngestDir: '/home/d_a_s/code',
+      codexWorkdir: '/home/d_a_s/code',
+    });
+
+    assert.equal(result, '/home/d_a_s/code/codeInfo2/codeInfo2');
+  });
+
+  test('falls back to the listed container path when the host path cannot be mapped into the active workdir', () => {
+    const result = resolveMountedIngestPath({
+      containerPath: '/data/codeInfo2/codeInfo2',
+      hostPath: '/different-root/codeInfo2/codeInfo2',
+      hostIngestDir: '/home/d_a_s/code',
+      codexWorkdir: '/home/d_a_s/code',
+    });
+
+    assert.equal(result, '/data/codeInfo2/codeInfo2');
   });
 });
 

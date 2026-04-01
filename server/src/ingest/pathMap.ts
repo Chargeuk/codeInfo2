@@ -130,6 +130,37 @@ export function mapHostWorkingFolderToWorkdir(params: {
   };
 }
 
+export function resolveMountedIngestPath(params: {
+  containerPath: string;
+  hostPath?: string | null;
+  hostIngestDir?: string;
+  codexWorkdir?: string;
+}): string {
+  const normalizedContainerPath = normalizeCanonicalQueueTargetPath(
+    params.containerPath,
+  );
+  const hostPath = params.hostPath?.trim();
+  const hostIngestDir =
+    params.hostIngestDir?.trim() ?? process.env.CODEINFO_HOST_INGEST_DIR;
+  const codexWorkdir =
+    params.codexWorkdir?.trim() ?? process.env.CODEINFO_CODEX_WORKDIR;
+
+  if (!hostPath || !hostIngestDir || !codexWorkdir) {
+    return normalizedContainerPath;
+  }
+
+  const mapped = mapHostWorkingFolderToWorkdir({
+    hostIngestDir,
+    codexWorkdir,
+    hostWorkingFolder: hostPath,
+  });
+  if ('error' in mapped) {
+    return normalizedContainerPath;
+  }
+
+  return normalizeCanonicalQueueTargetPath(mapped.mappedPath);
+}
+
 export function describeMountedWorkingFolder(params: {
   hostIngestDir?: string;
   codexWorkdir?: string;

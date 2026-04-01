@@ -75,7 +75,10 @@ If manual testing reveals issues that require more implementation work:
 - when an issue can realistically be covered by automated proof in the affected repository and harness, add a separate new unchecked proof-authoring subtask for that one automated test change;
 - each new automated proof-authoring subtask must cover exactly one automated proof addition or update, name the exact test file, harness, or proof artifact to create or edit, and explain what behaviour it must prove;
 - if a suitable automated proof addition is not realistically possible in the affected repository or harness, do not invent one; instead add an implementation note stating why automated proof could not honestly be added for that manual finding;
-- add matching new unchecked testing steps that would prove those issues are fixed;
+- update the task's `Testing` section only when the existing harness-level testing steps would not already run the new automated proof you just added;
+- keep any added or updated `Testing` section steps at the harness or wrapper level only, and never add narrow individual-test execution steps there;
+- do not add manual testing, Playwright MCP, browser-driven agent validation, screenshot review, or any other manual-proof step to the task's `Testing` section; manual testing remains owned by the implementation flow;
+- if extra manual validation will still be needed after the fix, mention that only in implementation notes and not as a task testing step;
 - when the repository workflow expects lint, format, or static-analysis checks as subtasks, add separate final unchecked subtasks for those code-hygiene commands using the same one-command-per-subtask style as the normal tasking rules;
 - set that candidate task's `Task Status` back to `__in_progress__`;
 - uncheck any existing checked testing steps whose proof is no longer honestly current because the newly added work will require them to be rerun; if the new work invalidates the task's proof broadly, uncheck the whole affected testing section rather than leaving stale checks behind;

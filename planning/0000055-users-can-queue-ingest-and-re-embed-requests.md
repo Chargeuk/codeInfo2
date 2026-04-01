@@ -450,7 +450,7 @@ This task makes the durable queue actually run inside the existing server proces
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `34b3a09b` - `DEV-[55] - Replace queueable transport contracts`
   - `d5e8dcfb` - `DEV-[55] - Advance task 3 automated proof`
@@ -573,6 +573,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 - Automated-proof rerun on 2026-04-01 initially failed in the Task 3 route-proof wrappers because older blank-only and deletions-only cases inside `ingest-start.test.ts` and `ingest-reembed.test.ts` still used local 1-second terminal wait loops and timed out before the no-op runtime paths settled on this machine.
 - Fixed that proof-only timing seam by switching both route-proof files to `waitForTerminalIngestStatus(...)` with a 5-second timeout and preserving the same terminal-state assertions, then reran the exact Task 3 testing commands instead of widening to the shared full-suite baseline owned by Task 4.
 - The rerun proof passed cleanly: `npm run build:summary:server` finished with `agent_action: skip_log`; the route wrappers passed `12/12` and `10/10`; the blocking-adapter wrappers passed `21/21`, `13/13`, `11/11`, `11/11`, and `44/44`; and the integration wrappers passed `21/21` and `24/24`, all with `agent_action: skip_log`.
+- Implementation-plus-automated-proof audit on 2026-04-01: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 3 plan section from disk, confirmed the implementation and automated-proof notes still match the current branch `HEAD`, confirmed every Task 3 subtask and all four Task 3 Testing items remain honestly complete, and confirmed there is no active `**BLOCKER**` note on Task 3. Task 3 is now set to `__done__`, and the remaining incomplete work belongs to downstream Tasks 4 through 6 plus later manual-testing flow steps rather than to this task's transport boundary.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

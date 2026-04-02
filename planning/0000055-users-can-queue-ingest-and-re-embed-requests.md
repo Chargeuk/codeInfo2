@@ -660,6 +660,7 @@ This task no longer owns every remaining server-unit failure as if they were one
 - Task Dependencies: `4`
 - Task Status: `__in_progress__`
 - Git Commits:
+  - `71abc24e` - `DEV-[55] - repair config drift cluster`
 
 #### Overview
 
@@ -696,6 +697,7 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 - Subtask 3: Strengthened the owning config proof in `server/src/test/unit/codexConfig.test.ts` so the migrated-config assertion now scans both checked-in chat configs plus every checked-in `codex_agents/*/config.toml` file instead of a stale subset.
 - Subtask 4: `npx eslint server/src/test/unit/codexConfig.test.ts --max-warnings=0` passed cleanly for the lintable file touched by this task.
 - Subtask 5: `npx prettier --check --ignore-unknown codex_agents/review_agent/config.toml codex/chat/config.toml codex/chat/config_minimax.toml server/src/test/unit/codexConfig.test.ts` passed. The repo's current Prettier install does not infer a TOML parser, so `--ignore-unknown` was required to keep the exact touched list honest without inventing a formatter plugin that is not installed.
+- Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed config-drift work in `71abc24e`, confirmed there is no live `**BLOCKER**` note on Task 5, and left the task `__in_progress__` because the targeted config-cluster reruns and follow-up full `server:unit` proof are still pending.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

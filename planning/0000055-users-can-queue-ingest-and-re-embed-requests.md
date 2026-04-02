@@ -1411,7 +1411,7 @@ This task does not assume any raw reproducer still exists. It starts from the re
 - Repository Name: `Current Repository`
 - Task Dependencies: `15`
 - Task Status: `__in_progress__`
-- Git Commits: None yet.
+- Git Commits: `4c0b9add`
 - Notes: Inserted on 2026-04-02 after Task 15 proved the wrapper itself is no longer the missing owner. This task starts from the fresh instrumented wrapper log at `ok 303` and owns only the next bounded ownership-derivation step inside the still-running test child.
 
 #### Overview
@@ -1452,6 +1452,7 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 - Subtask 3: ran the complementary bounded control command from `server/`: `node --test --test-concurrency=1 src/test/integration/ingest-failure-logging-coverage.test.ts src/test/integration/ingest-lock-lifecycle.test.ts src/test/integration/ingest-logging-visibility.test.ts src/test/integration/ingest-progress-accounting.test.ts`. Saved output: `test-results/task16/task16-complementary-control.log`. This shifted control also reached a real terminal TAP verdict with `# pass 6`, `# fail 0`, which means the nearest competing ingest/logging region also exits cleanly.
 - Subtask 4: because Subtasks 2 and 3 still left ownership ambiguous, ran exactly one helper-focused ownership check on the shared log-stream and server-close seam used by the two frontier-adjacent logging tests: `node --test --test-concurrency=1 src/test/integration/ingest-failure-logging-coverage.test.ts src/test/integration/ingest-logging-visibility.test.ts`. Saved output: `test-results/task16/task16-helper-logstream-control.log`. That helper-focused check also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, so this bounded derivation plan still did not name a present-tense child-side owner.
 - Subtask 5: the bounded child-side derivation plan exhausted cleanly without producing a named owner. Downstream repair therefore remains blocked: Task 17 must not start from a guessed owner, and the next honest move is planner review to insert or rewrite another prerequisite owner-derivation step instead of continuing ad hoc repair.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 16 section, and the latest task-state commit `4c0b9add`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly recorded Subtasks 1 through 5 complete on the bounded-owner-exhaustion branch. No `Testing` items were newly checked here, and Task 16 correctly remains `__in_progress__` because automated proof has not yet been completed in this loop even though the current implementation work has already exhausted its bounded derivation plan.
 
 ---
 

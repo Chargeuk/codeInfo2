@@ -715,6 +715,7 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 - Task Dependencies: `4, 5`
 - Task Status: `__in_progress__`
 - Git Commits:
+  - `ce5deb82` - `DEV-[55] - rebaseline queue-aware transport proof homes`
 
 #### Overview
 
@@ -752,6 +753,7 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 - Updated the stale proof homes to hit the modern queue-aware seams directly: the logging coverage test now expects `/ingest/start` to map `QUEUE_UNAVAILABLE` to `503`, and the reembed contract tests now inject `listIngestedRepositories` plus explicit queue-admission failures so they keep proving `INVALID_REEMBED_STATE` and `OPENAI_MODEL_UNAVAILABLE` without depending on legacy Chroma fixture traversal.
 - Renamed the touched proof titles where the old wording implied pre-queue run-start behavior, including the blocking-stop flow test and the reembed contract tests that now prove queue-admission behavior explicitly.
 - `npx eslint` passed on the exact Task 6 touched files with zero warnings. `npx prettier --check` needed one follow-up format fix in `flows.run.errors.test.ts`, and the rerun then passed cleanly on the same touched-file list.
+- Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed transport-proof rebaseline work in `ce5deb82`, confirmed there is no live `**BLOCKER**` note on Task 6, and left the task `__in_progress__` because the targeted Task 6 reruns and the follow-up full `server:unit` proof are still pending.
 
 ---
 

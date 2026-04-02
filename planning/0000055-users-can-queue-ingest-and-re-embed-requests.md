@@ -1432,11 +1432,11 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 
 #### Subtasks
 
-1. [ ] Re-read Task 15's fresh instrumented wrapper log, the current wrapper file ordering, and the test files at and immediately after the `ok 303` frontier. Record which exact child-side region is still unresolved before running any new command.
-2. [ ] Run one explicitly bounded frontier-window command that starts from the current frontier file and includes only the next smallest present-tense child-side region worth testing. Record the exact command and saved output path.
-3. [ ] Run one complementary bounded control command that excludes or shifts away from that frontier window while still exercising the nearest competing child-side region. Stop after this named pair instead of resuming indefinite narrowing.
-4. [ ] If Subtasks 2 and 3 still leave the owner ambiguous, run exactly one bounded helper- or fixture-focused ownership check based on imports or shutdown paths shared by the frontier region, then stop and record the outcome instead of widening further.
-5. [ ] Update the downstream repair task notes so Task 17 starts only from the exact named owner produced here. If this bounded derivation plan exhausts without a named owner, record that later repair remains blocked and must return to planner review instead of continuing ad hoc.
+1. [x] Re-read Task 15's fresh instrumented wrapper log, the current wrapper file ordering, and the test files at and immediately after the `ok 303` frontier. Record which exact child-side region is still unresolved before running any new command.
+2. [x] Run one explicitly bounded frontier-window command that starts from the current frontier file and includes only the next smallest present-tense child-side region worth testing. Record the exact command and saved output path.
+3. [x] Run one complementary bounded control command that excludes or shifts away from that frontier window while still exercising the nearest competing child-side region. Stop after this named pair instead of resuming indefinite narrowing.
+4. [x] If Subtasks 2 and 3 still leave the owner ambiguous, run exactly one bounded helper- or fixture-focused ownership check based on imports or shutdown paths shared by the frontier region, then stop and record the outcome instead of widening further.
+5. [x] Update the downstream repair task notes so Task 17 starts only from the exact named owner produced here. If this bounded derivation plan exhausts without a named owner, record that later repair remains blocked and must return to planner review instead of continuing ad hoc.
 
 #### Testing
 
@@ -1447,6 +1447,11 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 
 - Record the exact `ok 303` frontier, every bounded child-side derivation command attempted here, whether one names a current owner, and the proof artifacts that justify the branch honestly.
 - Inserted on 2026-04-02 because Task 15 proved that wrapper-local instrumentation alone now stops at "the test child never exits" and can no longer honestly proceed to repair without first deriving a bounded child-side owner.
+- Subtask 1: re-read `test-results/server-unit-tests-2026-04-02T15-18-08-777Z.log`, the current integration ordering from `scripts/test-summary-server-unit.mjs`, and the frontier files on disk. The freshest visible child progress still stops at `ok 303 - POST /ingest/e2e/cleanup falls back to the normal root removal path once the queue is idle`, which maps the unresolved present-tense region to `src/test/integration/ingest-e2e-cleanup.test.ts` plus the immediately following ingest integration cluster through `ingest-progress-accounting.test.ts`.
+- Subtask 2: ran the bounded frontier-window command under the wrapper-equivalent ts-node environment from `server/`: `node --test --test-concurrency=1 src/test/integration/ingest-e2e-cleanup.test.ts src/test/integration/ingest-failure-logging-coverage.test.ts src/test/integration/ingest-lock-lifecycle.test.ts src/test/integration/ingest-logging-visibility.test.ts`. Saved output: `test-results/task16/task16-frontier-window.log`. The command reached a real terminal TAP verdict with `# pass 7`, `# fail 0`, so the owner is not isolated to the frontier file plus the next three ingest-adjacent tests.
+- Subtask 3: ran the complementary bounded control command from `server/`: `node --test --test-concurrency=1 src/test/integration/ingest-failure-logging-coverage.test.ts src/test/integration/ingest-lock-lifecycle.test.ts src/test/integration/ingest-logging-visibility.test.ts src/test/integration/ingest-progress-accounting.test.ts`. Saved output: `test-results/task16/task16-complementary-control.log`. This shifted control also reached a real terminal TAP verdict with `# pass 6`, `# fail 0`, which means the nearest competing ingest/logging region also exits cleanly.
+- Subtask 4: because Subtasks 2 and 3 still left ownership ambiguous, ran exactly one helper-focused ownership check on the shared log-stream and server-close seam used by the two frontier-adjacent logging tests: `node --test --test-concurrency=1 src/test/integration/ingest-failure-logging-coverage.test.ts src/test/integration/ingest-logging-visibility.test.ts`. Saved output: `test-results/task16/task16-helper-logstream-control.log`. That helper-focused check also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, so this bounded derivation plan still did not name a present-tense child-side owner.
+- Subtask 5: the bounded child-side derivation plan exhausted cleanly without producing a named owner. Downstream repair therefore remains blocked: Task 17 must not start from a guessed owner, and the next honest move is planner review to insert or rewrite another prerequisite owner-derivation step instead of continuing ad hoc repair.
 
 ---
 
@@ -1456,7 +1461,7 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 - Task Dependencies: `16`
 - Task Status: `__to_do__`
 - Git Commits: None yet.
-- Notes: Inserted on 2026-04-02 after plan repair split child-side owner derivation away from later repair work. This task starts only if Task 16 hands off one exact present-tense owner inside the still-running test child.
+- Notes: Inserted on 2026-04-02 after plan repair split child-side owner derivation away from later repair work. This task starts only if Task 16 hands off one exact present-tense owner inside the still-running test child. Current Task 16 evidence does not do that yet: the bounded frontier-window command, the shifted control command, and the single helper-focused check all terminate cleanly, so Task 17 remains blocked pending planner review rather than starting from a guessed owner.
 
 #### Overview
 
@@ -1490,6 +1495,7 @@ This task starts only from the bounded child-side owner that Task 16 proves from
 
 - Record the exact owner handed off from Task 16, the repair made, and the proof artifacts from both the bounded owner-level rerun and the full wrapper rerun.
 - Inserted on 2026-04-02 because later repair work must now start from a named child-side owner rather than from the broader "test child never exits" state.
+- Current blocker inherited from Task 16: `test-results/task16/task16-frontier-window.log`, `test-results/task16/task16-complementary-control.log`, and `test-results/task16/task16-helper-logstream-control.log` all end with real terminal TAP verdicts, so there is still no exact present-tense owner for this repair task to own honestly.
 
 ---
 

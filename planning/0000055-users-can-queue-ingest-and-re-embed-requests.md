@@ -1532,8 +1532,8 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `17`
-- Task Status: `__in_progress__`
-- Git Commits: `7758ae51`
+- Task Status: `__done__`
+- Git Commits: `7758ae51`, `a54d7d47`
 - Notes: Inserted on 2026-04-02 after Task 17 proved that the second bounded child-side owner class also exhausted cleanly without naming an owner. Rewritten on 2026-04-02 after the live blocker proved the first Task 18 draft was still too broad to start honestly. Rewritten again on 2026-04-02 after the renewed live blocker proved even the generic shutdown/teardown seam was still too broad in practice. This task now owns the exact `ingest-reembed.test.ts` post-test teardown path centered on `__resetIngestJobsForTest()` with one optional `release()` cross-check.
 
 #### Overview
@@ -1597,6 +1597,7 @@ This task still does not attempt repair. It starts from the exhausted runtime/re
 - Automated proof on 2026-04-02 reran the exact bounded primary and control commands into `test-results/task18/task18-ingest-reembed-teardown-proof.log` and `test-results/task18/task18-ingest-e2e-cleanup-control-proof.log`. Both proof artifacts reached terminal TAP verdicts with `# pass 2` / `# fail 0` for `ingest-reembed.test.ts` and `# pass 3` / `# fail 0` for `ingest-e2e-cleanup.test.ts`, confirming the teardown seam and adjacent cleanup control still both exit cleanly.
 - Automated proof on 2026-04-02 reran the helper-focused cross-check into `test-results/task18/task18-ingest-lock-lifecycle-helper-proof.log`. That proof artifact also reached a terminal TAP verdict with `# pass 2` and `# fail 0`, so the bounded `__resetIngestJobsForTest()` / `release()` teardown derivation plan remains cleanly exhausted rather than naming a present-tense owner.
 - Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 18 section, and the latest current-repo commit `7758ae51`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtasks 1 through 5 and recorded the teardown-seam exhaustion outcome in the task notes. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 18, and Task 18 correctly remains `__in_progress__` because Testing steps 1 and 2 still belong to the later automated-proof loop.
+- Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 18 section, and the latest current-repo proof commit `a54d7d47`. No `Testing` items were newly marked complete in this audit because the latest proof pass had already honestly checked both Task 18 testing steps before this normalization step. There is no live `**BLOCKER**` note on Task 18, and the task is now `__done__` because Subtasks 1 through 5 and Testing steps 1 through 2 are all complete and the task's bounded teardown-derivation exit criteria are satisfied on the cleanly exhausted branch that hands planner review forward instead of guessing a repair target.
 
 ---
 

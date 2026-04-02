@@ -18,37 +18,81 @@ let skipReason: string | undefined;
 let ingestSkip: string | undefined;
 let chosenModelId: string | undefined;
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function ensureCleanRoots() {
   const ctx = await request.newContext();
   try {
-    const res = await ctx.get(`${apiBase}/ingest/roots`);
-    if (!res.ok()) {
-      throw new Error(`ingest/roots unavailable (${res.status()})`);
-    }
-    const data = await res.json();
-    const roots = Array.isArray(data.roots) ? data.roots : [];
-    for (const root of roots) {
-      const removeRes = await ctx.post(
-        `${apiBase}/ingest/remove/${encodeURIComponent(root.path)}`,
+    const deadline = Date.now() + 240_000;
+    let lastBusyRoot: string | undefined;
+    let lastRemainingRoots: string[] = [];
+
+    while (Date.now() < deadline) {
+      const res = await ctx.get(`${apiBase}/ingest/roots`);
+      if (!res.ok()) {
+        throw new Error(`ingest/roots unavailable (${res.status()})`);
+      }
+      const data = await res.json();
+      const roots = Array.isArray(data.roots) ? data.roots : [];
+      lastRemainingRoots = roots.map((root) =>
+        JSON.stringify({
+          path: root?.path ?? null,
+          status: root?.status ?? null,
+          queueState: root?.queueState ?? null,
+          runId: root?.runId ?? null,
+        }),
       );
-      if (!removeRes.ok()) {
+      if (roots.length === 0) {
+        return;
+      }
+
+      for (const root of roots) {
+        if (
+          root?.runId &&
+          (root?.status === 'ingesting' || root?.queueState === 'running')
+        ) {
+          await ctx.post(`${apiBase}/ingest/cancel/${root.runId}`);
+        }
+      }
+
+      let removedAny = false;
+      let sawBusy = false;
+
+      for (const root of roots) {
+        const removeRes = await ctx.post(
+          `${apiBase}/ingest/remove/${encodeURIComponent(root.path)}`,
+        );
+        if (removeRes.ok()) {
+          removedAny = true;
+          continue;
+        }
+        if (removeRes.status() === 429) {
+          sawBusy = true;
+          lastBusyRoot = root.path;
+          continue;
+        }
         throw new Error(
           `failed to remove root ${root.path} (${removeRes.status()})`,
         );
       }
-    }
-    if (roots.length > 0) {
-      const verify = await ctx.get(`${apiBase}/ingest/roots`);
-      const verifyData = await verify.json();
-      const remaining = Array.isArray(verifyData.roots)
-        ? verifyData.roots.length
-        : 0;
-      if (remaining !== 0) {
-        throw new Error(
-          `expected empty roots after cleanup, found ${remaining}`,
-        );
+
+      if (!sawBusy) {
+        const verify = await ctx.get(`${apiBase}/ingest/roots`);
+        const verifyData = await verify.json();
+        const remaining = Array.isArray(verifyData.roots)
+          ? verifyData.roots.length
+          : 0;
+        if (remaining === 0) {
+          return;
+        }
       }
+
+      await sleep(1_000);
     }
+
+    throw new Error(
+      `expected empty roots after cleanup, found busy root ${lastBusyRoot ?? 'none'}; remaining roots: ${lastRemainingRoots.join(', ') || 'none'}`,
+    );
   } finally {
     await ctx.dispose();
   }

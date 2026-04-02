@@ -358,13 +358,19 @@ describe('RootsTable', () => {
       </>,
     );
 
-    const queuedRow = await screen.findByRole('row', { name: /repo-queued/i });
-    const blockedRow = await screen.findByRole('row', {
-      name: /repo-blocked/i,
-    });
+    const table = screen.getByRole('table', { hidden: true });
+    const queuedName = await within(table).findByText('repo-queued');
+    const blockedName = await within(table).findByText('repo-blocked');
+    const queuedRow = queuedName.closest('tr');
+    const blockedRow = blockedName.closest('tr');
+    expect(queuedRow).not.toBeNull();
+    expect(blockedRow).not.toBeNull();
+    if (!queuedRow || !blockedRow) {
+      throw new Error('Expected queued and blocked rows to render');
+    }
     expect(within(queuedRow).getByText(/queued \(#1\)/i)).toBeInTheDocument();
     expect(
-      within(blockedRow).getByText(/cleanup blocked/i),
+      within(blockedRow).getByText(/^cleanup blocked$/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/Request ID/i)).toBeInTheDocument();
     expect(screen.getByText(/Pending queue start/i)).toBeInTheDocument();

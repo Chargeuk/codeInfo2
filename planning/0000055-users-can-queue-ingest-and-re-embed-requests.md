@@ -1196,11 +1196,11 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 
 #### Subtasks
 
-1. [ ] Re-read Task 11's finite-plan-exhausted notes, the saved full-wrapper log, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing. Purpose: start from the current blocker proof and current wrapper contract instead of the invalidated raw-slice reproducer claim.
-2. [ ] Re-run full `npm run test:summary:server:unit` from current `HEAD` and record the exact wrapper outcome, including the saved log path if the wrapper requires log inspection. Purpose: establish whether the current repo still has a full-wrapper problem at all.
-3. [ ] If the full wrapper passes cleanly, update this plan's downstream wording so no later task still assumes a reproducing boundary that no longer exists, then stop this task without inventing extra repair work. Purpose: let the story continue from the current wrapper truth instead of stale raw-slice history.
-4. [ ] If the full wrapper still hangs, stays in `agent_action: wait`, or otherwise ends ambiguously, use that fresh wrapper result to define one bounded current reproducing boundary or wrapper-local seam. Do not reuse the invalidated old Task 11 slice-3 claim. Purpose: give the next task a real present-tense starting point.
-5. [ ] Update this plan's task notes and dependencies so Task 13 starts from the exact current boundary or is retired honestly if the full wrapper already passes. Purpose: keep all downstream work aligned to the current proof reality.
+1. [x] Re-read Task 11's finite-plan-exhausted notes, the saved full-wrapper log, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing. Purpose: start from the current blocker proof and current wrapper contract instead of the invalidated raw-slice reproducer claim.
+2. [x] Re-run full `npm run test:summary:server:unit` from current `HEAD` and record the exact wrapper outcome, including the saved log path if the wrapper requires log inspection. Purpose: establish whether the current repo still has a full-wrapper problem at all.
+3. [x] If the full wrapper passes cleanly, update this plan's downstream wording so no later task still assumes a reproducing boundary that no longer exists, then stop this task without inventing extra repair work. Purpose: let the story continue from the current wrapper truth instead of stale raw-slice history.
+4. [x] If the full wrapper still hangs, stays in `agent_action: wait`, or otherwise ends ambiguously, use that fresh wrapper result to define one bounded current reproducing boundary or wrapper-local seam. Do not reuse the invalidated old Task 11 slice-3 claim. Purpose: give the next task a real present-tense starting point.
+5. [x] Update this plan's task notes and dependencies so Task 13 starts from the exact current boundary or is retired honestly if the full wrapper already passes. Purpose: keep all downstream work aligned to the current proof reality.
 
 #### Testing
 
@@ -1211,6 +1211,11 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 
 - Record the fresh full-wrapper result, any newly named current reproducing boundary or bounded wrapper-local seam, and whether downstream instrumentation work is still needed after current-state verification.
 - Inserted during plan repair because Task 11 proved the bounded raw slices now all terminate honestly, which means the story first needs a fresh full-wrapper truth task before any later reproducer instrumentation can be trusted.
+- Subtask 1: re-read Task 11's finite-plan-exhausted notes, the saved full-wrapper log, and the wrapper sources from disk. The current wrapper contract is unchanged: `scripts/summary-wrapper-protocol.mjs` only emits a final wrapper verdict after child `close`, and `scripts/test-summary-server-unit.mjs` still defaults to the full unit, integration, and `mcp2` test file set when no targeting args are passed.
+- Subtask 2: reran full `npm run test:summary:server:unit` from current `HEAD`. The wrapper stayed in `agent_action: wait` with `do_not_read_log: true` beyond the documented budget, so I interrupted it and inspected the fresh saved log `test-results/server-unit-tests-2026-04-02T13-06-28-812Z.log`; that log advanced through `ok 794 - delta AST full rebuild error does not clear live AST data before finalization` with no terminal TAP summary lines, which proves the current repo still has a full-wrapper problem and rules out the clean-wrapper branch for this task.
+- Subtask 3: the clean-wrapper branch was evaluated and ruled out by the fresh wrapper rerun in Subtask 2, so no downstream retirement edit was honest in this pass.
+- Subtask 4: derived a fresh current wrapper-local seam from the live wrapper result instead of reusing the invalidated old raw-slice claim. The current seam is: full `npm run test:summary:server:unit` from current `HEAD` remains in `agent_action: wait` past budget, and its fresh saved log `test-results/server-unit-tests-2026-04-02T13-06-28-812Z.log` advances through `ok 794 - delta AST full rebuild error does not clear live AST data before finalization` without any terminal TAP summary.
+- Subtask 5: updated Task 13's Notes so the downstream instrumentation task now starts from that fresh wrapper-local seam rather than from stale raw-slice history.
 
 ---
 
@@ -1219,7 +1224,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 - Repository Name: `Current Repository`
 - Task Dependencies: `12`
 - Task Status: `__to_do__`
-- Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. This task starts only if Task 12 proves that a fresh reproducing boundary still exists and still needs supported instrumentation or repair.
+- Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. This task starts only if Task 12 proves that a fresh reproducing boundary still exists and still needs supported instrumentation or repair. The current fresh handoff is wrapper-local rather than raw-slice-based: the latest full `npm run test:summary:server:unit` run from current `HEAD` stayed in `agent_action: wait` past budget and the saved log `test-results/server-unit-tests-2026-04-02T13-06-28-812Z.log` advanced through `ok 794 - delta AST full rebuild error does not clear live AST data before finalization` without any terminal TAP summary.
 
 #### Overview
 

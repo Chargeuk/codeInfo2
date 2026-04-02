@@ -1010,7 +1010,7 @@ This task restores the full server cucumber baseline after Task 8 exposed failur
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Inserted during Task 8 plan repair because the full e2e wrapper exposed a missing cleanup seam for waiting queue items that Task 8 does not own.
 
@@ -1030,11 +1030,11 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 
 #### Subtasks
 
-1. [ ] Re-read `logs/test-summaries/e2e-tests-latest.log`, `e2e/ingest.spec.ts`, and the current queue cleanup/runtime owners before editing. At minimum inspect `ensureCleanRoots()` in `e2e/ingest.spec.ts`, the product remove route, and the queue-runtime cleanup ownership in `server/src/ingest/ingestJob.ts`. Purpose: confirm exactly where the current full-suite teardown loses deterministic ownership of waiting queue items.
-2. [ ] Add an explicit non-user-facing cleanup seam for waiting queue items that is suitable for the e2e harness but does not expose a new user-facing queued-remove product feature. Reuse existing queue-runtime ownership where possible rather than inventing a second cleanup model. Purpose: provide the missing cleanup capability that the current full e2e wrapper needs.
-3. [ ] Update the Playwright teardown path in `e2e/ingest.spec.ts` to use the new cleanup seam through `APIRequestContext` or a supported teardown fixture/project, instead of relying on the user-facing remove route to clear waiting queue items. Purpose: make full-suite cleanup deterministic and aligned with Playwright’s supported request-based teardown patterns.
-4. [ ] Update or add the owning proof homes for the cleanup seam and teardown behavior, including any server or integration coverage needed to prove waiting queue items are cleaned up deterministically for tests without changing product-facing queue semantics. Purpose: keep the new cleanup capability explicitly owned and proved.
-5. [ ] Rename or split any stale e2e proof text or helper comments that still imply the product remove route is the full cleanup path for waiting queue items. Purpose: keep the browser proof text aligned with the new cleanup ownership boundary.
+1. [x] Re-read `logs/test-summaries/e2e-tests-latest.log`, `e2e/ingest.spec.ts`, and the current queue cleanup/runtime owners before editing. At minimum inspect `ensureCleanRoots()` in `e2e/ingest.spec.ts`, the product remove route, and the queue-runtime cleanup ownership in `server/src/ingest/ingestJob.ts`. Purpose: confirm exactly where the current full-suite teardown loses deterministic ownership of waiting queue items.
+2. [x] Add an explicit non-user-facing cleanup seam for waiting queue items that is suitable for the e2e harness but does not expose a new user-facing queued-remove product feature. Reuse existing queue-runtime ownership where possible rather than inventing a second cleanup model. Purpose: provide the missing cleanup capability that the current full e2e wrapper needs.
+3. [x] Update the Playwright teardown path in `e2e/ingest.spec.ts` to use the new cleanup seam through `APIRequestContext` or a supported teardown fixture/project, instead of relying on the user-facing remove route to clear waiting queue items. Purpose: make full-suite cleanup deterministic and aligned with Playwright’s supported request-based teardown patterns.
+4. [x] Update or add the owning proof homes for the cleanup seam and teardown behavior, including any server or integration coverage needed to prove waiting queue items are cleaned up deterministically for tests without changing product-facing queue semantics. Purpose: keep the new cleanup capability explicitly owned and proved.
+5. [x] Rename or split any stale e2e proof text or helper comments that still imply the product remove route is the full cleanup path for waiting queue items. Purpose: keep the browser proof text aligned with the new cleanup ownership boundary.
 
 #### Testing
 
@@ -1047,6 +1047,11 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 - Inserted during Task 8 plan repair because the old Task 8 full-e2e testing gate proved broader than the task’s actual queued repo-list/UI ownership and depended on a cleanup seam the repo did not yet have.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+- Subtask 1: re-read `logs/test-summaries/e2e-tests-latest.log`, `e2e/ingest.spec.ts`, `server/src/routes/ingestRemove.ts`, and the queue-runtime cleanup ownership in `server/src/ingest/ingestJob.ts`. The current full-suite teardown gap is exactly the planner note: `ensureCleanRoots()` cancels active runs and then calls the product remove route, but waiting queue rows have `queueState: waiting` with no `runId`, so the normal remove route has no honest ownership boundary for them and full e2e teardown stalls.
+- Subtask 2: added the non-user-facing cleanup seam in `server/src/routes/ingestE2eCleanup.ts` and the supporting `deleteWaitingQueueRequestsByTargetPath(...)` helper in `server/src/ingest/requestQueue.ts`. The new route removes waiting queue records first and only falls back to normal root removal once the queue is idle, so it reuses the existing runtime ownership boundary instead of inventing a user-facing queued-remove feature.
+- Subtask 3: updated `ensureCleanRoots()` in `e2e/ingest.spec.ts` to call the dedicated e2e cleanup route through `APIRequestContext` instead of the normal `/ingest/remove/:root` path. Enabled that route only in the e2e server env through `server/.env.e2e` so the supported product surface stays unchanged outside the e2e runtime.
+- Subtask 4: added `server/src/test/integration/ingest-e2e-cleanup.test.ts` as the owning proof home for the cleanup seam. That proof covers the key teardown cases: removing waiting queue items while active work is still draining, preserving the existing `BUSY` boundary when no waiting item was removed, and falling back to the normal root removal path once the queue is idle.
+- Subtask 5: updated the stale teardown comment and failure wording in `e2e/ingest.spec.ts` so the e2e proof text no longer implies the user-facing remove route is the full cleanup owner for waiting queue items.
 
 ---
 

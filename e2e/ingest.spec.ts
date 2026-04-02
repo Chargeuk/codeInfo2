@@ -59,8 +59,10 @@ async function ensureCleanRoots() {
       let sawBusy = false;
 
       for (const root of roots) {
+        // Waiting queue items intentionally are not user-removable, so e2e
+        // teardown uses the dedicated cleanup seam instead of the product route.
         const removeRes = await ctx.post(
-          `${apiBase}/ingest/remove/${encodeURIComponent(root.path)}`,
+          `${apiBase}/ingest/e2e/cleanup/${encodeURIComponent(root.path)}`,
         );
         if (removeRes.ok()) {
           removedAny = true;
@@ -72,7 +74,7 @@ async function ensureCleanRoots() {
           continue;
         }
         throw new Error(
-          `failed to remove root ${root.path} (${removeRes.status()})`,
+          `failed to cleanup root ${root.path} (${removeRes.status()})`,
         );
       }
 

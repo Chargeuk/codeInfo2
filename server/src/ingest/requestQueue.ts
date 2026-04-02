@@ -235,3 +235,15 @@ export async function markQueueRequestCleanupBlocked(params: {
 export async function deleteQueueRequestById(requestId: string) {
   return IngestQueueRequestModel.findByIdAndDelete(requestId).exec();
 }
+
+export async function deleteWaitingQueueRequestsByTargetPath(
+  canonicalTargetPath: string,
+) {
+  const result = await IngestQueueRequestModel.deleteMany({
+    canonicalTargetPath,
+    queueState: 'waiting',
+    runId: null,
+  }).exec();
+
+  return result.deletedCount ?? 0;
+}

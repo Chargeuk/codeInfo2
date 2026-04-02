@@ -1533,7 +1533,7 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 - Repository Name: `Current Repository`
 - Task Dependencies: `17`
 - Task Status: `__in_progress__`
-- Git Commits: None yet.
+- Git Commits: `7758ae51`
 - Notes: Inserted on 2026-04-02 after Task 17 proved that the second bounded child-side owner class also exhausted cleanly without naming an owner. Rewritten on 2026-04-02 after the live blocker proved the first Task 18 draft was still too broad to start honestly. Rewritten again on 2026-04-02 after the renewed live blocker proved even the generic shutdown/teardown seam was still too broad in practice. This task now owns the exact `ingest-reembed.test.ts` post-test teardown path centered on `__resetIngestJobsForTest()` with one optional `release()` cross-check.
 
 #### Overview
@@ -1594,6 +1594,7 @@ This task still does not attempt repair. It starts from the exhausted runtime/re
 - Implementation on 2026-04-02 ran the bounded control `cd server && env CODEINFO_LOG_FILE_PATH=../logs/server-test.log CODEINFO_CHROMA_URL= CODEINFO_MONGO_URI= CODEINFO_PLAYWRIGHT_MCP_URL=http://localhost:8932/mcp TS_NODE_DEBUG=false TS_NODE_LOG_ERROR=true TS_NODE_FILES=true TS_NODE_PROJECT=./tsconfig.json NODE_OPTIONS='--import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180' node --test --test-concurrency=1 src/test/integration/ingest-e2e-cleanup.test.ts` and saved `test-results/task18/task18-ingest-e2e-cleanup-control.log`, which also ended cleanly with `# pass 3` and `# fail 0`, so the named pair exhausted without distinguishing a present-tense owner.
 - Implementation on 2026-04-02 used `server/src/test/integration/ingest-lock-lifecycle.test.ts` as the one allowed helper-focused cross-check because it uses `__resetIngestJobsForTest()` plus `ingestLock.release()` in both `beforeEach()` and `afterEach()`. The bounded helper command saved `test-results/task18/task18-ingest-lock-lifecycle-helper.log` and also ended cleanly with `# pass 2` and `# fail 0`, so this exact teardown derivation plan exhausted without naming a present-tense owner.
 - Implementation on 2026-04-02 updated the downstream handoff honestly: Task 19 must not start from a guessed owner inside the `ingest-reembed.test.ts` teardown path because the bounded primary, control, and helper checks all exited cleanly. Later repair therefore remains blocked and must return to planner review rather than continuing ad hoc from this exhausted teardown seam.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 18 section, and the latest current-repo commit `7758ae51`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtasks 1 through 5 and recorded the teardown-seam exhaustion outcome in the task notes. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 18, and Task 18 correctly remains `__in_progress__` because Testing steps 1 and 2 still belong to the later automated-proof loop.
 
 ---
 

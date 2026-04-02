@@ -658,9 +658,11 @@ This task no longer owns every remaining server-unit failure as if they were one
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `4`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `71abc24e` - `DEV-[55] - repair config drift cluster`
+  - `9eaa5383` - `DEV-[55] - Record task 5 implementation audit`
+  - `fc23e4e7` - `DEV-[55] - record task 5 proof state`
 
 #### Overview
 
@@ -700,6 +702,7 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 - Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed config-drift work in `71abc24e`, confirmed there is no live `**BLOCKER**` note on Task 5, and left the task `__in_progress__` because the targeted config-cluster reruns and follow-up full `server:unit` proof are still pending.
 - Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`, and `npm run test:summary:server:unit -- --file server/src/test/unit/codexConfig.test.ts` all passed cleanly with wrapper `agent_action: skip_log` (`8/8`, `80/80`, and `16/16` respectively).
 - Testing 2: `npm run test:summary:server:unit` reached a real terminal verdict with `1593` tests run, `1584` passed, and `9` failed. The old Task 5 config-cluster failures are gone; the remaining failures (`chat-copilot-lock`, `flows.run.loop`, `ingest-failure-logging-coverage`, `ingest-reembed-invalid-state`, `openai-model-unavailable-contract`, `ingest-ast-indexing`, and `ws-server`) belong to the later transport-proof and timeout/lifecycle tasks instead of to this checked-in config-drift cluster.
+- Implementation-plus-automated-proof audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed all Task 5 subtasks and both Task 5 testing steps now have direct repo evidence, confirmed there is no live `**BLOCKER**` note on Task 5, and marked the task `__done__` because its config-drift slice is fully implemented and proved while the remaining red full-wrapper names are explicitly owned by later tasks.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

@@ -1168,7 +1168,7 @@ This task no longer tries to both discover and fix the final `server:unit` overr
 - **BLOCKING ANSWER** Why this fits the current local repo state: every bounded raw one-process slice from Task 11 now reaches a real terminal TAP summary, so there is no current raw reproducer to instrument. The original saved wrapper overrun log is still useful historical context, but it is not sufficient proof for present-tense resource diagnostics because those APIs only tell the truth about the currently running process that is still alive. Rewriting the downstream task around a fresh full-wrapper gate matches both the repo's plan-repair precedent and Node's supported diagnostics model.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep Task 12 unchanged and instrument clean raw runs, do not widen timeouts or force-close processes to make the old handoff appear valid, and do not continue ad hoc narrowing past the bounded Task 11 plan that already exhausted cleanly. Those paths would either invent a runtime seam the repo no longer has or hide the real current boundary instead of proving it.
 - Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task-state commits through `cd89be8d`. No testing steps were newly marked complete in this audit because the latest automated-proof pass had already honestly checked Testing step 2 on the finite-plan-exhausted branch and recorded the resulting live `**BLOCKER**`. Task 11 remains `__in_progress__`, not `__done__`, because the blocker is still active: every bounded slice now exits cleanly, so the task can no longer hand a valid reproducing boundary to Task 12 without planner repair.
-- Plan repair on 2026-04-02 after blocker proof: Task 11 is complete on the finite-plan-exhausted branch, the old live blocker is now historical `**RESOLVED ISSUE**` status, new Task 12 owns re-establishing the current full-wrapper truth from fresh repo state, new Task 13 owns bounded reproducer derivation if Task 12 still proves a current wrapper-local seam exists, new Task 14 owns supported instrumentation only after that bounded reproducer exists, and final close-out moved to Task 15.
+- Plan repair on 2026-04-02 after blocker proof: Task 11 is complete on the finite-plan-exhausted branch, the old live blocker is now historical `**RESOLVED ISSUE**` status, new Task 12 owns re-establishing the current full-wrapper truth from fresh repo state, new Task 13 owns the first bounded raw derivation plan if Task 12 still proves a current wrapper-local seam exists, new Task 14 owns the next present-tense seam revalidation after that first bounded plan exhausts, new Task 15 owns supported instrumentation only after a fresh bounded reproducer exists again, and final close-out moved to Task 16.
 
 ---
 
@@ -1223,22 +1223,22 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 
 ---
 
-### Task 13. Derive A Fresh Bounded Raw Reproducer From The Current `server:unit` Wrapper Seam
+### Task 13. Exhaust The First Bounded Raw Derivation Plan From The Current `server:unit` Wrapper Seam
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `12`
-- Task Status: `__in_progress__`
-- Git Commits: `ab39363f`, `26c0cdb9`, `fa59e7c6`, `44997d3e`, `da07311e`, `a2d08685`, `7e09a807`, `623d9297`
-- Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. Repaired again on 2026-04-02 after the live blocker proved Task 12 only handed off a wrapper-local seam, not a bounded raw reproducer. This task now owns only bounded reproducer derivation from the current wrapper-local seam, with an explicit stopping rule, and no longer pretends supported resource instrumentation can begin before that reproducer exists.
+- Task Status: `__done__`
+- Git Commits: `ab39363f`, `26c0cdb9`, `fa59e7c6`, `44997d3e`, `da07311e`, `a2d08685`, `7e09a807`, `623d9297`, `23ce4768`
+- Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. Repaired again on 2026-04-02 after the first live blocker proved Task 12 only handed off a wrapper-local seam, not a bounded raw reproducer. This task is now complete on the finite-plan-exhausted branch: it owned only the first bounded raw derivation plan from the current wrapper-local seam, and that plan exhausted honestly without producing a bounded raw reproducer.
 
 #### Overview
 
-This task starts only from the exact current wrapper-local seam that Task 12 freshly proves still exists. It does not attempt resource diagnosis or repair yet. Instead, it derives a bounded current raw `node --test` reproducer from that wrapper seam, records one adjacent clean control command, and hands those exact proof artifacts to the downstream instrumentation task.
+This task starts only from the exact current wrapper-local seam that Task 12 freshly proves still exists. It does not attempt resource diagnosis or repair. Instead, it runs the first explicitly bounded raw-derivation plan from that wrapper seam, records whether that plan produces a bounded raw reproducer or exhausts cleanly, and leaves later work to follow the branch that the evidence actually supports.
 
 #### Task Exit Criteria
 
-- A bounded current raw reproducer is identified and recorded from the Task 12 wrapper-local seam, and one adjacent narrower or sibling raw control command is recorded as a clean terminal-verdict comparison.
-- The handoff to the next task names the exact reproducing raw command, the clean comparison command, the wrapper-equivalent environment used, and the saved logs or artifacts that prove the boundary honestly.
+- The first bounded raw derivation plan from the Task 12 wrapper-local seam is executed honestly and recorded as either a bounded raw reproducer or a finite clean exhaustion result.
+- The task records the exact raw slices attempted, the wrapper-equivalent environment, and the saved logs or artifacts that prove which of those two honest branches occurred.
 
 #### Documentation Locations
 
@@ -1252,18 +1252,17 @@ This task starts only from the exact current wrapper-local seam that Task 12 fre
 1. [x] Re-read Task 12's exact fresh reproducing command or wrapper-local seam, the saved full-wrapper log, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing.
 2. [x] Run the already-attempted seam-adjacent and broader raw candidate checks under the wrapper-equivalent ts-node environment, and record exactly why those first candidates still failed to become a bounded post-logical-work reproducer.
 3. [x] Continue bounded narrowing from the current 34-file frontier using no more than three named passes: one earlier-half slice, one later-half slice, and one frontier-centered slice. Stop as soon as one slice reproduces the post-logical-work non-closing state or all three named passes reach clean terminal verdicts.
-4. [ ] Record the exact bounded reproducing raw command, one adjacent narrower or sibling clean control command, the exact wrapper-equivalent environment, and the saved logs or command transcripts that prove the boundary.
-5. [ ] Update the downstream instrumentation task notes so Task 14 starts from the exact bounded reproducer and clean control pair rather than from the broader wrapper-local seam.
+4. [x] Record the exact outcome of that first bounded derivation plan, including the wrapper-equivalent environment and the saved logs or command transcripts that prove the plan exhausted cleanly without yielding a bounded raw reproducer.
 
 #### Testing
 
-1. [ ] Run the exact bounded reproducing raw command twice and confirm it reaches the same post-logical-work non-closing or over-budget state both times.
-2. [ ] Run one adjacent narrower or sibling raw control command and confirm it reaches a real terminal TAP verdict, proving the reproducer boundary is actually bounded.
+1. [x] Run the three named raw slices from Subtask 3 and record whether one produces a post-logical-work non-closing state or all three reach real terminal TAP verdicts.
+2. [x] Confirm the honest branch outcome of this task: the first bounded raw derivation plan exhausted cleanly, so no downstream task may assume it handed off a bounded raw reproducer.
 
 #### Implementation notes
 
-- Record the exact wrapper-local seam from Task 12, every named raw slice attempted here, the exact bounded reproducer finally handed off, the clean comparison command, and the logs or command transcripts that prove the boundary.
-- Renumbered from the old Task 12 after plan repair proved the story first needed a current-wrapper-truth task before any supported instrumentation work could start honestly. Repaired again on 2026-04-02 because the current blocker proved this task was still too broad: it mixed bounded reproducer derivation with later active-resource instrumentation and repair work even though Task 12 had only handed off a wrapper-local seam.
+- Record the exact wrapper-local seam from Task 12, every named raw slice attempted here, whether the first bounded derivation plan found a raw reproducer or exhausted cleanly, and the logs or command transcripts that prove that branch honestly.
+- Renumbered from the old Task 12 after plan repair proved the story first needed a current-wrapper-truth task before any supported instrumentation work could start honestly. Repaired again on 2026-04-02 because the first blocker proved this task was still too broad: it mixed bounded reproducer derivation with later active-resource instrumentation and repair work even though Task 12 had only handed off a wrapper-local seam. Repaired once more on 2026-04-02 because the now-bounded derivation plan exhausted cleanly, which means this task can close honestly on the finite-plan-exhausted branch while a new downstream task re-establishes current seam truth.
 - Subtask 1: re-read Task 12's fresh wrapper-local seam from `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` plus `scripts/test-summary-server-unit.mjs` and `scripts/summary-wrapper-protocol.mjs` from disk before editing. The current live handoff remains wrapper-local rather than raw-slice-based: the latest full wrapper run stays in `agent_action: wait` past budget after `ok 552 - ChatInterface.run persistence`, and the wrapper still cannot emit a final verdict until the child reaches `close`.
 - Added `scripts/debug-active-resources.mjs` as a supported `process.getActiveResourcesInfo()`-based diagnostic import for raw `node --test` reproduction work. Seam-adjacent raw checks with the wrapper's ts-node environment showed `src/test/unit/chat-interface-run-persistence.test.ts` alone and the pair `chat-interface-run-persistence.test.ts` plus `chat-stream-bridge.test.ts` both reach real terminal TAP verdicts, so the current owner is not isolated to that one suite or its first adjacent pair.
 - Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the latest task-state commit `ab39363f`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtask 1 and recorded the first seam-adjacent raw diagnostics in the task notes. No `Testing` items were newly checked, there is no live `**BLOCKER**` note on Task 13, and the task remains `__in_progress__` because Subtasks 2 through 5 plus both Testing steps are still pending.
@@ -1276,35 +1275,80 @@ This task starts only from the exact current wrapper-local seam that Task 12 fre
 - **BLOCKING ANSWER** Chosen fix: do not continue current Task 13 in its present shape. Insert or rewrite a prerequisite task that starts from Task 12's wrapper-local seam and derives a bounded current raw reproducer first, with a concrete stopping rule such as bounded bisection or named file-group narrowing around the current wrapper frontier. Only after that reproducer exists should the next task own `process.getActiveResourcesInfo()` instrumentation, concrete resource identification, repair, and full-wrapper reruns. That keeps the reproducer-derivation work separate from the later resource-diagnosis work instead of asking one task to do both without a proven seam.
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 12 honestly handed off only a wrapper-local seam, not a narrower reproducing command, and the newest Task 13 raw prefix still stayed busy long enough that the helper only saw ordinary mid-run resources. That means Subtask 2 cannot yet do what it claims, because there is still no bounded post-logical-work state in which the lingering live resource can be distinguished from normal active test work. The repo already has the right wrapper contracts and a first seam-diagnostic helper; what is missing is a plan-owned bounded reproducer derivation step between the wrapper-local seam and the later instrumentation task.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep widening raw prefixes inside current Task 13 without rewriting the task boundary, do not instrument a still-busy broad prefix and pretend the transient `PipeWrap` / `MessagePort` / `Timeout` snapshots identify the lingering owner, and do not use `forceExit`, `process.exit()`, or arbitrary timeout hacks to turn the broad wrapper seam into a fake success. Those options either hide the real owner or keep the task stuck in the same contradiction instead of producing an honest bounded reproducer for the later diagnostic work.
-- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the blocker proof in commit `a2d08685`. The live blocker proved the task had remained too broad across repeated passes because it still depended on a missing bounded reproducer seam. The repair keeps Task 13 active but narrows it to bounded reproducer derivation with a concrete three-pass stopping rule, moves later supported instrumentation and repair into new Task 14, renumbers final close-out to Task 15, and preserves the blocker proof as `**BLOCKING ANSWER**` while retiring the old live blocker as `**RESOLVED ISSUE**`.
+- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the blocker proof in commit `a2d08685`. The first live blocker proved the task had remained too broad across repeated passes because it still depended on a missing bounded reproducer seam. That repair kept Task 13 active but narrowed it to bounded reproducer derivation with a concrete three-pass stopping rule, moved later present-tense seam revalidation into new Task 14, renumbered supported instrumentation to Task 15, renumbered final close-out to Task 16, and preserved the blocker proof as `**BLOCKING ANSWER**` while retiring the old live blocker as `**RESOLVED ISSUE**`.
 - Subtask 3: exhausted the repaired finite three-pass plan from the current 34-file frontier under the wrapper-equivalent ts-node environment, and all three named slices reached real terminal TAP verdicts instead of reproducing the post-logical-work non-closing state. The exact clean artifacts are `test-results/task13/task13-earlier-half.log` with `# pass 208`, `# fail 0`, `# duration_ms 90071.923023`; `test-results/task13/task13-later-half.log` with `# pass 109`, `# fail 0`, `# duration_ms 92151.731102`; and `test-results/task13/task13-frontier-centered.log` with `# pass 120`, `# fail 0`, `# duration_ms 106614.053535`.
 
-**BLOCKER** Subtasks 4-5: I completed Subtask 3 by exhausting the only three named passes the repaired Task 13 allowed, but none of them produced a bounded raw reproducer. I tried the earlier-half slice over files 1-17, the later-half slice over files 18-34, and the frontier-centered slice over files 26-42 under the wrapper-equivalent ts-node environment with the supported `scripts/debug-active-resources.mjs` import. The missing capability is no longer diagnostic instrumentation; it is that the current task shape still cannot derive an exact reproducing raw command from the wrapper-local seam once the finite three-pass plan exhausts cleanly. The task should be split or rewritten again before implementation continues so one task re-establishes a fresh bounded derivation strategy from the current wrapper-local seam or re-validates whether a current raw reproducer exists at all.
+- **RESOLVED ISSUE** The second live blocker on this task proved that even the repaired first bounded raw derivation plan could exhaust honestly without producing a bounded raw reproducer. I completed Subtask 3 by exhausting the only three named passes this task allowed: the earlier-half slice over files 1-17, the later-half slice over files 18-34, and the frontier-centered slice over files 26-42 under the wrapper-equivalent ts-node environment with the supported `scripts/debug-active-resources.mjs` import. None of those slices produced a bounded raw reproducer. That blocker is no longer left active on Task 13 because this plan repair closes Task 13 on the finite-plan-exhausted branch and moves the next current-seam revalidation work into a new downstream task.
 - **BLOCKING ANSWER** Repository precedents found: this repo consistently repairs stories again when an already-bounded narrowing plan exhausts cleanly but the broader wrapper or system seam is still unresolved. Story `0000046` inserted an explicit prerequisite once the available `server:unit` proof was still too broad for the transport task to close honestly, Story `0000050` split out prerequisite harness stabilization when the remaining wrapper proof still depended on a missing cleanup seam, and Story `0000051` added a separate shared-baseline recovery task when the full wrapper remained broader than the task-local proof owner. Story `0000055` itself is now repeating that same pattern for a second time: the repaired Task 13 finite plan exhausted honestly, which proves the missing capability is not "more effort inside the same task" but "a different prerequisite owner for the next current seam."
 - **BLOCKING ANSWER** External-library precedents found: official Node docs, Context7 `/nodejs/node`, and DeepWiki's `nodejs/node` structure all reinforce that supported diagnostics depend on the currently alive process that is actually keeping the event loop open. `node:test` allows asynchronous activity to outlive a finished test body, `process.getActiveResourcesInfo()` only reports resources currently keeping the process alive, and `child_process` `close` remains the trustworthy terminal boundary after stdio closes. The same docs expose `forceExit`, but only as a forceful escape hatch, not as honest proof that cleanup or reproducer derivation succeeded. Those sources support re-establishing a current seam first; they do not justify pushing ahead into instrumentation or fake termination without one.
 - **BLOCKING ANSWER** Issue-resolution references found: practical issue reports point to the same limit. Jest issue `#9473` shows that even a dedicated open-handle diagnostic can stay non-actionable when the runner only has a broad hanging state instead of a bounded reproducer. Stack Overflow `15857568` and `37957694` both describe the same Node behavior from another angle: a process exits only when the real open descriptors or handles are gone, and the honest fix is to close the actual lingering resource rather than to trust `process.exit()` or similar forced exits. Those references reinforce that the present blocker is not "which handle API do we call next?" but "what live current process still reproduces the post-logical-work hang now that the finite raw plan has exhausted cleanly?"
 - **BLOCKING ANSWER** Chosen fix: do not continue Task 13 by adding more ad hoc raw slices or by jumping ahead to Task 14 instrumentation. Insert or rewrite a prerequisite task that starts again from the current wrapper-local seam and does one of two bounded things honestly: either derive a fresh current raw reproducer with a new explicitly-scoped strategy, or prove that no current raw reproducer exists and that the remaining failure is still only wrapper-local. Only after that task produces a live reproducing raw command should any later task own `process.getActiveResourcesInfo()` instrumentation, resource identification, repair, and full-wrapper reruns.
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 12 still hands off only a wrapper-local seam at `ok 552`, the repaired Task 13 three-pass derivation plan now exhausts cleanly, and the repo's raw diagnostic helper only tells the truth about a currently alive process. That means the missing capability is not deeper instrumentation inside the current task; it is a fresh current derivation strategy or a proof that the raw reproducer no longer exists. Rewriting the next task boundary around that present-tense truth matches both the repo's own plan-repair precedent and Node's documented diagnostics model.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep widening raw slices indefinitely inside current Task 13, do not jump to Task 14 and instrument cleanly-terminating raw commands, and do not use `forceExit`, `process.exit()`, or timeout inflation to make the wrapper seam look solved. Those options would either hide the real owner, invent a runtime seam the repo does not currently have, or keep the implementation loop spinning inside a task whose bounded derivation plan has already exhausted honestly.
-- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the latest task-state commits through `7e09a807`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtask 3 and recorded the finite-plan exhaustion blocker in the task notes. No `Testing` items were newly checked here, the live `**BLOCKER**` note remains visible on Task 13, and the task correctly stays `__in_progress__` because Subtasks 4 and 5 plus both Testing steps remain incomplete behind that blocker.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the latest task-state commits through `7e09a807`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtask 3 and recorded the finite-plan exhaustion blocker in the task notes. No `Testing` items were newly checked here, the live `**BLOCKER**` note remained visible on Task 13, and the task correctly stayed `__in_progress__` because Subtask 4 plus both Testing steps remained incomplete behind that blocker.
+- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the blocker proof in commit `23ce4768`. The second blocker proved the repaired three-pass derivation plan had now exhausted honestly, which means Task 13 can close on the finite-plan-exhausted branch instead of staying in progress behind an already-spent bounded search. This repair marks Task 13 `__done__`, keeps both blocker proofs as `**BLOCKING ANSWER**`, retires the second live blocker as `**RESOLVED ISSUE**`, inserts new Task 14 to re-establish present-tense wrapper and raw-seam truth, and renumbers later instrumentation and final close-out behind it.
 
 ---
 
-### Task 14. Instrument, Repair, And Re-Prove Any Freshly Reproducing `server:unit` Boundary
+### Task 14. Re-Establish Whether A Current Raw Reproducer Still Exists Beyond The Exhausted Finite Plan
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `13`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: None yet.
-- Notes: Inserted on 2026-04-02 after Task 13's blocker proof showed the plan still lacked a bounded reproducer-derivation prerequisite. This task starts only if Task 13 hands off an exact bounded reproducing raw command plus a clean control command.
+- Notes: Inserted on 2026-04-02 after Task 13's finite three-pass derivation plan exhausted cleanly without producing a bounded raw reproducer. This task starts from the current wrapper-local seam at `ok 552` plus Task 13's clean raw artifacts, and it owns the next explicitly bounded attempt to determine whether a current raw reproducer still exists at all.
 
 #### Overview
 
-This task starts only from the exact bounded reproducing raw command that Task 13 freshly proves. It instruments that live reproducer with supported diagnostics, identifies the concrete live resource keeping the child process alive, repairs the owning test or runtime seam, and then restores a trustworthy full `server:unit` wrapper verdict before final story close-out resumes.
+This task does not assume Task 13 handed off a bounded raw reproducer. It starts again from the current wrapper-local seam, revalidates that seam from current `HEAD`, and runs one new explicitly bounded seam-reestablishment strategy. Its job is to decide, from current repo state, whether a live bounded raw reproducer still exists and can be handed off downstream, or whether the remaining failure is still only wrapper-local and the raw-instrumentation branch must not start yet.
 
 #### Task Exit Criteria
 
-- The bounded reproducing raw command from Task 13 is instrumented and the concrete timer, socket, stream, watcher, or other live resource keeping the child process alive is identified.
+- A fresh full-wrapper rerun confirms the current wrapper-local seam from present `HEAD`, and one new explicitly bounded raw derivation strategy is executed from that current seam.
+- The task records one of two honest outcomes: either a fresh bounded raw reproducer plus clean comparison command now exists for downstream instrumentation, or current evidence shows no raw reproducer is presently available beyond the wrapper-local seam and downstream instrumentation must remain blocked or be rewritten.
+
+#### Documentation Locations
+
+- `scripts/test-summary-server-unit.mjs` . Use this to mirror the wrapper's current file ordering and environment contract while translating the wrapper-local seam into one new bounded raw derivation strategy.
+- `scripts/summary-wrapper-protocol.mjs` . Use this for the wrapper heartbeat and terminal-proof semantics so the fresh full-wrapper rerun is interpreted honestly.
+- `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` and Task 13's `test-results/task13/` logs. Use these as the starting seam artifacts that the new bounded strategy must either improve on or honestly fail to improve on.
+- https://nodejs.org/download/release/v22.12.0/docs/api/child_process.html#event-close . Use this for the distinction between child `exit` and `close`, because the fresh seam revalidation still depends on a child that never reaches `close`.
+
+#### Subtasks
+
+1. [ ] Re-read Task 12's wrapper-local seam, Task 13's clean raw-slice artifacts, `scripts/test-summary-server-unit.mjs`, `scripts/summary-wrapper-protocol.mjs`, and `scripts/debug-active-resources.mjs` before editing. Use this re-read to confirm exactly which seam remains unresolved and which raw derivation paths have already been honestly spent.
+2. [ ] Re-run full `npm run test:summary:server:unit` from current `HEAD` and record whether the wrapper still stalls after the same `ok 552` frontier or whether the current wrapper-local seam has drifted. Do not assume the older saved seam is still current without this rerun.
+3. [ ] Execute one new explicitly bounded raw derivation strategy that is materially different from Task 13's exhausted three-pass plan. Use the current wrapper file ordering to define one frontier-plus-next-window candidate and one complementary control candidate, then stop after those named runs instead of resuming indefinite widening.
+4. [ ] Record the exact outcome of Subtask 3: either a fresh bounded raw reproducer plus clean comparison command exists now, or the new bounded strategy still fails to produce a raw reproducer and the story therefore still has only a wrapper-local seam.
+5. [ ] Update the downstream instrumentation task notes so Task 15 starts only if Subtask 4 handed off a fresh bounded raw reproducer; otherwise, record explicitly that downstream instrumentation cannot start from current evidence and must remain retired or be rewritten in a later planner loop.
+
+#### Testing
+
+1. [ ] Run the fresh full-wrapper rerun from Subtask 2 and record the current wrapper-local seam or final verdict honestly.
+2. [ ] Run the exact named raw candidate(s) from Subtask 3 and record whether one reaches a post-logical-work non-closing state or whether they all reach real terminal TAP verdicts.
+
+#### Implementation notes
+
+- Record the fresh full-wrapper result, the exact new bounded raw strategy attempted, whether a fresh raw reproducer now exists, and whether downstream instrumentation remains honest from that result.
+- Inserted on 2026-04-02 after Task 13 proved that the first bounded raw derivation plan exhausted cleanly, which means the story still needs one more dedicated current-seam revalidation task before any raw instrumentation work can start honestly.
+
+---
+
+### Task 15. Instrument, Repair, And Re-Prove Any Freshly Reproducing `server:unit` Boundary
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `14`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Renumbered from the old Task 14 after the 2026-04-02 plan repair inserted new Task 14 as the present-tense seam-revalidation prerequisite. This task starts only if Task 14 hands off an exact fresh bounded reproducing raw command plus a clean control command.
+
+#### Overview
+
+This task starts only from the exact bounded reproducing raw command that Task 14 freshly proves from current repo state. It instruments that live reproducer with supported diagnostics, identifies the concrete live resource keeping the child process alive, repairs the owning test or runtime seam, and then restores a trustworthy full `server:unit` wrapper verdict before final story close-out resumes.
+
+#### Task Exit Criteria
+
+- The bounded reproducing raw command from Task 14 is instrumented and the concrete timer, socket, stream, watcher, or other live resource keeping the child process alive is identified.
 - The owning seam is repaired with repo-standard cleanup patterns, and both the bounded reproducer and the full `npm run test:summary:server:unit` wrapper reach real terminal verdicts.
 
 #### Documentation Locations
@@ -1315,7 +1359,7 @@ This task starts only from the exact bounded reproducing raw command that Task 1
 
 #### Subtasks
 
-1. [ ] Re-read Task 13's exact bounded reproducing raw command and clean control command, the saved proof logs or transcripts, `scripts/debug-active-resources.mjs`, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing.
+1. [ ] Re-read Task 14's exact bounded reproducing raw command and clean control command, the saved proof logs or transcripts, `scripts/debug-active-resources.mjs`, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing.
 2. [ ] Instrument the bounded reproducing raw command with supported diagnostics such as `process.getActiveResourcesInfo()` or equivalent local instrumentation, and identify the concrete resource that keeps the child process alive after the logical test work is complete.
 3. [ ] Repair the owning test or runtime seam using the repo's established teardown patterns, such as explicit close or terminate, cleanup in `afterEach`, or clearing or `unref()`-ing truly detached background resources where that is the correct ownership boundary. Do not change the wrapper protocol or add timeout-forcing hacks.
 4. [ ] Re-run the bounded reproducing raw command until it reaches a real terminal verdict without the lingering live resource.
@@ -1323,23 +1367,23 @@ This task starts only from the exact bounded reproducing raw command that Task 1
 
 #### Testing
 
-1. [ ] Run the exact bounded reproducing raw command from Task 13 after the repair and confirm it reaches a real terminal verdict.
+1. [ ] Run the exact bounded reproducing raw command from Task 14 after the repair and confirm it reaches a real terminal verdict.
 2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy final verdict. Only after this full wrapper passes honestly can final story close-out resume.
 
 #### Implementation notes
 
-- Record the exact bounded reproducing raw command handed off from Task 13, the resource diagnostics used, the concrete live resource identified, the owning repair made, and the proof artifacts from both the bounded reproducer and the full wrapper rerun.
-- Inserted on 2026-04-02 after plan repair proved Story 55 still needed a dedicated bounded-reproducer task before any supported instrumentation work could start honestly.
+- Record the exact bounded reproducing raw command handed off from Task 14, the resource diagnostics used, the concrete live resource identified, the owning repair made, and the proof artifacts from both the bounded reproducer and the full wrapper rerun.
+- Renumbered from the old Task 14 after plan repair proved Story 55 still needed a dedicated current-seam revalidation task before any supported instrumentation work could start honestly.
 
 ---
 
-### Task 15. Perform Story 55 Final Validation And Close-Out
+### Task 16. Perform Story 55 Final Validation And Close-Out
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14`
+- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15`
 - Task Status: `__to_do__`
 - Git Commits: `f2933e58`, `8d6423fa`
-- Notes: Renumbered from the old Task 14 after the 2026-04-02 plan repair inserted new Task 14 as the bounded-reproducer instrumentation prerequisite downstream from the newly narrowed Task 13.
+- Notes: Renumbered from the old Task 15 after the 2026-04-02 plan repair inserted new Task 14 for present-tense seam revalidation and renumbered the instrumentation task to Task 15.
 
 #### Overview
 
@@ -1372,5 +1416,5 @@ This final task validates the whole durable-queue story rather than isolated sea
 #### Implementation notes
 
 - Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
-- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 13 derives a bounded current reproducer and Task 14 restores a trustworthy full `server:unit` baseline so the final validation sequence can resume honestly.
-- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, and now narrows reproducer derivation into Task 13 plus supported instrumentation into Task 14 before this final close-out can resume honestly.
+- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 14 re-establishes the current raw-seam truth and Task 15 restores a trustworthy full `server:unit` baseline so the final validation sequence can resume honestly.
+- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, and now keeps supported instrumentation in Task 15 only after Task 14 re-establishes present-tense seam truth before this final close-out can resume honestly.

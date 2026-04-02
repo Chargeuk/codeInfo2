@@ -467,6 +467,11 @@ Then(
   },
 );
 
+Then('ingest manage response status is {int}', (status: number) => {
+  assert(response, 'expected response');
+  assert.equal(response.status, status);
+});
+
 Given(
   'ingest manage mongo queue has running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {

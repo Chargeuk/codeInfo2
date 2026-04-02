@@ -156,7 +156,10 @@ Then(
     for (let i = 0; i < 60; i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
-      if (body.state === state || body.state === 'error') return;
+      if (body.state === state) return;
+      if (body.state === 'error' && state !== 'error') {
+        throw new Error(`Run ended in error: ${body.lastError}`);
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);

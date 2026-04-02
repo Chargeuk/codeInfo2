@@ -124,14 +124,14 @@ Feature: Ingest delta re-embed
     Then ingest delta terminal outcome should stabilize as a single terminal state
 
   @no_mongo
-  Scenario: No-Mongo corner case re-embed works when Mongo is disconnected
+  Scenario: No-Mongo re-embed surfaces retryable queue unavailability
     Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
     And ingest delta mongo should be disconnected
     When I change ingest delta temp file "a.ts" to "export const a=2;"
     And I POST ingest reembed for the delta repo
-    Then ingest delta status for the last run becomes "completed"
+    Then ingest delta response status is 503 with code "QUEUE_UNAVAILABLE"
 
   @mongo
   Scenario: Legacy root upgrade removes old vectors and repopulates ingest_files

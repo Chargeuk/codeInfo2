@@ -16,9 +16,10 @@ Feature: ingest start endpoint
     When I POST ingest start with model "embed-1"
     Then the ingest start status code is 409
 
-  Scenario: dry run skips embeddings
+  Scenario: dry run completes without embeddings
     Given ingest start models scenario "many"
     And temp repo with file "b.ts" containing "export const b=2;"
     When I POST ingest start with model "embed-1" and dryRun
     Then the ingest start status code is 202
+    And ingest status for the last run becomes "completed"
     And ingest status embedded count is 0

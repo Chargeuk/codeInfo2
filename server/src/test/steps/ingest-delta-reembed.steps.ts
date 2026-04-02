@@ -50,6 +50,7 @@ let baseUrl = '';
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
 let lastStatus: { state?: string; message?: string } | null = null;
+let lastResponse: { status: number; body: unknown } | null = null;
 
 const originalHashesByRelPath = new Map<string, string>();
 const previousHashesByRelPath = new Map<string, string>();
@@ -143,6 +144,7 @@ After(async () => {
   }
   lastRunId = null;
   lastStatus = null;
+  lastResponse = null;
   rememberedVectorCount = null;
   rememberedRunId = null;
   rememberedAstCoverageTimestamp = null;
@@ -194,6 +196,7 @@ When(
       body: JSON.stringify({ path: dir, name: 'tmp', model }),
     });
     const body = (await res.json()) as { runId?: string };
+    lastResponse = { status: res.status, body };
     if (res.status === 202) {
       lastRunId = body.runId ?? null;
     }
@@ -207,6 +210,7 @@ When('I POST ingest reembed for the delta repo', async () => {
     { method: 'POST' },
   );
   const body = (await res.json()) as { runId?: string };
+  lastResponse = { status: res.status, body };
   if (res.status === 202) {
     lastRunId = body.runId ?? null;
   }
@@ -280,10 +284,22 @@ Then(
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = (await res.json()) as { state?: string; message?: string };
       lastStatus = body;
-      if (body.state === state || body.state === 'error') return;
+      if (body.state === state) return;
+      if (body.state === 'error' && state !== 'error') {
+        throw new Error(`Run ended in error: ${body.message ?? 'unknown error'}`);
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);
+  },
+);
+
+Then(
+  'ingest delta response status is {int} with code {string}',
+  (status: number, code: string) => {
+    assert(lastResponse, 'missing last response');
+    assert.equal(lastResponse.status, status);
+    assert.equal((lastResponse.body as { code?: string }).code, code);
   },
 );
 

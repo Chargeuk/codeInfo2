@@ -1493,11 +1493,11 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 
 #### Subtasks
 
-1. [ ] Re-read Task 16's proof logs, the current wrapper ordering, and the shared setup, teardown, runtime, or shutdown helpers touched by the unresolved region. Record one materially different owner class that Task 16 did not already exhaust.
-2. [ ] Run one explicitly bounded command or smallest current file group that exercises that different owner class without reusing Task 16's exact frontier-window or shifted-control pair. Record the exact command and saved output path.
-3. [ ] Run one complementary bounded control that excludes or shifts away from that owner class while still exercising the nearest competing region. Stop after this named pair instead of reopening indefinite narrowing.
-4. [ ] If Subtasks 2 and 3 still leave ownership ambiguous, run exactly one bounded helper- or runtime-focused ownership check for that different owner class, then stop and record the outcome instead of widening further.
-5. [ ] Update the downstream repair task notes so Task 18 starts only from the exact named owner produced here. If this second bounded derivation plan also exhausts without a named owner, record that later repair remains blocked and must return to planner review instead of continuing ad hoc.
+1. [x] Re-read Task 16's proof logs, the current wrapper ordering, and the shared setup, teardown, runtime, or shutdown helpers touched by the unresolved region. Record one materially different owner class that Task 16 did not already exhaust.
+2. [x] Run one explicitly bounded command or smallest current file group that exercises that different owner class without reusing Task 16's exact frontier-window or shifted-control pair. Record the exact command and saved output path.
+3. [x] Run one complementary bounded control that excludes or shifts away from that owner class while still exercising the nearest competing region. Stop after this named pair instead of reopening indefinite narrowing.
+4. [x] If Subtasks 2 and 3 still leave ownership ambiguous, run exactly one bounded helper- or runtime-focused ownership check for that different owner class, then stop and record the outcome instead of widening further.
+5. [x] Update the downstream repair task notes so Task 18 starts only from the exact named owner produced here. If this second bounded derivation plan also exhausts without a named owner, record that later repair remains blocked and must return to planner review instead of continuing ad hoc.
 
 #### Testing
 
@@ -1508,6 +1508,11 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 
 - Record the different owner class chosen here, every bounded command attempted, whether one names a current owner, and the proof artifacts that justify the branch honestly.
 - Inserted on 2026-04-02 because Task 16 proved that the first bounded ingest/logging owner class exhausted cleanly and still did not hand off a repairable owner.
+- Subtask 1: re-read Task 16's proof logs under `test-results/task16/`, the current integration ordering from `scripts/test-summary-server-unit.mjs`, and the unresolved frontier neighborhood on disk. The materially different unspent owner class is the shared `ingestJob` runtime and teardown seam used by `ingest-progress-accounting.test.ts` and `ingest-reembed.test.ts`, which Task 16 did not isolate because it stayed inside the earlier ingest/logging region and its shared log-stream shutdown path.
+- Subtask 2: ran the bounded runtime-owner candidate under the wrapper-equivalent ts-node environment from `server/`: `node --test --test-concurrency=1 src/test/integration/ingest-progress-accounting.test.ts src/test/integration/ingest-reembed.test.ts`. Saved output: `test-results/task17/task17-runtime-owner-candidate.log`. The command reached a real terminal TAP verdict with `# pass 4`, `# fail 0`, so this second owner class did not become a present-tense child-side reproducer at its first bounded runtime grouping.
+- Subtask 3: ran the complementary bounded control command from `server/`: `node --test --test-concurrency=1 src/test/integration/ingest-reembed-invalid-state.test.ts`. Saved output: `test-results/task17/task17-runtime-owner-control.log`. This nearest competing control also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, so shifting away from the `ingestJob` runtime seam still exits cleanly in the adjacent reembed region.
+- Subtask 4: because Subtasks 2 and 3 still left ownership ambiguous, ran exactly one helper/runtime-focused ownership check on the most concentrated remaining seam in this owner class: `node --test --test-concurrency=1 src/test/integration/ingest-reembed.test.ts`. Saved output: `test-results/task17/task17-runtime-owner-helper.log`. That helper-focused check also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, so this second bounded derivation plan still did not name a present-tense child-side owner.
+- Subtask 5: the second bounded owner-derivation strategy exhausted cleanly without producing a named owner. Downstream repair therefore remains blocked: Task 18 must not start from a guessed owner, and the next honest move is planner review to insert or rewrite another prerequisite derivation step instead of continuing ad hoc repair.
 
 ---
 
@@ -1517,7 +1522,7 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 - Task Dependencies: `17`
 - Task Status: `__to_do__`
 - Git Commits: None yet.
-- Notes: Renumbered from the old Task 17 after the 2026-04-02 plan repair inserted new Task 17 for one materially different owner-derivation strategy. This task starts only if Task 17 hands off one exact present-tense owner inside the still-running test child.
+- Notes: Renumbered from the old Task 17 after the 2026-04-02 plan repair inserted new Task 17 for one materially different owner-derivation strategy. This task starts only if Task 17 hands off one exact present-tense owner inside the still-running test child. Current Task 17 evidence does not do that yet: the bounded runtime-owner candidate, its shifted control, and the one concentrated runtime-helper check all terminate cleanly, so Task 18 remains blocked pending planner review rather than starting from a guessed owner.
 
 #### Overview
 
@@ -1551,6 +1556,7 @@ This task starts only from the bounded child-side owner that Task 17 proves from
 
 - Record the exact owner handed off from Task 17, the repair made, and the proof artifacts from both the bounded owner-level rerun and the full wrapper rerun.
 - Renumbered on 2026-04-02 because later repair work must now start from a named child-side owner proven by the new Task 17 rather than from Task 16's exhausted owner class.
+- Current blocker inherited from Task 17: `test-results/task17/task17-runtime-owner-candidate.log`, `test-results/task17/task17-runtime-owner-control.log`, and `test-results/task17/task17-runtime-owner-helper.log` all end with real terminal TAP verdicts, so there is still no exact present-tense owner for this repair task to own honestly.
 
 ---
 

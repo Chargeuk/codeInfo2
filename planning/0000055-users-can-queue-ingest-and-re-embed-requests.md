@@ -769,6 +769,7 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 - Task Dependencies: `4, 5, 6`
 - Task Status: `__in_progress__`
 - Git Commits:
+  - `f87a798d` - `DEV-[55] - narrow task 7 lifecycle owners`
 
 #### Overview
 
@@ -807,6 +808,7 @@ This task owns the remaining non-config, non-transport failures that the restore
 - Repaired the timing-sensitive owners without widening the wrapper contract: the Copilot lock proof now keeps the first mock run active longer, the AST indexing proof file now uses `waitForTerminalIngestStatus(...)` instead of a 1-second local poll loop, and the websocket sidebar proofs now wait deterministically for subscription readiness before expecting `conversation_upsert`.
 - Updated the proof text and helper surface to make the lifecycle assumptions explicit, including a renamed Copilot lock test title and a shared sidebar-subscription readiness helper in `ws-server.test.ts` so the timing boundary is named instead of hidden behind repeated fixed sleeps.
 - `npx eslint` passed on the exact Task 7 touched files with zero warnings, and `npx prettier --check` also passed on that same touched-file list without requiring follow-up formatting changes.
+- Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed lifecycle-owner narrowing work in `f87a798d`, confirmed there is no live `**BLOCKER**` note on Task 7, and left the task `__in_progress__` because the targeted Task 7 reruns and the follow-up full `server:unit` proof are still pending.
 
 ---
 

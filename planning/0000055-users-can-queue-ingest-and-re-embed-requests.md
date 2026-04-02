@@ -953,6 +953,7 @@ This task makes queued work visible through the shared repository-list contract 
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8`
 - Task Status: `__in_progress__`
 - Git Commits:
+  - `2c18e3d6` - `DEV-[55] - rebaseline task 9 cucumber proof homes`
 - Notes: Inserted during Task 8 plan repair because the full cucumber wrapper exposed reopened earlier-task failures that Task 8 does not own.
 
 #### Overview
@@ -994,6 +995,7 @@ This task restores the full server cucumber baseline after Task 8 exposed failur
 - Subtask 3: re-baselined the reopened logging, re-embed, and start feature expectations to the current Story 55 behavior. `ingest-logging.feature` now expects the no-files re-embed path to log `skipped`, `ingest-start.feature` now waits for the dry-run request to reach `completed` before asserting embedded counts, and `ingest-reembed.feature` now describes the queue-aware accepted re-embed path instead of a stale single-flight-style rejection.
 - Subtask 4: tightened the shared cucumber step helpers only where they were the real owner. `ingest-start.steps.ts` and `ingest-delta-reembed.steps.ts` now fail fast when a scenario asked for a non-error terminal state but the runtime actually entered `error`, which closes the false-positive seam that had been hiding reopened cucumber failures behind early returns.
 - Subtask 5: renamed the stale scenario titles and proof text so they match current queue-era behavior, including the disconnected-Mongo delta case, the no-files logging re-embed case, the dry-run start case, and the re-embed model-lock scenario that now proves accepted queued behavior rather than a pre-queue rejection story.
+- Implementation-only audit on 2026-04-02: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 9 plan section from disk, rechecked the current branch `HEAD`, and verified that commit `2c18e3d6` implements the Task 9-owned cucumber proof-home repairs already reflected by Subtasks 1 through 5. No Task 9 `Testing` items were newly checked in this audit, there is no live `**BLOCKER**` note on Task 9, and the task remains `__in_progress__` because the targeted cucumber reruns and the final full `npm run test:summary:server:cucumber` proof are still pending.
 
 ---
 

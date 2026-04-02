@@ -824,6 +824,7 @@ This task owns the remaining non-config, non-transport failures that the restore
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7`
 - Task Status: `__in_progress__`
 - Git Commits:
+  - `30931b75` - `DEV-[55] - extend queued repo list visibility`
 
 #### Overview
 
@@ -899,6 +900,7 @@ This task makes queued work visible through the shared repository-list contract 
 - Added or updated the named proof homes for the new contract and UI behavior across server unit, client unit, cucumber, and e2e files, and also repaired adjacent schema-version collateral proof in `server/src/test/unit/openapi.contract.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`, and `client/src/test/ingestStatus.test.tsx` so the repo does not carry stale `0000038` expectations into later automated proof.
 - `npx eslint` passed on the exact Task 8 touched-file list with zero errors and zero warnings.
 - `npx prettier --check` required a follow-up `--write` pass on several touched files, and the local Prettier install still cannot infer a parser for `.feature` files. The final Task 8 formatting verification therefore used the same checked file list with `--ignore-unknown`, which kept the feature file in the audited list while honestly reflecting the repo-local formatter capability already seen in earlier tasks.
+- Implementation-only audit on 2026-04-02: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 8 plan section from disk, rechecked the current branch `HEAD`, reviewed the Task 8 implementation commit `30931b75`, and spot-checked the current owners in `common/src/lmstudio.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/pages/IngestPage.tsx`, `client/src/components/ingest/IngestForm.tsx`, and `client/src/components/ingest/RootsTable.tsx`. No additional subtasks needed to be newly marked complete, no Task 8 `Testing` items were newly checked in this audit, there is no live `**BLOCKER**` note on Task 8, and the task remains `__in_progress__` because the full wrapper, build, and compose proof steps are still pending for this loop.
 
 ---
 

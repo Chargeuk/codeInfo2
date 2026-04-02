@@ -685,8 +685,8 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 
 #### Testing
 
-1. [ ] Run targeted `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`, and add `server/src/test/unit/codexConfig.test.ts` or the exact current fixture-parity owner if the full-wrapper log still names it. The pass condition is that each targeted config-cluster file reaches a clean terminal verdict.
-2. [ ] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
+1. [x] Run targeted `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`, and add `server/src/test/unit/codexConfig.test.ts` or the exact current fixture-parity owner if the full-wrapper log still names it. The pass condition is that each targeted config-cluster file reaches a clean terminal verdict.
+2. [x] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
 
 #### Implementation notes
 
@@ -698,6 +698,8 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 - Subtask 4: `npx eslint server/src/test/unit/codexConfig.test.ts --max-warnings=0` passed cleanly for the lintable file touched by this task.
 - Subtask 5: `npx prettier --check --ignore-unknown codex_agents/review_agent/config.toml codex/chat/config.toml codex/chat/config_minimax.toml server/src/test/unit/codexConfig.test.ts` passed. The repo's current Prettier install does not infer a TOML parser, so `--ignore-unknown` was required to keep the exact touched list honest without inventing a formatter plugin that is not installed.
 - Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed config-drift work in `71abc24e`, confirmed there is no live `**BLOCKER**` note on Task 5, and left the task `__in_progress__` because the targeted config-cluster reruns and follow-up full `server:unit` proof are still pending.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`, and `npm run test:summary:server:unit -- --file server/src/test/unit/codexConfig.test.ts` all passed cleanly with wrapper `agent_action: skip_log` (`8/8`, `80/80`, and `16/16` respectively).
+- Testing 2: `npm run test:summary:server:unit` reached a real terminal verdict with `1593` tests run, `1584` passed, and `9` failed. The old Task 5 config-cluster failures are gone; the remaining failures (`chat-copilot-lock`, `flows.run.loop`, `ingest-failure-logging-coverage`, `ingest-reembed-invalid-state`, `openai-model-unavailable-contract`, `ingest-ast-indexing`, and `ws-server`) belong to the later transport-proof and timeout/lifecycle tasks instead of to this checked-in config-drift cluster.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

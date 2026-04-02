@@ -814,6 +814,7 @@ This task owns the remaining non-config, non-transport failures that the restore
 - `npx eslint` passed on the exact Task 7 touched files with zero warnings, and `npx prettier --check` also passed on that same touched-file list without requiring follow-up formatting changes.
 - Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed lifecycle-owner narrowing work in `f87a798d`, confirmed there is no live `**BLOCKER**` note on Task 7, and left the task `__in_progress__` because the targeted Task 7 reruns and the follow-up full `server:unit` proof are still pending.
 - Implementation-plus-automated-proof audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed all Task 7 subtasks and both Task 7 testing steps now have direct repo evidence, confirmed there is no live `**BLOCKER**` note on Task 7, and marked the task `__done__` because its timeout and lifecycle regression slice is fully implemented and proved and the shared `server:unit` wrapper now passes cleanly.
+- Manual testing was assessed on 2026-04-02 and is not applicable for Task 7 because this completed task only restores timeout-sensitive and lifecycle-sensitive proof homes plus their immediate helper seams; it does not add or change a separate runnable, browser-visible, or externally observable product surface beyond the automated server-unit evidence already captured here. No new manual-proof subtasks or testing-step changes were needed.
 
 ---
 

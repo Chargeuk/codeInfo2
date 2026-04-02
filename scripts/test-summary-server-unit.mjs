@@ -14,6 +14,7 @@ import {
   createSummaryLogStream,
   createSummaryWrapperProtocol,
   runLoggedCommand,
+  SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV,
 } from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
@@ -146,6 +147,8 @@ const unitEnv = {
   CODEINFO_CHROMA_URL: '',
   CODEINFO_MONGO_URI: '',
   CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8932/mcp',
+  [SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV]:
+    process.env[SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV],
   TS_NODE_DEBUG: 'false',
   TS_NODE_LOG_ERROR: 'true',
   TS_NODE_FILES: 'true',

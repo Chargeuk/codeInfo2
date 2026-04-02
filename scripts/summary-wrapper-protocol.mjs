@@ -4,6 +4,8 @@ import path from 'node:path';
 
 export const SUMMARY_WRAPPER_HEARTBEAT_ENV = 'SUMMARY_WRAPPER_HEARTBEAT_MS';
 export const DEFAULT_SUMMARY_WRAPPER_HEARTBEAT_MS = 60_000;
+export const SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV =
+  'CODEINFO_DEBUG_WRAPPER_LIFECYCLE';
 
 const formatBoolean = (value) => (value ? 'true' : 'false');
 
@@ -197,6 +199,10 @@ export const runLoggedCommand = ({
 
     writeLogLine(logStream, `${bannerPrefix}$ ${cmd} ${args.join(' ')}`.trim());
 
+    const debugLifecycle =
+      env?.[SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV] === '1' ||
+      env?.[SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV] === 'true';
+
     const child = spawn(cmd, args, {
       cwd,
       env,
@@ -206,32 +212,135 @@ export const runLoggedCommand = ({
     let output = '';
     let stdout = '';
     let settled = false;
+    let lastProgressLine = '';
+    let stdoutEnded = false;
+    let stdoutClosed = false;
+    let stderrEnded = false;
+    let stderrClosed = false;
+
+    const logLifecycle = (event, fields = {}) => {
+      if (!debugLifecycle) return;
+      writeLogLine(
+        logStream,
+        `[wrapper-debug] ${JSON.stringify({
+          timestamp: new Date().toISOString(),
+          phase: phase ?? protocol?.getPhase?.(),
+          cmd,
+          event,
+          ...fields,
+        })}`,
+      );
+    };
+
+    const trackProgress = (text) => {
+      for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trimEnd();
+        if (
+          /^# Subtest: /.test(line) ||
+          /^ok \d+ - /.test(line) ||
+          /^not ok \d+ - /.test(line) ||
+          /^1\.\./.test(line) ||
+          /^# tests /.test(line) ||
+          /^# pass /.test(line) ||
+          /^# fail /.test(line)
+        ) {
+          lastProgressLine = line;
+        }
+      }
+    };
 
     const finish = (code) => {
       if (settled) return;
       settled = true;
+      logLifecycle('resolve', {
+        code: code ?? 1,
+        stdoutEnded,
+        stdoutClosed,
+        stderrEnded,
+        stderrClosed,
+        lastProgressLine: lastProgressLine || undefined,
+      });
       resolve({ code: code ?? 1, output, stdout });
     };
+
+    logLifecycle('spawn', { pid: child.pid });
 
     child.stdout.on('data', (chunk) => {
       const text = chunk.toString();
       output += text;
       if (collectStdout) stdout += text;
       logStream.write(text);
+      trackProgress(text);
     });
 
     child.stderr.on('data', (chunk) => {
       const text = chunk.toString();
       output += text;
       logStream.write(text);
+      trackProgress(text);
+    });
+
+    child.stdout.on('end', () => {
+      stdoutEnded = true;
+      logLifecycle('stdout_end', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.stdout.on('close', () => {
+      stdoutClosed = true;
+      logLifecycle('stdout_close', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.stderr.on('end', () => {
+      stderrEnded = true;
+      logLifecycle('stderr_end', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.stderr.on('close', () => {
+      stderrClosed = true;
+      logLifecycle('stderr_close', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
     });
 
     child.on('error', (err) => {
       const message = `Spawn error: ${err?.message ?? String(err)}`;
       writeLogLine(logStream, message);
       output += `\n${message}\n`;
+      logLifecycle('error', {
+        message: err?.message ?? String(err),
+        lastProgressLine: lastProgressLine || undefined,
+      });
       finish(1);
     });
 
-    child.on('close', (code) => finish(code));
+    child.on('exit', (code, signal) => {
+      logLifecycle('exit', {
+        code,
+        signal: signal ?? undefined,
+        stdoutEnded,
+        stdoutClosed,
+        stderrEnded,
+        stderrClosed,
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.on('close', (code, signal) => {
+      logLifecycle('close', {
+        code,
+        signal: signal ?? undefined,
+        stdoutEnded,
+        stdoutClosed,
+        stderrEnded,
+        stderrClosed,
+        lastProgressLine: lastProgressLine || undefined,
+      });
+      finish(code);
+    });
   });

@@ -16,8 +16,8 @@ import { hashFile } from '../../ingest/hashing.js';
 import {
   __resetIngestJobsForTest,
   cancelRun,
-  getStatus,
   startIngest,
+  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import { query, resetStore } from '../../logStore.js';
@@ -64,11 +64,12 @@ const createTempRepo = async (files: Record<string, string>) => {
 };
 
 const waitForTerminal = async (runId: string) => {
-  const terminal = new Set(['completed', 'skipped', 'cancelled', 'error']);
-  for (let i = 0; i < 100; i += 1) {
-    const status = getStatus(runId);
-    if (status && terminal.has(status.state)) return status;
-    await new Promise((resolve) => setTimeout(resolve, 10));
+  const terminal = await waitForTerminalIngestStatus(runId, {
+    timeoutMs: 5000,
+    pollMs: 10,
+  });
+  if (terminal.reason === 'terminal' && terminal.status) {
+    return terminal.status;
   }
   throw new Error(`Timed out waiting for ingest ${runId}`);
 };

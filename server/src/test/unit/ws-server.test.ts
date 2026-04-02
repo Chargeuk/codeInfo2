@@ -108,6 +108,17 @@ function waitForMessage(ws: WebSocket) {
   });
 }
 
+async function waitForSidebarSubscriptionReady(timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (query({ text: 'chat.ws.subscribe_sidebar' }).length > 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Timed out waiting for sidebar subscription');
+}
+
 function rawDataToString(data: RawData): string {
   if (typeof data === 'string') return data;
   if (Array.isArray(data)) return Buffer.concat(data).toString('utf8');
@@ -158,8 +169,7 @@ test('WS accepts connection on /ws and processes JSON message (happy path)', asy
       }),
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    assert.ok(query({ text: 'chat.ws.subscribe_sidebar' }).length > 0);
+    await waitForSidebarSubscriptionReady();
 
     const conversation: ConversationEventSummary = {
       conversationId: 'c-1',
@@ -237,7 +247,7 @@ test('WS conversation_upsert payload preserves flags.workingFolder', async () =>
       }),
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForSidebarSubscriptionReady();
 
     emitConversationUpsert({
       conversationId: 'c-working-folder',
@@ -304,7 +314,7 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
         type: 'subscribe_sidebar',
       }),
     );
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForSidebarSubscriptionReady();
 
     const responsePromise = waitForMessage(ws);
     await request(server.app)
@@ -358,7 +368,7 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
         type: 'subscribe_sidebar',
       }),
     );
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForSidebarSubscriptionReady();
 
     const responsePromise = waitForMessage(ws);
     await request(server.app)

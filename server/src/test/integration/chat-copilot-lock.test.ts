@@ -20,11 +20,11 @@ async function waitForConversationLock(
   throw new Error(`Timed out waiting for conversation lock: ${conversationId}`);
 }
 
-test('copilot chat keeps the existing conversation lock for concurrent turns', async () => {
+test('copilot chat keeps the existing conversation lock while the first run remains active', async () => {
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-lock',
-      sendDelayMs: 200,
+      sendDelayMs: 1000,
     },
   });
 

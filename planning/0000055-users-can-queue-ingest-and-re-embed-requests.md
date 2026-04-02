@@ -767,7 +767,7 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `4, 5, 6`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -786,11 +786,11 @@ This task owns the remaining non-config, non-transport failures that the restore
 
 #### Subtasks
 
-1. [ ] Start from the latest full-wrapper log after Tasks 5 and 6 complete, list every remaining failure name, and inspect the owning files or helpers before editing code. Begin with currently known candidates such as `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, conversation-lock owners, and any AST or websocket helper they share. Purpose: narrow the residual failures to concrete local owners instead of debugging the full suite blindly.
-2. [ ] Repair each narrowed owner using the repo’s existing deterministic cleanup, timing, and lifecycle patterns. Prefer replacing brittle waits or mixed fixture state upstream over adding more downstream sleeps. Purpose: fix the exact timeout or lifecycle seam rather than widening the wrapper contract again.
-3. [ ] Add or update the owning proof text, helper notes, or targeted diagnostics so the repaired timeout or lifecycle seam is explicit and regression-resistant. Purpose: make the restored full-suite baseline understandable to later developers.
-4. [ ] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
-5. [ ] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+1. [x] Start from the latest full-wrapper log after Tasks 5 and 6 complete, list every remaining failure name, and inspect the owning files or helpers before editing code. Begin with currently known candidates such as `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, conversation-lock owners, and any AST or websocket helper they share. Purpose: narrow the residual failures to concrete local owners instead of debugging the full suite blindly.
+2. [x] Repair each narrowed owner using the repo’s existing deterministic cleanup, timing, and lifecycle patterns. Prefer replacing brittle waits or mixed fixture state upstream over adding more downstream sleeps. Purpose: fix the exact timeout or lifecycle seam rather than widening the wrapper contract again.
+3. [x] Add or update the owning proof text, helper notes, or targeted diagnostics so the repaired timeout or lifecycle seam is explicit and regression-resistant. Purpose: make the restored full-suite baseline understandable to later developers.
+4. [x] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
+5. [x] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
 
 #### Testing
 
@@ -803,6 +803,10 @@ This task owns the remaining non-config, non-transport failures that the restore
 - Inserted during Task 4 plan repair because the restored wrapper baseline proved there are still timeout and lifecycle regressions that are separate from the config and queue-aware proof clusters.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+- Narrowed the latest full-wrapper failures to four concrete owners before editing: `server/src/test/integration/chat-copilot-lock.test.ts` still expected a conflict while the first mocked Copilot run was active, `server/src/test/unit/ingest-ast-indexing.test.ts` had two 1-second terminal-wait timeouts on AST-heavy reembed paths, and `server/src/test/unit/ws-server.test.ts` still relied on a short fixed sleep before sidebar subscription state was ready to receive `conversation_upsert`.
+- Repaired the timing-sensitive owners without widening the wrapper contract: the Copilot lock proof now keeps the first mock run active longer, the AST indexing proof file now uses `waitForTerminalIngestStatus(...)` instead of a 1-second local poll loop, and the websocket sidebar proofs now wait deterministically for subscription readiness before expecting `conversation_upsert`.
+- Updated the proof text and helper surface to make the lifecycle assumptions explicit, including a renamed Copilot lock test title and a shared sidebar-subscription readiness helper in `ws-server.test.ts` so the timing boundary is named instead of hidden behind repeated fixed sleeps.
+- `npx eslint` passed on the exact Task 7 touched files with zero warnings, and `npx prettier --check` also passed on that same touched-file list without requiring follow-up formatting changes.
 
 ---
 

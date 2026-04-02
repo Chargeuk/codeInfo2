@@ -234,7 +234,7 @@ describe('IngestPage realtime status UI', () => {
           ok: true,
           status: 200,
           json: async () => ({
-            schemaVersion: '0000038-status-phase-v1',
+            schemaVersion: '0000055-queued-repo-list-v1',
             roots: [
               {
                 runId: 'root-run-1',
@@ -278,7 +278,7 @@ describe('IngestPage realtime status UI', () => {
           ok: true,
           status: 200,
           json: async () => ({
-            schemaVersion: '0000038-status-phase-v1',
+            schemaVersion: '0000055-queued-repo-list-v1',
             roots: [
               {
                 runId: 'root-run-2',

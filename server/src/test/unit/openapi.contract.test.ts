@@ -50,7 +50,7 @@ test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', 
   assert.ok(topProps.schemaVersion);
   assert.deepEqual(topProps.schemaVersion, {
     type: 'string',
-    enum: ['0000038-status-phase-v1'],
+    enum: ['0000055-queued-repo-list-v1'],
   });
 });
 
@@ -91,7 +91,7 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
   assert.ok(topProps.schemaVersion);
   assert.deepEqual(topProps.schemaVersion, {
     type: 'string',
-    enum: ['0000038-status-phase-v1'],
+    enum: ['0000055-queued-repo-list-v1'],
   });
 });
 

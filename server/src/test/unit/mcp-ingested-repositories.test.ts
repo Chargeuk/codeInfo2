@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import test, { beforeEach } from 'node:test';
+import test, { beforeEach, mock } from 'node:test';
 import express from 'express';
+import mongoose from 'mongoose';
 import request from 'supertest';
 import {
   __resetIngestJobsForTest,
@@ -9,6 +10,7 @@ import {
 } from '../../ingest/ingestJob.js';
 import { baseLogger } from '../../logger.js';
 import { createMcpRouter } from '../../mcp/server.js';
+import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const ORIGINAL_DEV_0000038_MARKERS = process.env.DEV_0000038_MARKERS;
@@ -47,6 +49,7 @@ function createMcpApp({ lockedModelId }: { lockedModelId: string | null }) {
 beforeEach(() => {
   process.env.NODE_ENV = 'test';
   __resetIngestJobsForTest();
+  mock.restoreAll();
 });
 
 test.afterEach(() => {
@@ -92,8 +95,13 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
     lockedModelId: string | null;
     repos: Array<{
       id: string;
+      name: string;
       status: string;
       phase?: string;
+      requestId?: string | null;
+      runId?: string | null;
+      queuePosition?: number | null;
+      queueState?: string | null;
       embeddingProvider: string;
       embeddingModel: string;
       modelId: string;
@@ -105,9 +113,10 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
   assert.equal(parsed.lock?.embeddingModel, 'text-embedding-openai');
   assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
-  assert.equal(parsed.schemaVersion, '0000038-status-phase-v1');
+  assert.equal(parsed.schemaVersion, '0000055-queued-repo-list-v1');
   assert.equal(parsed.repos.length, 1);
   assert.equal(parsed.repos[0].id, 'repo');
+  assert.equal(parsed.repos[0].name, 'repo');
   assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
   assert.equal(parsed.repos[0].embeddingModel, 'embed-model');
   assert.equal(parsed.repos[0].model, 'embed-model');
@@ -116,6 +125,72 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   assert.equal(parsed.repos[0].lock.modelId, 'embed-model');
   assert.equal(parsed.repos[0].status, 'completed');
   assert.equal(parsed.repos[0].phase, undefined);
+});
+
+test('ListIngestedRepositories emits queued requestId with null runId before execution starts', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000058'),
+              canonicalTargetPath: '/data/queued-repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/queued-repo',
+                name: 'queued-repo',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const app = createMcpApp({ lockedModelId: 'embed-model' });
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'queued-row',
+      method: 'tools/call',
+      params: { name: 'ListIngestedRepositories', arguments: {} },
+    });
+
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<{
+      requestId?: string | null;
+      runId?: string | null;
+      queuePosition?: number | null;
+      queueState?: string | null;
+    }>;
+  };
+  assert.equal(response.status, 200);
+  assert.equal(parsed.repos[0]?.requestId, '000000000000000000000058');
+  assert.equal(parsed.repos[0]?.runId, null);
+  assert.equal(parsed.repos[0]?.queueState, 'waiting');
+  assert.equal(parsed.repos[0]?.queuePosition, 1);
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
 });
 
 test('ListIngestedRepositories omits phase for terminal statuses and maps skipped to completed', async () => {

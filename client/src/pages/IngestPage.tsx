@@ -216,7 +216,10 @@ export default function IngestPage() {
             }}
             openai={openai}
             defaultModelId={defaultModelId}
-            disabled={isRunActive}
+            onAccepted={() => {
+              void refetchRoots();
+              void refresh();
+            }}
           />
         </Paper>
 
@@ -253,7 +256,7 @@ export default function IngestPage() {
             }}
             isLoading={rootsLoading}
             error={rootsError}
-            disabled={isRunActive}
+            hasActiveRun={isRunActive}
             onRefresh={refetchRoots}
             onShowDetails={(root) => setDetailRoot(root)}
             onRefreshModels={refresh}

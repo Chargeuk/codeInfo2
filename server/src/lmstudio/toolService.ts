@@ -1,5 +1,7 @@
 import path from 'path';
+import mongoose from 'mongoose';
 import {
+  type IngestQueueState,
   type EmbeddingProviderId,
   IngestRequiredError,
   generateLockedQueryEmbedding,
@@ -8,10 +10,19 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
-import { getActiveRunContexts } from '../ingest/ingestJob.js';
+import {
+  getActiveRunContexts,
+  getStatus,
+  type ActiveIngestRunContext,
+} from '../ingest/ingestJob.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
+import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
 import { append } from '../logStore.js';
 import { baseLogger, parseNumber } from '../logger.js';
+import {
+  IngestQueueRequestModel,
+  type IngestQueueRequest,
+} from '../mongo/ingestQueueRequest.js';
 
 export type ExternalIngestStatus =
   | 'ingesting'
@@ -30,6 +41,7 @@ export type ToolDeps = {
 
 export type RepoEntry = {
   id: string;
+  name: string;
   description: string | null;
   containerPath: string;
   hostPath: string;
@@ -49,6 +61,24 @@ export type RepoEntry = {
   };
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
+  requestId?: string | null;
+  runId?: string | null;
+  queuePosition?: number | null;
+  queueState?: IngestQueueState | null;
+  ast?: {
+    supportedFileCount: number;
+    skippedFileCount: number;
+    failedFileCount: number;
+    lastIndexedAt: string | null;
+  };
+  error?: {
+    error: string;
+    message: string;
+    retryable: boolean;
+    provider: 'lmstudio' | 'openai';
+    upstreamStatus?: number;
+    retryAfterMs?: number;
+  } | null;
   status?: ExternalIngestStatus;
   phase?: ExternalIngestPhase;
 };
@@ -66,7 +96,7 @@ export type ListReposResult = {
   schemaVersion?: string;
 };
 
-export const INGEST_REPO_SCHEMA_VERSION = '0000038-status-phase-v1';
+export const INGEST_REPO_SCHEMA_VERSION = '0000055-queued-repo-list-v1';
 
 function parseDev0000038MarkerGate(value: string | undefined): boolean {
   if (typeof value !== 'string') return false;
@@ -226,6 +256,70 @@ type RootsGetter = {
   }>;
 };
 
+function parseAstMetadata(
+  meta: Record<string, unknown>,
+): RepoEntry['ast'] | undefined {
+  const astRaw = meta.ast;
+  const ast =
+    astRaw && typeof astRaw === 'object'
+      ? (astRaw as Record<string, unknown>)
+      : {
+          supportedFileCount: meta.astSupportedFileCount,
+          skippedFileCount: meta.astSkippedFileCount,
+          failedFileCount: meta.astFailedFileCount,
+          lastIndexedAt: meta.astLastIndexedAt,
+        };
+  const hasAstFields =
+    ast.supportedFileCount !== undefined ||
+    ast.skippedFileCount !== undefined ||
+    ast.failedFileCount !== undefined ||
+    ast.lastIndexedAt !== undefined;
+  if (!hasAstFields) return undefined;
+
+  return {
+    supportedFileCount: Number(ast.supportedFileCount ?? 0),
+    skippedFileCount: Number(ast.skippedFileCount ?? 0),
+    failedFileCount: Number(ast.failedFileCount ?? 0),
+    lastIndexedAt:
+      typeof ast.lastIndexedAt === 'string' ? ast.lastIndexedAt : null,
+  };
+}
+
+function parseNormalizedError(meta: Record<string, unknown>) {
+  const candidate = (
+    meta.error && typeof meta.error === 'object'
+      ? meta.error
+      : meta.lastError && typeof meta.lastError === 'object'
+        ? meta.lastError
+        : null
+  ) as Record<string, unknown> | null;
+  if (!candidate) return null;
+  const provider = candidate.provider;
+  const error = candidate.error;
+  const message = candidate.message;
+  const retryable = candidate.retryable;
+  if (
+    (provider === 'openai' || provider === 'lmstudio') &&
+    typeof error === 'string' &&
+    typeof message === 'string' &&
+    typeof retryable === 'boolean'
+  ) {
+    return {
+      error,
+      message,
+      retryable,
+      provider,
+      ...(typeof candidate.upstreamStatus === 'number'
+        ? { upstreamStatus: candidate.upstreamStatus }
+        : {}),
+      ...(typeof candidate.retryAfterMs === 'number'
+        ? { retryAfterMs: candidate.retryAfterMs }
+        : {}),
+    } as RepoEntry['error'];
+  }
+  return null;
+}
+
 function normalizeEmbeddingProvider(
   value: unknown,
 ): EmbeddingProviderId | null {
@@ -372,6 +466,158 @@ function logOverlayApplied(sourceId: string, synthesized: boolean) {
     { sourceId, synthesized },
     '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
   );
+}
+
+function buildRepoKey(containerPath: string): string {
+  return normalizeCanonicalQueueTargetPath(containerPath);
+}
+
+function deriveQueuePayloadName(
+  queueRequest: Pick<
+    IngestQueueRequest,
+    'canonicalTargetPath' | 'requestPayload'
+  >,
+) {
+  const payloadName = queueRequest.requestPayload.name;
+  if (typeof payloadName === 'string' && payloadName.trim().length > 0) {
+    return payloadName.trim();
+  }
+  return path.posix.basename(queueRequest.canonicalTargetPath) || 'repo';
+}
+
+function buildRepoFromQueueRequest(params: {
+  queueRequest: IngestQueueRequest;
+  lock: ListReposResult['lock'];
+}): RepoEntry {
+  const { queueRequest, lock } = params;
+  const payload = queueRequest.requestPayload;
+  const queuePath =
+    typeof payload.path === 'string' && payload.path.trim().length > 0
+      ? payload.path.trim()
+      : queueRequest.canonicalTargetPath;
+  const mapped = mapIngestPath(queuePath);
+  const name = deriveQueuePayloadName(queueRequest);
+  const embeddingProvider =
+    payload.embeddingProvider === 'lmstudio' ||
+    payload.embeddingProvider === 'openai'
+      ? payload.embeddingProvider
+      : (lock?.embeddingProvider ?? 'lmstudio');
+  const embeddingModel =
+    typeof payload.embeddingModel === 'string' &&
+    payload.embeddingModel.length > 0
+      ? payload.embeddingModel
+      : typeof payload.model === 'string'
+        ? payload.model
+        : (lock?.embeddingModel ?? '');
+  const embeddingDimensions =
+    typeof payload.embeddingDimensions === 'number'
+      ? payload.embeddingDimensions
+      : lock?.embeddingProvider === embeddingProvider &&
+          lock.embeddingModel === embeddingModel
+        ? lock.embeddingDimensions
+        : 0;
+  const repoLock = {
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    lockedModelId: embeddingModel,
+    modelId: embeddingModel,
+  };
+
+  return {
+    id: buildRepoId(name, mapped.containerPath, name),
+    name,
+    description:
+      typeof payload.description === 'string' ? payload.description : null,
+    containerPath: mapped.containerPath,
+    hostPath: mapped.hostPath,
+    ...(mapped.hostPathWarning
+      ? { hostPathWarning: mapped.hostPathWarning }
+      : {}),
+    lastIngestAt: null,
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    model: embeddingModel,
+    modelId: embeddingModel,
+    lock: repoLock,
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    lastError: null,
+    status: 'ingesting',
+    phase: 'queued',
+  };
+}
+
+function applyQueueOverlay(params: {
+  repo: RepoEntry;
+  queueRequest: IngestQueueRequest;
+  queuePosition: number | null;
+  activeContextsByRunId: Map<string, ActiveIngestRunContext>;
+}) {
+  const { repo, queueRequest, queuePosition, activeContextsByRunId } = params;
+  const requestId = queueRequest._id.toString();
+  const activeContext =
+    typeof queueRequest.runId === 'string'
+      ? activeContextsByRunId.get(queueRequest.runId)
+      : undefined;
+  const runtimeStatus =
+    typeof queueRequest.runId === 'string'
+      ? getStatus(queueRequest.runId)
+      : null;
+
+  repo.requestId = requestId;
+  repo.runId = queueRequest.runId ?? null;
+  repo.queueState = queueRequest.queueState;
+  repo.queuePosition =
+    queueRequest.queueState === 'waiting' ? queuePosition : null;
+
+  if (queueRequest.queueState === 'waiting') {
+    repo.status = 'ingesting';
+    repo.phase = 'queued';
+    return;
+  }
+
+  if (queueRequest.queueState === 'cleanup-blocked') {
+    repo.status = 'error';
+    delete repo.phase;
+    if (runtimeStatus) {
+      repo.counts = { ...runtimeStatus.counts };
+      repo.lastError = runtimeStatus.lastError ?? 'Queue cleanup blocked';
+    } else if (!repo.lastError) {
+      repo.lastError = 'Queue cleanup blocked';
+    }
+    return;
+  }
+
+  if (activeContext) {
+    const mappedState = mapInternalStateToExternal(activeContext.state);
+    repo.status = mappedState.status;
+    if (mappedState.phase) {
+      repo.phase = mappedState.phase;
+    } else {
+      delete repo.phase;
+    }
+    repo.counts = { ...activeContext.counts };
+    repo.name = activeContext.name ?? repo.name;
+    repo.description = activeContext.description ?? repo.description;
+    return;
+  }
+
+  if (runtimeStatus) {
+    const mappedState = mapInternalStateToExternal(runtimeStatus.state);
+    repo.status = mappedState.status;
+    if (mappedState.phase) {
+      repo.phase = mappedState.phase;
+    } else {
+      delete repo.phase;
+    }
+    repo.counts = { ...runtimeStatus.counts };
+    repo.lastError = runtimeStatus.lastError ?? repo.lastError;
+    return;
+  }
+
+  repo.status = 'ingesting';
+  repo.phase = 'queued';
 }
 
 type ChromaQueryable = {
@@ -631,6 +877,14 @@ export async function listIngestedRepositories(
       const m = (meta ?? {}) as Record<string, unknown>;
       const rawPath = typeof m.root === 'string' ? m.root : '';
       const mapped = mapIngestPath(rawPath);
+      const name =
+        typeof m.name === 'string' && m.name.trim().length > 0
+          ? m.name.trim()
+          : buildRepoId(
+              typeof m.name === 'string' ? m.name : null,
+              rawPath,
+              typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
+            );
       const repoId = buildRepoId(
         typeof m.name === 'string' ? m.name : null,
         rawPath,
@@ -656,6 +910,7 @@ export async function listIngestedRepositories(
       });
       return {
         id: repoId,
+        name,
         description: typeof m.description === 'string' ? m.description : null,
         containerPath: mapped.containerPath,
         hostPath: mapped.hostPath,
@@ -675,6 +930,8 @@ export async function listIngestedRepositories(
           chunks: Number(m.chunks ?? 0),
           embedded: Number(m.embedded ?? 0),
         },
+        ast: parseAstMetadata(m),
+        error: parseNormalizedError(m),
         lastError:
           typeof m.lastError === 'string'
             ? m.lastError
@@ -692,17 +949,56 @@ export async function listIngestedRepositories(
     });
 
   const repoBySourceId = new Map(
-    repos.map((repo) => [repo.containerPath, repo]),
+    repos.map((repo) => [buildRepoKey(repo.containerPath), repo]),
   );
   const activeContexts = getActiveRunContexts();
+  const activeContextsByRunId = new Map(
+    activeContexts.map((entry) => [entry.runId, entry]),
+  );
+
+  const queueRequests =
+    mongoose.connection.readyState === 1
+      ? await IngestQueueRequestModel.find({
+          queueState: { $in: ['waiting', 'running', 'cleanup-blocked'] },
+        })
+          .sort({ createdAt: 1, _id: 1 })
+          .exec()
+      : [];
+  let waitingQueuePosition = 0;
+
+  for (const queueRequest of queueRequests) {
+    const repoKey = buildRepoKey(queueRequest.canonicalTargetPath);
+    let repo = repoBySourceId.get(repoKey);
+    if (!repo) {
+      repo = buildRepoFromQueueRequest({ queueRequest, lock });
+      repos.push(repo);
+      repoBySourceId.set(repoKey, repo);
+    }
+
+    applyQueueOverlay({
+      repo,
+      queueRequest,
+      queuePosition:
+        queueRequest.queueState === 'waiting' ? ++waitingQueuePosition : null,
+      activeContextsByRunId,
+    });
+  }
 
   for (const active of activeContexts) {
     const sourceIdRaw = active.sourceId ?? active.rootPath ?? '';
     if (!sourceIdRaw) continue;
-    const normalizedSourceId = mapIngestPath(sourceIdRaw).containerPath;
+    const normalizedSourceId = buildRepoKey(
+      mapIngestPath(sourceIdRaw).containerPath,
+    );
     const mappedState = mapInternalStateToExternal(active.state);
     const existing = repoBySourceId.get(normalizedSourceId);
     if (existing) {
+      if (
+        existing.queueState === 'waiting' ||
+        existing.queueState === 'cleanup-blocked'
+      ) {
+        continue;
+      }
       existing.status = mappedState.status;
       if (mappedState.phase) {
         existing.phase = mappedState.phase;
@@ -710,7 +1006,7 @@ export async function listIngestedRepositories(
         delete existing.phase;
       }
       existing.counts = { ...active.counts };
-      existing.id = active.runId;
+      existing.runId = active.runId;
       logStatusMapped({
         sourceId: normalizedSourceId,
         internalState: active.state,
@@ -734,6 +1030,9 @@ export async function listIngestedRepositories(
       : resolveRepoLock({}, null);
     const synthesized: RepoEntry = {
       id: active.runId,
+      name:
+        active.name ??
+        (path.posix.basename(mapped.containerPath) || active.runId),
       description: active.description ?? null,
       containerPath: mapped.containerPath,
       hostPath: mapped.hostPath,
@@ -749,6 +1048,7 @@ export async function listIngestedRepositories(
       lock: repoLock,
       counts: { ...active.counts },
       lastError: null,
+      runId: active.runId,
       status: mappedState.status,
       ...(mappedState.phase ? { phase: mappedState.phase } : {}),
     };
@@ -762,6 +1062,23 @@ export async function listIngestedRepositories(
     });
     logOverlayApplied(normalizedSourceId, true);
   }
+
+  repos.sort((a, b) => {
+    const aWaiting =
+      a.queueState === 'waiting' && typeof a.queuePosition === 'number'
+        ? a.queuePosition
+        : Number.POSITIVE_INFINITY;
+    const bWaiting =
+      b.queueState === 'waiting' && typeof b.queuePosition === 'number'
+        ? b.queuePosition
+        : Number.POSITIVE_INFINITY;
+    if (aWaiting !== bWaiting) return aWaiting - bWaiting;
+
+    const aTs = a.lastIngestAt ? Date.parse(a.lastIngestAt) : 0;
+    const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
+    if (aTs !== bTs) return bTs - aTs;
+    return a.name.localeCompare(b.name);
+  });
 
   logLockResolverState(
     'tools/listIngestedRepositories',

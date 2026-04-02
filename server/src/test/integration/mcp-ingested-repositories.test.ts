@@ -82,7 +82,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
   assert.equal(parsed.lock?.embeddingModel, 'text-embedding-openai');
   assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
-  assert.equal(parsed.schemaVersion, '0000038-status-phase-v1');
+  assert.equal(parsed.schemaVersion, '0000055-queued-repo-list-v1');
   assert.equal(parsed.repos.length, 1);
   assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
   assert.equal(parsed.repos[0].embeddingModel, 'embed-model');

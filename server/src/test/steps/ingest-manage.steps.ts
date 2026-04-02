@@ -301,6 +301,46 @@ Then('ingest manage roots first model is {string}', (model: string) => {
   assert.equal((roots[0] as { model?: string }).model, model);
 });
 
+Then('ingest manage roots first request id is present', () => {
+  assert(response, 'expected response');
+  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  assert(roots.length > 0, 'no roots returned');
+  assert.equal(
+    typeof (roots[0] as { requestId?: string | null }).requestId,
+    'string',
+  );
+});
+
+Then('ingest manage roots first run id is null', () => {
+  assert(response, 'expected response');
+  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  assert(roots.length > 0, 'no roots returned');
+  assert.equal((roots[0] as { runId?: string | null }).runId, null);
+});
+
+Then(
+  'ingest manage roots first queue state is {string}',
+  (queueState: string) => {
+    assert(response, 'expected response');
+    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    assert(roots.length > 0, 'no roots returned');
+    assert.equal((roots[0] as { queueState?: string }).queueState, queueState);
+  },
+);
+
+Then(
+  'ingest manage roots first queue position is {int}',
+  (queuePosition: number) => {
+    assert(response, 'expected response');
+    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    assert(roots.length > 0, 'no roots returned');
+    assert.equal(
+      (roots[0] as { queuePosition?: number | null }).queuePosition,
+      queuePosition,
+    );
+  },
+);
+
 Then('ingest manage roots count is {int}', async (count: number) => {
   assert(response, 'expected response');
   let roots = (response.body as { roots?: unknown[] }).roots ?? [];

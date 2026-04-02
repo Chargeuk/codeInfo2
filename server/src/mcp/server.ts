@@ -283,6 +283,7 @@ const baseToolDefinitions = [
             type: 'object',
             required: [
               'id',
+              'name',
               'containerPath',
               'hostPath',
               'status',
@@ -296,10 +297,18 @@ const baseToolDefinitions = [
             ],
             properties: {
               id: { type: 'string' },
+              name: { type: 'string' },
               description: { type: ['string', 'null'] },
               containerPath: { type: 'string' },
               hostPath: { type: 'string' },
               hostPathWarning: { type: 'string' },
+              requestId: { type: ['string', 'null'] },
+              runId: { type: ['string', 'null'] },
+              queuePosition: { type: ['integer', 'null'], minimum: 1 },
+              queueState: {
+                type: ['string', 'null'],
+                enum: ['waiting', 'running', 'cleanup-blocked', null],
+              },
               status: {
                 type: 'string',
                 enum: ['ingesting', 'completed', 'cancelled', 'error'],

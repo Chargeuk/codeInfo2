@@ -38,6 +38,12 @@ export type IngestFormProps = {
   openai?: OpenAiStatus;
   defaultModelId?: string;
   onStarted?: (runId: string) => void;
+  onAccepted?: (result: {
+    queued: boolean;
+    requestId: string;
+    runId?: string;
+    queuePosition?: number | null;
+  }) => void;
   disabled?: boolean;
 };
 
@@ -48,6 +54,7 @@ export default function IngestForm({
   openai,
   defaultModelId,
   onStarted,
+  onAccepted,
   disabled = false,
 }: IngestFormProps) {
   const [path, setPath] = useState('');
@@ -231,9 +238,28 @@ export default function IngestForm({
         const message = payload?.message || `Start failed (${res.status})`;
         throw new Error(message);
       }
-      const data = (await res.json()) as { runId?: string };
-      if (!data.runId) throw new Error('Missing runId in response');
-      onStarted?.(data.runId);
+      const data = (await res.json()) as {
+        queued?: boolean;
+        requestId?: string;
+        runId?: string;
+        queuePosition?: number | null;
+      };
+      if (typeof data.requestId !== 'string' || data.requestId.length === 0) {
+        throw new Error('Missing requestId in response');
+      }
+      if (typeof data.runId === 'string' && data.runId.length > 0) {
+        onStarted?.(data.runId);
+      }
+      onAccepted?.({
+        queued: data.queued === true,
+        requestId: data.requestId,
+        ...(typeof data.runId === 'string' && data.runId.length > 0
+          ? { runId: data.runId }
+          : {}),
+        ...(typeof data.queuePosition === 'number'
+          ? { queuePosition: data.queuePosition }
+          : {}),
+      });
     } catch (err) {
       setSubmitError((err as Error).message);
     } finally {

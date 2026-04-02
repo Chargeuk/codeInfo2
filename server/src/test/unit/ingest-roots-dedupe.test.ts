@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import express from 'express';
+import mongoose from 'mongoose';
 import request from 'supertest';
 import {
   __resetIngestJobsForTest,
@@ -8,6 +9,7 @@ import {
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
 import { query, resetStore } from '../../logStore.js';
+import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { dedupeRootsByPath } from '../../routes/ingestRoots.js';
 
@@ -37,6 +39,7 @@ beforeEach(() => {
   process.env.NODE_ENV = 'test';
   resetStore();
   __resetIngestJobsForTest();
+  mock.restoreAll();
 });
 
 afterEach(() => {
@@ -177,7 +180,7 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.roots[0].model, 'embed-model');
   assert.equal(response.body.roots[0].modelId, 'embed-model');
   assert.equal(response.body.roots[0].lock.embeddingModel, 'embed-model');
-  assert.equal(response.body.schemaVersion, '0000038-status-phase-v1');
+  assert.equal(response.body.schemaVersion, '0000055-queued-repo-list-v1');
 });
 
 test('GET /ingest/roots preserves legacy lastError string and normalized error payload', async () => {
@@ -257,6 +260,139 @@ test('GET /ingest/roots keeps provider-qualified identity when model ids collide
   assert.equal(lmstudioRoot?.embeddingProvider, 'lmstudio');
   assert.equal(lmstudioRoot?.embeddingModel, 'shared-id');
   assert.equal(lmstudioRoot?.modelId, 'shared-id');
+});
+
+test('GET /ingest/roots emits queued rows with requestId and a null runId before execution starts', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000055'),
+              canonicalTargetPath: '/data/queued-repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/queued-repo',
+                name: 'queued-repo',
+                description: 'queued from test',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp({ ids: [], metadatas: [] }, 'embed-model'),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots.length, 1);
+  const root = response.body.roots[0];
+  assert.equal(root.requestId, '000000000000000000000055');
+  assert.equal(root.runId, null);
+  assert.equal(root.queueState, 'waiting');
+  assert.equal(root.queuePosition, 1);
+  assert.equal(root.status, 'ingesting');
+  assert.equal(root.phase, 'queued');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('GET /ingest/roots keeps queue document fields authoritative when persisted metadata exists for the same target', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000056'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'start',
+              queueState: 'cleanup-blocked',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                description: 'queued override',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: 'run-blocked',
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('run-blocked', {
+    runId: 'run-blocked',
+    state: 'cleanup-blocked',
+    counts: { files: 11, chunks: 22, embedded: 33 },
+    lastError: 'Queue cleanup blocked',
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'embed-model',
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+          },
+        ],
+      },
+      'embed-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots.length, 1);
+  const root = response.body.roots[0];
+  assert.equal(root.requestId, '000000000000000000000056');
+  assert.equal(root.runId, 'run-blocked');
+  assert.equal(root.queueState, 'cleanup-blocked');
+  assert.equal(root.status, 'error');
+  assert.equal(root.lastError, 'Queue cleanup blocked');
+  assert.deepEqual(root.counts, { files: 11, chunks: 22, embedded: 33 });
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
 });
 
 test('GET /ingest/roots maps ingesting phase states and omits phase for terminal statuses', async () => {

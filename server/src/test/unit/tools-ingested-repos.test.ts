@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import express from 'express';
+import mongoose from 'mongoose';
 import request from 'supertest';
 import {
   __resetIngestJobsForTest,
@@ -8,6 +9,7 @@ import {
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
 import { baseLogger } from '../../logger.js';
+import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
 import { createToolsIngestedReposRouter } from '../../routes/toolsIngestedRepos.js';
 
 const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
@@ -18,6 +20,7 @@ beforeEach(() => {
   delete process.env.CODEINFO_HOST_INGEST_DIR;
   process.env.NODE_ENV = 'test';
   __resetIngestJobsForTest();
+  mock.restoreAll();
 });
 
 afterEach(() => {
@@ -76,7 +79,7 @@ test('returns empty repos list with null lock when no roots exist', async () => 
     repos: [],
     lock: null,
     lockedModelId: null,
-    schemaVersion: '0000038-status-phase-v1',
+    schemaVersion: '0000055-queued-repo-list-v1',
   });
 });
 
@@ -109,10 +112,11 @@ test('maps repo metadata and host path with locked model id', async () => {
   assert.equal(res.body.lockedModelId, 'text-embed');
   assert.equal(res.body.lock.embeddingModel, 'text-embed');
   assert.equal(res.body.lock.modelId, 'text-embed');
-  assert.equal(res.body.schemaVersion, '0000038-status-phase-v1');
+  assert.equal(res.body.schemaVersion, '0000055-queued-repo-list-v1');
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
   assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.name, 'repo-one');
   assert.equal(repo.containerPath, '/data/repo-one');
   assert.equal(repo.hostPath, '/host/base/repo-one');
   assert.equal(repo.embeddingProvider, 'lmstudio');
@@ -126,6 +130,57 @@ test('maps repo metadata and host path with locked model id', async () => {
   assert.equal(repo.lastError, null);
   assert.equal(repo.status, 'completed');
   assert.equal(repo.phase, undefined);
+});
+
+test('emits queued rows with requestId, null runId, and waiting-only queuePosition', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000057'),
+              canonicalTargetPath: '/data/queued-repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/queued-repo',
+                name: 'queued-repo',
+                model: 'text-embed',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'text-embed',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const res = await request(
+    buildApp({ ids: [], metadatas: [] }, 'text-embed'),
+  ).get('/tools/ingested-repos');
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.repos.length, 1);
+  assert.equal(res.body.repos[0].requestId, '000000000000000000000057');
+  assert.equal(res.body.repos[0].runId, null);
+  assert.equal(res.body.repos[0].queueState, 'waiting');
+  assert.equal(res.body.repos[0].queuePosition, 1);
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
 });
 
 test('preserves provider-qualified identity when providers share model ids', async () => {

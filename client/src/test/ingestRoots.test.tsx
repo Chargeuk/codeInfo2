@@ -181,21 +181,25 @@ describe('RootsTable', () => {
     expect(await screen.findByText(/Removed/)).toBeInTheDocument();
   });
 
-  it('disables actions when disabled flag is set', async () => {
+  it('keeps destructive remove gated while queueable re-embed stays available during an active run', async () => {
     render(
       <RootsTable
         roots={[root]}
         lockedModelId={undefined}
         isLoading={false}
         error={undefined}
-        disabled
+        hasActiveRun
         onRefresh={() => Promise.resolve()}
       />,
     );
 
     const row = await screen.findByRole('row', { name: /repo/i });
-    const btn = within(row).getByRole('button', { name: /re-embed/i });
-    expect(btn).toBeDisabled();
+    expect(
+      within(row).getByRole('button', { name: /re-embed/i }),
+    ).toBeEnabled();
+    expect(
+      within(row).getByRole('button', { name: /^Remove$/i }),
+    ).toBeDisabled();
   });
 
   it('renders AST counts in the table when available', async () => {
@@ -302,6 +306,68 @@ describe('RootsTable', () => {
     expect(
       within(row).getByText(/ingesting \(embedding\)/i),
     ).toBeInTheDocument();
+  });
+
+  it('shows queued and cleanup-blocked rows from the shared repo-list payload', async () => {
+    render(
+      <>
+        <RootsTable
+          roots={[
+            {
+              ...root,
+              requestId: 'queue-request-1',
+              runId: null,
+              queueState: 'waiting',
+              queuePosition: 1,
+              path: '/repo-queued',
+              name: 'repo-queued',
+              status: 'ingesting',
+              phase: 'queued',
+            },
+            {
+              ...root,
+              requestId: 'queue-request-2',
+              runId: 'run-blocked',
+              queueState: 'cleanup-blocked',
+              path: '/repo-blocked',
+              name: 'repo-blocked',
+              status: 'error',
+              lastError: 'Queue cleanup blocked',
+            },
+          ]}
+          lockedModelId={undefined}
+          isLoading={false}
+          error={undefined}
+          onRefresh={() => Promise.resolve()}
+        />
+        <RootDetailsDrawer
+          open
+          onClose={() => undefined}
+          root={{
+            ...root,
+            requestId: 'queue-request-1',
+            runId: null,
+            queueState: 'waiting',
+            queuePosition: 1,
+            path: '/repo-queued',
+            name: 'repo-queued',
+            status: 'ingesting',
+            phase: 'queued',
+          }}
+        />
+      </>,
+    );
+
+    const queuedRow = await screen.findByRole('row', { name: /repo-queued/i });
+    const blockedRow = await screen.findByRole('row', {
+      name: /repo-blocked/i,
+    });
+    expect(within(queuedRow).getByText(/queued \(#1\)/i)).toBeInTheDocument();
+    expect(
+      within(blockedRow).getByText(/cleanup blocked/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Request ID/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pending queue start/i)).toBeInTheDocument();
   });
 
   it('hides phase text for completed status rows', async () => {

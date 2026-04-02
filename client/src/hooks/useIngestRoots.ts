@@ -1,6 +1,7 @@
 import type {
   ExternalIngestPhase,
   ExternalIngestStatus,
+  IngestQueueState,
 } from '@codeinfo2/common';
 import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -21,7 +22,10 @@ export type NormalizedIngestError = {
 };
 
 export type IngestRoot = {
-  runId: string;
+  requestId?: string | null;
+  runId?: string | null;
+  queuePosition?: number | null;
+  queueState?: IngestQueueState | null;
   name: string;
   description?: string | null;
   path: string;
@@ -161,11 +165,32 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
         : undefined;
 
   return {
-    runId: typeof entry.runId === 'string' ? entry.runId : '',
-    name: typeof entry.name === 'string' ? entry.name : '',
+    requestId: typeof entry.requestId === 'string' ? entry.requestId : null,
+    runId: typeof entry.runId === 'string' ? entry.runId : null,
+    queuePosition:
+      typeof entry.queuePosition === 'number' && entry.queuePosition > 0
+        ? entry.queuePosition
+        : null,
+    queueState:
+      entry.queueState === 'waiting' ||
+      entry.queueState === 'running' ||
+      entry.queueState === 'cleanup-blocked'
+        ? entry.queueState
+        : null,
+    name:
+      typeof entry.name === 'string'
+        ? entry.name
+        : typeof entry.id === 'string'
+          ? entry.id
+          : '',
     description:
       typeof entry.description === 'string' ? entry.description : null,
-    path: typeof entry.path === 'string' ? entry.path : '',
+    path:
+      typeof entry.path === 'string'
+        ? entry.path
+        : typeof entry.containerPath === 'string'
+          ? entry.containerPath
+          : '',
     model: embeddingModel,
     modelId: typeof entry.modelId === 'string' ? entry.modelId : embeddingModel,
     embeddingProvider:

@@ -176,9 +176,40 @@ describe('useIngestRoots', () => {
     expect(result.current.roots[2]?.phase).toBeUndefined();
   });
 
-  it('accepts and exposes schemaVersion 0000038-status-phase-v1', async () => {
+  it('preserves requestId, null runId, and queuePosition from queued rows', async () => {
     mockRootsResponse({
-      schemaVersion: '0000038-status-phase-v1',
+      roots: [
+        {
+          requestId: 'queue-request-1',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 2,
+          name: 'repo-queued',
+          path: '/repo-queued',
+          status: 'ingesting',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]).toMatchObject({
+      requestId: 'queue-request-1',
+      runId: null,
+      queueState: 'waiting',
+      queuePosition: 2,
+      status: 'ingesting',
+      phase: 'queued',
+    });
+  });
+
+  it('accepts and exposes schemaVersion 0000055-queued-repo-list-v1', async () => {
+    mockRootsResponse({
+      schemaVersion: '0000055-queued-repo-list-v1',
       roots: [],
     });
 

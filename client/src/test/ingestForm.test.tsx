@@ -122,7 +122,9 @@ describe('IngestForm', () => {
   });
 
   it('submits payload and surfaces runId via onStarted', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-123' }));
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-123', runId: 'run-123' }),
+    );
     const onStarted = jest.fn();
 
     render(
@@ -155,6 +157,138 @@ describe('IngestForm', () => {
       embeddingProvider: 'lmstudio',
       embeddingModel: 'embed-2',
       dryRun: false,
+    });
+  });
+
+  it('keeps queueable submission enabled and surfaces queued acceptance when another run is active', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 2,
+      }),
+    );
+    const onAccepted = jest.fn();
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        onAccepted={onAccepted}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+
+    const submit = screen.getByRole('button', { name: /start ingest/i });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(onAccepted).toHaveBeenCalledWith({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 2,
+      }),
+    );
+  });
+
+  it('retains visible edits locally until a later explicit resubmit', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 1,
+      }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 1,
+      }),
+    );
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo edited locally' },
+    });
+    expect(screen.getByLabelText(/display name/i)).toHaveValue(
+      'Repo edited locally',
+    );
+    expect(JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string).name).toBe(
+      'Repo',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string).name).toBe(
+      'Repo edited locally',
+    );
+  });
+
+  it('uses the currently visible target fields when switching from one queued target to another before the next submit', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-2',
+        queuePosition: 1,
+      }),
+    );
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo-a' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo A' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo-b' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo B' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+
+    expect(
+      JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string),
+    ).toMatchObject({
+      path: '/repo-b',
+      name: 'Repo B',
     });
   });
 
@@ -321,7 +455,9 @@ describe('IngestForm', () => {
   });
 
   it('submits canonical embedding fields for provider-qualified selection', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-200' }));
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-200', runId: 'run-200' }),
+    );
 
     render(
       <IngestForm
@@ -354,7 +490,9 @@ describe('IngestForm', () => {
   });
 
   it('keeps provider-qualified selection and payload unambiguous for same model ids', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-300' }));
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-300', runId: 'run-300' }),
+    );
     const onStarted = jest.fn();
 
     render(
@@ -388,7 +526,9 @@ describe('IngestForm', () => {
   });
 
   it('keeps locked openai fallback option when fetched models only include lmstudio same-id', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-301' }));
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-301', runId: 'run-301' }),
+    );
     const onStarted = jest.fn();
 
     render(

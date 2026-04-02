@@ -75,7 +75,8 @@ export type ChatModelsResponse = {
   reason?: string;
 };
 
-export const INGEST_ROOTS_SCHEMA_VERSION = '0000038-status-phase-v1' as const;
+export const INGEST_ROOTS_SCHEMA_VERSION =
+  '0000055-queued-repo-list-v1' as const;
 
 export type ExternalIngestStatus =
   | 'ingesting'
@@ -84,3 +85,5 @@ export type ExternalIngestStatus =
   | 'error';
 
 export type ExternalIngestPhase = 'queued' | 'scanning' | 'embedding';
+
+export type IngestQueueState = 'waiting' | 'running' | 'cleanup-blocked';

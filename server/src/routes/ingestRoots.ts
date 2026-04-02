@@ -1,4 +1,3 @@
-import { LogEntry } from '@codeinfo2/common';
 import { Router } from 'express';
 import {
   type EmbeddingProviderId,
@@ -6,17 +5,14 @@ import {
   getLockedModel,
   getRootsCollection,
 } from '../ingest/chromaClient.js';
-import { getActiveRunContexts } from '../ingest/ingestJob.js';
 import {
   appendIngestFailureLog,
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
 import {
   INGEST_REPO_SCHEMA_VERSION,
-  isDev0000038MarkerGateEnabled,
-  mapInternalStateToExternal,
+  listIngestedRepositories,
 } from '../lmstudio/toolService.js';
-import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 
 type LockEnvelope = {
@@ -28,7 +24,10 @@ type LockEnvelope = {
 };
 
 type RootEntry = {
-  runId: string;
+  requestId?: string | null;
+  runId?: string | null;
+  queuePosition?: number | null;
+  queueState?: 'waiting' | 'running' | 'cleanup-blocked' | null;
   name: string;
   description: string | null;
   path: string;
@@ -71,49 +70,12 @@ const DEFAULT_DEPS: Deps = {
   getRootsCollection,
 };
 
-function logLifecycle(message: string, context: Record<string, unknown>) {
-  const entry: LogEntry = {
-    level: 'info',
-    source: 'server',
-    message,
-    timestamp: new Date().toISOString(),
-    context,
-  };
-  appendLog(entry);
-  baseLogger.info({ ...context }, message);
-}
-
 function logLockResolverState(
   requestId: string | undefined,
   surface: string,
   lock: LockEnvelope | null,
 ) {
   const lockedModelId = lock?.lockedModelId ?? null;
-  appendLog({
-    level: 'info',
-    source: 'server',
-    message: 'DEV-0000036:T2:lock_resolver_source_selected',
-    timestamp: new Date().toISOString(),
-    context: {
-      surface,
-      source: 'canonical',
-      lockedModelId,
-    },
-    requestId,
-  });
-  appendLog({
-    level: 'info',
-    source: 'server',
-    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
-    timestamp: new Date().toISOString(),
-    context: {
-      surface,
-      embeddingProvider: lock?.embeddingProvider ?? null,
-      embeddingModel: lock?.embeddingModel ?? null,
-      embeddingDimensions: lock?.embeddingDimensions ?? null,
-    },
-    requestId,
-  });
   baseLogger.info(
     {
       requestId,
@@ -132,70 +94,6 @@ function toTimestamp(value: string | null): number {
   if (!value) return 0;
   const ts = Date.parse(value);
   return Number.isFinite(ts) ? ts : 0;
-}
-
-function parseAstMetadata(
-  meta: Record<string, unknown>,
-): RootEntry['ast'] | undefined {
-  const astRaw = meta.ast;
-  const ast =
-    astRaw && typeof astRaw === 'object'
-      ? (astRaw as Record<string, unknown>)
-      : {
-          supportedFileCount: meta.astSupportedFileCount,
-          skippedFileCount: meta.astSkippedFileCount,
-          failedFileCount: meta.astFailedFileCount,
-          lastIndexedAt: meta.astLastIndexedAt,
-        };
-  const hasAstFields =
-    ast.supportedFileCount !== undefined ||
-    ast.skippedFileCount !== undefined ||
-    ast.failedFileCount !== undefined ||
-    ast.lastIndexedAt !== undefined;
-  if (!hasAstFields) return undefined;
-
-  return {
-    supportedFileCount: Number(ast.supportedFileCount ?? 0),
-    skippedFileCount: Number(ast.skippedFileCount ?? 0),
-    failedFileCount: Number(ast.failedFileCount ?? 0),
-    lastIndexedAt:
-      typeof ast.lastIndexedAt === 'string' ? ast.lastIndexedAt : null,
-  };
-}
-
-function parseNormalizedError(meta: Record<string, unknown>) {
-  const candidate = (
-    meta.error && typeof meta.error === 'object'
-      ? meta.error
-      : meta.lastError && typeof meta.lastError === 'object'
-        ? meta.lastError
-        : null
-  ) as Record<string, unknown> | null;
-  if (!candidate) return null;
-  const provider = candidate.provider;
-  const error = candidate.error;
-  const message = candidate.message;
-  const retryable = candidate.retryable;
-  if (
-    (provider === 'openai' || provider === 'lmstudio') &&
-    typeof error === 'string' &&
-    typeof message === 'string' &&
-    typeof retryable === 'boolean'
-  ) {
-    return {
-      error,
-      message,
-      retryable,
-      provider,
-      ...(typeof candidate.upstreamStatus === 'number'
-        ? { upstreamStatus: candidate.upstreamStatus }
-        : {}),
-      ...(typeof candidate.retryAfterMs === 'number'
-        ? { retryAfterMs: candidate.retryAfterMs }
-        : {}),
-    } as RootEntry['error'];
-  }
-  return null;
 }
 
 function normalizeEmbeddingProvider(
@@ -233,7 +131,9 @@ export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
       bestByPath.set(root.path, root);
       continue;
     }
-    if (rootTs === existingTs && root.runId > existing.runId) {
+    const rootRunId = root.runId ?? '';
+    const existingRunId = existing.runId ?? '';
+    if (rootTs === existingTs && rootRunId > existingRunId) {
       bestByPath.set(root.path, root);
     }
   }
@@ -242,7 +142,7 @@ export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
     const aTs = toTimestamp(a.lastIngestAt);
     const bTs = toTimestamp(b.lastIngestAt);
     if (aTs !== bTs) return bTs - aTs;
-    return b.runId.localeCompare(a.runId);
+    return (b.runId ?? '').localeCompare(a.runId ?? '');
   });
 }
 
@@ -255,262 +155,73 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
 
   router.get('/ingest/roots', async (_req, res) => {
     try {
-      const collection = await resolved.getRootsCollection();
       const requestId =
         (res.locals?.requestId as string | undefined) ?? undefined;
-      const useCanonicalResolver =
-        typeof deps.getLockedEmbeddingModel === 'function' ||
-        deps.getLockedModel === undefined;
-      const canonicalLock =
-        useCanonicalResolver &&
-        typeof resolved.getLockedEmbeddingModel === 'function'
-          ? await resolved.getLockedEmbeddingModel()
-          : null;
-      const lockedModelId =
-        canonicalLock?.embeddingModel ?? (await resolved.getLockedModel());
-      const lock = lockedModelId
-        ? {
-            embeddingProvider: canonicalLock?.embeddingProvider ?? 'lmstudio',
-            embeddingModel: lockedModelId,
-            embeddingDimensions: canonicalLock?.embeddingDimensions ?? 0,
-            lockedModelId,
-            modelId: lockedModelId,
-          }
-        : null;
-      logLockResolverState(requestId, 'ingest/roots', lock);
-      type CollectionGetter = {
-        get: (opts: {
-          include?: string[];
-          limit?: number;
-          where?: Record<string, unknown>;
-        }) => Promise<{
-          ids?: string[];
-          metadatas?: Record<string, unknown>[];
-        }>;
-      };
-
-      const raw = await (collection as unknown as CollectionGetter).get({
-        include: ['metadatas'],
-        limit: 1000,
+      const payload = await listIngestedRepositories({
+        getRootsCollection: resolved.getRootsCollection,
+        getLockedModel: resolved.getLockedModel,
+        ...(typeof resolved.getLockedEmbeddingModel === 'function'
+          ? { getLockedEmbeddingModel: resolved.getLockedEmbeddingModel }
+          : {}),
       });
-      const metadatas = Array.isArray(raw?.metadatas) ? raw.metadatas : [];
-      const ids = Array.isArray(raw?.ids) ? raw.ids : [];
-
-      const roots: RootEntry[] = metadatas
-        .map((meta, idx) => {
-          const m = (meta ?? {}) as Record<string, unknown>;
-          const lastIngestAt =
-            typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null;
-          const ast = parseAstMetadata(m);
-          const normalizedError = parseNormalizedError(m);
-          const legacyLastError =
-            typeof m.lastError === 'string'
-              ? m.lastError
-              : typeof normalizedError?.message === 'string'
-                ? normalizedError.message
-                : m.lastError === null
-                  ? null
-                  : null;
-          const embeddingModel =
-            normalizeEmbeddingModel(m.embeddingModel) ??
-            normalizeEmbeddingModel(m.model) ??
-            lock?.embeddingModel ??
-            '';
-          const embeddingProvider =
-            normalizeEmbeddingProvider(m.embeddingProvider) ??
-            (lock &&
-            lock.embeddingModel === embeddingModel &&
-            embeddingModel.length > 0
-              ? lock.embeddingProvider
-              : 'lmstudio');
-          const embeddingDimensions =
-            normalizeEmbeddingDimensions(m.embeddingDimensions) ??
-            (lock &&
-            lock.embeddingProvider === embeddingProvider &&
-            lock.embeddingModel === embeddingModel
-              ? lock.embeddingDimensions
-              : 0);
-          const rootLock: LockEnvelope = {
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions,
-            lockedModelId: embeddingModel,
-            modelId: embeddingModel,
-          };
-          const external = mapInternalStateToExternal(m.state);
-          if (isDev0000038MarkerGateEnabled()) {
-            baseLogger.info(
-              {
-                sourceId: typeof m.root === 'string' ? m.root : '',
-                internal: typeof m.state === 'string' ? m.state : 'unknown',
-                status: external.status,
-                phase: external.phase ?? 'none',
-              },
-              '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
-            );
-          }
-          return {
-            runId: typeof ids[idx] === 'string' ? ids[idx] : `run-${idx}`,
-            name: typeof m.name === 'string' ? m.name : '',
-            description:
-              typeof m.description === 'string' ? m.description : null,
-            path: typeof m.root === 'string' ? m.root : '',
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions,
-            model: embeddingModel,
-            modelId: embeddingModel,
-            lock: rootLock,
-            status: external.status,
-            ...(external.phase ? { phase: external.phase } : {}),
-            lastIngestAt,
-            counts: {
-              files: Number(m.files ?? 0),
-              chunks: Number(m.chunks ?? 0),
-              embedded: Number(m.embedded ?? 0),
-            },
-            lastError: legacyLastError,
-            error: normalizedError,
-            ast,
-          } satisfies RootEntry;
-        })
-        .sort((a, b) => {
-          const aTs = a.lastIngestAt ? Date.parse(a.lastIngestAt) : 0;
-          const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
-          return bTs - aTs;
-        });
-
-      const before = roots.length;
-      const deduped = dedupeRootsByPath(roots);
-      const after = deduped.length;
-      if (after !== before) {
-        logLifecycle('0000020 ingest roots dedupe applied', { before, after });
-      }
-
-      const activeByPath = new Map(
-        getActiveRunContexts()
-          .filter((entry) => entry.sourceId)
-          .map((entry) => [entry.sourceId as string, entry]),
-      );
-      for (const root of deduped) {
-        const active = activeByPath.get(root.path);
-        if (!active) continue;
-        const rootIsTerminal = root.status !== 'ingesting';
-        if (rootIsTerminal && root.runId === active.runId) {
-          activeByPath.delete(root.path);
-          continue;
-        }
-        const mapped = mapInternalStateToExternal(active.state);
-        root.status = mapped.status;
-        if (mapped.phase) {
-          root.phase = mapped.phase;
-        } else {
-          delete root.phase;
-        }
-        root.counts = { ...active.counts };
-        root.runId = active.runId;
-        if (isDev0000038MarkerGateEnabled()) {
-          baseLogger.info(
-            {
-              sourceId: root.path,
-              internal: active.state,
-              status: mapped.status,
-              phase: mapped.phase ?? 'none',
-            },
-            '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
-          );
-          baseLogger.info(
-            { sourceId: root.path, synthesized: false },
-            '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
-          );
-        }
-        activeByPath.delete(root.path);
-      }
-
-      for (const [sourceId, active] of activeByPath.entries()) {
-        const mapped = mapInternalStateToExternal(active.state);
-        const embeddingModel = lock?.embeddingModel ?? '';
-        const embeddingProvider = lock?.embeddingProvider ?? 'lmstudio';
-        const embeddingDimensions = lock?.embeddingDimensions ?? 0;
-        deduped.push({
-          runId: active.runId,
-          name: active.name ?? '',
-          description: active.description ?? null,
-          path: sourceId,
+      const lock = payload.lock ?? null;
+      logLockResolverState(requestId, 'ingest/roots', lock);
+      const roots: RootEntry[] = payload.repos.map((repo) => {
+        const embeddingModel =
+          normalizeEmbeddingModel(repo.embeddingModel) ??
+          normalizeEmbeddingModel(repo.model) ??
+          lock?.embeddingModel ??
+          '';
+        const embeddingProvider =
+          normalizeEmbeddingProvider(repo.embeddingProvider) ??
+          (lock &&
+          lock.embeddingModel === embeddingModel &&
+          embeddingModel.length > 0
+            ? lock.embeddingProvider
+            : 'lmstudio');
+        const embeddingDimensions =
+          normalizeEmbeddingDimensions(repo.embeddingDimensions) ??
+          (lock &&
+          lock.embeddingProvider === embeddingProvider &&
+          lock.embeddingModel === embeddingModel
+            ? lock.embeddingDimensions
+            : 0);
+        const rootLock: LockEnvelope = {
           embeddingProvider,
           embeddingModel,
           embeddingDimensions,
-          model: embeddingModel,
+          lockedModelId: embeddingModel,
           modelId: embeddingModel,
-          lock: {
-            embeddingProvider,
-            embeddingModel,
-            embeddingDimensions,
-            lockedModelId: embeddingModel,
-            modelId: embeddingModel,
-          },
-          status: mapped.status,
-          ...(mapped.phase ? { phase: mapped.phase } : {}),
-          lastIngestAt: null,
-          counts: { ...active.counts },
-          lastError: null,
-        });
-        if (isDev0000038MarkerGateEnabled()) {
-          baseLogger.info(
-            {
-              sourceId,
-              internal: active.state,
-              status: mapped.status,
-              phase: mapped.phase ?? 'none',
-            },
-            '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
-          );
-          baseLogger.info(
-            { sourceId, synthesized: true },
-            '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
-          );
-        }
-      }
-      deduped.sort((a, b) => {
-        const aTs = a.lastIngestAt ? Date.parse(a.lastIngestAt) : 0;
-        const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
-        if (aTs !== bTs) return bTs - aTs;
-        return b.runId.localeCompare(a.runId);
-      });
-
-      appendLog({
-        level: 'info',
-        source: 'server',
-        message: 'DEV-0000036:T10:ingest_repo_payload_emitted',
-        timestamp: new Date().toISOString(),
-        requestId,
-        context: {
-          surface: 'ingest/roots',
-          repoCount: deduped.length,
-          embeddingProvider: lock?.embeddingProvider ?? null,
-          embeddingModel: lock?.embeddingModel ?? null,
-          embeddingDimensions: lock?.embeddingDimensions ?? null,
-          aliasLockedModelIdPresent: lock?.lockedModelId != null,
-          aliasModelIdPresent: lock?.modelId != null,
-        },
-      });
-      appendLog({
-        level: 'info',
-        source: 'server',
-        message: 'DEV-0000036:T10:ingest_repo_schema_version_emitted',
-        timestamp: new Date().toISOString(),
-        requestId,
-        context: {
-          surface: 'ingest/roots',
-          schemaVersion: INGEST_REPO_SCHEMA_VERSION,
-        },
+        };
+        return {
+          requestId: repo.requestId ?? null,
+          runId: repo.runId ?? null,
+          queuePosition: repo.queuePosition ?? null,
+          queueState: repo.queueState ?? null,
+          name: repo.name || repo.id,
+          description: repo.description,
+          path: repo.containerPath,
+          embeddingProvider,
+          embeddingModel,
+          embeddingDimensions,
+          model: repo.model,
+          modelId: repo.modelId,
+          lock: rootLock,
+          status: repo.status ?? 'completed',
+          ...(repo.phase ? { phase: repo.phase } : {}),
+          lastIngestAt: repo.lastIngestAt,
+          counts: repo.counts,
+          lastError: repo.lastError,
+          error: repo.error,
+          ast: repo.ast,
+        };
       });
 
       res.json({
-        roots: deduped,
+        roots,
         lock,
-        lockedModelId: lock?.lockedModelId ?? null,
-        schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+        lockedModelId: payload.lockedModelId,
+        schemaVersion: payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
       });
     } catch (err) {
       const classified = classifyIngestFailure(err, {

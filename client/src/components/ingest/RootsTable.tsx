@@ -31,6 +31,7 @@ export type RootsTableProps = {
   isLoading: boolean;
   error?: string;
   disabled?: boolean;
+  hasActiveRun?: boolean;
   onRefresh: () => Promise<void> | void;
   onRunStarted?: (runId: string) => void;
   onShowDetails?: (root: IngestRoot) => void;
@@ -62,6 +63,7 @@ export default function RootsTable({
   isLoading,
   error,
   disabled,
+  hasActiveRun = false,
   onRefresh,
   onRunStarted,
   onShowDetails,
@@ -116,11 +118,22 @@ export default function RootsTable({
         { method: 'POST', headers: { 'content-type': 'application/json' } },
       );
       if (!res.ok) throw new Error(`Re-embed failed (${res.status})`);
-      const data = (await res.json()) as { runId?: string };
+      const data = (await res.json()) as {
+        queued?: boolean;
+        requestId?: string;
+        runId?: string;
+        queuePosition?: number | null;
+      };
       if (data?.runId) {
         onRunStarted?.(data.runId);
       }
-      setStatus(path, { status: 'success', message: 'Re-embed started' });
+      setStatus(path, {
+        status: 'success',
+        message:
+          data?.queued === true
+            ? `Queued${typeof data.queuePosition === 'number' ? ` (#${data.queuePosition})` : ''}`
+            : 'Re-embed started',
+      });
       await onRefresh();
       await onRefreshModels?.();
     } catch (err) {
@@ -276,7 +289,7 @@ export default function RootsTable({
           color="error"
           size="small"
           onClick={() => void handleBulk('remove')}
-          disabled={busy || selected.size === 0}
+          disabled={busy || selected.size === 0 || hasActiveRun}
         >
           Remove selected
         </Button>
@@ -327,13 +340,24 @@ export default function RootsTable({
               const state = actionState[root.path]?.status;
               const message = actionState[root.path]?.message;
               const rowDisabled = busy || state === 'loading';
+              const removeDisabled =
+                rowDisabled ||
+                hasActiveRun ||
+                root.queueState === 'waiting' ||
+                root.queueState === 'running' ||
+                root.queueState === 'cleanup-blocked';
               const isSelected = selected.has(root.path);
               const chipColor = statusColor[root.status] ?? 'default';
               const phase =
                 root.status === 'ingesting' ? root.phase : undefined;
-              const statusLabel = phase
-                ? `${root.status} (${phase})`
-                : root.status;
+              const statusLabel =
+                root.queueState === 'cleanup-blocked'
+                  ? 'cleanup blocked'
+                  : root.queueState === 'waiting'
+                    ? `queued${typeof root.queuePosition === 'number' ? ` (#${root.queuePosition})` : ''}`
+                    : phase
+                      ? `${root.status} (${phase})`
+                      : root.status;
               const rootModelDisplay =
                 root.embeddingModel && root.embeddingProvider
                   ? `${root.embeddingProvider} / ${root.embeddingModel}`
@@ -413,7 +437,7 @@ export default function RootsTable({
                         color="error"
                         size="small"
                         onClick={() => void doRemove(root.path)}
-                        disabled={rowDisabled}
+                        disabled={removeDisabled}
                       >
                         Remove
                       </Button>
@@ -440,11 +464,6 @@ export default function RootsTable({
                         color={state === 'error' ? 'error' : 'text.secondary'}
                       >
                         {message}
-                      </Typography>
-                    ) : null}
-                    {root.lastError ? (
-                      <Typography variant="body2" color="error">
-                        Last error: {root.lastError}
                       </Typography>
                     ) : null}
                   </TableCell>

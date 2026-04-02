@@ -114,7 +114,26 @@ export default function RootDetailsDrawer({
                     : '—'
                 }
               />
-              <LabelValue label="Run ID" value={root.runId} mono />
+              {root.requestId ? (
+                <LabelValue label="Request ID" value={root.requestId} mono />
+              ) : null}
+              <LabelValue
+                label="Run ID"
+                value={root.runId ?? 'Pending queue start'}
+                mono
+              />
+              {root.queueState ? (
+                <LabelValue
+                  label="Queue state"
+                  value={
+                    root.queueState === 'waiting'
+                      ? typeof root.queuePosition === 'number'
+                        ? `waiting (#${root.queuePosition})`
+                        : 'waiting'
+                      : root.queueState
+                  }
+                />
+              ) : null}
             </Stack>
 
             <Divider />

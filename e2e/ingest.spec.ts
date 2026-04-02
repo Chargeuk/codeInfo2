@@ -166,6 +166,23 @@ const waitForCompletion = async (
   });
 };
 
+const waitForQueuedRow = async (
+  page: Parameters<typeof test>[0]['page'],
+  rowMatcher: RegExp,
+  queuePosition?: number,
+) => {
+  const row = page.getByRole('row', { name: rowMatcher }).first();
+  await expect(row).toBeVisible({ timeout: 60_000 });
+  await expect(
+    row.getByText(
+      queuePosition
+        ? new RegExp(`queued \\(#${queuePosition}\\)`, 'i')
+        : /queued/i,
+    ),
+  ).toBeVisible({ timeout: 60_000 });
+  return row;
+};
+
 const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
   await expect(
     page.getByRole('heading', { name: /Active ingest/i }),
@@ -420,6 +437,51 @@ test.describe.serial('Ingest flows', () => {
     await expect(page.getByTestId('roots-lock-chip')).toBeVisible();
 
     await assertNoReembedErrors();
+  });
+
+  test('queued submission stays available while another run is active and exposes queued row state', async ({
+    page,
+  }) => {
+    await page.goto(`${baseUrl}/ingest`);
+
+    await page.getByLabel('Folder path').fill(fixturePath);
+    await page.getByLabel('Display name').fill(fixtureName);
+    await selectEmbeddingModel(page);
+    await page.getByTestId('start-ingest').click();
+    await waitForInProgress(page);
+
+    await page.getByLabel('Folder path').fill(`${fixturePath}/docs`);
+    await page.getByLabel('Display name').fill(`${fixtureName}-queued`);
+    await page.getByTestId('start-ingest').click();
+
+    const queuedRow = await waitForQueuedRow(
+      page,
+      new RegExp(`${fixtureName}-queued`, 'i'),
+      1,
+    );
+    await queuedRow.getByRole('button', { name: /details/i }).click();
+    await expect(page.getByText(/Request ID/i)).toBeVisible();
+    await expect(page.getByText(/Pending queue start/i)).toBeVisible();
+  });
+
+  test('queued row stays visible after a page refresh while the request is still waiting', async ({
+    page,
+  }) => {
+    await page.goto(`${baseUrl}/ingest`);
+
+    await page.getByLabel('Folder path').fill(fixturePath);
+    await page.getByLabel('Display name').fill(fixtureName);
+    await selectEmbeddingModel(page);
+    await page.getByTestId('start-ingest').click();
+    await waitForInProgress(page);
+
+    await page.getByLabel('Folder path').fill(`${fixturePath}/docs`);
+    await page.getByLabel('Display name').fill(`${fixtureName}-refresh`);
+    await page.getByTestId('start-ingest').click();
+    await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
+
+    await page.reload();
+    await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {

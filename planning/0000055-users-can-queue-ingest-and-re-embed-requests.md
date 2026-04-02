@@ -1204,8 +1204,8 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 
 #### Testing
 
-1. [ ] Run full `npm run test:summary:server:unit` from current `HEAD` and record whether it reaches a trustworthy final verdict or still requires log inspection / reproducer recovery.
-2. [ ] If Testing step 1 still leaves the wrapper in a non-terminal or ambiguous state, run the exact fresh reproducing boundary or bounded wrapper-local seam from Subtask 4 and confirm it reproduces or disproves the current wrapper failure honestly.
+1. [x] Run full `npm run test:summary:server:unit` from current `HEAD` and record whether it reaches a trustworthy final verdict or still requires log inspection / reproducer recovery.
+2. [x] If Testing step 1 still leaves the wrapper in a non-terminal or ambiguous state, run the exact fresh reproducing boundary or bounded wrapper-local seam from Subtask 4 and confirm it reproduces or disproves the current wrapper failure honestly.
 
 #### Implementation notes
 
@@ -1215,8 +1215,9 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 - Subtask 1: re-read Task 11's finite-plan-exhausted notes, the saved full-wrapper log, and the wrapper sources from disk. The current wrapper contract is unchanged: `scripts/summary-wrapper-protocol.mjs` only emits a final wrapper verdict after child `close`, and `scripts/test-summary-server-unit.mjs` still defaults to the full unit, integration, and `mcp2` test file set when no targeting args are passed.
 - Subtask 2: reran full `npm run test:summary:server:unit` from current `HEAD`. The wrapper stayed in `agent_action: wait` with `do_not_read_log: true` beyond the documented budget, so I interrupted it and inspected the fresh saved log `test-results/server-unit-tests-2026-04-02T13-06-28-812Z.log`; that log advanced through `ok 794 - delta AST full rebuild error does not clear live AST data before finalization` with no terminal TAP summary lines, which proves the current repo still has a full-wrapper problem and rules out the clean-wrapper branch for this task.
 - Subtask 3: the clean-wrapper branch was evaluated and ruled out by the fresh wrapper rerun in Subtask 2, so no downstream retirement edit was honest in this pass.
-- Subtask 4: derived a fresh current wrapper-local seam from the live wrapper result instead of reusing the invalidated old raw-slice claim. The current seam is: full `npm run test:summary:server:unit` from current `HEAD` remains in `agent_action: wait` past budget, and its fresh saved log `test-results/server-unit-tests-2026-04-02T13-06-28-812Z.log` advances through `ok 794 - delta AST full rebuild error does not clear live AST data before finalization` without any terminal TAP summary.
+- Subtask 4: derived a fresh current wrapper-local seam from the live wrapper result instead of reusing the invalidated old raw-slice claim. The current seam is: full `npm run test:summary:server:unit` from current `HEAD` remains in `agent_action: wait` past budget, and its fresh saved log `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` advances through `ok 552 - ChatInterface.run persistence` without any terminal TAP summary.
 - Subtask 5: updated Task 13's Notes so the downstream instrumentation task now starts from that fresh wrapper-local seam rather than from stale raw-slice history.
+- Automated proof on 2026-04-02 reran full `npm run test:summary:server:unit` from current `HEAD` and again landed in an over-budget `agent_action: wait` state instead of a trustworthy final verdict. The fresh saved log `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` advanced through `ok 552 - ChatInterface.run persistence` without any terminal TAP summary, which supersedes the earlier `ok 794` wrapper-local seam as the current freshest boundary. Because Task 12's seam is wrapper-local rather than a narrower raw command, that same wrapper rerun honestly satisfies both Testing step 1 and the conditional Testing step 2: it both records the ambiguous full-wrapper truth and reproduces the current wrapper-local seam that Task 13 now owns.
 
 ---
 
@@ -1225,7 +1226,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 - Repository Name: `Current Repository`
 - Task Dependencies: `12`
 - Task Status: `__to_do__`
-- Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. This task starts only if Task 12 proves that a fresh reproducing boundary still exists and still needs supported instrumentation or repair. The current fresh handoff is wrapper-local rather than raw-slice-based: the latest full `npm run test:summary:server:unit` run from current `HEAD` stayed in `agent_action: wait` past budget and the saved log `test-results/server-unit-tests-2026-04-02T13-06-28-812Z.log` advanced through `ok 794 - delta AST full rebuild error does not clear live AST data before finalization` without any terminal TAP summary.
+- Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. This task starts only if Task 12 proves that a fresh reproducing boundary still exists and still needs supported instrumentation or repair. The current fresh handoff is wrapper-local rather than raw-slice-based: the latest full `npm run test:summary:server:unit` run from current `HEAD` stayed in `agent_action: wait` past budget and the saved log `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` advanced through `ok 552 - ChatInterface.run persistence` without any terminal TAP summary.
 
 #### Overview
 

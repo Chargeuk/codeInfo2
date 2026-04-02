@@ -1060,22 +1060,22 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 
 ---
 
-### Task 11. Restore A Trustworthy Full `server:unit` Baseline Before Story Close-Out
+### Task 11. Bound The First Reproducing Mixed Or Full-Suite `server:unit` Boundary
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10`
 - Task Status: `__in_progress__`
-- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`, `814826b7`, `82363c22`, `e06a65fe`, `cf7c5748`, `eb07e399`, `f86ffd6c`, `9a3cf5fa`, `893d989d`, `1158493e`, `c9734389`, `cc473fba`, `fc4b8747`, `15841c16`, `307ddf97`, `ca2d0dea`, `9652d6c3`, `9c73c9fd`, `4c58f1fc`, `2b1bdaac`, `88cb38d9`, `4a50d56a`, `3edfa434`, `be3a0869`, `d4352edb`
-- Notes: Inserted during final-validation repair because the old close-out task proved too broad once the full `npm run test:summary:server:unit` wrapper fell back to a non-final `agent_action: wait` state. Task 12 stays blocked behind this task and no longer owns the renewed full-wrapper overrun directly.
+- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`, `814826b7`, `82363c22`, `e06a65fe`, `cf7c5748`, `eb07e399`, `f86ffd6c`, `9a3cf5fa`, `893d989d`, `1158493e`, `c9734389`, `cc473fba`, `fc4b8747`, `15841c16`, `307ddf97`, `ca2d0dea`, `9652d6c3`, `9c73c9fd`, `4c58f1fc`, `2b1bdaac`, `88cb38d9`, `4a50d56a`, `3edfa434`, `be3a0869`, `d4352edb`, `885c6b93`
+- Notes: Repaired on 2026-04-02 after repeated stalled implementation passes proved the old Task 11 shape was still too broad and too investigative. This task now owns only the bounded reproducer-finding work needed before resource instrumentation can continue honestly. Task 12 stays blocked behind this task and now owns the later instrumentation, repair, and full-wrapper recovery work.
 
 #### Overview
 
-This task restores the trustworthy full `server:unit` baseline that final story close-out depends on. It owns the renewed full-wrapper overrun explicitly, narrows it to the real child-side live resource or teardown owner, fixes that owner honestly, and proves the full wrapper reaches a real terminal verdict again before the final close-out task resumes.
+This task no longer tries to both discover and fix the final `server:unit` overrun owner in one loop. It now owns only the bounded reproducer-finding work: use the already-proved clean unit-only and integration-only slices to define a finite set of mixed or full-suite composition boundaries, run those exact slices, and stop as soon as the first honest reproducing boundary is identified for the next task.
 
 #### Task Exit Criteria
 
-- Full `npm run test:summary:server:unit` reaches a trustworthy final wrapper verdict again instead of remaining in `agent_action: wait` past its documented budget.
-- The real owner of the renewed overrun is repaired or honestly re-owned through targeted server-unit proof, without wrapper-level timeout hacks, synthetic pass states, or forced process exits.
+- The first reproducing mixed or full-suite composition boundary that still triggers the renewed non-final `server:unit` behavior is named explicitly as an exact command or file-group boundary.
+- The task does not continue through indefinite narrowing: if the bounded slice plan is exhausted without a reproducer, the task re-enters blocker/planner repair instead of widening ad hoc.
 
 #### Documentation Locations
 
@@ -1087,19 +1087,19 @@ This task restores the trustworthy full `server:unit` baseline that final story 
 
 1. [x] Re-read `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log`, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing. Confirm exactly where the full wrapper stopped, what the wrapper was still waiting for, and why the current state is not an honest final verdict.
 2. [x] Narrow the renewed overrun to the real owning proof seam with targeted `npm run test:summary:server:unit -- --file ...` reruns or equivalent direct `node --test` narrowing, starting from the last known good area in the saved full log and moving forward until one file, helper, or runtime owner reproduces the lingering child-side resource.
-3. [ ] Instrument the owning seam with supported resource diagnostics such as `process.getActiveResourcesInfo()` or equivalent local instrumentation, and identify the concrete timer, socket, stream, watcher, or other resource that keeps the child process alive after the logical test work is complete.
+3. [ ] Turn the remaining unknown mixed/full-suite space into a finite slice plan before running more implementation work. At minimum, record three exact mixed or broader composition commands or file-group boundaries that together cover the still-unproven space beyond the already-clean unit-only and integration-only slices.
 4. [x] Repair the owning test or runtime seam using the repo’s established teardown patterns, such as explicit close/terminate, cleanup in `afterEach`, or clearing or `unref()`-ing truly detached background resources where that is the correct ownership boundary. Do not change the wrapper protocol or add timeout-forcing hacks.
 5. [x] Update any stale proof text or task-local documentation that still implies the final close-out task owns this full-wrapper overrun directly. Purpose: keep the boundary honest so final close-out depends only on an already-proved `server:unit` baseline.
-6. [ ] Continue the post-`codexAuthCopy` narrowing beyond the first repaired stale proof seam until a single later file, helper, or cross-file state leak reproduces the renewed non-final full `server:unit` behavior in the current repo state. Purpose: keep Subtask 3 aimed at the actual lingering owner instead of the first deterministic failure that happened to appear in the saved log tail.
+6. [ ] Run the first planned mixed or broader composition slice from Subtask 3 and record whether it reproduces the renewed non-final `server:unit` behavior or exits cleanly with a real terminal verdict. If it reproduces, stop this task with the reproducer named explicitly for Task 12.
 7. [x] Narrow the remaining overrun across the later unit-tail and integration boundary now that a one-process raw `node --test` run from `mcp2-router-method-not-found.test.ts` through `ws-server.test.ts` exits cleanly. Purpose: keep the next diagnosis focused on cross-suite interaction or integration ownership instead of re-checking a later unit-only tail that no longer reproduces the problem.
 8. [x] Narrow the remaining overrun across the earlier integration boundary or broader full-suite composition now that the later integration tail from `flows.list.test.ts` through `ws-logs.test.ts` also exits cleanly in one raw `node --test` run. Purpose: keep Subtask 3 aimed at the first still-reproducing boundary instead of repeatedly re-proving later unit and integration tails that now terminate honestly.
 9. [x] Narrow the remaining overrun across the full integration-only composition versus the mixed unit-plus-integration suite composition now that both earlier and later integration-only raw `node --test --test-concurrency=1` batches terminate honestly on their own. Purpose: identify whether the lingering non-final behavior now requires a broader cross-suite interaction instead of any single integration boundary alone.
-10. [ ] Narrow the first mixed unit-plus-integration composition boundary that still reproduces the renewed non-final `server:unit` behavior now that the full integration-only composition also reaches a real terminal verdict. Purpose: give Subtask 3 a reproducing mixed-suite owner to instrument instead of repeatedly re-proving clean unit-only or integration-only compositions.
+10. [ ] If the first planned slice from Subtask 6 exits cleanly, run the remaining planned slice or slices from Subtask 3 until either one bounded reproducer is found or the finite plan is exhausted. If every planned slice is clean, stop and return to planner repair instead of continuing with broader ad hoc narrowing.
 
 #### Testing
 
 1. [x] Run the narrowest targeted `npm run test:summary:server:unit -- --file ...` rerun or equivalent direct `node --test` reproduction that proves the identified owner now exits cleanly. If that targeted proof still stalls or fails, inspect the exact printed log path or local instrumentation output, fix the owning seam, and rerun the same targeted proof until it reaches a real final verdict.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper now finishes with a trustworthy final verdict instead of remaining in `agent_action: wait`. Only after this full wrapper passes honestly can the story return to final close-out.
+2. [ ] Run the exact bounded mixed or broader composition commands from Subtasks 6 and 10. The pass condition for this task is that one command is recorded as the first honest reproducing boundary for Task 12, or that the finite plan is exhausted and the task stops for replanning without widening ad hoc.
 
 #### Implementation notes
 
@@ -1142,24 +1142,68 @@ This task restores the trustworthy full `server:unit` baseline that final story 
 - Continued Task 11 narrowing on 2026-04-02 across the first mixed unit-plus-integration composition: one raw `node --test --test-concurrency=1` run covering the later unit tail from `mcp2-router-method-not-found.test.ts` through `ws-server.test.ts` plus every file in `server/src/test/integration` advanced cleanly through the early mixed boundary and into the bulk-conversation integration cluster (`ok 125`) before being intentionally stopped for this implementation step. That current repo evidence still does not reproduce the renewed non-final behavior at the first mixed boundary, so Subtask 10 remains open and the next honest narrowing step is to continue or split this mixed composition without pretending the owner is already isolated.
 - Implementation-only audit on 2026-04-02 after the latest mixed-composition narrowing update: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and commit `2b1bdaac` from disk. No additional subtasks needed to be newly marked complete in this audit because the latest mixed-suite run only extended the already-open Subtask 10 boundary without isolating the lingering owner, no `Testing` items were newly checked, there is no live `**BLOCKER**` note on Task 11, and the task remains `__in_progress__` because Subtasks 3, 6, and 10 plus the full `npm run test:summary:server:unit` rerun in Testing step 2 are still pending.
 - Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task-state commit `88cb38d9`. No additional `Testing` items were newly marked complete in this audit because the current repo evidence still ends at the already-recorded targeted raw `node --test` narrowing proofs and there is still no trustworthy final full `npm run test:summary:server:unit` rerun to normalize. There is no live `**BLOCKER**` note on Task 11, and the task remains `__in_progress__` because Subtasks 3, 6, and 10 plus Testing step 2 are still incomplete.
-- **BLOCKER** Subtasks 10 and 3 are blocked in the current task shape after repeated honest narrowing failed to produce a bounded mixed-suite reproducer for the lingering non-final `server:unit` behavior. I re-read the saved full-wrapper log and then tried the already-recorded unit-only, later-integration-only, earlier-integration-only, full-integration-only, and first mixed unit-plus-integration narrowing passes; all isolated slices reached clean terminal verdicts or, in the mixed case, progressed deep into the integration cluster without reproducing the wrapper's child-close overrun before the diagnostic run had to be stopped. The missing capability is a plan-owned next reproducing boundary that is narrower than the full wrapper but still actually triggers the lingering live resource, so continuing with another partial narrowing pass would violate the no-stalled-no-progress rule without making Subtask 3 honest. Task 11 should be rewritten or split before more implementation continues so one task explicitly owns finding the first reproducing mixed or full-suite composition boundary and a later follow-on task can instrument that owner with `process.getActiveResourcesInfo()` and repair it once it truly reproduces.
+- **RESOLVED ISSUE** Subtasks 10 and 3 were blocked in the old Task 11 shape after repeated honest narrowing failed to produce a bounded mixed-suite reproducer for the lingering non-final `server:unit` behavior. I re-read the saved full-wrapper log and then tried the already-recorded unit-only, later-integration-only, earlier-integration-only, full-integration-only, and first mixed unit-plus-integration narrowing passes; all isolated slices reached clean terminal verdicts or, in the mixed case, progressed deep into the integration cluster without reproducing the wrapper's child-close overrun before the diagnostic run had to be stopped. Plan repair resolved that active blocker by rewriting current Task 11 into bounded reproducer-finding work and moving the later instrumentation and repair responsibility into new Task 12.
 - **BLOCKING ANSWER** Repository precedents found: repo planning history already treats this exact shape as a plan-boundary defect rather than something to keep retrying inside one broad task. The current Story 55 blocker note itself says the task should be rewritten or split once repeated honest narrowing cannot produce a bounded reproducer. Story 55 also already used that same repair pattern earlier when the old final close-out blocker was re-owned into a new prerequisite baseline-restoration task before downstream close-out resumed. Story 52 split ambiguous ownership into separate owned seams instead of keeping one overloaded contract, and Story 46 narrowed impossible proof seams to runnable wrapper-owned seams rather than leaving one dishonest task boundary in place.
 - **BLOCKING ANSWER** External-library precedents found: official Node guidance and Context7 `/nodejs/node` support the same boundary. Node's `test` docs say asynchronous activity can outlive a finished test, `process.getActiveResourcesInfo()` is the supported API for finding what keeps the event loop alive, and `child_process` says `'close'` happens only after stdio closes. Those sources support instrumentation once there is a reproducing mixed or full-suite owner; they do not support pretending a non-reproducing slice is ready for resource diagnosis. DeepWiki confirmation was attempted against `nodejs/node`, but that repository is not indexed there right now.
 - **BLOCKING ANSWER** Issue-resolution references found: targeted web and official docs point the same way. Node's official test-runner docs on extraneous asynchronous activity and process docs for `getActiveResourcesInfo()` show why a logical test can finish while the process still stays alive. Practical issue threads such as Stack Overflow question `66895155` describe the same symptom as ref'ed event-loop resources keeping Node alive. That means the current blocker is not “which API should we use?” but “what exact suite composition still reproduces the overrun so the supported API can be applied meaningfully?”
 - **BLOCKING ANSWER** Chosen fix: do not continue Task 11 in its current shape. Repair the story so one explicit prerequisite task owns finding the first reproducing mixed or full-suite composition boundary that still triggers the renewed non-final `server:unit` behavior, and let a later follow-on task own `process.getActiveResourcesInfo()` instrumentation, concrete resource identification, repair, and full-wrapper proof only after that reproducer exists.
 - **BLOCKING ANSWER** Why this fits the current local repo state: the latest honest repo evidence already proved the isolated unit-only slices, the later integration tail, the earlier integration boundary, and the full integration-only composition all terminate cleanly. The remaining unknown owner only appears in a broader composition that the current task does not yet bound tightly enough for Subtask 3 to run honestly. Splitting the work at that seam matches repo precedent, matches Node's supported debugging model, and gives the next engineer a task boundary that is actually reproducible instead of aspirational.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep running more partial mixed-suite slices inside the same task without changing the plan shape, do not jump straight to full-wrapper reruns and hope the owner becomes obvious, and do not force-close the process or add timeout hacks. Those options either repeat the same no-progress loop or hide the actual child-side resource leak instead of producing an honest reproducing boundary that can be instrumented and repaired.
-- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task-state commits through `be3a0869`. No additional subtasks were newly marked complete in this audit, no `Testing` items were newly checked, and Task 11 remains `__in_progress__`. The live `**BLOCKER**` note is preserved because the remaining honest work still depends on planner intervention to split, narrow, or re-own Subtasks 3 and 10 before implementation can continue without repeating the same stalled partial narrowing loop.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task-state commits through `be3a0869`. No additional subtasks were newly marked complete in this audit, no `Testing` items were newly checked, and Task 11 remained `__in_progress__`. At that audit point, the live `**BLOCKER**` note was preserved because the remaining honest work still depended on planner intervention to split, narrow, or re-own Subtasks 3 and 10 before implementation could continue without repeating the same stalled partial narrowing loop.
+
+- Plan repair on 2026-04-02 rewrote current Task 11 into a bounded reproducer-finding task, inserted new Task 12 for instrumentation and full baseline recovery, and moved the old active blocker note to historical `**RESOLVED ISSUE**` status because the next implementation pass now has a concrete stopping point.
 
 ---
 
-### Task 12. Perform Story 55 Final Validation And Close-Out
+### Task 12. Instrument, Repair, And Re-Prove The Reproducing `server:unit` Boundary
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11`
+- Task Dependencies: `11`
+- Task Status: `__to_do__`
+- Notes: Inserted during the 2026-04-02 plan repair after Task 11 proved too broad and investigative. This task starts only after Task 11 identifies the first honest reproducing mixed or full-suite boundary.
+
+#### Overview
+
+This task starts from the exact reproducing boundary Task 11 hands off. It instruments that reproducer with supported diagnostics, identifies the concrete live resource keeping the child process alive, repairs the owning test or runtime seam, and then restores a trustworthy full `server:unit` wrapper verdict before final story close-out resumes.
+
+#### Task Exit Criteria
+
+- The reproducing boundary from Task 11 is instrumented and the concrete timer, socket, stream, watcher, or other live resource keeping the child process alive is identified.
+- The owning seam is repaired with repo-standard cleanup patterns, and both the reproducing boundary and the full `npm run test:summary:server:unit` wrapper reach real terminal verdicts.
+
+#### Documentation Locations
+
+- https://nodejs.org/download/release/v22.12.0/docs/api/test.html . Use this for Node's documented behavior around asynchronous activity that outlives a finished test body.
+- https://nodejs.org/download/release/v22.12.0/docs/api/process.html#processgetactiveresourcesinfo . Use this for supported active-resource inspection while diagnosing why the child process does not exit.
+- https://nodejs.org/download/release/v22.12.0/docs/api/child_process.html#event-close . Use this for the distinction between child `exit` and `close`, because the wrapper only reaches final proof after `close`.
+
+#### Subtasks
+
+1. [ ] Re-read Task 11's exact reproducing command or file-group boundary, the saved full-wrapper log, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing.
+2. [ ] Instrument the reproducing boundary with supported diagnostics such as `process.getActiveResourcesInfo()` or equivalent local instrumentation, and identify the concrete resource that keeps the child process alive after the logical test work is complete.
+3. [ ] Repair the owning test or runtime seam using the repo's established teardown patterns, such as explicit close or terminate, cleanup in `afterEach`, or clearing or `unref()`-ing truly detached background resources where that is the correct ownership boundary. Do not change the wrapper protocol or add timeout-forcing hacks.
+4. [ ] Re-run the reproducing boundary until it reaches a real terminal verdict without the lingering live resource.
+5. [ ] Re-run full `npm run test:summary:server:unit` and confirm the wrapper now finishes with a trustworthy final verdict instead of remaining in `agent_action: wait`.
+
+#### Testing
+
+1. [ ] Run the exact reproducing boundary from Task 11 after the repair and confirm it reaches a real terminal verdict.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy final verdict. Only after this full wrapper passes honestly can final story close-out resume.
+
+#### Implementation notes
+
+- Record the reproducing boundary handed off from Task 11, the resource diagnostics used, the concrete live resource identified, the owning repair made, and the proof artifacts from both the reproducing boundary and the full wrapper rerun.
+- Inserted during plan repair because the old Task 11 remained `__in_progress__` across repeated passes without closing its remaining subtasks, proving that reproducer discovery and resource instrumentation needed separate owners.
+
+---
+
+### Task 13. Perform Story 55 Final Validation And Close-Out
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12`
 - Task Status: `__to_do__`
 - Git Commits: `f2933e58`, `8d6423fa`
-- Notes: Renumbered from the old Task 11 after plan repair inserted Task 11 as the prerequisite full `server:unit` baseline repair.
+- Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite `server:unit` instrumentation and full-baseline recovery task.
 
 #### Overview
 
@@ -1192,5 +1236,5 @@ This final task validates the whole durable-queue story rather than isolated sea
 #### Implementation notes
 
 - Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
-- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 11 restores a trustworthy full `server:unit` baseline and the final validation sequence can resume honestly.
-- **RESOLVED ISSUE** The old active blocker lived here before plan repair: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, which now owns restoring the trustworthy baseline this final close-out depends on.
+- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 11 identifies the first honest reproducing mixed or full-suite boundary and Task 12 restores a trustworthy full `server:unit` baseline so the final validation sequence can resume honestly.
+- **RESOLVED ISSUE** The old active blocker lived here before plan repair: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, and then split the later reproducer instrumentation and full-baseline repair into new Task 12 before this final close-out can resume.

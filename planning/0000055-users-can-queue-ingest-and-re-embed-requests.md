@@ -951,9 +951,11 @@ This task makes queued work visible through the shared repository-list contract 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `2c18e3d6` - `DEV-[55] - rebaseline task 9 cucumber proof homes`
+  - `8e290a60` - `DEV-[55] - Record task 9 implementation audit`
+  - `87d3e934` - `DEV-[55] - restore task 9 cucumber baseline`
 - Notes: Inserted during Task 8 plan repair because the full cucumber wrapper exposed reopened earlier-task failures that Task 8 does not own.
 
 #### Overview
@@ -999,6 +1001,7 @@ This task restores the full server cucumber baseline after Task 8 exposed failur
 - Testing 1: `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` now passes after fixing the real reopened owner instead of loosening the scenario. Absolute host-style temp roots now preserve their real host path in `mapIngestPath(...)` so queued re-embed no longer remaps them into a bogus codex workdir path, and the disconnected-Mongo cucumber scenario now disconnects Mongo at the explicit step boundary instead of relying on the old `@no_mongo` tag to start the entire scenario without a usable initial ingest.
 - Testing 2: the remaining targeted reopened features now pass after re-baselining the exact stale proof text instead of reopening queue runtime behavior. `ingest-logging.feature` now treats the deletions-only re-embed path as a completed cleanup, `ingest-reembed.feature` keeps the lock-derived scenario focused on the accepted `202` transport contract instead of an invented terminal-success claim for synthetic metadata-only roots, and `ingest-start.feature` now reflects the current lock-acceptance and dry-run embedded-count contracts.
 - Testing 3: full `npm run test:summary:server:cucumber` now passes cleanly with `tests run: 84`, `failed: 0`, and `agent_action: skip_log`, so the reopened non-Task-8 cucumber baseline is restored without any lingering feature filters or tag-based escapes.
+- Implementation-plus-automated-proof audit on 2026-04-02: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 9 plan section from disk, rechecked the current branch `HEAD`, and verified that the current repo evidence now covers all Task 9 subtasks plus Testing steps 1 through 3 through commits `2c18e3d6` and `87d3e934`. There is no live `**BLOCKER**` note on Task 9, and the task is now `__done__` because the targeted delta/logging/re-embed/start cucumber reruns and the final full `npm run test:summary:server:cucumber` wrapper all pass cleanly while the broader e2e cleanup seam remains explicitly owned by Task 10.
 
 ---
 

@@ -1065,7 +1065,7 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10`
 - Task Status: `__in_progress__`
-- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`, `814826b7`, `82363c22`, `e06a65fe`, `cf7c5748`, `eb07e399`, `f86ffd6c`, `9a3cf5fa`, `893d989d`, `1158493e`, `c9734389`, `cc473fba`
+- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`, `814826b7`, `82363c22`, `e06a65fe`, `cf7c5748`, `eb07e399`, `f86ffd6c`, `9a3cf5fa`, `893d989d`, `1158493e`, `c9734389`, `cc473fba`, `fc4b8747`
 - Notes: Inserted during final-validation repair because the old close-out task proved too broad once the full `npm run test:summary:server:unit` wrapper fell back to a non-final `agent_action: wait` state. Task 12 stays blocked behind this task and no longer owns the renewed full-wrapper overrun directly.
 
 #### Overview

@@ -1228,7 +1228,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 - Repository Name: `Current Repository`
 - Task Dependencies: `12`
 - Task Status: `__in_progress__`
-- Git Commits: `ab39363f`, `26c0cdb9`, `fa59e7c6`, `44997d3e`, `da07311e`, `a2d08685`
+- Git Commits: `ab39363f`, `26c0cdb9`, `fa59e7c6`, `44997d3e`, `da07311e`, `a2d08685`, `7e09a807`
 - Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. Repaired again on 2026-04-02 after the live blocker proved Task 12 only handed off a wrapper-local seam, not a bounded raw reproducer. This task now owns only bounded reproducer derivation from the current wrapper-local seam, with an explicit stopping rule, and no longer pretends supported resource instrumentation can begin before that reproducer exists.
 
 #### Overview
@@ -1280,6 +1280,7 @@ This task starts only from the exact current wrapper-local seam that Task 12 fre
 - Subtask 3: exhausted the repaired finite three-pass plan from the current 34-file frontier under the wrapper-equivalent ts-node environment, and all three named slices reached real terminal TAP verdicts instead of reproducing the post-logical-work non-closing state. The exact clean artifacts are `test-results/task13/task13-earlier-half.log` with `# pass 208`, `# fail 0`, `# duration_ms 90071.923023`; `test-results/task13/task13-later-half.log` with `# pass 109`, `# fail 0`, `# duration_ms 92151.731102`; and `test-results/task13/task13-frontier-centered.log` with `# pass 120`, `# fail 0`, `# duration_ms 106614.053535`.
 
 **BLOCKER** Subtasks 4-5: I completed Subtask 3 by exhausting the only three named passes the repaired Task 13 allowed, but none of them produced a bounded raw reproducer. I tried the earlier-half slice over files 1-17, the later-half slice over files 18-34, and the frontier-centered slice over files 26-42 under the wrapper-equivalent ts-node environment with the supported `scripts/debug-active-resources.mjs` import. The missing capability is no longer diagnostic instrumentation; it is that the current task shape still cannot derive an exact reproducing raw command from the wrapper-local seam once the finite three-pass plan exhausts cleanly. The task should be split or rewritten again before implementation continues so one task re-establishes a fresh bounded derivation strategy from the current wrapper-local seam or re-validates whether a current raw reproducer exists at all.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the latest task-state commits through `7e09a807`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtask 3 and recorded the finite-plan exhaustion blocker in the task notes. No `Testing` items were newly checked here, the live `**BLOCKER**` note remains visible on Task 13, and the task correctly stays `__in_progress__` because Subtasks 4 and 5 plus both Testing steps remain incomplete behind that blocker.
 
 ---
 

@@ -1065,7 +1065,7 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10`
 - Task Status: `__in_progress__`
-- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`
+- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`, `814826b7`
 - Notes: Inserted during final-validation repair because the old close-out task proved too broad once the full `npm run test:summary:server:unit` wrapper fell back to a non-final `agent_action: wait` state.
 
 #### Overview
@@ -1093,7 +1093,7 @@ This task restores the trustworthy full `server:unit` baseline that final story 
 
 #### Testing
 
-1. [ ] Run the narrowest targeted `npm run test:summary:server:unit -- --file ...` rerun or equivalent direct `node --test` reproduction that proves the identified owner now exits cleanly. If that targeted proof still stalls or fails, inspect the exact printed log path or local instrumentation output, fix the owning seam, and rerun the same targeted proof until it reaches a real final verdict.
+1. [x] Run the narrowest targeted `npm run test:summary:server:unit -- --file ...` rerun or equivalent direct `node --test` reproduction that proves the identified owner now exits cleanly. If that targeted proof still stalls or fails, inspect the exact printed log path or local instrumentation output, fix the owning seam, and rerun the same targeted proof until it reaches a real final verdict.
 2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper now finishes with a trustworthy final verdict instead of remaining in `agent_action: wait`. Only after this full wrapper passes honestly can the story return to final close-out.
 
 #### Implementation notes
@@ -1113,6 +1113,7 @@ This task restores the trustworthy full `server:unit` baseline that final story 
 - Subtask 2: narrowed the first concrete owner from the saved full log to `server/src/test/integration/flows.list.test.ts`. A targeted rerun with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` reached a real terminal verdict and exposed two deterministic failures instead of another indefinite wait, which means the old full-log tail was already hiding at least one stale proof seam before any later child-exit diagnosis could be trusted.
 - Subtask 4: repaired the narrowed owner in `server/src/test/integration/flows.list.test.ts` by making the test helper default to an empty `listIngestedRepositories` stub instead of leaking the current repo's live ingested repositories into isolation-sensitive `/flows` proofs. The same targeted wrapper then passed cleanly with `tests run: 10`, `passed: 10`, `failed: 0`, and `agent_action: skip_log`, so this first concrete owner now exits honestly.
 - Implementation-only audit on 2026-04-02 after the first narrowed Task 11 owner repair: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 11 section from disk, rechecked the current branch `HEAD`, and verified that commit `9f36347b` already implements the currently checked Task 11 work reflected by Subtasks 1, 2, and 4 in `server/src/test/integration/flows.list.test.ts`. No Task 11 `Testing` items were newly checked in this audit, there is no live `**BLOCKER**` note on Task 11 after the plan repair, and the task remains `__in_progress__` because the active-resource diagnosis, any remaining stale proof-text cleanup, and both Task 11 testing steps are still pending.
+- Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, commit `9f36347b`, and the saved targeted proof logs `test-results/server-unit-tests-2026-04-02T07-43-30-631Z.log` and `test-results/server-unit-tests-2026-04-02T07-44-45-663Z.log`. Testing step 1 is now honestly complete because the narrowed `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` rerun reached a real final verdict with `# pass 10`, `# fail 0`, and no lingering wait state after the helper repair, but Task 11 still remains `__in_progress__` because Subtasks 3 and 5 are still open and the full `npm run test:summary:server:unit` wrapper has not yet been re-run to a trustworthy final verdict.
 
 ---
 

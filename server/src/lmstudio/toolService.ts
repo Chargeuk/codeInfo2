@@ -1,7 +1,7 @@
 import path from 'path';
 import mongoose from 'mongoose';
+import { type IngestQueueState } from '@codeinfo2/common';
 import {
-  type IngestQueueState,
   type EmbeddingProviderId,
   IngestRequiredError,
   generateLockedQueryEmbedding,
@@ -41,7 +41,7 @@ export type ToolDeps = {
 
 export type RepoEntry = {
   id: string;
-  name: string;
+  name?: string;
   description: string | null;
   containerPath: string;
   hostPath: string;
@@ -999,6 +999,7 @@ export async function listIngestedRepositories(
       ) {
         continue;
       }
+      existing.id = active.runId;
       existing.status = mappedState.status;
       if (mappedState.phase) {
         existing.phase = mappedState.phase;
@@ -1077,7 +1078,7 @@ export async function listIngestedRepositories(
     const aTs = a.lastIngestAt ? Date.parse(a.lastIngestAt) : 0;
     const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
     if (aTs !== bTs) return bTs - aTs;
-    return a.name.localeCompare(b.name);
+    return (a.name ?? a.id).localeCompare(b.name ?? b.id);
   });
 
   logLockResolverState(

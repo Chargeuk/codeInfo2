@@ -779,7 +779,7 @@
                     },
                     "schemaVersion": {
                       "type": "string",
-                      "enum": ["0000038-status-phase-v1"]
+                      "enum": ["0000055-queued-repo-list-v1"]
                     }
                   },
                   "required": [
@@ -2006,7 +2006,7 @@
                     },
                     "schemaVersion": {
                       "type": "string",
-                      "enum": ["0000038-status-phase-v1"]
+                      "enum": ["0000055-queued-repo-list-v1"]
                     }
                   },
                   "required": [

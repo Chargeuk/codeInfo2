@@ -151,6 +151,9 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
     ...DEFAULT_DEPS,
     ...deps,
   };
+  const hasLegacyOverrides =
+    typeof deps.getLockedModel === 'function' ||
+    typeof deps.getRootsCollection === 'function';
   const router = Router();
 
   router.get('/ingest/roots', async (_req, res) => {
@@ -160,7 +163,9 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
       const payload = await listIngestedRepositories({
         getRootsCollection: resolved.getRootsCollection,
         getLockedModel: resolved.getLockedModel,
-        ...(typeof resolved.getLockedEmbeddingModel === 'function'
+        ...((typeof deps.getLockedEmbeddingModel === 'function' ||
+          (!hasLegacyOverrides &&
+            typeof resolved.getLockedEmbeddingModel === 'function'))
           ? { getLockedEmbeddingModel: resolved.getLockedEmbeddingModel }
           : {}),
       });
@@ -204,7 +209,7 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
           embeddingProvider,
           embeddingModel,
           embeddingDimensions,
-          model: repo.model,
+          model: repo.model ?? embeddingModel,
           modelId: repo.modelId,
           lock: rootLock,
           status: repo.status ?? 'completed',

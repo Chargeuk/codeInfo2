@@ -175,7 +175,7 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.lock.embeddingModel, 'text-embedding-openai');
   assert.equal(response.body.lock.modelId, 'text-embedding-openai');
   assert.equal(response.body.roots.length, 1);
-  assert.equal(response.body.roots[0].runId, 'run-1');
+  assert.equal(response.body.roots[0].runId, null);
   assert.equal(response.body.roots[0].embeddingModel, 'embed-model');
   assert.equal(response.body.roots[0].model, 'embed-model');
   assert.equal(response.body.roots[0].modelId, 'embed-model');

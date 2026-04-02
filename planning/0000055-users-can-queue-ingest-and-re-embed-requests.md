@@ -1501,8 +1501,8 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 
 #### Testing
 
-1. [ ] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that owner class exits cleanly.
-2. [ ] If Subtask 4 is needed, run that one bounded helper- or runtime-focused ownership check and record whether it names a present-tense child-side owner or exhausts the second bounded derivation plan cleanly.
+1. [x] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that owner class exits cleanly.
+2. [x] If Subtask 4 is needed, run that one bounded helper- or runtime-focused ownership check and record whether it names a present-tense child-side owner or exhausts the second bounded derivation plan cleanly.
 
 #### Implementation notes
 
@@ -1513,6 +1513,8 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 - Subtask 3: ran the complementary bounded control command from `server/`: `node --test --test-concurrency=1 src/test/integration/ingest-reembed-invalid-state.test.ts`. Saved output: `test-results/task17/task17-runtime-owner-control.log`. This nearest competing control also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, so shifting away from the `ingestJob` runtime seam still exits cleanly in the adjacent reembed region.
 - Subtask 4: because Subtasks 2 and 3 still left ownership ambiguous, ran exactly one helper/runtime-focused ownership check on the most concentrated remaining seam in this owner class: `node --test --test-concurrency=1 src/test/integration/ingest-reembed.test.ts`. Saved output: `test-results/task17/task17-runtime-owner-helper.log`. That helper-focused check also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, so this second bounded derivation plan still did not name a present-tense child-side owner.
 - Subtask 5: the second bounded owner-derivation strategy exhausted cleanly without producing a named owner. Downstream repair therefore remains blocked: Task 18 must not start from a guessed owner, and the next honest move is planner review to insert or rewrite another prerequisite derivation step instead of continuing ad hoc repair.
+- Testing step 1: reran the exact bounded runtime-owner candidate and complementary control commands under the wrapper-equivalent ts-node environment and saved fresh proof logs `test-results/task17/task17-runtime-owner-candidate-proof.log` and `test-results/task17/task17-runtime-owner-control-proof.log`. Both commands again reached real terminal TAP verdicts with `# pass 4`, `# fail 0` and `# pass 2`, `# fail 0`, so this second owner class still exits cleanly rather than leaving the child alive after logical work.
+- Testing step 2: reran the one bounded helper/runtime-focused ownership check on `src/test/integration/ingest-reembed.test.ts` and saved fresh proof log `test-results/task17/task17-runtime-owner-helper-proof.log`. That command also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, which confirms the second bounded derivation plan exhausts cleanly rather than naming a present-tense child-side owner.
 - Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 17 section, and the latest task-state commit `0b9ee4c5`. No subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtasks 1 through 5 and recorded the bounded runtime-owner exhaustion outcome inside the task notes. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 17, and Task 17 correctly remains `__in_progress__` because automated proof for Testing steps 1 and 2 still belongs to the next audit loop.
 
 ---

@@ -767,9 +767,11 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `4, 5, 6`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `f87a798d` - `DEV-[55] - narrow task 7 lifecycle owners`
+  - `0d8d5e18` - `DEV-[55] - Record task 7 implementation audit`
+  - `bfdeb48b` - `DEV-[55] - record task 7 proof state`
 
 #### Overview
 
@@ -811,6 +813,7 @@ This task owns the remaining non-config, non-transport failures that the restore
 - Full `npm run test:summary:server:unit` now passes cleanly with `1593` tests run, `1593` passed, and `0` failed, so the restored shared server-unit baseline is no longer carrying the earlier timeout or lifecycle owners into downstream tasks.
 - `npx eslint` passed on the exact Task 7 touched files with zero warnings, and `npx prettier --check` also passed on that same touched-file list without requiring follow-up formatting changes.
 - Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed lifecycle-owner narrowing work in `f87a798d`, confirmed there is no live `**BLOCKER**` note on Task 7, and left the task `__in_progress__` because the targeted Task 7 reruns and the follow-up full `server:unit` proof are still pending.
+- Implementation-plus-automated-proof audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed all Task 7 subtasks and both Task 7 testing steps now have direct repo evidence, confirmed there is no live `**BLOCKER**` note on Task 7, and marked the task `__done__` because its timeout and lifecycle regression slice is fully implemented and proved and the shared `server:unit` wrapper now passes cleanly.
 
 ---
 

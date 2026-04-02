@@ -205,6 +205,8 @@ let setupFailed = false;
 let teardownFailed = false;
 let parseFailed = false;
 let task13MarkerLine = '';
+let testResultReason = '';
+let testResultProgressLine = '';
 
 try {
   const buildResult = await runLoggedCommand({
@@ -248,6 +250,8 @@ try {
         collectStdout: true,
       });
       testExitCode = testResult.code;
+      testResultReason = testResult.forcedReason ?? '';
+      testResultProgressLine = testResult.lastProgressLine ?? '';
       try {
         const report = parsePlaywrightJson(testResult.stdout);
         if (!report)
@@ -321,18 +325,26 @@ if (summary.failingNames.length > 0) {
 const status = exitCode === 0 ? 'passed' : 'failed';
 const ambiguousCounts =
   parseFailed || (status === 'passed' && summary.total === 0);
+const finalReason =
+  testResultReason === 'terminal_summary_without_close'
+    ? 'terminal_summary_without_close'
+    : testResultReason === 'semantic_progress_stalled'
+      ? 'semantic_progress_stalled'
+      : setupFailed || teardownFailed
+        ? 'setup_or_teardown_failed'
+        : status === 'passed'
+          ? ambiguousCounts
+            ? 'ambiguous_counts'
+            : 'clean_success'
+          : 'test_failed';
 
 protocol.emitFinal({
   status,
   ambiguousCounts,
-  reason:
-    setupFailed || teardownFailed
-      ? 'setup_or_teardown_failed'
-      : status === 'passed'
-        ? ambiguousCounts
-          ? 'ambiguous_counts'
-          : 'clean_success'
-        : 'test_failed',
+  reason: finalReason,
+  extraFields: testResultReason
+    ? { last_progress: testResultProgressLine || undefined }
+    : {},
 });
 
 process.exit(exitCode);

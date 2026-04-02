@@ -134,6 +134,8 @@ const result = await runLoggedCommand({
   protocol,
   phase: 'test',
   bannerPrefix: '',
+  semanticProgressPatterns: [/^PASS /, /^FAIL /, /^Tests:/, /^Test Suites:/],
+  terminalSummaryPatterns: [/^Tests:/, /^Test Suites:/, /^Ran all test suites/],
 });
 
 await new Promise((resolve) => logStream.end(resolve));
@@ -176,16 +178,24 @@ if (failingNames.size > 0) {
 
 const status = result.code === 0 ? 'passed' : 'failed';
 const ambiguousCounts = parseFailed || (status === 'passed' && total === 0);
+const finalReason =
+  result.forcedReason === 'terminal_summary_without_close'
+    ? 'terminal_summary_without_close'
+    : result.forcedReason === 'semantic_progress_stalled'
+      ? 'semantic_progress_stalled'
+      : status === 'passed'
+        ? ambiguousCounts
+          ? 'ambiguous_counts'
+          : 'clean_success'
+        : 'test_failed';
 
 protocol.emitFinal({
   status,
   ambiguousCounts,
-  reason:
-    status === 'passed'
-      ? ambiguousCounts
-        ? 'ambiguous_counts'
-        : 'clean_success'
-      : 'test_failed',
+  reason: finalReason,
+  extraFields: result.forcedReason
+    ? { last_progress: result.lastProgressLine || undefined }
+    : {},
 });
 
 process.exit(result.code);

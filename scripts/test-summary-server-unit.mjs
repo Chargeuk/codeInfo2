@@ -159,6 +159,8 @@ const unitEnv = {
 
 let exitCode = buildResult.code;
 let output = buildResult.output;
+let testForcedReason = '';
+let testLastProgressLine = '';
 if (buildResult.code === 0) {
   const testResult = await runLoggedCommand({
     cmd: 'node',
@@ -168,9 +170,17 @@ if (buildResult.code === 0) {
     logStream,
     protocol,
     phase: 'test',
+    semanticProgressPatterns: [
+      /^# Subtest: /,
+      /^ok \d+ - /,
+      /^not ok \d+ - /,
+    ],
+    terminalSummaryPatterns: [/^1\.\./, /^# tests /, /^# pass /, /^# fail /],
   });
   output += testResult.output;
   exitCode = testResult.code;
+  testForcedReason = testResult.forcedReason ?? '';
+  testLastProgressLine = testResult.lastProgressLine ?? '';
 }
 
 await new Promise((resolve) => logStream.end(resolve));
@@ -194,6 +204,16 @@ const failed = sumFromMatches(output, /^# fail (\d+)$/gim);
 const failingNames = parseFailureNames(output);
 const status = exitCode === 0 ? 'passed' : 'failed';
 const ambiguousCounts = status === 'passed' && total === 0;
+const finalReason =
+  testForcedReason === 'terminal_summary_without_close'
+    ? 'terminal_summary_without_close'
+    : testForcedReason === 'semantic_progress_stalled'
+      ? 'semantic_progress_stalled'
+      : status === 'passed'
+        ? ambiguousCounts
+          ? 'ambiguous_counts'
+          : 'clean_success'
+        : 'test_failed';
 
 console.log(`[server:unit] tests run: ${total}`);
 console.log(`[server:unit] passed: ${passed}`);
@@ -208,12 +228,10 @@ if (failingNames.length > 0) {
 protocol.emitFinal({
   status,
   ambiguousCounts,
-  reason:
-    status === 'passed'
-      ? ambiguousCounts
-        ? 'ambiguous_counts'
-        : 'clean_success'
-      : 'test_failed',
+  reason: finalReason,
+  extraFields: testForcedReason
+    ? { last_progress: testLastProgressLine || undefined }
+    : {},
 });
 
 process.exit(exitCode);

@@ -713,9 +713,11 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `4, 5`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `ce5deb82` - `DEV-[55] - rebaseline queue-aware transport proof homes`
+  - `72b72644` - `DEV-[55] - Record task 6 implementation audit`
+  - `244d7bf5` - `DEV-[55] - record task 6 proof state`
 
 #### Overview
 
@@ -756,6 +758,7 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 - Full `npm run test:summary:server:unit` now reaches a real terminal verdict with `1593` tests run, `1589` passed, and only four remaining failures: `chat-copilot-lock`, two `ingest-ast-indexing` cases, and `ws-server`. The earlier Task 6 transport-proof failures are gone, so the remaining full-wrapper owners now belong to downstream Task 7 instead of to this queue-aware proof cluster.
 - `npx eslint` passed on the exact Task 6 touched files with zero warnings. `npx prettier --check` needed one follow-up format fix in `flows.run.errors.test.ts`, and the rerun then passed cleanly on the same touched-file list.
 - Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed transport-proof rebaseline work in `ce5deb82`, confirmed there is no live `**BLOCKER**` note on Task 6, and left the task `__in_progress__` because the targeted Task 6 reruns and the follow-up full `server:unit` proof are still pending.
+- Implementation-plus-automated-proof audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed all Task 6 subtasks and both Task 6 testing steps now have direct repo evidence, confirmed there is no live `**BLOCKER**` note on Task 6, and marked the task `__done__` because its queue-aware transport-proof slice is fully implemented and proved while the remaining red full-wrapper names are explicitly owned by downstream Task 7.
 
 ---
 

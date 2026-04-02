@@ -29,6 +29,7 @@ If there is or was a blocker, decide whether it reveals any of the following:
 - a task that is too large and must be split;
 - a task that assumes a runtime seam, readiness contract, dependency, test harness, environment mapping, or startup contract that does not yet exist;
 - a task with testing steps that cannot honestly be run at the point the task is supposed to complete;
+- a task that has remained `__in_progress__` across repeated passes without closing its remaining subtasks, showing that it is too broad, too open-ended, too investigative, or insufficiently concrete for the implementation loop;
 - later tasks that now require renumbering or reference updates.
 
 </decision_rules>
@@ -44,6 +45,9 @@ If any of those are true, you MUST repair the story before continuing:
 - make the new subtasks detailed enough for a junior engineer to follow without asking for help;
 - ensure each testing section is runnable at the point that task completes and actually proves the intended work;
 - write what changed and why inside the task and implementation notes.
+- If the blocker exists because repeated implementation passes did not close the remaining subtasks, you MUST repair the task shape before work continues.
+- Rewrite, split, or re-own the task so the next implementation pass has a concrete stopping point and does not depend on indefinite narrowing.
+- Replace open-ended `keep narrowing until you find the owner` style subtasks with bounded subtasks that have a clear success or blocker threshold.
 
 If the blocker exists because the current task assumes a missing runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract, prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task.
 
@@ -58,6 +62,7 @@ If this step turns the blocker into actionable next work for the current task, y
 - If the blocker is now answered well enough that coding, automated proof, or manual testing can continue, retire the live `**BLOCKER**` note in this step before the flow returns to the current-task rework loop.
 - Do not leave a known plan defect in place once the blocker has proved it.
 - Do not leave an old active blocker marker in place when the task is no longer actively blocked after this step.
+- Do not return a repeatedly stalled task to the implementation loop unchanged when the blocker evidence shows the task shape itself is the problem.
 - Do not invent unnecessary extra work; keep repairs aligned to the KISS principle and only add what is required to unblock honest execution.
 
 </behavior_rules>

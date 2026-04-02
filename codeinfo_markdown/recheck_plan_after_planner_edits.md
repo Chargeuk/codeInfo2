@@ -33,6 +33,7 @@ Summarize what changed and what the next pass should do.
 - If any task is currently `__in_progress__`, the highest-numbered `__in_progress__` task is the active task for the next pass.
 - Do not advance to a later `__to_do__` task while any task remains `__in_progress__`.
 - If the active `__in_progress__` task has no unchecked subtasks, do not treat that as permission to advance; instead, report that the task remains active and is ready for automated proof or other remaining non-subtask work.
+- If the active `__in_progress__` task was returned by planner blocker repair, state explicitly whether the repaired task now has a bounded next implementation step or whether planner repair is still incomplete.
 - Only if no task is `__in_progress__` may you identify the next executable task from the remaining `__to_do__` tasks.
 - If you conclude there is no next task, you must explicitly confirm that the highest-numbered task is `__done__` and that no later task heading exists.
 

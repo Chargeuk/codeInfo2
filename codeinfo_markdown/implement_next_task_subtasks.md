@@ -48,6 +48,11 @@ Leave the task ready for the later automated-proof step.
   - keep notes specific about what changed, what issue was overcome, or why work is blocked.
 - If the task needs additional in-scope implementation work to stay honest, you may add concise new unchecked subtasks to the same task before completing that work.
 - If the task needs additional automated proof obligations to stay honest, do not run them here; leave those for the later automated-proof step.
+- If the selected task still has unchecked subtasks at the end of this step, then one of the following must be true:
+  - at least one previously unchecked subtask was completed in this step; or
+  - you added a live `**BLOCKER**` note explaining exactly why the remaining subtasks could not be completed honestly.
+- It is not valid to leave the task with the same unchecked subtasks and no newly completed subtask and no live `**BLOCKER**`.
+- If the remaining unchecked subtasks are open-ended diagnosis, narrowing, isolation, or investigation work and this pass did not isolate the owner, repair the owner, or close a subtask, stop and add a live `**BLOCKER**` note instead of repeating another partial narrowing pass.
 
 </execution_rules>
 
@@ -95,6 +100,8 @@ Before finishing:
 - confirm you did not advance to a later task when the active task was still `__in_progress__`;
 - confirm you did not run or check off the `Testing` section;
 - confirm completed subtasks were marked immediately;
+- confirm that if unchecked subtasks remain, either at least one subtask was completed in this pass or a live `**BLOCKER**` was added;
+- confirm you did not leave the task in a stalled no-progress state;
 - confirm any blocker was written into `Implementation Notes` as `**BLOCKER**`;
 - confirm tracked changes were committed if any were made.
 

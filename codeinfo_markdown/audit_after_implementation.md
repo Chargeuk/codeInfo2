@@ -33,10 +33,25 @@ Do not treat this step as automated-proof completion.
 
 </audit_rules>
 
+<stall_detection_rules>
+
+- Compare the current task's open subtasks and implementation notes against the latest implementation pass.
+- If the task still has unchecked subtasks, no previously unchecked subtask was completed in the latest implementation pass, and there is no live `**BLOCKER**` note, treat that as a stalled invalid state.
+- In that stalled invalid state, add a live `**BLOCKER**` note immediately rather than letting the loop continue silently.
+- That blocker note must state:
+  - the exact remaining subtasks;
+  - that the latest implementation pass made no subtask-closing progress;
+  - the narrowing, investigation, or implementation work attempted;
+  - and that planner intervention is now required to split, narrow, or re-own the task before implementation continues honestly.
+
+</stall_detection_rules>
+
 <task_status_rules>
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - After this audit, the task just worked in this loop must remain `__in_progress__`, because automated proof has not yet been completed in this loop.
+- A task with unchecked subtasks must not continue through repeated implementation passes without either subtask closure or a live `**BLOCKER**`.
+- If this audit detects that stalled state, preserve the task as `__in_progress__` and make the blocker visible so the planner loop can take over.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.
 
 </task_status_rules>
@@ -67,6 +82,7 @@ Before finishing:
 - confirm you audited implementation-only work rather than treating the task as fully proved;
 - confirm no `Testing` section items were newly marked complete unless they were already honestly complete;
 - confirm the just-worked task was left `__in_progress__`;
+- confirm you did not leave a stalled task with open subtasks and no live `**BLOCKER**`;
 - confirm any blocker was preserved and made visible in the plan;
 - confirm tracked changes were committed if any were made.
 

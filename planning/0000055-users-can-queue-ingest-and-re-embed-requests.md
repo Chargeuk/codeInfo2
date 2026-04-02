@@ -1065,7 +1065,7 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10`
 - Task Status: `__in_progress__`
-- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`, `814826b7`, `82363c22`, `e06a65fe`, `cf7c5748`
+- Git Commits: `1d35a761`, `1043f6c6`, `c9e7fc80`, `9f36347b`, `814826b7`, `82363c22`, `e06a65fe`, `cf7c5748`, `f86ffd6c`
 - Notes: Inserted during final-validation repair because the old close-out task proved too broad once the full `npm run test:summary:server:unit` wrapper fell back to a non-final `agent_action: wait` state. Task 12 stays blocked behind this task and no longer owns the renewed full-wrapper overrun directly.
 
 #### Overview
@@ -1119,6 +1119,7 @@ This task restores the trustworthy full `server:unit` baseline that final story 
 - Continued Task 11 narrowing on 2026-04-02 after the first `flows.list` repair: direct `node --test --test-concurrency=1` batches for the immediate post-`codexAuthCopy` unit-file sequence all still reach real terminal verdicts, and command-line `afterEach(() => process.getActiveResourcesInfo())` instrumentation across `codexAuthCopy.test.ts` plus `codexConfig.device-auth.test.ts` showed only the expected stdio `PipeWrap` handles plus transient `FSReqCallback` activity before clean exit. That means the renewed non-final full-wrapper owner is not the already-repaired `flows.list` seam and is not the immediate `codexAuthCopy` boundary from the saved log tail, so an additional downstream narrowing subtask is now tracked explicitly before Subtask 3 can be completed honestly.
 - Manual testing was skipped on 2026-04-02 because Task 11 is still `__in_progress__`, so the latest task is not honestly complete yet and live proof must wait until the remaining full `server:unit` baseline work is finished.
 - Implementation-only audit on 2026-04-02 after the refined Task 11 narrowing update: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task commits `cf7c5748` and `e06a65fe` from disk. No additional subtasks needed to be newly marked complete in this audit because Subtask 5 was already honestly recorded as complete and the new downstream narrowing work is already captured as open Subtask 6, no `Testing` items were newly checked, there is no live `**BLOCKER**` note on Task 11, and the task remains `__in_progress__` because the active-resource diagnosis, downstream narrowing, and final full `npm run test:summary:server:unit` proof are still pending.
+- Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task-state commits through `f86ffd6c`. No additional `Testing` items were newly marked complete in this audit because the current repo evidence still stops at the already-recorded narrowed `flows.list` proof and there is still no trustworthy final full `npm run test:summary:server:unit` rerun to normalize. There is no live `**BLOCKER**` note on Task 11, and the task remains `__in_progress__` because Subtasks 3 and 6 plus Testing step 2 are still incomplete.
 
 ---
 

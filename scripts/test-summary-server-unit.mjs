@@ -78,6 +78,13 @@ const normalizeServerPath = (value) => {
   return withoutDotPrefix;
 };
 
+const buildCleanWrapperEnv = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) => !key.startsWith('CODEINFO_') && !key.startsWith('CODEX_'),
+    ),
+  );
+
 const sumFromMatches = (output, pattern) =>
   [...output.matchAll(pattern)].reduce(
     (sum, match) => sum + Number(match[1]),
@@ -134,12 +141,11 @@ if (options.testName) {
 testArgs.push(...unitFiles);
 
 const unitEnv = {
-  ...process.env,
+  ...buildCleanWrapperEnv(),
   CODEINFO_LOG_FILE_PATH: '../logs/server-test.log',
   CODEINFO_CHROMA_URL: '',
   CODEINFO_MONGO_URI: '',
-  CODEINFO_PLAYWRIGHT_MCP_URL:
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL ?? 'http://localhost:8932/mcp',
+  CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8932/mcp',
   TS_NODE_DEBUG: 'false',
   TS_NODE_LOG_ERROR: 'true',
   TS_NODE_FILES: 'true',

@@ -1472,7 +1472,7 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 - Repository Name: `Current Repository`
 - Task Dependencies: `16`
 - Task Status: `__in_progress__`
-- Git Commits: `0b9ee4c5`
+- Git Commits: `0b9ee4c5`, `97c1a273`
 - Notes: Inserted on 2026-04-02 after Task 16 proved that the first bounded child-side owner class exhausted cleanly without naming an owner. This task starts from Task 16's proof artifacts and owns one materially different bounded owner-derivation strategy before any repair task can start honestly.
 
 #### Overview
@@ -1516,6 +1516,8 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 - Testing step 1: reran the exact bounded runtime-owner candidate and complementary control commands under the wrapper-equivalent ts-node environment and saved fresh proof logs `test-results/task17/task17-runtime-owner-candidate-proof.log` and `test-results/task17/task17-runtime-owner-control-proof.log`. Both commands again reached real terminal TAP verdicts with `# pass 4`, `# fail 0` and `# pass 2`, `# fail 0`, so this second owner class still exits cleanly rather than leaving the child alive after logical work.
 - Testing step 2: reran the one bounded helper/runtime-focused ownership check on `src/test/integration/ingest-reembed.test.ts` and saved fresh proof log `test-results/task17/task17-runtime-owner-helper-proof.log`. That command also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, which confirms the second bounded derivation plan exhausts cleanly rather than naming a present-tense child-side owner.
 - Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 17 section, and the latest task-state commit `0b9ee4c5`. No subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtasks 1 through 5 and recorded the bounded runtime-owner exhaustion outcome inside the task notes. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 17, and Task 17 correctly remains `__in_progress__` because automated proof for Testing steps 1 and 2 still belongs to the next audit loop.
+- **BLOCKER** The bounded second owner-derivation strategy and its proof reruns are now complete, but they still do not produce a named present-tense child-side owner for Task 18 to repair. What I tried was the bounded runtime-owner candidate, the adjacent shifted control, and the one concentrated runtime-helper check, followed by proof reruns of those same commands; all of them reached real terminal TAP verdicts. Task 17 therefore cannot hand off a truthful repair boundary, and planner intervention is now required to split, narrow, or re-own the next derivation step before implementation can continue honestly.
+- Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 17 section, and the latest task-state commit `97c1a273`. No `Testing` items were newly marked complete in this audit because the latest proof pass had already honestly checked Testing steps 1 and 2 before this normalization step. Task 17 remains `__in_progress__`, not `__done__`, because the new live `**BLOCKER**` captures the real proof outcome: the second bounded derivation plan is exhausted, but there is still no named owner to hand off to Task 18 without planner repair.
 
 ---
 

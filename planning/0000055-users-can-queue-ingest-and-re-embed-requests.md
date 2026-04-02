@@ -827,6 +827,9 @@ This task owns the remaining non-config, non-transport failures that the restore
   - `30931b75` - `DEV-[55] - extend queued repo list visibility`
   - `7e3b8187` - `DEV-[55] - Record task 8 implementation audit`
   - `c11bdf13` - `DEV-[55] - record task 8 proof blocker`
+  - `d35119f0` - `DEV-[55] - Record task 8 proof audit`
+  - `a584aa14` - `DEV-[55] - Prove task 8 blocker answer`
+  - `acd684d0` - `DEV-[55] - Repair task 8 cucumber plan boundary`
 
 #### Overview
 
@@ -915,6 +918,7 @@ This task makes queued work visible through the shared repository-list contract 
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep mutating Task 8 repo-list/UI code to satisfy older `409`-style ingest-start or model-lock expectations, because that would conflate queue-visibility behavior with earlier transport and lifecycle rules. Do not permanently exclude the failing scenarios from the full cucumber wrapper with tags or name filters, because the official Cucumber guidance treats those as scoping tools, not as a way to declare a full regression pass. Do not mark Task 8 done from the partial proof state, and do not silently fold the reopened delta re-embed and model-lock failures into Task 8 without giving them explicit plan ownership.
 - Implementation-plus-automated-proof audit on 2026-04-02: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 8 plan section from disk, rechecked the current branch `HEAD`, and verified the recorded wrapper artifacts directly from `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-04-02T04-17-03-998Z.log`, and `test-results/server-cucumber-tests-2026-04-02T04-44-08-621Z.log`. No additional subtasks or testing steps needed to be newly marked complete in this audit because the plan already honestly shows Testing steps 1-3 checked and Testing steps 4-9 unchecked with matching repo evidence. After the 2026-04-02 plan repair, the old full-cucumber blocker is retired to `**RESOLVED ISSUE**`, and Task 8 remains `__in_progress__` because its narrowed Task 8-owned cucumber proof plus the still-pending client, e2e, and compose proof steps are not yet complete.
 - Plan repair on 2026-04-02: narrowed Task 8's cucumber testing gate to the Task 8-owned `ingest-roots.feature` proof and moved the reopened full `server:cucumber` baseline failures into a dedicated follow-up task before final validation. This keeps Task 8 aligned to queued repo-list/UI ownership and leaves the broader cucumber re-baseline work explicitly owned instead of hidden behind this task.
+- Implementation-only audit on 2026-04-02 after the Task 8 plan repair: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 8 plan section from disk, rechecked the current branch `HEAD`, and confirmed the recent Task 8 plan-state commits `d35119f0`, `a584aa14`, and `acd684d0` only recorded proof and boundary decisions rather than new Task 8 implementation. No additional subtasks needed to be newly marked complete, no Task 8 `Testing` items were newly checked in this audit, there is no live `**BLOCKER**` note on Task 8 after the repair, and the task remains `__in_progress__` because the narrowed Task 8-owned cucumber proof plus the still-pending client, e2e, and compose proof steps are not yet complete.
 
 ---
 

@@ -1228,6 +1228,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 - Repository Name: `Current Repository`
 - Task Dependencies: `12`
 - Task Status: `__in_progress__`
+- Git Commits: `ab39363f`
 - Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. This task starts only if Task 12 proves that a fresh reproducing boundary still exists and still needs supported instrumentation or repair. The current fresh handoff is wrapper-local rather than raw-slice-based: the latest full `npm run test:summary:server:unit` run from current `HEAD` stayed in `agent_action: wait` past budget and the saved log `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` advanced through `ok 552 - ChatInterface.run persistence` without any terminal TAP summary.
 
 #### Overview
@@ -1264,6 +1265,7 @@ This task starts only from the exact current reproducing boundary or wrapper-loc
 - Renumbered from the old Task 12 after plan repair proved the story first needed a current-wrapper-truth task before any supported instrumentation work could start honestly.
 - Subtask 1: re-read Task 12's fresh wrapper-local seam from `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` plus `scripts/test-summary-server-unit.mjs` and `scripts/summary-wrapper-protocol.mjs` from disk before editing. The current live handoff remains wrapper-local rather than raw-slice-based: the latest full wrapper run stays in `agent_action: wait` past budget after `ok 552 - ChatInterface.run persistence`, and the wrapper still cannot emit a final verdict until the child reaches `close`.
 - Added `scripts/debug-active-resources.mjs` as a supported `process.getActiveResourcesInfo()`-based diagnostic import for raw `node --test` reproduction work. Seam-adjacent raw checks with the wrapper's ts-node environment showed `src/test/unit/chat-interface-run-persistence.test.ts` alone and the pair `chat-interface-run-persistence.test.ts` plus `chat-stream-bridge.test.ts` both reach real terminal TAP verdicts, so the current owner is not isolated to that one suite or its first adjacent pair.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the latest task-state commit `ab39363f`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtask 1 and recorded the first seam-adjacent raw diagnostics in the task notes. No `Testing` items were newly checked, there is no live `**BLOCKER**` note on Task 13, and the task remains `__in_progress__` because Subtasks 2 through 5 plus both Testing steps are still pending.
 
 ---
 

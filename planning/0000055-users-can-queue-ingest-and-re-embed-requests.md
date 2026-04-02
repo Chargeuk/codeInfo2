@@ -1316,11 +1316,11 @@ This task does not assume Task 13 handed off a bounded raw reproducer. It starts
 
 #### Subtasks
 
-1. [ ] Re-read Task 12's wrapper-local seam, Task 13's clean raw-slice artifacts, `scripts/test-summary-server-unit.mjs`, `scripts/summary-wrapper-protocol.mjs`, and `scripts/debug-active-resources.mjs` before editing. Use this re-read to confirm exactly which seam remains unresolved and which raw derivation paths have already been honestly spent.
-2. [ ] Re-run full `npm run test:summary:server:unit` from current `HEAD` and record whether the wrapper still stalls after the same `ok 552` frontier or whether the current wrapper-local seam has drifted. Do not assume the older saved seam is still current without this rerun.
-3. [ ] Execute one new explicitly bounded raw derivation strategy that is materially different from Task 13's exhausted three-pass plan. Use the current wrapper file ordering to define one frontier-plus-next-window candidate and one complementary control candidate, then stop after those named runs instead of resuming indefinite widening.
-4. [ ] Record the exact outcome of Subtask 3: either a fresh bounded raw reproducer plus clean comparison command exists now, or the new bounded strategy still fails to produce a raw reproducer and the story therefore still has only a wrapper-local seam.
-5. [ ] Update the downstream instrumentation task notes so Task 15 starts only if Subtask 4 handed off a fresh bounded raw reproducer; otherwise, record explicitly that downstream instrumentation cannot start from current evidence and must remain retired or be rewritten in a later planner loop.
+1. [x] Re-read Task 12's wrapper-local seam, Task 13's clean raw-slice artifacts, `scripts/test-summary-server-unit.mjs`, `scripts/summary-wrapper-protocol.mjs`, and `scripts/debug-active-resources.mjs` before editing. Use this re-read to confirm exactly which seam remains unresolved and which raw derivation paths have already been honestly spent.
+2. [x] Re-run full `npm run test:summary:server:unit` from current `HEAD` and record whether the wrapper still stalls after the same `ok 552` frontier or whether the current wrapper-local seam has drifted. Do not assume the older saved seam is still current without this rerun.
+3. [x] Execute one new explicitly bounded raw derivation strategy that is materially different from Task 13's exhausted three-pass plan. Use the current wrapper file ordering to define one frontier-plus-next-window candidate and one complementary control candidate, then stop after those named runs instead of resuming indefinite widening.
+4. [x] Record the exact outcome of Subtask 3: either a fresh bounded raw reproducer plus clean comparison command exists now, or the new bounded strategy still fails to produce a raw reproducer and the story therefore still has only a wrapper-local seam.
+5. [x] Update the downstream instrumentation task notes so Task 15 starts only if Subtask 4 handed off a fresh bounded raw reproducer; otherwise, record explicitly that downstream instrumentation cannot start from current evidence and must remain retired or be rewritten in a later planner loop.
 
 #### Testing
 
@@ -1331,6 +1331,11 @@ This task does not assume Task 13 handed off a bounded raw reproducer. It starts
 
 - Record the fresh full-wrapper result, the exact new bounded raw strategy attempted, whether a fresh raw reproducer now exists, and whether downstream instrumentation remains honest from that result.
 - Inserted on 2026-04-02 after Task 13 proved that the first bounded raw derivation plan exhausted cleanly, which means the story still needs one more dedicated current-seam revalidation task before any raw instrumentation work can start honestly.
+- Subtask 1: re-read Task 12's wrapper-local seam artifacts, Task 13's clean raw logs under `test-results/task13/`, `scripts/test-summary-server-unit.mjs`, `scripts/summary-wrapper-protocol.mjs`, and `scripts/debug-active-resources.mjs` from disk before editing. The already-spent raw paths remain the Task 13 earlier-half, later-half, and frontier-centered slices, so this task had to use one materially different bounded strategy instead of reopening them.
+- Subtask 2: reran full `npm run test:summary:server:unit` from current `HEAD`. The wrapper again stayed in `agent_action: wait` past budget, so I interrupted it and inspected the fresh saved log `test-results/server-unit-tests-2026-04-02T14-40-14-251Z.log`; the current wrapper-local seam has drifted forward beyond the old `ok 552` frontier and now advances through `ok 561 - VectorSearch tool surfaces repo not found as an error` with no terminal TAP summary.
+- Subtask 3: executed one new bounded raw derivation strategy materially different from Task 13's exhausted three-pass plan by using the current seam window directly instead of broad frontier halves. The frontier-plus-next-window candidate was `chat-interface-run-persistence.test.ts` through `chat-tools.test.ts`, saved at `test-results/task14/task14-frontier-plus-next-window.log`, and the complementary control was `chat-stream-bridge.test.ts` through `chat-tools.test.ts`, saved at `test-results/task14/task14-complementary-control.log`.
+- Subtask 4: both new bounded raw runs reached real terminal TAP verdicts instead of reproducing a post-logical-work non-closing state. `test-results/task14/task14-frontier-plus-next-window.log` finished with `# tests 22`, `# pass 22`, `# fail 0`, and `# duration_ms 46866.055148`; `test-results/task14/task14-complementary-control.log` finished with `# tests 9`, `# pass 9`, `# fail 0`, and `# duration_ms 28043.44779`. That means no fresh bounded raw reproducer currently exists from this new explicitly bounded strategy, and the story still has only a wrapper-local seam from current evidence.
+- Subtask 5: updated downstream expectations so Task 15 no longer has an honest present-tense raw reproducer handoff from Task 14. The downstream instrumentation task must remain blocked behind planner repair or later seam-reestablishment work rather than starting from stale assumptions.
 
 ---
 
@@ -1374,6 +1379,7 @@ This task starts only from the exact bounded reproducing raw command that Task 1
 
 - Record the exact bounded reproducing raw command handed off from Task 14, the resource diagnostics used, the concrete live resource identified, the owning repair made, and the proof artifacts from both the bounded reproducer and the full wrapper rerun.
 - Renumbered from the old Task 14 after plan repair proved Story 55 still needed a dedicated current-seam revalidation task before any supported instrumentation work could start honestly.
+- Current Task 14 outcome on 2026-04-02: the fresh full wrapper still overran past budget and drifted to `ok 561`, but Task 14's one new bounded raw strategy plus its complementary control both reached real terminal TAP verdicts. There is therefore still no honest bounded raw reproducer handoff for this task to start from, so do not begin supported instrumentation here without another planner repair or a later task that re-establishes a fresh raw seam first.
 
 ---
 

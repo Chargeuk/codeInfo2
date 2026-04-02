@@ -88,7 +88,7 @@ function waitForMessage(ws: WebSocket) {
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error('Timed out waiting for WS message'));
-    }, 1000);
+    }, 2000);
 
     const onMessage = (data: RawData) => {
       cleanup();
@@ -117,6 +117,15 @@ async function waitForSidebarSubscriptionReady(timeoutMs = 1000) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error('Timed out waiting for sidebar subscription');
+}
+
+async function waitForSidebarMessageDuring(
+  ws: WebSocket,
+  action: () => Promise<unknown>,
+) {
+  const responsePromise = waitForMessage(ws);
+  const [, payload] = await Promise.all([action(), responsePromise]);
+  return payload;
 }
 
 function rawDataToString(data: RawData): string {
@@ -316,13 +325,12 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
     );
     await waitForSidebarSubscriptionReady();
 
-    const responsePromise = waitForMessage(ws);
-    await request(server.app)
-      .post('/conversations/conv-edit-save/working-folder')
-      .send({ workingFolder: process.cwd() })
-      .expect(200);
-
-    const payload = await responsePromise;
+    const payload = await waitForSidebarMessageDuring(ws, () =>
+      request(server.app)
+        .post('/conversations/conv-edit-save/working-folder')
+        .send({ workingFolder: process.cwd() })
+        .expect(200),
+    );
     const event = JSON.parse(payload) as {
       conversation: { flags: Record<string, unknown> };
     };
@@ -370,13 +378,12 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
     );
     await waitForSidebarSubscriptionReady();
 
-    const responsePromise = waitForMessage(ws);
-    await request(server.app)
-      .post('/conversations/conv-edit-clear/working-folder')
-      .send({ workingFolder: null })
-      .expect(200);
-
-    const payload = await responsePromise;
+    const payload = await waitForSidebarMessageDuring(ws, () =>
+      request(server.app)
+        .post('/conversations/conv-edit-clear/working-folder')
+        .send({ workingFolder: null })
+        .expect(200),
+    );
     const event = JSON.parse(payload) as {
       conversation: { flags: Record<string, unknown> };
     };

@@ -795,8 +795,8 @@ This task owns the remaining non-config, non-transport failures that the restore
 
 #### Testing
 
-1. [ ] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for each currently narrowed owner until those files reach clean terminal verdicts without brittle timing or lingering lifecycle noise.
-2. [ ] Re-run full `npm run test:summary:server:unit` and confirm the shared server-unit wrapper passes cleanly. If it still fails, reopen only the newly named remaining owners rather than broadening the task again.
+1. [x] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for each currently narrowed owner until those files reach clean terminal verdicts without brittle timing or lingering lifecycle noise.
+2. [x] Re-run full `npm run test:summary:server:unit` and confirm the shared server-unit wrapper passes cleanly. If it still fails, reopen only the newly named remaining owners rather than broadening the task again.
 
 #### Implementation notes
 
@@ -807,6 +807,8 @@ This task owns the remaining non-config, non-transport failures that the restore
 - Narrowed the latest full-wrapper failures to four concrete owners before editing: `server/src/test/integration/chat-copilot-lock.test.ts` still expected a conflict while the first mocked Copilot run was active, `server/src/test/unit/ingest-ast-indexing.test.ts` had two 1-second terminal-wait timeouts on AST-heavy reembed paths, and `server/src/test/unit/ws-server.test.ts` still relied on a short fixed sleep before sidebar subscription state was ready to receive `conversation_upsert`.
 - Repaired the timing-sensitive owners without widening the wrapper contract: the Copilot lock proof now keeps the first mock run active longer, the AST indexing proof file now uses `waitForTerminalIngestStatus(...)` instead of a 1-second local poll loop, and the websocket sidebar proofs now wait deterministically for subscription readiness before expecting `conversation_upsert`.
 - Updated the proof text and helper surface to make the lifecycle assumptions explicit, including a renamed Copilot lock test title and a shared sidebar-subscription readiness helper in `ws-server.test.ts` so the timing boundary is named instead of hidden behind repeated fixed sleeps.
+- Targeted wrapper reruns passed cleanly for `chat-copilot-lock.test.ts` (1/1), `ingest-ast-indexing.test.ts` (21/21), and `ws-server.test.ts` (24/24). The websocket owner needed one follow-up proof repair during automated proof: the sidebar message waiter now stays attached while the working-folder POST is in flight instead of allowing a 1-second listener timeout to reject before the HTTP action is awaited.
+- Full `npm run test:summary:server:unit` now passes cleanly with `1593` tests run, `1593` passed, and `0` failed, so the restored shared server-unit baseline is no longer carrying the earlier timeout or lifecycle owners into downstream tasks.
 - `npx eslint` passed on the exact Task 7 touched files with zero warnings, and `npx prettier --check` also passed on that same touched-file list without requiring follow-up formatting changes.
 - Implementation-only audit on 2026-04-02: re-read the stored handoff and this exact plan from disk, confirmed Subtasks 1-5 already match the committed lifecycle-owner narrowing work in `f87a798d`, confirmed there is no live `**BLOCKER**` note on Task 7, and left the task `__in_progress__` because the targeted Task 7 reruns and the follow-up full `server:unit` proof are still pending.
 

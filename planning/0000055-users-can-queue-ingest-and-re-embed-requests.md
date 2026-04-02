@@ -658,7 +658,7 @@ This task no longer owns every remaining server-unit failure as if they were one
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `4`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -676,11 +676,11 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 
 #### Subtasks
 
-1. [ ] Read the current full-wrapper failure names and inspect `codex_agents/*/config.toml`, `.env.e2e`, `server/src/test/unit/agents-config-defaults.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/codexConfig.test.ts`, and the current runtime-config owners before editing anything. Purpose: anchor the task to the exact checked-in config drift rather than guessing from old failures.
-2. [ ] Update the checked-in config fixtures and shared runtime-config expectations so the clean wrapper baseline no longer sees drift around `web_search`, Context7 overlay, MCP placeholder resolution, or `.env.e2e` placeholder shape. Purpose: fix the upstream checked-in sources instead of compensating later in tests.
-3. [ ] Update any affected proof titles or assertions in the owning config tests so they describe the current checked-in contract honestly. Purpose: keep proof text aligned with the contract being restored instead of relying on stale names.
-4. [ ] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
-5. [ ] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+1. [x] Read the current full-wrapper failure names and inspect `codex_agents/*/config.toml`, `.env.e2e`, `server/src/test/unit/agents-config-defaults.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/codexConfig.test.ts`, and the current runtime-config owners before editing anything. Purpose: anchor the task to the exact checked-in config drift rather than guessing from old failures.
+2. [x] Update the checked-in config fixtures and shared runtime-config expectations so the clean wrapper baseline no longer sees drift around `web_search`, Context7 overlay, MCP placeholder resolution, or `.env.e2e` placeholder shape. Purpose: fix the upstream checked-in sources instead of compensating later in tests.
+3. [x] Update any affected proof titles or assertions in the owning config tests so they describe the current checked-in contract honestly. Purpose: keep proof text aligned with the contract being restored instead of relying on stale names.
+4. [x] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
+5. [x] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
 
 #### Testing
 
@@ -691,6 +691,11 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 
 - Starts empty.
 - Inserted during Task 4 plan repair because the restored wrapper baseline proved that checked-in config drift is its own independent failure cluster.
+- Subtask 1: Re-read the restored full-wrapper failure list and inspected the checked-in config owners in `codex_agents/*/config.toml`, `.env.e2e`, `server/src/test/unit/agents-config-defaults.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/codexConfig.test.ts`, and the shared runtime-config resolvers before editing.
+- Subtask 2: Fixed the checked-in config drift at the source by changing `codex_agents/review_agent/config.toml` from the stale `web_search = "off"` value to `web_search = "disabled"` and by replacing the remaining hard-coded `http://localhost:5010/mcp` code-info endpoints in `codex/chat/config.toml` and `codex/chat/config_minimax.toml` with the `${CODEINFO_SERVER_PORT}` placeholder contract.
+- Subtask 3: Strengthened the owning config proof in `server/src/test/unit/codexConfig.test.ts` so the migrated-config assertion now scans both checked-in chat configs plus every checked-in `codex_agents/*/config.toml` file instead of a stale subset.
+- Subtask 4: `npx eslint server/src/test/unit/codexConfig.test.ts --max-warnings=0` passed cleanly for the lintable file touched by this task.
+- Subtask 5: `npx prettier --check --ignore-unknown codex_agents/review_agent/config.toml codex/chat/config.toml codex/chat/config_minimax.toml server/src/test/unit/codexConfig.test.ts` passed. The repo's current Prettier install does not infer a TOML parser, so `--ignore-unknown` was required to keep the exact touched list honest without inventing a formatter plugin that is not installed.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

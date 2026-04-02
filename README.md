@@ -281,6 +281,20 @@ codex_agents/<agentName>/
 - Delta re-embed AST behavior stays conservative: if no AST-supported file was added, changed, or deleted, AST rebuild is skipped entirely; if any AST-supported add/change/delete or boundary-crossing move is present, the runtime reuses the existing full AST rebuild path. Story 54 does not add partial AST updates or rename detection.
 - The checked-in Story 54 browser/runtime proof fixture is [`e2e/fixtures/repo/large-planning-doc.md`](./e2e/fixtures/repo/large-planning-doc.md), mounted at `/fixtures/repo/large-planning-doc.md` in the compose-backed runtime used by e2e and manual validation.
 
+## Story 55 Durable Ingest Queue
+
+- Queueable ingest and re-embed requests now use one durable Mongo-backed queue instead of failing immediately whenever another ingest run is active.
+- Queue responses split durable queue identity from runtime execution identity:
+  - `requestId` is the durable queue record id.
+  - `runId` appears only after execution starts.
+  - waiting responses return `queued: true` plus waiting-only `queuePosition`.
+- Queue state stays intentionally small: `waiting`, `running`, and `cleanup-blocked`.
+- Queue order is FIFO by queue creation time. On startup, cleanup-blocked work is resolved before newer waiting work, and leftover `running` records are retried as abandoned previously-active work.
+- Queue-backed outages are explicit. REST surfaces Mongo queue outages as `503` with `QUEUE_UNAVAILABLE`, and MCP, flow, and command paths preserve that same retryable error meaning instead of flattening it into a generic invalid request.
+- Re-embed callers that already blocked until terminal completion still block after queueing. Queue wait time is part of the contract; Story 55 does not convert those callers into fire-and-forget behavior.
+- Shared repository-list readers now expose queued visibility through one contract-first payload. The ingest UI, `/ingest/roots`, and classic `ListIngestedRepositories` all use the same queued row shape with `requestId`, nullable `runId`, waiting-only `queuePosition`, and `queueState`.
+- The ingest UI keeps queueable submissions enabled while another run is active, but Story 55 still does not add user-facing removal or cancellation for queued-but-not-started work.
+
 ## Common Usage
 
 1. Start the local stack: `npm run compose:local`.

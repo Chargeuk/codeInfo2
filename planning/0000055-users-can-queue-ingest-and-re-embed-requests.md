@@ -1064,7 +1064,7 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This final validation task depends on all earlier Story 55 implementation tasks.
 
@@ -1084,9 +1084,9 @@ This final task validates the whole durable-queue story rather than isolated sea
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 55 plan and trace every Acceptance Criterion, important Description requirement, explicit Out Of Scope boundary, proof marker, and edge case against the completed implementation before closing the story. Use this re-read to confirm there is a named implementation home and a named proof home for queue storage, FIFO promotion, cleanup-blocked stall-and-retry, startup recovery, queue-aware transport contracts, blocking re-embed callers, shared repo-list queued visibility, and queueable ingest-page submission behavior.
-2. [ ] Update `README.md` in its own documentation subtask with the durable-queue behavior operators and developers now need to understand: queue-backed ingest and re-embed admission, retryable `QUEUE_UNAVAILABLE`, the split between durable `requestId` and runtime `runId`, and queued visibility through the shared repository-list contract. Do not document speculative queue features that remain out of scope for Story 55.
-3. [ ] Create or update `planning/0000055-pr-summary.md` in its own documentation subtask with the final Story 55 scope, the key runtime and contract files changed, the proof markers exercised, the wrapper commands run, and any intentionally unresolved follow-up risk that is explicitly outside this story’s scope.
+1. [x] Re-read the full Story 55 plan and trace every Acceptance Criterion, important Description requirement, explicit Out Of Scope boundary, proof marker, and edge case against the completed implementation before closing the story. Use this re-read to confirm there is a named implementation home and a named proof home for queue storage, FIFO promotion, cleanup-blocked stall-and-retry, startup recovery, queue-aware transport contracts, blocking re-embed callers, shared repo-list queued visibility, and queueable ingest-page submission behavior.
+2. [x] Update `README.md` in its own documentation subtask with the durable-queue behavior operators and developers now need to understand: queue-backed ingest and re-embed admission, retryable `QUEUE_UNAVAILABLE`, the split between durable `requestId` and runtime `runId`, and queued visibility through the shared repository-list contract. Do not document speculative queue features that remain out of scope for Story 55.
+3. [x] Create or update `planning/0000055-pr-summary.md` in its own documentation subtask with the final Story 55 scope, the key runtime and contract files changed, the proof markers exercised, the wrapper commands run, and any intentionally unresolved follow-up risk that is explicitly outside this story’s scope.
 
 #### Testing
 
@@ -1099,3 +1099,6 @@ This final task validates the whole durable-queue story rather than isolated sea
 #### Implementation notes
 
 - Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
+- Subtask 1: re-read the full Story 55 plan from top to bottom and traced the acceptance/description/out-of-scope coverage into grouped implementation and proof homes before touching close-out docs. The trace confirmed there is a named implementation owner and a recorded proof owner for queue storage, FIFO promotion, cleanup-blocked stall-and-retry, startup recovery, queue-aware request and run ids, retryable `QUEUE_UNAVAILABLE`, blocking re-embed callers, shared repo-list queued visibility, and queueable ingest-page submission behavior, so no new implementation subtasks were needed before final wrapper proof.
+- Subtask 2: updated `README.md` with a dedicated Story 55 durable-ingest-queue section that documents queue-backed admission, `requestId` versus `runId`, retryable `QUEUE_UNAVAILABLE`, shared repo-list queued visibility, blocking re-embed behavior, and the explicit out-of-scope boundary that queued-but-not-started items are still not user-removable.
+- Subtask 3: created `planning/0000055-pr-summary.md` with the final Story 55 scope, task sequence, key runtime and contract files, grouped acceptance/proof mapping, wrapper evidence already exercised through Tasks 3 through 10, and the remaining out-of-scope boundaries that should stay unchanged during final validation.

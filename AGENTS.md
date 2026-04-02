@@ -100,18 +100,22 @@ When working from a file in `./planning` that is NOT a pr-summary file, update t
 ### Summary Wrapper Output Contract
 
 - Summary wrappers emit heartbeat/final guidance fields on wrapper stdout: `timestamp`, `phase`, `status`, `log_size_bytes`, `agent_action`, `do_not_read_log`, and a final `log` path.
-- If `agent_action: wait`, the wrapper is still healthy and running. Do not read the saved log while `do_not_read_log: true`.
+- If `agent_action: wait`, the wrapper is still healthy and running.
+- While the wrapper continues to emit heartbeat updates at least about every 2 minutes, keeps `do_not_read_log: true`, and shows ongoing progress such as growing `log_size_bytes`, you MUST keep waiting regardless of total elapsed wall-clock time.
+- Do not treat elapsed time by itself as evidence that the wrapper is hung.
+- Do not read the saved log while `do_not_read_log: true`.
 - If `agent_action: skip_log`, the wrapper finished with a clean success. Do not read the saved log unless the user asks or later work specifically needs it.
 - If `agent_action: inspect_log`, the wrapper ended with warnings, failure, or ambiguous parsing. Open the saved log and diagnose from there.
 
 ### Build Failure Diagnosis
 
 1. Run the relevant wrapper.
-2. Capture the log path from the wrapper summary output if the wrapper ends with `agent_action: inspect_log` or otherwise fails unexpectedly.
-3. Open the log file and inspect the failing command output.
-4. Fix the failing dependency, config, or code.
-5. Re-run the same wrapper.
-6. If a Docker or Compose build fails due to a likely transient network or cache issue, retry once before deeper investigation.
+2. If the wrapper is still emitting timely `agent_action: wait` heartbeats and ongoing progress, continue waiting and do not interrupt it solely because it has been running for a long time.
+3. Capture the log path from the wrapper summary output if the wrapper ends with `agent_action: inspect_log` or otherwise fails unexpectedly.
+4. Open the log file and inspect the failing command output.
+5. Fix the failing dependency, config, or code.
+6. Re-run the same wrapper.
+7. If a Docker or Compose build fails due to a likely transient network or cache issue, retry once before deeper investigation.
 
 ## Run Workflow
 
@@ -159,10 +163,12 @@ Shortcut:
 
 ### Test Wrappers
 
-- `npm run test:summary:client` runs the client test suite with compact summary output. Timeout budget: up to 6 minutes. Full log: `test-results/client-tests-<timestamp>.log`. JSON: `test-results/client-tests-<timestamp>.json`.
-- `npm run test:summary:server:unit` runs the server `node:test` unit and integration suites with compact summary output. Timeout budget: up to 12 minutes. Full log: `test-results/server-unit-tests-<timestamp>.log`.
-- `npm run test:summary:server:cucumber` runs the server cucumber feature suites with compact summary output. Timeout budget: up to 10 minutes. Full log: `test-results/server-cucumber-tests-<timestamp>.log`.
-- `npm run test:summary:e2e` runs the e2e flow with setup, build, tests, and teardown. Timeout budget: up to 10 minutes. Full log: `logs/test-summaries/e2e-tests-latest.log`.
+- `npm run test:summary:client` runs the client test suite with compact summary output. Full log: `test-results/client-tests-<timestamp>.log`. JSON: `test-results/client-tests-<timestamp>.json`.
+- `npm run test:summary:server:unit` runs the server `node:test` unit and integration suites with compact summary output. Full log: `test-results/server-unit-tests-<timestamp>.log`.
+- `npm run test:summary:server:cucumber` runs the server cucumber feature suites with compact summary output. Full log: `test-results/server-cucumber-tests-<timestamp>.log`.
+- `npm run test:summary:e2e` runs the e2e flow with setup, build, tests, and teardown. Full log: `logs/test-summaries/e2e-tests-latest.log`.
+- These wrappers do not have a fixed failure time budget.
+- As long as a wrapper continues to emit healthy `agent_action: wait` heartbeats at least about every 2 minutes and shows ongoing progress such as growing `log_size_bytes`, you must keep waiting no matter how long the run takes.
 
 ### Targeted Test Runs
 
@@ -175,8 +181,9 @@ Shortcut:
 ### Test Failure Diagnosis
 
 1. Run the relevant wrapper.
-2. Capture the log path from the wrapper summary output if the wrapper ends with `agent_action: inspect_log` or otherwise fails unexpectedly.
-3. Open the full log file and locate the failing test block.
-4. Fix the failing code, config, or dependency.
-5. Re-run targeted wrappers for diagnosis as needed.
-6. After fixes, re-run the full relevant summary wrapper without targeted args.
+2. If the wrapper is still emitting timely `agent_action: wait` heartbeats and ongoing progress, continue waiting and do not interrupt it solely because it has been running for a long time.
+3. Capture the log path from the wrapper summary output if the wrapper ends with `agent_action: inspect_log` or otherwise fails unexpectedly.
+4. Open the full log file and locate the failing test block.
+5. Fix the failing code, config, or dependency.
+6. Re-run targeted wrappers for diagnosis as needed.
+7. After fixes, re-run the full relevant summary wrapper without targeted args.

@@ -28,6 +28,9 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - Check whether completed work was implemented or proved but left unmarked, and correct task, subtask, and testing statuses if the evidence supports it.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
+- Before appending an audit note, re-read the latest existing audit or implementation note for this task.
+- If the latest audit outcome is materially unchanged, do not append another audit note just to restate the same state.
+- Treat the outcome as materially unchanged when no subtask status changed, no testing status changed, no blocker state changed, no task status changed, and no new proof or owner conclusion was reached.
 - Do not research or repair the blocker in this step.
 
 </audit_rules>
@@ -69,6 +72,7 @@ Before finishing:
 - confirm you audited both implementation and automated proof honestly;
 - confirm task, subtask, and testing status were normalized to match evidence;
 - confirm the task was set to `__done__` only when both subtasks and testing were honestly complete and no blocker remained;
+- confirm you did not append a duplicate audit note when the task state was materially unchanged;
 - confirm any blocker was preserved and made visible in the plan;
 - confirm tracked changes were committed if any were made.
 

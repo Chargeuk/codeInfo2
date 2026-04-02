@@ -53,6 +53,7 @@ Leave the task ready for the later automated-proof step.
   - you added a live `**BLOCKER**` note explaining exactly why the remaining subtasks could not be completed honestly.
 - It is not valid to leave the task with the same unchecked subtasks and no newly completed subtask and no live `**BLOCKER**`.
 - If the remaining unchecked subtasks are open-ended diagnosis, narrowing, isolation, or investigation work and this pass did not isolate the owner, repair the owner, or close a subtask, stop and add a live `**BLOCKER**` note instead of repeating another partial narrowing pass.
+- If the active task is a bounded diagnostic task and the bounded search is exhausted cleanly, do not keep the same task alive by inventing more ad hoc narrowing inside this step; raise a live `**BLOCKER**` so planner repair can either close the exhausted branch or create a fresh successor task.
 
 </execution_rules>
 

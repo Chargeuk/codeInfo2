@@ -1176,7 +1176,8 @@ This task no longer tries to both discover and fix the final `server:unit` overr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `11`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
+- Git Commits: `7f0962a6`, `f44cfbe9`, `c1460a34`, `fc35ce53`
 - Notes: Inserted during the 2026-04-02 plan repair after Task 11 proved the bounded raw slice plan cleanly exhausts, which invalidated the old reproducer-based downstream assumption. This task now starts from current `HEAD` and the full wrapper itself rather than from stale raw-slice history.
 
 #### Overview
@@ -1218,6 +1219,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 - Subtask 4: derived a fresh current wrapper-local seam from the live wrapper result instead of reusing the invalidated old raw-slice claim. The current seam is: full `npm run test:summary:server:unit` from current `HEAD` remains in `agent_action: wait` past budget, and its fresh saved log `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` advances through `ok 552 - ChatInterface.run persistence` without any terminal TAP summary.
 - Subtask 5: updated Task 13's Notes so the downstream instrumentation task now starts from that fresh wrapper-local seam rather than from stale raw-slice history.
 - Automated proof on 2026-04-02 reran full `npm run test:summary:server:unit` from current `HEAD` and again landed in an over-budget `agent_action: wait` state instead of a trustworthy final verdict. The fresh saved log `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` advanced through `ok 552 - ChatInterface.run persistence` without any terminal TAP summary, which supersedes the earlier `ok 794` wrapper-local seam as the current freshest boundary. Because Task 12's seam is wrapper-local rather than a narrower raw command, that same wrapper rerun honestly satisfies both Testing step 1 and the conditional Testing step 2: it both records the ambiguous full-wrapper truth and reproduces the current wrapper-local seam that Task 13 now owns.
+- Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 12 section, and the latest task-state commits through `fc35ce53`. No testing steps were newly marked complete in this audit because the latest repo evidence had already honestly checked both Testing items when the fresh full-wrapper rerun re-established the current wrapper truth and refreshed the Task 13 handoff. There is no live `**BLOCKER**` note on Task 12, and the task is now `__done__` because Subtasks 1 through 5 plus Testing steps 1 and 2 are all complete on the wrapper-truth branch.
 
 ---
 

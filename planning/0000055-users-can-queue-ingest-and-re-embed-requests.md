@@ -1227,7 +1227,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `12`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Renumbered from the old Task 12 after the 2026-04-02 plan repair inserted new Task 12 as the prerequisite current-wrapper truth task. This task starts only if Task 12 proves that a fresh reproducing boundary still exists and still needs supported instrumentation or repair. The current fresh handoff is wrapper-local rather than raw-slice-based: the latest full `npm run test:summary:server:unit` run from current `HEAD` stayed in `agent_action: wait` past budget and the saved log `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` advanced through `ok 552 - ChatInterface.run persistence` without any terminal TAP summary.
 
 #### Overview
@@ -1247,7 +1247,7 @@ This task starts only from the exact current reproducing boundary or wrapper-loc
 
 #### Subtasks
 
-1. [ ] Re-read Task 12's exact fresh reproducing command or wrapper-local seam, the saved full-wrapper log, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing.
+1. [x] Re-read Task 12's exact fresh reproducing command or wrapper-local seam, the saved full-wrapper log, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing.
 2. [ ] Instrument the fresh reproducing boundary with supported diagnostics such as `process.getActiveResourcesInfo()` or equivalent local instrumentation, and identify the concrete resource that keeps the child process alive after the logical test work is complete.
 3. [ ] Repair the owning test or runtime seam using the repo's established teardown patterns, such as explicit close or terminate, cleanup in `afterEach`, or clearing or `unref()`-ing truly detached background resources where that is the correct ownership boundary. Do not change the wrapper protocol or add timeout-forcing hacks.
 4. [ ] Re-run the fresh reproducing boundary until it reaches a real terminal verdict without the lingering live resource.
@@ -1262,6 +1262,8 @@ This task starts only from the exact current reproducing boundary or wrapper-loc
 
 - Record the fresh reproducing boundary handed off from Task 12, the resource diagnostics used, the concrete live resource identified, the owning repair made, and the proof artifacts from both the reproducing boundary and the full wrapper rerun.
 - Renumbered from the old Task 12 after plan repair proved the story first needed a current-wrapper-truth task before any supported instrumentation work could start honestly.
+- Subtask 1: re-read Task 12's fresh wrapper-local seam from `test-results/server-unit-tests-2026-04-02T13-25-53-901Z.log` plus `scripts/test-summary-server-unit.mjs` and `scripts/summary-wrapper-protocol.mjs` from disk before editing. The current live handoff remains wrapper-local rather than raw-slice-based: the latest full wrapper run stays in `agent_action: wait` past budget after `ok 552 - ChatInterface.run persistence`, and the wrapper still cannot emit a final verdict until the child reaches `close`.
+- Added `scripts/debug-active-resources.mjs` as a supported `process.getActiveResourcesInfo()`-based diagnostic import for raw `node --test` reproduction work. Seam-adjacent raw checks with the wrapper's ts-node environment showed `src/test/unit/chat-interface-run-persistence.test.ts` alone and the pair `chat-interface-run-persistence.test.ts` plus `chat-stream-bridge.test.ts` both reach real terminal TAP verdicts, so the current owner is not isolated to that one suite or its first adjacent pair.
 
 ---
 

@@ -36,6 +36,8 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - If its subtasks and testing are honestly complete and no blocker remains, ensure its `Task Status` is `__done__`.
+- This audit is the step that should flip the task to `__done__` when planner repair or earlier proof work has already made the task honestly complete.
+- Do not require a new automated-proof execution in this pass if the task's testing section is already honestly complete from earlier work.
 - If it is blocked or still requires work, ensure its `Task Status` is `__in_progress__`.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.
 

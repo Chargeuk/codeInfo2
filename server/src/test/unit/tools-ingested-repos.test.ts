@@ -396,7 +396,7 @@ test('synthesizes active entry when persisted metadata is missing', async () => 
   const repo = res.body.repos[0];
   assert.equal(repo.id, 'active-run-2');
   assert.equal(repo.containerPath, '/container/missing/repo');
-  assert.equal(repo.hostPath, '/host/base/container/missing/repo');
+  assert.equal(repo.hostPath, '/container/missing/repo');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'queued');
 });

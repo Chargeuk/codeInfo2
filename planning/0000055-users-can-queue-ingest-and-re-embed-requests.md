@@ -1010,8 +1010,8 @@ This task restores the full server cucumber baseline after Task 8 exposed failur
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9`
-- Task Status: `__in_progress__`
-- Git Commits: `1b517eea`
+- Task Status: `__done__`
+- Git Commits: `1b517eea`, `77e50111`, `7c72a531`
 - Notes: Inserted during Task 8 plan repair because the full e2e wrapper exposed a missing cleanup seam for waiting queue items that Task 8 does not own.
 
 #### Overview
@@ -1055,6 +1055,7 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 - Subtask 5: updated the stale teardown comment and failure wording in `e2e/ingest.spec.ts` so the e2e proof text no longer implies the user-facing remove route is the full cleanup owner for waiting queue items.
 - Testing 1: the targeted queued-refresh Playwright rerun passed with deterministic cleanup at the end of the run. The wrapper summary reported `agent_action: inspect_log` only because of `ambiguous_counts`, but `logs/test-summaries/e2e-tests-latest.log` showed the exact scenario `queued row stays visible after a page refresh while the request is still waiting` with `expected: 1`, `unexpected: 0`, and a passed test result, so the cleanup seam now owns that targeted waiting-queue teardown honestly.
 - Testing 2: full `npm run test:summary:e2e` now passes with the new cleanup seam in place. The wrapper summary still emitted `agent_action: inspect_log` because of `ambiguous_counts`, but `logs/test-summaries/e2e-tests-latest.log` showed `expected: 56`, `unexpected: 0`, and a clean teardown, so the restored full e2e baseline is honest and the wrapper ambiguity is only a summary-parsing quirk rather than a product or teardown failure.
+- Implementation-plus-automated-proof audit on 2026-04-02: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 10 section from disk, rechecked the current branch `HEAD`, and verified that the current repo evidence covers all Task 10 subtasks plus both Task 10 testing steps through commits `1b517eea` and `7c72a531` and the saved full e2e wrapper log `logs/test-summaries/e2e-tests-latest.log`. There is no live `**BLOCKER**` note on Task 10, and the task is now `__done__` because the targeted queued-refresh rerun and the final full `npm run test:summary:e2e` rerun both pass with deterministic cleanup while the remaining story close-out work is explicitly owned by Task 11.
 
 ---
 

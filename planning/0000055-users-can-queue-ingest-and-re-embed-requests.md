@@ -1011,7 +1011,7 @@ This task restores the full server cucumber baseline after Task 8 exposed failur
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9`
 - Task Status: `__in_progress__`
-- Git Commits:
+- Git Commits: `1b517eea`
 - Notes: Inserted during Task 8 plan repair because the full e2e wrapper exposed a missing cleanup seam for waiting queue items that Task 8 does not own.
 
 #### Overview
@@ -1050,6 +1050,7 @@ This task restores the full Playwright e2e baseline after Task 8 proved its owne
 - Subtask 1: re-read `logs/test-summaries/e2e-tests-latest.log`, `e2e/ingest.spec.ts`, `server/src/routes/ingestRemove.ts`, and the queue-runtime cleanup ownership in `server/src/ingest/ingestJob.ts`. The current full-suite teardown gap is exactly the planner note: `ensureCleanRoots()` cancels active runs and then calls the product remove route, but waiting queue rows have `queueState: waiting` with no `runId`, so the normal remove route has no honest ownership boundary for them and full e2e teardown stalls.
 - Subtask 2: added the non-user-facing cleanup seam in `server/src/routes/ingestE2eCleanup.ts` and the supporting `deleteWaitingQueueRequestsByTargetPath(...)` helper in `server/src/ingest/requestQueue.ts`. The new route removes waiting queue records first and only falls back to normal root removal once the queue is idle, so it reuses the existing runtime ownership boundary instead of inventing a user-facing queued-remove feature.
 - Subtask 3: updated `ensureCleanRoots()` in `e2e/ingest.spec.ts` to call the dedicated e2e cleanup route through `APIRequestContext` instead of the normal `/ingest/remove/:root` path. Enabled that route only in the e2e server env through `server/.env.e2e` so the supported product surface stays unchanged outside the e2e runtime.
+- Implementation-only audit on 2026-04-02: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 10 section from disk, rechecked the current branch `HEAD`, and verified that commit `1b517eea` already implements the Task 10 cleanup seam work reflected by Subtasks 1 through 5 across `server/src/routes/ingestE2eCleanup.ts`, `server/src/ingest/requestQueue.ts`, `server/src/test/integration/ingest-e2e-cleanup.test.ts`, `e2e/ingest.spec.ts`, `server/src/index.ts`, and `server/.env.e2e`. No Task 10 `Testing` items were newly checked in this audit, there is no live `**BLOCKER**` note on Task 10, and the task remains `__in_progress__` because the targeted queued-refresh wrapper rerun and the final full `npm run test:summary:e2e` rerun are still pending.
 - Subtask 4: added `server/src/test/integration/ingest-e2e-cleanup.test.ts` as the owning proof home for the cleanup seam. That proof covers the key teardown cases: removing waiting queue items while active work is still draining, preserving the existing `BUSY` boundary when no waiting item was removed, and falling back to the normal root removal path once the queue is idle.
 - Subtask 5: updated the stale teardown comment and failure wording in `e2e/ingest.spec.ts` so the e2e proof text no longer implies the user-facing remove route is the full cleanup owner for waiting queue items.
 

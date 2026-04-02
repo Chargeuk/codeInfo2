@@ -1168,7 +1168,7 @@ This task no longer tries to both discover and fix the final `server:unit` overr
 - **BLOCKING ANSWER** Why this fits the current local repo state: every bounded raw one-process slice from Task 11 now reaches a real terminal TAP summary, so there is no current raw reproducer to instrument. The original saved wrapper overrun log is still useful historical context, but it is not sufficient proof for present-tense resource diagnostics because those APIs only tell the truth about the currently running process that is still alive. Rewriting the downstream task around a fresh full-wrapper gate matches both the repo's plan-repair precedent and Node's supported diagnostics model.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep Task 12 unchanged and instrument clean raw runs, do not widen timeouts or force-close processes to make the old handoff appear valid, and do not continue ad hoc narrowing past the bounded Task 11 plan that already exhausted cleanly. Those paths would either invent a runtime seam the repo no longer has or hide the real current boundary instead of proving it.
 - Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task-state commits through `cd89be8d`. No testing steps were newly marked complete in this audit because the latest automated-proof pass had already honestly checked Testing step 2 on the finite-plan-exhausted branch and recorded the resulting live `**BLOCKER**`. Task 11 remains `__in_progress__`, not `__done__`, because the blocker is still active: every bounded slice now exits cleanly, so the task can no longer hand a valid reproducing boundary to Task 12 without planner repair.
-- Plan repair on 2026-04-02 after blocker proof: Task 11 is complete on the finite-plan-exhausted branch, the old live blocker is now historical `**RESOLVED ISSUE**` status, new Task 12 owns re-establishing the current full-wrapper truth from fresh repo state, new Task 13 owns the first bounded raw derivation plan if Task 12 still proves a current wrapper-local seam exists, new Task 14 owns the next present-tense seam revalidation after that first bounded plan exhausts, and later repairs split the downstream work into Task 15 wrapper instrumentation, Task 16 first child-side owner derivation, Task 17 second owner derivation, Task 18 owner repair, and Task 19 final close-out.
+- Plan repair on 2026-04-02 after blocker proof: Task 11 is complete on the finite-plan-exhausted branch, the old live blocker is now historical `**RESOLVED ISSUE**` status, new Task 12 owns re-establishing the current full-wrapper truth from fresh repo state, new Task 13 owns the first bounded raw derivation plan if Task 12 still proves a current wrapper-local seam exists, new Task 14 owns the next present-tense seam revalidation after that first bounded plan exhausts, and later repairs split the downstream work into Task 15 wrapper instrumentation, Task 16 first child-side owner derivation, Task 17 second owner derivation, Task 18 third owner derivation, Task 19 owner repair, and Task 20 final close-out.
 
 ---
 
@@ -1275,7 +1275,7 @@ This task starts only from the exact current wrapper-local seam that Task 12 fre
 - **BLOCKING ANSWER** Chosen fix: do not continue current Task 13 in its present shape. Insert or rewrite a prerequisite task that starts from Task 12's wrapper-local seam and derives a bounded current raw reproducer first, with a concrete stopping rule such as bounded bisection or named file-group narrowing around the current wrapper frontier. Only after that reproducer exists should the next task own `process.getActiveResourcesInfo()` instrumentation, concrete resource identification, repair, and full-wrapper reruns. That keeps the reproducer-derivation work separate from the later resource-diagnosis work instead of asking one task to do both without a proven seam.
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 12 honestly handed off only a wrapper-local seam, not a narrower reproducing command, and the newest Task 13 raw prefix still stayed busy long enough that the helper only saw ordinary mid-run resources. That means Subtask 2 cannot yet do what it claims, because there is still no bounded post-logical-work state in which the lingering live resource can be distinguished from normal active test work. The repo already has the right wrapper contracts and a first seam-diagnostic helper; what is missing is a plan-owned bounded reproducer derivation step between the wrapper-local seam and the later instrumentation task.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep widening raw prefixes inside current Task 13 without rewriting the task boundary, do not instrument a still-busy broad prefix and pretend the transient `PipeWrap` / `MessagePort` / `Timeout` snapshots identify the lingering owner, and do not use `forceExit`, `process.exit()`, or arbitrary timeout hacks to turn the broad wrapper seam into a fake success. Those options either hide the real owner or keep the task stuck in the same contradiction instead of producing an honest bounded reproducer for the later diagnostic work.
-- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the blocker proof in commit `a2d08685`. The first live blocker proved the task had remained too broad across repeated passes because it still depended on a missing bounded reproducer seam. That repair kept Task 13 active but narrowed it to bounded reproducer derivation with a concrete three-pass stopping rule, moved later present-tense seam revalidation into new Task 14, renumbered the downstream instrumentation chain behind it, and later repairs eventually split that chain into Task 15 wrapper instrumentation, Task 16 first owner derivation, Task 17 second owner derivation, Task 18 repair, and Task 19 final close-out. The blocker proof remains preserved as `**BLOCKING ANSWER**` while the old live blocker stays retired as `**RESOLVED ISSUE**`.
+- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the blocker proof in commit `a2d08685`. The first live blocker proved the task had remained too broad across repeated passes because it still depended on a missing bounded reproducer seam. That repair kept Task 13 active but narrowed it to bounded reproducer derivation with a concrete three-pass stopping rule, moved later present-tense seam revalidation into new Task 14, renumbered the downstream instrumentation chain behind it, and later repairs eventually split that chain into Task 15 wrapper instrumentation, Task 16 first owner derivation, Task 17 second owner derivation, Task 18 third owner derivation, Task 19 repair, and Task 20 final close-out. The blocker proof remains preserved as `**BLOCKING ANSWER**` while the old live blocker stays retired as `**RESOLVED ISSUE**`.
 - Subtask 3: exhausted the repaired finite three-pass plan from the current 34-file frontier under the wrapper-equivalent ts-node environment, and all three named slices reached real terminal TAP verdicts instead of reproducing the post-logical-work non-closing state. The exact clean artifacts are `test-results/task13/task13-earlier-half.log` with `# pass 208`, `# fail 0`, `# duration_ms 90071.923023`; `test-results/task13/task13-later-half.log` with `# pass 109`, `# fail 0`, `# duration_ms 92151.731102`; and `test-results/task13/task13-frontier-centered.log` with `# pass 120`, `# fail 0`, `# duration_ms 106614.053535`.
 
 - **RESOLVED ISSUE** The second live blocker on this task proved that even the repaired first bounded raw derivation plan could exhaust honestly without producing a bounded raw reproducer. I completed Subtask 3 by exhausting the only three named passes this task allowed: the earlier-half slice over files 1-17, the later-half slice over files 18-34, and the frontier-centered slice over files 26-42 under the wrapper-equivalent ts-node environment with the supported `scripts/debug-active-resources.mjs` import. None of those slices produced a bounded raw reproducer. That blocker is no longer left active on Task 13 because this plan repair closes Task 13 on the finite-plan-exhausted branch and moves the next current-seam revalidation work into a new downstream task.
@@ -1402,7 +1402,7 @@ This task does not assume any raw reproducer still exists. It starts from the re
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 15 already did the wrapper-local work it claimed it would do first. The current repo evidence from commit `68a6f08e`, `scripts/summary-wrapper-protocol.mjs`, `scripts/test-summary-server-unit.mjs`, and log `test-results/server-unit-tests-2026-04-02T15-18-08-777Z.log` now proves the build child reaches `exit`, `close`, and wrapper resolution, while the test child only reaches wrapper-debug `spawn` and keeps running past visible progress `ok 303` without `exit`, `close`, or stdio completion. That means the missing capability is no longer wrapper lifecycle visibility; it is child-side ownership beyond the current frontier. A prerequisite task that derives that owner matches both the repo's repair pattern and Node's documented diagnostic boundary.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep retrying Task 15 unchanged with more wrapper-only instrumentation, do not use `process.exit()`, `forceExit`, or timeout inflation to force a terminal wrapper verdict, and do not treat parent-side active-resource inspection as sufficient proof while the child still has not exited. Those options would either hide the real child-side owner, claim success without real termination, or keep the implementation loop spinning inside a task whose present evidence has already proved its boundary is too broad.
 - Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 15 section, and the latest task-state commit `68a6f08e`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly recorded Subtasks 1 through 3 complete and had already preserved the live `**BLOCKER**` for Subtasks 4 through 5. No `Testing` items were newly checked here, and Task 15 correctly remains `__in_progress__` because automated proof has not happened in this loop and the task is still visibly blocked on the missing child-side owner beyond the current `ok 303` frontier.
-- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 15 section, and the blocker proof in commit `e345b456`. Task 15 is now complete on the "wrapper proves the test child never exits" branch: it added supported wrapper-local instrumentation, reran the full wrapper once with that instrumentation, and proved the missing owner is no longer inside wrapper orchestration. This repair retires the live blocker as `**RESOLVED ISSUE**`, closes Task 15 honestly, inserts new Task 16 to derive the first bounded child-side owner from the latest `ok 303` frontier, and later repairs extend that chain through Task 17 owner re-derivation, Task 18 repair, and Task 19 final close-out.
+- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 15 section, and the blocker proof in commit `e345b456`. Task 15 is now complete on the "wrapper proves the test child never exits" branch: it added supported wrapper-local instrumentation, reran the full wrapper once with that instrumentation, and proved the missing owner is no longer inside wrapper orchestration. This repair retires the live blocker as `**RESOLVED ISSUE**`, closes Task 15 honestly, inserts new Task 16 to derive the first bounded child-side owner from the latest `ok 303` frontier, and later repairs extend that chain through Task 17 second owner derivation, Task 18 third owner derivation, Task 19 repair, and Task 20 final close-out.
 
 ---
 
@@ -1471,8 +1471,8 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `16`
-- Task Status: `__in_progress__`
-- Git Commits: `0b9ee4c5`, `97c1a273`
+- Task Status: `__done__`
+- Git Commits: `0b9ee4c5`, `97c1a273`, `d068e157`, `91bc7404`
 - Notes: Inserted on 2026-04-02 after Task 16 proved that the first bounded child-side owner class exhausted cleanly without naming an owner. This task starts from Task 16's proof artifacts and owns one materially different bounded owner-derivation strategy before any repair task can start honestly.
 
 #### Overview
@@ -1516,68 +1516,112 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 - Testing step 1: reran the exact bounded runtime-owner candidate and complementary control commands under the wrapper-equivalent ts-node environment and saved fresh proof logs `test-results/task17/task17-runtime-owner-candidate-proof.log` and `test-results/task17/task17-runtime-owner-control-proof.log`. Both commands again reached real terminal TAP verdicts with `# pass 4`, `# fail 0` and `# pass 2`, `# fail 0`, so this second owner class still exits cleanly rather than leaving the child alive after logical work.
 - Testing step 2: reran the one bounded helper/runtime-focused ownership check on `src/test/integration/ingest-reembed.test.ts` and saved fresh proof log `test-results/task17/task17-runtime-owner-helper-proof.log`. That command also reached a real terminal TAP verdict with `# pass 2`, `# fail 0`, which confirms the second bounded derivation plan exhausts cleanly rather than naming a present-tense child-side owner.
 - Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 17 section, and the latest task-state commit `0b9ee4c5`. No subtasks were newly marked complete in this audit because the latest implementation pass had already honestly checked Subtasks 1 through 5 and recorded the bounded runtime-owner exhaustion outcome inside the task notes. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 17, and Task 17 correctly remains `__in_progress__` because automated proof for Testing steps 1 and 2 still belongs to the next audit loop.
-- **BLOCKER** The bounded second owner-derivation strategy and its proof reruns are now complete, but they still do not produce a named present-tense child-side owner for Task 18 to repair. What I tried was the bounded runtime-owner candidate, the adjacent shifted control, and the one concentrated runtime-helper check, followed by proof reruns of those same commands; all of them reached real terminal TAP verdicts. Task 17 therefore cannot hand off a truthful repair boundary, and planner intervention is now required to split, narrow, or re-own the next derivation step before implementation can continue honestly.
+- **RESOLVED ISSUE** The bounded second owner-derivation strategy and its proof reruns completed, but they still did not produce a named present-tense child-side owner for the later repair task to own honestly. What I tried was the bounded runtime-owner candidate, the adjacent shifted control, and the one concentrated runtime-helper check, followed by proof reruns of those same commands; all of them reached real terminal TAP verdicts. That blocker is no longer left active on Task 17 because this repair closes the task on the second-bounded-plan-exhausted branch and inserts a new prerequisite derivation task before any repair work continues.
 - **BLOCKING ANSWER** Repository precedents found: this repo already treats repeated clean bounded exhaustion as a planning-boundary result instead of permission to guess the next owner. Story `0000046` inserted an explicit prerequisite when a broader shared baseline prevented honest closure, Story `0000051` split a blocked shared `server:unit` baseline away from later feature work, and Story `0000055` itself has already repeated that repair pattern across Tasks 11 through 16 whenever the current bounded seam stopped yielding a truthful downstream handoff. Those precedents all point to the same fix here: do not start Task 18 from a guessed owner after Task 17's second bounded derivation also exhausted cleanly.
 - **BLOCKING ANSWER** External-library precedents found: official Node guidance says the trustworthy process boundary is still real child termination, especially `child_process` `close` after stdio closes, not merely an earlier logical test frontier or the earlier `exit` event. The official `process.getActiveResourcesInfo()` docs say it reports only the resource types currently keeping the observed process alive, and the `node:test` docs say asynchronous activity can outlive a finished test body while results are still reported promptly. Context7 `/nodejs/node` returned the same official docs. DeepWiki was attempted for `nodejs/node`, but that repo is not indexed there right now, so the official Node docs remained the external source of truth.
 - **BLOCKING ANSWER** Issue-resolution references found: practical reports match the same limit. Jest issue `#9473` shows that even dedicated open-handle diagnostics can still hang without producing a usable owner when the runner only has a broad lingering state. Stack Overflow `15857568` describes the same Node behavior from the process side: if a script hangs after logical completion, real callbacks or resources are still registered, and the honest fix is to close the actual owner rather than to treat force-exit or the mere existence of a clean subset as proof.
 - **BLOCKING ANSWER** Chosen fix: do not continue Task 17 as if one more proof rerun or a guessed Task 18 repair target will make the owner truthful. The proved next step is to repair the plan again so a new prerequisite task derives a third, materially different bounded owner class or ownership seam from the current `ok 303` frontier before any repair task continues.
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 17 already spent the second bounded derivation strategy it promised to run. The current repo evidence from commits `0b9ee4c5` and `97c1a273`, plus `test-results/task17/task17-runtime-owner-candidate*.log`, `task17-runtime-owner-control*.log`, and `task17-runtime-owner-helper*.log`, now proves that the runtime-owner candidate, the shifted control, and the one concentrated helper check all terminate cleanly even on proof reruns. That means the missing capability is no longer proof for this second owner class; it is a truthful next owner boundary. A planner-owned prerequisite task matches both the repo's repair pattern and Node's supported diagnostic boundary better than guessed repair work.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not start Task 18 from a guessed runtime owner, do not keep rerunning Task 17's same bounded commands, do not widen timeouts or force exits to make the wrapper appear healthy, and do not treat `process.getActiveResourcesInfo()` on an already-clean subset as if it had named the lingering owner. Those paths would either hide the real remaining owner, repeat an already exhausted bounded plan, or claim repair without a truthful handoff.
-- Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 17 section, and the latest task-state commit `97c1a273`. No `Testing` items were newly marked complete in this audit because the latest proof pass had already honestly checked Testing steps 1 and 2 before this normalization step. Task 17 remains `__in_progress__`, not `__done__`, because the new live `**BLOCKER**` captures the real proof outcome: the second bounded derivation plan is exhausted, but there is still no named owner to hand off to Task 18 without planner repair.
+- Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 17 section, and the latest task-state commit `97c1a273`. No `Testing` items were newly marked complete in this audit because the latest proof pass had already honestly checked Testing steps 1 and 2 before this normalization step. Task 17 remained `__in_progress__`, not `__done__`, because the live blocker captured the real proof outcome: the second bounded derivation plan was exhausted, but there was still no named owner to hand off to the later repair task without planner repair.
+- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 17 section, and the blocker proof in commit `91bc7404`. Task 17 is now complete on the second-bounded-plan-exhausted branch: it finished the runtime-owner candidate, its shifted control, the one concentrated helper/runtime check, and their proof reruns, and all of them terminated cleanly. This repair retires the live blocker as `**RESOLVED ISSUE**`, closes Task 17 honestly, inserts new Task 18 to derive one third materially different owner class or ownership seam, renumbers the later repair task to Task 19, and renumbers final close-out to Task 20.
 
 ---
 
-### Task 18. Repair The Derived Child-Side Owner And Restore The Full `server:unit` Wrapper Verdict
+### Task 18. Re-Establish A Third Bounded Child-Side Owner Class Beyond The Exhausted Runtime/Reembed Region
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `17`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: None yet.
-- Notes: Renumbered from the old Task 17 after the 2026-04-02 plan repair inserted new Task 17 for one materially different owner-derivation strategy. This task starts only if Task 17 hands off one exact present-tense owner inside the still-running test child. Current Task 17 evidence does not do that yet: the bounded runtime-owner candidate, its shifted control, and the one concentrated runtime-helper check all terminate cleanly, so Task 18 remains blocked pending planner review rather than starting from a guessed owner.
+- Notes: Inserted on 2026-04-02 after Task 17 proved that the second bounded child-side owner class also exhausted cleanly without naming an owner. This task starts from Task 17's proof artifacts and owns one third materially different bounded owner class or ownership seam before any repair task can start honestly.
 
 #### Overview
 
-This task starts only from the bounded child-side owner that Task 17 proves from current repo state. It repairs that named cleanup, fixture/runtime, or shutdown seam with repo-standard ownership patterns and then restores a trustworthy full `npm run test:summary:server:unit` wrapper verdict before final story close-out resumes.
+This task still does not attempt repair. It starts from the exhausted runtime/reembed owner class proved by Task 17 and re-establishes whether a third present-tense child-side owner class now exists. Its job is to test one materially different bounded owner class or ownership seam, such as a shared transport, queue-cleanup, startup-recovery, fixture-lifecycle, or shutdown boundary that the current `ok 303` region still depends on, and either name that owner honestly or exhaust this third bounded strategy cleanly.
 
 #### Task Exit Criteria
 
-- The exact owner handed off from Task 17 is repaired without relying on forced process exit, timeout inflation, or other unsupported wrapper hacks.
+- One third materially different bounded owner-derivation strategy is executed from current repo state without reopening Task 17's already-spent runtime-owner candidate, shifted control, and helper-focused runtime check.
+- The task records one of two honest outcomes: either a named present-tense child-side owner now exists for later repair, or this third bounded strategy also exhausts cleanly and the story needs another planner repair before repair work can continue.
+
+#### Documentation Locations
+
+- Task 17's proof logs under `test-results/task17/`. Use these to avoid rerunning the already-spent runtime/reembed owner class and to pick one materially different owner class.
+- `test-results/server-unit-tests-2026-04-02T15-18-08-777Z.log` . Use this as the current wrapper artifact that still proves the test child stays alive beyond `ok 303`.
+- `scripts/test-summary-server-unit.mjs` . Use this to map the current integration ordering so the new bounded strategy stays aligned to present repo state.
+- Shared transport, queue-lifecycle, startup-recovery, fixture-lifecycle, or shutdown helpers imported by the unresolved region but not yet isolated by Task 17. Use only the smallest current owner class that the Task 17 proof leaves unspent.
+
+#### Subtasks
+
+1. [ ] Re-read Task 17's proof logs, the current wrapper ordering, and the shared transport, queue-lifecycle, startup-recovery, fixture-lifecycle, or shutdown helpers touched by the unresolved region. Record one materially different owner class that Task 17 did not already exhaust.
+2. [ ] Run one explicitly bounded command or smallest current file group that exercises that third owner class without reusing Task 17's exact runtime-owner candidate or shifted-control pair. Record the exact command and saved output path.
+3. [ ] Run one complementary bounded control that excludes or shifts away from that third owner class while still exercising the nearest competing region. Stop after this named pair instead of reopening indefinite narrowing.
+4. [ ] If Subtasks 2 and 3 still leave ownership ambiguous, run exactly one bounded helper-, transport-, queue-lifecycle-, or shutdown-focused ownership check for that third owner class, then stop and record the outcome instead of widening further.
+5. [ ] Update the downstream repair task notes so Task 19 starts only from the exact named owner produced here. If this third bounded derivation plan also exhausts without a named owner, record that later repair remains blocked and must return to planner review instead of continuing ad hoc.
+
+#### Testing
+
+1. [ ] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that owner class exits cleanly.
+2. [ ] If Subtask 4 is needed, run that one bounded helper-, transport-, queue-lifecycle-, or shutdown-focused ownership check and record whether it names a present-tense child-side owner or exhausts the third bounded derivation plan cleanly.
+
+#### Implementation notes
+
+- Record the third owner class chosen here, every bounded command attempted, whether one names a current owner, and the proof artifacts that justify the branch honestly.
+- Inserted on 2026-04-02 because Task 17 proved that the second bounded runtime/reembed owner class exhausted cleanly and still did not hand off a repairable owner.
+
+---
+
+### Task 19. Repair The Derived Child-Side Owner And Restore The Full `server:unit` Wrapper Verdict
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `18`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Renumbered from the old Task 18 after the 2026-04-02 plan repair inserted new Task 18 for one third materially different owner-derivation strategy. This task starts only if Task 18 hands off one exact present-tense owner inside the still-running test child.
+
+#### Overview
+
+This task starts only from the bounded child-side owner that Task 18 proves from current repo state. It repairs that named cleanup, fixture/runtime, transport, or shutdown seam with repo-standard ownership patterns and then restores a trustworthy full `npm run test:summary:server:unit` wrapper verdict before final story close-out resumes.
+
+#### Task Exit Criteria
+
+- The exact owner handed off from Task 18 is repaired without relying on forced process exit, timeout inflation, or other unsupported wrapper hacks.
 - Both the bounded owner-level proof and the full `npm run test:summary:server:unit` wrapper reach trustworthy terminal verdicts.
 
 #### Documentation Locations
 
-- The exact Task 17 owner-level logs and commands. Use these as the starting proof boundary for this repair.
+- The exact Task 18 owner-level logs and commands. Use these as the starting proof boundary for this repair.
 - `scripts/summary-wrapper-protocol.mjs` and `scripts/test-summary-server-unit.mjs` . Use these only as wrapper-proof consumers after the owner-level repair is made, not as the place where the repair is hidden.
-- The exact test, helper, fixture, or runtime files named by Task 17. Use these as the only places where cleanup or shutdown ownership is changed.
+- The exact test, helper, fixture, transport, or runtime files named by Task 18. Use these as the only places where cleanup or shutdown ownership is changed.
 
 #### Subtasks
 
-1. [ ] Re-read Task 17's exact named owner, proof logs, and the current local files that own that region before editing. Confirm the repair target is still current from disk.
+1. [ ] Re-read Task 18's exact named owner, proof logs, and the current local files that own that region before editing. Confirm the repair target is still current from disk.
 2. [ ] Repair the named child-side owner using repo-standard cleanup and shutdown patterns such as awaited teardown, explicit close or terminate, or correctly owned `finally`/`afterEach` cleanup. Do not use forced process exit or timeout inflation.
-3. [ ] Re-run the exact owner-level proof from Task 17 until it reaches a trustworthy terminal verdict without the lingering child-side activity.
+3. [ ] Re-run the exact owner-level proof from Task 18 until it reaches a trustworthy terminal verdict without the lingering child-side activity.
 4. [ ] Re-run full `npm run test:summary:server:unit` and confirm the wrapper now reaches a trustworthy final verdict instead of remaining in `agent_action: wait`.
-5. [ ] Update the final close-out task notes so Task 19 starts only after the restored full-wrapper verdict is proved honestly.
+5. [ ] Update the final close-out task notes so Task 20 starts only after the restored full-wrapper verdict is proved honestly.
 
 #### Testing
 
-1. [ ] Run the exact Task 17 owner-level proof after the repair and confirm it reaches a real terminal verdict.
+1. [ ] Run the exact Task 18 owner-level proof after the repair and confirm it reaches a real terminal verdict.
 2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy terminal verdict.
 
 #### Implementation notes
 
-- Record the exact owner handed off from Task 17, the repair made, and the proof artifacts from both the bounded owner-level rerun and the full wrapper rerun.
-- Renumbered on 2026-04-02 because later repair work must now start from a named child-side owner proven by the new Task 17 rather than from Task 16's exhausted owner class.
-- Current blocker inherited from Task 17: `test-results/task17/task17-runtime-owner-candidate.log`, `test-results/task17/task17-runtime-owner-control.log`, and `test-results/task17/task17-runtime-owner-helper.log` all end with real terminal TAP verdicts, so there is still no exact present-tense owner for this repair task to own honestly.
+- Record the exact owner handed off from Task 18, the repair made, and the proof artifacts from both the bounded owner-level rerun and the full wrapper rerun.
+- Renumbered on 2026-04-02 because later repair work must now start from a named child-side owner proven by the new Task 18 rather than from Task 17's exhausted owner class.
 
 ---
 
-### Task 19. Perform Story 55 Final Validation And Close-Out
+### Task 20. Perform Story 55 Final Validation And Close-Out
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18`
+- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19`
 - Task Status: `__to_do__`
 - Git Commits: `f2933e58`, `8d6423fa`
-- Notes: Renumbered from the old Task 18 after the 2026-04-02 plan repair inserted new Task 17 for a materially different owner-derivation strategy and renumbered the later repair task to Task 18.
+- Notes: Renumbered from the old Task 19 after the 2026-04-02 plan repair inserted new Task 18 for a third materially different owner-derivation strategy and renumbered the later repair task to Task 19.
 
 #### Overview
 
@@ -1610,5 +1654,5 @@ This final task validates the whole durable-queue story rather than isolated sea
 #### Implementation notes
 
 - Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
-- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 18 restores a trustworthy full `server:unit` baseline from the bounded owner that Task 17 derives so the final validation sequence can resume honestly.
-- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, then bounded the wrapper-local proof in Task 15, then exhausted the first child-side owner class in Task 16, and now requires Task 17 to derive a named owner plus Task 18 to repair it before this final close-out can resume honestly.
+- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 19 restores a trustworthy full `server:unit` baseline from the bounded owner that Task 18 derives so the final validation sequence can resume honestly.
+- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, then bounded the wrapper-local proof in Task 15, then exhausted the first child-side owner class in Task 16, then exhausted the second child-side owner class in Task 17, and now requires Task 18 to derive a named owner plus Task 19 to repair it before this final close-out can resume honestly.

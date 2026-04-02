@@ -603,74 +603,188 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 
 ---
 
-### Task 4. Restore The Shared Server-Unit Full-Wrapper Baseline
+### Task 4. Re-Baseline The Shared Server-Unit Wrapper Contract And Expose Explicit Failure Owners
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `3`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
+- Git Commits:
+  - `9c045f01` - `DEV-[55] - Repair task 4 plan boundary`
+  - `e5cfca6b` - `DEV-[55] - narrow task 4 baseline blocker`
+  - `c673d67a` - `DEV-[55] - Prove task 4 split blocker answer`
+
+#### Overview
+
+This task no longer owns every remaining server-unit failure as if they were one seam. It now owns only the honest wrapper-baseline recovery work that has already been proved: confirm the shared `npm run test:summary:server:unit` wrapper reaches a real terminal verdict again, confirm the earlier “wrapper never terminates” theory is closed, and convert the newly exposed failing clusters into explicit follow-up owners before later story work continues.
+
+#### Task Exit Criteria
+
+- The shared `server:unit` wrapper is re-baselined far enough that it reaches a real terminal verdict under the cleaned wrapper environment, rather than remaining indefinitely in `agent_action: wait`.
+- The currently exposed post-wrapper failure classes are mapped into explicit prerequisite tasks, so no later task still depends on one vague “restore the baseline” bucket.
+
+#### Documentation Locations
+
+- https://nodejs.org/api/test.html . Use this for the supported `node:test` narrowing and rerun model once the suite is returning ordinary failures instead of hanging.
+- https://nodejs.org/api/child_process.html . Use this for the `exit` versus `close` distinction so the wrapper-baseline boundary stays tied to real child-process completion.
+
+#### Subtasks
+
+1. [x] Re-read the Task 3 blocker history, the Story 52 blocker answer, the current Task 4 notes, and the wrapper owners in `scripts/test-summary-server-unit.mjs` and `scripts/summary-wrapper-protocol.mjs`. Purpose: confirm whether the blocker is still “child will not close” or has changed into ordinary failing proof clusters.
+2. [x] Re-run the full `npm run test:summary:server:unit` wrapper and narrow the current file boundary with targeted reruns such as `server/src/test/integration/chat-codex-mcp.test.ts`. Purpose: prove whether the wrapper still hangs or now reaches a real verdict.
+3. [x] Apply the minimal wrapper-baseline cleanup that the diagnosis proved was still in scope, namely the deterministic `CODEINFO_*` and `CODEX_*` environment cleanup in `scripts/test-summary-server-unit.mjs`. Purpose: make the full wrapper reflect the supported repo baseline instead of inherited container state.
+4. [x] Capture the concrete post-wrapper failure clusters from the current full log and convert them into explicit prerequisite tasks before the later UI and close-out tasks. Purpose: stop treating several independent failing owners as one hidden baseline seam.
+
+#### Testing
+
+1. [x] Run a targeted `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex-mcp.test.ts` rerun and confirm the narrowed boundary reaches a real terminal verdict.
+2. [x] Re-run full `npm run test:summary:server:unit` and confirm the wrapper now reaches a real terminal verdict that names concrete failing tests instead of remaining indefinitely in `agent_action: wait`.
+
+#### Implementation notes
+
+- Inserted during plan repair because the Task 3 blocker proved the story needed a separate owner for the broader shared `server:unit` wrapper contract.
+- Subtask 2: the wrapper no longer hangs indefinitely. `server/src/test/integration/chat-codex-mcp.test.ts` reaches a clean targeted verdict, and the full wrapper now reaches a real terminal verdict after surfacing explicit failures.
+- Subtask 3: `scripts/test-summary-server-unit.mjs` now strips inherited `CODEINFO_*` and `CODEX_*` env so the wrapper baseline is deterministic instead of inheriting container runtime state.
+- **RESOLVED ISSUE** The old live Task 4 blocker assumed one remaining hidden “restore the shared baseline” repair seam. Current repo evidence proved that assumption wrong: once the wrapper reached a real verdict again, the remaining work became several explicit regression clusters rather than one leak or cleanup owner. This blocker is retired because the plan now re-owns those clusters as explicit tasks instead of leaving them behind one vague baseline task.
+- **BLOCKING ANSWER** Repository precedents found: Stories 46, 48, and 52 all handle this class of problem by narrowing or re-owning work once the original broad blocker is no longer the real seam. The current Story 55 state matches that pattern: the wrapper termination problem is solved, and the remaining failures must be owned explicitly.
+- **BLOCKING ANSWER** External-library precedents found: official Node docs, Context7 `/nodejs/node`, DeepWiki `nodejs/node`, and targeted web reads all support targeted reruns, real child-process completion boundaries, and `process.getActiveResourcesInfo()` only for true live-resource hangs. Those sources do not support continuing to treat a now-terminating suite as an open-handle mystery.
+- **BLOCKING ANSWER** Issue-resolution references found: `test-results/server-unit-tests-2026-04-02T00-41-44-648Z.log` now ends normally with `1593` tests run and `12` failures, while targeted logs isolate specific config failures. That moves the problem from “suite will not terminate” into normal failing-test triage.
+- **BLOCKING ANSWER** Chosen fix: close this task around the now-proved wrapper contract and split the exposed regression classes into explicit prerequisites before later story work continues.
+- **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep Task 4 as one broad repair bucket, do not raise wrapper budgets or use force-exit shortcuts, and do not patch convenient failing files without explicit plan owners.
+- Plan repair on 2026-04-02: Task 4 now ends once the wrapper reaches a real verdict and the failing clusters are re-owned explicitly. New Tasks 5-7 own those clusters, and later tasks are renumbered behind them.
+
+---
+
+### Task 5. Repair Checked-In Runtime Config And Fixture Drift Exposed By The Restored Wrapper Baseline
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `4`
+- Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-This task owns the remaining full `npm run test:summary:server:unit` overrun once the Task 3-local proof files stop reproducing it. It must first prove whether the current full-wrapper problem is a newly narrowed non-Task-3 cleanup leak or a long-but-still-progressing suite/runtime-budget issue, then repair the correct boundary with existing repo patterns so the honest full-wrapper baseline is restored before later story work continues.
+This task owns the checked-in runtime-config and fixture drift that the restored full wrapper now exposes clearly. It covers the config files, placeholder expectations, and runtime-config proof homes that must be brought back into alignment before the queue story can rely on a stable clean-environment baseline again.
 
 #### Task Exit Criteria
 
-- The remaining full `server:unit` overrun is classified honestly as either one narrowed non-Task-3 file/helper that keeps the child alive after useful work should have stopped, or as a long-but-still-progressing suite/runtime-budget issue with one concrete current boundary.
-- The concrete boundary proved by that diagnosis is repaired or re-baselined with existing repo precedent so `npm run test:summary:server:unit` reaches a real terminal wrapper verdict again without relying on wrapper watchdogs, forced exits, or heartbeat-only interpretation.
+- The checked-in config and fixture drift exposed by the restored wrapper baseline is resolved across `codex_agents/*/config.toml`, root `.env.e2e`, and the runtime-config proof homes that read them.
+- Targeted config-cluster proof files pass, and a follow-up full `server:unit` rerun no longer reports the config-cluster failures that were previously surfaced by the restored wrapper baseline.
 
 #### Documentation Locations
 
-- https://nodejs.org/api/test.html . Use this for the `node:test` contract around extraneous asynchronous activity and why the runner does not magically resolve leaked resources.
-- https://nodejs.org/api/child_process.html . Use this for the `exit` versus `close` distinction so wrapper diagnosis stays grounded in the real child-process lifecycle.
-- https://nodejs.org/api/process.html#processgetactiveresourcesinfo . Use this for targeted active-resource diagnostics if file-level narrowing alone does not identify the remaining leak owner.
-- https://nodejs.org/api/timers.html . Use this for `Timeout` ownership and `unref()` semantics when the narrowed leak is timer-backed.
+- https://nodejs.org/api/process.html#processenv . Use this for the supported process-environment contract when reconciling checked-in env placeholders with runtime resolution.
 
 #### Subtasks
 
-1. [x] Read the current Task 3 `**BLOCKING ANSWER**` and `**RESOLVED ISSUE**` notes plus the Story 52 blocker answer before changing code. Then inspect `scripts/test-summary-server-unit.mjs`, `scripts/summary-wrapper-protocol.mjs`, `server/src/test/support/wsClient.ts`, `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/integration/agents-run-ws-cancel.test.ts`, and `server/src/ingest/ingestJob.ts`. Purpose: keep the diagnosis scoped to child-process cleanup and existing teardown ownership instead of reopening the wrapper or the Task 3 transport code blindly.
-2. [x] Starting from `npm run test:summary:server:unit`, capture the latest still-progressing non-Task-3 file or helper boundaries from the live full-wrapper log and narrow them with wrapper `--file` reruns. Use the cleanup-heavy candidates already named in Subtask 1 first, but if those are already clean, continue with the latest files surfaced by the current full log instead of assuming one of the original candidates still owns the issue. Purpose: replace the old false premise with one current reproduction boundary.
-3. [ ] If file-level narrowing still does not yield one idle leak owner, add temporary local diagnostics such as `process.getActiveResourcesInfo()` or equivalent targeted resource or per-file progress logging inside the current narrowed boundary, then remove or narrow that instrumentation once the remaining overrun is classified as either lingering-handle stall or long-but-healthy progress. Purpose: identify whether the suite is actually stuck on open resources or is still doing real work under an honest but longer runtime.
-4. [ ] Repair the concrete boundary Task 4 proves. If the diagnosis yields a real leak owner, fix that file or helper using the repo's existing deterministic cleanup patterns. If the diagnosis instead proves a long-but-still-progressing suite/runtime-budget issue, repair the exact wrapper or test-contract boundary that is too strict for the current suite rather than mutating unrelated cleanup seams. Purpose: restore the full wrapper baseline at the correct ownership boundary without reopening unrelated Task 3 transport logic.
-5. [ ] Add or update the owning proof file, shared helper, or wrapper-contract note so the repaired boundary is explicit and regression-resistant. That proof update must match the class Task 4 actually proved: cleanup ownership when a real leak owner exists, or honest wrapper/runtime-budget expectations when the suite is long but still progressing. Purpose: keep the fix local to the real boundary and make the restored full-wrapper contract obvious to later developers.
-6. [ ] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 2-5. The pass condition is zero errors and zero warnings. If ESLint can auto-fix anything, run `npx eslint <exact touched file list> --fix` before making manual style fixes.
-7. [ ] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 2-5. The pass condition is that every touched file is already formatted. If Prettier reports differences, run `npx prettier --write <exact touched file list>` before making manual formatting edits.
+1. [ ] Read the current full-wrapper failure names and inspect `codex_agents/*/config.toml`, `.env.e2e`, `server/src/test/unit/agents-config-defaults.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/codexConfig.test.ts`, and the current runtime-config owners before editing anything. Purpose: anchor the task to the exact checked-in config drift rather than guessing from old failures.
+2. [ ] Update the checked-in config fixtures and shared runtime-config expectations so the clean wrapper baseline no longer sees drift around `web_search`, Context7 overlay, MCP placeholder resolution, or `.env.e2e` placeholder shape. Purpose: fix the upstream checked-in sources instead of compensating later in tests.
+3. [ ] Update any affected proof titles or assertions in the owning config tests so they describe the current checked-in contract honestly. Purpose: keep proof text aligned with the contract being restored instead of relying on stale names.
+4. [ ] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
+5. [ ] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
 
 #### Testing
 
-1. [ ] Run targeted `npm run test:summary:server:unit -- --file ...` wrapper reruns for the current narrowed Task 4 boundary until that boundary reaches a real terminal verdict without lingering in `agent_action: wait`, or until the reruns prove the suite is still progressing and the blocker is actually a runtime-budget or wrapper-contract issue instead of a stuck file. Use the specific narrowed file path or helper cluster discovered in Subtask 2, and keep the Task 3-local proof files out of scope unless the latest narrowing really points back to them again.
-2. [ ] Re-run full `npm run test:summary:server:unit` and confirm the wrapper reaches a real terminal verdict for the restored shared server-unit baseline under the repaired boundary and the honest current contract. If the wrapper still reports `agent_action: wait` beyond the documented budget, reopen the newly diagnosed current boundary rather than marking the step complete from heartbeats alone.
+1. [ ] Run targeted `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`, and add `server/src/test/unit/codexConfig.test.ts` or the exact current fixture-parity owner if the full-wrapper log still names it. The pass condition is that each targeted config-cluster file reaches a clean terminal verdict.
+2. [ ] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
 
 #### Implementation notes
 
 - Starts empty.
-- Inserted during plan repair because the Task 3 blocker proved the story was missing a separate owner for the broader full `server:unit` baseline once the Task 3-local proof homes stopped reproducing the hang.
-- Subtask 1: Re-read the Task 3 blocker history, the Story 52 blocker answer, and the named wrapper/runtime cleanup seams. The current evidence still points at a non-Task-3 child-process cleanup owner rather than at the summary wrapper protocol or the Task 3 transport contract.
-- Subtask 2: Ran `npm run test:summary:server:unit` plus the cleanup-heavy single-file wrappers for `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, and `server/src/test/integration/agents-run-ws-cancel.test.ts`. All three targeted wrappers reached clean terminal verdicts, while the full wrapper stayed in `agent_action: wait` past the documented budget.
-- **RESOLVED ISSUE** Subtask 2 was initially blocked by a task-plan contradiction, not by a reproduced non-Task-3 leak owner. I tried the full `npm run test:summary:server:unit` wrapper first, then narrowed with the three cleanup-heavy candidate files named by the task, and finally inspected the live child process with `ps -ef`. The targeted candidates all passed cleanly, and the full wrapper was still making forward progress through different unit files (`chat-factory.test.ts`, then `chatProviders.test.ts`) rather than hanging on one file or one idle event-loop owner. The missing capability was a current task definition that matched the live failure mode: Task 4 assumed there was still one concrete non-Task-3 child-process leak to repair, but the current repo evidence instead showed a suite-duration overrun with ongoing progress and no narrowed cleanup owner yet. This blocker is now retired because Task 4 has been rewritten in place to diagnose runtime budget or throughput versus true leaked-handle stalls before attempting any repair.
-- **BLOCKING ANSWER** Repository precedents found: this repo only fixes `agent_action: wait` overruns beneath the wrapper after it has narrowed to one real owner. Story 55 Task 3 already documents that pattern in Subtasks 28-31: narrow to one proof home, use `process.getActiveResourcesInfo()` only if the narrowed repro still will not drain, then fix the owning seam and rerun the full wrapper. Story 48 Task 18 shows the same shape in a different story: the full server-unit wrapper was blocked by one concrete loop-stop harness seam, so the repo inserted a prerequisite task to repair that exact integration-test cleanup path before trusting the full wrapper again. Story 52 records the opposite class of outcome: a full `npm run test:summary:server:unit` run that stayed in healthy `agent_action: wait` heartbeats for longer than the nominal budget was treated as a timing note rather than as a leak blocker. The live repo evidence now matches the Story 52 class, not the Story 48 class: `scripts/test-summary-server-unit.mjs` and `scripts/summary-wrapper-protocol.mjs` still only emit a final wrapper verdict once the child process closes, the three cleanup-heavy Task 4 candidate files all already reach clean targeted wrapper verdicts, and the latest full log `test-results/server-unit-tests-2026-04-02T00-05-00-663Z.log` keeps progressing through unrelated later files and subtests instead of stalling on one narrowed helper.
-- **BLOCKING ANSWER** External-library precedents found: official Node docs, Context7 `/nodejs/node`, and DeepWiki `nodejs/node` all line up on the supported diagnostic model. `node:test` process isolation runs each file in its own child process, `child_process` `close` only fires after the process has exited and stdio has closed, `process.getActiveResourcesInfo()` is the supported way to see which live resource types are still keeping the event loop alive, and `Timeout.unref()` only matters when a timer is truly the thing holding the process open. The same official CLI docs also show that `--test-force-exit` is a force-exit mechanism once known tests finish, while `--test-timeout` is only a fail-after-budget control; neither one identifies whether a still-running suite is blocked on a leaked handle or is simply still doing real work. Those docs therefore support diagnosing the failure mode first instead of treating every long wrapper run as one hidden cleanup leak.
-- **BLOCKING ANSWER** Issue-resolution references found: engineers diagnose true lingering-handle stalls with active-handle tooling and only then repair the owning seam. Stack Overflow `5916066` and `66031162` both point to active-handle inspection (`why-is-node-running` or equivalent) as the practical way to identify what is actually preventing Node from exiting. Stack Overflow `78836115` and the official Node CLI docs show `--test-force-exit` as an execution option, but not as the root-cause fix for a hanging suite. That practice fits real hangs where the process is idle but cannot exit. It does not fit the current Task 4 evidence, because the full wrapper is still making forward progress through fresh test files rather than idling on one narrowed owner, so the more likely unresolved question is throughput versus budget, not “which leaked handle already reproduced.”
-- **BLOCKING ANSWER** Chosen fix: repair the task plan instead of forcing a code repair against an unproven cleanup seam. The next step for this blocker should rewrite or split Task 4 so it first proves whether the remaining full-wrapper overrun is a suite-duration or throughput problem versus a newly narrowed non-Task-3 leak owner, using the current full-wrapper log plus targeted reruns of the latest still-progressing files as the first diagnostic boundary. Only after that step identifies one concrete file or shared helper should a later subtask attempt a cleanup repair beneath the wrapper. This fits the current local repo state because the current task’s named cleanup-heavy candidates already pass, the full wrapper is still moving through unrelated files, and the repo already has a documented precedent for treating long-but-moving full-wrapper runs as a separate class from true lingering-handle stalls.
-- **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep pushing Task 4 toward one non-Task-3 cleanup owner when current evidence has not narrowed one; that would encourage a bogus repair against the wrong seam. Do not modify the summary wrapper to fake a final verdict, because the wrapper’s current contract intentionally waits for child `close` and repo precedent keeps that boundary trustworthy. Do not use `--test-force-exit`, wrapper watchdogs, or forced process kills, because they would hide a real leak if one exists and would make the proof boundary dishonest. Do not simply increase a timeout budget inside the current task without first deciding whether the suite is truly stuck or just long, because that would leave the task’s current false premise in place.
-- Plan repair on 2026-04-02: rewrote Task 4 in place so it first diagnoses whether the remaining full `server:unit` overrun is a narrowed leak owner or a long-but-still-progressing suite/runtime-budget issue, then repairs the concrete boundary it actually proves. This keeps later task numbering and dependencies stable while removing the false assumption that one cleanup-heavy non-Task-3 owner had already been identified.
-- Subtask 2: Re-ran the full wrapper and let it continue past the old nominal budget, then narrowed the current boundary with `server/src/test/integration/chat-codex-mcp.test.ts`. The targeted file passed cleanly (`17` tests, `0` failures), while the full wrapper stayed healthy through many different files and eventually reached a real terminal verdict after about 23 minutes with `1593` tests run and `12` failures instead of hanging indefinitely.
-- Subtask 2: Tried a deterministic wrapper-env cleanup in `scripts/test-summary-server-unit.mjs` so the full server-unit run no longer inherits the container's `CODEINFO_*` and `CODEX_*` runtime state by default. Targeted reruns still exposed two checked-in config failures (`codex_agents/*/config.toml` using `web_search = "off"` and the root `.env.e2e` placeholder expectation drift), so the remaining baseline problem is broader than env leakage alone.
-- **BLOCKER** Subtask 4 stopped once the full wrapper proved it now reaches a real terminal verdict but exposes multiple independent baseline regressions instead of one concrete repair boundary. I tried the full `npm run test:summary:server:unit` wrapper, narrowed with `server/src/test/integration/chat-codex-mcp.test.ts`, added deterministic wrapper env cleanup in `scripts/test-summary-server-unit.mjs`, and reran targeted `server/src/test/unit/agents-config-defaults.test.ts` plus `server/src/test/unit/runtimeConfig.test.ts`. The exact contradiction is that Task 4 still assumes one concrete “restore the shared baseline” repair path, but the current repo state now shows at least three separate classes of failure: checked-in runtime-config fixture drift (`codex_agents/*/config.toml` and root `.env.e2e` expectations), pre-queue ingest/reembed proof harnesses that now hit `QUEUE_UNAVAILABLE` before older assertions, and unrelated timeout-based failures such as `ws-server.test.ts` / `ingest-ast-indexing.test.ts` that need their own narrowing. Task 4 should be split or rewritten again before work continues so the now-solved “wrapper never terminates” question stays closed, and the newly exposed full-suite regression clusters get explicit owners instead of being treated as one hidden leak.
-- **BLOCKING ANSWER** Repository precedents found: this repo treats broad suite-level blockers honestly by re-owning them into explicit narrower tasks once the original seam is no longer the real problem. Story 46 rewrote an impossible broad browser proof into reachable targeted wrapper and UI boundaries instead of leaving one vague failing step in place. Story 48 repaired one narrowed wrapper-stall seam directly and later re-owned follow-up review fixes as their own explicit boundary. Story 52 likewise treated a long-but-progressing full wrapper as a different class from a true lingering-handle leak. The current Story 55 Task 4 history now matches those precedents: the wrapper no longer hangs forever, so the remaining work should be split by concrete regression cluster instead of still pretending there is one hidden shared-baseline owner.
-- **BLOCKING ANSWER** External-library precedents found: official Node docs, Context7 `/nodejs/node`, DeepWiki `nodejs/node`, and targeted web reads all line up on the supported diagnosis path. `node:test` supports narrowing by explicit file globs, `--test-name-pattern`, and rerun-failures state; `child_process` distinguishes `exit` from `close`; and `process.getActiveResourcesInfo()` is the intended tool only when the process is truly being held open by live resources. Those sources support using targeted failing-file reruns and normal terminal failure triage once the child now reaches a real verdict, rather than continuing to treat the situation as an open-handle mystery or papering it over with wrapper hacks.
-- **BLOCKING ANSWER** Issue-resolution references found: the latest full wrapper log `test-results/server-unit-tests-2026-04-02T00-41-44-648Z.log` now ends normally with `1593` tests run and `12` failures, while newer targeted logs `test-results/server-unit-tests-2026-04-02T01-06-36-475Z.log` and `test-results/server-unit-tests-2026-04-02T01-06-36-485Z.log` isolate independent checked-in config failures (`Agent config defaults` and `runtimeConfig Context7 overlay`). Repo reads also show the queue-aware `QUEUE_UNAVAILABLE` assertions already exist in the Task 3 proof files, `codex_agents/review_agent/config.toml` still contains the checked-in `web_search = "off"` drift, and timeout-heavy tests such as `server/src/test/unit/ws-server.test.ts` and `server/src/test/unit/ingest-ast-indexing.test.ts` still use local wait loops or fixed sleeps. In practice, that means the concrete issue has changed from “suite will not terminate” to “suite terminates and exposes several independent failing owners,” which engineers resolve by fixing and proving those owners separately, not by continuing open-handle diagnosis on a process that already closes.
-- **BLOCKING ANSWER** Chosen fix: repair the story so the solved wrapper-termination question stays retired and the newly exposed failure classes become explicit owned follow-up work before Story 55 continues. The smallest honest split is to create separate owners for: checked-in runtime-config and fixture drift (`codex_agents/*/config.toml`, `.env.e2e`, `agents-config-defaults`, and `runtimeConfig`), queue-aware ingest or re-embed proof expectations that now fail earlier on `QUEUE_UNAVAILABLE`, and unrelated timeout or lifecycle regressions such as `ws-server.test.ts` and `ingest-ast-indexing.test.ts`. After those explicit owners are complete, the full `npm run test:summary:server:unit` rerun remains the proof gate rather than the thing that still has to reveal what the real work is. This fits the local repo state because the wrapper contract itself is now behaving honestly again, and the remaining failures already map to distinct files and behaviors instead of one shared cleanup seam.
-- **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep retrying Task 4 as one broad “restore baseline” repair, because the current evidence no longer supports one owner. Do not raise the wrapper budget or treat heartbeat progress as success, because the wrapper is already reaching a final verdict and the problem is now ordinary failing tests. Do not add `--test-force-exit`, forced process kills, or more wrapper env special-casing, because those would hide whether later suites still close cleanly without solving the actual failing assertions. Do not patch whichever failing files are convenient without first re-owning them in the plan, because that would leave the story dishonest about what work is actually blocking progress.
+- Inserted during Task 4 plan repair because the restored wrapper baseline proved that checked-in config drift is its own independent failure cluster.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 
 ---
 
-### Task 5. Extend The Shared Repository-List Contract And Ingest UI For Queued Visibility
+### Task 6. Repair Queue-Aware Transport Proof Regressions Exposed By The Restored Wrapper Baseline
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `1, 2, 3, 4`
+- Task Dependencies: `4, 5`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task owns the pre-queue transport proof files that now fail earlier on the queue-aware `QUEUE_UNAVAILABLE` path or other current Story 55 request-contract behavior. It is intentionally narrower than Task 3: Task 3 already delivered the transport implementation, and this task only re-baselines the proof homes that the restored full wrapper now reports as stale.
+
+#### Task Exit Criteria
+
+- The queue-aware transport proof homes exposed by the restored full wrapper are updated so they pass against the current Story 55 `QUEUE_UNAVAILABLE` and queue-request contract.
+- A follow-up full `server:unit` rerun no longer reports the transport-proof failures that were previously surfaced by the restored wrapper baseline.
+
+#### Documentation Locations
+
+- Re-use the Task 3 documentation locations and Story 55 queue-contract decisions for `requestId`, `runId`, and retryable `QUEUE_UNAVAILABLE`.
+
+#### Subtasks
+
+1. [ ] Re-read the current Task 3 exit criteria and inspect the exact failing proof homes named by the current full-wrapper log, starting with `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`. Purpose: confirm whether each failure is a stale proof expectation, missing fixture setup, or a genuine transport regression.
+2. [ ] Update the stale proof harnesses or transport seams only where the current Story 55 queue contract now reaches `QUEUE_UNAVAILABLE` or another queue-aware terminal state earlier than the old assertions expected. Purpose: keep the proof homes aligned with the already implemented queue contract instead of reopening Task 3 broadly.
+3. [ ] Rename or split any stale proof titles that still describe pre-queue single-flight behavior as the expected happy path. Purpose: make the proof text match the queue-aware behavior now under test.
+4. [ ] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
+5. [ ] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+
+#### Testing
+
+1. [ ] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for the exact transport-proof files touched in this task until each one reaches a clean terminal verdict with the current queue-aware contract.
+2. [ ] Re-run full `npm run test:summary:server:unit` and confirm the transport-proof failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this queue-aware proof cluster.
+
+#### Implementation notes
+
+- Starts empty.
+- Inserted during Task 4 plan repair because the restored wrapper baseline proved that several transport proof homes are now a separate stale-proof cluster rather than part of one shared wrapper blocker.
+- Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 7. Repair Remaining Timeout And Lifecycle Regressions Until The Full Server-Unit Wrapper Passes Cleanly
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `4, 5, 6`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task owns the remaining non-config, non-transport failures that the restored full wrapper still reports, including timeout-heavy and lifecycle-sensitive proof homes such as `ws-server.test.ts` and `ingest-ast-indexing.test.ts`. It is the task that truly restores the clean shared `server:unit` baseline after the earlier explicit failure clusters are removed.
+
+#### Task Exit Criteria
+
+- Every remaining failure from the current full-wrapper log is narrowed to a concrete owner file or helper and repaired or honestly re-baselined with existing repo patterns.
+- Full `npm run test:summary:server:unit` passes cleanly without `agent_action: inspect_log` and without relying on force-exit, wrapper budget inflation, or heartbeat-only interpretation.
+
+#### Documentation Locations
+
+- https://nodejs.org/api/test.html . Use this for supported `node:test` lifecycle and extraneous-async boundaries while narrowing timeout or lifecycle regressions.
+- https://nodejs.org/api/timers.html . Use this for timer ownership and `unref()` semantics if any remaining regression is timer-backed.
+
+#### Subtasks
+
+1. [ ] Start from the latest full-wrapper log after Tasks 5 and 6 complete, list every remaining failure name, and inspect the owning files or helpers before editing code. Begin with currently known candidates such as `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, conversation-lock owners, and any AST or websocket helper they share. Purpose: narrow the residual failures to concrete local owners instead of debugging the full suite blindly.
+2. [ ] Repair each narrowed owner using the repo’s existing deterministic cleanup, timing, and lifecycle patterns. Prefer replacing brittle waits or mixed fixture state upstream over adding more downstream sleeps. Purpose: fix the exact timeout or lifecycle seam rather than widening the wrapper contract again.
+3. [ ] Add or update the owning proof text, helper notes, or targeted diagnostics so the repaired timeout or lifecycle seam is explicit and regression-resistant. Purpose: make the restored full-suite baseline understandable to later developers.
+4. [ ] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
+5. [ ] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+
+#### Testing
+
+1. [ ] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for each currently narrowed owner until those files reach clean terminal verdicts without brittle timing or lingering lifecycle noise.
+2. [ ] Re-run full `npm run test:summary:server:unit` and confirm the shared server-unit wrapper passes cleanly. If it still fails, reopen only the newly named remaining owners rather than broadening the task again.
+
+#### Implementation notes
+
+- Starts empty.
+- Inserted during Task 4 plan repair because the restored wrapper baseline proved there are still timeout and lifecycle regressions that are separate from the config and queue-aware proof clusters.
+- Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 8. Extend The Shared Repository-List Contract And Ingest UI For Queued Visibility
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `1, 2, 3, 4, 5, 6, 7`
 - Task Status: `__to_do__`
 - Git Commits:
 
@@ -733,7 +847,7 @@ This task makes queued work visible through the shared repository-list contract 
 6. [ ] Run `npm run test:summary:e2e` and confirm the e2e wrapper passes for queued visibility and queueable submission behavior. If the wrapper reports failures or `agent_action: inspect_log`, open `logs/test-summaries/e2e-tests-latest.log`, fix the exact failing browser proof, and rerun full `npm run test:summary:e2e`.
 7. [ ] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper explicitly requires log inspection.
 8. [ ] Run `npm run compose:up` to prove the normal supported Docker-based system path still starts successfully after the queued-visibility UI changes.
-9. [ ] Run `npm run compose:down` and confirm the normal supported Docker-based system path shuts down cleanly after the Task 5 smoke proof.
+9. [ ] Run `npm run compose:down` and confirm the normal supported Docker-based system path shuts down cleanly after the Task 8 smoke proof.
 
 #### Implementation notes
 
@@ -743,10 +857,10 @@ This task makes queued work visible through the shared repository-list contract 
 
 ---
 
-### Task 6. Perform Story 55 Final Validation And Close-Out
+### Task 9. Perform Story 55 Final Validation And Close-Out
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `1, 2, 3, 4, 5`
+- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8`
 - Task Status: `__to_do__`
 - Git Commits:
 - Notes: This final validation task depends on all earlier Story 55 implementation tasks.

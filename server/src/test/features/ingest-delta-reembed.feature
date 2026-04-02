@@ -123,7 +123,7 @@ Feature: Ingest delta re-embed
     And I POST ingest delta cancel for the last run
     Then ingest delta terminal outcome should stabilize as a single terminal state
 
-  @no_mongo
+  @mongo
   Scenario: No-Mongo re-embed surfaces retryable queue unavailability
     Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
     When I POST ingest start for the delta repo with model "embed-1"

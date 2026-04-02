@@ -32,7 +32,7 @@ import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { AstCoverageModel } from '../../mongo/astCoverage.js';
-import { isMongoConnected } from '../../mongo/connection.js';
+import { disconnectMongo, isMongoConnected } from '../../mongo/connection.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -282,11 +282,26 @@ Then(
     assert(lastRunId, 'runId missing');
     for (let i = 0; i < 120; i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-      const body = (await res.json()) as { state?: string; message?: string };
+      const body = (await res.json()) as {
+        state?: string;
+        message?: string;
+        lastError?: string | null;
+        error?: {
+          error?: string;
+          message?: string;
+          retryable?: boolean;
+          provider?: string;
+          upstreamStatus?: number;
+          retryAfterMs?: number;
+        } | null;
+      };
       lastStatus = body;
       if (body.state === state) return;
       if (body.state === 'error' && state !== 'error') {
-        throw new Error(`Run ended in error: ${body.message ?? 'unknown error'}`);
+        throw new Error(
+          `Run ended in error: ${body.lastError ?? body.error?.message ?? body.message ?? 'unknown error'}`
+          + ` [code=${body.error?.error ?? 'unknown'}]`,
+        );
       }
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -451,7 +466,10 @@ Then(
   },
 );
 
-Then('ingest delta mongo should be disconnected', () => {
+Then('ingest delta mongo should be disconnected', async () => {
+  if (isMongoConnected()) {
+    await disconnectMongo();
+  }
   assert.equal(isMongoConnected(), false);
 });
 

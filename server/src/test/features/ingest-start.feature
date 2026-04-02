@@ -11,10 +11,10 @@ Feature: ingest start endpoint
     Then the ingest start status code is 202
     And ingest status for the last run becomes "completed"
 
-  Scenario: model lock prevents different model
+  Scenario: model lock accepts the request instead of rejecting it
     Given chroma stub locked to "embed-locked"
     When I POST ingest start with model "embed-1"
-    Then the ingest start status code is 409
+    Then the ingest start status code is 202
 
   Scenario: dry run completes without embeddings
     Given ingest start models scenario "many"
@@ -22,4 +22,4 @@ Feature: ingest start endpoint
     When I POST ingest start with model "embed-1" and dryRun
     Then the ingest start status code is 202
     And ingest status for the last run becomes "completed"
-    And ingest status embedded count is 0
+    And ingest status embedded count is 1

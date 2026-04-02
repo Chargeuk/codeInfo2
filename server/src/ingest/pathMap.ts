@@ -17,6 +17,10 @@ export function mapIngestPath(
     DEFAULT_CONTAINER_ROOT,
 ): MappedPath {
   const normalizedContainer = normalizeCanonicalQueueTargetPath(containerPath);
+  const isAbsoluteHostStylePath =
+    path.posix.isAbsolute(normalizedContainer) &&
+    !normalizedContainer.startsWith(`${DEFAULT_CONTAINER_ROOT}/`) &&
+    normalizedContainer !== DEFAULT_CONTAINER_ROOT;
 
   let repo = '';
   let relPath = '';
@@ -36,11 +40,15 @@ export function mapIngestPath(
   const normalizedHostRoot = path.posix.normalize(
     hostIngestDir.replace(/\\/g, '/'),
   );
-  const hostPath = repo
-    ? path.posix.join(normalizedHostRoot, repo, relPath)
-    : path.posix.join(normalizedHostRoot, relPath);
+  const hostPath = isAbsoluteHostStylePath
+    ? normalizedContainer
+    : repo
+      ? path.posix.join(normalizedHostRoot, repo, relPath)
+      : path.posix.join(normalizedHostRoot, relPath);
 
-  const hostPathWarning = process.env.CODEINFO_HOST_INGEST_DIR
+  const hostPathWarning = isAbsoluteHostStylePath
+    ? undefined
+    : process.env.CODEINFO_HOST_INGEST_DIR
     ? undefined
     : 'CODEINFO_HOST_INGEST_DIR not set; using container path base';
 

@@ -137,6 +137,20 @@ describe('resolveMountedIngestPath', () => {
 
     assert.equal(result, '/data/codeInfo2/codeInfo2');
   });
+
+  test('preserves absolute host-style roots outside the ingest mount instead of fabricating a remapped host path', () => {
+    const mapped = mapIngestPath('/home/d_a_s/tmp/example-repo');
+    assert.equal(mapped.hostPath, '/home/d_a_s/tmp/example-repo');
+
+    const result = resolveMountedIngestPath({
+      containerPath: '/home/d_a_s/tmp/example-repo',
+      hostPath: mapped.hostPath,
+      hostIngestDir: '/home/d_a_s/code',
+      codexWorkdir: '/home/d_a_s/code',
+    });
+
+    assert.equal(result, '/home/d_a_s/tmp/example-repo');
+  });
 });
 
 describe('describeMountedWorkingFolder', () => {

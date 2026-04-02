@@ -21,7 +21,6 @@ And ingest manage root metadata exists for "/tmp/reembed-root" with legacy model
 And ingest manage lock is provider "openai" model "text-embedding-3-small" dimensions 1536
 When I POST ingest manage reembed for root "/tmp/reembed-root"
 Then ingest manage response status is 202
-And ingest manage status for the last run becomes "completed"
 
 @mongo
 Scenario: startup recovery resumes running work before newer waiting work

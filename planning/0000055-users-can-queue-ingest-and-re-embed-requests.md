@@ -832,6 +832,9 @@ This task owns the remaining non-config, non-transport failures that the restore
   - `acd684d0` - `DEV-[55] - Repair task 8 cucumber plan boundary`
   - `d8452d1b` - `DEV-[55] - Record task 8 post-repair audit`
   - `a3db59af` - `DEV-[55] - record task 8 e2e blocker`
+  - `b8029d0c` - `DEV-[55] - Record task 8 narrowed proof audit`
+  - `fb1c0cec` - `DEV-[55] - Prove task 8 e2e blocker answer`
+  - `065a18f8` - `DEV-[55] - Repair task 8 e2e plan boundary`
 
 #### Overview
 
@@ -932,6 +935,7 @@ This task makes queued work visible through the shared repository-list contract 
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep polling or sleeping longer inside `ensureCleanRoots()`, because the waiting queue item has no supported product cleanup path today. Do not force the queued item to start just so it can be cancelled or removed later, because that changes the scenario under test and adds timing flake. Do not permanently run only the isolated queued-refresh scenario or mark Task 8 done from partial e2e proof. Do not add a user-facing queued-remove feature here, because Story 55 explicitly leaves that out of scope; the correct fix is a test-only cleanup seam used by deterministic teardown.
 - Implementation-plus-automated-proof audit on 2026-04-02 after the narrowed Task 8 reruns: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 8 plan section from disk, rechecked the current branch `HEAD`, and verified the newer Task 8 proof artifacts from the narrowed cucumber run, the full client wrapper rerun, and `logs/test-summaries/e2e-tests-latest.log`. No additional subtasks or testing steps needed to be newly marked complete in this audit because the plan already honestly shows Testing steps 4 and 5 checked with matching wrapper evidence. After the 2026-04-02 plan repair, the old full-e2e blocker is retired to `**RESOLVED ISSUE**`, and Task 8 remains `__in_progress__` because its narrowed Task 8-owned e2e proof plus the still-pending compose proof steps are not yet complete.
 - Plan repair on 2026-04-02: narrowed Task 8's e2e testing gate to the two Task 8-owned Playwright scenarios in `e2e/ingest.spec.ts` and moved the missing waiting-queue cleanup seam plus the restored full `npm run test:summary:e2e` baseline into a dedicated follow-up task before final validation. This keeps Task 8 aligned to queued repo-list/UI ownership and leaves the broader e2e cleanup-harness work explicitly owned instead of hidden behind this task.
+- Implementation-only audit on 2026-04-02 after the e2e plan repair: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 8 plan section from disk, rechecked the current branch `HEAD`, and reviewed the latest Task 8 plan-state commits `b8029d0c`, `fb1c0cec`, and `065a18f8` against the current repo evidence. No additional subtasks needed to be newly marked complete, no Task 8 `Testing` items were newly checked in this audit, and there is no live `**BLOCKER**` note on Task 8 because the old full-cucumber and full-e2e blockers are now retired to `**RESOLVED ISSUE**` with follow-up ownership moved into Tasks 9 and 10. Task 8 remains `__in_progress__` because its narrowed Task 8-owned e2e proof plus the still-pending compose proof steps are not yet complete.
 
 ---
 

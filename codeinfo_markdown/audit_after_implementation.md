@@ -29,6 +29,9 @@ Do not treat this step as automated-proof completion.
 - Do not mark any `Testing` section items complete in this audit unless the plan already honestly shows they were completed earlier.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
+- Before appending an audit note, re-read the latest existing audit or implementation note for this task.
+- If the latest audit outcome is materially unchanged, do not append another audit note just to restate the same state.
+- Treat the outcome as materially unchanged when no subtask status changed, no testing status changed, no blocker state changed, no task status changed, and no new owner or boundary conclusion was reached.
 - Do not research or repair the blocker in this step.
 
 </audit_rules>
@@ -83,6 +86,7 @@ Before finishing:
 - confirm no `Testing` section items were newly marked complete unless they were already honestly complete;
 - confirm the just-worked task was left `__in_progress__`;
 - confirm you did not leave a stalled task with open subtasks and no live `**BLOCKER**`;
+- confirm you did not append a duplicate audit note when the task state was materially unchanged;
 - confirm any blocker was preserved and made visible in the plan;
 - confirm tracked changes were committed if any were made.
 

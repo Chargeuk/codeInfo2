@@ -34,6 +34,18 @@ If there is or was a blocker, decide whether it reveals any of the following:
 
 </decision_rules>
 
+<blocker_history_rules>
+
+- When repairing the same task again, do not keep appending full-length blocker essays indefinitely.
+- Keep the current live blocker or current `**BLOCKING ANSWER**` in full, but compress older same-class blocker history into one concise historical summary note.
+- If multiple earlier blocker notes on the same task all describe exhausted attempts of the same diagnostic class, replace them with one short historical note that states:
+  - what class of approach was attempted;
+  - that it exhausted cleanly or was superseded;
+  - why the current blocker or answer is different.
+- Preserve exact raw commands, log paths, and external references only for the current blocker state, not in repeated full inline notes for the same task.
+
+</blocker_history_rules>
+
 <repair_rules>
 
 If any of those are true, you MUST repair the story before continuing:
@@ -48,6 +60,8 @@ If any of those are true, you MUST repair the story before continuing:
 - If the blocker exists because repeated implementation passes did not close the remaining subtasks, you MUST repair the task shape before work continues.
 - Rewrite, split, or re-own the task so the next implementation pass has a concrete stopping point and does not depend on indefinite narrowing.
 - Replace open-ended `keep narrowing until you find the owner` style subtasks with bounded subtasks that have a clear success or blocker threshold.
+- If the same task has already been blocker-repaired once and the next bounded strategy also exhausts cleanly, prefer closing that task on its exhausted branch and creating a fresh successor task rather than narrowing the same task in place again.
+- Use in-place repair only when the task still has the same concrete owner and the rewrite is minor.
 
 If the blocker exists because the current task assumes a missing runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract, prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task.
 
@@ -66,6 +80,8 @@ If this step rewrites, narrows, or re-owns a task in a way that makes all of tha
 - Do not leave a known plan defect in place once the blocker has proved it.
 - Do not leave an old active blocker marker in place when the task is no longer actively blocked after this step.
 - Do not return a repeatedly stalled task to the implementation loop unchanged when the blocker evidence shows the task shape itself is the problem.
+- Do not let one task accumulate multiple generations of long blocker prose when a fresh successor task would give a cleaner handoff.
+- Prefer one concise historical summary plus one current blocker state over repeated full blocker narratives in the same task.
 - Do not invent unnecessary extra work; keep repairs aligned to the KISS principle and only add what is required to unblock honest execution.
 
 </behavior_rules>

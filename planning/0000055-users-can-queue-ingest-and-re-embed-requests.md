@@ -607,7 +607,7 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `3`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -628,7 +628,7 @@ This task owns the remaining full `npm run test:summary:server:unit` overrun onc
 
 #### Subtasks
 
-1. [ ] Read the current Task 3 `**BLOCKING ANSWER**` and `**RESOLVED ISSUE**` notes plus the Story 52 blocker answer before changing code. Then inspect `scripts/test-summary-server-unit.mjs`, `scripts/summary-wrapper-protocol.mjs`, `server/src/test/support/wsClient.ts`, `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/integration/agents-run-ws-cancel.test.ts`, and `server/src/ingest/ingestJob.ts`. Purpose: keep the diagnosis scoped to child-process cleanup and existing teardown ownership instead of reopening the wrapper or the Task 3 transport code blindly.
+1. [x] Read the current Task 3 `**BLOCKING ANSWER**` and `**RESOLVED ISSUE**` notes plus the Story 52 blocker answer before changing code. Then inspect `scripts/test-summary-server-unit.mjs`, `scripts/summary-wrapper-protocol.mjs`, `server/src/test/support/wsClient.ts`, `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/integration/agents-run-ws-cancel.test.ts`, and `server/src/ingest/ingestJob.ts`. Purpose: keep the diagnosis scoped to child-process cleanup and existing teardown ownership instead of reopening the wrapper or the Task 3 transport code blindly.
 2. [ ] Starting from `npm run test:summary:server:unit`, narrow the next non-Task-3 file or helper that still keeps the child process alive. Use wrapper `--file` reruns against the cleanup-heavy candidates already named in Subtask 1 first, and use the now-clean Task 3 proof homes only as a control that should already exit cleanly. Purpose: turn the remaining suite-wide overrun into one concrete non-Task-3 reproduction boundary.
 3. [ ] If file-level narrowing still leaves the owner ambiguous, add temporary local diagnostics such as `process.getActiveResourcesInfo()` or equivalent targeted resource logging inside the narrowed non-Task-3 file or helper, then remove or narrow that instrumentation once the leak owner is confirmed. Purpose: identify the real still-open resource without leaving permanent noisy diagnostics behind.
 4. [ ] Repair the identified non-Task-3 leak in the owning file or helper using the repo's existing deterministic cleanup patterns. Use the exact ownership boundary that fits the narrowed reproduction: wait for runtime ownership to drain before deleting state, close or terminate WebSocket and HTTP handles in `finally`, and clear or `unref()` background timers only when they are not supposed to keep the process alive. Purpose: restore the full wrapper baseline without reopening unrelated Task 3 transport logic.
@@ -645,6 +645,9 @@ This task owns the remaining full `npm run test:summary:server:unit` overrun onc
 
 - Starts empty.
 - Inserted during plan repair because the Task 3 blocker proved the story was missing a separate owner for the broader full `server:unit` baseline once the Task 3-local proof homes stopped reproducing the hang.
+- Subtask 1: Re-read the Task 3 blocker history, the Story 52 blocker answer, and the named wrapper/runtime cleanup seams. The current evidence still points at a non-Task-3 child-process cleanup owner rather than at the summary wrapper protocol or the Task 3 transport contract.
+- Subtask 2: Ran `npm run test:summary:server:unit` plus the cleanup-heavy single-file wrappers for `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, and `server/src/test/integration/agents-run-ws-cancel.test.ts`. All three targeted wrappers reached clean terminal verdicts, while the full wrapper stayed in `agent_action: wait` past the documented budget.
+- **BLOCKER** Subtask 2 is blocked by a task-plan contradiction, not by a reproduced non-Task-3 leak owner. I tried the full `npm run test:summary:server:unit` wrapper first, then narrowed with the three cleanup-heavy candidate files named by the task, and finally inspected the live child process with `ps -ef`. The targeted candidates all passed cleanly, and the full wrapper was still making forward progress through different unit files (`chat-factory.test.ts`, then `chatProviders.test.ts`) rather than hanging on one file or one idle event-loop owner. The missing capability is a current task definition that matches the live failure mode: Task 4 assumes there is still one concrete non-Task-3 child-process leak to repair, but the current repo evidence instead shows a suite-duration overrun with ongoing progress and no narrowed cleanup owner yet. Task 4 should be rewritten or split before work continues so the next step diagnoses runtime budget/throughput versus true leaked-handle stalls instead of forcing a bogus “repair” against the wrong seam.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

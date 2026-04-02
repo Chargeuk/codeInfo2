@@ -822,7 +822,7 @@ This task owns the remaining non-config, non-transport failures that the restore
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `30931b75` - `DEV-[55] - extend queued repo list visibility`
   - `7e3b8187` - `DEV-[55] - Record task 8 implementation audit`
@@ -835,6 +835,8 @@ This task owns the remaining non-config, non-transport failures that the restore
   - `b8029d0c` - `DEV-[55] - Record task 8 narrowed proof audit`
   - `fb1c0cec` - `DEV-[55] - Prove task 8 e2e blocker answer`
   - `065a18f8` - `DEV-[55] - Repair task 8 e2e plan boundary`
+  - `5fdf582d` - `DEV-[55] - Record task 8 post-e2e-repair audit`
+  - `596ccb66` - `DEV-[55] - record task 8 compose proof`
 
 #### Overview
 
@@ -940,6 +942,7 @@ This task makes queued work visible through the shared repository-list contract 
 - Testing step 7 passed cleanly: `npm run compose:build:summary` finished with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the supported Docker image build path still accepts the queued-visibility contract and UI changes.
 - Testing step 8 passed cleanly: `npm run compose:up` reached a healthy terminal state with the full supported stack started (`mongo_db_CodeInfo` healthy, `codeinfo2-server-1` healthy, and `codeinfo2-client-1` started), so the queued-visibility contract and UI changes still boot successfully through the normal Docker-based runtime path.
 - Testing step 9 passed cleanly: `npm run compose:down` exited with code `0` after removing the client, server, Mongo, Chroma, Zipkin, and OTEL containers plus the `codeinfo2_internal` network, so the supported Docker-based runtime path also shuts down cleanly after the Task 8 smoke proof.
+- Implementation-plus-automated-proof audit on 2026-04-02 after the narrowed Task 8 e2e and compose proof: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 8 plan section from disk, rechecked the current branch `HEAD`, and verified the latest proof-state commit `596ccb66` plus the recorded wrapper evidence for the narrowed Playwright scenarios and the compose build, up, and down wrappers. Testing steps 6 through 9 are now honestly complete, there is no live `**BLOCKER**` note on Task 8, and the task is now `__done__` because every Task 8 subtask and testing step has direct current repo evidence while the broader reopened baseline work remains explicitly owned by Tasks 9 and 10 rather than by this task.
 
 ---
 

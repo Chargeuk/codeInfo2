@@ -1606,7 +1606,7 @@ This task still does not attempt repair. It starts from the exhausted runtime/re
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `18`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: None yet.
 - Notes: Renumbered from the old Task 18 after the 2026-04-02 plan repair inserted new Task 18 for one third materially different owner-derivation strategy. This task starts only if Task 18 hands off one exact present-tense owner inside the still-running test child.
 
@@ -1643,6 +1643,8 @@ This task starts only from the bounded child-side owner that Task 18 proves from
 - Record the exact owner handed off from Task 18, the repair made, and the proof artifacts from both the bounded owner-level rerun and the full wrapper rerun.
 - Renumbered on 2026-04-02 because later repair work must now start from a named child-side owner proven by the new Task 18 rather than from Task 17's exhausted owner class.
 - Planner handoff on 2026-04-02 after Task 18's bounded `ingest-reembed` teardown derivation exhausted cleanly. `test-results/task18/task18-ingest-reembed-teardown.log`, `test-results/task18/task18-ingest-e2e-cleanup-control.log`, and `test-results/task18/task18-ingest-lock-lifecycle-helper.log` all reached terminal TAP verdicts, so Task 18 still did not hand off a truthful present-tense owner inside the `__resetIngestJobsForTest()` / `release()` teardown seam. Task 19 must stay blocked until a later planner repair names a new bounded owner derivation path from current repo state instead of guessing a repair target from this exhausted seam.
+- **BLOCKER** Remaining subtasks: Subtasks 1 through 5 plus Testing steps 1 and 2. The latest implementation pass made no subtask-closing progress on Task 19 because the latest repo work still stopped at Task 18's exhausted teardown-owner derivation, its proof reruns, and the later manual-assessment normalization rather than beginning any Task 19 repair work. What was attempted was to finish Task 18 honestly and confirm that its bounded `ingest-reembed` teardown seam still did not hand off a truthful present-tense owner, which means Task 19 still lacks the prerequisite owner boundary its own subtasks assume. Planner intervention is now required to split, narrow, or re-own the story before implementation can continue honestly instead of guessing a repair target from the exhausted Task 18 seam.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 19 section, and the latest current-repo commits through `78aafbf3`. No subtasks were newly marked complete in this audit, no `Testing` items were newly checked, and Task 19 now correctly appears as `__in_progress__` rather than hidden as `__to_do__`. The live `**BLOCKER**` remains visible because the latest repo evidence still stops before any Task 19-specific repair work and the task still depends on a missing bounded owner handoff from upstream planning.
 
 ---
 

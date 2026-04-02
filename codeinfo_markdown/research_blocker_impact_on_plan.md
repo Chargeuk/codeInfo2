@@ -53,6 +53,8 @@ If the blocker exists because the current task assumes a missing runtime seam, d
 
 If this step turns the blocker into actionable next work for the current task, you MUST convert the old active blocker note titled exactly `**BLOCKER**` into a historical non-blocking note titled exactly `**RESOLVED ISSUE**` and preserve its details, even when no broader task split or story repair is required. Keep the `**BLOCKING ANSWER**` note as the proof of how the blocker was resolved. Only leave a note titled exactly `**BLOCKER**` in place when the task is still actively blocked after this step.
 
+If this step rewrites, narrows, or re-owns a task in a way that makes all of that task's subtasks and testing steps honestly complete, do not set that task's `Task Status` directly to `__done__`. Leave it as `__in_progress__` so the normal automated-proof audit and manual-testing path can finalize it honestly in the implementation loop, and add an implementation note explaining that planner repair made the task ready for that final completion path.
+
 </repair_rules>
 
 <behavior_rules>
@@ -60,6 +62,7 @@ If this step turns the blocker into actionable next work for the current task, y
 - This step decides plan impact; it does not re-prove the blocker solution from scratch.
 - If no story repair is needed, state explicitly why not.
 - If the blocker is now answered well enough that coding, automated proof, or manual testing can continue, retire the live `**BLOCKER**` note in this step before the flow returns to the current-task rework loop.
+- Do not bypass the normal audit and manual-testing completion path by setting a planner-repaired task directly to `__done__`.
 - Do not leave a known plan defect in place once the blocker has proved it.
 - Do not leave an old active blocker marker in place when the task is no longer actively blocked after this step.
 - Do not return a repeatedly stalled task to the implementation loop unchanged when the blocker evidence shows the task shape itself is the problem.

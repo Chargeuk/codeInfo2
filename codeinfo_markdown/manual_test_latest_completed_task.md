@@ -107,4 +107,6 @@ If you cannot honestly complete the relevant manual proof because startup, shutd
 - set that candidate task's `Task Status` to `__in_progress__`;
 - if you make tracked changes, you MUST commit them, but do not push.
 
+If manual testing does not run for any reason, you must add one concise implementation note stating that manual testing was skipped or assessed as not applicable, and why, unless that exact latest-loop outcome is already recorded and would be duplicated.
+
 Keep the implementation notes concise. At the end, report which candidate task you evaluated, whether manual testing was skipped or run, and whether new subtasks or testing steps were added.

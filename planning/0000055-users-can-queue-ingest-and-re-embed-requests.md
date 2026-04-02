@@ -1353,7 +1353,7 @@ This task does not assume Task 13 handed off a bounded raw reproducer. It starts
 - Repository Name: `Current Repository`
 - Task Dependencies: `14`
 - Task Status: `__in_progress__`
-- Git Commits: None yet.
+- Git Commits: `68a6f08e`
 - Notes: Rewritten on 2026-04-02 after Task 14 proved that current evidence still exposes only a wrapper-local seam and no fresh raw reproducer. This task starts from the fresh full-wrapper log at `ok 561`, the wrapper sources, and the clean raw candidate logs that now rule out the nearby raw path.
 
 #### Overview
@@ -1395,6 +1395,7 @@ This task does not assume any raw reproducer still exists. It starts from the re
 - Subtask 3: reran full `CODEINFO_DEBUG_WRAPPER_LIFECYCLE=1 npm run test:summary:server:unit` from current `HEAD` and inspected the fresh saved log `test-results/server-unit-tests-2026-04-02T15-18-08-777Z.log` after interrupting another over-budget `agent_action: wait` run. The build child reached wrapper-debug `exit`, `close`, and `resolve` immediately, and the test child logged a wrapper-debug `spawn` event, but there were no wrapper-debug `exit`, `close`, or stdio completion events for that `node` child before interruption. The freshest visible child progress in that log advanced through `ok 303 - POST /ingest/e2e/cleanup falls back to the normal root removal path once the queue is idle`, so the current honest outcome is "the child never exits" rather than "child exits but wrapper stays stuck after close."
 
 **BLOCKER** Subtasks 4-5: I completed the wrapper-local instrumentation and one full instrumented rerun, but the result did not isolate a wrapper-local repair or a newly proven smaller current seam. What I tried was env-gated lifecycle instrumentation around wrapper child spawn, stdio end/close, child `exit`, child `close`, and wrapper resolution, followed by a full `CODEINFO_DEBUG_WRAPPER_LIFECYCLE=1 npm run test:summary:server:unit` rerun from current `HEAD`. The exact missing capability is that the instrumented run still only proves the test child never exits before interruption; it does not yet identify an owner inside the child process or provide a smaller seam that later work can own honestly, so Task 15's current shape is still too broad for a repair step. The task should be split, reordered, or rewritten before work continues so one next task derives or assigns ownership for the still-running child-side region beyond the latest visible `ok 303` frontier instead of pretending a wrapper-local repair is already available.
+- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 15 section, and the latest task-state commit `68a6f08e`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly recorded Subtasks 1 through 3 complete and had already preserved the live `**BLOCKER**` for Subtasks 4 through 5. No `Testing` items were newly checked here, and Task 15 correctly remains `__in_progress__` because automated proof has not happened in this loop and the task is still visibly blocked on the missing child-side owner beyond the current `ok 303` frontier.
 
 ---
 

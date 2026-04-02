@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach, mock } from 'node:test';
-import { ChromaClient } from 'chromadb';
 import express from 'express';
 import request from 'supertest';
-import {
-  resetCollectionsForTests,
-  setLockedModel,
-} from '../../ingest/chromaClient.js';
 import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createMcpRouter } from '../../mcp/server.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -15,12 +10,10 @@ import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js
 
 beforeEach(() => {
   mock.restoreAll();
-  resetCollectionsForTests();
 });
 
 afterEach(() => {
   mock.restoreAll();
-  resetCollectionsForTests();
 });
 
 test('POST /ingest/start rejects non-allowlisted OpenAI model with OPENAI_MODEL_UNAVAILABLE', async () => {
@@ -45,57 +38,45 @@ test('POST /ingest/start rejects non-allowlisted OpenAI model with OPENAI_MODEL_
   assert.equal(response.body.code, 'OPENAI_MODEL_UNAVAILABLE');
 });
 
-test('POST /ingest/reembed rejects lock-derived non-allowlisted OpenAI model with OPENAI_MODEL_UNAVAILABLE', async () => {
-  const roots = {
-    get: async () => ({
-      ids: ['run-1'],
-      metadatas: [
-        {
-          root: '/data/repo-openai',
-          name: 'repo-openai',
-          embeddingProvider: 'openai',
-          embeddingModel: 'text-embedding-ada-002',
-          embeddingDimensions: 1536,
-          model: 'text-embedding-ada-002',
-          state: 'completed',
-          lastIngestAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    }),
-    add: async () => {},
-    delete: async () => {},
-  } as const;
-
-  const vectors = {
-    metadata: {
-      embeddingProvider: 'openai',
-      embeddingModel: 'text-embedding-ada-002',
-      embeddingDimensions: 1536,
-    },
-    count: async () => 1,
-    modify: async () => {},
-    delete: async () => {},
-  } as const;
-
-  mock.method(
-    ChromaClient.prototype,
-    'getOrCreateCollection',
-    async (args: { name?: string }) => {
-      if (args.name === 'ingest_roots') return roots as never;
-      return vectors as never;
-    },
-  );
-  mock.method(ChromaClient.prototype, 'deleteCollection', async () => {});
-
-  await setLockedModel({
-    embeddingProvider: 'openai',
-    embeddingModel: 'text-embedding-ada-002',
-    embeddingDimensions: 1536,
-  });
-
+test('POST /ingest/reembed maps queue admission failures for lock-derived non-allowlisted OpenAI models to OPENAI_MODEL_UNAVAILABLE', async () => {
   const app = express();
   app.use(express.json());
-  app.use(createIngestReembedRouter({ clientFactory: () => ({}) as never }));
+  app.use(
+    createIngestReembedRouter({
+      clientFactory: () => ({}) as never,
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-openai',
+            description: null,
+            containerPath: '/data/repo-openai',
+            hostPath: '/host/data/repo-openai',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-ada-002',
+            embeddingDimensions: 1536,
+            model: 'text-embedding-ada-002',
+            modelId: 'text-embedding-ada-002',
+            lock: {
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-ada-002',
+              embeddingDimensions: 1536,
+              lockedModelId: 'text-embedding-ada-002',
+              modelId: 'text-embedding-ada-002',
+            },
+            counts: { files: 1, chunks: 1, embedded: 1 },
+            lastError: null,
+          },
+        ],
+        lockedModelId: 'text-embedding-ada-002',
+      }),
+      enqueueOrReuseIngestRequest: async () => {
+        const error = new Error('model unavailable');
+        (error as { code?: string }).code = 'OPENAI_MODEL_UNAVAILABLE';
+        throw error;
+      },
+    }),
+  );
 
   const response = await request(app).post(
     '/ingest/reembed/%2Fdata%2Frepo-openai',

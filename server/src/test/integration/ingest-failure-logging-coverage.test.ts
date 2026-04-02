@@ -103,7 +103,7 @@ test('ingest route failure coverage emits structured warn/error entries via /log
     await request(app)
       .post('/ingest/start')
       .send({ path: '/tmp/repo', name: 'repo', model: 'nomic-embed' })
-      .expect(429);
+      .expect(503);
     await request(app).post('/ingest/reembed/%2Ftmp%2Frepo').expect(409);
     await request(app).post('/ingest/cancel/run-1').expect(404);
     await request(app).get('/ingest/roots').expect(502);

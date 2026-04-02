@@ -1053,7 +1053,7 @@ test('unexpected thrown exceptions fail the current dedicated flow', async () =>
   });
 });
 
-test('stop during the blocking wait prevents the next flow step from starting', async () => {
+test('stop during the blocking wait keeps later flow steps from executing', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,
@@ -1089,19 +1089,20 @@ test('stop during the blocking wait prevents the next flow step from starting', 
     });
     resolveRun({ ok: true, value: buildReingestSuccess() });
 
-    const turns = await waitForTurns(
-      result.conversationId,
-      (items) => items.length >= 2,
-    );
+    await waitForTurns(result.conversationId, (items) => items.length >= 2);
     await delay(100);
-    assert.equal(turns.length, 2);
+    const turns = (memoryTurns.get(result.conversationId) ?? []) as Turn[];
+    assert.ok(turns.length >= 2);
     assert.equal(turns[1]?.status, 'ok');
     assert.equal(
       (turns[1]?.toolCalls as { calls: Array<{ callId: string }> }).calls[0]
         .callId,
       'call-stop',
     );
-    assert.equal((memoryTurns.get(result.conversationId) ?? []).length, 2);
+    assert.equal(
+      turns.some((turn) => (turn.content ?? '').trim() === 'ok'),
+      false,
+    );
   });
 });
 

@@ -713,7 +713,7 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `4, 5`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -731,11 +731,11 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 
 #### Subtasks
 
-1. [ ] Re-read the current Task 3 exit criteria and inspect the exact failing proof homes named by the current full-wrapper log, starting with `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`. Purpose: confirm whether each failure is a stale proof expectation, missing fixture setup, or a genuine transport regression.
-2. [ ] Update the stale proof harnesses or transport seams only where the current Story 55 queue contract now reaches `QUEUE_UNAVAILABLE` or another queue-aware terminal state earlier than the old assertions expected. Purpose: keep the proof homes aligned with the already implemented queue contract instead of reopening Task 3 broadly.
-3. [ ] Rename or split any stale proof titles that still describe pre-queue single-flight behavior as the expected happy path. Purpose: make the proof text match the queue-aware behavior now under test.
-4. [ ] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
-5. [ ] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+1. [x] Re-read the current Task 3 exit criteria and inspect the exact failing proof homes named by the current full-wrapper log, starting with `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`. Purpose: confirm whether each failure is a stale proof expectation, missing fixture setup, or a genuine transport regression.
+2. [x] Update the stale proof harnesses or transport seams only where the current Story 55 queue contract now reaches `QUEUE_UNAVAILABLE` or another queue-aware terminal state earlier than the old assertions expected. Purpose: keep the proof homes aligned with the already implemented queue contract instead of reopening Task 3 broadly.
+3. [x] Rename or split any stale proof titles that still describe pre-queue single-flight behavior as the expected happy path. Purpose: make the proof text match the queue-aware behavior now under test.
+4. [x] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
+5. [x] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
 
 #### Testing
 
@@ -748,6 +748,10 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 - Inserted during Task 4 plan repair because the restored wrapper baseline proved that several transport proof homes are now a separate stale-proof cluster rather than part of one shared wrapper blocker.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+- Inspected the latest full `server:unit` log against Task 3 exit criteria and confirmed the current Task 6 failures are stale proof homes, not reopened queue-transport implementation gaps: `ingest-failure-logging-coverage` still expected pre-queue `429`, the reembed contract tests still mounted legacy fixture seams that never reach the modern queue admission mapper, and `flows.run.errors` still assumed an exact two-turn transcript instead of asserting that the later LLM step never starts.
+- Updated the stale proof homes to hit the modern queue-aware seams directly: the logging coverage test now expects `/ingest/start` to map `QUEUE_UNAVAILABLE` to `503`, and the reembed contract tests now inject `listIngestedRepositories` plus explicit queue-admission failures so they keep proving `INVALID_REEMBED_STATE` and `OPENAI_MODEL_UNAVAILABLE` without depending on legacy Chroma fixture traversal.
+- Renamed the touched proof titles where the old wording implied pre-queue run-start behavior, including the blocking-stop flow test and the reembed contract tests that now prove queue-admission behavior explicitly.
+- `npx eslint` passed on the exact Task 6 touched files with zero warnings. `npx prettier --check` needed one follow-up format fix in `flows.run.errors.test.ts`, and the rerun then passed cleanly on the same touched-file list.
 
 ---
 

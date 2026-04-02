@@ -1168,7 +1168,7 @@ This task no longer tries to both discover and fix the final `server:unit` overr
 - **BLOCKING ANSWER** Why this fits the current local repo state: every bounded raw one-process slice from Task 11 now reaches a real terminal TAP summary, so there is no current raw reproducer to instrument. The original saved wrapper overrun log is still useful historical context, but it is not sufficient proof for present-tense resource diagnostics because those APIs only tell the truth about the currently running process that is still alive. Rewriting the downstream task around a fresh full-wrapper gate matches both the repo's plan-repair precedent and Node's supported diagnostics model.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep Task 12 unchanged and instrument clean raw runs, do not widen timeouts or force-close processes to make the old handoff appear valid, and do not continue ad hoc narrowing past the bounded Task 11 plan that already exhausted cleanly. Those paths would either invent a runtime seam the repo no longer has or hide the real current boundary instead of proving it.
 - Implementation-plus-automated-proof audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 11 section, and the latest task-state commits through `cd89be8d`. No testing steps were newly marked complete in this audit because the latest automated-proof pass had already honestly checked Testing step 2 on the finite-plan-exhausted branch and recorded the resulting live `**BLOCKER**`. Task 11 remains `__in_progress__`, not `__done__`, because the blocker is still active: every bounded slice now exits cleanly, so the task can no longer hand a valid reproducing boundary to Task 12 without planner repair.
-- Plan repair on 2026-04-02 after blocker proof: Task 11 is complete on the finite-plan-exhausted branch, the old live blocker is now historical `**RESOLVED ISSUE**` status, new Task 12 owns re-establishing the current full-wrapper truth from fresh repo state, new Task 13 owns the first bounded raw derivation plan if Task 12 still proves a current wrapper-local seam exists, new Task 14 owns the next present-tense seam revalidation after that first bounded plan exhausts, later repairs rewrite Task 15 into the current wrapper-local diagnosis owner, and final close-out moved to Task 16.
+- Plan repair on 2026-04-02 after blocker proof: Task 11 is complete on the finite-plan-exhausted branch, the old live blocker is now historical `**RESOLVED ISSUE**` status, new Task 12 owns re-establishing the current full-wrapper truth from fresh repo state, new Task 13 owns the first bounded raw derivation plan if Task 12 still proves a current wrapper-local seam exists, new Task 14 owns the next present-tense seam revalidation after that first bounded plan exhausts, and later repairs split the downstream work into Task 15 wrapper instrumentation, Task 16 child-side owner derivation, Task 17 owner repair, and Task 18 final close-out.
 
 ---
 
@@ -1275,7 +1275,7 @@ This task starts only from the exact current wrapper-local seam that Task 12 fre
 - **BLOCKING ANSWER** Chosen fix: do not continue current Task 13 in its present shape. Insert or rewrite a prerequisite task that starts from Task 12's wrapper-local seam and derives a bounded current raw reproducer first, with a concrete stopping rule such as bounded bisection or named file-group narrowing around the current wrapper frontier. Only after that reproducer exists should the next task own `process.getActiveResourcesInfo()` instrumentation, concrete resource identification, repair, and full-wrapper reruns. That keeps the reproducer-derivation work separate from the later resource-diagnosis work instead of asking one task to do both without a proven seam.
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 12 honestly handed off only a wrapper-local seam, not a narrower reproducing command, and the newest Task 13 raw prefix still stayed busy long enough that the helper only saw ordinary mid-run resources. That means Subtask 2 cannot yet do what it claims, because there is still no bounded post-logical-work state in which the lingering live resource can be distinguished from normal active test work. The repo already has the right wrapper contracts and a first seam-diagnostic helper; what is missing is a plan-owned bounded reproducer derivation step between the wrapper-local seam and the later instrumentation task.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep widening raw prefixes inside current Task 13 without rewriting the task boundary, do not instrument a still-busy broad prefix and pretend the transient `PipeWrap` / `MessagePort` / `Timeout` snapshots identify the lingering owner, and do not use `forceExit`, `process.exit()`, or arbitrary timeout hacks to turn the broad wrapper seam into a fake success. Those options either hide the real owner or keep the task stuck in the same contradiction instead of producing an honest bounded reproducer for the later diagnostic work.
-- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the blocker proof in commit `a2d08685`. The first live blocker proved the task had remained too broad across repeated passes because it still depended on a missing bounded reproducer seam. That repair kept Task 13 active but narrowed it to bounded reproducer derivation with a concrete three-pass stopping rule, moved later present-tense seam revalidation into new Task 14, renumbered supported instrumentation to Task 15, renumbered final close-out to Task 16, and preserved the blocker proof as `**BLOCKING ANSWER**` while retiring the old live blocker as `**RESOLVED ISSUE**`.
+- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 13 section, and the blocker proof in commit `a2d08685`. The first live blocker proved the task had remained too broad across repeated passes because it still depended on a missing bounded reproducer seam. That repair kept Task 13 active but narrowed it to bounded reproducer derivation with a concrete three-pass stopping rule, moved later present-tense seam revalidation into new Task 14, renumbered the downstream instrumentation chain behind it, and later repairs eventually split that chain into Task 15 wrapper instrumentation, Task 16 owner derivation, Task 17 repair, and Task 18 final close-out. The blocker proof remains preserved as `**BLOCKING ANSWER**` while the old live blocker stays retired as `**RESOLVED ISSUE**`.
 - Subtask 3: exhausted the repaired finite three-pass plan from the current 34-file frontier under the wrapper-equivalent ts-node environment, and all three named slices reached real terminal TAP verdicts instead of reproducing the post-logical-work non-closing state. The exact clean artifacts are `test-results/task13/task13-earlier-half.log` with `# pass 208`, `# fail 0`, `# duration_ms 90071.923023`; `test-results/task13/task13-later-half.log` with `# pass 109`, `# fail 0`, `# duration_ms 92151.731102`; and `test-results/task13/task13-frontier-centered.log` with `# pass 120`, `# fail 0`, `# duration_ms 106614.053535`.
 
 - **RESOLVED ISSUE** The second live blocker on this task proved that even the repaired first bounded raw derivation plan could exhaust honestly without producing a bounded raw reproducer. I completed Subtask 3 by exhausting the only three named passes this task allowed: the earlier-half slice over files 1-17, the later-half slice over files 18-34, and the frontier-centered slice over files 26-42 under the wrapper-equivalent ts-node environment with the supported `scripts/debug-active-resources.mjs` import. None of those slices produced a bounded raw reproducer. That blocker is no longer left active on Task 13 because this plan repair closes Task 13 on the finite-plan-exhausted branch and moves the next current-seam revalidation work into a new downstream task.
@@ -1348,22 +1348,22 @@ This task does not assume Task 13 handed off a bounded raw reproducer. It starts
 
 ---
 
-### Task 15. Diagnose And Repair The Remaining Wrapper-Local `server:unit` Stall
+### Task 15. Instrument The Wrapper-Local Stall And Bound It To A Child-Side Region
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `14`
-- Task Status: `__in_progress__`
-- Git Commits: `68a6f08e`
-- Notes: Rewritten on 2026-04-02 after Task 14 proved that current evidence still exposes only a wrapper-local seam and no fresh raw reproducer. This task starts from the fresh full-wrapper log at `ok 561`, the wrapper sources, and the clean raw candidate logs that now rule out the nearby raw path.
+- Task Status: `__done__`
+- Git Commits: `68a6f08e`, `1b90a57e`, `e345b456`
+- Notes: Rewritten on 2026-04-02 after Task 14 proved that current evidence still exposes only a wrapper-local seam and no fresh raw reproducer. Repaired again on 2026-04-02 after the live blocker proved this task could honestly instrument and bound the remaining failure to a still-running child-side region, but not derive or repair that owner inside the same task without becoming too broad again.
 
 #### Overview
 
-This task does not assume any raw reproducer still exists. It starts from the remaining wrapper-local seam itself and diagnoses why the full `npm run test:summary:server:unit` wrapper still stays in `agent_action: wait` after current `HEAD` reaches `ok 561`. Its job is to instrument the wrapper and child-process boundary directly, determine whether the remaining fault is wrapper-local or whether a new smaller seam emerges, and either repair that wrapper-local cause or hand off one newly proven current seam honestly.
+This task does not assume any raw reproducer still exists. It starts from the remaining wrapper-local seam itself and instruments the wrapper and child-process boundary directly. Its bounded job is to determine whether the remaining fault is still in wrapper orchestration or whether the wrapper can now honestly prove the failure is inside a still-running child-side region that later work must own.
 
 #### Task Exit Criteria
 
-- The current wrapper-local seam is instrumented enough to distinguish child `exit` from child `close`, stdio completion, and whether the remaining wait belongs to wrapper orchestration or to a newly surfaced smaller seam.
-- Either the wrapper-local cause is repaired and the full `npm run test:summary:server:unit` wrapper reaches a trustworthy terminal verdict, or the task records one newly proven current smaller seam that later work can own without reusing stale raw assumptions.
+- The current wrapper-local seam is instrumented enough to distinguish child `exit` from child `close`, stdio completion, and whether the remaining wait belongs to wrapper orchestration or to the still-running test child.
+- The task records one of two honest outcomes from that bounded instrumentation pass: either a wrapper-local repair becomes directly available, or the latest evidence proves the wrapper is no longer the missing owner and later work must derive a bounded child-side owner from the current frontier instead.
 
 #### Documentation Locations
 
@@ -1377,24 +1377,24 @@ This task does not assume any raw reproducer still exists. It starts from the re
 1. [x] Re-read Task 14's fresh wrapper log, the clean raw candidate logs under `test-results/task14/`, `scripts/test-summary-server-unit.mjs`, and `scripts/summary-wrapper-protocol.mjs` before editing. Use this re-read to confirm exactly which remaining behavior is wrapper-local and which nearby raw paths are already ruled out.
 2. [x] Add wrapper-local instrumentation around child spawn, current file progression, child `exit`, child `close`, and any parent-side stream or timer waits so the next full wrapper rerun can show whether the stall is in wrapper orchestration or still inside the child process after logical work completes.
 3. [x] Re-run full `npm run test:summary:server:unit` once with that wrapper-local instrumentation and record which of these honest outcomes occurs: the child never exits, the child exits but never reaches `close`, the child reaches `close` but the wrapper still waits, or the rerun surfaces one new smaller present-tense seam worth handing off instead.
-4. [ ] If Subtask 3 identifies a wrapper-local repair inside the supported wrapper or child-process boundary, implement it and re-run the full wrapper until it reaches a trustworthy terminal verdict. If Subtask 3 instead surfaces one new smaller current seam, stop after recording that seam and update this plan so later work starts from that exact current boundary instead of stale assumptions.
-5. [ ] Update the final close-out task notes so Task 16 starts only after the wrapper-local seam is either repaired to a trustworthy final verdict or replaced by one newly proven smaller current seam with an honest owner.
+4. [x] Record the exact honest result of Subtask 3: either the wrapper-local instrumentation isolated a direct repair inside the supported wrapper boundary, or the latest present-tense evidence only bounds the remaining failure to a still-running child-side region. If the latter happens, stop instead of pretending a wrapper-local repair is now ready.
+5. [x] Update the downstream task notes so later work starts from the latest child-side frontier and owner gap proved by Subtask 4 rather than from the older wrapper-local repair assumption.
 
 #### Testing
 
-1. [ ] Run the full wrapper with the new wrapper-local instrumentation and record whether the child reaches `exit`, `close`, and a final wrapper verdict.
-2. [ ] If Subtask 4 repairs the wrapper-local cause, rerun full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy final verdict. If Subtask 4 instead surfaces one newly proven smaller seam, run that exact seam and confirm it reproduces honestly.
+1. [x] Run the full wrapper with the new wrapper-local instrumentation and record whether the child reaches `exit`, `close`, and a final wrapper verdict.
+2. [x] Confirm from that bounded instrumentation pass whether the wrapper itself is still the missing owner or whether the remaining unknown has moved inside the still-running child process.
 
 #### Implementation notes
 
-- Record the fresh wrapper-local seam, the wrapper instrumentation added, whether the child reaches `exit` and `close`, any wrapper-local repair made, and whether the result was a restored full-wrapper verdict or one newly proven smaller seam.
+- Record the fresh wrapper-local seam, the wrapper instrumentation added, whether the child reaches `exit` and `close`, and whether the bounded result still leaves the missing owner inside the child process rather than in wrapper orchestration.
 - Rewritten on 2026-04-02 because Task 14 proved that current evidence still exposes only a wrapper-local seam and no fresh raw reproducer. This task now owns wrapper-local diagnosis instead of assuming a raw-command reproducer still exists.
 - Current Task 14 outcome on 2026-04-02: the fresh full wrapper still overran past budget and drifted to `ok 561`, but Task 14's one new bounded raw strategy plus its complementary control both reached real terminal TAP verdicts. There is therefore still no honest bounded raw reproducer handoff for this task to start from, so do not begin supported instrumentation here without another planner repair or a later task that re-establishes a fresh raw seam first.
 - Subtask 1: re-read Task 14's fresh wrapper log `test-results/server-unit-tests-2026-04-02T14-40-14-251Z.log`, the clean raw candidate logs under `test-results/task14/`, and the current wrapper sources before editing. The nearby raw path remains ruled out because both Task 14 candidate logs terminate cleanly, so this task had to instrument the wrapper-child boundary itself instead of reopening those raw commands.
 - Subtask 2: added env-gated wrapper lifecycle instrumentation in `scripts/summary-wrapper-protocol.mjs` and passed that debug flag through `scripts/test-summary-server-unit.mjs` so the test child now logs wrapper-side spawn, stdio end/close, child `exit`, child `close`, and final resolve events when `CODEINFO_DEBUG_WRAPPER_LIFECYCLE=1` is set. The first attempt exposed one local issue immediately: `buildCleanWrapperEnv()` had stripped the debug flag from the test child, so I repaired the wrapper script to forward that single task-owned debug env var honestly before rerunning.
 - Subtask 3: reran full `CODEINFO_DEBUG_WRAPPER_LIFECYCLE=1 npm run test:summary:server:unit` from current `HEAD` and inspected the fresh saved log `test-results/server-unit-tests-2026-04-02T15-18-08-777Z.log` after interrupting another over-budget `agent_action: wait` run. The build child reached wrapper-debug `exit`, `close`, and `resolve` immediately, and the test child logged a wrapper-debug `spawn` event, but there were no wrapper-debug `exit`, `close`, or stdio completion events for that `node` child before interruption. The freshest visible child progress in that log advanced through `ok 303 - POST /ingest/e2e/cleanup falls back to the normal root removal path once the queue is idle`, so the current honest outcome is "the child never exits" rather than "child exits but wrapper stays stuck after close."
 
-**BLOCKER** Subtasks 4-5: I completed the wrapper-local instrumentation and one full instrumented rerun, but the result did not isolate a wrapper-local repair or a newly proven smaller current seam. What I tried was env-gated lifecycle instrumentation around wrapper child spawn, stdio end/close, child `exit`, child `close`, and wrapper resolution, followed by a full `CODEINFO_DEBUG_WRAPPER_LIFECYCLE=1 npm run test:summary:server:unit` rerun from current `HEAD`. The exact missing capability is that the instrumented run still only proves the test child never exits before interruption; it does not yet identify an owner inside the child process or provide a smaller seam that later work can own honestly, so Task 15's current shape is still too broad for a repair step. The task should be split, reordered, or rewritten before work continues so one next task derives or assigns ownership for the still-running child-side region beyond the latest visible `ok 303` frontier instead of pretending a wrapper-local repair is already available.
+- **RESOLVED ISSUE** Subtasks 4-5 were originally blocked because the wrapper-local instrumentation and one full instrumented rerun did not isolate a wrapper-local repair or a newly proven smaller current seam. What I tried was env-gated lifecycle instrumentation around wrapper child spawn, stdio end/close, child `exit`, child `close`, and wrapper resolution, followed by a full `CODEINFO_DEBUG_WRAPPER_LIFECYCLE=1 npm run test:summary:server:unit` rerun from current `HEAD`. That blocker is no longer left active on Task 15 because the plan is now repaired around what the instrumentation actually proved: the wrapper-local pass is complete on the "test child never exits" branch, and a new prerequisite task now owns deriving a bounded child-side owner beyond the latest visible `ok 303` frontier before any repair task continues.
 - **BLOCKING ANSWER** Repository precedents found: this repo already treats broad `server:unit` hangs as planning-boundary problems when the current task still cannot name a smaller owner. Story `0000046` inserted an explicit prerequisite once the full wrapper baseline was too coarse to close the transport task honestly, Story `0000050` split prerequisite harness stabilization away from later cleanup work, Story `0000051` kept broad wrapper failures owned by child-side cleanup and shutdown seams instead of wrapper hacks, and Story `0000055` itself has already repaired Tasks 11 through 14 whenever the latest seam remained too broad. Those precedents all point to the same repair rule here: once Task 15 can only prove "the child never exits" and still cannot name the owner, the next honest move is to split or rewrite the task so a smaller child-side owner is derived before repair continues.
 - **BLOCKING ANSWER** External-library precedents found: official Node guidance says the wrapper boundary is only trustworthy after child `close`, not merely after `exit`, and `process.getActiveResourcesInfo()` only reports the resources currently keeping the observed process alive. Node's `child_process` docs say `close` happens after the process has ended and stdio has closed, while `exit` can happen with stdio still open. Node's `test` docs also say asynchronous activity can outlive a finished test body and the runner does not delay reporting to accommodate it. Context7 `/nodejs/node` returned the same official docs. DeepWiki was attempted for `nodejs/node`, but that repo is not indexed there right now, so the official Node docs remained the external source of truth.
 - **BLOCKING ANSWER** Issue-resolution references found: practical reports line up with the repo and Node docs. Jest issue `#9473` shows that even an explicit open-handle diagnostic can stay non-actionable when the runner only has a broad hanging state. Stack Overflow `15857568` describes the same Node behavior from the process side: if the program hangs, callbacks or resources are still registered, and the honest fix is to close or disconnect the real owner rather than to treat forced exit as proof. Those references support deriving a better owner first instead of assuming one more wrapper-only rerun will make the repair target obvious.
@@ -1402,16 +1402,104 @@ This task does not assume any raw reproducer still exists. It starts from the re
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 15 already did the wrapper-local work it claimed it would do first. The current repo evidence from commit `68a6f08e`, `scripts/summary-wrapper-protocol.mjs`, `scripts/test-summary-server-unit.mjs`, and log `test-results/server-unit-tests-2026-04-02T15-18-08-777Z.log` now proves the build child reaches `exit`, `close`, and wrapper resolution, while the test child only reaches wrapper-debug `spawn` and keeps running past visible progress `ok 303` without `exit`, `close`, or stdio completion. That means the missing capability is no longer wrapper lifecycle visibility; it is child-side ownership beyond the current frontier. A prerequisite task that derives that owner matches both the repo's repair pattern and Node's documented diagnostic boundary.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not keep retrying Task 15 unchanged with more wrapper-only instrumentation, do not use `process.exit()`, `forceExit`, or timeout inflation to force a terminal wrapper verdict, and do not treat parent-side active-resource inspection as sufficient proof while the child still has not exited. Those options would either hide the real child-side owner, claim success without real termination, or keep the implementation loop spinning inside a task whose present evidence has already proved its boundary is too broad.
 - Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 15 section, and the latest task-state commit `68a6f08e`. No additional subtasks were newly marked complete in this audit because the latest implementation pass had already honestly recorded Subtasks 1 through 3 complete and had already preserved the live `**BLOCKER**` for Subtasks 4 through 5. No `Testing` items were newly checked here, and Task 15 correctly remains `__in_progress__` because automated proof has not happened in this loop and the task is still visibly blocked on the missing child-side owner beyond the current `ok 303` frontier.
+- Plan repair on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 15 section, and the blocker proof in commit `e345b456`. Task 15 is now complete on the "wrapper proves the test child never exits" branch: it added supported wrapper-local instrumentation, reran the full wrapper once with that instrumentation, and proved the missing owner is no longer inside wrapper orchestration. This repair retires the live blocker as `**RESOLVED ISSUE**`, closes Task 15 honestly, inserts new Task 16 to derive a bounded child-side owner from the latest `ok 303` frontier, inserts new Task 17 for the later owner repair and full-wrapper recovery, and renumbers final close-out to Task 18.
 
 ---
 
-### Task 16. Perform Story 55 Final Validation And Close-Out
+### Task 16. Derive A Bounded Child-Side Owner Beyond The Current `ok 303` Frontier
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15`
+- Task Dependencies: `15`
+- Task Status: `__in_progress__`
+- Git Commits: None yet.
+- Notes: Inserted on 2026-04-02 after Task 15 proved the wrapper itself is no longer the missing owner. This task starts from the fresh instrumented wrapper log at `ok 303` and owns only the next bounded ownership-derivation step inside the still-running test child.
+
+#### Overview
+
+This task does not attempt repair yet. It starts from the latest child-side frontier proved by Task 15 and derives a bounded present-tense owner inside the still-running test child. Its job is to turn the current broad "test child never exits" state into one named file group, shared helper, fixture/runtime seam, or shutdown path that later repair work can own honestly.
+
+#### Task Exit Criteria
+
+- The current `ok 303` child-side frontier is mapped to a bounded ownership-derivation plan that does not depend on indefinite widening.
+- The task records one of two honest outcomes: either a bounded current child-side owner now exists for later repair, or the bounded derivation plan exhausts cleanly and the story needs another planner repair before repair work can continue.
+
+#### Documentation Locations
+
+- `test-results/server-unit-tests-2026-04-02T15-18-08-777Z.log` . Use this as the current freshest proof that the build child exits but the test child stays alive beyond visible progress `ok 303`.
+- `scripts/test-summary-server-unit.mjs` . Use this to map the current wrapper file ordering so the owner-derivation commands stay aligned to present repo state.
+- `scripts/summary-wrapper-protocol.mjs` . Use this to keep the wrapper lifecycle evidence honest while deriving the child-side owner.
+- `server/src/test` under the files at and immediately after the `ok 303` frontier. Use these only after the wrapper ordering proves they are the current child-side region being executed.
+
+#### Subtasks
+
+1. [ ] Re-read Task 15's fresh instrumented wrapper log, the current wrapper file ordering, and the test files at and immediately after the `ok 303` frontier. Record which exact child-side region is still unresolved before running any new command.
+2. [ ] Run one explicitly bounded frontier-window command that starts from the current frontier file and includes only the next smallest present-tense child-side region worth testing. Record the exact command and saved output path.
+3. [ ] Run one complementary bounded control command that excludes or shifts away from that frontier window while still exercising the nearest competing child-side region. Stop after this named pair instead of resuming indefinite narrowing.
+4. [ ] If Subtasks 2 and 3 still leave the owner ambiguous, run exactly one bounded helper- or fixture-focused ownership check based on imports or shutdown paths shared by the frontier region, then stop and record the outcome instead of widening further.
+5. [ ] Update the downstream repair task notes so Task 17 starts only from the exact named owner produced here. If this bounded derivation plan exhausts without a named owner, record that later repair remains blocked and must return to planner review instead of continuing ad hoc.
+
+#### Testing
+
+1. [ ] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that region exits cleanly.
+2. [ ] If Subtask 4 is needed, run that one bounded helper- or fixture-focused ownership check and record whether it names a present-tense child-side owner or exhausts the bounded derivation plan cleanly.
+
+#### Implementation notes
+
+- Record the exact `ok 303` frontier, every bounded child-side derivation command attempted here, whether one names a current owner, and the proof artifacts that justify the branch honestly.
+- Inserted on 2026-04-02 because Task 15 proved that wrapper-local instrumentation alone now stops at "the test child never exits" and can no longer honestly proceed to repair without first deriving a bounded child-side owner.
+
+---
+
+### Task 17. Repair The Derived Child-Side Owner And Restore The Full `server:unit` Wrapper Verdict
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `16`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Inserted on 2026-04-02 after plan repair split child-side owner derivation away from later repair work. This task starts only if Task 16 hands off one exact present-tense owner inside the still-running test child.
+
+#### Overview
+
+This task starts only from the bounded child-side owner that Task 16 proves from current repo state. It repairs that named cleanup, fixture/runtime, or shutdown seam with repo-standard ownership patterns and then restores a trustworthy full `npm run test:summary:server:unit` wrapper verdict before final story close-out resumes.
+
+#### Task Exit Criteria
+
+- The exact owner handed off from Task 16 is repaired without relying on forced process exit, timeout inflation, or other unsupported wrapper hacks.
+- Both the bounded owner-level proof and the full `npm run test:summary:server:unit` wrapper reach trustworthy terminal verdicts.
+
+#### Documentation Locations
+
+- The exact Task 16 owner-level logs and commands. Use these as the starting proof boundary for this repair.
+- `scripts/summary-wrapper-protocol.mjs` and `scripts/test-summary-server-unit.mjs` . Use these only as wrapper-proof consumers after the owner-level repair is made, not as the place where the repair is hidden.
+- The exact test, helper, fixture, or runtime files named by Task 16. Use these as the only places where cleanup or shutdown ownership is changed.
+
+#### Subtasks
+
+1. [ ] Re-read Task 16's exact named owner, proof logs, and the current local files that own that region before editing. Confirm the repair target is still current from disk.
+2. [ ] Repair the named child-side owner using repo-standard cleanup and shutdown patterns such as awaited teardown, explicit close or terminate, or correctly owned `finally`/`afterEach` cleanup. Do not use forced process exit or timeout inflation.
+3. [ ] Re-run the exact owner-level proof from Task 16 until it reaches a trustworthy terminal verdict without the lingering child-side activity.
+4. [ ] Re-run full `npm run test:summary:server:unit` and confirm the wrapper now reaches a trustworthy final verdict instead of remaining in `agent_action: wait`.
+5. [ ] Update the final close-out task notes so Task 18 starts only after the restored full-wrapper verdict is proved honestly.
+
+#### Testing
+
+1. [ ] Run the exact Task 16 owner-level proof after the repair and confirm it reaches a real terminal verdict.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy terminal verdict.
+
+#### Implementation notes
+
+- Record the exact owner handed off from Task 16, the repair made, and the proof artifacts from both the bounded owner-level rerun and the full wrapper rerun.
+- Inserted on 2026-04-02 because later repair work must now start from a named child-side owner rather than from the broader "test child never exits" state.
+
+---
+
+### Task 18. Perform Story 55 Final Validation And Close-Out
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17`
 - Task Status: `__to_do__`
 - Git Commits: `f2933e58`, `8d6423fa`
-- Notes: Renumbered from the old Task 15 after the 2026-04-02 plan repair inserted new Task 14 for present-tense seam revalidation and renumbered the instrumentation task to Task 15.
+- Notes: Renumbered from the old Task 16 after the 2026-04-02 plan repair inserted new Task 16 for bounded child-side owner derivation and new Task 17 for the later owner repair plus full-wrapper recovery.
 
 #### Overview
 
@@ -1444,5 +1532,5 @@ This final task validates the whole durable-queue story rather than isolated sea
 #### Implementation notes
 
 - Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
-- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 15 resolves the current wrapper-local seam to a trustworthy full `server:unit` verdict or hands off one smaller present-tense seam with an honest owner so the final validation sequence can resume honestly.
-- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, and now keeps the current wrapper-local diagnosis in Task 15 before this final close-out can resume honestly.
+- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 17 restores a trustworthy full `server:unit` baseline from the bounded owner that Task 16 derives so the final validation sequence can resume honestly.
+- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) stalled in `agent_action: wait` past its documented budget, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, then bounded the wrapper-local proof in Task 15, and now requires Task 16 to derive a named child-side owner plus Task 17 to repair it before this final close-out can resume honestly.

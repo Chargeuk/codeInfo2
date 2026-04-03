@@ -686,7 +686,10 @@ test.describe.serial('Ingest flows', () => {
       page.getByRole('row', { name: /mock-queued/i }).first(),
     ).toBeVisible();
 
-    await page.getByRole('checkbox', { name: /^Select mock-queued$/i }).check();
+    const queuedCheckbox = page.getByRole('checkbox', {
+      name: /^Select mock-queued$/i,
+    });
+    await expect(queuedCheckbox).toBeDisabled();
     await expect(bulkRemove).toBeDisabled();
 
     await page

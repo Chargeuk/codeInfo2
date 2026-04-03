@@ -36,6 +36,27 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 </scope_and_runtime_rules>
 
+<runtime_freshness_rules>
+
+- Treat an already-running stack as stale by default.
+- Only reuse an already-running stack when current repository evidence explicitly proves it is fresh enough for the candidate task's proof surface.
+- For this repository, if the candidate task changed:
+  - server code;
+  - client code;
+  - compose or runtime configuration;
+  - environment wiring;
+  - startup or shutdown behavior;
+  - or any other runtime-loaded code path;
+  then do not reuse an already-running stack unless freshness is explicitly proven.
+- Acceptable freshness evidence may include:
+  - current runtime-research guidance that explicitly permits reuse for this task shape;
+  - a repository-supported marker or command that proves the running stack was started from the current relevant repository state;
+  - or other current repository evidence that honestly ties the running runtime to the latest relevant code changes.
+- If freshness cannot be proved honestly, stop the running stack and restart it using the documented workflow before manual proof.
+- Record in the implementation notes whether manual proof reused a verified-fresh stack or restarted because the prior running stack was stale or of unknown provenance.
+
+</runtime_freshness_rules>
+
 <candidate_selection_rules>
 
 - Identify the candidate task for this loop iteration by scanning the plan from bottom to top and selecting the highest-numbered task whose `Task Status` is either `__done__` or `__in_progress__`.
@@ -69,7 +90,9 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <execution_rules>
 
 - If the task affects a runnable system or service, you MUST prove as a baseline that it starts successfully and shuts down cleanly using the documented workflow.
-- If the system was already running, leave it running afterwards after proving it remained healthy.
+- If the system was already running, reuse it only when freshness was explicitly verified for this task.
+- If the system was already running but freshness was stale or unknown, stop it and restart it from the documented workflow before manual proof.
+- If a verified-fresh system was already running, you may leave it running afterwards after proving it remained healthy.
 - If you started it for this manual test, return it to its prior stopped state when you are done.
 - Only start the runnable systems or services that the relevant proof actually needs.
 - Use the repository's normal launcher, wrapper, startup path, or selector flow when one exists rather than a narrow one-off route.

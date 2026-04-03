@@ -50,6 +50,15 @@ function toRequestId(value: IngestQueueRequest['_id']): string {
   return value.toString();
 }
 
+function isDuplicateLiveQueueTargetError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 11000
+  );
+}
+
 export function getQueueRequestId(queueRequest: IngestQueueRequest): string {
   return toRequestId(queueRequest._id);
 }
@@ -136,14 +145,62 @@ export async function enqueueOrReuseIngestRequest(
     });
   }
 
-  const queueRequest = await IngestQueueRequestModel.create({
-    canonicalTargetPath: input.canonicalTargetPath,
-    operation: input.operation,
-    queueState: 'waiting',
-    requestPayload: input.requestPayload,
-    sourceSurface: input.sourceSurface,
-    runId: null,
-  });
+  let queueRequest: IngestQueueRequest;
+  try {
+    queueRequest = await IngestQueueRequestModel.create({
+      canonicalTargetPath: input.canonicalTargetPath,
+      operation: input.operation,
+      queueState: 'waiting',
+      requestPayload: input.requestPayload,
+      sourceSurface: input.sourceSurface,
+      runId: null,
+    });
+  } catch (error) {
+    if (!isDuplicateLiveQueueTargetError(error)) {
+      throw error;
+    }
+
+    const racedWaitingRequest = await IngestQueueRequestModel.findOneAndUpdate(
+      {
+        canonicalTargetPath: input.canonicalTargetPath,
+        queueState: 'waiting',
+      },
+      {
+        $set: {
+          operation: input.operation,
+          requestPayload: input.requestPayload,
+        },
+      },
+      {
+        new: true,
+      },
+    ).exec();
+
+    if (racedWaitingRequest) {
+      return buildQueueResult({
+        queueRequest: racedWaitingRequest,
+        queuePosition: await countOlderWaitingRequests(racedWaitingRequest),
+        reusedExisting: true,
+        updatedExisting: true,
+      });
+    }
+
+    const racedRunningRequest = await IngestQueueRequestModel.findOne({
+      canonicalTargetPath: input.canonicalTargetPath,
+      queueState: 'running',
+    }).exec();
+
+    if (racedRunningRequest) {
+      return buildQueueResult({
+        queueRequest: racedRunningRequest,
+        queuePosition: null,
+        reusedExisting: true,
+        updatedExisting: false,
+      });
+    }
+
+    throw error;
+  }
 
   return buildQueueResult({
     queueRequest,

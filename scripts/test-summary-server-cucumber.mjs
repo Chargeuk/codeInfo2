@@ -176,6 +176,11 @@ const cucumberEnv = {
     '--import ./scripts/register-ts-node-esm-loader.mjs --disable-warning=DEP0180',
 };
 
+// Cucumber's imported testcontainer teardown can outlive the terminal summary
+// even after the scenarios themselves have finished cleanly, so give this
+// wrapper a longer post-summary grace before treating the child as stuck.
+const CUCUMBER_TERMINAL_SUMMARY_GRACE_MS = 90_000;
+
 let exitCode = buildResult.code;
 let output = buildResult.output;
 let cucumberForcedReason = '';
@@ -195,6 +200,7 @@ if (buildResult.code === 0) {
       /^\d+\s+steps?\s+\(/i,
     ],
     terminalSummaryPatterns: [/^\d+\s+scenarios?\s+\(/i, /^\d+\s+steps?\s+\(/i],
+    terminalSummaryGraceMs: CUCUMBER_TERMINAL_SUMMARY_GRACE_MS,
   });
   output += cucumberResult.output;
   exitCode = cucumberResult.code;

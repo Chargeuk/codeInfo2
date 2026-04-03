@@ -157,29 +157,36 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
    - Why it is the best answer: It clearly tells callers the queue backend is temporarily unavailable, nothing ran, and retrying later is reasonable.
 
 10. Use exactly `waiting`, `running`, and `cleanup-blocked` as the persisted queue-state values.
-   - The question being addressed: What exact persisted queue-state values should the Mongo queue document support so startup recovery can deterministically distinguish a normal waiting item, an abandoned previously-running item that should be retried, and a cleanup-blocked finished item that must be deleted before newer work can start?
-   - Why the question matters: Startup recovery and delete-before-next ordering both depend on one unambiguous persisted state model. If the queue-state model is too vague, restart logic becomes fragile; if it is too large, we add unnecessary complexity to a story that only needs durable FIFO orchestration.
-   - What the answer is: Persist only `waiting`, `running`, and `cleanup-blocked`. Do not add a separate persisted `abandoned` state. On startup, any leftover `running` record is the abandoned previously-active item and should be retried before newer waiting work. Terminal runs that clean up successfully should have their queue record deleted instead of persisting extra finished states.
-   - Where the answer came from: Direct repo evidence from [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/ingest/lock.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/lock.ts), [server/src/routes/ingestRoots.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestRoots.ts), plus DeepWiki `taskforcesh/bullmq` restart-recovery guidance on waiting, active, and stalled work.
-   - Why it is the best answer: It is the smallest durable state model that cleanly distinguishes all three story cases without duplicating ingest run phases or introducing finished states the queue immediately deletes anyway.
+
+- The question being addressed: What exact persisted queue-state values should the Mongo queue document support so startup recovery can deterministically distinguish a normal waiting item, an abandoned previously-running item that should be retried, and a cleanup-blocked finished item that must be deleted before newer work can start?
+- Why the question matters: Startup recovery and delete-before-next ordering both depend on one unambiguous persisted state model. If the queue-state model is too vague, restart logic becomes fragile; if it is too large, we add unnecessary complexity to a story that only needs durable FIFO orchestration.
+- What the answer is: Persist only `waiting`, `running`, and `cleanup-blocked`. Do not add a separate persisted `abandoned` state. On startup, any leftover `running` record is the abandoned previously-active item and should be retried before newer waiting work. Terminal runs that clean up successfully should have their queue record deleted instead of persisting extra finished states.
+- Where the answer came from: Direct repo evidence from [server/src/ingest/ingestJob.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/ingest/lock.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/lock.ts), [server/src/routes/ingestRoots.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestRoots.ts), plus DeepWiki `taskforcesh/bullmq` restart-recovery guidance on waiting, active, and stalled work.
+- Why it is the best answer: It is the smallest durable state model that cleanly distinguishes all three story cases without duplicating ingest run phases or introducing finished states the queue immediately deletes anyway.
+
 11. Expose queued state and queue position on the shared repository-list payload, not on every other status surface.
-   - The question being addressed: Which exact read surfaces need to expose queued state and queue position for this story: only the REST ingest-roots response used by the ingest page, or also MCP/listing surfaces and any flow-facing status payloads that currently describe ingest progress?
-   - Why the question matters: The story needs stable queued visibility, but adding `queuePosition` everywhere would expand scope and create extra contract churn. We need the smallest surface area that still keeps the required ingest visibility accurate.
-   - What the answer is: Add queued state and queue position to the shared repository-list payload that powers the ingest repository list and its existing mirrors, so `/ingest/roots` and the repo-list listing surfaces stay aligned. Do not add queue-position fields to unrelated flow-facing or generic status payloads just for parity. Queue-aware initiation responses still return `queued`, `requestId`, and `queuePosition`, but those are write contracts rather than extra read surfaces.
-   - Where the answer came from: Direct repo evidence from [server/src/routes/ingestRoots.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestRoots.ts), [server/src/lmstudio/toolService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/lmstudio/toolService.ts), [client/src/hooks/useIngestRoots.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useIngestRoots.ts), and [client/src/components/ingest/RootsTable.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/components/ingest/RootsTable.tsx), plus DeepWiki `taskforcesh/bullmq` documentation that treats queue position as application-level waiting-job state rather than a universal surface field.
-   - Why it is the best answer: It satisfies the story's required source of truth, preserves existing shared payload patterns, and avoids spreading queue-position concerns into surfaces that do not need them.
+
+- The question being addressed: Which exact read surfaces need to expose queued state and queue position for this story: only the REST ingest-roots response used by the ingest page, or also MCP/listing surfaces and any flow-facing status payloads that currently describe ingest progress?
+- Why the question matters: The story needs stable queued visibility, but adding `queuePosition` everywhere would expand scope and create extra contract churn. We need the smallest surface area that still keeps the required ingest visibility accurate.
+- What the answer is: Add queued state and queue position to the shared repository-list payload that powers the ingest repository list and its existing mirrors, so `/ingest/roots` and the repo-list listing surfaces stay aligned. Do not add queue-position fields to unrelated flow-facing or generic status payloads just for parity. Queue-aware initiation responses still return `queued`, `requestId`, and `queuePosition`, but those are write contracts rather than extra read surfaces.
+- Where the answer came from: Direct repo evidence from [server/src/routes/ingestRoots.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestRoots.ts), [server/src/lmstudio/toolService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/lmstudio/toolService.ts), [client/src/hooks/useIngestRoots.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/hooks/useIngestRoots.ts), and [client/src/components/ingest/RootsTable.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/components/ingest/RootsTable.tsx), plus DeepWiki `taskforcesh/bullmq` documentation that treats queue position as application-level waiting-job state rather than a universal surface field.
+- Why it is the best answer: It satisfies the story's required source of truth, preserves existing shared payload patterns, and avoids spreading queue-position concerns into surfaces that do not need them.
+
 12. Keep creation and provenance fields stable and refresh only `updatedAt` plus the normalized queued settings payload.
-   - The question being addressed: When a later duplicate request updates an existing waiting queue item in place, which audit fields must remain stable versus refresh, specifically `createdAt`, any new `updatedAt`, source-surface metadata, and the stored provider/model/embed settings payload?
-   - Why the question matters: The story promises that a waiting duplicate keeps its identity and queue position, but it still needs one precise rule for which fields preserve queue provenance and which fields reflect the latest effective request.
-   - What the answer is: Keep the durable request identity, queue order, `createdAt`, canonical target path, and original source-surface provenance stable. Refresh `updatedAt`, and replace the stored normalized provider/model/embed settings payload with the newest request instead of deep-merging it. Log the updating surface when the replacement happens; do not add extra audit-history fields in this story.
-   - Where the answer came from: Direct repo evidence from [server/src/mongo/repo.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/repo.ts), [server/src/mongo/connection.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/connection.ts), plus Context7 Mongoose timestamp documentation describing stable `createdAt` and refreshed `updatedAt` behavior on update operations.
-   - Why it is the best answer: It preserves FIFO identity and provenance, gives the queue one clear effective settings payload to run later, and keeps audit behavior simple without inventing extra history tables or merge rules.
+
+- The question being addressed: When a later duplicate request updates an existing waiting queue item in place, which audit fields must remain stable versus refresh, specifically `createdAt`, any new `updatedAt`, source-surface metadata, and the stored provider/model/embed settings payload?
+- Why the question matters: The story promises that a waiting duplicate keeps its identity and queue position, but it still needs one precise rule for which fields preserve queue provenance and which fields reflect the latest effective request.
+- What the answer is: Keep the durable request identity, queue order, `createdAt`, canonical target path, and original source-surface provenance stable. Refresh `updatedAt`, and replace the stored normalized provider/model/embed settings payload with the newest request instead of deep-merging it. Log the updating surface when the replacement happens; do not add extra audit-history fields in this story.
+- Where the answer came from: Direct repo evidence from [server/src/mongo/repo.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/repo.ts), [server/src/mongo/connection.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mongo/connection.ts), plus Context7 Mongoose timestamp documentation describing stable `createdAt` and refreshed `updatedAt` behavior on update operations.
+- Why it is the best answer: It preserves FIFO identity and provenance, gives the queue one clear effective settings payload to run later, and keeps audit behavior simple without inventing extra history tables or merge rules.
+
 13. Pin down `QUEUE_UNAVAILABLE` now as a transport-specific wrapper around one shared retryable error meaning.
-   - The question being addressed: Should the retryable `QUEUE_UNAVAILABLE` contract be pinned down per transport now as `503 Service Unavailable` for REST plus equivalent retryable structured errors for MCP, flows, and commands, or is a different cross-surface error mapping intended?
-   - Why the question matters: If queue persistence is down, callers need to know nothing started and retrying later is sensible. Leaving the mapping vague would let different surfaces drift into generic failures, which breaks automation and user expectations.
-   - What the answer is: Yes. Pin it down now. REST should return HTTP `503 Service Unavailable` with `QUEUE_UNAVAILABLE`, and may include `Retry-After` when the server has a meaningful delay to suggest. MCP, flows, and commands should preserve the same machine-readable `QUEUE_UNAVAILABLE` code inside their transport-appropriate structured error envelopes with `retryable: true`, rather than collapsing the condition into generic invalid-request or opaque server-failure text.
-   - Where the answer came from: Direct repo evidence from [server/src/routes/ingestStart.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts), and [server/src/mcp/server.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp/server.ts), plus RFC 9110 `503 Service Unavailable` guidance and the repo's existing structured non-HTTP error patterns.
-   - Why it is the best answer: It gives every caller one stable retryable queue-outage contract, matches normal HTTP semantics on REST, and avoids introducing transport-specific domain codes that would make clients harder to keep in sync.
+
+- The question being addressed: Should the retryable `QUEUE_UNAVAILABLE` contract be pinned down per transport now as `503 Service Unavailable` for REST plus equivalent retryable structured errors for MCP, flows, and commands, or is a different cross-surface error mapping intended?
+- Why the question matters: If queue persistence is down, callers need to know nothing started and retrying later is sensible. Leaving the mapping vague would let different surfaces drift into generic failures, which breaks automation and user expectations.
+- What the answer is: Yes. Pin it down now. REST should return HTTP `503 Service Unavailable` with `QUEUE_UNAVAILABLE`, and may include `Retry-After` when the server has a meaningful delay to suggest. MCP, flows, and commands should preserve the same machine-readable `QUEUE_UNAVAILABLE` code inside their transport-appropriate structured error envelopes with `retryable: true`, rather than collapsing the condition into generic invalid-request or opaque server-failure text.
+- Where the answer came from: Direct repo evidence from [server/src/routes/ingestStart.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/ingest/reingestService.ts), and [server/src/mcp/server.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/mcp/server.ts), plus RFC 9110 `503 Service Unavailable` guidance and the repo's existing structured non-HTTP error patterns.
+- Why it is the best answer: It gives every caller one stable retryable queue-outage contract, matches normal HTTP semantics on REST, and avoids introducing transport-specific domain codes that would make clients harder to keep in sync.
 
 ## Log Or Proof Markers
 
@@ -300,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -350,6 +357,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the new queue-model and admission-helper proofs. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-unit-tests-*.log`, fix the exact failing proof, and rerun full `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` and `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`, and confirm the Testcontainers-backed feature proof still covers durable admission, canonical-target reuse, and waiting-duplicate behavior at the user-facing route boundary. If either wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun that same targeted cucumber wrapper.
 
 #### Implementation notes
 
@@ -366,6 +374,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 - The first server build wrapper exposed strict TypeScript mismatches in the new queue model/test types; narrowing `runId` to `string | null` and adding explicit test parameter types fixed the build without changing the queue behavior.
 - `npm run build:summary:server` passed clean on rerun with `agent_action: skip_log`, so the new queue model and admission helper compile in the server workspace.
 - `npm run test:summary:server:unit` passed clean with 1576/1576 tests green, including the new queue admission proof file and the updated start/re-embed/dispatcher proof names.
+- Implementation-only audit on 2026-04-03: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 1 section from disk, rechecked the current branch `HEAD`, and confirmed the current repo evidence still matches every checked Task 1 subtask plus both already-checked Testing items. No additional subtasks were newly marked complete in this audit, no `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 1, and the task is now `__done__` because its existing checked implementation and proof state was already honest on disk.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 
@@ -375,7 +384,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `65b908b8` - `DEV-[55] - finish task 2 queue runtime validation`
 
@@ -425,6 +434,9 @@ This task makes the durable queue actually run inside the existing server proces
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes for queue promotion, cleanup, cancellation, and startup recovery behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-unit-tests-*.log`, fix the exact failing proof, and rerun full `npm run test:summary:server:unit`.
 3. [x] Run `npm run test:summary:server:cucumber` and confirm the full cucumber wrapper passes for FIFO order, deterministic boundaries, and startup-recovery behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun full `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the normal containerized build path still packages the startup-recovery runtime changes.
+5. [x] Run `npm run compose:up` and confirm the supported Docker-based system path still starts cleanly after the queue runtime lifecycle and startup-recovery changes.
+6. [x] Run `npm run compose:down` and confirm the supported Docker-based system path shuts down cleanly after the Task 2 smoke proof.
 
 #### Implementation notes
 
@@ -514,10 +526,9 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 #### Testing
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
-2. [x] Run the targeted Task 3 route-proof wrappers `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`, and confirm both wrappers reach terminal verdicts for the queue-aware REST producer contracts. If either wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact route proof, and rerun that same targeted wrapper.
-3. [x] Run the targeted Task 3 blocking-adapter wrappers `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/mcp2.reingest.tool.test.ts`, and `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts`, and confirm each wrapper reaches a terminal verdict for queue-delay blocking and retryable `QUEUE_UNAVAILABLE`. If any wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof, and rerun that same targeted wrapper.
-4. [x] Run the targeted Task 3 integration wrappers `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts`, and confirm both wrappers reach terminal verdicts for the command and flow transport contracts. If either wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof, and rerun that same targeted wrapper.
-5. [x] Run the exact automated proof homes added for the live re-embed path-resolution fix and confirm they pass under the current compose workdir override instead of only under the older `/data` default. If any wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof, and rerun that same targeted wrapper.
+2. [x] Run `npm run test:summary:server:unit` with the exact `--file` arguments for the route, adapter, and integration proof homes named in this task's subtasks, and confirm each targeted wrapper reaches a real terminal verdict for queue-aware REST, MCP, command, and flow contracts. If any targeted wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof home, and rerun that same targeted wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` with the exact `--feature` arguments for the ingest transport scenarios this task owns, and confirm the Testcontainers-backed feature path still proves queue-aware contract behavior at the route boundary. If the targeted cucumber wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun that same targeted cucumber wrapper.
+4. [x] Do not require the broader full `npm run test:summary:server:unit` or supported-runtime smoke path in this task. Those shared baselines were explicitly reopened outside the Task 3 transport boundary and remain owned by later Tasks 4 through 7 and the final validation path.
 
 #### Implementation notes
 
@@ -636,7 +647,7 @@ This task no longer owns every remaining server-unit failure as if they were one
 
 #### Testing
 
-1. [x] Run a targeted `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex-mcp.test.ts` rerun and confirm the narrowed boundary reaches a real terminal verdict.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds named in this task's subtasks, and confirm the narrowed boundary reaches a real terminal verdict before reopening the broader shared baseline.
 2. [x] Re-run full `npm run test:summary:server:unit` and confirm the wrapper now reaches a real terminal verdict that names concrete failing tests instead of remaining indefinitely in `agent_action: wait`.
 
 #### Implementation notes
@@ -687,8 +698,9 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 
 #### Testing
 
-1. [x] Run targeted `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`, and add `server/src/test/unit/codexConfig.test.ts` or the exact current fixture-parity owner if the full-wrapper log still names it. The pass condition is that each targeted config-cluster file reaches a clean terminal verdict.
-2. [x] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired checked-in runtime config still builds on the supported server path.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact config-cluster `--file` arguments named in this task's subtasks, and confirm each targeted proof file now reaches a clean terminal verdict.
+3. [x] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
 
 #### Implementation notes
 
@@ -742,8 +754,9 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 
 #### Testing
 
-1. [x] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for the exact transport-proof files touched in this task until each one reaches a clean terminal verdict with the current queue-aware contract.
-2. [x] Re-run full `npm run test:summary:server:unit` and confirm the transport-proof failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this queue-aware proof cluster.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue-aware transport proof homes still compile on the supported server path.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` arguments named in this task's subtasks until each transport-proof file reaches a clean terminal verdict with the current queue-aware contract.
+3. [x] Re-run full `npm run test:summary:server:unit` and confirm the transport-proof failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this queue-aware proof cluster.
 
 #### Implementation notes
 
@@ -797,7 +810,7 @@ This task owns the remaining non-config, non-transport failures that the restore
 
 #### Testing
 
-1. [x] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for each currently narrowed owner until those files reach clean terminal verdicts without brittle timing or lingering lifecycle noise.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds named in this task's subtasks until each narrowed owner reaches a clean terminal verdict without brittle timing or lingering lifecycle noise.
 2. [x] Re-run full `npm run test:summary:server:unit` and confirm the shared server-unit wrapper passes cleanly. If it still fails, reopen only the newly named remaining owners rather than broadening the task again.
 
 #### Implementation notes
@@ -1098,8 +1111,8 @@ This task no longer tries to both discover and fix the final `server:unit` overr
 
 #### Testing
 
-1. [x] Run the narrowest targeted `npm run test:summary:server:unit -- --file ...` rerun or equivalent direct `node --test` reproduction that proves the identified owner now exits cleanly. If that targeted proof still stalls or fails, inspect the exact printed log path or local instrumentation output, fix the owning seam, and rerun the same targeted proof until it reaches a real final verdict.
-2. [x] Run the exact bounded mixed or broader composition commands from Subtasks 6 and 10. The pass condition for this task is that one command is recorded as the first honest reproducing boundary for Task 12, or that the finite plan is exhausted and the task stops for replanning without widening ad hoc.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds named in Subtasks 6 and 10, and only drop below the wrapper to the raw `node --test` child boundary when the task is explicitly proving a seam below the wrapper itself. The pass condition is that the bounded slice reaches a real terminal verdict or still reproduces the current failure honestly.
+2. [x] Re-run full `npm run test:summary:server:unit` after the bounded slice work and record whether one mixed or broader wrapper composition is now the first honest reproducing boundary for Task 12, or whether the finite plan exhausted cleanly without widening ad hoc.
 
 #### Implementation notes
 
@@ -1206,7 +1219,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 #### Testing
 
 1. [x] Run full `npm run test:summary:server:unit` from current `HEAD` and record whether it reaches a trustworthy final verdict or still requires log inspection / reproducer recovery.
-2. [x] If Testing step 1 still leaves the wrapper in a non-terminal or ambiguous state, run the exact fresh reproducing boundary or bounded wrapper-local seam from Subtask 4 and confirm it reproduces or disproves the current wrapper failure honestly.
+2. [x] If Testing step 1 still leaves the wrapper in a non-terminal or ambiguous state, run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds from Subtask 4, and only use a raw child-process command where the task is explicitly re-establishing a seam below the wrapper boundary.
 
 #### Implementation notes
 
@@ -1256,8 +1269,8 @@ This task starts only from the exact current wrapper-local seam that Task 12 fre
 
 #### Testing
 
-1. [x] Run the three named raw slices from Subtask 3 and record whether one produces a post-logical-work non-closing state or all three reach real terminal TAP verdicts.
-2. [x] Confirm the honest branch outcome of this task: the first bounded raw derivation plan exhausted cleanly, so no downstream task may assume it handed off a bounded raw reproducer.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` slices named in Subtask 3, and use the raw `node --test` child boundary only where this task is explicitly proving behavior below the wrapper seam. Record whether one slice produces a post-logical-work non-closing state or whether all slices reach real terminal TAP verdicts.
+2. [x] Broader shared-wrapper and supported-runtime smoke proof is not applicable in this bounded derivation task. Later tasks own re-establishing the current full `server:unit` baseline and the normal compose-backed runtime path after this raw-boundary proof concludes honestly.
 
 #### Implementation notes
 
@@ -1324,8 +1337,8 @@ This task does not assume Task 13 handed off a bounded raw reproducer. It starts
 
 #### Testing
 
-1. [x] Run the fresh full-wrapper rerun from Subtask 2 and record the current wrapper-local seam or final verdict honestly.
-2. [x] Run the exact named raw candidate(s) from Subtask 3 and record whether one reaches a post-logical-work non-closing state or whether they all reach real terminal TAP verdicts.
+1. [x] Run the fresh full `npm run test:summary:server:unit` wrapper rerun from Subtask 2 and record the current wrapper-local seam or final verdict honestly.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` candidates from Subtask 3, and use the raw child boundary only where this task is explicitly checking whether a current below-wrapper reproducer still exists.
 
 #### Implementation notes
 
@@ -1382,8 +1395,8 @@ This task does not assume any raw reproducer still exists. It starts from the re
 
 #### Testing
 
-1. [x] Run the full wrapper with the new wrapper-local instrumentation and record whether the child reaches `exit`, `close`, and a final wrapper verdict.
-2. [x] Confirm from that bounded instrumentation pass whether the wrapper itself is still the missing owner or whether the remaining unknown has moved inside the still-running child process.
+1. [x] Run full `npm run test:summary:server:unit` with the wrapper-local instrumentation added in this task and record whether the child reaches `exit`, `close`, and a final wrapper verdict.
+2. [x] If the task still needs a below-wrapper confirmation after Testing step 1, run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded slices named in the subtasks and only use a raw child-process command where the task is explicitly proving that the remaining unknown has moved below the wrapper boundary.
 
 #### Implementation notes
 
@@ -1440,8 +1453,8 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 
 #### Testing
 
-1. [x] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that region exits cleanly.
-2. [x] If Subtask 4 is needed, run that one bounded helper- or fixture-focused ownership check and record whether it names a present-tense child-side owner or exhausts the bounded derivation plan cleanly.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` slices from Subtasks 2 and 3, and only use a raw child-process command where the task is explicitly proving a seam below the wrapper boundary. Record whether either bounded slice leaves the child alive after logical work or proves that region exits cleanly.
+2. [x] If Subtask 4 is needed, run the targeted wrapper slice or raw helper-focused ownership check named there and record whether it names a present-tense child-side owner or exhausts the bounded derivation plan cleanly. Broader wrapper and compose-backed system validation remains owned by later tasks because this task only derives the next honest owner boundary.
 
 #### Implementation notes
 
@@ -1501,8 +1514,8 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 
 #### Testing
 
-1. [x] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that owner class exits cleanly.
-2. [x] If Subtask 4 is needed, run that one bounded helper- or runtime-focused ownership check and record whether it names a present-tense child-side owner or exhausts the second bounded derivation plan cleanly.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` slices from Subtasks 2 and 3, and only use a raw child-process command where the task is explicitly proving a seam below the wrapper boundary. Record whether either bounded slice leaves the child alive after logical work or proves that owner class exits cleanly.
+2. [x] If Subtask 4 is needed, run the targeted wrapper slice or raw helper/runtime-focused ownership check named there and record whether it names a present-tense child-side owner or exhausts the second bounded derivation plan cleanly. Broader wrapper and compose-backed system validation remains owned by later tasks because this task only derives the next honest owner boundary.
 
 #### Implementation notes
 
@@ -1564,8 +1577,8 @@ This task still does not attempt repair. It starts from the exhausted runtime/re
 
 #### Testing
 
-1. [x] Run the exact bounded commands from Subtasks 2 and 3 and record whether the `ingest-reembed.test.ts` teardown path now leaves the child alive after logical work or whether the adjacent cleanup control proves that seam exits cleanly.
-2. [x] If Subtask 4 is needed, run that one bounded helper-focused ownership check and record whether it names a present-tense owner inside the `__resetIngestJobsForTest()` / `release()` teardown path or exhausts the bounded teardown derivation plan cleanly.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` slices from Subtasks 2 and 3, and only use a raw child-process command where the task is explicitly proving the seam below the wrapper boundary. Record whether the `ingest-reembed.test.ts` teardown path leaves the child alive after logical work or whether the adjacent cleanup control proves that seam exits cleanly.
+2. [x] If Subtask 4 is needed, run the targeted wrapper slice or raw helper-focused ownership check named there and record whether it names a present-tense owner inside the `__resetIngestJobsForTest()` / `release()` teardown path or exhausts the bounded teardown derivation plan cleanly. Broader wrapper and compose-backed system validation remains owned by later tasks because this task only derives the next honest owner boundary.
 
 #### Implementation notes
 
@@ -1638,8 +1651,8 @@ This task no longer assumes Task 18 handed off a repairable owner. It re-reads t
 
 #### Testing
 
-1. [x] Run the isolated loop-stop test repeatedly from current `HEAD` and record whether it reproduces.
-2. [x] Run `server/src/test/integration/flows.run.loop.test.ts` as a whole-file proof and record whether file-local interaction reproduces the cleanup issue.
+1. [x] Run the isolated loop-stop proof repeatedly from current `HEAD` through the targeted `npm run test:summary:server:unit` wrapper using the exact `--file` or `--test-name` arguments named in the subtasks, and record whether it reproduces.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` as the whole-file proof and record whether file-local interaction reproduces the cleanup issue.
 3. [x] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy terminal verdict from current `HEAD`.
 
 #### Implementation notes
@@ -1659,8 +1672,8 @@ This task no longer assumes Task 18 handed off a repairable owner. It re-reads t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19`
-- Task Status: `__in_progress__`
-- Git Commits: `f2933e58`, `8d6423fa`
+- Task Status: `__done__`
+- Git Commits: `f2933e58`, `8d6423fa`, `2fcd7daf`, `9b1f04d6`, `e801efae`, `75314339`
 - Notes: Renumbered from the old Task 19 after the 2026-04-02 plan repair inserted new Task 18 for a third materially different owner-derivation strategy and renumbered the later repair task to Task 19.
 
 #### Overview
@@ -1682,14 +1695,18 @@ This final task validates the whole durable-queue story rather than isolated sea
 1. [x] Re-read the full Story 55 plan and trace every Acceptance Criterion, important Description requirement, explicit Out Of Scope boundary, proof marker, and edge case against the completed implementation before closing the story. Use this re-read to confirm there is a named implementation home and a named proof home for queue storage, FIFO promotion, cleanup-blocked stall-and-retry, startup recovery, queue-aware transport contracts, blocking re-embed callers, shared repo-list queued visibility, and queueable ingest-page submission behavior.
 2. [x] Update `README.md` in its own documentation subtask with the durable-queue behavior operators and developers now need to understand: queue-backed ingest and re-embed admission, retryable `QUEUE_UNAVAILABLE`, the split between durable `requestId` and runtime `runId`, and queued visibility through the shared repository-list contract. Do not document speculative queue features that remain out of scope for Story 55.
 3. [x] Create or update `planning/0000055-pr-summary.md` in its own documentation subtask with the final Story 55 scope, the key runtime and contract files changed, the proof markers exercised, the wrapper commands run, and any intentionally unresolved follow-up risk that is explicitly outside this story’s scope.
+4. [x] Diagnose and fix the default startup-recovery and queue-pump ownership path in the normal supported runtime so a waiting queue item does not remain stranded at `queued (#1)` with no running owner after startup when the server is otherwise healthy. Use the live manual finding from `GET /ingest/roots` and the ingest page as the reproduction anchor, inspect `server/src/index.ts`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestQueue.ts`, and any adjacent queue-lifecycle readers or overlays, and keep the fix scoped to the story-owned startup recovery contract rather than inventing a later-task-only observability dependency. Purpose: restore the Story 55 startup recovery behavior on the full normal system that Task 20 is supposed to validate.
+5. [x] Test type: automated proof authoring. Location: `e2e/ingest.spec.ts`. Description: add one proof that exercises the supported runtime path around startup recovery and fails if the ingest UI or its backing API leaves a waiting queue row stuck at `queued (#1)` with `runId` absent and no active execution owner after startup is complete. The proof should reuse the shared repo-list or ingest page surface that exposed the live regression instead of asserting only on internal implementation details. Purpose: give the reopened Task 20 startup-recovery regression one automated proof home that would fail on the currently observed behavior.
+6. [x] Run `npx eslint` with `--max-warnings=0` against every file changed to complete Subtasks 4 and 5, including the queue-runtime owner files and the one automated-proof file. If ESLint reports autofixable issues, rerun with `--fix` before making manual style edits. Purpose: keep the reopened Task 20 fix aligned with the repo's zero-warning lint contract.
+7. [x] Run `npx prettier --check` against every file changed to complete Subtasks 4 and 5, and rerun with `--write` if formatting drift is reported. Purpose: keep the reopened Task 20 fix aligned with the repo's formatting contract before the final wrapper reruns.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`. Only inspect the saved logs if either wrapper explicitly requires log inspection.
-2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass. If any wrapper reports failures or `agent_action: inspect_log`, open the exact printed log path, fix the failing proof, and rerun the same full wrapper.
-3. [ ] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper explicitly requires log inspection.
-4. [ ] Run `npm run compose:up` so the normal supported Docker-based system path is available for final runtime smoke proof through the repository’s wrapper-first path.
-5. [ ] Run `npm run compose:down` to stop the normal supported Docker-based system path after final validation completes.
+1. [x] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`. Only inspect the saved logs if either wrapper explicitly requires log inspection.
+2. [x] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass. If any wrapper reports failures or `agent_action: inspect_log`, open the exact printed log path, fix the failing proof, and rerun the same full wrapper.
+3. [x] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper explicitly requires log inspection.
+4. [x] Run `npm run compose:up` so the normal supported Docker-based system path is available for final runtime smoke proof through the repository’s wrapper-first path.
+5. [x] Run `npm run compose:down` to stop the normal supported Docker-based system path after final validation completes.
 
 #### Implementation notes
 
@@ -1700,4 +1717,381 @@ This final task validates the whole durable-queue story rather than isolated sea
 - Updated `README.md` to document the operator and developer-facing Story 55 queue behavior more explicitly: canonical-target admission reuse, waiting duplicate update behavior, delete-before-next cleanup ordering, retryable `QUEUE_UNAVAILABLE`, and the shared repository-list payload as the queued-state source of truth.
 - Rewrote `planning/0000055-pr-summary.md` to match the current task numbering and validated story scope, including the key runtime and contract files changed, the proof markers already exercised across Tasks 1 through 19, and the deliberately retained out-of-scope boundaries that remain outside Story 55.
 - Left all Task 20 `Testing` items unchecked in this pass on purpose. The task is now implementation-complete and ready for the later automated-proof step to rerun the final build, test, and compose wrappers before any `__done__` audit is honest.
-- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) remained in `agent_action: wait` without reaching a trustworthy terminal wrapper verdict, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, then bounded the wrapper-local proof in Task 15, then exhausted the first child-side owner class in Task 16, then exhausted the second child-side owner class in Task 17, and finally re-grounded the stale shared-baseline blocker in Tasks 18 and 19 against current proof. Final close-out can now resume from current repo state, and this task remains `__in_progress__` only because the final validation wrapper reruns themselves have not been completed yet.
+- Testing 1: `npm run build:summary:server` and `npm run build:summary:client` both passed cleanly with `agent_action: skip_log`, so the final close-out pass still compiles on both server and client without needing saved-log inspection.
+- Testing 2: full `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e` now all pass cleanly. The server-unit wrapper finished with `tests run: 1601`, `passed: 1601`, `failed: 0`; the client wrapper finished with `tests run: 661`, `passed: 661`, `failed: 0`; the cucumber wrapper finished with `tests run: 84`, `passed: 84`, `failed: 0`; and the e2e wrapper finished with `tests run: 56`, `passed: 56`, `failed: 0`.
+- Testing 2 fix: the full cucumber wrapper repeatedly reached a terminal summary but lingered past the default post-summary watchdog, so `scripts/test-summary-server-cucumber.mjs` now gives cucumber teardown a longer `terminalSummaryGraceMs` before declaring `terminal_summary_without_close`.
+- Testing 2 fix: the full e2e wrapper kept falling back to `ambiguous_counts` even though the saved log showed Playwright stats with `expected: 56` and `unexpected: 0`, so `scripts/test-summary-e2e.mjs` now falls back to regex-parsed Playwright stats when full JSON-object parsing is brittle.
+- Testing 3: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the supported compose build path is healthy without log inspection.
+- Testing 4: `npm run compose:up` finished with the normal Docker stack started and healthy, including the server, client, Mongo, Chroma, Zipkin, and Playwright MCP containers.
+- Testing 5: `npm run compose:down` completed cleanly and removed the normal Docker stack containers plus the `codeinfo2_internal` network, so the final validation pass left the supported compose environment torn down again.
+- All Task 20 wrapper reruns are now complete, and the task remains `__in_progress__` only because the later audit step still needs to decide whether the story can now be marked `__done__`.
+- **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) remained in `agent_action: wait` without reaching a trustworthy terminal wrapper verdict, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, then bounded the wrapper-local proof in Task 15, then exhausted the first child-side owner class in Task 16, then exhausted the second child-side owner class in Task 17, and finally re-grounded the stale shared-baseline blocker in Tasks 18 and 19 against current proof. Final close-out can now resume from current repo state, and this task is now ready for that later audit instead of still waiting on wrapper reruns.
+- Implementation-plus-automated-proof audit on 2026-04-03: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 20 section from disk, rechecked the current branch `HEAD`, and verified the implementation-close-out commit `de6bb5a1` plus the final wrapper-proof commit `2fcd7daf` against the current repo evidence in `README.md`, `planning/0000055-pr-summary.md`, `scripts/test-summary-server-cucumber.mjs`, and `scripts/test-summary-e2e.mjs`. Testing steps 1 through 5 are now honestly complete, there is no live `**BLOCKER**` note on Task 20, and the task is now `__done__` because every Task 20 subtask and testing step has direct current repo evidence with no remaining task-local work before later manual testing loops.
+- Manual testing on 2026-04-03 used only the stored Story 55 handoff scope plus the refreshed runtime research for the main compose stack. `npm run compose` started the normal supported Docker stack cleanly, `curl http://localhost:5010/health` returned `mongoConnected:true`, and `http://localhost:5001/ingest` rendered the queued-state UI with screenshots saved at `/tmp/playwright-output/playwright-output-local/story55-manual/task20-ingest-queued-row.png` and `/tmp/playwright-output/playwright-output-local/story55-manual/task20-queued-row-detail.png`; browser console and network requests showed no failed requests during that check. The manual finding was a real story-level regression: both `GET /ingest/roots` and the ingest page kept `Babylon Queue Probe` stuck at `queued (#1)` with `queueState:\"waiting\"` and no `runId` for more than 10 seconds after startup, so the normal supported runtime did not resume queued work honestly. Added follow-up subtasks for the startup-recovery fix plus one automated proof home, set Task 20 back to `__in_progress__`, and unchecked Testing steps 1 through 5 because the final wrapper and compose validation must be rerun after the repair.
+- Diagnosed the reopened startup-recovery regression to queue advancement firing from `finalizeQueueRequestForRun()` before the finishing owner released `ingestLock`, which could leave the next waiting item stranded at `queued (#1)` with no active owner after recovered work completed. `server/src/ingest/ingestJob.ts` now defers queue advancement to the next turn and only schedules that follow-up after lock release on the normal completion and cancel paths, while still allowing cleanup-only retries to restart the queue when no owner is active.
+- Added a new proof in `e2e/ingest.spec.ts` that uses the ingest page plus `GET /ingest/roots` to verify a queued row picks up a non-null `runId` and stops rendering as `queued (#1)` after the current queue head finishes, covering the same shared surface that exposed the live regression without inventing an internal-only seam.
+- Ran `npx eslint --max-warnings=0 server/src/ingest/ingestJob.ts e2e/ingest.spec.ts`; the first pass exposed an existing unused `removedAny` local in `e2e/ingest.spec.ts`, so that dead assignment was removed and the rerun passed cleanly.
+- Ran `npx prettier --check server/src/ingest/ingestJob.ts e2e/ingest.spec.ts`; both touched files already matched repo formatting after the runtime fix and proof update.
+- Re-ran Task 20 Testing step 1 from current `HEAD`: `npm run build:summary:server` and `npm run build:summary:client` both finished with `agent_action: skip_log`, `warning_count: 0`, and no log-inspection requirement, so the reopened close-out fix still builds cleanly on both server and client.
+- Re-ran Task 20 Testing step 2 from current `HEAD`. `npm run test:summary:server:unit` now passes cleanly with `tests run: 1601`, `passed: 1601`, and `failed: 0` after fixing two proof regressions the first rerun exposed: `server/src/test/integration/chat-copilot-lock.test.ts` now uses an explicit fake-Copilot send gate instead of a timing-only delay to keep the conversation lock assertion deterministic, and `server/src/ingest/ingestJob.ts` now advances the queue immediately after lock release instead of adding an extra turn that broke the cancel cleanup proof.
+- The first parallel rerun of `npm run test:summary:server:cucumber` and `npm run test:summary:client` was not honest proof for this task: cucumber timed out in the shared Chroma `Before` hook and client hit only 5-second UI timeouts under concurrent load. Re-ran both wrappers sequentially from current `HEAD`, after which `server:cucumber` finished with `tests run: 84`, `passed: 84`, `failed: 0` and `client` finished with `tests run: 661`, `passed: 661`, `failed: 0`.
+- The first full `npm run test:summary:e2e` rerun exposed that the new startup-recovery proof in `e2e/ingest.spec.ts` was too strict about the queued root staying present in `/ingest/roots` during handoff. Narrowed that proof to fail specifically on the stranded `queueState: "waiting"` plus null `runId` condition, verified the targeted e2e rerun passes, and then re-ran the full e2e wrapper to a clean `tests run: 57`, `passed: 57`, `failed: 0` result with `agent_action: skip_log`.
+- Re-ran Task 20 Testing step 3 from current `HEAD`: `npm run compose:build:summary` finished with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and no need to inspect `logs/test-summaries/compose-build-latest.log`.
+- Re-ran Task 20 Testing step 4 from current `HEAD`: `npm run compose:up` completed through the wrapper-first path with the normal Docker stack started and healthy, including Mongo, Chroma, the server, the client, Zipkin, the OTEL collector, and Playwright MCP.
+- Re-ran Task 20 Testing step 5 from current `HEAD`: `npm run compose:down` completed cleanly and removed the normal Docker stack containers plus the `codeinfo2_internal` network, so the supported compose environment is torn down again after final validation.
+- Implementation-plus-automated-proof audit on 2026-04-03 after the reopened startup-recovery repair: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 20 section from disk, rechecked the current branch `HEAD`, and verified the reopened manual-finding commit `9b1f04d6`, the runtime-repair commit `e801efae`, and the final wrapper-proof commit `75314339` against the current repo evidence in `server/src/ingest/ingestJob.ts`, `e2e/ingest.spec.ts`, `server/src/copilot/fake/mockCopilotSdk.ts`, and `server/src/test/integration/chat-copilot-lock.test.ts`. Testing steps 1 through 5 are now honestly complete again, there is no live `**BLOCKER**` note on Task 20, and the task is now `__done__` because every Task 20 subtask and testing step has direct current repo evidence with no remaining task-local work before later manual testing loops.
+- Manual testing on 2026-04-03 re-read the stored Story 55 handoff, the current runtime-research file, `AGENTS.md`, and `README.md`, then used only the supported main compose path for a fresh post-fix proof. `npm run compose:up` started cleanly, `curl http://localhost:5010/health` returned `mongoConnected:true`, `GET /ingest/roots` exposed `Babylon Queue Probe` with `requestId=69cdb1406115a4c3c667d53d`, `runId=a9ef0f13-4b47-4247-b5cc-94692235889b`, `queueState=\"running\"`, and zero waiting rows with null `runId`, and the ingest page showed the same recovered running state plus the split request/run identifiers in the details dialog. Screenshots were saved at `/tmp/playwright-output/playwright-output-local/story55-manual/task20-startup-recovery-active.png` and `/tmp/playwright-output/playwright-output-local/story55-manual/task20-startup-recovery-details.png`; browser console output stayed informational and browser network requests showed no failed calls. No extra subtasks were needed, and the proof intentionally stopped at this smaller startup-recovery path because it already covered the repaired story-owned contract without creating fresh queued roots that would have dirtied the persistent ingest state. `npm run compose:down` then completed cleanly, leaving the main stack back in its prior stopped state while the pre-existing local overlay remained untouched.
+
+## Code Review Findings
+
+- Review disposition on 2026-04-03: reopen Story 55. The stored review handoff `codeInfoStatus/reviews/0000055-current-review.json` still matches the current single-repository scope, current branch `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, canonical plan path `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, and current `HEAD` `eb5a906f`.
+- Durable review artifacts for this pass:
+  - `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md`
+  - `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-blind-spot-challenge.md`
+- Reopen reason: the review recorded one `must_fix` and three `should_fix` findings in `Current Repository`, so the story is no longer honestly complete.
+- Finding summary:
+  - `must_fix`: `waitForQueueRequestTerminalStatus()` can hang indefinitely if the timeout-path `resolveQueueRequestRunState()` read rejects after listener registration because cleanup never runs and the promise never settles.
+  - `should_fix`: the bulk remove path still allows queued rows to be selected and removed even though queued-user removal is out of scope and the backend route only removes persisted root/vector data.
+  - `should_fix`: `queueRequestTerminalStatuses` grows without bound in production because terminal entries are written on every queued request completion and only the test reset helper clears them.
+  - `should_fix`: the changed flow-stop proof relies on a fixed `100ms` sleep, so it is weaker than the invariant the test title claims.
+- Challenge carry-forward: the blind-spot review endorsed one additional late finding that the first-submit dedupe path is still non-atomic for concurrent first writers. That fix must land before final revalidation because the story plan already required an indexed single-document duplicate-reuse path instead of a race-prone find-then-create sequence.
+
+---
+
+### Task 21. Make Queue Admission And Blocking Waiters Deterministic Under Rejection And Concurrency
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `20`
+- Task Status: `__done__`
+- Git Commits: `c1655af9`, `dd404bb6`
+- Notes: Inserted on 2026-04-03 after the stored code-review pass reopened Story 55 with one late concurrency finding and one blocking-waiter timeout-path finding in `Current Repository`.
+
+#### Overview
+
+This task repairs the two highest-risk queue correctness holes the review found in the current server implementation. First, blocking re-embed callers must not hang forever if the timeout-path queue-state read rejects after the shared listener has been registered. Second, concurrent first-submit requests for the same canonical queue target must not create duplicate waiting queue rows when no row exists yet. The fix must stay inside the existing queue/request contract rather than inventing a second runtime seam or a story-specific fallback path.
+
+#### Task Exit Criteria
+
+- `waitForQueueRequestTerminalStatus()` always settles and always unregisters its listener, even when the timeout-path read rejects.
+- The first waiting-row create-or-reuse path is atomic enough that two concurrent first-submit requests for the same canonical target cannot both create a waiting queue row.
+- The repaired behavior has direct proof in server tests that fail on the old rejection and race paths.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md`
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-blind-spot-challenge.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/mongo/ingestQueueRequest.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/ingest-request-queue.test.ts`
+- `server/src/test/features/ingest-start.feature`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
+
+#### Subtasks
+
+1. [x] Re-read the review findings and challenge artifacts for the blocking-waiter rejection path and the concurrent first-submit dedupe race, then trace those exact seams in `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/mongo/ingestQueueRequest.ts` before changing code.
+2. [x] Repair `waitForQueueRequestTerminalStatus()` so every exit path settles the waiter promise and runs cleanup even when `resolveQueueRequestRunState()` rejects inside the timeout branch after listener registration.
+3. [x] Replace the current first-submit find-then-create queue admission path with one atomic duplicate-collapse strategy that preserves the Story 55 latest-settings-wins behavior for waiting rows without allowing concurrent first writers to create duplicate waiting queue documents.
+4. [x] Extend `server/src/test/unit/reingestService.test.ts` so the blocking waiter proves the timeout-path rejection case, extend `server/src/test/unit/ingest-request-queue.test.ts` so the queue admission path proves concurrent same-target first-submit duplicate collapse, and update the exact existing feature/step proof homes in `server/src/test/features/ingest-start.feature`, `server/src/test/features/ingest-reembed.feature`, and `server/src/test/steps/ingest-manage.steps.ts` if the repaired duplicate-collapse contract needs feature-level coverage.
+5. [x] Record the exact chosen atomicity strategy and the timeout-path cleanup behavior in this task's implementation notes, including why the rejected alternatives were not suitable for the current queue contract.
+
+#### Testing
+
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue admission and blocking waiter logic still builds on the supported server path.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper for `server/src/test/unit/reingestService.test.ts` and `server/src/test/unit/ingest-request-queue.test.ts`, and confirm the rejection-path waiter now returns an honest failure instead of hanging while concurrent same-target first submissions cannot create duplicate waiting queue rows.
+3. [x] Run the targeted `npm run test:summary:server:cucumber` wrapper for the exact ingest feature homes updated in this task and confirm the repaired duplicate-collapse contract still holds through the Testcontainers-backed route surface.
+4. [x] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proofs pass so the queue/runtime contract is revalidated on the shared server-unit baseline.
+
+#### Implementation notes
+
+- Record the exact failure modes fixed here, the queue admission atomicity strategy chosen, and the test artifacts that prove the old hang and duplicate-create paths are closed honestly.
+- Re-read the review findings and blind-spot challenge from disk, then traced the exact owner seams in `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestQueue.ts`, `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/reingestService.ts`, and the current unit proof homes before changing code.
+- Repaired `waitForQueueRequestTerminalStatus()` so the timeout callback now funnels through a guarded async helper that always settles the promise and runs listener/timer cleanup, even when the timeout-path `resolveQueueRequestRunState()` read rejects after listener registration; the rejection path now degrades to the existing timeout result instead of hanging the blocking caller forever.
+- Replaced the race-prone first-submit find-then-create behavior with a unique live-target index plus duplicate-key retry path. Fresh waiting-row inserts still use `create(...)`, but a concurrent duplicate create now collapses by retrying the waiting-row update path first and falling back to a running-row read only if the competing request already started, which preserves latest-settings-wins for waiting rows without mutating running rows.
+- Extended `server/src/test/unit/reingestService.test.ts` with the timeout-path rejection case and `server/src/test/unit/ingest-request-queue.test.ts` with concurrent same-target first-submit duplicate collapse. I re-read the existing ingest cucumber feature/step homes and did not update them because this fix preserves the current route-surface contract; the new risk is internal concurrency and timeout cleanup, so the direct unit proof homes are the correct owners.
+- Chosen strategy: enforce one live queue row per canonical target with the partial unique index `ingest_queue_live_target_unique_idx`, then collapse duplicate first writers by catching the duplicate-key insert and replaying the existing waiting-update or running-read paths. Rejected alternatives were leaving the old find-then-create race in place, mutating `sourceSurface` during duplicate recovery, or inventing an external queue lock outside Mongo; those would either keep the race, violate the preserved-provenance contract, or widen the queue runtime beyond Story 55's existing ownership seam.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 21 section, and the latest implementation commit `c1655af9`. No additional subtasks were newly marked complete in this audit because Subtasks 1 through 5 were already honestly checked by the latest implementation pass and matched the current repo evidence in `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestQueue.ts`, `server/src/mongo/ingestQueueRequest.ts`, `server/src/test/unit/reingestService.test.ts`, and `server/src/test/unit/ingest-request-queue.test.ts`. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 21, and the task correctly remains `__in_progress__` because Testing steps 1 through 4 still belong to the later automated-proof loop.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and no log-inspection requirement, so the Task 21 queue waiter and admission changes still build on the supported server path.
+- Testing 2: the first targeted `server:unit` rerun exposed one proof-only issue in the new timeout-path rejection test because the unref'ed timer did not provide a deterministic event-loop boundary under `node:test`; tightening that test to trigger the timeout callback deterministically fixed the proof seam without changing the runtime contract. The rerun `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/ingest-request-queue.test.ts` then passed cleanly with `tests run: 31`, `passed: 31`, `failed: 0`, and `agent_action: skip_log`.
+- Testing 3: `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature --feature server/src/test/features/ingest-reembed.feature` passed cleanly with `tests run: 6`, `passed: 6`, `failed: 0`, and `agent_action: skip_log`, so the repaired queue admission contract still holds through the Testcontainers-backed route surfaces named on this task.
+- Testing 4: the full `npm run test:summary:server:unit` rerun passed cleanly with `tests run: 1603`, `passed: 1603`, `failed: 0`, and `agent_action: skip_log`, which revalidates the repaired queue waiter and queue-admission behavior on the shared server-unit baseline from current `HEAD`.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 21 section, the current branch `HEAD`, the implementation commit `c1655af9`, and the proof commit `dd404bb6`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 4 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 21, and the task is now `__done__` because Subtasks 1 through 5 plus Testing steps 1 through 4 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
+- Manual testing was assessed as not applicable on 2026-04-03. Task 21 repairs an injected timeout-rejection seam in `waitForQueueRequestTerminalStatus()` and an internal concurrent first-writer collapse path for waiting queue admission, and its own exit criteria already name direct server proof homes for both in the targeted unit and cucumber suites. Reproducing those exact old failure modes on the supported manual runtime would require artificial queue-read fault injection or deliberate persistent queue-state contamination beyond the task's owned user-visible contract, so no extra manual proof was added here.
+
+---
+
+### Task 22. Remove The User-Facing Queued Bulk-Removal Path From The Shared Repo List
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `20`
+- Task Status: `__in_progress__`
+- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`, `1eb1a7d8`, `c830390b`
+- Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
+
+#### Overview
+
+This task restores the Story 55 out-of-scope boundary that queued-but-not-started requests are not user-removable. The single-row remove control already respects that boundary, but the bulk selection and `Remove selected` path still lets queued rows be selected whenever there is no active run. The fix must make the shared repo-list UI contract honest without inventing queue deletion behavior on the server.
+
+#### Task Exit Criteria
+
+- Waiting, running, and cleanup-blocked rows cannot be selected into a user-visible bulk remove action.
+- The bulk remove affordance stays aligned with the single-row remove gating and with the existing backend remove route semantics.
+- The client proof covers the queued-row bulk-selection boundary directly.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/pages/IngestPage.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+- `server/src/routes/ingestRemove.ts`
+
+#### Subtasks
+
+1. [x] Re-read the review finding for queued bulk removal and trace the current single-row vs bulk-selection gating in `client/src/components/ingest/RootsTable.tsx` against the existing remove route behavior.
+2. [x] Change the shared repo-list selection logic so queued rows in `waiting`, `running`, or `cleanup-blocked` state cannot enter the bulk remove selection set.
+3. [x] Keep the `Remove selected` affordance disabled whenever the remaining selection contains no actually removable rows, using the same contract as the single-row remove button instead of inventing a queue-delete fallback.
+4. [x] Extend `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together.
+5. [x] Record the final queued-row selection rule in this task's implementation notes so later close-out work does not accidentally reopen queued user removal as a product feature.
+6. [x] Reproduce the live running-row selection leak in `client/src/components/ingest/RootsTable.tsx` and trace why `waiting`, `running`, or `cleanup-blocked` rows can still enter the shared checkbox selection model even when `Remove selected` later filters them out.
+7. [x] Change the shared selection state so rows blocked from user removal by the single-row gating rule also stay out of the visible bulk-remove selection count and never render as selected during a removal workflow, without regressing queued-capable bulk re-embed behavior for the rows that should remain selectable.
+8. [x] Update `client/src/test/ingestRoots.test.tsx` so the client proof explicitly demonstrates that selecting a `running` or other queue-blocked row does not increment the visible `selected` count or enter the bulk-remove target model, including the mixed-selection case alongside one removable row.
+9. [x] Reproduce and trace why an active head row with `status: ingesting` but no `queueState` still keeps an enabled bulk-selection checkbox even though the single-row remove action is disabled for that same row.
+10. [x] Extend the shared selection gating in `client/src/components/ingest/RootsTable.tsx` so every row blocked from user removal by the single-row contract, including the currently running head row without a queue-state badge, stays out of the visible bulk-selection model.
+11. [x] Update `client/src/test/ingestRoots.test.tsx` so the client proof explicitly covers an active `status: ingesting` row with no `queueState`, proving its checkbox is disabled and that it does not increment the visible `selected` count or enter a mixed bulk-remove selection beside a removable row.
+12. [ ] Reproduce and trace why a live row that now exposes both `queueState: running` and `status: ingesting` still renders an enabled bulk-selection checkbox even though the same row's single-row `Remove` action remains disabled.
+13. [ ] Tighten the shared selection and checkbox-disabled gating in `client/src/components/ingest/RootsTable.tsx` so rows that are actively ingesting while also surfaced as `queueState: running` stay out of the visible bulk-selection model and cannot increment the selected count.
+14. [ ] Update `client/src/test/ingestRoots.test.tsx` so the client proof explicitly covers a row with `queueState: running` plus `status: ingesting`, proving its checkbox is disabled and that it cannot enter the visible mixed bulk-remove selection model beside one removable row.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
+2. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper and confirm the reopened client proof homes pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
+
+#### Implementation notes
+
+- Record how the bulk selection rule now stays aligned with the out-of-scope queued-removal contract and which client proof cases demonstrate that alignment.
+- Re-read the queued bulk-removal review finding from `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md` and traced the current seams in `client/src/components/ingest/RootsTable.tsx` plus `server/src/routes/ingestRemove.ts`. The current mismatch is that single-row remove already blocks `waiting`, `running`, and `cleanup-blocked`, but shared checkbox selection and `Remove selected` still operate on every row whenever `hasActiveRun` is false even though the backend route only removes persisted ingest data.
+- Updated `client/src/components/ingest/RootsTable.tsx` so bulk remove now derives its own removable subset from the same row-level rule that already disables single-row remove. Shared selection still exists for queueable re-embed, but `waiting`, `running`, and `cleanup-blocked` rows no longer count toward the bulk remove target set and `Remove selected` stays disabled until at least one actually removable row is selected.
+- Extended `client/src/test/ingestRoots.test.tsx` with queued-only and mixed-selection proofs, and added a browser-level proof in `e2e/ingest.spec.ts` that mocks the ingest roots/remove seams to show `Remove selected` remains disabled for queued-only selection and issues a remove request only for the removable row in a mixed selection. The e2e proof stays UI-scoped on purpose because the backend remove route contract itself did not change.
+- Final queued-row bulk-selection rule for Story 55: rows in `waiting`, `running`, or `cleanup-blocked` may still appear in the shared repo list and can remain visible beside removable rows, but they are out of scope for user removal and therefore never enter the bulk remove target set. Later close-out work should preserve that rule instead of treating bulk selection as a queue-deletion feature request.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, the implementation commit `44e33c7f`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No subtasks were newly marked complete in this audit because Subtasks 1 through 5 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because Testing steps 1 through 3 still belong to the later automated-proof loop.
+- Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and no log-inspection requirement, so the repaired bulk-remove gating still builds on the supported client path.
+- Testing 2: the first `npm run test:summary:client` run failed in the new mixed-selection proof because that assertion counted every `fetch` call instead of isolating the remove-route request it owns. Narrowing the proof to `/ingest/remove/` calls fixed the task-owned assertion seam, and the rerun then passed cleanly with `tests run: 663`, `passed: 663`, `failed: 0`, and `agent_action: skip_log`.
+- Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, so the browser path now proves queued rows do not become user-removable through `Remove selected` even when a removable row is rendered alongside them.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, the implementation commit `44e33c7f`, the proof commit `5c685f9a`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 3 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because Subtasks 1 through 5 plus Testing steps 1 through 3 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
+- Manual testing ran on 2026-04-03 against the already-running main compose stack after `http://localhost:5010/health` returned `status: ok` with `mongoConnected: true`, so the supported runtime remained healthy and was left running. On `http://localhost:5001/ingest`, selecting the live `Babylon Queue Probe` row still changed the visible bulk-selection state to `1 selected`, and then selecting one removable completed row changed it to `2 selected` while `Remove selected` stayed disabled only because an active ingest was in progress; that means the queue-blocked row still enters the user-visible bulk selection model, which violates this task's exit criteria. Screenshots were captured at `/tmp/playwright-output/story55-manual/task22-running-row-selected-disabled-remove.png` and `/tmp/playwright-output/story55-manual/task22-mixed-selection-running-row-still-counted.png`, browser console output stayed informational, no failed network requests were observed, new follow-up subtasks were added, and Testing steps 1 through 3 were unchecked because they must be rerun after the fix.
+- Reproduced the reopened leak from the manual note against the current `RootsTable` implementation. The root cause is that row checkboxes and the header `Select all roots` checkbox still write every row path into the shared `selected` set while the later Task 22 fix only filters that set when `handleBulk('remove')` runs; because the visible `selected` count and row highlighting still read directly from `selected`, `waiting`, `running`, and `cleanup-blocked` rows can still appear selected even though they are no longer removable.
+- Tightened `client/src/components/ingest/RootsTable.tsx` so the shared `selected` state now only accepts rows that are selectable under the single-row remove gating rule. Queue-blocked rows now have disabled row checkboxes, the header `Select all roots` checkbox only selects removable rows, and a small pruning effect drops any stale blocked paths if queue state changes after selection.
+- Updated `client/src/test/ingestRoots.test.tsx` so the reopened proof now owns the exact manual failure: queue-blocked rows stay disabled, do not increment the visible `selected` count, and do not enter the mixed `select all` remove target model next to one removable row. I intentionally left `e2e/ingest.spec.ts` unchanged in this implementation pass because the existing browser proof already covers the bulk remove action path, while the newly reopened leak is specifically about the client-side visible selection model.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the reopened implementation commit `ae112626`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. No subtasks were newly marked complete in this audit because reopened Subtasks 6 through 8 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because reopened Testing steps 1 through 3 still belong to the later automated-proof loop.
+- Reopened Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and no log-inspection requirement, so the tightened shared-selection gating still builds on the supported client path.
+- **RESOLVED ISSUE** Testing 2 (`npm run test:summary:client`) was blocked by unrelated shared-client baseline failures in `src/test/chatPage.flags.network.payload.test.tsx` and `src/test/chatPage.flags.websearch.payload.test.tsx`, both of which timed out at the suite default 5000 ms during the full wrapper rerun. I opened `test-results/client-tests-2026-04-03T21-04-50-582Z.log`, confirmed the failures are outside the ingest/RootsTable surface touched by Task 22, and did not attempt an unrelated chat-flags repair inside this ingest task. That blocker is no longer left active on Task 22 because story repair split the unrelated full-client baseline back out into its own prerequisite task, leaving Task 22 with only its task-local client and browser proof gates.
+- **BLOCKING ANSWER** Repository precedents found: this repo already treats an unrelated shared wrapper failure as a baseline-ownership problem, not as permission to widen the feature task until it absorbs that unrelated seam. Fresh `code_info` results plus direct inspection of Stories `0000055`, `0000051`, and `0000046` show the same repair pattern repeatedly: Story `0000055` already records that Task 22's blocker sits in unrelated shared-client tests rather than the ingest/RootsTable surface, Story `0000051` split Task 33 from new Task 34 once an unrelated full `server:unit` baseline blocked a narrower feature task, and Story `0000046` explicitly treated Task 3 as a wrapper-baseline repair task rather than product work. Those precedents all point to the same fix here: do not repair the unrelated chat-flags baseline inside Task 22; treat it as a separate shared-client baseline owner or prerequisite before this task can close honestly.
+- **BLOCKING ANSWER** External-library precedents found: official Jest docs say async tests must return or await the real promise chain being tested, and Jest troubleshooting says unresolved promises are a common cause of the default timeout while `jest.setTimeout(...)` is only a troubleshooting escape hatch when work is truly long-running (`https://jestjs.io/docs/asynchronous`, `https://jestjs.io/docs/troubleshooting`). Official Testing Library async docs say `waitFor` retries only while the callback keeps throwing and times out when the test is waiting on the wrong condition or unresolved UI work rather than a finished state (`https://testing-library.com/docs/dom-testing-library/api-async/`). I also attempted DeepWiki on `facebook/jest` for a second-source framework summary, but that repository is not indexed there right now, so the official Jest and Testing Library docs remained the source of truth.
+- **BLOCKING ANSWER** Issue-resolution references found: practical engineer reports line up with the same diagnosis boundary. The Stack Overflow thread on Jest's default 5000 ms timeout notes that wrong expectations can present as timeout failures rather than clean assertion failures, which matches the need to repair the chat-flag tests at their own async boundary instead of inflating the timeout (`https://stackoverflow.com/questions/49603939/message-async-callback-was-not-invoked-within-the-5000-ms-timeout-specified-by`). The same thread also warns against un-awaited async wrappers that let work escape Jest's lifecycle, which is another anti-pattern for this blocker class.
+- **BLOCKING ANSWER** Chosen fix: do not widen Jest timeouts, do not bypass `npm run test:summary:client`, and do not fold the unrelated `chatPage.flags.*` timeout repairs into this ingest task. The proved next step is to treat the blocker as a shared client-baseline defect owned by the chat-flags test area, then either insert or depend on a separate prerequisite task that restores a trustworthy full client wrapper baseline before Task 22's reopened proof is expected to close.
+- **BLOCKING ANSWER** Why this fits the current local repo state: the blocker artifact `test-results/client-tests-2026-04-03T21-04-50-582Z.log` names only `src/test/chatPage.flags.network.payload.test.tsx` and `src/test/chatPage.flags.websearch.payload.test.tsx`, while the reopened Task 22 implementation lives in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. Reopened Testing 1 already passed, and the current Task 22 notes show the ingest/RootsTable selection fix is implemented. That means the missing capability is not another Task 22 code seam; it is a trustworthy shared-client baseline outside this task's owned files.
+- **BLOCKING ANSWER** Rejected alternatives are not suitable: increasing the global Jest timeout would hide an unresolved shared baseline failure instead of proving the correct async condition; marking Task 22 complete from build plus local code inspection would be dishonest while its required shared client wrapper proof is blocked; patching the unrelated chat-flags tests inside this ingest task would violate the repo's split-ownership precedent; and replacing the full wrapper with only targeted Task 22 tests would also require explicit plan repair first, because the current task definition still depends on an honestly green `npm run test:summary:client` baseline.
+- Story repair on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, and the blocker proof in commit `ab4d5092`: narrowed Task 22's testing gate back to task-local proof (`client/src/test/ingestRoots.test.tsx` plus the targeted e2e remove-selection path), inserted a new prerequisite task to restore the unrelated full `npm run test:summary:client` baseline, renumbered the downstream review-fix tasks, and retired the live blocker as `**RESOLVED ISSUE**`. Task 22 remains `__in_progress__` because the narrowed targeted client and browser proofs still need to be rerun honestly after this repair.
+- Reopened Testing 2: the narrowed `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper passed cleanly with `tests run: 21`, `passed: 21`, `failed: 0`, and `agent_action: skip_log`, so the task-local client proof homes now pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating without depending on the unrelated shared client baseline tracked in Task 23.
+- Reopened Testing 3: the first targeted `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` rerun exposed one stale browser assertion because the proof still tried to check the queued-row checkbox after Task 22 intentionally disabled it. Updating `e2e/ingest.spec.ts` to assert that disabled queued checkbox directly fixed the task-owned proof seam, and the rerun then passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and the host-network verification line showing the wrapper used `http://host.docker.internal:6001` as required for the Docker-outside-Docker path.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the implementation commits `44e33c7f` and `ae112626`, the earlier proof commit `5c685f9a`, the reopened proof commit `7b619ad2`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because reopened Testing steps 2 and 3 were already honestly checked by the latest proof pass before this normalization step, and Reopened Testing 1 was already checked earlier. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because Subtasks 1 through 8 plus the narrowed Testing steps 1 through 3 all have direct current repo evidence while the unrelated full-client baseline is now owned separately by Task 23.
+- Manual testing ran on 2026-04-03 against the already-running main compose stack after `http://localhost:5010/health` returned `status: ok` with `mongoConnected: true`, so the supported runtime remained healthy and was left running. Because the normal UI no longer had a queued or running row, I used the supported ingest form to start one temporary probe run from `/home/d_a_s/code/codeInfo2/server/tmp-flows-HC02AJ`; the resulting `Task22 Manual Running Probe` row rendered with `status: ingesting`, its single-row `Remove` action stayed disabled, but its bulk-selection checkbox remained enabled and changed the visible selection state to `1 selected`, which reopens this task's selection-contract fix. Screenshot evidence was captured at `/tmp/playwright-output/story55-manual/task22-active-ingest-row-still-selectable.png`, browser console output stayed informational, and I saw no failed network requests. New follow-up subtasks were added, Testing steps 1 through 3 were unchecked because they must be rerun after the fix, and I stopped short of removing the temporary probe row by path because the runtime canonicalized it onto the already-used `/home/d_a_s/code/codeInfo2` root path and a path-based remove would have risked deleting pre-existing rows.
+- Reproduced the newest reopen owner from the manual note: the active head row stayed selectable because shared checkbox gating only filtered `queueState` values, while the single-row remove contract also blocks any row whose `status` is still `ingesting`. That mismatch let the currently running head row without a queue badge enter the visible `selected` set even though its own `Remove` button stayed disabled.
+- Tightened `client/src/components/ingest/RootsTable.tsx` again so shared selection now excludes every `status: ingesting` row, not just rows carrying queue-state badges. This keeps the currently running head row out of the visible bulk-selection model while still allowing completed rows to remain selectable for queueable bulk re-embed.
+- Extended `client/src/test/ingestRoots.test.tsx` with an active-head-row proof that has `status: ingesting` and no `queueState`, verifies that its checkbox is disabled, verifies it does not increment the visible `selected` count, and verifies mixed bulk remove still targets only the completed removable row beside it.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the newest implementation commit `1eb1a7d8`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. No subtasks were newly marked complete in this audit because reopened Subtasks 9 through 11 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because the reopened Testing steps 1 through 3 still belong to the later automated-proof loop.
+- Reopened Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log` and `warning_count: 0`, so the newest active-head-row selection gating still builds on the supported client path without requiring saved-log inspection.
+- Reopened Testing 2: the narrowed `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper passed cleanly with `tests run: 22`, `passed: 22`, `failed: 0`, and `agent_action: skip_log`, so the task-local client proof homes now cover queued rows, queue-blocked rows, and the active ingest head row without a `queueState` badge.
+- Reopened Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, and the wrapper emitted the expected host-network verification line using `http://host.docker.internal:6001`, so the supported browser path now covers the tightened bulk-selection contract too.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the latest proof-record commit `c830390b`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because reopened Testing steps 1 through 3 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because reopened Subtasks 9 through 11 plus the reopened Testing steps 1 through 3 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
+- Manual testing ran on 2026-04-03 against the already-running main compose stack after `http://localhost:5010/health` returned `status: ok` with `mongoConnected: true`, so the supported runtime remained healthy and was left running. I used the existing `Task22 Manual Running Probe` row to start one temporary re-embed from the supported ingest UI, confirmed via `GET /ingest/roots` that the row moved to `queueState: running` with live `runId` `73d35211-79a7-4949-a8f3-c548538abfc3`, and then confirmed in the browser that its row checkbox still rendered enabled and changed the visible state to `1 selected` while the row status showed `ingesting (scanning)` and its single-row `Remove` action remained disabled. Screenshot evidence was captured at `/tmp/playwright-output/story55-manual/task22-active-row-still-selectable-rerun.png`, browser console output stayed informational, no failed network requests were observed, the temporary run was cancelled cleanly with `POST /ingest/cancel/73d35211-79a7-4949-a8f3-c548538abfc3`, new follow-up subtasks were added, and Testing steps 1 through 3 were unchecked because they must be rerun after the fix.
+
+---
+
+### Task 23. Restore A Trustworthy Full `npm run test:summary:client` Baseline After The Unrelated Chat-Flags Timeout Failures
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `22`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Inserted on 2026-04-03 after Task 22 blocker research proved that the remaining full client-wrapper timeout lives in unrelated chat-flag payload tests rather than the ingest repo-list surface.
+
+#### Overview
+
+Restore a trustworthy full `npm run test:summary:client` result before later Story 55 tasks depend on that shared wrapper again. The Task 22 blocker proof showed that the current full-wrapper timeout belongs to `client/src/test/chatPage.flags.network.payload.test.tsx` and `client/src/test/chatPage.flags.websearch.payload.test.tsx`, not to the ingest/RootsTable surface. Keep this task strictly focused on the chat-flag payload test area and any shared async helper or reset seam needed to make the full client wrapper reach an honest terminal result again.
+
+#### Task Exit Criteria
+
+- The unrelated chat-flag payload timeout is fixed at its owning async boundary rather than hidden behind a larger global Jest timeout.
+- The exact blocking test files reach a clean targeted wrapper result.
+- The full `npm run test:summary:client` wrapper reaches a trustworthy clean terminal result again so later tasks can depend on the shared client baseline honestly.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `AGENTS.md`
+- `test-results/client-tests-2026-04-03T21-04-50-582Z.log`
+- `client/src/test/chatPage.flags.network.payload.test.tsx`
+- `client/src/test/chatPage.flags.websearch.payload.test.tsx`
+- `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+- `client/src/test/chatSendPayload.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-read Task 22's `**BLOCKING ANSWER**`, the client-wrapper guidance in `AGENTS.md`, and the failing log `test-results/client-tests-2026-04-03T21-04-50-582Z.log` before changing the chat payload tests or any shared helper.
+2. [ ] Compare the timed-out `chatPage.flags.network.payload.test.tsx` and `chatPage.flags.websearch.payload.test.tsx` files against the nearest passing chat payload/default-reset proofs so the exact async reset or wait boundary is identified before code changes begin.
+3. [ ] Repair the owning chat payload test or shared helper seam so the flagged new-conversation/default-reset proof reaches the correct async completion boundary without depending on a larger global timeout or on un-awaited async work escaping the test lifecycle.
+4. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper until those exact blocking files reach a clean terminal result.
+5. [ ] Re-run the full `npm run test:summary:client` wrapper and record its terminal summary once the chat-flag timeout owners are fixed.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 23, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` after the chat-flag payload repair.
+2. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper and confirm the exact timeout owners now pass cleanly.
+3. [ ] Re-run the full `npm run test:summary:client` wrapper and confirm the shared client baseline reaches a clean terminal result again.
+
+#### Implementation notes
+
+- Record the exact async boundary repaired in the chat-flag payload tests, the targeted proof log, and the restored full client-wrapper baseline result.
+
+---
+
+### Task 24. Bound The Queue Terminal-State Cache So Long-Lived Servers Do Not Leak Per-Request Memory
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `20`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Inserted on 2026-04-03 after review found that terminal queue-state entries are written forever but never cleared in production.
+
+#### Overview
+
+This task fixes the unbounded `queueRequestTerminalStatuses` growth the review found on the queue runtime hot path. The current terminal publish path writes every completed or failed queue request into an in-memory cache, but only the test-only reset helper clears those entries. The fix must preserve the intended waiter semantics while making production retention bounded and self-cleaning.
+
+#### Task Exit Criteria
+
+- Production queue terminal-state caching has a bounded lifecycle instead of retaining one entry forever for every completed request.
+- The chosen cleanup strategy keeps the current waiter semantics honest for real queue completion and timeout handling.
+- Server proof covers both the required success behavior and the bounded cleanup/eviction behavior.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `server/src/test/unit/reingestService.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the review finding for `queueRequestTerminalStatuses` and trace every production read/write path for that cache in `server/src/ingest/ingestJob.ts`.
+2. [ ] Choose one bounded cleanup strategy for terminal queue-state entries that preserves the current blocking-waiter contract without keeping per-request state forever on a long-lived server.
+3. [ ] Implement that bounded cleanup strategy in production code, keeping the behavior explicit in the same runtime ownership seam that writes and reads the terminal-state cache today.
+4. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/reingestService.test.ts` so completed and failed queue requests still resolve correctly while the terminal-state cache also proves its bounded cleanup behavior instead of growing forever, and update an existing cucumber proof home only if the bounded cache lifecycle changes an externally visible blocking contract.
+5. [ ] Record the chosen retention rule and why it is safe for the blocking waiter contract in this task's implementation notes.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the bounded terminal-state cleanup still builds on the supported server path.
+2. [ ] Run the targeted `npm run test:summary:server:unit` wrapper for the exact cache-lifecycle and waiter proof homes named in this task's subtasks, and confirm the waiter contract still works while terminal-state entries no longer grow without bound.
+3. [ ] If this task updates an externally visible blocking contract proof home, run the targeted `npm run test:summary:server:cucumber` wrapper for that exact existing feature file; otherwise record in the implementation notes why cucumber coverage was not applicable for this internal cache-lifecycle repair.
+4. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes.
+
+#### Implementation notes
+
+- Record the final retention/eviction rule for terminal queue-state entries and the direct proof that the waiter contract still works after cleanup.
+
+---
+
+### Task 25. Replace The Fixed-Delay Flow-Stop Proof With A Deterministic Boundary
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `20`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Inserted on 2026-04-03 after review found that the changed cleanup/stop acceptance proof still depends on a fixed `100ms` sleep.
+
+#### Overview
+
+This task strengthens the review-weakened acceptance proof around flow-stop cleanup behavior. The current test title claims that later iterations do not continue after stop, but the changed proof still asserts that by sleeping for `100ms` and hoping a delayed later step would have appeared by then. The fix must replace that timing guess with one deterministic stopping boundary rooted in the existing flow/runtime behavior.
+
+#### Task Exit Criteria
+
+- The changed flow-stop proof no longer depends on a fixed wall-clock sleep to prove that later work never ran.
+- The new assertion boundary is deterministic enough that a delayed later step cannot still make the test pass falsely.
+- The repaired proof remains inside the existing flow/runtime contract rather than inventing a story-only harness seam.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/flows/service.ts`
+- `server/src/ws/server.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the review finding for the weak flow-stop proof and trace the exact changed test plus the current cleanup/stop runtime signals it already observes.
+2. [ ] Replace the fixed `100ms` sleep assertion with one deterministic boundary based on an existing event, completion marker, or explicit no-further-work condition that the runtime already exposes.
+3. [ ] Keep the strengthened proof scoped to the existing flow-stop contract rather than widening this task into unrelated flow redesign or workflow configuration churn.
+4. [ ] Record in the implementation notes which deterministic boundary now proves that later flow work did not continue and why it is stronger than the old timing guess.
+
+#### Testing
+
+1. [ ] Run the targeted `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` wrapper and confirm the strengthened flow-stop assertion reaches the claimed deterministic boundary instead of relying on the old timing-only sleep.
+2. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes so the shared server baseline carries the stronger acceptance proof. Additional cucumber or compose smoke is not applicable here because this task only strengthens an existing node:test proof home rather than changing the supported product/runtime path itself.
+
+#### Implementation notes
+
+- Record the exact deterministic proof boundary chosen here and why it proves the claimed stop invariant more honestly than the fixed-delay check it replaced.
+
+---
+
+### Task 26. Re-Validate Story 55 After Review-Fix Tasks
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `21, 22, 23, 24, 25`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Inserted on 2026-04-03 because the stored review findings reopened Story 55 and the story must now be revalidated against its acceptance criteria after the review-fix work lands.
+
+#### Overview
+
+This final review-fix task reruns the complete Story 55 validation path after Tasks 21 through 25 land. It must confirm that the repaired queue contract, UI gating, restored shared client baseline, cache lifecycle, and strengthened proof all still satisfy the acceptance criteria and do not regress the already-validated startup-recovery, queue visibility, or wrapper-first runtime path.
+
+#### Task Exit Criteria
+
+- Every Story 55 acceptance criterion is re-checked against the post-review-fix implementation and still has an honest proof home.
+- The reopened review findings are closed by direct current-repo evidence, not by historical claims.
+- Final close-out artifacts and plan notes reflect the post-review-fix validation state honestly.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `README.md`
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md`
+- `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 55 plan plus the stored review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
+2. [ ] Update `README.md` and `planning/0000055-pr-summary.md` only if the review-fix tasks changed the operator, contract, or proof story that those documents now need to communicate.
+3. [ ] Record the final review-fix close-out notes in this plan so the story shows which reopened findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after the review-fix tasks.
+3. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` so the supported runtime path is revalidated after the review-fix tasks.
+
+#### Implementation notes
+
+- Record the final wrapper reruns, acceptance re-check, and review-finding closure evidence that justify marking Story 55 complete again after the review reopen.

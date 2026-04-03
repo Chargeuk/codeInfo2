@@ -84,6 +84,14 @@ test('ingest queue model uses timestamps and explicit target plus FIFO indexes',
   );
   assert.ok(
     indexes.some(
+      ([fields, options]: [QueueIndexFields, Record<string, unknown>]) =>
+        fields.canonicalTargetPath === 1 &&
+        options.unique === true &&
+        options.name === 'ingest_queue_live_target_unique_idx',
+    ),
+  );
+  assert.ok(
+    indexes.some(
       ([fields]: [QueueIndexFields, Record<string, unknown>]) =>
         fields.queueState === 1 && fields.createdAt === 1 && fields._id === 1,
     ),
@@ -271,6 +279,109 @@ test('waiting duplicate reuse preserves queue identity and provenance while repl
     embeddingModel: 'nomic-embed',
   });
   assert.equal(waitingUpdateMock.mock.calls.length, 1);
+});
+
+test('concurrent first-submit requests collapse onto one waiting queue row', async () => {
+  const created = createQueueRequest();
+  let waitingRequest: IngestQueueRequest | null = null;
+  let waitingLookupCount = 0;
+  let createCallCount = 0;
+  let releaseFirstCreate: (() => void) | null = null;
+  const firstCreateGate = new Promise<void>((resolve) => {
+    releaseFirstCreate = resolve;
+  });
+
+  mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    (
+      filter: Record<string, unknown>,
+      update: { $set: Record<string, unknown> },
+    ) => {
+      if (filter.queueState !== 'waiting') {
+        return { exec: async () => null };
+      }
+
+      waitingLookupCount += 1;
+      if (!waitingRequest) {
+        return { exec: async () => null };
+      }
+
+      waitingRequest = createQueueRequest({
+        ...waitingRequest,
+        operation: update.$set.operation as IngestQueueRequest['operation'],
+        requestPayload: update.$set.requestPayload as Record<string, unknown>,
+        updatedAt: new Date('2026-01-01T00:15:00.000Z'),
+      });
+      return { exec: async () => waitingRequest };
+    },
+  );
+  mock.method(IngestQueueRequestModel, 'findOne', () => ({
+    exec: async () => null,
+  }));
+  mock.method(
+    IngestQueueRequestModel,
+    'create',
+    async (doc: Record<string, unknown>) => {
+      createCallCount += 1;
+      if (createCallCount === 1) {
+        await firstCreateGate;
+        waitingRequest = createQueueRequest({
+          ...created,
+          canonicalTargetPath: doc.canonicalTargetPath as string,
+          operation: doc.operation as IngestQueueRequest['operation'],
+          requestPayload: doc.requestPayload as Record<string, unknown>,
+          sourceSurface: doc.sourceSurface as string,
+          runId: null,
+        });
+        return waitingRequest;
+      }
+
+      releaseFirstCreate?.();
+      const error = new Error('duplicate waiting queue row');
+      (error as Error & { code?: number }).code = 11000;
+      throw error;
+    },
+  );
+  mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
+    exec: async () => 0,
+  }));
+
+  const firstInput = buildInput({
+    requestPayload: {
+      model: 'embed-first',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-first',
+    },
+    sourceSurface: 'rest/ingest/start',
+  });
+  const secondInput = buildInput({
+    operation: 'reembed',
+    requestPayload: {
+      model: 'embed-second',
+      embeddingProvider: 'openai',
+      embeddingModel: 'embed-second',
+    },
+    sourceSurface: 'rest/ingest/reembed',
+  });
+
+  const [firstResult, secondResult] = await Promise.all([
+    enqueueOrReuseIngestRequest(firstInput),
+    enqueueOrReuseIngestRequest(secondInput),
+  ]);
+
+  assert.equal(waitingLookupCount, 3);
+  assert.equal(firstResult.requestId, created._id.toString());
+  assert.equal(secondResult.requestId, created._id.toString());
+  assert.equal(firstResult.updatedExisting, false);
+  assert.equal(secondResult.updatedExisting, true);
+  assert.equal(secondResult.queuePosition, 1);
+  assert.equal(secondResult.queueRequest.sourceSurface, 'rest/ingest/start');
+  assert.deepEqual(secondResult.queueRequest.requestPayload, {
+    model: 'embed-second',
+    embeddingProvider: 'openai',
+    embeddingModel: 'embed-second',
+  });
 });
 
 test('running duplicate reuse returns the existing running queue item without mutating active settings', async () => {

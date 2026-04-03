@@ -55,7 +55,6 @@ async function ensureCleanRoots() {
         }
       }
 
-      let removedAny = false;
       let sawBusy = false;
 
       for (const root of roots) {
@@ -65,7 +64,6 @@ async function ensureCleanRoots() {
           `${apiBase}/ingest/e2e/cleanup/${encodeURIComponent(root.path)}`,
         );
         if (removeRes.ok()) {
-          removedAny = true;
           continue;
         }
         if (removeRes.status() === 429) {
@@ -98,6 +96,23 @@ async function ensureCleanRoots() {
   } finally {
     await ctx.dispose();
   }
+}
+
+async function fetchRoots(ctx: APIRequestContext) {
+  const res = await ctx.get(`${apiBase}/ingest/roots`);
+  if (!res.ok()) {
+    throw new Error(`ingest/roots unavailable (${res.status()})`);
+  }
+  const data = await res.json();
+  return Array.isArray(data.roots)
+    ? (data.roots as Array<{
+        path?: string;
+        name?: string;
+        status?: string;
+        queueState?: string | null;
+        runId?: string | null;
+      }>)
+    : [];
 }
 
 async function checkPrereqs() {
@@ -528,6 +543,170 @@ test.describe.serial('Ingest flows', () => {
 
     await page.reload();
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
+  });
+
+  test('queued row picks up a run owner after the current queue head finishes', async ({
+    page,
+  }) => {
+    const activeName = `${fixtureName}-startup-head`;
+    const queuedName = `${fixtureName}-startup-next`;
+    const queuedPath = `${fixturePath}/docs`;
+    const ctx = await request.newContext();
+
+    try {
+      await page.goto(`${baseUrl}/ingest`);
+
+      await page.getByLabel('Folder path').fill(fixturePath);
+      await page.getByLabel('Display name').fill(activeName);
+      await selectEmbeddingModel(page);
+      await page.getByTestId('start-ingest').click();
+      await waitForInProgress(page);
+
+      await page.getByLabel('Folder path').fill(queuedPath);
+      await page.getByLabel('Display name').fill(queuedName);
+      await page.getByTestId('start-ingest').click();
+
+      await waitForQueuedRow(page, new RegExp(queuedName, 'i'), 1);
+      await waitForCompletion(page, new RegExp(activeName, 'i'));
+
+      await expect
+        .poll(
+          async () => {
+            const roots = await fetchRoots(ctx);
+            const queuedRoot = roots.find((root) => root.path === queuedPath);
+            if (!queuedRoot) {
+              return 'missing';
+            }
+            if (
+              queuedRoot.queueState === 'waiting' &&
+              queuedRoot.runId == null
+            ) {
+              return 'waiting-without-owner';
+            }
+            return JSON.stringify({
+              status: queuedRoot.status ?? null,
+              queueState: queuedRoot.queueState ?? null,
+              runId: queuedRoot.runId ?? null,
+            });
+          },
+          {
+            timeout: 120_000,
+            message:
+              'waiting for the queued ingest row to stop being stranded without an owner',
+          },
+        )
+        .not.toBe('waiting-without-owner');
+
+      await page.reload();
+      await expect
+        .poll(
+          async () => {
+            const queuedRows = page.getByRole('row', {
+              name: new RegExp(queuedName, 'i'),
+            });
+            if ((await queuedRows.count()) === 0) {
+              return 'missing';
+            }
+            return (
+              (await queuedRows.first().textContent())?.toLowerCase() ?? ''
+            );
+          },
+          {
+            timeout: 60_000,
+            message:
+              'waiting for the queued row to stop showing queued (#1) after handoff',
+          },
+        )
+        .not.toContain('queued (#1)');
+    } finally {
+      await ctx.dispose();
+    }
+  });
+
+  test('Remove selected ignores queued rows in a mixed selection', async ({
+    page,
+  }) => {
+    const removeRequests: string[] = [];
+    const mockedRoots = {
+      roots: [
+        {
+          runId: 'run-removable',
+          name: 'mock-removable',
+          description: 'completed fixture',
+          path: '/mock-removable',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+        {
+          requestId: 'queue-request-queued',
+          runId: null,
+          name: 'mock-queued',
+          description: 'waiting fixture',
+          path: '/mock-queued',
+          model: 'embed-1',
+          status: 'ingesting',
+          phase: 'queued',
+          queueState: 'waiting',
+          queuePosition: 1,
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '2025-02-19',
+      lockedModelId: 'embed-1',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+    await page.route('**/ingest/remove/**', async (route) => {
+      removeRequests.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok', unlocked: false }),
+      });
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    const bulkRemove = page.getByRole('button', { name: /remove selected/i });
+    await expect(
+      page.getByRole('row', { name: /mock-removable/i }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('row', { name: /mock-queued/i }).first(),
+    ).toBeVisible();
+
+    const queuedCheckbox = page.getByRole('checkbox', {
+      name: /^Select mock-queued$/i,
+    });
+    await expect(queuedCheckbox).toBeDisabled();
+    await expect(bulkRemove).toBeDisabled();
+
+    await page
+      .getByRole('checkbox', { name: /^Select mock-removable$/i })
+      .check();
+    await expect(bulkRemove).toBeEnabled();
+
+    await bulkRemove.click();
+
+    await expect
+      .poll(() => removeRequests.length, {
+        timeout: 10_000,
+        message: 'waiting for bulk remove to issue the removable request only',
+      })
+      .toBe(1);
+    expect(removeRequests[0]).toContain('/ingest/remove/%2Fmock-removable');
+    expect(removeRequests[0]).not.toContain('/ingest/remove/%2Fmock-queued');
   });
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {

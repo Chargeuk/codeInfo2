@@ -40,6 +40,7 @@ export type MockCopilotSdkScenario = {
   resumeRegisterToolsError?: Error;
   sendError?: Error;
   sendDelayMs?: number;
+  sendGate?: Promise<void>;
 };
 
 type MockCopilotHarnessState = {
@@ -269,6 +270,9 @@ class MockCopilotSession {
         setTimeout(resolve, this.scenario.sendDelayMs),
       );
     }
+    if (this.scenario.sendGate) {
+      await this.scenario.sendGate;
+    }
     await this.emitScriptedEvents();
     return this.sessionId;
   }
@@ -279,6 +283,9 @@ class MockCopilotSession {
       await new Promise((resolve) =>
         setTimeout(resolve, this.scenario.sendDelayMs),
       );
+    }
+    if (this.scenario.sendGate) {
+      await this.scenario.sendGate;
     }
     return this.emitScriptedEvents();
   }

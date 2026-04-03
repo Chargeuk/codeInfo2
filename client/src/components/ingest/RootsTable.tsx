@@ -96,7 +96,7 @@ export default function RootsTable({
         .filter(Boolean)
         .join(' · ')
     : null;
-  const removableRootPaths = useMemo(
+  const selectableRootPaths = useMemo(
     () =>
       new Set(
         roots
@@ -106,13 +106,28 @@ export default function RootsTable({
     [roots],
   );
   const removableSelectedPaths = useMemo(
-    () => Array.from(selected).filter((path) => removableRootPaths.has(path)),
-    [removableRootPaths, selected],
+    () => Array.from(selected).filter((path) => selectableRootPaths.has(path)),
+    [selectableRootPaths, selected],
   );
   const canBulkRemove =
     !busy && !hasActiveRun && removableSelectedPaths.length > 0;
+  const selectableRootCount = selectableRootPaths.size;
+  const allSelectableSelected =
+    selectableRootCount > 0 && selected.size === selectableRootCount;
+
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = new Set(
+        Array.from(prev).filter((path) => selectableRootPaths.has(path)),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+  }, [selectableRootPaths]);
 
   const toggle = (path: string) => {
+    if (!selectableRootPaths.has(path)) {
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
@@ -336,17 +351,15 @@ export default function RootsTable({
                 <Checkbox
                   inputProps={{ 'aria-label': 'Select all roots' }}
                   indeterminate={
-                    selected.size > 0 && selected.size < roots.length
+                    selected.size > 0 && selected.size < selectableRootCount
                   }
-                  checked={roots.length > 0 && selected.size === roots.length}
-                  disabled={busy}
+                  checked={allSelectableSelected}
+                  disabled={busy || selectableRootCount === 0}
                   onChange={() => {
                     if (busy) return;
-                    const allSelected = selected.size === roots.length;
+                    const allSelected = allSelectableSelected;
                     setSelected(
-                      allSelected
-                        ? new Set()
-                        : new Set(roots.map((r) => r.path)),
+                      allSelected ? new Set() : new Set(selectableRootPaths),
                     );
                   }}
                 />
@@ -391,7 +404,7 @@ export default function RootsTable({
                   <TableCell padding="checkbox">
                     <Checkbox
                       checked={isSelected}
-                      disabled={busy}
+                      disabled={busy || blocksUserRemove(root)}
                       onChange={() => toggle(root.path)}
                       inputProps={{ 'aria-label': `Select ${root.name}` }}
                     />

@@ -202,7 +202,7 @@ describe('RootsTable', () => {
     ).toBeDisabled();
   });
 
-  it('keeps bulk remove disabled when only queued rows are selected', async () => {
+  it('keeps queue-blocked rows out of the visible bulk selection state', async () => {
     render(
       <RootsTable
         roots={[
@@ -232,13 +232,14 @@ describe('RootsTable', () => {
     });
     const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
 
+    expect(queuedCheckbox).toBeDisabled();
     expect(bulkRemove).toBeDisabled();
     fireEvent.click(queuedCheckbox);
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeDisabled();
   });
 
-  it('removes only actually removable rows from a mixed bulk selection', async () => {
+  it('keeps queue-blocked rows out of mixed select-all counts and remove targets', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ status: 'ok', unlocked: true }),
     );
@@ -249,13 +250,12 @@ describe('RootsTable', () => {
           root,
           {
             ...root,
-            path: '/repo-queued',
-            name: 'repo-queued',
+            path: '/repo-running',
+            name: 'repo-running',
             status: 'ingesting',
-            phase: 'queued',
-            queueState: 'waiting',
-            queuePosition: 1,
-            runId: null,
+            phase: 'embedding',
+            queueState: 'running',
+            runId: 'run-active',
             requestId: 'queue-request-2',
           },
         ]}
@@ -267,19 +267,22 @@ describe('RootsTable', () => {
       />,
     );
 
-    const completedCheckbox = await screen.findByRole('checkbox', {
-      name: /^select repo$/i,
+    const selectAll = await screen.findByRole('checkbox', {
+      name: /select all roots/i,
     });
-    const queuedRow = await screen.findByRole('row', { name: /repo-queued/i });
+    const runningRow = await screen.findByRole('row', {
+      name: /repo-running/i,
+    });
     const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
 
-    fireEvent.click(
-      within(queuedRow).getByRole('checkbox', { name: /select repo-queued/i }),
-    );
-    expect(bulkRemove).toBeDisabled();
+    expect(
+      within(runningRow).getByRole('checkbox', {
+        name: /select repo-running/i,
+      }),
+    ).toBeDisabled();
 
-    fireEvent.click(completedCheckbox);
-    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    fireEvent.click(selectAll);
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeEnabled();
 
     await act(async () => {
@@ -292,10 +295,10 @@ describe('RootsTable', () => {
     );
 
     expect(removeCalls).toHaveLength(1);
-    expect(String(removeCalls[0]?.[0] ?? '')).toContain('/ingest/remove/%2Frepo');
-    expect(String(removeCalls[0]?.[0] ?? '')).not.toContain(
-      '/ingest/remove/%2Frepo-queued',
+    expect(String(removeCalls[0]?.[0] ?? '')).toContain(
+      '/ingest/remove/%2Frepo',
     );
+    expect(String(removeCalls[0]?.[0] ?? '')).not.toContain('/repo-running');
   });
 
   it('renders AST counts in the table when available', async () => {

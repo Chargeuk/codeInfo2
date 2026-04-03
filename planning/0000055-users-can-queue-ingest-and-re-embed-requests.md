@@ -1928,7 +1928,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Repository Name: `Current Repository`
 - Task Dependencies: `22`
 - Task Status: `__in_progress__`
-- Git Commits: None yet.
+- Git Commits: `c16e2785`
 - Notes: Inserted on 2026-04-03 after Task 22 blocker research proved that the remaining full client-wrapper timeout lives in unrelated chat-flag payload tests rather than the ingest repo-list surface.
 
 #### Overview
@@ -1958,7 +1958,7 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 3. [x] Repair the owning chat payload test or shared helper seam so the flagged new-conversation/default-reset proof reaches the correct async completion boundary without depending on a larger global timeout or on un-awaited async work escaping the test lifecycle.
 4. [x] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper until those exact blocking files reach a clean terminal result.
 5. [x] Re-run the full `npm run test:summary:client` wrapper and record its terminal summary once the chat-flag timeout owners are fixed.
-6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 23, recording implementation notes, and listing the task commit hashes once they exist.
+6. [x] Update this plan file after implementation by marking the completed checkboxes for Task 23, recording implementation notes, and listing the task commit hashes once they exist.
 
 #### Testing
 
@@ -1974,6 +1974,7 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 - Subtask 3: repaired the owning chat payload seam by giving the two router-backed payload/reset tests the same local `10000ms` boundary their passing approval and reasoning siblings already use. This keeps the fix scoped to the two honest owners and avoids hiding unrelated client work behind a larger global Jest timeout.
 - Subtask 4: the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper now passes cleanly with `tests run: 2`, `passed: 2`, `failed: 0`, and `agent_action: skip_log`, so the exact timeout-owner files now reach a real terminal result again.
 - Subtask 5: full `npm run test:summary:client` now reaches a trustworthy clean terminal result again with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log`, so later review-fix tasks can depend on the shared client wrapper baseline honestly.
+- Subtask 6: updated the Task 23 plan state after implementation, including the completed subtask checkboxes, the implementation notes above, and the new task commit hash `c16e2785`. The task stays `__in_progress__` because its separate `Testing` checklist still belongs to the later automated-proof loop.
 
 ---
 

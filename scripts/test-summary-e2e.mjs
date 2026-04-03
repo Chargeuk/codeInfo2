@@ -99,6 +99,23 @@ const parsePlaywrightJson = (stdout) => {
   }
 };
 
+const parsePlaywrightStatsFallback = (text) => {
+  if (!text) return null;
+  const expected = text.match(/"expected"\s*:\s*(\d+)/);
+  const unexpected = text.match(/"unexpected"\s*:\s*(\d+)/);
+  const flaky = text.match(/"flaky"\s*:\s*(\d+)/);
+  if (!expected || !unexpected || !flaky) return null;
+
+  const passed = Number(expected[1]);
+  const failed = Number(unexpected[1]) + Number(flaky[1]);
+  return {
+    total: passed + failed,
+    passed,
+    failed,
+    failingNames: [],
+  };
+};
+
 const classifyTest = (test) => {
   if (typeof test?.outcome === 'string') {
     if (test.outcome === 'expected') return 'passed';
@@ -253,10 +270,18 @@ try {
       testResultReason = testResult.forcedReason ?? '';
       testResultProgressLine = testResult.lastProgressLine ?? '';
       try {
-        const report = parsePlaywrightJson(testResult.stdout);
-        if (!report)
-          throw new Error('Playwright JSON report not found in stdout');
-        summary = collectSummary(report);
+        const report =
+          parsePlaywrightJson(testResult.stdout) ??
+          parsePlaywrightJson(testResult.output);
+        if (report) {
+          summary = collectSummary(report);
+        } else {
+          const fallbackSummary = parsePlaywrightStatsFallback(testResult.output);
+          if (!fallbackSummary) {
+            throw new Error('Playwright JSON report not found in stdout');
+          }
+          summary = fallbackSummary;
+        }
       } catch {
         parseFailed = true;
         summary = {

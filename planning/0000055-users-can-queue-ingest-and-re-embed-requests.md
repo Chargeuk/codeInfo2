@@ -1828,8 +1828,8 @@ This task repairs the two highest-risk queue correctness holes the review found 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__in_progress__`
-- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`
+- Task Status: `__done__`
+- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
 #### Overview
@@ -1895,6 +1895,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Story repair on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, and the blocker proof in commit `ab4d5092`: narrowed Task 22's testing gate back to task-local proof (`client/src/test/ingestRoots.test.tsx` plus the targeted e2e remove-selection path), inserted a new prerequisite task to restore the unrelated full `npm run test:summary:client` baseline, renumbered the downstream review-fix tasks, and retired the live blocker as `**RESOLVED ISSUE**`. Task 22 remains `__in_progress__` because the narrowed targeted client and browser proofs still need to be rerun honestly after this repair.
 - Reopened Testing 2: the narrowed `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper passed cleanly with `tests run: 21`, `passed: 21`, `failed: 0`, and `agent_action: skip_log`, so the task-local client proof homes now pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating without depending on the unrelated shared client baseline tracked in Task 23.
 - Reopened Testing 3: the first targeted `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` rerun exposed one stale browser assertion because the proof still tried to check the queued-row checkbox after Task 22 intentionally disabled it. Updating `e2e/ingest.spec.ts` to assert that disabled queued checkbox directly fixed the task-owned proof seam, and the rerun then passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and the host-network verification line showing the wrapper used `http://host.docker.internal:6001` as required for the Docker-outside-Docker path.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the implementation commits `44e33c7f` and `ae112626`, the earlier proof commit `5c685f9a`, the reopened proof commit `7b619ad2`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because reopened Testing steps 2 and 3 were already honestly checked by the latest proof pass before this normalization step, and Reopened Testing 1 was already checked earlier. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because Subtasks 1 through 8 plus the narrowed Testing steps 1 through 3 all have direct current repo evidence while the unrelated full-client baseline is now owned separately by Task 23.
 
 ---
 

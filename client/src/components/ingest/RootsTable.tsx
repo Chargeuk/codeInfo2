@@ -64,6 +64,10 @@ function blocksUserRemove(root: IngestRoot) {
   );
 }
 
+function blocksSharedSelection(root: IngestRoot) {
+  return root.status === 'ingesting' || blocksUserRemove(root);
+}
+
 export default function RootsTable({
   roots,
   lockedModelId,
@@ -100,7 +104,7 @@ export default function RootsTable({
     () =>
       new Set(
         roots
-          .filter((root) => !blocksUserRemove(root))
+          .filter((root) => !blocksSharedSelection(root))
           .map((root) => root.path),
       ),
     [roots],
@@ -404,7 +408,7 @@ export default function RootsTable({
                   <TableCell padding="checkbox">
                     <Checkbox
                       checked={isSelected}
-                      disabled={busy || blocksUserRemove(root)}
+                      disabled={busy || blocksSharedSelection(root)}
                       onChange={() => toggle(root.path)}
                       inputProps={{ 'aria-label': `Select ${root.name}` }}
                     />

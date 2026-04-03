@@ -301,6 +301,71 @@ describe('RootsTable', () => {
     expect(String(removeCalls[0]?.[0] ?? '')).not.toContain('/repo-running');
   });
 
+  it('keeps active ingest head rows without queueState out of mixed selection counts and remove targets', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ status: 'ok', unlocked: true }),
+    );
+
+    render(
+      <RootsTable
+        roots={[
+          root,
+          {
+            ...root,
+            path: '/repo-active-head',
+            name: 'repo-active-head',
+            status: 'ingesting',
+            phase: 'embedding',
+            runId: 'run-active-head',
+            requestId: 'queue-request-head',
+            queueState: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const selectAll = await screen.findByRole('checkbox', {
+      name: /select all roots/i,
+    });
+    const activeRow = await screen.findByRole('row', {
+      name: /repo-active-head/i,
+    });
+    const activeCheckbox = within(activeRow).getByRole('checkbox', {
+      name: /select repo-active-head/i,
+    });
+    const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+
+    expect(activeCheckbox).toBeDisabled();
+    fireEvent.click(activeCheckbox);
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+
+    fireEvent.click(selectAll);
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(bulkRemove).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(bulkRemove);
+      await Promise.resolve();
+    });
+
+    const removeCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/ingest/remove/'),
+    );
+
+    expect(removeCalls).toHaveLength(1);
+    expect(String(removeCalls[0]?.[0] ?? '')).toContain(
+      '/ingest/remove/%2Frepo',
+    );
+    expect(String(removeCalls[0]?.[0] ?? '')).not.toContain(
+      '/repo-active-head',
+    );
+  });
+
   it('renders AST counts in the table when available', async () => {
     render(
       <RootsTable

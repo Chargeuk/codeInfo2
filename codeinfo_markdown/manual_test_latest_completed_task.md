@@ -103,9 +103,22 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - what additional proof you intentionally did not require because it depends on later planned functionality or out-of-scope surfaces;
   - why that limitation does not invalidate the candidate task's own exit criteria.
 
+- If manual testing reveals an issue, do a bounded diagnosis pass before mutating the task.
+- That diagnosis pass must:
+  - re-read the relevant task requirements and the changed proof surface;
+  - inspect the relevant logs, console output, network failures, screenshots, or API responses;
+  - inspect the most likely local code paths that own the observed failure;
+  - rerun the smallest honest repro path;
+  - if needed, add temporary diagnostic log lines or other minimal instrumentation, restart the affected runtime, and rerun the repro a small bounded number of times.
+- Remove purely temporary diagnostic instrumentation before finishing this step unless it is genuinely useful production or test logging.
+- Do not add speculative follow-up subtasks before that diagnosis pass is complete.
+
 - If manual testing reveals issues that require more implementation work:
+  - only add new subtasks if the diagnosis pass identified a concrete failing seam, owner, or contract mismatch;
   - update that same candidate task by adding new unchecked subtasks for the required follow-up work;
   - write every newly added subtask with the same level of detail and local context as the existing tasking;
+  - make every newly added subtask name the exact file, harness, route, component, test file, or proof artifact to change and the exact behavior to fix or prove;
+  - do not add vague subtasks such as `investigate X`, `debug Y`, or `look into Z` unless the task is explicitly being reshaped into a bounded diagnostic task by planner repair;
   - when an issue can realistically be covered by automated proof, add a separate new unchecked proof-authoring subtask for that one automated test change;
   - each new automated proof-authoring subtask must cover exactly one automated proof addition or update, name the exact test file, harness, or proof artifact to create or edit, and explain what behavior it must prove;
   - if a suitable automated proof addition is not realistically possible, do not invent one; instead add an implementation note stating why automated proof could not honestly be added for that manual finding;
@@ -117,6 +130,17 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - set that candidate task's `Task Status` back to `__in_progress__`;
   - uncheck any existing checked testing steps whose proof is no longer honestly current because the newly added work will require them to be rerun;
   - add an implementation note stating that manual testing was run, the key issues found, that new subtasks or testing steps were added, and that the affected testing steps were unchecked because they must be rerun after the fixes.
+
+- If the diagnosis pass does not identify a concrete next fix honestly:
+  - do not invent speculative subtasks;
+  - add `**BLOCKER**` instead;
+  - record:
+    - the failing manual repro;
+    - what was inspected;
+    - what temporary instrumentation or restarts were tried;
+    - what remains unknown;
+    - what evidence is still missing;
+  - set that candidate task's `Task Status` to `__in_progress__`.
 
 - If manual testing succeeds without finding further work:
   - leave the candidate task as `__done__`;
@@ -148,7 +172,9 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Confirm you used only the stored handoff and runtime-research scope.
 - Confirm you selected the highest-numbered `__done__` or `__in_progress__` task honestly.
 - Confirm you did not require later-task-owned surfaces unless the candidate task explicitly depended on them.
+- Confirm any failure-triggered follow-up work came after a bounded diagnosis pass rather than from first-guess speculation.
 - Confirm any new subtasks and proof-authoring subtasks are detailed enough for a weak junior agent to follow.
+- Confirm no vague `investigate` or `debug` subtasks were added unless planner repair explicitly turned the work into a bounded diagnostic task.
 - Confirm no manual-testing step was added to the task's `Testing` section.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
 

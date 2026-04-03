@@ -32,6 +32,7 @@ Do not treat this step as automated-proof completion.
 - Before appending an audit note, re-read the latest existing audit or implementation note for this task.
 - If the latest audit outcome is materially unchanged, do not append another audit note just to restate the same state.
 - Treat the outcome as materially unchanged when no subtask status changed, no testing status changed, no blocker state changed, no task status changed, and no new owner or boundary conclusion was reached.
+- If newly added subtasks are still vague, purely investigative, or missing a bounded stopping rule after a manual-testing failure, treat that as invalid task shape rather than as honest executable implementation work.
 - Do not research or repair the blocker in this step.
 
 </audit_rules>
@@ -40,12 +41,13 @@ Do not treat this step as automated-proof completion.
 
 - Compare the current task's open subtasks and implementation notes against the latest implementation pass.
 - If the task still has unchecked subtasks, no previously unchecked subtask was completed in the latest implementation pass, and there is no live `**BLOCKER**` note, treat that as a stalled invalid state.
+- If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as a stalled invalid state too.
 - In that stalled invalid state, add a live `**BLOCKER**` note immediately rather than letting the loop continue silently.
 - That blocker note must state:
   - the exact remaining subtasks;
   - that the latest implementation pass made no subtask-closing progress;
   - the narrowing, investigation, or implementation work attempted;
-  - and that planner intervention is now required to split, narrow, or re-own the task before implementation continues honestly.
+  - and that planner intervention is now required to split, narrow, re-own, or concretize the task before implementation continues honestly.
 
 </stall_detection_rules>
 
@@ -86,6 +88,7 @@ Before finishing:
 - confirm no `Testing` section items were newly marked complete unless they were already honestly complete;
 - confirm the just-worked task was left `__in_progress__`;
 - confirm you did not leave a stalled task with open subtasks and no live `**BLOCKER**`;
+- confirm you did not allow vague manual-testing investigation subtasks to pass through as honest implementation-ready tasking;
 - confirm you did not append a duplicate audit note when the task state was materially unchanged;
 - confirm any blocker was preserved and made visible in the plan;
 - confirm tracked changes were committed if any were made.

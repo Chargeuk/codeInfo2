@@ -62,6 +62,11 @@ If any of those are true, you MUST repair the story before continuing:
 - Replace open-ended `keep narrowing until you find the owner` style subtasks with bounded subtasks that have a clear success or blocker threshold.
 - If the same task has already been blocker-repaired once and the next bounded strategy also exhausts cleanly, prefer closing that task on its exhausted branch and creating a fresh successor task rather than narrowing the same task in place again.
 - Use in-place repair only when the task still has the same concrete owner and the rewrite is minor.
+- If a blocker came from manual testing and the manual tester could not identify a concrete next fix, do not return the task to implementation with vague investigative subtasks.
+- In that manual-testing blocker case, either:
+  - convert the blocker evidence into concrete bounded implementation subtasks with explicit owners and proof steps; or
+  - create a bounded diagnostic task with exact files or surfaces to inspect, the exact commands or repro path to use, an explicit stopping threshold, and an explicit exhausted-branch outcome.
+- Do not keep or create open-ended subtasks like `investigate X until the cause is found` after manual-testing blocker repair.
 
 If the blocker exists because the current task assumes a missing runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract, prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task.
 

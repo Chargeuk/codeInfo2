@@ -1828,8 +1828,8 @@ This task repairs the two highest-risk queue correctness holes the review found 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__in_progress__`
-- Git Commits: `44e33c7f`
+- Task Status: `__done__`
+- Git Commits: `44e33c7f`, `5c685f9a`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
 #### Overview
@@ -1875,6 +1875,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and no log-inspection requirement, so the repaired bulk-remove gating still builds on the supported client path.
 - Testing 2: the first `npm run test:summary:client` run failed in the new mixed-selection proof because that assertion counted every `fetch` call instead of isolating the remove-route request it owns. Narrowing the proof to `/ingest/remove/` calls fixed the task-owned assertion seam, and the rerun then passed cleanly with `tests run: 663`, `passed: 663`, `failed: 0`, and `agent_action: skip_log`.
 - Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, so the browser path now proves queued rows do not become user-removable through `Remove selected` even when a removable row is rendered alongside them.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, the implementation commit `44e33c7f`, the proof commit `5c685f9a`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 3 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because Subtasks 1 through 5 plus Testing steps 1 through 3 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

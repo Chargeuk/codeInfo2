@@ -300,7 +300,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -366,6 +366,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 - The first server build wrapper exposed strict TypeScript mismatches in the new queue model/test types; narrowing `runId` to `string | null` and adding explicit test parameter types fixed the build without changing the queue behavior.
 - `npm run build:summary:server` passed clean on rerun with `agent_action: skip_log`, so the new queue model and admission helper compile in the server workspace.
 - `npm run test:summary:server:unit` passed clean with 1576/1576 tests green, including the new queue admission proof file and the updated start/re-embed/dispatcher proof names.
+- Implementation-only audit on 2026-04-03: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 1 section from disk, rechecked the current branch `HEAD`, and confirmed the current repo evidence still matches every checked Task 1 subtask plus both already-checked Testing items. No additional subtasks were newly marked complete in this audit, no `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 1, and the task is now `__done__` because its existing checked implementation and proof state was already honest on disk.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

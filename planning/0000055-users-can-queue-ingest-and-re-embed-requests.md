@@ -2018,10 +2018,10 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the bounded terminal-state cleanup still builds on the supported server path.
-2. [ ] Run the targeted `npm run test:summary:server:unit` wrapper for the exact cache-lifecycle and waiter proof homes named in this task's subtasks, and confirm the waiter contract still works while terminal-state entries no longer grow without bound.
-3. [ ] If this task updates an externally visible blocking contract proof home, run the targeted `npm run test:summary:server:cucumber` wrapper for that exact existing feature file; otherwise record in the implementation notes why cucumber coverage was not applicable for this internal cache-lifecycle repair.
-4. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the bounded terminal-state cleanup still builds on the supported server path.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper for the exact cache-lifecycle and waiter proof homes named in this task's subtasks, and confirm the waiter contract still works while terminal-state entries no longer grow without bound.
+3. [x] If this task updates an externally visible blocking contract proof home, run the targeted `npm run test:summary:server:cucumber` wrapper for that exact existing feature file; otherwise record in the implementation notes why cucumber coverage was not applicable for this internal cache-lifecycle repair.
+4. [x] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes.
 
 #### Implementation notes
 
@@ -2031,6 +2031,10 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 - Subtask 3: implemented TTL-based eviction in `server/src/ingest/ingestJob.ts`, including per-request eviction timer replacement on later terminal publishes, test-only TTL override support, and reset-time cleanup for those timers. The production default retention window is five minutes, which keeps the current 90-second blocking wait contract safely inside the cache lifetime instead of forcing late waiters to rely on already-deleted queue documents.
 - Subtask 4: extended `server/src/test/unit/ingest-queue-runtime.test.ts` with direct eviction proof for completed entries and extended `server/src/test/unit/reingestService.test.ts` so the actual queue terminal cache still resolves both completed and failed blocking results before TTL eviction. Cucumber coverage was not applicable here because the cache lifecycle remains an internal runtime-memory concern and does not change the externally visible blocking contract.
 - Subtask 5: final retention rule is a five-minute terminal-state TTL with per-request timer reset on terminal republish. That is safe for the blocking waiter contract because the queue-aware wait path currently uses a 90-second timeout and needs the cache only to bridge the gap after queue-document deletion, not to preserve request state indefinitely.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and `warning_count: 0` after tightening the new reingest proof back to the real `ReingestSuccess` contract, so the bounded terminal-cache cleanup still builds on the supported server path.
+- Testing 2: the targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts --file server/src/test/unit/reingestService.test.ts` wrapper passed cleanly with `tests run: 33`, `passed: 33`, `failed: 0`, and `agent_action: skip_log`, so the exact cache-lifecycle and waiter proof homes now cover both bounded eviction and real terminal resolution.
+- Testing 3: cucumber coverage remained not applicable for Task 24, because the terminal-cache TTL stays entirely inside the server runtime memory seam and does not change any externally visible blocking contract, route surface, or feature behavior that an existing cucumber proof home owns.
+- Testing 4: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1605`, `passed: 1605`, `failed: 0`, and `agent_action: skip_log`, so the shared server-unit baseline now carries the bounded terminal-cache behavior without regressions.
 
 ---
 

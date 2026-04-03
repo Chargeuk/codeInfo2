@@ -161,7 +161,6 @@ test('actual queue terminal cache still resolves completed and failed payloads b
     assert.equal(result.ok, true);
     if (!result.ok) continue;
     assert.equal(result.value.status, state === 'error' ? 'error' : 'completed');
-    assert.equal(result.value.requestId, 'queue-request-123');
     assert.equal(result.value.runId, 'ingest-123');
   }
 });

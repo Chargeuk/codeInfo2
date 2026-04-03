@@ -284,15 +284,18 @@ codex_agents/<agentName>/
 ## Story 55 Durable Ingest Queue
 
 - Queueable ingest and re-embed requests now use one durable Mongo-backed queue instead of failing immediately whenever another ingest run is active.
+- Queue admission is canonical-target based. Start-ingest and re-embed requests that normalize to the same embed target reuse one durable queue record instead of creating duplicate waiting work.
 - Queue responses split durable queue identity from runtime execution identity:
   - `requestId` is the durable queue record id.
   - `runId` appears only after execution starts.
   - waiting responses return `queued: true` plus waiting-only `queuePosition`.
 - Queue state stays intentionally small: `waiting`, `running`, and `cleanup-blocked`.
 - Queue order is FIFO by queue creation time. On startup, cleanup-blocked work is resolved before newer waiting work, and leftover `running` records are retried as abandoned previously-active work.
+- Waiting duplicate submits keep the existing `requestId`, queue position, original `createdAt`, and original source-surface provenance while replacing the stored normalized request settings with the latest submit.
+- Queue cleanup stays ordered: the runtime deletes a finished queue record before advancing newer waiting work, and a delete failure leaves the queue in `cleanup-blocked` until cleanup succeeds.
 - Queue-backed outages are explicit. REST surfaces Mongo queue outages as `503` with `QUEUE_UNAVAILABLE`, and MCP, flow, and command paths preserve that same retryable error meaning instead of flattening it into a generic invalid request.
 - Re-embed callers that already blocked until terminal completion still block after queueing. Queue wait time is part of the contract; Story 55 does not convert those callers into fire-and-forget behavior.
-- Shared repository-list readers now expose queued visibility through one contract-first payload. The ingest UI, `/ingest/roots`, and classic `ListIngestedRepositories` all use the same queued row shape with `requestId`, nullable `runId`, waiting-only `queuePosition`, and `queueState`.
+- Shared repository-list readers are the source of truth for queued visibility. The ingest UI, `/ingest/roots`, and classic `ListIngestedRepositories` all use the same queued row shape with `requestId`, nullable `runId`, waiting-only `queuePosition`, and `queueState`, including temporary rows for brand-new queued roots.
 - The ingest UI keeps queueable submissions enabled while another run is active, but Story 55 still does not add user-facing removal or cancellation for queued-but-not-started work.
 
 ## Common Usage

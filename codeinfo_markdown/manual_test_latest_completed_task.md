@@ -25,6 +25,14 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Use those files to determine how to start the edited system and any required prerequisites.
 - Follow the repository run workflow and prefer documented wrapper commands where available.
 - Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence.
+- If `AGENTS.md` does not define wrapper guidance, prefer the highest-level safe command discoverable from repository evidence.
+- Remember that the manual testing agent container and the Playwright MCP server both use Docker host networking, so they can reach the host system through `localhost` when the host system exposes the relevant ports there.
+- When repository evidence is not enough to use the browser-testing tools correctly, gather the minimum extra documentation needed before proceeding:
+  - use Context7 for current Playwright documentation and examples;
+  - use DeepWiki when an external GitHub repository's documentation or architecture is relevant to the manual proof path;
+  - use official Playwright docs and targeted web research when repository evidence plus Context7 still leave MCP-tool usage, assertions, screenshots, selectors, waits, or debugging steps ambiguous.
+- Keep that documentation lookup minimal and directly tied to the proof you need to run.
+- Do not turn this into a broad research pass, and do not use external docs to override repository-specific startup, shutdown, wrapper, login, or environment guidance.
 
 </scope_and_runtime_rules>
 
@@ -72,11 +80,14 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - combine these checks when the task affects more than one surface.
 - Whenever applicable, manual testing must:
   - prove the relevant runnable system or service starts successfully and shuts down cleanly;
+  - treat startup and shutdown as part of the repository's primary proof workflow for the affected surface rather than as an unrelated side check;
   - exercise the behavior modified within the candidate task;
   - cover the changed happy path plus the most relevant surrounding regressions and meaningful edge cases that the task affects;
   - take and save screenshots for key visible states when the task has a browser-visible or connected frontend surface;
   - inspect browser console output and failed network requests when browser-based proof is used;
   - record any other observable proof signals needed by the task.
+  - use those screenshots to assess whether the changed or added GUI is aligned, readable, usable, visually coherent, and correct for the acceptance criteria that can honestly be observed from the frontend;
+  - identify whether any layout, usability, behavioral, startup, or shutdown issues remain.
 - If the completed task has a browser-visible or connected frontend surface but you do not capture screenshots, treat the manual proof as incomplete unless a concrete tooling limitation prevents capture.
 - If screenshot capture is blocked, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.

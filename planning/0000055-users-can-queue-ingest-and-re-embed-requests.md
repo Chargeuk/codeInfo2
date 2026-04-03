@@ -1828,8 +1828,8 @@ This task repairs the two highest-risk queue correctness holes the review found 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__in_progress__`
-- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`, `1eb1a7d8`, `c830390b`, `cc1f13a1`, `0094e700`
+- Task Status: `__done__`
+- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`, `1eb1a7d8`, `c830390b`, `cc1f13a1`, `0094e700`, `05ee75d9`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
 #### Overview
@@ -1919,6 +1919,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Reopened Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log` and `warning_count: 0`, so the active-run-aware selection gating still builds on the supported client path without requiring saved-log inspection.
 - Reopened Testing 2: the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper passed cleanly with `tests run: 23`, `passed: 23`, `failed: 0`, and `agent_action: skip_log`, so the task-local client proof now covers queued rows, queue-blocked rows, active ingest rows, and the active-run-owned mixed-selection boundary.
 - Reopened Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, and the wrapper emitted the expected host-network verification line using `http://host.docker.internal:6001`, so the supported browser path still proves the active-run-aware bulk-selection contract end to end.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the latest proof-record commit `05ee75d9`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because reopened Testing steps 1 through 3 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because reopened Subtasks 12 through 14 plus the reopened Testing steps 1 through 3 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

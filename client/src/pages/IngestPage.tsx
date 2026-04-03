@@ -248,6 +248,7 @@ export default function IngestPage() {
         <Paper variant="outlined" sx={{ p: 3 }}>
           <RootsTable
             roots={roots}
+            activeRunId={active?.runId}
             lockedModelId={locked}
             lockedModel={{
               embeddingProvider: lockedProvider,

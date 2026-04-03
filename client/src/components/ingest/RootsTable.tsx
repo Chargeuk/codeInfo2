@@ -22,6 +22,7 @@ import { createLogger } from '../../logging';
 
 export type RootsTableProps = {
   roots: IngestRoot[];
+  activeRunId?: string;
   lockedModelId?: string;
   lockedModel?: {
     embeddingProvider?: 'lmstudio' | 'openai';
@@ -64,12 +65,19 @@ function blocksUserRemove(root: IngestRoot) {
   );
 }
 
-function blocksSharedSelection(root: IngestRoot) {
-  return root.status === 'ingesting' || blocksUserRemove(root);
+function blocksSharedSelection(root: IngestRoot, activeRunId?: string) {
+  return (
+    root.status === 'ingesting' ||
+    blocksUserRemove(root) ||
+    (typeof activeRunId === 'string' &&
+      activeRunId.length > 0 &&
+      root.runId === activeRunId)
+  );
 }
 
 export default function RootsTable({
   roots,
+  activeRunId,
   lockedModelId,
   lockedModel,
   isLoading,
@@ -104,10 +112,10 @@ export default function RootsTable({
     () =>
       new Set(
         roots
-          .filter((root) => !blocksSharedSelection(root))
+          .filter((root) => !blocksSharedSelection(root, activeRunId))
           .map((root) => root.path),
       ),
-    [roots],
+    [activeRunId, roots],
   );
   const removableSelectedPaths = useMemo(
     () => Array.from(selected).filter((path) => selectableRootPaths.has(path)),
@@ -408,7 +416,7 @@ export default function RootsTable({
                   <TableCell padding="checkbox">
                     <Checkbox
                       checked={isSelected}
-                      disabled={busy || blocksSharedSelection(root)}
+                      disabled={busy || blocksSharedSelection(root, activeRunId)}
                       onChange={() => toggle(root.path)}
                       inputProps={{ 'aria-label': `Select ${root.name}` }}
                     />

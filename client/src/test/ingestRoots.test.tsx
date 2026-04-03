@@ -366,6 +366,52 @@ describe('RootsTable', () => {
     );
   });
 
+  it('keeps active running rows out of visible mixed selection when the page reports the active run id', async () => {
+    render(
+      <RootsTable
+        roots={[
+          root,
+          {
+            ...root,
+            path: '/repo-running-live',
+            name: 'repo-running-live',
+            status: 'ingesting',
+            phase: 'scanning',
+            queueState: 'running',
+            runId: 'run-active-live',
+            requestId: 'queue-request-live',
+          },
+        ]}
+        activeRunId="run-active-live"
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        hasActiveRun
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const selectAll = await screen.findByRole('checkbox', {
+      name: /select all roots/i,
+    });
+    const runningRow = await screen.findByRole('row', {
+      name: /repo-running-live/i,
+    });
+    const runningCheckbox = within(runningRow).getByRole('checkbox', {
+      name: /select repo-running-live/i,
+    });
+    const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+
+    expect(runningCheckbox).toBeDisabled();
+    fireEvent.click(runningCheckbox);
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+
+    fireEvent.click(selectAll);
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(bulkRemove).toBeDisabled();
+  });
+
   it('renders AST counts in the table when available', async () => {
     render(
       <RootsTable

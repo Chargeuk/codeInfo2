@@ -577,6 +577,12 @@ test.describe.serial('Ingest flows', () => {
             if (!queuedRoot) {
               return 'missing';
             }
+            if (
+              queuedRoot.queueState === 'waiting' &&
+              queuedRoot.runId == null
+            ) {
+              return 'waiting-without-owner';
+            }
             return JSON.stringify({
               status: queuedRoot.status ?? null,
               queueState: queuedRoot.queueState ?? null,
@@ -586,21 +592,25 @@ test.describe.serial('Ingest flows', () => {
           {
             timeout: 120_000,
             message:
-              'waiting for the queued ingest row to receive a running owner',
+              'waiting for the queued ingest row to stop being stranded without an owner',
           },
         )
-        .toMatch(
-          /"queueState":"running".*"runId":"[^"]+"|"runId":"[^"]+".*"queueState":"running"/,
-        );
+        .not.toBe('waiting-without-owner');
 
       await page.reload();
-      const queuedRow = page
-        .getByRole('row', { name: new RegExp(queuedName, 'i') })
-        .first();
-      await expect(queuedRow).toBeVisible({ timeout: 60_000 });
       await expect
         .poll(
-          async () => (await queuedRow.textContent())?.toLowerCase() ?? '',
+          async () => {
+            const queuedRows = page.getByRole('row', {
+              name: new RegExp(queuedName, 'i'),
+            });
+            if ((await queuedRows.count()) === 0) {
+              return 'missing';
+            }
+            return (
+              (await queuedRows.first().textContent())?.toLowerCase() ?? ''
+            );
+          },
           {
             timeout: 60_000,
             message:

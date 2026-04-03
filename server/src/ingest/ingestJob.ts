@@ -413,11 +413,7 @@ function releaseRunOwnership(runId: string) {
 }
 
 function scheduleQueueAdvance() {
-  // Queue promotion must happen on a later turn so completed owners can
-  // release the ingest lock before the next waiting item is evaluated.
-  defaultRunScheduler(() => {
-    void pumpIngestQueue();
-  });
+  void pumpIngestQueue();
 }
 
 async function scheduleQueueCleanupRetry(params: {

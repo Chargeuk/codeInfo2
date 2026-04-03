@@ -14,8 +14,9 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - If the handoff is valid, perform the actual review against the planned work and the branch diff for every repository in scope.
 - This step MUST produce findings only and MUST NOT edit the plan yet.
 - Do not commit in this step unless you were forced to make tracked changes to repair the review artifacts themselves.
-- Treat `flows/**` as approved workflow-support paths. Do not raise findings solely because those paths changed without being named in the active plan, but continue to review them normally for workflow semantics and instruction safety.
+- Treat `flows/**` as approved workflow-support paths. Do not raise findings solely because those paths changed without being named in the active plan, but continue to review them normally for workflow semantics, instruction safety, stale-handoff handling, commit/push behavior, plan-selection rules, and other agent-control correctness.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
+- Do not raise findings solely because those allowed support files changed without being named in the active plan.
 - For those allowed support files, review ONLY for spelling, grammar, and obvious wording mistakes.
 - Do NOT raise findings about scope creep, unwanted changes, workflow semantics, runtime safety, contract correctness, artifact hygiene, path usage, plan-selection rules, or revert recommendations for them.
 
@@ -31,7 +32,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
   - its `review_pass_id` is present;
   - its referenced evidence file exists;
   - its `repos` entries still match the selected repositories, current branch names, resolved base branches, and current HEAD commits.
-- Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. Do not re-resolve a different base unless the review handoff is stale and must be regenerated.
+- Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be regenerated.
 
 </scope_rules>
 
@@ -65,10 +66,20 @@ If the review-handoff checks fail, stop and say the review handoff is stale and 
   - user-facing documentation portability;
   - documentation drift;
   - scope creep;
-  - whether the code is more verbose or complex than needed.
+  - whether the code is more verbose or complex than needed and could be made more succinct without sacrificing quality.
 - For multi-repository stories, you MUST also perform an explicit cross-repository integration pass after the per-repository review.
+- That cross-repository pass must inspect:
+  - shared APIs;
+  - shared types;
+  - shared message or storage contracts;
+  - env/config names;
+  - compatibility assumptions;
+  - dependency direction;
+  - migration sequencing;
+  - any producer/consumer mismatch that would not be visible when looking at one repository alone.
 - Perform the plan-based review against the planned work and the branch diff for every repository in scope.
 - After the plan-based review, perform a second pass that is not limited by the acceptance criteria and look for generic engineering defects in the changed code even if the canonical plan did not mention them.
+- This second pass applies to the non-support-file changes only.
 - In that second pass, prioritize:
   - invalid input being silently normalized into success;
   - warnings/errors/reason values produced by helpers but dropped by callers;
@@ -130,9 +141,13 @@ If the review-handoff checks fail, stop and say the review handoff is stale and 
 - For every changed orchestration path with a no-op, metadata-only, delete-only, or zero-work fast return, verify that external dependency setup such as model lookup, provider client creation, dispatcher creation, lock acquisition, or network/bootstrap probes happens only after the code proves that real work still exists, unless the canonical plan explicitly requires that dependency for the fast path.
 - If a fast path is meant to complete without embedding work, compare every helper it calls against that contract and raise a finding when a fallback helper can still reach the provider, network, or runtime dependency indirectly.
 - Treat terminal-state tests for fast paths as incomplete proof unless at least one test or direct code inspection also proves behavior when the external provider or bootstrap dependency is unavailable.
-- Inspect the top 3 changed helpers/functions by review risk from the evidence artifact and explicitly challenge their most likely contradictory inputs or semantic mismatches.
-- Write a `Rejected Risk Notes` section after the main findings list.
-- If `codeInfoStatus/reviews/<review_pass_id>-blind-spot-challenge.md` already exists for this pass, read it and reconcile it with the findings output.
+- At minimum, inspect the top 3 changed helpers/functions by review risk from the evidence artifact, excluding the allowed spelling/grammar-only support files, and explicitly ask what malformed or contradictory input, mixed UI state, stale hidden value, premature dependency initialization, wrapped-error taxonomy mismatch, config-domain mismatch, stale-hint precedence mistake, leaked shared registration, or scale-bounded query failure could still make each one behave incorrectly even if the current tests pass.
+- Write a `Rejected Risk Notes` section after the main findings list. For each top-risk helper/function from the evidence matrix, record:
+  - the candidate semantic mismatch or contradictory input you tried to break it with;
+  - whether that risk became an endorsed finding, a rejected risk, or a residual weak-proof concern;
+  - the direct file or test evidence that justified that decision;
+  - what still remains weak if the risk could not be fully disproven.
+- If `codeInfoStatus/reviews/<review_pass_id>-blind-spot-challenge.md` already exists for this pass, read it and reconcile it with the findings output. If it does not exist yet, still complete the `Rejected Risk Notes` section directly from the evidence artifact, branch diff, and current findings so downstream steps do not depend on the new challenge step to function.
 - For each risky path, state whether it has direct proof, indirect proof, or missing proof, and raise a finding when a risky path is only protected by happy-path coverage or is otherwise weakly proven.
 - Look for new fields that are written but never read, branches that cannot be reached under the current contract, and diagnostics that are intentionally hidden from clients without an actionable log trail in the non-support-file changes.
 - When a valid, low-risk consistency problem is found in files already changed by the story, and the fix does not change public payloads or otherwise broaden scope, prefer `should_fix` over `optional_simplification` so the cleanup is attempted rather than deferred by default. This guidance does not override the spelling/grammar-only rule for the allowed support files.
@@ -162,7 +177,7 @@ If no findings exist:
 - still include the `Rejected Risk Notes` section;
 - also record any residual risks or weak-proof areas.
 
-Update the same handoff file so `findings_file` points to the exact findings artifact, and include any useful counts or disposition hints.
+Update the same handoff file so `findings_file` points to the exact findings artifact, and include any useful counts or disposition hints, including repo-local versus cross-repository grouping when relevant.
 
 This findings file is a durable review artifact that MUST be committed later so a human can inspect it after the story completes.
 
@@ -188,5 +203,6 @@ This findings file is a durable review artifact that MUST be committed later so 
 
 - Never recommend reverting or removing the allowed support-file changes merely because they exist.
 - Only call out spelling, grammar, or obvious wording mistakes in those files.
+- If no findings exist, still say that explicitly.
 
 </final_response_rule>

@@ -11,9 +11,11 @@ Finish the current story review using ONLY the stored review handoff and the art
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit any plan.
 - If the review handoff is stale or incomplete, stop and say the review must be rerun. Do not edit any plan.
 - Treat `flows/**` as approved workflow configuration. Do not reopen the story or record scope-creep findings solely because those files changed without being named in the active plan.
+- Only reopen if the review shows those `flows/**` changes introduced incorrect workflow behavior, broke repository contracts, or require explicit follow-up validation work.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
-- Do not reopen the story or request reverts solely because those allowed support files changed without being named in the active plan.
+- Do not reopen the story, request reverts, or record scope-creep findings solely because those allowed support files changed without being named in the active plan.
 - For those allowed support files, only spelling, grammar, and obvious wording findings are actionable.
+- Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files.
 - This is the only review step allowed to mutate plans.
 
 </critical_rules>
@@ -23,9 +25,17 @@ Finish the current story review using ONLY the stored review handoff and the art
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
-- Read `codeInfoStatus/reviews/<story-number>-current-review.json` and verify that its core fields and repo entries still match the normalized review scope and current repository state.
-- Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. Do not re-resolve a different base unless the review handoff is stale and must be rerun.
+- Read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number, and verify that its:
+  - `story_id`
+  - `plan_path`
+  - `review_pass_id`
+  - `evidence_file`
+  - `findings_file`
+  - `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, and `head_commit`
+  still match the normalized review scope and current repository state for every selected repository.
+- Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
 - If the review handoff includes `challenge_file`, treat it as optional additive context for this pass. Read it when present.
+- If `challenge_file` is absent, derive the same reasoning directly from the evidence and findings artifacts instead of failing or asking for a rerun.
 
 </scope_rules>
 
@@ -54,7 +64,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 6. Every new review-fix task MUST name exactly one repository using `Repository Name`.
 7. For cross-repository findings, keep the work in the one canonical plan but split it into repository-specific tasks and make sequencing explicit.
 8. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, or wording corrections.
-9. If only `optional_simplification` findings exist, reopen the canonical plan only when the simplification is localized, low-risk, objectively testable, and improves a shared contract.
+9. If only `optional_simplification` findings exist, reopen the canonical plan when the simplification is localized to files already changed by the story, low-risk, objectively testable, and improves a shared contract such as logging vocabulary, marker schema, configuration consistency, or cross-repository compatibility.
 10. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
 11. If an `optional_simplification` is deferred, record it in a short review note instead of reopening.
 12. This `optional_simplification` rule does not permit reopening an allowed support file for anything other than spelling, grammar, or wording corrections.
@@ -66,11 +76,18 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - why the story remains complete;
     - the rejected-risk notes carried forward from the findings artifact, plus any blind-spot challenge follow-up when that extra artifact exists.
 14. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
-15. Even when there are no findings, the no-findings path must explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof.
-16. Even when there are no findings, the no-findings path must explicitly record generic adversarial proof or residual risk across all repositories in scope.
+15. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
+16. Even when there are no findings, the `Post-Implementation Code Review` section MUST state whether the generic adversarial checklist had direct proof, indirect proof, or missing proof for:
+    - execution-routing or harness dependence;
+    - default launcher, wrapper, dispatcher, CI, or startup-path inclusion;
+    - shared-state or concurrency safety;
+    - reader and writer atomicity or partial-write tolerance;
+    - cleanup ownership or stale-state safety;
+    - lifecycle ordering;
+    - test isolation.
 17. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
-18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes.
-19. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision.
+18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
+19. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
 
 </disposition_rules>
 
@@ -88,9 +105,11 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 
 - Confirm the current-plan handoff and review handoff still match the current repository state.
 - Confirm every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership.
-- Confirm cross-repository findings produced explicit sequencing and final validation tasks.
+- Confirm cross-repository findings produced explicit sequencing in the canonical plan and final validation.
 - Confirm no allowed support file was reopened for anything other than spelling, grammar, or wording corrections.
 - Confirm the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope.
-- Confirm durable artifacts remain durable and commit-worthy, while the review handoff remains transient workflow state.
+- Confirm the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope.
+- Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.
+- Confirm durable artifacts are treated as commit-worthy, the current-plan handoff is not mistaken for the durable review artifact, and the review handoff remains transient workflow state rather than the durable artifact.
 
 </verification_loop>

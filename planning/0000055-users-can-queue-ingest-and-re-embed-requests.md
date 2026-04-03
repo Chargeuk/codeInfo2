@@ -1860,9 +1860,9 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
-2. [ ] Run `npm run test:summary:client` and confirm the client ingest proof homes pass for queued-row selection and bulk-remove gating, including the mixed-selection case.
-3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
+1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
+2. [x] Run `npm run test:summary:client` and confirm the client ingest proof homes pass for queued-row selection and bulk-remove gating, including the mixed-selection case.
+3. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
 
 #### Implementation notes
 
@@ -1872,6 +1872,9 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Extended `client/src/test/ingestRoots.test.tsx` with queued-only and mixed-selection proofs, and added a browser-level proof in `e2e/ingest.spec.ts` that mocks the ingest roots/remove seams to show `Remove selected` remains disabled for queued-only selection and issues a remove request only for the removable row in a mixed selection. The e2e proof stays UI-scoped on purpose because the backend remove route contract itself did not change.
 - Final queued-row bulk-selection rule for Story 55: rows in `waiting`, `running`, or `cleanup-blocked` may still appear in the shared repo list and can remain visible beside removable rows, but they are out of scope for user removal and therefore never enter the bulk remove target set. Later close-out work should preserve that rule instead of treating bulk selection as a queue-deletion feature request.
 - Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, the implementation commit `44e33c7f`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No subtasks were newly marked complete in this audit because Subtasks 1 through 5 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because Testing steps 1 through 3 still belong to the later automated-proof loop.
+- Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and no log-inspection requirement, so the repaired bulk-remove gating still builds on the supported client path.
+- Testing 2: the first `npm run test:summary:client` run failed in the new mixed-selection proof because that assertion counted every `fetch` call instead of isolating the remove-route request it owns. Narrowing the proof to `/ingest/remove/` calls fixed the task-owned assertion seam, and the rerun then passed cleanly with `tests run: 663`, `passed: 663`, `failed: 0`, and `agent_action: skip_log`.
+- Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, so the browser path now proves queued rows do not become user-removable through `Remove selected` even when a removable row is rendered alongside them.
 
 ---
 

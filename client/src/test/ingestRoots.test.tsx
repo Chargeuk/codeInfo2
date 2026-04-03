@@ -287,12 +287,13 @@ describe('RootsTable', () => {
       await Promise.resolve();
     });
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/ingest/remove/%2Frepo'),
-      expect.objectContaining({ method: 'POST' }),
+    const removeCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/ingest/remove/'),
     );
-    expect(String(mockFetch.mock.calls[0]?.[0] ?? '')).not.toContain(
+
+    expect(removeCalls).toHaveLength(1);
+    expect(String(removeCalls[0]?.[0] ?? '')).toContain('/ingest/remove/%2Frepo');
+    expect(String(removeCalls[0]?.[0] ?? '')).not.toContain(
       '/ingest/remove/%2Frepo-queued',
     );
   });

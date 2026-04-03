@@ -1864,7 +1864,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 #### Testing
 
 1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
-2. [ ] Run `npm run test:summary:client` and confirm the client ingest proof homes pass for queued-row selection and bulk-remove gating, including the mixed-selection case.
+2. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper and confirm the reopened client proof homes pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating.
 3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
 
 #### Implementation notes
@@ -1885,17 +1885,67 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Updated `client/src/test/ingestRoots.test.tsx` so the reopened proof now owns the exact manual failure: queue-blocked rows stay disabled, do not increment the visible `selected` count, and do not enter the mixed `select all` remove target model next to one removable row. I intentionally left `e2e/ingest.spec.ts` unchanged in this implementation pass because the existing browser proof already covers the bulk remove action path, while the newly reopened leak is specifically about the client-side visible selection model.
 - Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the reopened implementation commit `ae112626`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. No subtasks were newly marked complete in this audit because reopened Subtasks 6 through 8 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because reopened Testing steps 1 through 3 still belong to the later automated-proof loop.
 - Reopened Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and no log-inspection requirement, so the tightened shared-selection gating still builds on the supported client path.
-- **BLOCKER** Testing 2 (`npm run test:summary:client`) is currently blocked by unrelated shared-client baseline failures in `src/test/chatPage.flags.network.payload.test.tsx` and `src/test/chatPage.flags.websearch.payload.test.tsx`, both of which timed out at the suite default 5000 ms during the full wrapper rerun. I opened `test-results/client-tests-2026-04-03T21-04-50-582Z.log`, confirmed the failures are outside the ingest/RootsTable surface touched by Task 22, and did not attempt an unrelated chat-flags repair inside this ingest task. The missing capability is an honestly green shared client wrapper baseline; the task should either wait for that baseline to be repaired in the owning area or be explicitly reordered/split if planner wants the unrelated client failures handled before Task 22 proof can complete.
+- **RESOLVED ISSUE** Testing 2 (`npm run test:summary:client`) was blocked by unrelated shared-client baseline failures in `src/test/chatPage.flags.network.payload.test.tsx` and `src/test/chatPage.flags.websearch.payload.test.tsx`, both of which timed out at the suite default 5000 ms during the full wrapper rerun. I opened `test-results/client-tests-2026-04-03T21-04-50-582Z.log`, confirmed the failures are outside the ingest/RootsTable surface touched by Task 22, and did not attempt an unrelated chat-flags repair inside this ingest task. That blocker is no longer left active on Task 22 because story repair split the unrelated full-client baseline back out into its own prerequisite task, leaving Task 22 with only its task-local client and browser proof gates.
 - **BLOCKING ANSWER** Repository precedents found: this repo already treats an unrelated shared wrapper failure as a baseline-ownership problem, not as permission to widen the feature task until it absorbs that unrelated seam. Fresh `code_info` results plus direct inspection of Stories `0000055`, `0000051`, and `0000046` show the same repair pattern repeatedly: Story `0000055` already records that Task 22's blocker sits in unrelated shared-client tests rather than the ingest/RootsTable surface, Story `0000051` split Task 33 from new Task 34 once an unrelated full `server:unit` baseline blocked a narrower feature task, and Story `0000046` explicitly treated Task 3 as a wrapper-baseline repair task rather than product work. Those precedents all point to the same fix here: do not repair the unrelated chat-flags baseline inside Task 22; treat it as a separate shared-client baseline owner or prerequisite before this task can close honestly.
 - **BLOCKING ANSWER** External-library precedents found: official Jest docs say async tests must return or await the real promise chain being tested, and Jest troubleshooting says unresolved promises are a common cause of the default timeout while `jest.setTimeout(...)` is only a troubleshooting escape hatch when work is truly long-running (`https://jestjs.io/docs/asynchronous`, `https://jestjs.io/docs/troubleshooting`). Official Testing Library async docs say `waitFor` retries only while the callback keeps throwing and times out when the test is waiting on the wrong condition or unresolved UI work rather than a finished state (`https://testing-library.com/docs/dom-testing-library/api-async/`). I also attempted DeepWiki on `facebook/jest` for a second-source framework summary, but that repository is not indexed there right now, so the official Jest and Testing Library docs remained the source of truth.
 - **BLOCKING ANSWER** Issue-resolution references found: practical engineer reports line up with the same diagnosis boundary. The Stack Overflow thread on Jest's default 5000 ms timeout notes that wrong expectations can present as timeout failures rather than clean assertion failures, which matches the need to repair the chat-flag tests at their own async boundary instead of inflating the timeout (`https://stackoverflow.com/questions/49603939/message-async-callback-was-not-invoked-within-the-5000-ms-timeout-specified-by`). The same thread also warns against un-awaited async wrappers that let work escape Jest's lifecycle, which is another anti-pattern for this blocker class.
 - **BLOCKING ANSWER** Chosen fix: do not widen Jest timeouts, do not bypass `npm run test:summary:client`, and do not fold the unrelated `chatPage.flags.*` timeout repairs into this ingest task. The proved next step is to treat the blocker as a shared client-baseline defect owned by the chat-flags test area, then either insert or depend on a separate prerequisite task that restores a trustworthy full client wrapper baseline before Task 22's reopened proof is expected to close.
 - **BLOCKING ANSWER** Why this fits the current local repo state: the blocker artifact `test-results/client-tests-2026-04-03T21-04-50-582Z.log` names only `src/test/chatPage.flags.network.payload.test.tsx` and `src/test/chatPage.flags.websearch.payload.test.tsx`, while the reopened Task 22 implementation lives in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. Reopened Testing 1 already passed, and the current Task 22 notes show the ingest/RootsTable selection fix is implemented. That means the missing capability is not another Task 22 code seam; it is a trustworthy shared-client baseline outside this task's owned files.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: increasing the global Jest timeout would hide an unresolved shared baseline failure instead of proving the correct async condition; marking Task 22 complete from build plus local code inspection would be dishonest while its required shared client wrapper proof is blocked; patching the unrelated chat-flags tests inside this ingest task would violate the repo's split-ownership precedent; and replacing the full wrapper with only targeted Task 22 tests would also require explicit plan repair first, because the current task definition still depends on an honestly green `npm run test:summary:client` baseline.
+- Story repair on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, and the blocker proof in commit `ab4d5092`: narrowed Task 22's testing gate back to task-local proof (`client/src/test/ingestRoots.test.tsx` plus the targeted e2e remove-selection path), inserted a new prerequisite task to restore the unrelated full `npm run test:summary:client` baseline, renumbered the downstream review-fix tasks, and retired the live blocker as `**RESOLVED ISSUE**`. Task 22 remains `__in_progress__` because the narrowed targeted client and browser proofs still need to be rerun honestly after this repair.
 
 ---
 
-### Task 23. Bound The Queue Terminal-State Cache So Long-Lived Servers Do Not Leak Per-Request Memory
+### Task 23. Restore A Trustworthy Full `npm run test:summary:client` Baseline After The Unrelated Chat-Flags Timeout Failures
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `22`
+- Task Status: `__to_do__`
+- Git Commits: None yet.
+- Notes: Inserted on 2026-04-03 after Task 22 blocker research proved that the remaining full client-wrapper timeout lives in unrelated chat-flag payload tests rather than the ingest repo-list surface.
+
+#### Overview
+
+Restore a trustworthy full `npm run test:summary:client` result before later Story 55 tasks depend on that shared wrapper again. The Task 22 blocker proof showed that the current full-wrapper timeout belongs to `client/src/test/chatPage.flags.network.payload.test.tsx` and `client/src/test/chatPage.flags.websearch.payload.test.tsx`, not to the ingest/RootsTable surface. Keep this task strictly focused on the chat-flag payload test area and any shared async helper or reset seam needed to make the full client wrapper reach an honest terminal result again.
+
+#### Task Exit Criteria
+
+- The unrelated chat-flag payload timeout is fixed at its owning async boundary rather than hidden behind a larger global Jest timeout.
+- The exact blocking test files reach a clean targeted wrapper result.
+- The full `npm run test:summary:client` wrapper reaches a trustworthy clean terminal result again so later tasks can depend on the shared client baseline honestly.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `AGENTS.md`
+- `test-results/client-tests-2026-04-03T21-04-50-582Z.log`
+- `client/src/test/chatPage.flags.network.payload.test.tsx`
+- `client/src/test/chatPage.flags.websearch.payload.test.tsx`
+- `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+- `client/src/test/chatSendPayload.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-read Task 22's `**BLOCKING ANSWER**`, the client-wrapper guidance in `AGENTS.md`, and the failing log `test-results/client-tests-2026-04-03T21-04-50-582Z.log` before changing the chat payload tests or any shared helper.
+2. [ ] Compare the timed-out `chatPage.flags.network.payload.test.tsx` and `chatPage.flags.websearch.payload.test.tsx` files against the nearest passing chat payload/default-reset proofs so the exact async reset or wait boundary is identified before code changes begin.
+3. [ ] Repair the owning chat payload test or shared helper seam so the flagged new-conversation/default-reset proof reaches the correct async completion boundary without depending on a larger global timeout or on un-awaited async work escaping the test lifecycle.
+4. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper until those exact blocking files reach a clean terminal result.
+5. [ ] Re-run the full `npm run test:summary:client` wrapper and record its terminal summary once the chat-flag timeout owners are fixed.
+6. [ ] Update this plan file after implementation by marking the completed checkboxes for Task 23, recording implementation notes, and listing the task commit hashes once they exist.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` after the chat-flag payload repair.
+2. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper and confirm the exact timeout owners now pass cleanly.
+3. [ ] Re-run the full `npm run test:summary:client` wrapper and confirm the shared client baseline reaches a clean terminal result again.
+
+#### Implementation notes
+
+- Record the exact async boundary repaired in the chat-flag payload tests, the targeted proof log, and the restored full client-wrapper baseline result.
+
+---
+
+### Task 24. Bound The Queue Terminal-State Cache So Long-Lived Servers Do Not Leak Per-Request Memory
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
@@ -1941,7 +1991,7 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 
 ---
 
-### Task 24. Replace The Fixed-Delay Flow-Stop Proof With A Deterministic Boundary
+### Task 25. Replace The Fixed-Delay Flow-Stop Proof With A Deterministic Boundary
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
@@ -1984,17 +2034,17 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 
 ---
 
-### Task 25. Re-Validate Story 55 After Review-Fix Tasks
+### Task 26. Re-Validate Story 55 After Review-Fix Tasks
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `21, 22, 23, 24`
+- Task Dependencies: `21, 22, 23, 24, 25`
 - Task Status: `__to_do__`
 - Git Commits: None yet.
 - Notes: Inserted on 2026-04-03 because the stored review findings reopened Story 55 and the story must now be revalidated against its acceptance criteria after the review-fix work lands.
 
 #### Overview
 
-This final review-fix task reruns the complete Story 55 validation path after Tasks 21 through 24 land. It must confirm that the repaired queue contract, UI gating, cache lifecycle, and strengthened proof all still satisfy the acceptance criteria and do not regress the already-validated startup-recovery, queue visibility, or wrapper-first runtime path.
+This final review-fix task reruns the complete Story 55 validation path after Tasks 21 through 25 land. It must confirm that the repaired queue contract, UI gating, restored shared client baseline, cache lifecycle, and strengthened proof all still satisfy the acceptance criteria and do not regress the already-validated startup-recovery, queue visibility, or wrapper-first runtime path.
 
 #### Task Exit Criteria
 

@@ -1602,50 +1602,56 @@ This task still does not attempt repair. It starts from the exhausted runtime/re
 
 ---
 
-### Task 19. Repair The Derived Child-Side Owner And Restore The Full `server:unit` Wrapper Verdict
+### Task 19. Confirm Restored `server:unit` Baseline And Capture Intermittent Cleanup Diagnostics
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `18`
-- Task Status: `__in_progress__`
-- Git Commits: None yet.
-- Notes: Renumbered from the old Task 18 after the 2026-04-02 plan repair inserted new Task 18 for one third materially different owner-derivation strategy. This task starts only if Task 18 hands off one exact present-tense owner inside the still-running test child.
+- Task Status: `__done__`
+- Git Commits: `e8821f0b`, `36c23a9b`
+- Notes: Rewritten on 2026-04-03 after current-repo proof showed the shared `server:unit` baseline is healthy again from `HEAD` and the earlier owner-repair premise was stale. This task now re-grounds the old blocker against current evidence, preserves the new cleanup diagnostics, and only reopens deeper cleanup work if the loop-stop issue is reproduced again.
 
 #### Overview
 
-This task starts only from the bounded child-side owner that Task 18 proves from current repo state. It repairs that named cleanup, fixture/runtime, transport, or shutdown seam with repo-standard ownership patterns and then restores a trustworthy full `npm run test:summary:server:unit` wrapper verdict before final story close-out resumes.
+This task no longer assumes Task 18 handed off a repairable owner. It re-reads the latest successful wrapper proof from current `HEAD`, reruns the previously failing loop-stop scenario in isolation and at whole-file scope, and records the current honest outcome: the shared `server:unit` baseline now reaches a trustworthy terminal verdict while the loop-stop cleanup issue remains intermittent and not currently reproducible. It also preserves the focused cleanup diagnostics and README guidance so future reproductions can be investigated without reopening the stale owner-derivation chain.
 
 #### Task Exit Criteria
 
-- The exact owner handed off from Task 18 is repaired without relying on forced process exit, timeout inflation, or other unsupported wrapper hacks.
-- Both the bounded owner-level proof and the full `npm run test:summary:server:unit` wrapper reach trustworthy terminal verdicts.
+- Repeated isolated reruns of the previously failing loop-stop test are recorded honestly from current `HEAD`.
+- Whole-file reruns of `server/src/test/integration/flows.run.loop.test.ts` are recorded honestly from current `HEAD`.
+- Full `npm run test:summary:server:unit` reaches a trustworthy terminal verdict from current `HEAD`.
+- The story no longer treats the shared `server:unit` baseline as an active blocker without current proof.
 
 #### Documentation Locations
 
-- The exact Task 18 owner-level logs and commands. Use these as the starting proof boundary for this repair.
-- `scripts/summary-wrapper-protocol.mjs` and `scripts/test-summary-server-unit.mjs` . Use these only as wrapper-proof consumers after the owner-level repair is made, not as the place where the repair is hidden.
-- The exact test, helper, fixture, transport, or runtime files named by Task 18. Use these as the only places where cleanup or shutdown ownership is changed.
+- `test-results/server-unit-tests-2026-04-03T14-09-48-456Z.log`, `test-results/server-unit-tests-2026-04-03T14-09-56-100Z.log`, and `test-results/server-unit-tests-2026-04-03T14-10-02-923Z.log` . Use these as the repeated isolated reruns of the previously failing loop-stop test.
+- `test-results/server-unit-tests-2026-04-03T14-10-15-586Z.log` and `test-results/server-unit-tests-2026-04-03T14-10-34-916Z.log` . Use these as the whole-file `flows.run.loop.test.ts` reruns that now pass from current `HEAD`.
+- `test-results/server-unit-tests-2026-04-03T14-11-40-804Z.log` . Use this as the current full `server:unit` wrapper proof from current `HEAD`.
+- `server/src/flows/service.ts`, `server/src/ws/server.ts`, and `README.md` . Use these as the cleanup-diagnostic logging and troubleshooting locations preserved for future intermittent reproductions.
 
 #### Subtasks
 
-1. [ ] Re-read Task 18's exact named owner, proof logs, and the current local files that own that region before editing. Confirm the repair target is still current from disk.
-2. [ ] Repair the named child-side owner using repo-standard cleanup and shutdown patterns such as awaited teardown, explicit close or terminate, or correctly owned `finally`/`afterEach` cleanup. Do not use forced process exit or timeout inflation.
-3. [ ] Re-run the exact owner-level proof from Task 18 until it reaches a trustworthy terminal verdict without the lingering child-side activity.
-4. [ ] Re-run full `npm run test:summary:server:unit` and confirm the wrapper now reaches a trustworthy final verdict instead of remaining in `agent_action: wait`.
-5. [ ] Update the final close-out task notes so Task 20 starts only after the restored full-wrapper verdict is proved honestly.
+1. [x] Re-read Task 18's latest evidence, the current loop-stop cleanup path, and the wrapper/troubleshooting files from disk before changing plan state. Confirm the old owner-repair premise is still justified by current repo evidence before keeping it active.
+2. [x] Re-run the previously failing `flow stop during a looped flow prevents later iterations from continuing` case multiple times in isolation and record whether it still reproduces from current `HEAD`.
+3. [x] Re-run `server/src/test/integration/flows.run.loop.test.ts` at whole-file scope and record whether in-file interaction reproduces the cleanup issue from current `HEAD`.
+4. [x] Re-run full `npm run test:summary:server:unit` from current `HEAD` and confirm whether the shared wrapper baseline now reaches a trustworthy terminal verdict.
+5. [x] Preserve the focused cleanup-diagnostic logging and README troubleshooting note so future intermittent reproductions can be diagnosed without reopening the stale owner-derivation chain by default.
 
 #### Testing
 
-1. [ ] Run the exact Task 18 owner-level proof after the repair and confirm it reaches a real terminal verdict.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy terminal verdict.
+1. [x] Run the isolated loop-stop test repeatedly from current `HEAD` and record whether it reproduces.
+2. [x] Run `server/src/test/integration/flows.run.loop.test.ts` as a whole-file proof and record whether file-local interaction reproduces the cleanup issue.
+3. [x] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy terminal verdict from current `HEAD`.
 
 #### Implementation notes
 
-- Record the exact owner handed off from Task 18, the repair made, and the proof artifacts from both the bounded owner-level rerun and the full wrapper rerun.
-- Renumbered on 2026-04-02 because later repair work must now start from a named child-side owner proven by the new Task 18 rather than from Task 17's exhausted owner class.
-- Planner handoff on 2026-04-02 after Task 18's bounded `ingest-reembed` teardown derivation exhausted cleanly. `test-results/task18/task18-ingest-reembed-teardown.log`, `test-results/task18/task18-ingest-e2e-cleanup-control.log`, and `test-results/task18/task18-ingest-lock-lifecycle-helper.log` all reached terminal TAP verdicts, so Task 18 still did not hand off a truthful present-tense owner inside the `__resetIngestJobsForTest()` / `release()` teardown seam. Task 19 must stay blocked until a later planner repair names a new bounded owner derivation path from current repo state instead of guessing a repair target from this exhausted seam.
-- **BLOCKER** Remaining subtasks: Subtasks 1 through 5 plus Testing steps 1 and 2. The latest implementation pass made no subtask-closing progress on Task 19 because the latest repo work still stopped at Task 18's exhausted teardown-owner derivation, its proof reruns, and the later manual-assessment normalization rather than beginning any Task 19 repair work. What was attempted was to finish Task 18 honestly and confirm that its bounded `ingest-reembed` teardown seam still did not hand off a truthful present-tense owner, which means Task 19 still lacks the prerequisite owner boundary its own subtasks assume. Planner intervention is now required to split, narrow, or re-own the story before implementation can continue honestly instead of guessing a repair target from the exhausted Task 18 seam.
-- **BLOCKING ANSWER** Research on 2026-04-02 proved the correct solution is planner-owned repair before Task 19 begins, not direct implementation inside this task. Repository precedent: Story 55 itself now shows the rule repeatedly, and Stories 46, 50, and 51 all repaired the plan or inserted prerequisites when a downstream task lacked a truthful bounded owner, reproducer, or proof surface instead of forcing implementation from a guessed seam. External-library precedent: official Node guidance confirms that `child_process` `close` is the trustworthy terminal boundary, `process.getActiveResourcesInfo()` only reports resources currently keeping the observed process alive, and `node:test` permits asynchronous activity to outlive a finished test body; Context7 returned the same semantics, and DeepWiki could not be used for Jest because `jestjs/jest` is not indexed there right now. Issue-resolution references: Jest issue `#9473` and Stack Overflow `15857568` both reinforce that broad hanging-process states are debugging signals, not proof that a guessed owner or forced-exit workaround is correct. This fits current local repo state because Task 18's bounded primary, control, and helper proofs all reached clean TAP verdicts without naming a present-tense owner inside the `__resetIngestJobsForTest()` / `release()` seam, so Task 19 still has no truthful repair target to edit. Rejected alternatives: do not start Task 19 from the exhausted Task 18 seam, do not guess a cleanup owner, do not hide the problem in wrapper code, and do not use forced process exit or timeout inflation; the next honest step is a planner repair that inserts or narrows a new bounded owner-derivation prerequisite from current repo state before any Task 19 repair work continues.
-- Implementation-only audit on 2026-04-02 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 19 section, and the latest current-repo commits through `78aafbf3`. No subtasks were newly marked complete in this audit, no `Testing` items were newly checked, and Task 19 now correctly appears as `__in_progress__` rather than hidden as `__to_do__`. The live `**BLOCKER**` remains visible because the latest repo evidence still stops before any Task 19-specific repair work and the task still depends on a missing bounded owner handoff from upstream planning.
+- Record the current full-wrapper proof, the repeated loop-stop reruns, and the preserved cleanup diagnostics that justify retiring the stale shared-baseline blocker.
+- Renumbered on 2026-04-02 because later repair work had been expected to start from a named child-side owner proven by the old Task 18 boundary.
+- **RESOLVED ISSUE** The earlier Task 19 premise was stale by 2026-04-03. Task 18 still had not handed off a truthful repairable owner, but repeated current-repo reruns also no longer reproduced the old shared `server:unit` blocker. The owner-repair framing was therefore retired in favor of re-grounding the baseline against present proof.
+- Re-read Task 18's latest proof trail, the current flow-stop cleanup path, and the wrapper/troubleshooting files from disk before changing plan state. The current repo evidence no longer justified keeping the old owner-repair branch active without first revalidating the shared baseline from current `HEAD`.
+- Re-ran `flow stop during a looped flow prevents later iterations from continuing` three times in isolation from current `HEAD`; all three passed in `test-results/server-unit-tests-2026-04-03T14-09-48-456Z.log`, `test-results/server-unit-tests-2026-04-03T14-09-56-100Z.log`, and `test-results/server-unit-tests-2026-04-03T14-10-02-923Z.log`.
+- Re-ran `server/src/test/integration/flows.run.loop.test.ts` twice at whole-file scope from current `HEAD`; both runs passed in `test-results/server-unit-tests-2026-04-03T14-10-15-586Z.log` and `test-results/server-unit-tests-2026-04-03T14-10-34-916Z.log`, so the loop-stop cleanup issue did not reproduce even with neighboring loop tests in the same file.
+- Re-ran full `npm run test:summary:server:unit` from current `HEAD`; it finished with `tests run: 1601`, `passed: 1601`, and `failed: 0` in `test-results/server-unit-tests-2026-04-03T14-11-40-804Z.log`, which retires the stale shared-baseline blocker.
+- Added focused flow-stop cleanup diagnostics in `server/src/flows/service.ts` and `server/src/ws/server.ts`, then documented the exact marker names in `README.md` so a future intermittent reproduction can be diagnosed from the saved wrapper log without reopening the stale owner-derivation chain by default.
 
 ---
 
@@ -1688,5 +1694,6 @@ This final task validates the whole durable-queue story rather than isolated sea
 #### Implementation notes
 
 - Record final validation outcomes, important proof artifacts, documentation updates, and any final decisions made during story close-out.
-- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, but this renumbered task stays `__to_do__` until Task 19 restores a trustworthy full `server:unit` baseline from the bounded owner that Task 18 derives so the final validation sequence can resume honestly.
+- Preliminary close-out drafts already exist from commits `f2933e58` and `8d6423fa`, and Task 19 has now re-grounded the previously blocked shared `server:unit` baseline against current proof. This renumbered task remains `__to_do__` because final validation and documentation updates have not yet been completed, not because the old shared-baseline blocker is still active.
+- Task 19 also preserved focused flow-stop cleanup diagnostics and README guidance for the intermittent loop-stop issue, so final validation can proceed from current repo state while retaining a clear diagnostic path if that cleanup issue reappears later.
 - **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) remained in `agent_action: wait` without reaching a trustworthy terminal wrapper verdict, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, then bounded the wrapper-local proof in Task 15, then exhausted the first child-side owner class in Task 16, then exhausted the second child-side owner class in Task 17, and now requires Task 18 to derive a named owner plus Task 19 to repair it before this final close-out can resume honestly.

@@ -1764,7 +1764,7 @@ This final task validates the whole durable-queue story rather than isolated sea
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
 - Task Status: `__in_progress__`
-- Git Commits: None yet.
+- Git Commits: `c1655af9`
 - Notes: Inserted on 2026-04-03 after the stored code-review pass reopened Story 55 with one late concurrency finding and one blocking-waiter timeout-path finding in `Current Repository`.
 
 #### Overview
@@ -1814,6 +1814,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 - Replaced the race-prone first-submit find-then-create behavior with a unique live-target index plus duplicate-key retry path. Fresh waiting-row inserts still use `create(...)`, but a concurrent duplicate create now collapses by retrying the waiting-row update path first and falling back to a running-row read only if the competing request already started, which preserves latest-settings-wins for waiting rows without mutating running rows.
 - Extended `server/src/test/unit/reingestService.test.ts` with the timeout-path rejection case and `server/src/test/unit/ingest-request-queue.test.ts` with concurrent same-target first-submit duplicate collapse. I re-read the existing ingest cucumber feature/step homes and did not update them because this fix preserves the current route-surface contract; the new risk is internal concurrency and timeout cleanup, so the direct unit proof homes are the correct owners.
 - Chosen strategy: enforce one live queue row per canonical target with the partial unique index `ingest_queue_live_target_unique_idx`, then collapse duplicate first writers by catching the duplicate-key insert and replaying the existing waiting-update or running-read paths. Rejected alternatives were leaving the old find-then-create race in place, mutating `sourceSurface` during duplicate recovery, or inventing an external queue lock outside Mongo; those would either keep the race, violate the preserved-provenance contract, or widen the queue runtime beyond Story 55's existing ownership seam.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 21 section, and the latest implementation commit `c1655af9`. No additional subtasks were newly marked complete in this audit because Subtasks 1 through 5 were already honestly checked by the latest implementation pass and matched the current repo evidence in `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestQueue.ts`, `server/src/mongo/ingestQueueRequest.ts`, `server/src/test/unit/reingestService.test.ts`, and `server/src/test/unit/ingest-request-queue.test.ts`. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 21, and the task correctly remains `__in_progress__` because Testing steps 1 through 4 still belong to the later automated-proof loop.
 
 ---
 

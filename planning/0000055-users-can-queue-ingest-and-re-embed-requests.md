@@ -1829,7 +1829,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
 - Task Status: `__in_progress__`
-- Git Commits: None yet.
+- Git Commits: `44e33c7f`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
 #### Overview
@@ -1871,6 +1871,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Updated `client/src/components/ingest/RootsTable.tsx` so bulk remove now derives its own removable subset from the same row-level rule that already disables single-row remove. Shared selection still exists for queueable re-embed, but `waiting`, `running`, and `cleanup-blocked` rows no longer count toward the bulk remove target set and `Remove selected` stays disabled until at least one actually removable row is selected.
 - Extended `client/src/test/ingestRoots.test.tsx` with queued-only and mixed-selection proofs, and added a browser-level proof in `e2e/ingest.spec.ts` that mocks the ingest roots/remove seams to show `Remove selected` remains disabled for queued-only selection and issues a remove request only for the removable row in a mixed selection. The e2e proof stays UI-scoped on purpose because the backend remove route contract itself did not change.
 - Final queued-row bulk-selection rule for Story 55: rows in `waiting`, `running`, or `cleanup-blocked` may still appear in the shared repo list and can remain visible beside removable rows, but they are out of scope for user removal and therefore never enter the bulk remove target set. Later close-out work should preserve that rule instead of treating bulk selection as a queue-deletion feature request.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, the implementation commit `44e33c7f`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No subtasks were newly marked complete in this audit because Subtasks 1 through 5 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because Testing steps 1 through 3 still belong to the later automated-proof loop.
 
 ---
 

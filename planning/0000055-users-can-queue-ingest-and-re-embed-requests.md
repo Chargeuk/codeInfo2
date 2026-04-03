@@ -1927,8 +1927,8 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `22`
-- Task Status: `__in_progress__`
-- Git Commits: `c16e2785`
+- Task Status: `__done__`
+- Git Commits: `c16e2785`, `c4f56000`
 - Notes: Inserted on 2026-04-03 after Task 22 blocker research proved that the remaining full client-wrapper timeout lives in unrelated chat-flag payload tests rather than the ingest repo-list surface.
 
 #### Overview
@@ -1978,6 +1978,7 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 - Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log` and `warning_count: 0`, so the chat-flag payload repair still builds on the supported client path without requiring log inspection.
 - Testing 2: the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper passed cleanly with `tests run: 2`, `passed: 2`, `failed: 0`, and `agent_action: skip_log`, so the exact timeout-owner files now have direct current proof in the task's separate testing loop too.
 - Testing 3: full `npm run test:summary:client` passed cleanly with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log`, so the shared client wrapper baseline is now trustworthy again for the later review-fix tasks.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 23 section, the latest proof-record commit `c4f56000`, and the current repo evidence in `client/src/test/chatPage.flags.network.payload.test.tsx`, `client/src/test/chatPage.flags.websearch.payload.test.tsx`, `client/src/test/chatPage.flags.sandbox.payload.test.tsx`, and `client/src/test/chatSendPayload.test.tsx`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 3 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 23, and the task is now `__done__` because Subtasks 1 through 6 plus Testing steps 1 through 3 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

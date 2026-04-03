@@ -350,6 +350,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the new queue-model and admission-helper proofs. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-unit-tests-*.log`, fix the exact failing proof, and rerun full `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` and `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`, and confirm the Testcontainers-backed feature proof still covers durable admission, canonical-target reuse, and waiting-duplicate behavior at the user-facing route boundary. If either wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun that same targeted cucumber wrapper.
 
 #### Implementation notes
 
@@ -426,6 +427,9 @@ This task makes the durable queue actually run inside the existing server proces
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes for queue promotion, cleanup, cancellation, and startup recovery behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-unit-tests-*.log`, fix the exact failing proof, and rerun full `npm run test:summary:server:unit`.
 3. [x] Run `npm run test:summary:server:cucumber` and confirm the full cucumber wrapper passes for FIFO order, deterministic boundaries, and startup-recovery behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun full `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the normal containerized build path still packages the startup-recovery runtime changes.
+5. [x] Run `npm run compose:up` and confirm the supported Docker-based system path still starts cleanly after the queue runtime lifecycle and startup-recovery changes.
+6. [x] Run `npm run compose:down` and confirm the supported Docker-based system path shuts down cleanly after the Task 2 smoke proof.
 
 #### Implementation notes
 
@@ -515,10 +519,9 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 #### Testing
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
-2. [x] Run the targeted Task 3 route-proof wrappers `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`, and confirm both wrappers reach terminal verdicts for the queue-aware REST producer contracts. If either wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact route proof, and rerun that same targeted wrapper.
-3. [x] Run the targeted Task 3 blocking-adapter wrappers `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/mcp2.reingest.tool.test.ts`, and `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts`, and confirm each wrapper reaches a terminal verdict for queue-delay blocking and retryable `QUEUE_UNAVAILABLE`. If any wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof, and rerun that same targeted wrapper.
-4. [x] Run the targeted Task 3 integration wrappers `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts`, and confirm both wrappers reach terminal verdicts for the command and flow transport contracts. If either wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof, and rerun that same targeted wrapper.
-5. [x] Run the exact automated proof homes added for the live re-embed path-resolution fix and confirm they pass under the current compose workdir override instead of only under the older `/data` default. If any wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof, and rerun that same targeted wrapper.
+2. [x] Run `npm run test:summary:server:unit` with the exact `--file` arguments for the route, adapter, and integration proof homes named in this task's subtasks, and confirm each targeted wrapper reaches a real terminal verdict for queue-aware REST, MCP, command, and flow contracts. If any targeted wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof home, and rerun that same targeted wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` with the exact `--feature` arguments for the ingest transport scenarios this task owns, and confirm the Testcontainers-backed feature path still proves queue-aware contract behavior at the route boundary. If the targeted cucumber wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun that same targeted cucumber wrapper.
+4. [x] Do not require the broader full `npm run test:summary:server:unit` or supported-runtime smoke path in this task. Those shared baselines were explicitly reopened outside the Task 3 transport boundary and remain owned by later Tasks 4 through 7 and the final validation path.
 
 #### Implementation notes
 
@@ -637,7 +640,7 @@ This task no longer owns every remaining server-unit failure as if they were one
 
 #### Testing
 
-1. [x] Run a targeted `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex-mcp.test.ts` rerun and confirm the narrowed boundary reaches a real terminal verdict.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds named in this task's subtasks, and confirm the narrowed boundary reaches a real terminal verdict before reopening the broader shared baseline.
 2. [x] Re-run full `npm run test:summary:server:unit` and confirm the wrapper now reaches a real terminal verdict that names concrete failing tests instead of remaining indefinitely in `agent_action: wait`.
 
 #### Implementation notes
@@ -688,8 +691,9 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 
 #### Testing
 
-1. [x] Run targeted `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`, and add `server/src/test/unit/codexConfig.test.ts` or the exact current fixture-parity owner if the full-wrapper log still names it. The pass condition is that each targeted config-cluster file reaches a clean terminal verdict.
-2. [x] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired checked-in runtime config still builds on the supported server path.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact config-cluster `--file` arguments named in this task's subtasks, and confirm each targeted proof file now reaches a clean terminal verdict.
+3. [x] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
 
 #### Implementation notes
 
@@ -743,8 +747,9 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 
 #### Testing
 
-1. [x] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for the exact transport-proof files touched in this task until each one reaches a clean terminal verdict with the current queue-aware contract.
-2. [x] Re-run full `npm run test:summary:server:unit` and confirm the transport-proof failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this queue-aware proof cluster.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue-aware transport proof homes still compile on the supported server path.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` arguments named in this task's subtasks until each transport-proof file reaches a clean terminal verdict with the current queue-aware contract.
+3. [x] Re-run full `npm run test:summary:server:unit` and confirm the transport-proof failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this queue-aware proof cluster.
 
 #### Implementation notes
 
@@ -798,7 +803,7 @@ This task owns the remaining non-config, non-transport failures that the restore
 
 #### Testing
 
-1. [x] Run targeted `npm run test:summary:server:unit -- --file ...` reruns for each currently narrowed owner until those files reach clean terminal verdicts without brittle timing or lingering lifecycle noise.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds named in this task's subtasks until each narrowed owner reaches a clean terminal verdict without brittle timing or lingering lifecycle noise.
 2. [x] Re-run full `npm run test:summary:server:unit` and confirm the shared server-unit wrapper passes cleanly. If it still fails, reopen only the newly named remaining owners rather than broadening the task again.
 
 #### Implementation notes
@@ -1099,8 +1104,8 @@ This task no longer tries to both discover and fix the final `server:unit` overr
 
 #### Testing
 
-1. [x] Run the narrowest targeted `npm run test:summary:server:unit -- --file ...` rerun or equivalent direct `node --test` reproduction that proves the identified owner now exits cleanly. If that targeted proof still stalls or fails, inspect the exact printed log path or local instrumentation output, fix the owning seam, and rerun the same targeted proof until it reaches a real final verdict.
-2. [x] Run the exact bounded mixed or broader composition commands from Subtasks 6 and 10. The pass condition for this task is that one command is recorded as the first honest reproducing boundary for Task 12, or that the finite plan is exhausted and the task stops for replanning without widening ad hoc.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds named in Subtasks 6 and 10, and only drop below the wrapper to the raw `node --test` child boundary when the task is explicitly proving a seam below the wrapper itself. The pass condition is that the bounded slice reaches a real terminal verdict or still reproduces the current failure honestly.
+2. [x] Re-run full `npm run test:summary:server:unit` after the bounded slice work and record whether one mixed or broader wrapper composition is now the first honest reproducing boundary for Task 12, or whether the finite plan exhausted cleanly without widening ad hoc.
 
 #### Implementation notes
 
@@ -1207,7 +1212,7 @@ This task does not assume Task 11 still hands off a valid raw reproducer. It fir
 #### Testing
 
 1. [x] Run full `npm run test:summary:server:unit` from current `HEAD` and record whether it reaches a trustworthy final verdict or still requires log inspection / reproducer recovery.
-2. [x] If Testing step 1 still leaves the wrapper in a non-terminal or ambiguous state, run the exact fresh reproducing boundary or bounded wrapper-local seam from Subtask 4 and confirm it reproduces or disproves the current wrapper failure honestly.
+2. [x] If Testing step 1 still leaves the wrapper in a non-terminal or ambiguous state, run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds from Subtask 4, and only use a raw child-process command where the task is explicitly re-establishing a seam below the wrapper boundary.
 
 #### Implementation notes
 
@@ -1257,8 +1262,8 @@ This task starts only from the exact current wrapper-local seam that Task 12 fre
 
 #### Testing
 
-1. [x] Run the three named raw slices from Subtask 3 and record whether one produces a post-logical-work non-closing state or all three reach real terminal TAP verdicts.
-2. [x] Confirm the honest branch outcome of this task: the first bounded raw derivation plan exhausted cleanly, so no downstream task may assume it handed off a bounded raw reproducer.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` slices named in Subtask 3, and use the raw `node --test` child boundary only where this task is explicitly proving behavior below the wrapper seam. Record whether one slice produces a post-logical-work non-closing state or whether all slices reach real terminal TAP verdicts.
+2. [x] Broader shared-wrapper and supported-runtime smoke proof is not applicable in this bounded derivation task. Later tasks own re-establishing the current full `server:unit` baseline and the normal compose-backed runtime path after this raw-boundary proof concludes honestly.
 
 #### Implementation notes
 
@@ -1325,8 +1330,8 @@ This task does not assume Task 13 handed off a bounded raw reproducer. It starts
 
 #### Testing
 
-1. [x] Run the fresh full-wrapper rerun from Subtask 2 and record the current wrapper-local seam or final verdict honestly.
-2. [x] Run the exact named raw candidate(s) from Subtask 3 and record whether one reaches a post-logical-work non-closing state or whether they all reach real terminal TAP verdicts.
+1. [x] Run the fresh full `npm run test:summary:server:unit` wrapper rerun from Subtask 2 and record the current wrapper-local seam or final verdict honestly.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` candidates from Subtask 3, and use the raw child boundary only where this task is explicitly checking whether a current below-wrapper reproducer still exists.
 
 #### Implementation notes
 
@@ -1383,8 +1388,8 @@ This task does not assume any raw reproducer still exists. It starts from the re
 
 #### Testing
 
-1. [x] Run the full wrapper with the new wrapper-local instrumentation and record whether the child reaches `exit`, `close`, and a final wrapper verdict.
-2. [x] Confirm from that bounded instrumentation pass whether the wrapper itself is still the missing owner or whether the remaining unknown has moved inside the still-running child process.
+1. [x] Run full `npm run test:summary:server:unit` with the wrapper-local instrumentation added in this task and record whether the child reaches `exit`, `close`, and a final wrapper verdict.
+2. [x] If the task still needs a below-wrapper confirmation after Testing step 1, run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded slices named in the subtasks and only use a raw child-process command where the task is explicitly proving that the remaining unknown has moved below the wrapper boundary.
 
 #### Implementation notes
 
@@ -1441,8 +1446,8 @@ This task does not attempt repair yet. It starts from the latest child-side fron
 
 #### Testing
 
-1. [x] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that region exits cleanly.
-2. [x] If Subtask 4 is needed, run that one bounded helper- or fixture-focused ownership check and record whether it names a present-tense child-side owner or exhausts the bounded derivation plan cleanly.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` slices from Subtasks 2 and 3, and only use a raw child-process command where the task is explicitly proving a seam below the wrapper boundary. Record whether either bounded slice leaves the child alive after logical work or proves that region exits cleanly.
+2. [x] If Subtask 4 is needed, run the targeted wrapper slice or raw helper-focused ownership check named there and record whether it names a present-tense child-side owner or exhausts the bounded derivation plan cleanly. Broader wrapper and compose-backed system validation remains owned by later tasks because this task only derives the next honest owner boundary.
 
 #### Implementation notes
 
@@ -1502,8 +1507,8 @@ This task still does not attempt repair. It starts from the exhausted ingest/log
 
 #### Testing
 
-1. [x] Run the exact bounded commands from Subtasks 2 and 3 and record whether either one now leaves the child alive after logical work or proves that owner class exits cleanly.
-2. [x] If Subtask 4 is needed, run that one bounded helper- or runtime-focused ownership check and record whether it names a present-tense child-side owner or exhausts the second bounded derivation plan cleanly.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` slices from Subtasks 2 and 3, and only use a raw child-process command where the task is explicitly proving a seam below the wrapper boundary. Record whether either bounded slice leaves the child alive after logical work or proves that owner class exits cleanly.
+2. [x] If Subtask 4 is needed, run the targeted wrapper slice or raw helper/runtime-focused ownership check named there and record whether it names a present-tense child-side owner or exhausts the second bounded derivation plan cleanly. Broader wrapper and compose-backed system validation remains owned by later tasks because this task only derives the next honest owner boundary.
 
 #### Implementation notes
 
@@ -1565,8 +1570,8 @@ This task still does not attempt repair. It starts from the exhausted runtime/re
 
 #### Testing
 
-1. [x] Run the exact bounded commands from Subtasks 2 and 3 and record whether the `ingest-reembed.test.ts` teardown path now leaves the child alive after logical work or whether the adjacent cleanup control proves that seam exits cleanly.
-2. [x] If Subtask 4 is needed, run that one bounded helper-focused ownership check and record whether it names a present-tense owner inside the `__resetIngestJobsForTest()` / `release()` teardown path or exhausts the bounded teardown derivation plan cleanly.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact bounded `--file` or `--test-name` slices from Subtasks 2 and 3, and only use a raw child-process command where the task is explicitly proving the seam below the wrapper boundary. Record whether the `ingest-reembed.test.ts` teardown path leaves the child alive after logical work or whether the adjacent cleanup control proves that seam exits cleanly.
+2. [x] If Subtask 4 is needed, run the targeted wrapper slice or raw helper-focused ownership check named there and record whether it names a present-tense owner inside the `__resetIngestJobsForTest()` / `release()` teardown path or exhausts the bounded teardown derivation plan cleanly. Broader wrapper and compose-backed system validation remains owned by later tasks because this task only derives the next honest owner boundary.
 
 #### Implementation notes
 
@@ -1639,8 +1644,8 @@ This task no longer assumes Task 18 handed off a repairable owner. It re-reads t
 
 #### Testing
 
-1. [x] Run the isolated loop-stop test repeatedly from current `HEAD` and record whether it reproduces.
-2. [x] Run `server/src/test/integration/flows.run.loop.test.ts` as a whole-file proof and record whether file-local interaction reproduces the cleanup issue.
+1. [x] Run the isolated loop-stop proof repeatedly from current `HEAD` through the targeted `npm run test:summary:server:unit` wrapper using the exact `--file` or `--test-name` arguments named in the subtasks, and record whether it reproduces.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` as the whole-file proof and record whether file-local interaction reproduces the cleanup issue.
 3. [x] Run full `npm run test:summary:server:unit` and confirm the wrapper reaches a trustworthy terminal verdict from current `HEAD`.
 
 #### Implementation notes
@@ -1775,20 +1780,24 @@ This task repairs the two highest-risk queue correctness holes the review found 
 - `server/src/ingest/reingestService.ts`
 - `server/src/test/unit/reingestService.test.ts`
 - `server/src/test/unit/ingest-request-queue.test.ts`
+- `server/src/test/features/ingest-start.feature`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 
 #### Subtasks
 
 1. [ ] Re-read the review findings and challenge artifacts for the blocking-waiter rejection path and the concurrent first-submit dedupe race, then trace those exact seams in `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/mongo/ingestQueueRequest.ts` before changing code.
 2. [ ] Repair `waitForQueueRequestTerminalStatus()` so every exit path settles the waiter promise and runs cleanup even when `resolveQueueRequestRunState()` rejects inside the timeout branch after listener registration.
 3. [ ] Replace the current first-submit find-then-create queue admission path with one atomic duplicate-collapse strategy that preserves the Story 55 latest-settings-wins behavior for waiting rows without allowing concurrent first writers to create duplicate waiting queue documents.
-4. [ ] Extend the relevant unit tests so the blocking waiter proves the rejection path and the queue admission tests prove the concurrent first-submit duplicate collapse path rather than only serialized happy cases.
+4. [ ] Extend `server/src/test/unit/reingestService.test.ts` so the blocking waiter proves the timeout-path rejection case, extend `server/src/test/unit/ingest-request-queue.test.ts` so the queue admission path proves concurrent same-target first-submit duplicate collapse, and update the exact existing feature/step proof homes in `server/src/test/features/ingest-start.feature`, `server/src/test/features/ingest-reembed.feature`, and `server/src/test/steps/ingest-manage.steps.ts` if the repaired duplicate-collapse contract needs feature-level coverage.
 5. [ ] Record the exact chosen atomicity strategy and the timeout-path cleanup behavior in this task's implementation notes, including why the rejected alternatives were not suitable for the current queue contract.
 
 #### Testing
 
-1. [ ] Run the focused server unit proof for the blocking re-embed waiter path and confirm the rejection-path waiter now returns an honest failure instead of hanging.
-2. [ ] Run the focused server unit proof for queue admission and confirm concurrent same-target first submissions cannot create duplicate waiting queue rows.
-3. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proofs pass so the queue/runtime contract is revalidated on the shared server-unit baseline.
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue admission and blocking waiter logic still builds on the supported server path.
+2. [ ] Run the targeted `npm run test:summary:server:unit` wrapper for `server/src/test/unit/reingestService.test.ts` and `server/src/test/unit/ingest-request-queue.test.ts`, and confirm the rejection-path waiter now returns an honest failure instead of hanging while concurrent same-target first submissions cannot create duplicate waiting queue rows.
+3. [ ] Run the targeted `npm run test:summary:server:cucumber` wrapper for the exact ingest feature homes updated in this task and confirm the repaired duplicate-collapse contract still holds through the Testcontainers-backed route surface.
+4. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proofs pass so the queue/runtime contract is revalidated on the shared server-unit baseline.
 
 #### Implementation notes
 
@@ -1827,13 +1836,14 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 1. [ ] Re-read the review finding for queued bulk removal and trace the current single-row vs bulk-selection gating in `client/src/components/ingest/RootsTable.tsx` against the existing remove route behavior.
 2. [ ] Change the shared repo-list selection logic so queued rows in `waiting`, `running`, or `cleanup-blocked` state cannot enter the bulk remove selection set.
 3. [ ] Keep the `Remove selected` affordance disabled whenever the remaining selection contains no actually removable rows, using the same contract as the single-row remove button instead of inventing a queue-delete fallback.
-4. [ ] Extend the client proof home so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together.
+4. [ ] Extend `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together.
 5. [ ] Record the final queued-row selection rule in this task's implementation notes so later close-out work does not accidentally reopen queued user removal as a product feature.
 
 #### Testing
 
-1. [ ] Run the focused client proof for queued-row selection and bulk-remove gating.
-2. [ ] Re-run the full `npm run test:summary:client` wrapper so the repo-list UI contract is revalidated on the full client baseline.
+1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
+2. [ ] Run `npm run test:summary:client` and confirm the client ingest proof homes pass for queued-row selection and bulk-remove gating, including the mixed-selection case.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
 
 #### Implementation notes
 
@@ -1871,13 +1881,15 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 1. [ ] Re-read the review finding for `queueRequestTerminalStatuses` and trace every production read/write path for that cache in `server/src/ingest/ingestJob.ts`.
 2. [ ] Choose one bounded cleanup strategy for terminal queue-state entries that preserves the current blocking-waiter contract without keeping per-request state forever on a long-lived server.
 3. [ ] Implement that bounded cleanup strategy in production code, keeping the behavior explicit in the same runtime ownership seam that writes and reads the terminal-state cache today.
-4. [ ] Extend server proof so completed and failed queue requests still resolve correctly while the terminal-state cache also proves its bounded cleanup behavior instead of growing forever.
+4. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/reingestService.test.ts` so completed and failed queue requests still resolve correctly while the terminal-state cache also proves its bounded cleanup behavior instead of growing forever, and update an existing cucumber proof home only if the bounded cache lifecycle changes an externally visible blocking contract.
 5. [ ] Record the chosen retention rule and why it is safe for the blocking waiter contract in this task's implementation notes.
 
 #### Testing
 
-1. [ ] Run the focused server unit proof for the terminal-state cache lifecycle and the blocking waiter behavior it supports.
-2. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes.
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the bounded terminal-state cleanup still builds on the supported server path.
+2. [ ] Run the targeted `npm run test:summary:server:unit` wrapper for the exact cache-lifecycle and waiter proof homes named in this task's subtasks, and confirm the waiter contract still works while terminal-state entries no longer grow without bound.
+3. [ ] If this task updates an externally visible blocking contract proof home, run the targeted `npm run test:summary:server:cucumber` wrapper for that exact existing feature file; otherwise record in the implementation notes why cucumber coverage was not applicable for this internal cache-lifecycle repair.
+4. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes.
 
 #### Implementation notes
 
@@ -1919,8 +1931,8 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 
 #### Testing
 
-1. [ ] Run the focused integration proof home for the flow-stop error/cleanup path and confirm the strengthened assertion fails on the old timing-only behavior.
-2. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes so the shared server baseline carries the stronger acceptance proof.
+1. [ ] Run the targeted `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` wrapper and confirm the strengthened flow-stop assertion reaches the claimed deterministic boundary instead of relying on the old timing-only sleep.
+2. [ ] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes so the shared server baseline carries the stronger acceptance proof. Additional cucumber or compose smoke is not applicable here because this task only strengthens an existing node:test proof home rather than changing the supported product/runtime path itself.
 
 #### Implementation notes
 

@@ -67,6 +67,9 @@ If any of those are true, you MUST repair the story before continuing:
   - convert the blocker evidence into concrete bounded implementation subtasks with explicit owners and proof steps; or
   - create a bounded diagnostic task with exact files or surfaces to inspect, the exact commands or repro path to use, an explicit stopping threshold, and an explicit exhausted-branch outcome.
 - Do not keep or create open-ended subtasks like `investigate X until the cause is found` after manual-testing blocker repair.
+- When repairing a blocker that originated from a manual-testing failure, add a separate automated proof-authoring subtask for that failed manual scenario whenever realistic in the affected repository and harness.
+- If realistic automated proof is not possible for that manual-testing failure, record that limitation explicitly in the implementation notes instead of silently omitting it.
+- Only update the task's `Testing` section when the existing harness-level testing steps would not already run that new proof, and keep any such testing-step additions at the harness or wrapper level only.
 
 If the blocker exists because the current task assumes a missing runtime seam, dependency, readiness surface, test harness, environment mapping, or startup contract, prefer inserting explicit prerequisite tasks over repeatedly retrying the blocked task.
 

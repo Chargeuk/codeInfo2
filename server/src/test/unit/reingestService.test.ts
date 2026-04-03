@@ -593,6 +593,23 @@ test('queue-aware wait timeout-path rejection still settles as WAIT_TIMEOUT and 
       throw new Error('queue read failed during timeout fallback');
     },
   });
+  mock.method(
+    globalThis,
+    'setTimeout',
+    ((callback: () => void) => {
+      void Promise.resolve().then(callback);
+      return {
+        unref() {
+          return this;
+        },
+      } as ReturnType<typeof globalThis.setTimeout>;
+    }) as typeof globalThis.setTimeout,
+  );
+  mock.method(
+    globalThis,
+    'clearTimeout',
+    (() => undefined) as typeof globalThis.clearTimeout,
+  );
 
   assert.equal(__getIngestEventListenerCountForTest(), 0);
   const result = await runReingestRepository(

@@ -110,6 +110,27 @@ If the best supported proof surface for a task would actually live in a connecte
 
 </dependency_checks>
 
+<freshness_guidance_rules>
+
+For each repository or surface, record any supported freshness guidance that later manual testing can use to decide whether an already-running stack may be reused honestly.
+
+When repository evidence supports it, capture:
+
+- whether a running stack may ever be reused safely for manual proof
+- which categories of changes require restart-by-default, such as:
+  - server code
+  - client code
+  - compose or runtime configuration
+  - environment wiring
+  - startup or shutdown behavior
+  - or other runtime-loaded code paths
+- any supported marker, command, or observable signal that can prove the running stack is current
+- whether rebuild or restart is required after relevant code changes even when a stack is already up
+
+If repository evidence does not provide a trustworthy freshness marker, record that reuse is not safely provable from current evidence rather than guessing.
+
+</freshness_guidance_rules>
+
 <file_contract>
 
 Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with this canonical structure:
@@ -132,6 +153,13 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
           "shutdown": {
             "command": "npm run compose:down",
             "source": "AGENTS.md"
+          },
+          "freshness": {
+            "reuse_allowed": false,
+            "restart_required_for": [
+              "server code changes"
+            ],
+            "proof": "No supported freshness marker documented; restart unless a later repository-supported proof is added."
           },
           "prerequisites": [
             "docker running"
@@ -161,6 +189,8 @@ Before finishing:
 - confirm unavailable paths were recorded as unavailable instead of guessed
 - confirm the file reflects the current repository state, not a hoped-for future state
 - confirm likely future runtime or harness changes from later plan tasks are noted when relevant
+- confirm freshness or restart-by-default guidance was recorded when repository evidence supported it
+- confirm any unsupported freshness assumptions were recorded as unprovable rather than guessed
 
 </verification_loop>
 

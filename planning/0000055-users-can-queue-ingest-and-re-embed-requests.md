@@ -1828,7 +1828,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `44e33c7f`, `5c685f9a`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
@@ -1857,12 +1857,15 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 3. [x] Keep the `Remove selected` affordance disabled whenever the remaining selection contains no actually removable rows, using the same contract as the single-row remove button instead of inventing a queue-delete fallback.
 4. [x] Extend `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together.
 5. [x] Record the final queued-row selection rule in this task's implementation notes so later close-out work does not accidentally reopen queued user removal as a product feature.
+6. [ ] Reproduce the live running-row selection leak in `client/src/components/ingest/RootsTable.tsx` and trace why `waiting`, `running`, or `cleanup-blocked` rows can still enter the shared checkbox selection model even when `Remove selected` later filters them out.
+7. [ ] Change the shared selection state so rows blocked from user removal by the single-row gating rule also stay out of the visible bulk-remove selection count and never render as selected during a removal workflow, without regressing queued-capable bulk re-embed behavior for the rows that should remain selectable.
+8. [ ] Update `client/src/test/ingestRoots.test.tsx` so the client proof explicitly demonstrates that selecting a `running` or other queue-blocked row does not increment the visible `selected` count or enter the bulk-remove target model, including the mixed-selection case alongside one removable row.
 
 #### Testing
 
-1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
-2. [x] Run `npm run test:summary:client` and confirm the client ingest proof homes pass for queued-row selection and bulk-remove gating, including the mixed-selection case.
-3. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
+1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
+2. [ ] Run `npm run test:summary:client` and confirm the client ingest proof homes pass for queued-row selection and bulk-remove gating, including the mixed-selection case.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
 
 #### Implementation notes
 
@@ -1876,6 +1879,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Testing 2: the first `npm run test:summary:client` run failed in the new mixed-selection proof because that assertion counted every `fetch` call instead of isolating the remove-route request it owns. Narrowing the proof to `/ingest/remove/` calls fixed the task-owned assertion seam, and the rerun then passed cleanly with `tests run: 663`, `passed: 663`, `failed: 0`, and `agent_action: skip_log`.
 - Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, so the browser path now proves queued rows do not become user-removable through `Remove selected` even when a removable row is rendered alongside them.
 - Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 22 section, the implementation commit `44e33c7f`, the proof commit `5c685f9a`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 3 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because Subtasks 1 through 5 plus Testing steps 1 through 3 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
+- Manual testing ran on 2026-04-03 against the already-running main compose stack after `http://localhost:5010/health` returned `status: ok` with `mongoConnected: true`, so the supported runtime remained healthy and was left running. On `http://localhost:5001/ingest`, selecting the live `Babylon Queue Probe` row still changed the visible bulk-selection state to `1 selected`, and then selecting one removable completed row changed it to `2 selected` while `Remove selected` stayed disabled only because an active ingest was in progress; that means the queue-blocked row still enters the user-visible bulk selection model, which violates this task's exit criteria. Screenshots were captured at `/tmp/playwright-output/story55-manual/task22-running-row-selected-disabled-remove.png` and `/tmp/playwright-output/story55-manual/task22-mixed-selection-running-row-still-counted.png`, browser console output stayed informational, no failed network requests were observed, new follow-up subtasks were added, and Testing steps 1 through 3 were unchecked because they must be rerun after the fix.
 
 ---
 

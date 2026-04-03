@@ -1866,9 +1866,9 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
-2. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper and confirm the reopened client proof homes pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating.
-3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
+1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
+2. [x] Run the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper and confirm the reopened client proof homes pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating.
+3. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
 
 #### Implementation notes
 
@@ -1904,6 +1904,9 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Tightened `client/src/components/ingest/RootsTable.tsx` again so shared selection now excludes every `status: ingesting` row, not just rows carrying queue-state badges. This keeps the currently running head row out of the visible bulk-selection model while still allowing completed rows to remain selectable for queueable bulk re-embed.
 - Extended `client/src/test/ingestRoots.test.tsx` with an active-head-row proof that has `status: ingesting` and no `queueState`, verifies that its checkbox is disabled, verifies it does not increment the visible `selected` count, and verifies mixed bulk remove still targets only the completed removable row beside it.
 - Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the newest implementation commit `1eb1a7d8`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. No subtasks were newly marked complete in this audit because reopened Subtasks 9 through 11 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because the reopened Testing steps 1 through 3 still belong to the later automated-proof loop.
+- Reopened Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log` and `warning_count: 0`, so the newest active-head-row selection gating still builds on the supported client path without requiring saved-log inspection.
+- Reopened Testing 2: the narrowed `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper passed cleanly with `tests run: 22`, `passed: 22`, `failed: 0`, and `agent_action: skip_log`, so the task-local client proof homes now cover queued rows, queue-blocked rows, and the active ingest head row without a `queueState` badge.
+- Reopened Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, and the wrapper emitted the expected host-network verification line using `http://host.docker.internal:6001`, so the supported browser path now covers the tightened bulk-selection contract too.
 
 ---
 

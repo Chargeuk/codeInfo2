@@ -1828,7 +1828,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`, `1eb1a7d8`, `c830390b`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
@@ -1863,12 +1863,15 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 9. [x] Reproduce and trace why an active head row with `status: ingesting` but no `queueState` still keeps an enabled bulk-selection checkbox even though the single-row remove action is disabled for that same row.
 10. [x] Extend the shared selection gating in `client/src/components/ingest/RootsTable.tsx` so every row blocked from user removal by the single-row contract, including the currently running head row without a queue-state badge, stays out of the visible bulk-selection model.
 11. [x] Update `client/src/test/ingestRoots.test.tsx` so the client proof explicitly covers an active `status: ingesting` row with no `queueState`, proving its checkbox is disabled and that it does not increment the visible `selected` count or enter a mixed bulk-remove selection beside a removable row.
+12. [ ] Reproduce and trace why a live row that now exposes both `queueState: running` and `status: ingesting` still renders an enabled bulk-selection checkbox even though the same row's single-row `Remove` action remains disabled.
+13. [ ] Tighten the shared selection and checkbox-disabled gating in `client/src/components/ingest/RootsTable.tsx` so rows that are actively ingesting while also surfaced as `queueState: running` stay out of the visible bulk-selection model and cannot increment the selected count.
+14. [ ] Update `client/src/test/ingestRoots.test.tsx` so the client proof explicitly covers a row with `queueState: running` plus `status: ingesting`, proving its checkbox is disabled and that it cannot enter the visible mixed bulk-remove selection model beside one removable row.
 
 #### Testing
 
-1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
-2. [x] Run the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper and confirm the reopened client proof homes pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating.
-3. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
+1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
+2. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper and confirm the reopened client proof homes pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
 
 #### Implementation notes
 
@@ -1908,6 +1911,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Reopened Testing 2: the narrowed `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper passed cleanly with `tests run: 22`, `passed: 22`, `failed: 0`, and `agent_action: skip_log`, so the task-local client proof homes now cover queued rows, queue-blocked rows, and the active ingest head row without a `queueState` badge.
 - Reopened Testing 3: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "Remove selected"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`, and the wrapper emitted the expected host-network verification line using `http://host.docker.internal:6001`, so the supported browser path now covers the tightened bulk-selection contract too.
 - Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the latest proof-record commit `c830390b`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No `Testing` items were newly marked complete in this audit because reopened Testing steps 1 through 3 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 22, and the task is now `__done__` because reopened Subtasks 9 through 11 plus the reopened Testing steps 1 through 3 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
+- Manual testing ran on 2026-04-03 against the already-running main compose stack after `http://localhost:5010/health` returned `status: ok` with `mongoConnected: true`, so the supported runtime remained healthy and was left running. I used the existing `Task22 Manual Running Probe` row to start one temporary re-embed from the supported ingest UI, confirmed via `GET /ingest/roots` that the row moved to `queueState: running` with live `runId` `73d35211-79a7-4949-a8f3-c548538abfc3`, and then confirmed in the browser that its row checkbox still rendered enabled and changed the visible state to `1 selected` while the row status showed `ingesting (scanning)` and its single-row `Remove` action remained disabled. Screenshot evidence was captured at `/tmp/playwright-output/story55-manual/task22-active-row-still-selectable-rerun.png`, browser console output stayed informational, no failed network requests were observed, the temporary run was cancelled cleanly with `POST /ingest/cancel/73d35211-79a7-4949-a8f3-c548538abfc3`, new follow-up subtasks were added, and Testing steps 1 through 3 were unchecked because they must be rerun after the fix.
 
 ---
 

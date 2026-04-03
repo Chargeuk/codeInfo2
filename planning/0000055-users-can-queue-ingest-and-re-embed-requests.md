@@ -1763,8 +1763,8 @@ This final task validates the whole durable-queue story rather than isolated sea
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__in_progress__`
-- Git Commits: `c1655af9`
+- Task Status: `__done__`
+- Git Commits: `c1655af9`, `dd404bb6`
 - Notes: Inserted on 2026-04-03 after the stored code-review pass reopened Story 55 with one late concurrency finding and one blocking-waiter timeout-path finding in `Current Repository`.
 
 #### Overview
@@ -1819,6 +1819,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 - Testing 2: the first targeted `server:unit` rerun exposed one proof-only issue in the new timeout-path rejection test because the unref'ed timer did not provide a deterministic event-loop boundary under `node:test`; tightening that test to trigger the timeout callback deterministically fixed the proof seam without changing the runtime contract. The rerun `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/ingest-request-queue.test.ts` then passed cleanly with `tests run: 31`, `passed: 31`, `failed: 0`, and `agent_action: skip_log`.
 - Testing 3: `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature --feature server/src/test/features/ingest-reembed.feature` passed cleanly with `tests run: 6`, `passed: 6`, `failed: 0`, and `agent_action: skip_log`, so the repaired queue admission contract still holds through the Testcontainers-backed route surfaces named on this task.
 - Testing 4: the full `npm run test:summary:server:unit` rerun passed cleanly with `tests run: 1603`, `passed: 1603`, `failed: 0`, and `agent_action: skip_log`, which revalidates the repaired queue waiter and queue-admission behavior on the shared server-unit baseline from current `HEAD`.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 21 section, the current branch `HEAD`, the implementation commit `c1655af9`, and the proof commit `dd404bb6`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 4 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 21, and the task is now `__done__` because Subtasks 1 through 5 plus Testing steps 1 through 4 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

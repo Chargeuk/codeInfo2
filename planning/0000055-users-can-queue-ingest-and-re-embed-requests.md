@@ -1659,8 +1659,8 @@ This task no longer assumes Task 18 handed off a repairable owner. It re-reads t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19`
-- Task Status: `__in_progress__`
-- Git Commits: `f2933e58`, `8d6423fa`, `2fcd7daf`
+- Task Status: `__done__`
+- Git Commits: `f2933e58`, `8d6423fa`, `2fcd7daf`, `9b1f04d6`, `e801efae`, `75314339`
 - Notes: Renumbered from the old Task 19 after the 2026-04-02 plan repair inserted new Task 18 for a third materially different owner-derivation strategy and renumbered the later repair task to Task 19.
 
 #### Overview
@@ -1726,3 +1726,4 @@ This final task validates the whole durable-queue story rather than isolated sea
 - Re-ran Task 20 Testing step 3 from current `HEAD`: `npm run compose:build:summary` finished with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and no need to inspect `logs/test-summaries/compose-build-latest.log`.
 - Re-ran Task 20 Testing step 4 from current `HEAD`: `npm run compose:up` completed through the wrapper-first path with the normal Docker stack started and healthy, including Mongo, Chroma, the server, the client, Zipkin, the OTEL collector, and Playwright MCP.
 - Re-ran Task 20 Testing step 5 from current `HEAD`: `npm run compose:down` completed cleanly and removed the normal Docker stack containers plus the `codeinfo2_internal` network, so the supported compose environment is torn down again after final validation.
+- Implementation-plus-automated-proof audit on 2026-04-03 after the reopened startup-recovery repair: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 20 section from disk, rechecked the current branch `HEAD`, and verified the reopened manual-finding commit `9b1f04d6`, the runtime-repair commit `e801efae`, and the final wrapper-proof commit `75314339` against the current repo evidence in `server/src/ingest/ingestJob.ts`, `e2e/ingest.spec.ts`, `server/src/copilot/fake/mockCopilotSdk.ts`, and `server/src/test/integration/chat-copilot-lock.test.ts`. Testing steps 1 through 5 are now honestly complete again, there is no live `**BLOCKER**` note on Task 20, and the task is now `__done__` because every Task 20 subtask and testing step has direct current repo evidence with no remaining task-local work before later manual testing loops.

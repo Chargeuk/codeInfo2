@@ -1829,7 +1829,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
 - Task Status: `__in_progress__`
-- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`, `1eb1a7d8`, `c830390b`
+- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`, `1eb1a7d8`, `c830390b`, `cc1f13a1`, `0094e700`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
 #### Overview
@@ -1915,6 +1915,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Reproduced the latest reopen as a runtime-shape mismatch rather than a pure row-local status bug. `RootsTable` already blocked selection from row-local `status` and `queueState`, but it had no explicit knowledge of which row owned the live active run on the page, so the supported runtime could still surface the active row with a matching `runId` while the single-row `Remove` action stayed disabled from global active-run state.
 - Tightened `client/src/components/ingest/RootsTable.tsx` and `client/src/pages/IngestPage.tsx` so the table now receives the active `runId` and treats the row that owns that live run as non-selectable in the shared checkbox model. This keeps the actively running `queueState: running` row out of the visible selection count without disabling completed rows that should remain available for queued bulk re-embed.
 - Extended `client/src/test/ingestRoots.test.tsx` with an active-running-row proof that combines `queueState: running`, `status: ingesting`, `phase: scanning`, `runId`, `hasActiveRun`, and the page-level `activeRunId`, then proves that the live row checkbox is disabled and that mixed select-all still counts only the removable completed row beside it.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the latest manual-finding commit `cc1f13a1`, the newest implementation commit `0094e700`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`, and `client/src/test/ingestRoots.test.tsx`. No subtasks were newly marked complete in this audit because reopened Subtasks 12 through 14 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, the manual-test-created follow-up subtasks are concrete and bounded to the active-run ownership seam, and the task correctly remains `__in_progress__` because the reopened Testing steps 1 through 3 still belong to the later automated-proof loop.
 
 ---
 

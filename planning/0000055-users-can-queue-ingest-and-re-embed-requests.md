@@ -1659,8 +1659,8 @@ This task no longer assumes Task 18 handed off a repairable owner. It re-reads t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19`
-- Task Status: `__in_progress__`
-- Git Commits: `f2933e58`, `8d6423fa`
+- Task Status: `__done__`
+- Git Commits: `f2933e58`, `8d6423fa`, `2fcd7daf`
 - Notes: Renumbered from the old Task 19 after the 2026-04-02 plan repair inserted new Task 18 for a third materially different owner-derivation strategy and renumbered the later repair task to Task 19.
 
 #### Overview
@@ -1709,3 +1709,4 @@ This final task validates the whole durable-queue story rather than isolated sea
 - Testing 5: `npm run compose:down` completed cleanly and removed the normal Docker stack containers plus the `codeinfo2_internal` network, so the final validation pass left the supported compose environment torn down again.
 - All Task 20 wrapper reruns are now complete, and the task remains `__in_progress__` only because the later audit step still needs to decide whether the story can now be marked `__done__`.
 - **RESOLVED ISSUE** The old active blocker lived here before earlier plan repairs: Testing step 2 (`npm run test:summary:server:unit`, then the remaining full wrappers) remained in `agent_action: wait` without reaching a trustworthy terminal wrapper verdict, and the saved log `test-results/server-unit-tests-2026-04-02T07-16-08-185Z.log` never reached a terminal summary or wrapper verdict. That blocker is no longer left active on this task because plan repair first moved the renewed full `server:unit` overrun into explicit prerequisite Task 11, then inserted Task 12 for current wrapper truth, then narrowed the first raw derivation plan into Task 13, then re-established present-tense seam truth in Task 14, then bounded the wrapper-local proof in Task 15, then exhausted the first child-side owner class in Task 16, then exhausted the second child-side owner class in Task 17, and finally re-grounded the stale shared-baseline blocker in Tasks 18 and 19 against current proof. Final close-out can now resume from current repo state, and this task is now ready for that later audit instead of still waiting on wrapper reruns.
+- Implementation-plus-automated-proof audit on 2026-04-03: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 20 section from disk, rechecked the current branch `HEAD`, and verified the implementation-close-out commit `de6bb5a1` plus the final wrapper-proof commit `2fcd7daf` against the current repo evidence in `README.md`, `planning/0000055-pr-summary.md`, `scripts/test-summary-server-cucumber.mjs`, and `scripts/test-summary-e2e.mjs`. Testing steps 1 through 5 are now honestly complete, there is no live `**BLOCKER**` note on Task 20, and the task is now `__done__` because every Task 20 subtask and testing step has direct current repo evidence with no remaining task-local work before later manual testing loops.

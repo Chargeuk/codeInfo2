@@ -26,6 +26,7 @@ import {
   consumePendingConversationCancel,
   createInflight,
   getInflight,
+  getPendingConversationCancel,
   markInflightPersisted,
 } from '../chat/inflightRegistry.js';
 import type {
@@ -78,6 +79,16 @@ import type {
 } from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
+
+const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
+  const pendingCancel = getPendingConversationCancel(conversationId);
+  return {
+    inflightId: getInflight(conversationId)?.inflightId ?? null,
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    pendingCancelRunToken: pendingCancel?.runToken ?? null,
+    pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
+  };
+};
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
@@ -1628,6 +1639,16 @@ const emitStoppedFlowStep = async (params: {
       status: 'stopped',
     },
   });
+  baseLogger.info(
+    {
+      flowConversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      stoppedStateBeforeCleanup: snapshotFlowRuntimeCleanupState(
+        params.flowConversationId,
+      ),
+    },
+    'flows stopped final emitted before cleanup',
+  );
   bridge.cleanup();
 
   cleanupInflight({
@@ -2367,6 +2388,18 @@ async function runFlowUnlocked(params: {
       inflightState && inflightState.inflightId === stepInflightId
         ? inflightState
         : undefined;
+    baseLogger.info(
+      {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        stepInflightId,
+        runToken: params.runToken,
+        cleanupStartState: snapshotFlowRuntimeCleanupState(
+          params.conversationId,
+        ),
+      },
+      'flows runtime cleanup starting',
+    );
 
     try {
       if (activeInflight) {
@@ -2374,6 +2407,29 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           inflightId: stepInflightId,
         });
+        baseLogger.info(
+          {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            stepInflightId,
+            runToken: params.runToken,
+            stateAfterCleanupInflight: snapshotFlowRuntimeCleanupState(
+              params.conversationId,
+            ),
+          },
+          'flows runtime cleanupInflight completed',
+        );
+      } else {
+        baseLogger.info(
+          {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            stepInflightId,
+            runToken: params.runToken,
+            inflightStateSeen: inflightState?.inflightId ?? null,
+          },
+          'flows runtime cleanupInflight skipped because active inflight did not match',
+        );
       }
     } catch (cleanupError) {
       baseLogger.error(
@@ -2390,12 +2446,29 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
       });
     } finally {
-      cleanupPendingConversationCancel({
+      const pendingCancelCleared = cleanupPendingConversationCancel({
         conversationId: params.conversationId,
         runToken: params.runToken,
         inflightId: stepInflightId,
       });
-      releaseConversationLockFn(params.conversationId, params.runToken);
+      const lockReleased = releaseConversationLockFn(
+        params.conversationId,
+        params.runToken,
+      );
+      baseLogger.info(
+        {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          stepInflightId,
+          runToken: params.runToken,
+          pendingCancelCleared,
+          lockReleased,
+          cleanupEndState: snapshotFlowRuntimeCleanupState(
+            params.conversationId,
+          ),
+        },
+        'flows runtime cleanup finished',
+      );
     }
   };
 

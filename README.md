@@ -518,6 +518,17 @@ Wrapper log review rule:
 - if a summary wrapper reports clean success with `agent_action: skip_log`, do not open the saved log just to inspect it
 - only open full logs when the wrapper reports failure, unexpected warnings, or ambiguous/unknown counts
 
+Flow-stop cleanup troubleshooting:
+
+- If `npm run test:summary:server:unit` appears to keep running after a flow-loop stop/cancel test should have finished, inspect the saved log for these server markers before changing code blindly:
+  - `CANCEL_INFLIGHT_RECEIVED` with `inflightSnapshot`, `ownershipRunToken`, and `pendingCancelRunToken`
+  - `flows stopped final emitted before cleanup`
+  - `flows runtime cleanup starting`
+  - `flows runtime cleanupInflight completed` or `flows runtime cleanupInflight skipped because active inflight did not match`
+  - `flows runtime cleanup finished`
+- These lines are emitted from the flow stop path and are intended to show whether the runtime still has inflight state, active ownership, or pending cancel state after a looped flow reports `stopped`.
+- The most useful comparison is the before/after snapshot in `flows runtime cleanup starting` versus `flows runtime cleanup finished`; if `inflightId`, `ownershipRunToken`, or pending-cancel fields remain populated at the end, the issue is likely a real cleanup leak rather than a wrapper problem.
+
 ### Story 50 Manual Proof Markers
 
 Manual Playwright-MCP review uses the Story 50 marker set as proof evidence. Reviewers should expect these markers in the validated wrapper logs and/or the running `/logs` page:

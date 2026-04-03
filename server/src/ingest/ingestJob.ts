@@ -2513,29 +2513,43 @@ export async function waitForQueueRequestTerminalStatus(
       }
     };
 
-    ingestEvents.on('run-status', onRunStatus);
-    settleTimer = globalThis.setTimeout(async () => {
-      const terminal = queueRequestTerminalStatuses.get(requestId);
-      if (terminal) {
-        settle({
-          reason: 'terminal',
-          requestId,
-          runId: terminal.runId,
-          status: terminal.status,
-          lastKnown: terminal.status,
-        });
-        return;
-      }
+    const settleFromTimeout = async () => {
+      try {
+        const terminal = queueRequestTerminalStatuses.get(requestId);
+        if (terminal) {
+          settle({
+            reason: 'terminal',
+            requestId,
+            runId: terminal.runId,
+            status: terminal.status,
+            lastKnown: terminal.status,
+          });
+          return;
+        }
 
-      const latest = await resolveQueueRequestRunState(requestId);
-      const status = latest.terminal?.status ?? latest.status ?? null;
-      settle({
-        reason: latest.terminal ? 'terminal' : 'timeout',
-        requestId,
-        runId: latest.terminal?.runId ?? latest.runId,
-        status: latest.terminal?.status ?? null,
-        lastKnown: status ?? lastKnown,
-      });
+        const latest = await resolveQueueRequestRunState(requestId);
+        const status = latest.terminal?.status ?? latest.status ?? null;
+        settle({
+          reason: latest.terminal ? 'terminal' : 'timeout',
+          requestId,
+          runId: latest.terminal?.runId ?? latest.runId,
+          status: latest.terminal?.status ?? null,
+          lastKnown: status ?? lastKnown,
+        });
+      } catch {
+        settle({
+          reason: 'timeout',
+          requestId,
+          runId: activeRunId,
+          status: null,
+          lastKnown,
+        });
+      }
+    };
+
+    ingestEvents.on('run-status', onRunStatus);
+    settleTimer = globalThis.setTimeout(() => {
+      void settleFromTimeout();
     }, timeoutMs);
     settleTimer.unref?.();
   });

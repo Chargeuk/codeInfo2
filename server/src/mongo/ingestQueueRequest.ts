@@ -45,6 +45,16 @@ ingestQueueRequestSchema.index(
   { name: 'ingest_queue_target_state_idx' },
 );
 ingestQueueRequestSchema.index(
+  { canonicalTargetPath: 1 },
+  {
+    name: 'ingest_queue_live_target_unique_idx',
+    unique: true,
+    partialFilterExpression: {
+      queueState: { $in: ['waiting', 'running'] },
+    },
+  },
+);
+ingestQueueRequestSchema.index(
   { queueState: 1, createdAt: 1, _id: 1 },
   { name: 'ingest_queue_waiting_fifo_idx' },
 );

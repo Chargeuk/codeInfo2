@@ -581,6 +581,36 @@ test('queue-aware wait cleanup uses the request identity and preserves timeout e
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
+test('queue-aware wait timeout-path rejection still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
+  process.env.NODE_ENV = 'test';
+  let readCount = 0;
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () => {
+      readCount += 1;
+      if (readCount === 1) {
+        return null;
+      }
+      throw new Error('queue read failed during timeout fallback');
+    },
+  });
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitOptions: { timeoutMs: 5 },
+    },
+  );
+
+  assert.equal(readCount, 2);
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'error');
+  assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
+});
+
 test('queue unavailable maps to the canonical retryable QUEUE_UNAVAILABLE contract', async () => {
   const listIngestedRepositories = async () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],

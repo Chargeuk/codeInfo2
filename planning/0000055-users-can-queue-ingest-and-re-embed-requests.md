@@ -1828,7 +1828,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: None yet.
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
@@ -1852,11 +1852,11 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 
 #### Subtasks
 
-1. [ ] Re-read the review finding for queued bulk removal and trace the current single-row vs bulk-selection gating in `client/src/components/ingest/RootsTable.tsx` against the existing remove route behavior.
-2. [ ] Change the shared repo-list selection logic so queued rows in `waiting`, `running`, or `cleanup-blocked` state cannot enter the bulk remove selection set.
-3. [ ] Keep the `Remove selected` affordance disabled whenever the remaining selection contains no actually removable rows, using the same contract as the single-row remove button instead of inventing a queue-delete fallback.
-4. [ ] Extend `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together.
-5. [ ] Record the final queued-row selection rule in this task's implementation notes so later close-out work does not accidentally reopen queued user removal as a product feature.
+1. [x] Re-read the review finding for queued bulk removal and trace the current single-row vs bulk-selection gating in `client/src/components/ingest/RootsTable.tsx` against the existing remove route behavior.
+2. [x] Change the shared repo-list selection logic so queued rows in `waiting`, `running`, or `cleanup-blocked` state cannot enter the bulk remove selection set.
+3. [x] Keep the `Remove selected` affordance disabled whenever the remaining selection contains no actually removable rows, using the same contract as the single-row remove button instead of inventing a queue-delete fallback.
+4. [x] Extend `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together.
+5. [x] Record the final queued-row selection rule in this task's implementation notes so later close-out work does not accidentally reopen queued user removal as a product feature.
 
 #### Testing
 
@@ -1867,6 +1867,10 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 #### Implementation notes
 
 - Record how the bulk selection rule now stays aligned with the out-of-scope queued-removal contract and which client proof cases demonstrate that alignment.
+- Re-read the queued bulk-removal review finding from `codeInfoStatus/reviews/0000055-20260403T192503Z-eb5a906f-findings.md` and traced the current seams in `client/src/components/ingest/RootsTable.tsx` plus `server/src/routes/ingestRemove.ts`. The current mismatch is that single-row remove already blocks `waiting`, `running`, and `cleanup-blocked`, but shared checkbox selection and `Remove selected` still operate on every row whenever `hasActiveRun` is false even though the backend route only removes persisted ingest data.
+- Updated `client/src/components/ingest/RootsTable.tsx` so bulk remove now derives its own removable subset from the same row-level rule that already disables single-row remove. Shared selection still exists for queueable re-embed, but `waiting`, `running`, and `cleanup-blocked` rows no longer count toward the bulk remove target set and `Remove selected` stays disabled until at least one actually removable row is selected.
+- Extended `client/src/test/ingestRoots.test.tsx` with queued-only and mixed-selection proofs, and added a browser-level proof in `e2e/ingest.spec.ts` that mocks the ingest roots/remove seams to show `Remove selected` remains disabled for queued-only selection and issues a remove request only for the removable row in a mixed selection. The e2e proof stays UI-scoped on purpose because the backend remove route contract itself did not change.
+- Final queued-row bulk-selection rule for Story 55: rows in `waiting`, `running`, or `cleanup-blocked` may still appear in the shared repo list and can remain visible beside removable rows, but they are out of scope for user removal and therefore never enter the bulk remove target set. Later close-out work should preserve that rule instead of treating bulk selection as a queue-deletion feature request.
 
 ---
 

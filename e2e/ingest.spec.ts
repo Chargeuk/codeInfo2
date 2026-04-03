@@ -623,6 +623,89 @@ test.describe.serial('Ingest flows', () => {
     }
   });
 
+  test('Remove selected ignores queued rows in a mixed selection', async ({
+    page,
+  }) => {
+    const removeRequests: string[] = [];
+    const mockedRoots = {
+      roots: [
+        {
+          runId: 'run-removable',
+          name: 'mock-removable',
+          description: 'completed fixture',
+          path: '/mock-removable',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+        {
+          requestId: 'queue-request-queued',
+          runId: null,
+          name: 'mock-queued',
+          description: 'waiting fixture',
+          path: '/mock-queued',
+          model: 'embed-1',
+          status: 'ingesting',
+          phase: 'queued',
+          queueState: 'waiting',
+          queuePosition: 1,
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '2025-02-19',
+      lockedModelId: 'embed-1',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+    await page.route('**/ingest/remove/**', async (route) => {
+      removeRequests.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok', unlocked: false }),
+      });
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    const bulkRemove = page.getByRole('button', { name: /remove selected/i });
+    await expect(
+      page.getByRole('row', { name: /mock-removable/i }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('row', { name: /mock-queued/i }).first(),
+    ).toBeVisible();
+
+    await page.getByRole('checkbox', { name: /^Select mock-queued$/i }).check();
+    await expect(bulkRemove).toBeDisabled();
+
+    await page
+      .getByRole('checkbox', { name: /^Select mock-removable$/i })
+      .check();
+    await expect(bulkRemove).toBeEnabled();
+
+    await bulkRemove.click();
+
+    await expect
+      .poll(() => removeRequests.length, {
+        timeout: 10_000,
+        message: 'waiting for bulk remove to issue the removable request only',
+      })
+      .toBe(1);
+    expect(removeRequests[0]).toContain('/ingest/remove/%2Fmock-removable');
+    expect(removeRequests[0]).not.toContain('/ingest/remove/%2Fmock-queued');
+  });
+
   test('remove clears entry and unlocks model when empty', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
     await page.getByLabel('Folder path').fill(fixturePath);

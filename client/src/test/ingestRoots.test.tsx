@@ -202,6 +202,101 @@ describe('RootsTable', () => {
     ).toBeDisabled();
   });
 
+  it('keeps bulk remove disabled when only queued rows are selected', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-queued',
+            name: 'repo-queued',
+            status: 'ingesting',
+            phase: 'queued',
+            queueState: 'waiting',
+            queuePosition: 1,
+            runId: null,
+            requestId: 'queue-request-1',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const queuedRow = await screen.findByRole('row', { name: /repo-queued/i });
+    const queuedCheckbox = within(queuedRow).getByRole('checkbox', {
+      name: /select repo-queued/i,
+    });
+    const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+
+    expect(bulkRemove).toBeDisabled();
+    fireEvent.click(queuedCheckbox);
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(bulkRemove).toBeDisabled();
+  });
+
+  it('removes only actually removable rows from a mixed bulk selection', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ status: 'ok', unlocked: true }),
+    );
+
+    render(
+      <RootsTable
+        roots={[
+          root,
+          {
+            ...root,
+            path: '/repo-queued',
+            name: 'repo-queued',
+            status: 'ingesting',
+            phase: 'queued',
+            queueState: 'waiting',
+            queuePosition: 1,
+            runId: null,
+            requestId: 'queue-request-2',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const completedCheckbox = await screen.findByRole('checkbox', {
+      name: /^select repo$/i,
+    });
+    const queuedRow = await screen.findByRole('row', { name: /repo-queued/i });
+    const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+
+    fireEvent.click(
+      within(queuedRow).getByRole('checkbox', { name: /select repo-queued/i }),
+    );
+    expect(bulkRemove).toBeDisabled();
+
+    fireEvent.click(completedCheckbox);
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(bulkRemove).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(bulkRemove);
+      await Promise.resolve();
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/ingest/remove/%2Frepo'),
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(String(mockFetch.mock.calls[0]?.[0] ?? '')).not.toContain(
+      '/ingest/remove/%2Frepo-queued',
+    );
+  });
+
   it('renders AST counts in the table when available', async () => {
     render(
       <RootsTable

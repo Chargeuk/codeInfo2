@@ -56,6 +56,14 @@ const statusColor: Record<
   error: 'error',
 };
 
+function blocksUserRemove(root: IngestRoot) {
+  return (
+    root.queueState === 'waiting' ||
+    root.queueState === 'running' ||
+    root.queueState === 'cleanup-blocked'
+  );
+}
+
 export default function RootsTable({
   roots,
   lockedModelId,
@@ -88,6 +96,21 @@ export default function RootsTable({
         .filter(Boolean)
         .join(' · ')
     : null;
+  const removableRootPaths = useMemo(
+    () =>
+      new Set(
+        roots
+          .filter((root) => !blocksUserRemove(root))
+          .map((root) => root.path),
+      ),
+    [roots],
+  );
+  const removableSelectedPaths = useMemo(
+    () => Array.from(selected).filter((path) => removableRootPaths.has(path)),
+    [removableRootPaths, selected],
+  );
+  const canBulkRemove =
+    !busy && !hasActiveRun && removableSelectedPaths.length > 0;
 
   const toggle = (path: string) => {
     setSelected((prev) => {
@@ -166,10 +189,12 @@ export default function RootsTable({
   };
 
   const handleBulk = async (action: 'reembed' | 'remove') => {
-    if (!selected.size) return;
+    const targetPaths =
+      action === 'remove' ? removableSelectedPaths : Array.from(selected);
+    if (targetPaths.length === 0) return;
     setBulkMessage({ status: 'loading', message: 'Working on selected…' });
     try {
-      for (const path of selected) {
+      for (const path of targetPaths) {
         if (action === 'reembed') await doReembed(path);
         if (action === 'remove') await doRemove(path);
       }
@@ -289,7 +314,7 @@ export default function RootsTable({
           color="error"
           size="small"
           onClick={() => void handleBulk('remove')}
-          disabled={busy || selected.size === 0 || hasActiveRun}
+          disabled={!canBulkRemove}
         >
           Remove selected
         </Button>
@@ -341,11 +366,7 @@ export default function RootsTable({
               const message = actionState[root.path]?.message;
               const rowDisabled = busy || state === 'loading';
               const removeDisabled =
-                rowDisabled ||
-                hasActiveRun ||
-                root.queueState === 'waiting' ||
-                root.queueState === 'running' ||
-                root.queueState === 'cleanup-blocked';
+                rowDisabled || hasActiveRun || blocksUserRemove(root);
               const isSelected = selected.has(root.path);
               const chipColor = statusColor[root.status] ?? 'default';
               const phase =

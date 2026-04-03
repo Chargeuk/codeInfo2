@@ -1987,8 +1987,8 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__in_progress__`
-- Git Commits: `e5012a6d`
+- Task Status: `__done__`
+- Git Commits: `e5012a6d`, `f62d2685`
 - Notes: Inserted on 2026-04-03 after review found that terminal queue-state entries are written forever but never cleared in production.
 
 #### Overview
@@ -2035,6 +2035,7 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 - Testing 2: the targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts --file server/src/test/unit/reingestService.test.ts` wrapper passed cleanly with `tests run: 33`, `passed: 33`, `failed: 0`, and `agent_action: skip_log`, so the exact cache-lifecycle and waiter proof homes now cover both bounded eviction and real terminal resolution.
 - Testing 3: cucumber coverage remained not applicable for Task 24, because the terminal-cache TTL stays entirely inside the server runtime memory seam and does not change any externally visible blocking contract, route surface, or feature behavior that an existing cucumber proof home owns.
 - Testing 4: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1605`, `passed: 1605`, `failed: 0`, and `agent_action: skip_log`, so the shared server-unit baseline now carries the bounded terminal-cache behavior without regressions.
+- Implementation-plus-automated-proof audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 24 section, the latest proof-record commit `f62d2685`, and the current repo evidence in `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, and `server/src/test/unit/reingestService.test.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 4 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 24, and the task is now `__done__` because Subtasks 1 through 5 plus Testing steps 1 through 4 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

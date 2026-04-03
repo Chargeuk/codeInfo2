@@ -1,25 +1,28 @@
-## Task
+# Goal
 
-Start the multi-step review sequence for the current story. This step is the evidence gate only. It is not the findings pass and it is not the plan-editing pass.
+Start the multi-step review sequence for the current story by gathering evidence only. This step does not produce findings and does not mutate the plan except for a tiny unblock note if absolutely necessary.
 
-## Critical Rules
+<critical_rules>
 
-- Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and treat it as the SOLE source of review scope for this flow.
-- Resolve the active `plan_path` and extract repository paths from `additional_repositories` in that handoff file, then re-open the exact relative `plan_path` from disk before continuing.
+- Use fresh disk reads and current git state, not conversational memory.
+- Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and treat it as the SOLE source of review scope for this flow.
+- Resolve the active `plan_path` and extract repository paths from `additional_repositories`, then re-open that exact relative `plan_path` from disk before continuing.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
-- The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it for review scope.
+- The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it.
 - Use ONLY the current repository plus the repository paths extracted from `additional_repositories`. Do not invent additional repositories or plan files.
 - If any handoff validation rule fails, stop and say the current-plan handoff is stale and must be regenerated.
 - For multi-repository stories, you MUST gather cross-repository integration evidence rather than treating each repository in isolation.
-- Treat `flows/**` as approved workflow configuration. Changes under `flows/**` must not be classified as suspicious, out-of-scope, or scope creep solely because they are absent from the active plan, but they should still be reviewed normally for workflow behavior, instruction safety, and other engineering concerns.
-- Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes. These files must not be classified as suspicious, out-of-scope, scope creep, or unwanted solely because they changed outside the active story.
-- For the allowed support files above, review ONLY for spelling, grammar, and obvious wording mistakes. Do NOT review them for workflow-contract correctness, artifact hygiene, path usage, instruction/runtime safety, plan-selection rules, story-scope alignment, or revert-worthiness.
+- Treat `flows/**` as approved workflow configuration. Changes there must not be classified as suspicious or out of scope solely because they are absent from the active plan, but they should still be reviewed normally for workflow behavior, instruction safety, and other engineering concerns.
+- Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
+- For those allowed support files, review ONLY for spelling, grammar, and obvious wording mistakes.
+- These files must not be classified as suspicious, out-of-scope, scope creep, or unwanted solely because they changed outside the active story.
+- Do NOT review them for workflow-contract correctness, artifact hygiene, path usage, instruction/runtime safety, plan-selection rules, story-scope alignment, or revert-worthiness.
 - Do not edit any plan in this step unless a tiny note is absolutely required to unblock the review.
 - Do not commit in this step unless you had to make tracked changes for that unblock.
 
-## Scope And Inputs
+</critical_rules>
 
-### Current-Plan Scope Resolution
+<scope_rules>
 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
@@ -27,7 +30,9 @@ Start the multi-step review sequence for the current story. This step is the evi
 - The story number comes from the canonical plan filename.
 - The story branch name comes from the current repository branch and must match the canonical plan story number.
 
-## Validation And Stop Conditions
+</scope_rules>
+
+<validation_rules>
 
 Before doing review work, validate all of the following:
 
@@ -39,7 +44,9 @@ Before doing review work, validate all of the following:
 
 If any of those checks fail, stop and say the current-plan handoff is stale and must be regenerated.
 
-## Base Branch Resolution
+</validation_rules>
+
+<base_branch_rules>
 
 For each repository in review scope, resolve the review base branch using this order:
 
@@ -51,7 +58,9 @@ For each repository in review scope, resolve the review base branch using this o
 
 Record the final per-repository resolved base branch and the reason it was chosen, and use that resolved base branch for all review diffs and later review-step validation.
 
-## Exact Step Order
+</base_branch_rules>
+
+<step_order>
 
 1. Re-read the canonical plan from disk.
 2. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and re-check each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
@@ -140,7 +149,9 @@ Record the final per-repository resolved base branch and the reason it was chose
 29. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
 30. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
 
-## Output Contract
+</step_order>
+
+<output_contract>
 
 You MUST produce both of these artifacts:
 
@@ -167,23 +178,23 @@ Use a stable `repo_alias` for each repository so later review artifacts do not h
 
 This handoff file is the ONLY review file the next step may use. Do not rely on timestamps or `latest file` discovery. Treat the handoff file as transient workflow state, not as the durable review artifact.
 
-## Verification Before Finalizing
+- Report the evidence summary path and the exact handoff file path when done.
 
-Before you finish this step, verify all of the following:
+</output_contract>
 
-- the current-plan handoff was normalized correctly;
-- the canonical plan exists in the current repository;
-- every repository in scope is on the correct story branch;
-- every repository was reviewed against its resolved base branch;
-- the generated review handoff `plan_path` matches the canonical plan path;
-- every repository in scope has a stable alias recorded in the handoff;
-- every acceptance criterion has a proof source or an explicit weak/missing-proof note;
-- cross-repository evidence was added when the story spans multiple repositories;
-- the evidence summary contains a `Risk-Invariant Matrix` for the top risky helpers/functions;
-- the top 3 risky helpers/functions were named;
-- the generic adversarial review checklist was recorded;
-- the evidence file path and handoff file path are correct and consistent with the current HEAD commits.
+<verification_loop>
 
-## Final Response
+- Confirm the current-plan handoff was normalized correctly.
+- Confirm the canonical plan exists in the current repository.
+- Confirm every repository in scope is on the correct story branch.
+- Confirm every repository was reviewed against its resolved base branch.
+- Confirm the generated review handoff `plan_path` matches the canonical plan path.
+- Confirm every repository in scope has a stable alias recorded in the handoff.
+- Confirm every acceptance criterion has a proof source or an explicit weak/missing-proof note.
+- Confirm cross-repository evidence was added when the story spans multiple repositories.
+- Confirm the evidence summary contains a `Risk-Invariant Matrix` for the top risky helpers/functions.
+- Confirm the top 3 risky helpers/functions were named.
+- Confirm the generic adversarial review checklist was recorded.
+- Confirm the evidence file path and handoff file path are correct and consistent with the current HEAD commits.
 
-Report the evidence summary and the exact handoff file path when done.
+</verification_loop>

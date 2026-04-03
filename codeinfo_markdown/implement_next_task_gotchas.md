@@ -1,11 +1,74 @@
-Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first and treat it as the sole source of active-plan scope for this flow. Determine the active `plan_path` and extract repository paths from `additional_repositories` in that handoff file, then re-open that exact relative `plan_path` from disk. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry.
+# Goal
 
-Determine the active task from the active plan using this rule: if any task is currently `__in_progress__`, the highest-numbered `__in_progress__` task remains the active task for this pass; only if no task is `__in_progress__` may you advance to the next executable `__to_do__` task. Re-read that active task from the plan and identify the repository that task explicitly belongs to from its `Repository Name` field. If the task does not make the repository unambiguous, stop and say the task-to-repository handoff is unclear and must be fixed in the plan before implementation continues. Resolve `Current Repository` to the current repository root. Resolve any other repository name from the plan's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`. If the plan has no such section and the task repository is not `Current Repository`, stop and say the task-to-repository handoff is unclear and must be fixed in the plan before implementation continues.
+Explain the implementation gotchas for the currently active task using the stored handoff, current plan state, and current repository branch state.
 
-Then ensure the branch in the TARGET repository is on the correct story for that task's repository, not merely the branch in the repository where the flow happened to start. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and re-check the target repository branch directly from git, for example with `git -C <repo_root> branch --show-current`. If the target repository is already on a branch whose story number matches the selected plan filename, keep or reuse that branch so long as doing so will not overwrite local changes. If no such branch exists yet in the target repository, create one from that repository's current checkout so any current local changes in that repository stay attached to the new branch. Do NOT stash, reset, discard, or otherwise lose local changes in any repository while doing this. If switching branches in the target repository would overwrite local changes, stop and say repository branch setup is blocked by local changes instead of forcing the checkout. If the story number in the target repository branch name does not match the story number in the selected plan filename after this branch setup, stop and say the current-plan handoff is stale and must be regenerated. Before touching files or running commands in the target repository, read that repository's `AGENTS.md` and follow its repository-specific workflow rules.
+<critical_rules>
 
-Then explain the gotchas a developer would need to watch out for while implementing the active task, using the current task plus any relevant acceptance criteria, out-of-scope notes, decisions, implementation notes, and dependent-task context from the plan. Also take into account the implementation information of any previous tasks. Before giving gotchas, read the end of the plan file from disk and report the highest `### Task` heading currently present, then name the exact active task heading and `Task Status` you are using for this gotchas pass. If you had asked for clarification about a blocker, then ensure you re-read the task, as it will have answers for you to proceed within the implementation notes of this task. No matter what, even if you think you know what is in the plan, you must re-read at least the active task from disk, as it is possible changes have been made since you last read it. If the active task is still `__in_progress__` but has no unchecked subtasks, state that explicitly and make clear that the task remains active because automated proof or other remaining non-subtask work still needs to run before later tasks may begin. If the previous loop iteration involved manual-testing edits, you must explicitly re-read the current task's subtasks, testing steps, and implementation notes so you catch any newly added follow-up work before giving gotchas. If the previous loop iteration involved a blocker or planner edits, you must also re-read the next downstream task that depends on the current task so you understand the updated sequencing and proof expectations.
+- Use fresh disk reads and current git state, not conversational memory.
+- Re-read `codeInfoStatus/flow-state/current-plan.json` first and treat it as the sole source of active-plan scope for this flow.
+- Determine the active `plan_path` and extract repository paths from `additional_repositories`, then re-open that exact relative `plan_path` from disk.
+- If the handoff does not explicitly identify any additional repositories, treat that as none.
+- The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry.
 
-If the active task has already gone through repeated implementation passes while the same subtasks remain unchecked, call that out explicitly in your gotchas. In that case, tell the coding agent that the next implementation pass must either complete at least one of the remaining subtasks or raise a live `**BLOCKER**`; another partial no-closure pass is not an honest outcome.
+</critical_rules>
 
-If the active task is a bounded diagnostic or derivation task, explicitly remind the coding agent of its stopping rule. If the task's bounded search has already exhausted or the remaining work would widen the task ad hoc, tell the coding agent to raise a live `**BLOCKER**` rather than extending the task informally.
+<task_selection_rules>
+
+- If any task is currently `__in_progress__`, the highest-numbered `__in_progress__` task remains the active task for this pass.
+- Only if no task is `__in_progress__` may you advance to the next executable `__to_do__` task.
+- Re-read that active task from the plan and identify the repository that task explicitly belongs to from its `Repository Name` field.
+- If the task does not make the repository unambiguous, stop and say the task-to-repository handoff is unclear and must be fixed in the plan before implementation continues.
+- Resolve `Current Repository` to the current repository root.
+- Resolve any other repository name from the plan's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`.
+- If the plan has no such section and the task repository is not `Current Repository`, stop and say the task-to-repository handoff is unclear and must be fixed in the plan before implementation continues.
+
+</task_selection_rules>
+
+<branch_rules>
+
+- Ensure the branch in the TARGET repository is on the correct story for that task's repository, not merely the branch in the repository where the flow happened to start.
+- Re-check current repository branch state directly from git, for example with `git branch --show-current`.
+- Re-check the target repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
+- If the target repository is already on a branch whose story number matches the selected plan filename, keep or reuse that branch so long as doing so will not overwrite local changes.
+- If no such branch exists yet in the target repository, create one from that repository's current checkout so any current local changes in that repository stay attached to the new branch.
+- Do NOT stash, reset, discard, or otherwise lose local changes in any repository while doing this.
+- If switching branches in the target repository would overwrite local changes, stop and say repository branch setup is blocked by local changes instead of forcing the checkout.
+- If the story number in the target repository branch name does not match the story number in the selected plan filename after this branch setup, stop and say the current-plan handoff is stale and must be regenerated.
+- Before touching files or running commands in the target repository, read that repository's `AGENTS.md` and follow its repository-specific workflow rules.
+
+</branch_rules>
+
+<gotcha_rules>
+
+- Explain the gotchas a developer would need to watch out for while implementing the active task, using the current task plus any relevant acceptance criteria, out-of-scope notes, decisions, implementation notes, and dependent-task context from the plan.
+- Also take into account the implementation information of any previous tasks.
+- Before giving gotchas, read the end of the plan file from disk and report the highest `### Task` heading currently present, then name the exact active task heading and `Task Status` you are using for this gotchas pass.
+- If you had asked for clarification about a blocker, then ensure you re-read the task because answers may now exist in the current task's implementation notes.
+- Even if you think you know what is in the plan, you must re-read at least the active task from disk before answering.
+- If the active task is still `__in_progress__` but has no unchecked subtasks, state that explicitly and make clear that the task remains active because automated proof or other remaining non-subtask work still needs to run before later tasks may begin.
+- If the previous loop iteration involved manual-testing edits, explicitly re-read the current task's subtasks, testing steps, and implementation notes so you catch any newly added follow-up work before giving gotchas.
+- If the previous loop iteration involved a blocker or planner edits, also re-read the next downstream task that depends on the current task so you understand the updated sequencing and proof expectations.
+- If the active task has already gone through repeated implementation passes while the same subtasks remain unchecked, call that out explicitly.
+- In that repeated-pass state, tell the coding agent that the next implementation pass must either complete at least one of the remaining subtasks or raise a live `**BLOCKER**`; another partial no-closure pass is not an honest outcome.
+- If the active task is a bounded diagnostic or derivation task, explicitly remind the coding agent of its stopping rule.
+- If the task's bounded search has already exhausted or the remaining work would widen the task ad hoc, tell the coding agent to raise a live `**BLOCKER**` rather than extending the task informally.
+
+</gotcha_rules>
+
+<output_contract>
+
+- Name the highest task heading currently present in the plan.
+- Name the active task heading and its `Task Status`.
+- Explain the main gotchas for the next implementation pass.
+- Call out any repeated-pass stall state or bounded-diagnostic stopping rule when applicable.
+
+</output_contract>
+
+<verification_loop>
+
+- Confirm you re-read the active plan from the stored handoff.
+- Confirm you re-read the active task from disk.
+- Confirm the target repository branch matches the selected plan story number.
+- Confirm your gotchas reflect the latest task notes, subtasks, testing steps, and sequencing context when required.
+
+</verification_loop>

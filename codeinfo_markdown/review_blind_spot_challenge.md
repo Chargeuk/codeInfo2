@@ -1,8 +1,8 @@
-## Task
+# Goal
 
-Run a focused blind-spot challenge after the findings pass and before disposition. This step exists to break a tentative no-findings conclusion by re-checking only the highest-risk helpers/functions from the evidence artifact.
+Run a focused blind-spot challenge after the findings pass and before disposition so a tentative no-findings conclusion gets one more adversarial check.
 
-## Critical Rules
+<critical_rules>
 
 - Use fresh disk reads and current git state, not conversational memory.
 - Re-read `codeInfoStatus/flow-state/current-plan.json` first, derive the canonical `plan_path`, and re-open that exact plan from disk.
@@ -12,7 +12,9 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 - This step does not edit the canonical plan.
 - This step does not replace the findings pass. It either strengthens confidence in a no-findings conclusion or produces late findings that the disposition step must honor.
 
-## Scope And Inputs
+</critical_rules>
+
+<scope_rules>
 
 Read all of the following from disk:
 
@@ -23,7 +25,9 @@ Read all of the following from disk:
 
 Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact's `Rejected Risk Notes` as the primary input set for this challenge.
 
-## Exact Review Pass
+</scope_rules>
+
+<step_order>
 
 1. Re-validate the current-plan scope and review handoff against the current repository state.
 2. Re-open the evidence artifact's `Risk-Invariant Matrix` and identify the highest-risk helpers/functions and contradictory inputs or states recorded there.
@@ -38,14 +42,14 @@ Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact'
 11. For one changed async helper or test-support utility, attempt a leaked-registration challenge: if timeout, rejection, cancellation, or early return wins, verify whether any shared waiter, listener, callback, subscription, or queue registration is still unregistered before the helper exits.
 12. For one changed fallback-selection or precedence helper, attempt a stale-hint challenge: assume an earlier cancelled or degraded run persisted a weak fallback value, then verify whether a later successful run with fresher observed state can override it correctly.
 13. For each challenge, decide whether it:
-
-- creates a new endorsed finding;
-- strengthens a rejected-risk conclusion;
-- or leaves only residual weak proof.
-
+    - creates a new endorsed finding;
+    - strengthens a rejected-risk conclusion;
+    - or leaves only residual weak proof.
 14. Keep the output tightly scoped to those top-risk helpers/functions plus the one extra non-helper consistency or portability challenge, the one failure-ordering challenge, the wrapped-error mismatch challenge, the one weak-proof test challenge, the one env/config domain challenge, the one scale-shape challenge, the one leaked-registration challenge, and the one stale-hint challenge. Do not restart the whole review.
 
-## Output Contract
+</step_order>
+
+<output_contract>
 
 Write the challenge result to `codeInfoStatus/reviews/<review_pass_id>-blind-spot-challenge.md`.
 
@@ -72,16 +76,16 @@ If the challenge produces no new finding, update the same review handoff so it i
 
 This artifact is additive context for disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
 
-## Verification Before Finalizing
+- Report the challenge artifact path and whether the challenge generated any new findings.
 
-Before you finish this step, verify all of the following:
+</output_contract>
 
-- the current-plan handoff still matches the canonical plan and story branch;
-- the review handoff still matches the current scope and referenced artifacts;
-- the challenge inspected the top-risk helpers/functions rather than restarting the entire review;
-- the challenge artifact path matches the `challenge_file` value written into the handoff;
-- the artifact explicitly says whether any new finding was generated.
+<verification_loop>
 
-## Final Response
+- Confirm the current-plan handoff still matches the canonical plan and story branch.
+- Confirm the review handoff still matches the current scope and referenced artifacts.
+- Confirm the challenge inspected the top-risk helpers/functions rather than restarting the entire review.
+- Confirm the challenge artifact path matches the `challenge_file` value written into the handoff.
+- Confirm the artifact explicitly says whether any new finding was generated.
 
-Report the challenge artifact path and whether the challenge generated any new findings.
+</verification_loop>

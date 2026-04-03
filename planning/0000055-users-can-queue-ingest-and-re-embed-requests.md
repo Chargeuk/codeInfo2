@@ -1829,7 +1829,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
 - Task Status: `__in_progress__`
-- Git Commits: `44e33c7f`, `5c685f9a`
+- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
 #### Overview
@@ -1883,6 +1883,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Reproduced the reopened leak from the manual note against the current `RootsTable` implementation. The root cause is that row checkboxes and the header `Select all roots` checkbox still write every row path into the shared `selected` set while the later Task 22 fix only filters that set when `handleBulk('remove')` runs; because the visible `selected` count and row highlighting still read directly from `selected`, `waiting`, `running`, and `cleanup-blocked` rows can still appear selected even though they are no longer removable.
 - Tightened `client/src/components/ingest/RootsTable.tsx` so the shared `selected` state now only accepts rows that are selectable under the single-row remove gating rule. Queue-blocked rows now have disabled row checkboxes, the header `Select all roots` checkbox only selects removable rows, and a small pruning effect drops any stale blocked paths if queue state changes after selection.
 - Updated `client/src/test/ingestRoots.test.tsx` so the reopened proof now owns the exact manual failure: queue-blocked rows stay disabled, do not increment the visible `selected` count, and do not enter the mixed `select all` remove target model next to one removable row. I intentionally left `e2e/ingest.spec.ts` unchanged in this implementation pass because the existing browser proof already covers the bulk remove action path, while the newly reopened leak is specifically about the client-side visible selection model.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the reopened implementation commit `ae112626`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. No subtasks were newly marked complete in this audit because reopened Subtasks 6 through 8 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because reopened Testing steps 1 through 3 still belong to the later automated-proof loop.
 
 ---
 

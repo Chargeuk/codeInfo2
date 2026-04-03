@@ -3,7 +3,11 @@ import test, { afterEach, mock } from 'node:test';
 
 import {
   __getIngestEventListenerCountForTest,
+  __resetIngestJobsForTest,
+  __setQueueRequestIdForRunForTest,
+  __setQueueRequestTerminalStatusTtlForTest,
   __setQueueRuntimeOpsForTest,
+  __setStatusAndPublishForTest,
 } from '../../ingest/ingestJob.js';
 import {
   runReingestRepository,
@@ -18,6 +22,7 @@ afterEach(() => {
   mock.restoreAll();
   mock.reset();
   if (process.env.NODE_ENV === 'test') {
+    __resetIngestJobsForTest();
     __setQueueRuntimeOpsForTest(null);
   }
   delete process.env.NODE_ENV;
@@ -136,6 +141,29 @@ test('blocking success returns completed terminal payload with required fields',
   assert.equal(typeof payload.chunks, 'number');
   assert.equal(typeof payload.embedded, 'number');
   assert.equal(payload.errorCode, null);
+});
+
+test('actual queue terminal cache still resolves completed and failed payloads before TTL eviction', async () => {
+  process.env.NODE_ENV = 'test';
+  __setQueueRequestTerminalStatusTtlForTest(60_000);
+
+  for (const state of ['completed', 'error'] as const) {
+    __resetIngestJobsForTest();
+    __setQueueRequestTerminalStatusTtlForTest(60_000);
+    __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
+    __setStatusAndPublishForTest('ingest-123', buildTerminal(state));
+
+    const result = await runReingestRepository(
+      { sourceId: '/data/repo-a' },
+      buildDeps(),
+    );
+
+    assert.equal(result.ok, true);
+    if (!result.ok) continue;
+    assert.equal(result.value.status, state === 'error' ? 'error' : 'completed');
+    assert.equal(result.value.requestId, 'queue-request-123');
+    assert.equal(result.value.runId, 'ingest-123');
+  }
 });
 
 test('internal skipped maps to completed with skipped completionMode', async () => {

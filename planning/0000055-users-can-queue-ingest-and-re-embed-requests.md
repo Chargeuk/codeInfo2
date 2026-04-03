@@ -1987,7 +1987,7 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: None yet.
 - Notes: Inserted on 2026-04-03 after review found that terminal queue-state entries are written forever but never cleared in production.
 
@@ -2010,11 +2010,11 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 
 #### Subtasks
 
-1. [ ] Re-read the review finding for `queueRequestTerminalStatuses` and trace every production read/write path for that cache in `server/src/ingest/ingestJob.ts`.
-2. [ ] Choose one bounded cleanup strategy for terminal queue-state entries that preserves the current blocking-waiter contract without keeping per-request state forever on a long-lived server.
-3. [ ] Implement that bounded cleanup strategy in production code, keeping the behavior explicit in the same runtime ownership seam that writes and reads the terminal-state cache today.
-4. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/reingestService.test.ts` so completed and failed queue requests still resolve correctly while the terminal-state cache also proves its bounded cleanup behavior instead of growing forever, and update an existing cucumber proof home only if the bounded cache lifecycle changes an externally visible blocking contract.
-5. [ ] Record the chosen retention rule and why it is safe for the blocking waiter contract in this task's implementation notes.
+1. [x] Re-read the review finding for `queueRequestTerminalStatuses` and trace every production read/write path for that cache in `server/src/ingest/ingestJob.ts`.
+2. [x] Choose one bounded cleanup strategy for terminal queue-state entries that preserves the current blocking-waiter contract without keeping per-request state forever on a long-lived server.
+3. [x] Implement that bounded cleanup strategy in production code, keeping the behavior explicit in the same runtime ownership seam that writes and reads the terminal-state cache today.
+4. [x] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/reingestService.test.ts` so completed and failed queue requests still resolve correctly while the terminal-state cache also proves its bounded cleanup behavior instead of growing forever, and update an existing cucumber proof home only if the bounded cache lifecycle changes an externally visible blocking contract.
+5. [x] Record the chosen retention rule and why it is safe for the blocking waiter contract in this task's implementation notes.
 
 #### Testing
 
@@ -2026,6 +2026,11 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 #### Implementation notes
 
 - Record the final retention/eviction rule for terminal queue-state entries and the direct proof that the waiter contract still works after cleanup.
+- Subtask 1: re-read the review finding and traced every live cache touchpoint in `server/src/ingest/ingestJob.ts`. The production ownership seam is compact: terminal entries are written in `setStatusAndPublish(...)`, read in `resolveQueueRequestRunState(...)` and the timeout fallback inside `waitForQueueRequestTerminalStatus(...)`, and otherwise only cleared today by the test-only reset helper.
+- Subtask 2: chose a bounded TTL eviction strategy in the same runtime seam that already publishes terminal states. The cache now keeps each terminal request result long enough for normal blocking waiters to observe it after queue-document deletion, but no longer retains one entry forever per completed request on a long-lived server.
+- Subtask 3: implemented TTL-based eviction in `server/src/ingest/ingestJob.ts`, including per-request eviction timer replacement on later terminal publishes, test-only TTL override support, and reset-time cleanup for those timers. The production default retention window is five minutes, which keeps the current 90-second blocking wait contract safely inside the cache lifetime instead of forcing late waiters to rely on already-deleted queue documents.
+- Subtask 4: extended `server/src/test/unit/ingest-queue-runtime.test.ts` with direct eviction proof for completed entries and extended `server/src/test/unit/reingestService.test.ts` so the actual queue terminal cache still resolves both completed and failed blocking results before TTL eviction. Cucumber coverage was not applicable here because the cache lifecycle remains an internal runtime-memory concern and does not change the externally visible blocking contract.
+- Subtask 5: final retention rule is a five-minute terminal-state TTL with per-request timer reset on terminal republish. That is safe for the blocking waiter contract because the queue-aware wait path currently uses a 90-second timeout and needs the cache only to bridge the gap after queue-document deletion, not to preserve request state indefinitely.
 
 ---
 

@@ -3,11 +3,14 @@ import test, { afterEach, beforeEach } from 'node:test';
 import mongoose from 'mongoose';
 import {
   __finalizeQueueRequestForRunForTest,
+  __getQueueRequestTerminalStatusCountForTest,
   __resetIngestJobsForTest,
+  __setQueueRequestTerminalStatusTtlForTest,
   __setQueueRuntimeOpsForTest,
   __setQueueRequestIdForRunForTest,
   __setRunProcessorForTest,
   __setRunSchedulerForTest,
+  __setStatusAndPublishForTest,
   __setStatusForTest,
   getStatus,
   pumpIngestQueue,
@@ -229,6 +232,23 @@ test('terminal queue cleanup deletes the current queue record before the next wa
 
   assert.equal(cleaned, true);
   assert.deepEqual(events, ['delete-current', 'promote-next']);
+});
+
+test('terminal queue request cache evicts completed entries after the retention window', async () => {
+  __setQueueRequestIdForRunForTest('run-evicted', 'queue-evicted');
+  __setQueueRequestTerminalStatusTtlForTest(5);
+
+  __setStatusAndPublishForTest('run-evicted', {
+    runId: 'run-evicted',
+    state: 'completed',
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    message: 'Completed',
+    lastError: null,
+  });
+
+  assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 20));
+  assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
 });
 
 test('cleanup-blocked queue records stay visible and stall newer waiting work', async () => {

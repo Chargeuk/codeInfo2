@@ -200,6 +200,10 @@ const queueCleanupRetryTimers = new Map<
   string,
   ReturnType<typeof globalThis.setTimeout>
 >();
+const queueRequestTerminalStatusEvictionTimers = new Map<
+  string,
+  ReturnType<typeof globalThis.setTimeout>
+>();
 const queueCleanupRetryAttempts = new Map<string, number>();
 const blockedCleanupStatusSnapshots = new Map<string, IngestJobStatus>();
 const queueRequestTerminalStatuses = new Map<
@@ -216,6 +220,7 @@ let runProcessor:
   | ((runId: string, input: IngestJobInput) => Promise<void>)
   | null = null;
 let queueCleanupRetryDelayOverrideMs: number | null = null;
+let queueRequestTerminalStatusTtlOverrideMs: number | null = null;
 const defaultRunScheduler: RunScheduler = (task) => {
   setImmediate(task);
 };
@@ -236,6 +241,7 @@ const defaultQueueRuntimeOps: QueueRuntimeOps = {
 let queueRuntimeOps: QueueRuntimeOps = defaultQueueRuntimeOps;
 const QUEUE_CLEANUP_RETRY_BASE_MS = 1_000;
 const QUEUE_CLEANUP_RETRY_MAX_MS = 30_000;
+const QUEUE_REQUEST_TERMINAL_STATUS_TTL_MS = 5 * 60_000;
 const terminalStates = new Set<IngestRunState>([
   'completed',
   'cancelled',
@@ -275,6 +281,22 @@ function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
       runId,
       status: nextStatus,
     });
+    const existingEvictionTimer =
+      queueRequestTerminalStatusEvictionTimers.get(requestId) ?? null;
+    if (existingEvictionTimer) {
+      globalThis.clearTimeout(existingEvictionTimer);
+    }
+    const retentionMs = Math.max(
+      1,
+      queueRequestTerminalStatusTtlOverrideMs ??
+        QUEUE_REQUEST_TERMINAL_STATUS_TTL_MS,
+    );
+    const evictionTimer = globalThis.setTimeout(() => {
+      queueRequestTerminalStatuses.delete(requestId);
+      queueRequestTerminalStatusEvictionTimers.delete(requestId);
+    }, retentionMs);
+    evictionTimer.unref?.();
+    queueRequestTerminalStatusEvictionTimers.set(requestId, evictionTimer);
   }
   ingestEvents.emit('run-status', {
     runId,
@@ -2678,6 +2700,17 @@ export function __setQueueCleanupRetryDelayForTest(delayMs: number | null) {
   queueCleanupRetryDelayOverrideMs = delayMs;
 }
 
+export function __setQueueRequestTerminalStatusTtlForTest(
+  ttlMs: number | null,
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__setQueueRequestTerminalStatusTtlForTest is only available in test mode',
+    );
+  }
+  queueRequestTerminalStatusTtlOverrideMs = ttlMs;
+}
+
 export function __setRunSchedulerForTest(scheduler: RunScheduler | null) {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error('__setRunSchedulerForTest is only available in test mode');
@@ -2737,6 +2770,10 @@ export function __resetIngestJobsForTest() {
   queueCleanupFinalizers.clear();
   blockedCleanupStatusSnapshots.clear();
   queueRequestTerminalStatuses.clear();
+  for (const handle of queueRequestTerminalStatusEvictionTimers.values()) {
+    globalThis.clearTimeout(handle);
+  }
+  queueRequestTerminalStatusEvictionTimers.clear();
   for (const handle of queueCleanupRetryTimers.values()) {
     globalThis.clearTimeout(handle);
   }
@@ -2746,6 +2783,7 @@ export function __resetIngestJobsForTest() {
   runProcessor = null;
   runScheduler = defaultRunScheduler;
   queueCleanupRetryDelayOverrideMs = null;
+  queueRequestTerminalStatusTtlOverrideMs = null;
   queueRuntimeOps = defaultQueueRuntimeOps;
 }
 
@@ -2758,6 +2796,15 @@ export function __getIngestEventListenerCountForTest(
     );
   }
   return ingestEvents.listenerCount(eventName);
+}
+
+export function __getQueueRequestTerminalStatusCountForTest() {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__getQueueRequestTerminalStatusCountForTest is only available in test mode',
+    );
+  }
+  return queueRequestTerminalStatuses.size;
 }
 
 export function __setJobInputForTest(

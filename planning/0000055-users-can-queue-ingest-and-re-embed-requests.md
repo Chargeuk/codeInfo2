@@ -1962,9 +1962,9 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` after the chat-flag payload repair.
-2. [ ] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper and confirm the exact timeout owners now pass cleanly.
-3. [ ] Re-run the full `npm run test:summary:client` wrapper and confirm the shared client baseline reaches a clean terminal result again.
+1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` after the chat-flag payload repair.
+2. [x] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper and confirm the exact timeout owners now pass cleanly.
+3. [x] Re-run the full `npm run test:summary:client` wrapper and confirm the shared client baseline reaches a clean terminal result again.
 
 #### Implementation notes
 
@@ -1975,6 +1975,9 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 - Subtask 4: the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper now passes cleanly with `tests run: 2`, `passed: 2`, `failed: 0`, and `agent_action: skip_log`, so the exact timeout-owner files now reach a real terminal result again.
 - Subtask 5: full `npm run test:summary:client` now reaches a trustworthy clean terminal result again with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log`, so later review-fix tasks can depend on the shared client wrapper baseline honestly.
 - Subtask 6: updated the Task 23 plan state after implementation, including the completed subtask checkboxes, the implementation notes above, and the new task commit hash `c16e2785`. The task stays `__in_progress__` because its separate `Testing` checklist still belongs to the later automated-proof loop.
+- Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log` and `warning_count: 0`, so the chat-flag payload repair still builds on the supported client path without requiring log inspection.
+- Testing 2: the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper passed cleanly with `tests run: 2`, `passed: 2`, `failed: 0`, and `agent_action: skip_log`, so the exact timeout-owner files now have direct current proof in the task's separate testing loop too.
+- Testing 3: full `npm run test:summary:client` passed cleanly with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log`, so the shared client wrapper baseline is now trustworthy again for the later review-fix tasks.
 
 ---
 

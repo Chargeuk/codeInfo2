@@ -412,6 +412,14 @@ function releaseRunOwnership(runId: string) {
   blockedCleanupStatusSnapshots.delete(runId);
 }
 
+function scheduleQueueAdvance() {
+  // Queue promotion must happen on a later turn so completed owners can
+  // release the ingest lock before the next waiting item is evaluated.
+  defaultRunScheduler(() => {
+    void pumpIngestQueue();
+  });
+}
+
 async function scheduleQueueCleanupRetry(params: {
   requestId: string;
   runId: string;
@@ -506,8 +514,8 @@ async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
     return cleanupCompleted;
   } finally {
     queueCleanupFinalizers.delete(runId);
-    if (cleanupCompleted) {
-      void pumpIngestQueue();
+    if (cleanupCompleted && !ingestLock.isHeld()) {
+      scheduleQueueAdvance();
     }
   }
 }
@@ -2170,6 +2178,9 @@ async function processRun(runId: string, input: IngestJobInput) {
       releaseRunOwnership(runId);
     }
     ingestLock.release(runId);
+    if (queueCleanupCompleted) {
+      scheduleQueueAdvance();
+    }
   }
 }
 
@@ -2873,6 +2884,9 @@ export async function cancelRun(runId: string) {
     releaseRunOwnership(runId);
   }
   ingestLock.release(runId);
+  if (queueCleanupCompleted) {
+    scheduleQueueAdvance();
+  }
   return { cleanupState: 'complete', found: !!status } as const;
 }
 

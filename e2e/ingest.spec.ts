@@ -55,7 +55,6 @@ async function ensureCleanRoots() {
         }
       }
 
-      let removedAny = false;
       let sawBusy = false;
 
       for (const root of roots) {
@@ -65,7 +64,6 @@ async function ensureCleanRoots() {
           `${apiBase}/ingest/e2e/cleanup/${encodeURIComponent(root.path)}`,
         );
         if (removeRes.ok()) {
-          removedAny = true;
           continue;
         }
         if (removeRes.status() === 429) {
@@ -98,6 +96,23 @@ async function ensureCleanRoots() {
   } finally {
     await ctx.dispose();
   }
+}
+
+async function fetchRoots(ctx: APIRequestContext) {
+  const res = await ctx.get(`${apiBase}/ingest/roots`);
+  if (!res.ok()) {
+    throw new Error(`ingest/roots unavailable (${res.status()})`);
+  }
+  const data = await res.json();
+  return Array.isArray(data.roots)
+    ? (data.roots as Array<{
+        path?: string;
+        name?: string;
+        status?: string;
+        queueState?: string | null;
+        runId?: string | null;
+      }>)
+    : [];
 }
 
 async function checkPrereqs() {
@@ -528,6 +543,74 @@ test.describe.serial('Ingest flows', () => {
 
     await page.reload();
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
+  });
+
+  test('queued row picks up a run owner after the current queue head finishes', async ({
+    page,
+  }) => {
+    const activeName = `${fixtureName}-startup-head`;
+    const queuedName = `${fixtureName}-startup-next`;
+    const queuedPath = `${fixturePath}/docs`;
+    const ctx = await request.newContext();
+
+    try {
+      await page.goto(`${baseUrl}/ingest`);
+
+      await page.getByLabel('Folder path').fill(fixturePath);
+      await page.getByLabel('Display name').fill(activeName);
+      await selectEmbeddingModel(page);
+      await page.getByTestId('start-ingest').click();
+      await waitForInProgress(page);
+
+      await page.getByLabel('Folder path').fill(queuedPath);
+      await page.getByLabel('Display name').fill(queuedName);
+      await page.getByTestId('start-ingest').click();
+
+      await waitForQueuedRow(page, new RegExp(queuedName, 'i'), 1);
+      await waitForCompletion(page, new RegExp(activeName, 'i'));
+
+      await expect
+        .poll(
+          async () => {
+            const roots = await fetchRoots(ctx);
+            const queuedRoot = roots.find((root) => root.path === queuedPath);
+            if (!queuedRoot) {
+              return 'missing';
+            }
+            return JSON.stringify({
+              status: queuedRoot.status ?? null,
+              queueState: queuedRoot.queueState ?? null,
+              runId: queuedRoot.runId ?? null,
+            });
+          },
+          {
+            timeout: 120_000,
+            message:
+              'waiting for the queued ingest row to receive a running owner',
+          },
+        )
+        .toMatch(
+          /"queueState":"running".*"runId":"[^"]+"|"runId":"[^"]+".*"queueState":"running"/,
+        );
+
+      await page.reload();
+      const queuedRow = page
+        .getByRole('row', { name: new RegExp(queuedName, 'i') })
+        .first();
+      await expect(queuedRow).toBeVisible({ timeout: 60_000 });
+      await expect
+        .poll(
+          async () => (await queuedRow.textContent())?.toLowerCase() ?? '',
+          {
+            timeout: 60_000,
+            message:
+              'waiting for the queued row to stop showing queued (#1) after handoff',
+          },
+        )
+        .not.toContain('queued (#1)');
+    } finally {
+      await ctx.dispose();
+    }
   });
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {

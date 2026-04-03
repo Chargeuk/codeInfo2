@@ -1829,7 +1829,7 @@ This task repairs the two highest-risk queue correctness holes the review found 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
 - Task Status: `__in_progress__`
-- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`
+- Git Commits: `44e33c7f`, `5c685f9a`, `ae112626`, `7b619ad2`, `1eb1a7d8`
 - Notes: Inserted on 2026-04-03 after review found that Story 55 still leaks an out-of-scope queued-removal path through the bulk remove selection flow.
 
 #### Overview
@@ -1903,6 +1903,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 - Reproduced the newest reopen owner from the manual note: the active head row stayed selectable because shared checkbox gating only filtered `queueState` values, while the single-row remove contract also blocks any row whose `status` is still `ingesting`. That mismatch let the currently running head row without a queue badge enter the visible `selected` set even though its own `Remove` button stayed disabled.
 - Tightened `client/src/components/ingest/RootsTable.tsx` again so shared selection now excludes every `status: ingesting` row, not just rows carrying queue-state badges. This keeps the currently running head row out of the visible bulk-selection model while still allowing completed rows to remain selectable for queueable bulk re-embed.
 - Extended `client/src/test/ingestRoots.test.tsx` with an active-head-row proof that has `status: ingesting` and no `queueState`, verifies that its checkbox is disabled, verifies it does not increment the visible `selected` count, and verifies mixed bulk remove still targets only the completed removable row beside it.
+- Implementation-only audit on 2026-04-03 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact reopened Task 22 section, the newest implementation commit `1eb1a7d8`, and the current repo evidence in `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`. No subtasks were newly marked complete in this audit because reopened Subtasks 9 through 11 were already honestly checked by the latest implementation pass and matched the current repository state. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 22, and the task correctly remains `__in_progress__` because the reopened Testing steps 1 through 3 still belong to the later automated-proof loop.
 
 ---
 

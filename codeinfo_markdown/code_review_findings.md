@@ -17,8 +17,12 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - Treat `flows/**` as approved workflow-support paths. Do not raise findings solely because those paths changed without being named in the active plan, but continue to review them normally for workflow semantics, instruction safety, stale-handoff handling, commit/push behavior, plan-selection rules, and other agent-control correctness.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
 - Do not raise findings solely because those allowed support files changed without being named in the active plan.
-- For those allowed support files, review ONLY for spelling, grammar, and obvious wording mistakes.
-- Do NOT raise findings about scope creep, unwanted changes, workflow semantics, runtime safety, contract correctness, artifact hygiene, path usage, plan-selection rules, or revert recommendations for them.
+- For those allowed support files, default to spelling, grammar, and obvious wording review, but still raise findings for:
+  - hard-coded secrets, tokens, credentials, or API keys;
+  - tracked files that live under ignored paths;
+  - checked-in local config that should remain template-only;
+  - tracked temp, generated, or runtime artifact directories.
+- Do NOT raise findings about scope creep, unwanted changes, workflow semantics, path usage, plan-selection rules, or revert recommendations for allowed support files unless the issue is one of those explicit hygiene or secret cases.
 
 </critical_rules>
 
@@ -81,6 +85,8 @@ If the review-handoff checks fail, stop and say the review handoff is stale and 
 - After the plan-based review, perform a second pass that is not limited by the acceptance criteria and look for generic engineering defects in the changed code even if the canonical plan did not mention them.
 - This second pass applies to the non-support-file changes only.
 - In that second pass, prioritize:
+  - validations that happen at request admission, queue admission, or request preparation time but are not revalidated when deferred, promoted, retried, resumed, or startup-recovered work actually executes;
+  - tests that appear to prove a route or orchestrator contract only because a mocked downstream seam throws the expected error, rather than because the production boundary itself enforces that contract;
   - invalid input being silently normalized into success;
   - warnings/errors/reason values produced by helpers but dropped by callers;
   - raw-to-wrapped error translation mismatches where a lower layer now normalizes or wraps errors but a caller still branches on the old raw error shape;
@@ -124,6 +130,8 @@ If the review-handoff checks fail, stop and say the review handoff is stale and 
 - For changed env/config parsers, verify that empty-string and whitespace-only inputs are either treated as unset, clamped safely, or rejected, rather than silently coerced into dangerous values.
 - For changed numeric env/config inputs, verify that the parser enforces the domain the downstream code assumes, including lower bounds, upper bounds, and closed or half-open intervals such as `(0, 1]`.
 - Raise a finding when downstream code assumes a constrained config domain but the parser accepts a wider range that can produce invalid limits, oversize requests, disabled guards, negative sizes, or pathological performance.
+- For any changed queued, promoted, retried, resumed, or startup-recovered execution path, compare it directly against the immediate execution path and raise a finding when model-lock checks, allowlist checks, invalid-state checks, authorization checks, or equivalent preconditions are enforced on one path but skipped on another.
+- For any changed route, service, or orchestrator whose tests mock a downstream seam to produce a contract error, verify that at least one test or direct code path still proves the production boundary itself performs that validation. If that proof is missing, raise a finding or record residual weak proof explicitly rather than treating the mocked contract as sufficient.
 - For changed query builders, delete filters, or bulk selectors, verify whether filter size or payload size grows with repository, file, chunk, or symbol count, and raise a finding when that growth is left unbounded in a large-repository or large-file path without batching, paging, generation tagging, or another bounding strategy.
 - For changed helpers that register waiters, listeners, callbacks, subscriptions, or queue entries into shared state, verify that cleanup happens on every exit path, including timeout, rejection, cancellation, and early return. Raise a finding when registrations can leak into later tests or runs.
 - For changed fallback-selection or precedence helpers, explicitly compare stale persisted hints or cached values against fresher values observed during the current execution. Raise a finding when the helper prefers the stale hint even after the current run has learned a more authoritative value.
@@ -194,7 +202,7 @@ This findings file is a durable review artifact that MUST be committed later so 
 - Confirm the top 3 risky helpers/functions from the evidence artifact were inspected.
 - Confirm the findings artifact includes `Rejected Risk Notes` for those risky helpers/functions.
 - Confirm all findings include severity, issue type, and affected repository scope.
-- Confirm no finding was raised against allowed support files for anything other than spelling, grammar, or obvious wording mistakes.
+- Confirm any finding raised against allowed support files was either a wording issue or an explicit secret/artifact-hygiene issue.
 - Confirm the findings file path and the handoff `findings_file` field match.
 
 </verification_loop>
@@ -202,7 +210,7 @@ This findings file is a durable review artifact that MUST be committed later so 
 <final_response_rule>
 
 - Never recommend reverting or removing the allowed support-file changes merely because they exist.
-- Only call out spelling, grammar, or obvious wording mistakes in those files.
+- Only call out spelling, grammar, obvious wording mistakes, or explicit secret/artifact-hygiene defects in those files.
 - If no findings exist, still say that explicitly.
 
 </final_response_rule>

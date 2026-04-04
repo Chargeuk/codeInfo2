@@ -2390,3 +2390,193 @@ This final review-response task reruns the complete Story 55 validation path aft
    The queue stores one durable request per canonical target, keeps only `waiting`, `running`, and `cleanup-blocked` persisted states, leaves the active item in Mongo until terminal cleanup succeeds, and resumes work in order on startup by resolving any `cleanup-blocked` item before newer waiting work; blocking re-embed callers wait on queue/request terminal events rather than a short polling timeout, while the repo-list overlays live queue state onto persisted repository metadata so queued and cleanup-blocked rows stay authoritative.
 4. What a reviewer should take particular interest in.
    Reviewers should focus on `server/src/ingest/requestQueue.ts`, `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, the shared repo-list/server-client/UI surfaces, and the final proof notes in Task 30, especially the wrapper reruns, screenshot-backed e2e evidence, host-network compose proof, and the review-fix boundaries introduced by Tasks 27 through 29.
+
+## Code Review Findings
+
+- Review pass `0000055-20260404T183747Z-e78729af` reopened Story 55 from the stored handoff at `codeInfoStatus/reviews/0000055-current-review.json`.
+- Scope validation still matches the canonical handoff: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, current repository only, branch `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, base `main`, head commit `e78729af`.
+- `should_fix`: the generated OpenAPI contract still drifts from the queue-aware REST and shared repo-list payloads that this story now ships. `openapi.json` still treats repo-list `runId` as always present, omits `requestId`, `queuePosition`, and `queueState`, and does not currently carry the queue-aware `/ingest/start` and `/ingest/reembed` response shapes the branch returns.
+- `should_fix`: the changed Story 55 browser proof still relies on arbitrary waits and can skip intended assertions without failing. The current `e2e/ingest.spec.ts` keeps fixed-delay loops, leaves an unconditional cancel wait in place, and still warns and returns instead of failing when the remove-flow setup does not start cleanly. The claimed stable screenshots also land under ignored `test-results/`, so the required browser artifacts are not durable on the branch today.
+- `should_fix`: `codeInfoStatus/flow-state/manual-testing-runtime.json` is still a checked-in machine-local runtime snapshot with one developer machine's absolute repo path and localhost assumptions. That support-file change is only reopenable here as explicit local-config hygiene cleanup, not as broader workflow redesign.
+- The blind-spot challenge artifact `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-blind-spot-challenge.md` did not add a new late finding, but it strengthened the OpenAPI-contract and browser-proof concerns above and carried forward the rejected-risk reasoning for the queue admission, waiter cleanup, startup recovery, and overlay-precedence seams.
+
+---
+
+### Task 31. Repair Generated OpenAPI Coverage For Queue-Aware Ingest Contracts
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `30`
+- Task Status: `__in_progress__`
+- Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` because the generated contract and its proof no longer match the queue-aware payloads this story ships.
+
+#### Overview
+
+This task closes the public-contract drift found in the stored review artifacts. Story 55 changed the write-side queue responses and the shared repo-list row shape, but `openapi.json` and the current `openapi.contract` proof still mostly freeze the earlier run-centric contract. The fix must bring the generated contract back in sync with the shipped queue-aware REST behavior and tighten the proof so the same drift cannot silently pass again.
+
+#### Task Exit Criteria
+
+- `openapi.json` documents the current Story 55 queue-aware `/ingest/start` and `/ingest/reembed` success shapes, including `queued`, durable `requestId`, waiting-only `queuePosition`, and optional `runId` only after execution starts.
+- `openapi.json` documents the shared queued repo-list row shape for both `/ingest/roots` and `/tools/ingested-repos`, including `requestId`, waiting-only `queuePosition`, `queueState`, and a nullable-or-absent `runId` for waiting rows.
+- `server/src/test/unit/openapi.contract.test.ts` directly proves the queue-specific fields and required-versus-optional behavior the review found drifting, rather than only pinning the schema-version enum.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-findings.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-blind-spot-challenge.md`
+- `openapi.json`
+- `server/src/routes/ingestStart.ts`
+- `server/src/routes/ingestReembed.ts`
+- `server/src/routes/ingestRoots.ts`
+- `server/src/routes/toolsIngestedRepos.ts`
+- `server/src/test/unit/openapi.contract.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current review evidence and findings for OpenAPI drift, then inspect `openapi.json`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/routes/ingestRoots.ts`, and `server/src/routes/toolsIngestedRepos.ts` together so the contract repair reflects the actual current response owners instead of inventing a new parallel schema.
+2. [ ] Update the generated contract for `/ingest/roots` and `/tools/ingested-repos` so queued rows expose `requestId`, waiting-only `queuePosition`, `queueState`, and a nullable-or-absent `runId` when execution has not started yet.
+3. [ ] Update the generated contract so `/ingest/start` and `/ingest/reembed` expose the Story 55 queue-aware `202` response shapes for immediate-start and waiting acceptance instead of leaving those write surfaces undocumented.
+4. [ ] Tighten `server/src/test/unit/openapi.contract.test.ts` so it directly asserts the queue-aware response and repo-list fields the review found missing, including the waiting-row `runId` shape and the absence of a legacy always-present `runId` requirement.
+5. [ ] Keep this task limited to contract sync and contract-proof repair; do not widen it into unrelated OpenAPI cleanup outside the queue-aware surfaces changed by Story 55.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the OpenAPI and contract-proof repair.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts` and confirm the strengthened contract proof passes on the repository's normal server-unit wrapper path.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 32. Make Story 55 Browser Proof Deterministic And Keep Its Screenshot Evidence Durable
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `31`
+- Task Status: `__todo__`
+- Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` because the current queued-state browser proof still uses arbitrary waits, skip-style early returns, and ignored screenshot artifacts.
+
+#### Overview
+
+This task closes the stored browser-proof finding without widening Story 55 into a larger test-harness rewrite. The Story 55 plan already requires queue-state browser scenarios to use explicit row or status boundaries instead of fixed sleeps and to keep inspectable stable screenshots for the queue-specific UI states. The fix must therefore make the changed queue scenarios fail honestly when setup breaks, replace the arbitrary waits with deterministic proof boundaries, and keep the required screenshot artifacts in a commit-worthy location for later human inspection.
+
+#### Task Exit Criteria
+
+- The Story 55 queue-specific scenarios in `e2e/ingest.spec.ts` no longer rely on the fixed-delay polling helper or unconditional `waitForTimeout(...)` calls as the normal proof boundary for queued assertions.
+- The remove-flow setup path in `e2e/ingest.spec.ts` fails the test when the required ingest start does not happen, rather than warning and returning early.
+- The required stable screenshot artifacts for the Story 55 queue UI states remain inspectable from the branch later, either by tracking the named files under `test-results/screenshots/` explicitly or by moving only those required artifacts to an equivalently durable reviewed location without broadening screenshot churn.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-findings.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-blind-spot-challenge.md`
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `e2e/ingest.spec.ts`
+- `.gitignore`
+- `test-results/screenshots/0000055-queued-row-state.png`
+- `test-results/screenshots/0000055-bulk-selection-state.png`
+
+#### Subtasks
+
+1. [ ] Re-read the current review finding plus the Story 55 browser-proof requirements already recorded in this plan, then inspect the queue-specific sections of `e2e/ingest.spec.ts` and `.gitignore` together so the fix stays anchored to the current proof contract instead of to ad hoc timing cleanup.
+2. [ ] Replace the fixed-delay queue assertions in the Story 55 queue scenarios with explicit row, request-owner, or status boundaries that fail honestly when the queued-state invariant is not reached.
+3. [ ] Remove the warn-and-return behavior from the Story 55 remove-flow proof so setup failure becomes a real failing test rather than a silent skip inside a green wrapper run.
+4. [ ] Make the Story 55 screenshot artifacts durable for branch review by keeping the required named screenshots in a tracked inspectable path while avoiding a broad new policy of checking in all transient `test-results` output.
+5. [ ] Keep this task bounded to the Story 55 queue-specific browser proof and its named screenshot artifacts; do not reopen unrelated e2e scenarios or general wrapper behavior unless the queue proof cannot be repaired without that smaller owning change.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts` and confirm the queue-specific browser scenarios now pass on the repository's supported Playwright wrapper without relying on warn-and-return skips.
+2. [ ] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the targeted e2e run and are no longer lost behind the current ignore rules.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 33. Remove Machine-Local Runtime Snapshot Values From Tracked Workflow State
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `31`
+- Task Status: `__todo__`
+- Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` as explicit support-file hygiene cleanup for the tracked machine-local runtime snapshot.
+
+#### Overview
+
+This task closes the support-file hygiene finding for `codeInfoStatus/flow-state/manual-testing-runtime.json`. The review found a checked-in machine-local runtime snapshot with one developer machine's absolute path and localhost assumptions. The fix must remove that machine-local state from tracked workflow files while preserving any portable template or documentation value the repo still needs, and it must not widen into a broader workflow redesign.
+
+#### Task Exit Criteria
+
+- The tracked workflow-state file no longer contains one developer machine's absolute repo path, machine-local bind-mount assumptions, or other host-specific runtime snapshot values.
+- If the workflow still needs a checked-in shape example, the tracked file is reduced to a portable template or placeholder form while the live machine-specific snapshot becomes ignored local state instead of tracked repository state.
+- No new workflow-correctness or scope-cleanup work is added here beyond the explicit local-config hygiene cleanup needed to remove the machine-local snapshot.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-findings.md`
+- `codeInfoStatus/flow-state/manual-testing-runtime.json`
+- `.gitignore`
+- `AGENTS.md`
+
+#### Subtasks
+
+1. [ ] Re-read the current review finding for the tracked runtime snapshot, then inspect `codeInfoStatus/flow-state/manual-testing-runtime.json`, `.gitignore`, and any directly adjacent tracked documentation or template owner before changing the file so the cleanup stays purely hygiene-focused.
+2. [ ] Remove the machine-local absolute path and host-specific runtime snapshot values from the tracked workflow-state file, replacing them with a portable template or tracked placeholder only if the repo still needs that checked-in shape.
+3. [ ] Ensure the live machine-specific runtime snapshot is ignored or otherwise kept out of tracked state after the cleanup, without widening this task into broader flow or launcher behavior changes.
+
+#### Testing
+
+1. [ ] Run a JSON-parse check against the tracked workflow-state file that remains after the cleanup and confirm the tracked artifact is still syntactically valid.
+2. [ ] Run `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore` and confirm the tracked portable file stays normal while the live machine-local snapshot no longer appears as tracked repository state.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 34. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `31, 32, 33`
+- Task Status: `__todo__`
+- Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed.
+
+#### Overview
+
+This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 33 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
+
+#### Task Exit Criteria
+
+- The current review findings from `0000055-20260404T183747Z-e78729af` are closed by direct current-repo evidence, not by historical claims.
+- Every Story 55 acceptance criterion is re-checked against the post-fix implementation and still has an honest direct or indirect proof home, including the queue-aware public-contract and browser-proof criteria that this review reopened.
+- Final close-out notes in this plan explain why Story 55 is complete again after the current review reopen and carry forward any residual-risk notes from the stored review artifacts that remain honest after the fixes.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `README.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-findings.md`
+- `codeInfoStatus/reviews/0000055-20260404T183747Z-e78729af-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
+2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 33 changed the contract, proof story, or hygiene story those documents need to communicate.
+3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 33. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
+3. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks.
+
+#### Implementation notes
+
+- Starts empty.

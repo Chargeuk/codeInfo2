@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -2086,6 +2086,7 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 - Subtask 4: the new deterministic proof boundary is flow run-lock release, followed by a persisted-turn check that no later `"ok"` LLM output exists after the reingest tool turn. That is stronger than the old `100ms` timing guess because it waits for the runtime to finish the run instead of hoping a delayed later step would have shown up within an arbitrary sleep window.
 - Testing 1: the first focused rerun showed the earlier `turn_final: stopped` assumption was not honest for this blocking-wait path, and the stronger proof also exposed that the pending stop registration needed to happen in `onOwnershipReady` to model a real stop-during-wait request. The final targeted proof now waits for the flow conversation lock to release, then asserts from persisted turns that no later `"ok"` LLM output exists after the reingest tool turn; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` passed cleanly with `tests run: 24`, `passed: 24`, `failed: 0`.
 - Testing 2: `npm run test:summary:server:unit` passed cleanly after the Task 25 proof repair, so the shared server baseline now carries the deterministic stop-boundary assertion with `tests run: 1605`, `passed: 1605`, `failed: 0`.
+- Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 25 section, the latest implementation commit `14429f35`, the latest proof commit `8e5c4116`, and the current repo evidence in `server/src/test/integration/flows.run.errors.test.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 and 2 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 25, and the task is now `__done__` because Subtasks 1 through 4 plus Testing steps 1 and 2 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

@@ -1,0 +1,11 @@
+{
+  "description": "Valid flow",
+  "steps": [
+    {
+      "type": "llm",
+      "agentType": "planning_agent",
+      "identifier": "main",
+      "messages": [{ "role": "user", "content": ["Hello"] }]
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "description": "Loop with break steps",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Outer loop",
+      "steps": [
+        {
+          "type": "llm",
+          "label": "Outer message",
+          "agentType": "coding_agent",
+          "identifier": "outer",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["Outer loop step."]
+            }
+          ]
+        },
+        {
+          "type": "startLoop",
+          "label": "Inner loop",
+          "steps": [
+            {
+              "type": "llm",
+              "label": "Inner message",
+              "agentType": "coding_agent",
+              "identifier": "inner",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": ["Inner loop step."]
+                }
+              ]
+            },
+            {
+              "type": "break",
+              "label": "Inner break",
+              "agentType": "coding_agent",
+              "identifier": "inner-break",
+              "question": "Exit inner loop?",
+              "breakOn": "yes"
+            }
+          ]
+        },
+        {
+          "type": "break",
+          "label": "Outer break",
+          "agentType": "coding_agent",
+          "identifier": "outer-break",
+          "question": "Exit outer loop?",
+          "breakOn": "yes"
+        }
+      ]
+    }
+  ]
+}

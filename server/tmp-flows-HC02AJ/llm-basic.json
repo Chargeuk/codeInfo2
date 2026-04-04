@@ -1,0 +1,17 @@
+{
+  "description": "LLM-only flow",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Greeting",
+      "agentType": "coding_agent",
+      "identifier": "basic",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["Say hello from a flow step."]
+        }
+      ]
+    }
+  ]
+}

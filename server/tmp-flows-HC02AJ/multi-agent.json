@@ -1,0 +1,29 @@
+{
+  "description": "Multi-agent flow",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Alpha step",
+      "agentType": "coding_agent",
+      "identifier": "alpha",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["Alpha step."]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Beta step",
+      "agentType": "planning_agent",
+      "identifier": "beta",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["Beta step."]
+        }
+      ]
+    }
+  ]
+}

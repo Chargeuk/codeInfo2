@@ -1,0 +1,11 @@
+{
+  "description": "Run a planning agent command",
+  "steps": [
+    {
+      "type": "command",
+      "agentType": "planning_agent",
+      "identifier": "command-seq",
+      "commandName": "improve_plan"
+    }
+  ]
+}

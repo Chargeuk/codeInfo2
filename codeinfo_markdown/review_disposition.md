@@ -14,8 +14,12 @@ Finish the current story review using ONLY the stored review handoff and the art
 - Only reopen if the review shows those `flows/**` changes introduced incorrect workflow behavior, broke repository contracts, or require explicit follow-up validation work.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
 - Do not reopen the story, request reverts, or record scope-creep findings solely because those allowed support files changed without being named in the active plan.
-- For those allowed support files, only spelling, grammar, and obvious wording findings are actionable.
-- Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files.
+- For those allowed support files, spelling, grammar, and obvious wording findings remain actionable, and explicit hygiene/security findings are also actionable when they involve:
+  - hard-coded secrets, tokens, credentials, or API keys;
+  - tracked files under ignored paths;
+  - checked-in local config that should remain template-only;
+  - tracked temp, generated, or runtime artifact directories.
+- Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
 - This is the only review step allowed to mutate plans.
 
 </critical_rules>
@@ -63,7 +67,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 5. Update numbering and cross-references if needed.
 6. Every new review-fix task MUST name exactly one repository using `Repository Name`.
 7. For cross-repository findings, keep the work in the one canonical plan but split it into repository-specific tasks and make sequencing explicit.
-8. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, or wording corrections.
+8. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, wording, or the explicit hygiene/security cleanup needed to remove the secret or artifact problem.
 9. If only `optional_simplification` findings exist, reopen the canonical plan when the simplification is localized to files already changed by the story, low-risk, objectively testable, and improves a shared contract such as logging vocabulary, marker schema, configuration consistency, or cross-repository compatibility.
 10. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
 11. If an `optional_simplification` is deferred, record it in a short review note instead of reopening.
@@ -106,7 +110,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 - Confirm the current-plan handoff and review handoff still match the current repository state.
 - Confirm every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership.
 - Confirm cross-repository findings produced explicit sequencing in the canonical plan and final validation.
-- Confirm no allowed support file was reopened for anything other than spelling, grammar, or wording corrections.
+- Confirm no allowed support file was reopened for anything other than spelling, grammar, wording, or an explicit secret/artifact-hygiene correction.
 - Confirm the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope.
 - Confirm the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope.
 - Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.

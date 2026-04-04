@@ -2332,7 +2332,7 @@ This task closes the review scope-control finding by removing unrelated branch w
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `27, 28, 29`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed.
 
 #### Overview
@@ -2369,3 +2369,4 @@ This final review-response task reruns the complete Story 55 validation path aft
 #### Implementation notes
 
 - Record the final wrapper reruns, acceptance re-check, review-finding closure evidence, and any remaining residual-risk notes from the current review artifacts that justify marking Story 55 complete again after this reopen.
+- Implementation-only audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 30 section, and the latest current-repo commits through `cfb5064e`. No subtasks were newly marked complete in this audit because the current repo evidence shows the final Story 55 revalidation work has not started on disk yet. No `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 30, and the task now correctly remains `__in_progress__` so the final acceptance re-check and wrapper reruns stay visible for the next implementation loop.

@@ -2445,7 +2445,7 @@ This task closes the public-contract drift found in the stored review artifacts.
 1. [x] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the OpenAPI and contract-proof repair.
 2. [x] Run full `npm run test:summary:server:unit` and confirm the strengthened `server/src/test/unit/openapi.contract.test.ts` proof passes on the repository's normal backend unit wrapper alongside the broader server-unit baseline.
 3. [x] Run full `npm run test:summary:server:cucumber` and confirm the normal Testcontainers-backed backend integration path still passes after the queue-aware OpenAPI contract and proof repair.
-4. [x] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 34.
+4. [x] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 35.
 
 #### Implementation notes
 
@@ -2458,8 +2458,8 @@ This task closes the public-contract drift found in the stored review artifacts.
 - Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and no warnings, so the supported server build wrapper still accepts the queue-aware OpenAPI and contract-proof repair from current `HEAD`.
 - Testing 2: the first full `npm run test:summary:server:unit` rerun failed on unrelated broader-baseline test `codex chat injects system context and emits MCP tool request/result` with `Timed out waiting for WebSocket event`, not on the Task 31 OpenAPI contract owner. A targeted rerun of that exact test then passed cleanly, and the immediate full-wrapper rerun passed with `tests run: 1612`, `passed: 1612`, `failed: 0`, and `agent_action: skip_log`, so the strengthened `openapi.contract` proof now passes alongside the current broader server-unit baseline.
 - Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the normal backend integration wrapper still accepts the queue-aware OpenAPI contract repair from current `HEAD`.
-- Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 34 exactly as the task text requires.
-- Implementation-plus-automated-proof audit on 2026-04-04: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 31 section, the latest Task 31 proof commit `cff1286c`, and the current owner files `openapi.json` plus `server/src/test/unit/openapi.contract.test.ts` from disk. No blocker remains, no additional subtasks or testing steps needed to be newly checked because the plan already honestly showed all of them complete, and the task is now `__done__` because its contract-sync work and wrapper-backed automated proof are both complete while runnable-system smoke stays explicitly owned by Task 34.
+- Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 35 exactly as the task text requires.
+- Implementation-plus-automated-proof audit on 2026-04-04: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 31 section, the latest Task 31 proof commit `cff1286c`, and the current owner files `openapi.json` plus `server/src/test/unit/openapi.contract.test.ts` from disk. No blocker remains, no additional subtasks or testing steps needed to be newly checked because the plan already honestly showed all of them complete, and the task is now `__done__` because its contract-sync work and wrapper-backed automated proof are both complete while runnable-system smoke stays explicitly owned by Task 35.
 
 ---
 
@@ -2506,7 +2506,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 2. [ ] Run full `npm run test:summary:client` and confirm the existing ingest-page client proof homes still pass after the queue-specific browser-proof adjustments and screenshot-artifact durability change.
 3. [ ] Run full `npm run test:summary:e2e` and confirm the supported Playwright wrapper now proves the Story 55 queue-specific browser scenarios without warn-and-return skips, while also producing the required durable screenshot artifacts for later branch review.
 4. [ ] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the full e2e wrapper run and are no longer hidden behind the current ignore rules.
-5. [ ] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 34.
+5. [ ] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 35.
 
 #### Implementation notes
 
@@ -2525,6 +2525,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 - **BLOCKING ANSWER** Chosen fix: do not widen Task 32 into unrelated `AgentsPage` or `ChatPage` timeout triage, and do not treat the targeted reruns as completion proof for Testing 2. The honest next step is to create or re-own a dedicated client-baseline repair task that restores a trustworthy full `npm run test:summary:client` result, then rerun Task 32's full-client wrapper gate after that prerequisite lands. Until then, keep Task 32 blocked at Testing 2 and continue to treat the targeted reruns only as evidence that the current timeout cluster is outside the task-owned browser-proof surface.
 - **BLOCKING ANSWER** Why this fits the current local repo state: Task 32 changed `e2e/ingest.spec.ts`, the screenshot destination, and no `client/src/test/agentsPage.run.test.tsx` or `client/src/test/chatPage.flags.sandbox.payload.test.tsx` owners. The client build wrapper already passes from current `HEAD`, the task-owned browser-proof implementation notes are complete, and the remaining failing surfaces are unrelated full-client tests that reproduce only under broader suite execution. That makes the missing capability a trustworthy shared client baseline, not another queue-browser proof code change.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not mark Testing 2 complete from the targeted reruns, because Task 32 explicitly requires the full client wrapper. Do not just raise Jest timeouts or rely on `--runInBand` / `--detectOpenHandles` as proof, because official Jest guidance treats those as debugging aids rather than evidence that the shared baseline is restored. Do not keep changing the Task 32 browser-proof code to chase failures in unrelated client test files, and do not silently drop the full-client gate from this task without a plan repair that gives the broader baseline timeout explicit ownership elsewhere.
+- Plan repair on 2026-04-04 after blocker proof: Task 32 stays the active blocked feature task, but the blocker answer proved the missing capability is an unrelated trustworthy full-client baseline rather than more queue-browser proof work. New Task 34 now owns restoring `npm run test:summary:client` on current `HEAD`, and final story revalidation moves to Task 35 so Task 32 can resume its own Testing 2 through 5 only after that shared prerequisite lands.
 
 ---
 
@@ -2586,20 +2587,70 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 - Testing 2: `git ls-files --error-unmatch codeInfoStatus/flow-state/manual-testing-runtime.json` failed as expected with `pathspec ... did not match any file(s) known to git`, proving the live runtime snapshot is no longer tracked. `git check-ignore -v codeInfoStatus/flow-state/manual-testing-runtime.json` then resolved the ignore ownership to `.gitignore`, confirming the repo-wide exact-path ignore rule now owns that live file.
 - Testing 3: `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore codeinfo_markdown/manual_test_runtime_research.md codeinfo_markdown/manual_test_latest_completed_task.md` reported only `!! codeInfoStatus/flow-state/manual-testing-runtime.json`, which confirms the live snapshot is ignored while the checked-in doc owners and `.gitignore` remain normal clean tracked state.
 - Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 33 section, the latest Task 33 implementation note state, and the direct tracked-state proof outputs above. Current repo evidence now shows every Task 33 subtask and all three Task 33 testing steps are honestly complete, there is no live `**BLOCKER**` note on the task, and Task 33 now correctly closes as `__done__` before the flow moves on to manual testing and later story revalidation.
-- Manual testing assessed on 2026-04-04 and not applicable for this task. This pass stayed task-scoped because Task 33 only changes Git tracking, ignore ownership, and markdown guidance for the live `codeInfoStatus/flow-state/manual-testing-runtime.json` artifact, so there is no runnable, browser-accessible, or externally observable product surface to start, stop, or exercise manually, and the broader runnable-system revalidation remains owned by Task 34.
+- Manual testing assessed on 2026-04-04 and not applicable for this task. This pass stayed task-scoped because Task 33 only changes Git tracking, ignore ownership, and markdown guidance for the live `codeInfoStatus/flow-state/manual-testing-runtime.json` artifact, so there is no runnable, browser-accessible, or externally observable product surface to start, stop, or exercise manually, and the broader runnable-system revalidation remains owned by Task 35.
 
 ---
 
-### Task 34. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+### Task 34. Restore A Trustworthy Full `npm run test:summary:client` Baseline After The Unrelated Suite-Only Timeout
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `31, 32, 33`
+- Task Dependencies: `31`
+- Task Status: `__todo__`
+- Notes: Added on 2026-04-04 after Task 32 blocker research proved the remaining missing capability is the shared full-client baseline, not more Task 32 browser-proof implementation.
+
+#### Overview
+
+This prerequisite task restores an honest full `npm run test:summary:client` result on current `HEAD` before Task 32 depends on that wrapper again. The blocker proof showed that the queue-specific browser-proof work in `e2e/ingest.spec.ts` is already implemented, while the remaining timeout cluster lives in unrelated `AgentsPage` and `ChatPage` client tests that only fail under broader suite execution. Keep this task focused on reproducing, isolating, and fixing that shared client-baseline timeout without widening into unrelated e2e/browser proof or final story close-out work.
+
+#### Task Exit Criteria
+
+- Full `npm run test:summary:client` reaches a trustworthy terminal result on current `HEAD` without depending on targeted-file filters as the claimed completion proof.
+- Any repair work stays scoped to the actual shared client baseline owner, such as the failing `client/src/test/agentsPage.run.test.tsx`, `client/src/test/chatPage.flags.sandbox.payload.test.tsx`, or their directly shared client-test support seams.
+- Task 32 can resume its own Testing 2 gate honestly on top of the restored shared client baseline rather than repeatedly retrying unrelated timeout triage inside the browser-proof task.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `test-results/client-tests-2026-04-04T23-10-32-392Z.log`
+- `test-results/client-tests-2026-04-04T23-13-05-461Z.log`
+- `test-results/client-tests-2026-04-04T23-12-56-254Z.log`
+- `test-results/client-tests-2026-04-04T23-12-56-261Z.log`
+- `test-results/client-tests-2026-04-04T23-16-04-318Z.log`
+- `client/src/test/agentsPage.run.test.tsx`
+- `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+- Any directly shared client-test support file that the timeout owner actually depends on
+- https://jestjs.io/docs/cli
+
+#### Subtasks
+
+1. [ ] Re-read Task 32's live `**BLOCKER**` and `**BLOCKING ANSWER**`, then inspect the recorded failing and targeted client-wrapper logs plus `client/src/test/agentsPage.run.test.tsx` and `client/src/test/chatPage.flags.sandbox.payload.test.tsx` together before editing. Purpose: keep this prerequisite anchored to the proven unrelated baseline owner rather than reopening Task 32's queue-browser proof.
+2. [ ] Reproduce the current full-client timeout on current `HEAD` with `npm run test:summary:client`, then use targeted wrapper filters only to confirm which failing file or shared support seam still reproduces under narrowed scope. Purpose: derive the real owner from current repo state without claiming targeted scope as final completion proof.
+3. [ ] Repair the actual shared client-baseline owner with deterministic cleanup, state reset, or timing-boundary fixes only in the failing test files or their directly shared support seams. Do not modify `e2e/ingest.spec.ts` in this task unless new proof shows the shared client timeout actually originates there. Purpose: restore the broader client baseline without widening this task into unrelated browser-proof work.
+4. [ ] Re-run the targeted client wrapper proof for the repaired owner until it reaches a clean terminal result. Purpose: prove the exact timeout owner is fixed before trusting the full wrapper again.
+5. [ ] Re-run full `npm run test:summary:client` and record its honest terminal summary in this plan. Purpose: restore the shared client baseline that Task 32 and final story validation need to rely on.
+6. [ ] Update Task 32's implementation notes only as needed to replace or retire the live blocker once this prerequisite is complete. Purpose: keep the blocked browser-proof task and the baseline-repair task aligned without duplicating ownership.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` only if the client-wrapper diagnosis or repair changes compile-sensitive client code or shared client-test support. If the wrapper reports failure or warnings, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun it before trusting test results.
+2. [ ] Run full `npm run test:summary:client`. If it fails, diagnose only with targeted wrapper commands such as `npm run test:summary:client -- --file client/src/test/chatPage.flags.sandbox.payload.test.tsx` or `npm run test:summary:client -- --test-name <pattern>`, then rerun the same full wrapper until it reaches a real terminal result.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 35. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `31, 32, 33, 34`
 - Task Status: `__todo__`
 - Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed.
 
 #### Overview
 
-This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 33 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
+This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 34 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, the restored full-client baseline, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
 
 #### Task Exit Criteria
 
@@ -2619,13 +2670,13 @@ This final review-response task reruns the complete Story 55 validation path aft
 #### Subtasks
 
 1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
-2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 33 changed the contract, proof story, or hygiene story those documents need to communicate.
+2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 34 changed the contract, proof story, or hygiene story those documents need to communicate.
 3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 33. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 34. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
 3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks. If a conflicting main-stack instance already owns the fixed host ports, stop that normal stack intentionally first rather than switching to a different runtime variant for this proof.
 
 #### Implementation notes

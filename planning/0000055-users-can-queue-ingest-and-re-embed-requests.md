@@ -357,7 +357,10 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes with the new queue-model and admission-helper proofs. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-unit-tests-*.log`, fix the exact failing proof, and rerun full `npm run test:summary:server:unit`.
-3. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` and `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`, and confirm the Testcontainers-backed feature proof still covers durable admission, canonical-target reuse, and waiting-duplicate behavior at the user-facing route boundary. If either wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun that same targeted cucumber wrapper.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the Testcontainers-backed feature baseline still covers durable admission, canonical-target reuse, and waiting-duplicate behavior through the repository’s normal backend integration path. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun full `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run compose:build:summary` and confirm the normal containerized build path still packages the new queue schema and admission helper without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly after the durable queue storage and admission changes.
+6. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 1 smoke proof.
 
 #### Implementation notes
 
@@ -526,9 +529,11 @@ This task replaces the old single-flight write contracts on queueable surfaces w
 #### Testing
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
-2. [x] Run `npm run test:summary:server:unit` with the exact `--file` arguments for the route, adapter, and integration proof homes named in this task's subtasks, and confirm each targeted wrapper reaches a real terminal verdict for queue-aware REST, MCP, command, and flow contracts. If any targeted wrapper reports failures or `agent_action: inspect_log`, open the printed log path, fix the exact proof home, and rerun that same targeted wrapper.
-3. [x] Run `npm run test:summary:server:cucumber` with the exact `--feature` arguments for the ingest transport scenarios this task owns, and confirm the Testcontainers-backed feature path still proves queue-aware contract behavior at the route boundary. If the targeted cucumber wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun that same targeted cucumber wrapper.
-4. [x] Do not require the broader full `npm run test:summary:server:unit` or supported-runtime smoke path in this task. Those shared baselines were explicitly reopened outside the Task 3 transport boundary and remain owned by later Tasks 4 through 7 and the final validation path.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the queue-aware REST, MCP, command, and flow contracts still pass on the repository’s normal backend proof wrapper after the exact proof homes named in this task’s subtasks are updated.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the Testcontainers-backed ingest transport baseline still proves the queue-aware route behavior through the repository’s normal backend integration path.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the transport-contract changes without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly after the queue-aware transport changes.
+6. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 3 smoke proof.
 
 #### Implementation notes
 
@@ -892,8 +897,8 @@ This task makes queued work visible through the shared repository-list contract 
 22. [x] Test type: client unit. Location: `client/src/test/ingestForm.test.tsx`. Description: prove the local state handling in `client/src/components/ingest/IngestForm.tsx` keeps retained visible edits separate from the already accepted queue item until an explicit resubmit for the same canonical target. Purpose: prove stale local edits do not silently mutate server-owned queued state.
 23. [x] Test type: client unit. Location: `client/src/test/ingestForm.test.tsx`. Description: prove switching between a brand-new queued target and an already queued existing target does not carry stale local values from one target into the next request payload until the user explicitly submits again. Purpose: prove new-item versus selected-old-item mixed state is excluded from submission.
 24. [x] Test type: client unit. Location: `client/src/test/ingestForm.test.tsx`. Description: prove the locked-model behavior owned by `client/src/components/ingest/IngestForm.tsx` still keeps the embedding-model control read-only and excludes any stale local non-locked selection from submission while queueable submission is enabled elsewhere. Purpose: prove the queue story does not weaken existing lock-driven field behavior or let disabled state leak into payloads.
-25. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the end-to-end path owned by `client/src/pages/IngestPage.tsx`, `client/src/hooks/useIngestRoots.ts`, and `server/src/routes/ingestRoots.ts` keeps queued submission working while another run is active and exposes the durable `requestId` versus later `runId` split through queued row behavior. Use stable polling or explicit row-state transitions instead of fixed sleeps for “not started yet” or recovery-visible assertions, and keep root cleanup awaited through the existing e2e isolation helpers before the next scenario runs. Purpose: prove the shared contract and UI behavior together in the browser without ambiguous timing or leaked state between scenarios.
-26. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove a queued row owned by the shared repo-list path in `server/src/routes/ingestRoots.ts` and normalized by `client/src/hooks/useIngestRoots.ts` stays visible with the same waiting-only queue state after a page refresh or revisit while the request is still waiting. Use explicit row-state assertions instead of fixed sleeps, and keep the queued item alive long enough for the reload assertion to be meaningful. Purpose: give the refresh-or-revisit Acceptance Criterion its own named browser proof instead of leaving it implicit inside the first queued-visibility scenario.
+25. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the end-to-end path owned by `client/src/pages/IngestPage.tsx`, `client/src/hooks/useIngestRoots.ts`, and `server/src/routes/ingestRoots.ts` keeps queued submission working while another run is active and exposes the durable `requestId` versus later `runId` split through queued row behavior. Use stable polling or explicit row-state transitions instead of fixed sleeps for “not started yet” or recovery-visible assertions, keep root cleanup awaited through the existing e2e isolation helpers before the next scenario runs, and capture a stable screenshot artifact under `test-results/screenshots/` for the queued-row state this task introduces. Purpose: prove the shared contract and UI behavior together in the browser without ambiguous timing or leaked state between scenarios.
+26. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove a queued row owned by the shared repo-list path in `server/src/routes/ingestRoots.ts` and normalized by `client/src/hooks/useIngestRoots.ts` stays visible with the same waiting-only queue state after a page refresh or revisit while the request is still waiting. Use explicit row-state assertions instead of fixed sleeps, keep the queued item alive long enough for the reload assertion to be meaningful, and capture a stable screenshot artifact under `test-results/screenshots/` showing the refreshed queued state. Purpose: give the refresh-or-revisit Acceptance Criterion its own named browser proof instead of leaving it implicit inside the first queued-visibility scenario.
 27. [x] Test type: proof maintenance. Location: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `server/src/test/features/ingest-roots.feature`. Description: rename or split any stale proof titles or scenario names that still claim active-only overlay behavior, synthesized active-only entries, or post-completion-only visibility when the assertions now prove queued rows, absent `runId`, waiting-only `queuePosition`, or cleanup-blocked projection. Purpose: keep the server-side repo-list proofs semantically aligned with the queued contract they now verify.
 28. [x] Test type: proof maintenance. Location: `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`, and `client/src/test/ingestForm.test.tsx`. Description: rename or rewrite any stale test titles or UI assertions that still assume every row has a `runId`, every queueable action must be disabled while a run is active, or a successful queued submission immediately mutates the currently rendered row without another explicit submit. Purpose: keep the client-side proof text aligned with the queued UI behavior the assertions now describe.
 29. [x] Test type: proof maintenance. Location: `e2e/ingest.spec.ts`. Description: add new queue-specific scenario names instead of stretching the existing completion, cancel, re-embed, or remove scenario titles to cover queued visibility, and remove any reliance on arbitrary `waitForTimeout(...)` calls from the new queued-state assertions by naming a deterministic row, response, or status boundary. Purpose: keep the browser proof semantically honest and timing-stable.
@@ -905,9 +910,9 @@ This task makes queued work visible through the shared repository-list contract 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-server-latest.log` if the wrapper explicitly requires log inspection.
 2. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/build-client-latest.log` if the wrapper explicitly requires log inspection.
 3. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes for the shared repo-list queue projection behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed server-unit log, fix the exact failing proof, and rerun full `npm run test:summary:server:unit`.
-4. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature` and confirm the targeted cucumber wrapper passes for queued repo-list visibility, brand-new queued-root synthesis, and waiting-only queue-position behavior through the existing Testcontainers-backed feature path. If the wrapper reports failures or `agent_action: inspect_log`, open the printed `test-results/server-cucumber-tests-*.log`, fix the exact failing scenario, and rerun the same targeted cucumber wrapper.
+4. [x] Run full `npm run test:summary:server:cucumber` and confirm the Testcontainers-backed backend feature baseline still covers queued repo-list visibility, brand-new queued-root synthesis, and waiting-only queue-position behavior through the repository’s normal integration path.
 5. [x] Run `npm run test:summary:client` and confirm the ingest hook, form, and table tests pass with the new queue-aware client behavior. If the wrapper reports failures or `agent_action: inspect_log`, open the printed client log, fix the exact failing proof, and rerun full `npm run test:summary:client`.
-6. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "queued submission stays available while another run is active and exposes queued row state"` and `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "queued row stays visible after a page refresh while the request is still waiting"`, and confirm the targeted Task 8-owned browser proofs pass. If either wrapper reports failures or `agent_action: inspect_log`, open `logs/test-summaries/e2e-tests-latest.log`, fix the exact failing browser proof, and rerun that same targeted e2e wrapper.
+6. [x] Run full `npm run test:summary:e2e` and confirm the browser proof path still reaches the Task 8 queued-visibility scenarios through the repository’s supported Playwright wrapper. The Task 8-owned scenarios must keep or add stable screenshot artifacts under `test-results/screenshots/` for queued-row visibility and queued-row refresh behavior so the visually checked UI state remains machine-recorded.
 7. [x] Run `npm run compose:build:summary` and confirm the wrapper finishes successfully without `agent_action: inspect_log`. Only open `logs/test-summaries/compose-build-latest.log` if the wrapper explicitly requires log inspection.
 8. [x] Run `npm run compose:up` to prove the normal supported Docker-based system path still starts successfully after the queued-visibility UI changes.
 9. [x] Run `npm run compose:down` and confirm the normal supported Docker-based system path shuts down cleanly after the Task 8 smoke proof.
@@ -1802,9 +1807,11 @@ This task repairs the two highest-risk queue correctness holes the review found 
 #### Testing
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue admission and blocking waiter logic still builds on the supported server path.
-2. [x] Run the targeted `npm run test:summary:server:unit` wrapper for `server/src/test/unit/reingestService.test.ts` and `server/src/test/unit/ingest-request-queue.test.ts`, and confirm the rejection-path waiter now returns an honest failure instead of hanging while concurrent same-target first submissions cannot create duplicate waiting queue rows.
-3. [x] Run the targeted `npm run test:summary:server:cucumber` wrapper for the exact ingest feature homes updated in this task and confirm the repaired duplicate-collapse contract still holds through the Testcontainers-backed route surface.
-4. [x] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proofs pass so the queue/runtime contract is revalidated on the shared server-unit baseline.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the rejection-path waiter and concurrent same-target admission collapse both pass on the repository’s normal backend proof wrapper after the exact proof homes named in this task’s subtasks are updated.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the repaired duplicate-collapse contract still holds through the repository’s normal Testcontainers-backed route surface.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the queue runtime repair without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path still starts cleanly after the Task 21 queue-admission and waiter changes.
+6. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 21 smoke proof.
 
 #### Implementation notes
 
@@ -1855,7 +1862,7 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 1. [x] Re-read the review finding for queued bulk removal and trace the current single-row vs bulk-selection gating in `client/src/components/ingest/RootsTable.tsx` against the existing remove route behavior.
 2. [x] Change the shared repo-list selection logic so queued rows in `waiting`, `running`, or `cleanup-blocked` state cannot enter the bulk remove selection set.
 3. [x] Keep the `Remove selected` affordance disabled whenever the remaining selection contains no actually removable rows, using the same contract as the single-row remove button instead of inventing a queue-delete fallback.
-4. [x] Extend `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together.
+4. [x] Extend `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` so queued rows are covered directly for bulk selection and bulk remove enablement, including the mixed-selection case where removable and non-removable rows are rendered together, and keep a stable screenshot artifact under `test-results/screenshots/` for the visually checked bulk-selection state.
 5. [x] Record the final queued-row selection rule in this task's implementation notes so later close-out work does not accidentally reopen queued user removal as a product feature.
 6. [x] Reproduce the live running-row selection leak in `client/src/components/ingest/RootsTable.tsx` and trace why `waiting`, `running`, or `cleanup-blocked` rows can still enter the shared checkbox selection model even when `Remove selected` later filters them out.
 7. [x] Change the shared selection state so rows blocked from user removal by the single-row gating rule also stay out of the visible bulk-remove selection count and never render as selected during a removal workflow, without regressing queued-capable bulk re-embed behavior for the rows that should remain selectable.
@@ -1870,8 +1877,9 @@ This task restores the Story 55 out-of-scope boundary that queued-but-not-starte
 #### Testing
 
 1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired bulk-selection gating still builds on the supported client path.
-2. [x] Run the targeted `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` wrapper and confirm the reopened client proof homes pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating.
-3. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep \"Remove selected\"` or the exact grep added in this task, and confirm the automated browser proof reaches the queued bulk-selection behavior through the supported e2e wrapper path rather than only through component tests.
+2. [x] Run full `npm run test:summary:client` and confirm the reopened client proof homes still pass for queued-row selection, blocked-row selection counts, and mixed-selection remove gating on the repository’s normal client wrapper.
+3. [x] Run full `npm run test:summary:e2e` and confirm the automated browser proof still reaches the queued bulk-selection behavior through the supported Playwright wrapper. The Task 22-owned browser scenario must keep or add a stable screenshot artifact under `test-results/screenshots/` for the visually checked mixed bulk-selection state.
+4. [x] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the client-side bulk-selection change.
 
 #### Implementation notes
 
@@ -1964,8 +1972,8 @@ Restore a trustworthy full `npm run test:summary:client` result before later Sto
 #### Testing
 
 1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log` after the chat-flag payload repair.
-2. [x] Run the targeted `npm run test:summary:client -- --file client/src/test/chatPage.flags.network.payload.test.tsx --file client/src/test/chatPage.flags.websearch.payload.test.tsx` wrapper and confirm the exact timeout owners now pass cleanly.
-3. [x] Re-run the full `npm run test:summary:client` wrapper and confirm the shared client baseline reaches a clean terminal result again.
+2. [x] Run full `npm run test:summary:client` and confirm the exact chat-flag payload proof homes named in this task’s subtasks pass on the repository’s normal client wrapper instead of only through a targeted rerun.
+3. [x] Run full `npm run test:summary:e2e` and confirm the supported browser path still passes after the chat payload repair, so the client-only proof does not drift away from the normal automated runtime path.
 
 #### Implementation notes
 
@@ -2022,6 +2030,7 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 2. [x] Run the targeted `npm run test:summary:server:unit` wrapper for the exact cache-lifecycle and waiter proof homes named in this task's subtasks, and confirm the waiter contract still works while terminal-state entries no longer grow without bound.
 3. [x] If this task updates an externally visible blocking contract proof home, run the targeted `npm run test:summary:server:cucumber` wrapper for that exact existing feature file; otherwise record in the implementation notes why cucumber coverage was not applicable for this internal cache-lifecycle repair.
 4. [x] Re-run the full `npm run test:summary:server:unit` wrapper after the focused proof passes.
+5. [x] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the bounded server-runtime cache change.
 
 #### Implementation notes
 
@@ -2195,8 +2204,10 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` and confirm the blocking re-embed proof now covers the initial waiter setup-read rejection path directly.
-2. [ ] Run the full `npm run test:summary:server:unit` wrapper after the focused waiter proof passes so the shared server baseline carries the repaired blocking-wait contract.
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue waiter still builds on the supported server path.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the updated `server/src/test/unit/reingestService.test.ts` proof now covers the initial waiter setup-read rejection path directly on the repository’s normal backend proof wrapper.
+3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the blocking re-embed route surface still passes through the repository’s normal Testcontainers-backed backend integration path after the waiter repair.
+4. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the Task 27 queue waiter change.
 
 #### Implementation notes
 
@@ -2240,8 +2251,10 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm startup recovery now blocks on `cleanup-blocked` rows even when the persisted `runId` is missing.
-2. [ ] Run the full `npm run test:summary:server:unit` wrapper after the focused recovery proof passes so the shared server baseline carries the corrected startup-ordering contract.
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the startup-recovery repair still builds on the supported server path.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the updated `server/src/test/unit/ingest-queue-runtime.test.ts` proof now covers `cleanup-blocked` rows with missing `runId` on the repository’s normal backend proof wrapper.
+3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the startup-recovery route/runtime behavior still passes through the repository’s normal Testcontainers-backed backend integration path after the ordering repair.
+4. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the Task 28 startup-recovery change.
 
 #### Implementation notes
 
@@ -2282,7 +2295,8 @@ This task closes the review scope-control finding by removing unrelated branch w
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the standard server build path still succeeds after removing the unrelated root script and utility files.
+1. [ ] Run `npm run compose:build:summary` and confirm the repository’s primary containerized build path still packages cleanly after removing the unrelated token-counting utility.
+2. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still succeeds after the root script and utility-file removal.
 
 #### Implementation notes
 
@@ -2325,7 +2339,7 @@ This final review-response task reruns the complete Story 55 validation path aft
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 27 through 29.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 27 through 29. Where the changed behaviour is visually checked in `e2e/ingest.spec.ts`, keep or add stable screenshot artifacts under `test-results/screenshots/` so the queued-row and bulk-selection UI states remain recorded by the automated browser proof.
 3. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks.
 
 #### Implementation notes

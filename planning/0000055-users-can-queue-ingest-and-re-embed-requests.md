@@ -2467,7 +2467,7 @@ This task closes the public-contract drift found in the stored review artifacts.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `31`
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` because the current queued-state browser proof still uses arbitrary waits, skip-style early returns, and ignored screenshot artifacts.
 
 #### Overview
@@ -2494,11 +2494,11 @@ This task closes the stored browser-proof finding without widening Story 55 into
 
 #### Subtasks
 
-1. [ ] Re-read the current review finding plus the Story 55 browser-proof requirements already recorded in this plan, then inspect the queue-specific sections of `e2e/ingest.spec.ts` and `.gitignore` together so the fix stays anchored to the current proof contract instead of to ad hoc timing cleanup.
-2. [ ] Replace the fixed-delay queue assertions in the Story 55 queue scenarios with explicit row, request-owner, or status boundaries that fail honestly when the queued-state invariant is not reached.
-3. [ ] Remove the warn-and-return behavior from the Story 55 remove-flow proof so setup failure becomes a real failing test rather than a silent skip inside a green wrapper run.
-4. [ ] Make the Story 55 screenshot artifacts durable for branch review by keeping the required named screenshots in a tracked inspectable path while avoiding a broad new policy of checking in all transient `test-results` output.
-5. [ ] Keep this task bounded to the Story 55 queue-specific browser proof and its named screenshot artifacts; do not reopen unrelated e2e scenarios or general wrapper behavior unless the queue proof cannot be repaired without that smaller owning change.
+1. [x] Re-read the current review finding plus the Story 55 browser-proof requirements already recorded in this plan, then inspect the queue-specific sections of `e2e/ingest.spec.ts` and `.gitignore` together so the fix stays anchored to the current proof contract instead of to ad hoc timing cleanup.
+2. [x] Replace the fixed-delay queue assertions in the Story 55 queue scenarios with explicit row, request-owner, or status boundaries that fail honestly when the queued-state invariant is not reached.
+3. [x] Remove the warn-and-return behavior from the Story 55 remove-flow proof so setup failure becomes a real failing test rather than a silent skip inside a green wrapper run.
+4. [x] Make the Story 55 screenshot artifacts durable for branch review by keeping the required named screenshots in a tracked inspectable path while avoiding a broad new policy of checking in all transient `test-results` output.
+5. [x] Keep this task bounded to the Story 55 queue-specific browser proof and its named screenshot artifacts; do not reopen unrelated e2e scenarios or general wrapper behavior unless the queue proof cannot be repaired without that smaller owning change.
 
 #### Testing
 
@@ -2511,6 +2511,11 @@ This task closes the stored browser-proof finding without widening Story 55 into
 #### Implementation notes
 
 - Starts empty.
+- Subtask 1: re-read the current review finding together with the Task 32 proof contract, then inspected the current queue-specific sections of `e2e/ingest.spec.ts` and `.gitignore`. The live drift still matched the review from current `HEAD`: the remove-flow proof could still warn-and-return instead of failing, and the stable screenshot files still wrote under `test-results/screenshots/` while `.gitignore` ignored `test-results`.
+- Subtask 2: kept the queue-state browser proof on explicit observable boundaries in `e2e/ingest.spec.ts` and removed the remaining task-owned fixed-delay retry from the remove-flow setup path. The bounded retry loop now waits on `fetchRoots(...)` through `expect.poll(...)` before retrying a `429` start, so the Story 55 proof no longer depends on an arbitrary two-second delay while queue state settles.
+- Subtask 3: replaced the remove-flow `console.warn(...)` plus early-return escape hatches with real thrown failures in `e2e/ingest.spec.ts`. The proof now captures the `/ingest/start` outcome directly, retries only on the bounded `429` path, and otherwise fails honestly when setup never really starts.
+- Subtask 4: moved the stable Story 55 screenshots to a dedicated durable tracked path in `artifacts/story-0000055-screenshots/` by updating `e2e/ingest.spec.ts`, instead of widening `.gitignore` around `test-results`. That keeps the required named screenshots inspectable from the branch later without introducing broad transient-artifact churn.
+- Subtask 5: kept this pass bounded to the queue-specific browser proof owner plus the named screenshot-artifact durability rule only. I did not reopen unrelated e2e flows, wrapper mechanics, or broader transient-artifact policy beyond the two Story 55 screenshot files.
 
 ---
 

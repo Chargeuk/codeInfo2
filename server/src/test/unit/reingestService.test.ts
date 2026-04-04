@@ -752,6 +752,41 @@ test('pre-run invalid states remain protocol-level INVALID_PARAMS errors', async
   }
 });
 
+test('selected cancelled and error repositories are rejected before queue admission starts', async () => {
+  for (const status of ['cancelled', 'error'] as const) {
+    let enqueueCalls = 0;
+    const result = await runReingestRepository(
+      { sourceId: '/data/repo-a' },
+      {
+        listIngestedRepositories: async () => ({
+          repos: [
+            {
+              ...buildRepoEntry({
+                id: 'repo-a',
+                containerPath: '/data/repo-a',
+              }),
+              status,
+              lastError: status === 'error' ? 'boom' : null,
+            },
+          ],
+          lockedModelId: 'model',
+        }),
+        enqueueOrReuseIngestRequest: async () => {
+          enqueueCalls += 1;
+          return buildQueueResult({});
+        },
+        appendLog: noopLog,
+      },
+    );
+
+    assert.equal(result.ok, false);
+    assert.equal(enqueueCalls, 0);
+    if (result.ok) continue;
+    assert.equal(result.error.code, -32602);
+    assert.equal(result.error.message, 'INVALID_PARAMS');
+  }
+});
+
 test('unknown_root validation failure preserves the strict NOT_FOUND contract', async () => {
   const result = await runReingestRepository(
     { sourceId: '/data/repo-missing' },

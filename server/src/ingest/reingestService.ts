@@ -235,6 +235,18 @@ function invalidStateError(
   };
 }
 
+function createInvalidReembedStateError() {
+  const error = new Error('INVALID_REEMBED_STATE');
+  (error as { code?: string }).code = 'INVALID_REEMBED_STATE';
+  return error;
+}
+
+export function assertRepoCanQueueReingest(repo: RepoEntry) {
+  if (repo.status === 'cancelled' || repo.status === 'error') {
+    throw createInvalidReembedStateError();
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -389,6 +401,7 @@ function logNormalizedResult(
 export function buildQueuedReingestRequest(
   repo: RepoEntry,
 ): Parameters<typeof enqueueOrReuseIngestRequest>[0] {
+  assertRepoCanQueueReingest(repo);
   const provider = repo.lock?.embeddingProvider ?? repo.embeddingProvider;
   const embeddingModel = repo.lock?.embeddingModel ?? repo.embeddingModel;
   const model =

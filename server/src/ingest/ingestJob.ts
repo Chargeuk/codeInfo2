@@ -601,6 +601,44 @@ function resolveInputSelection(
   return resolveEmbeddingModelSelection(input.model);
 }
 
+function createModelLockedError() {
+  const error = new Error('MODEL_LOCKED');
+  (error as { code?: string }).code = 'MODEL_LOCKED';
+  return error;
+}
+
+export async function validateExecutableIngestInput(
+  input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
+  options?: {
+    getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
+    selection?: ResolvedEmbeddingModelSelection;
+  },
+) {
+  const requested = options?.selection ?? resolveInputSelection(input);
+  if (
+    requested.providerId === 'openai' &&
+    !isOpenAiAllowlistedEmbeddingModel(requested.modelKey)
+  ) {
+    throw new OpenAiEmbeddingError(
+      'OPENAI_MODEL_UNAVAILABLE',
+      'OPENAI_MODEL_UNAVAILABLE',
+      false,
+      404,
+    );
+  }
+
+  const locked = await (
+    options?.getLockedEmbeddingModel ?? getLockedEmbeddingModel
+  )();
+  if (
+    locked &&
+    (locked.embeddingProvider !== requested.providerId ||
+      locked.embeddingModel !== requested.modelKey)
+  ) {
+    throw createModelLockedError();
+  }
+}
+
 function mapIngestError(err: unknown): {
   message: string;
   normalized: IngestNormalizedError | null;
@@ -798,6 +836,9 @@ async function processRun(runId: string, input: IngestJobInput) {
     const ingestedAtMs = Date.now();
     const { path: startPath, name, description, dryRun, operation: op } = input;
     const requestedSelection = resolveInputSelection(input);
+    await validateExecutableIngestInput(input, {
+      selection: requestedSelection,
+    });
     const embeddingProvider = requestedSelection.providerId;
     const embeddingModel = requestedSelection.modelKey;
     const operation = op ?? 'start';
@@ -2381,25 +2422,10 @@ export async function recoverIngestQueueOnStartup() {
 export async function startIngest(input: IngestJobInput, d: Deps) {
   deps = d;
   const operation = input.operation ?? 'start';
-  const locked = await getLockedEmbeddingModel();
   const requested = resolveInputSelection(input);
-  if (
-    requested.providerId === 'openai' &&
-    !isOpenAiAllowlistedEmbeddingModel(requested.modelKey)
-  ) {
-    const error = new Error('OPENAI_MODEL_UNAVAILABLE');
-    (error as { code?: string }).code = 'OPENAI_MODEL_UNAVAILABLE';
-    throw error;
-  }
-  if (
-    locked &&
-    (locked.embeddingProvider !== requested.providerId ||
-      locked.embeddingModel !== requested.modelKey)
-  ) {
-    const error = new Error('MODEL_LOCKED');
-    (error as { code?: string }).code = 'MODEL_LOCKED';
-    throw error;
-  }
+  await validateExecutableIngestInput(input, {
+    selection: requested,
+  });
   const runId = randomUUID();
   if (!ingestLock.acquire(runId)) {
     const error = new Error('BUSY');

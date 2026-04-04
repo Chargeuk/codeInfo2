@@ -16,6 +16,7 @@ import {
   pumpIngestQueue,
   recoverIngestQueueOnStartup,
   setIngestDeps,
+  validateExecutableIngestInput,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
@@ -195,6 +196,55 @@ test('queue pump creates the real runId only when queued work actually starts', 
   assert.equal(result.started, true);
   assert.ok(promotedRunId.length > 0);
   assert.equal(getStatus(promotedRunId)?.runId, promotedRunId);
+});
+
+test('queue-managed execution revalidates the collection lock before starting a promoted request', async () => {
+  await assert.rejects(
+    () =>
+      validateExecutableIngestInput(
+        {
+          model: 'embed-1',
+          embeddingProvider: 'lmstudio',
+          embeddingModel: 'embed-1',
+        },
+        {
+          getLockedEmbeddingModel: async () => ({
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-2',
+            embeddingDimensions: 768,
+            lockedModelId: 'embed-2',
+            source: 'canonical',
+          }),
+        },
+      ),
+    (error) => {
+      assert.equal((error as { code?: string }).code, 'MODEL_LOCKED');
+      return true;
+    },
+  );
+});
+
+test('queue-managed execution rejects non-allowlisted OpenAI models before promotion can run', async () => {
+  await assert.rejects(
+    () =>
+      validateExecutableIngestInput(
+        {
+          model: 'openai/text-embedding-ada-002',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-ada-002',
+        },
+        {
+          getLockedEmbeddingModel: async () => null,
+        },
+      ),
+    (error) => {
+      assert.equal(
+        (error as { code?: string }).code,
+        'OPENAI_MODEL_UNAVAILABLE',
+      );
+      return true;
+    },
+  );
 });
 
 test('terminal queue cleanup deletes the current queue record before the next waiting item starts', async () => {

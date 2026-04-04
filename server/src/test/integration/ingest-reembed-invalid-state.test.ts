@@ -12,7 +12,8 @@ afterEach(() => {
   mock.restoreAll();
 });
 
-function createAppForInvalidReembedState() {
+function createAppForInvalidReembedState(status: 'cancelled' | 'error') {
+  let enqueueCalls = 0;
   const app = express();
   app.use(express.json());
   app.use(
@@ -39,33 +40,44 @@ function createAppForInvalidReembedState() {
               modelId: 'text-embedding-3-small',
             },
             counts: { files: 1, chunks: 1, embedded: 1 },
-            lastError: null,
+            lastError: status === 'error' ? 'boom' : null,
+            status,
           },
         ],
         lockedModelId: 'text-embedding-3-small',
       }),
       enqueueOrReuseIngestRequest: async () => {
-        const error = new Error('invalid reembed state');
-        (error as { code?: string }).code = 'INVALID_REEMBED_STATE';
-        throw error;
+        enqueueCalls += 1;
+        return {
+          requestId: 'unexpected-queue-request',
+          canonicalTargetPath: '/data/repo-invalid',
+          queueState: 'waiting' as const,
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as never,
+        };
       },
     }),
   );
-  return app;
+  return { app, getEnqueueCalls: () => enqueueCalls };
 }
 
 test('POST /ingest/reembed rejects cancelled root state deterministically before queue admission starts a run', async () => {
-  const app = createAppForInvalidReembedState();
+  const { app, getEnqueueCalls } = createAppForInvalidReembedState('cancelled');
 
   const res = await request(app).post('/ingest/reembed/%2Fdata%2Frepo-invalid');
   assert.equal(res.status, 409);
   assert.equal(res.body.code, 'INVALID_REEMBED_STATE');
+  assert.equal(getEnqueueCalls(), 0);
 });
 
 test('POST /ingest/reembed rejects error root state deterministically before queue admission starts a run', async () => {
-  const app = createAppForInvalidReembedState();
+  const { app, getEnqueueCalls } = createAppForInvalidReembedState('error');
 
   const res = await request(app).post('/ingest/reembed/%2Fdata%2Frepo-invalid');
   assert.equal(res.status, 409);
   assert.equal(res.body.code, 'INVALID_REEMBED_STATE');
+  assert.equal(getEnqueueCalls(), 0);
 });

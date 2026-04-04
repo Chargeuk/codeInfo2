@@ -2148,3 +2148,186 @@ This final review-fix task reruns the complete Story 55 validation path after Ta
 - Planner repair on 2026-04-04 clarified that the compose-validation blocker did not require a new task or alternate runtime seam. Task 26 still belongs to the same final revalidation owner, but its Testing 3 step now states the missing free-port precondition explicitly so the next implementation/proof loop has a concrete stopping point.
 - Testing 3: after intentionally stopping the conflicting live main-stack runtime with `npm run compose:down`, the standard main-stack compose proof passed honestly on rerun. `npm run compose:build:summary` finished with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`; `npm run compose:up` passed the fixed-port preflight (`DEV-0000050:T09:compose_preflight_result ... \"result\":\"passed\"`) and brought the standard main stack up cleanly to healthy server/client containers; and `npm run compose:down` then stopped and removed the standard main-stack containers and network cleanly again.
 - Implementation-plus-automated-proof audit on 2026-04-04 re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 26 section, and the latest task commits from disk. Task 26 now honestly has Subtasks 1 through 3 plus Testing 1 through 3 complete, no live `**BLOCKER**` note remains, and the stale task-status line has been normalized to `__done__` so the plan matches the current proof state before any later manual-testing decision.
+
+## Code Review Findings
+
+- Review pass `0000055-20260404T021138Z-1a7b7d9a` reopened Story 55 from the stored handoff at `codeInfoStatus/reviews/0000055-current-review.json`.
+- Scope validation still matches the canonical handoff: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, current repository only, branch `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, base `main`, head commit `1a7b7d9a`.
+- `should_fix`: `waitForQueueRequestTerminalStatus()` still lets an initial `resolveQueueRequestRunState(requestId)` failure reject the blocking waiter before listener registration or timeout recovery, so queued re-embed callers can still receive a raw unexpected failure instead of the documented terminal-or-timeout contract. See `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-findings.md`.
+- `should_fix`: startup recovery can skip a persisted `cleanup-blocked` row when `runId` is null and then advance newer work, which contradicts the story contract that cleanup-blocked work must resolve before any later waiting item starts. See `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-findings.md`.
+- `should_fix`: the branch currently carries a token-counting CLI and sample payload outside the Story 55 plan surface (`server/scripts/count-tool-tokens.mjs`, `scripts/token-tools-sample.json`, and the root `package.json` script entry). Because those are non-support files and not story-owned, this plan must explicitly remove them from the Story 55 branch rather than silently carrying them forward.
+- The blind-spot challenge artifact `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-blind-spot-challenge.md` did not add new late findings, but it reaffirmed the queue-waiter and startup-recovery gaps above and carried forward the rejected-risk reasoning for the remaining reviewed surfaces.
+
+---
+
+### Task 27. Harden Queue Waiter Setup Failure Handling For Blocking Re-Embed Callers
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `26`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because the blocking queue waiter still has an unguarded setup-read failure path.
+
+#### Overview
+
+This task closes the reopened queue-waiter review finding. `waitForQueueRequestTerminalStatus()` currently performs its first queue-state read before listener registration and before the guarded timeout fallback path, so a transient read failure can still reject the whole blocking re-embed call immediately as a raw error. The fix must keep the story's documented contract intact: after queue acceptance, blocking callers should still resolve through real terminal events when possible and otherwise degrade through the same bounded timeout/terminal classification path instead of surfacing an uncategorized setup failure.
+
+#### Task Exit Criteria
+
+- An initial queue-state read failure in `waitForQueueRequestTerminalStatus()` no longer escapes as an unhandled raw error before the listener or timeout-recovery path is active.
+- `runReingestRepository()` continues to return the documented queue terminal, timeout, validation, `NOT_FOUND`, and `QUEUE_UNAVAILABLE` outcomes without a new uncategorized fast-failure path after queue admission.
+- Direct proof exists for the specific setup-read rejection case that the review found missing.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-findings.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-blind-spot-challenge.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/test/unit/reingestService.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current review evidence and findings for `waitForQueueRequestTerminalStatus()`, then inspect `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts` together so the setup-read failure is fixed at the real producer/consumer seam instead of by adding a second story-only wrapper.
+2. [ ] Update `server/src/ingest/ingestJob.ts` so the initial `resolveQueueRequestRunState(requestId)` failure is handled through the same bounded blocking-wait contract as the later timeout fallback path, with listener and timer lifecycle still settling exactly once.
+3. [ ] Update `server/src/ingest/reingestService.ts` only if the caller still needs a small classification adjustment after the waiter fix, but do not widen this task into a broader reingest taxonomy rewrite.
+4. [ ] Add or update direct proof in `server/src/test/unit/reingestService.test.ts` for the exact review-found setup-read rejection case, and keep the existing timeout-fallback proof honest rather than merging the two failure paths into one ambiguous assertion.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` and confirm the blocking re-embed proof now covers the initial waiter setup-read rejection path directly.
+2. [ ] Run the full `npm run test:summary:server:unit` wrapper after the focused waiter proof passes so the shared server baseline carries the repaired blocking-wait contract.
+
+#### Implementation notes
+
+- Record what exact producer/consumer failure path was repaired here, why the chosen fix preserves the existing queue terminal contract, and how the new proof distinguishes setup-read failure from the previously covered timeout-fallback path.
+
+---
+
+### Task 28. Enforce Cleanup-Blocked Startup Ordering Even When Persisted `runId` Is Missing
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `27`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because startup recovery still treats `cleanup-blocked` rows inconsistently when `runId` is null.
+
+#### Overview
+
+This task closes the reopened startup-recovery contract gap. Story 55 requires cleanup-blocked queue work to resolve before any newer waiting item starts, but current startup recovery only stalls on cleanup-blocked rows that also have a non-empty `runId`. The fix must make the persisted-state handling match the plan contract and the runtime pump behavior, including malformed or partially written cleanup-blocked rows that still represent unresolved cleanup ownership on restart.
+
+#### Task Exit Criteria
+
+- `recoverIngestQueueOnStartup()` no longer advances to leftover `running` or `waiting` work while any persisted `cleanup-blocked` row remains, even when that row has `runId: null`.
+- The persisted model and helper usage remain internally consistent with the runtime behavior; if `runId` may stay nullable in the stored shape, startup recovery still blocks correctly on that shape instead of silently treating it as resolved.
+- Direct proof exists for the missing-`runId` cleanup-blocked case the review identified.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-findings.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-blind-spot-challenge.md`
+- `server/src/mongo/ingestQueueRequest.ts`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current review finding for malformed `cleanup-blocked` restart state, then inspect `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/ingest/ingestJob.ts` together so the persisted shape, write helper, startup recovery, and steady-state queue pump all agree on what blocks newer work.
+2. [ ] Update the startup recovery logic in `server/src/ingest/ingestJob.ts` so any persisted `cleanup-blocked` row blocks later recovery until the cleanup owner resolves it, regardless of whether `runId` is present.
+3. [ ] Narrow the persisted-state contract only if necessary for consistency, but do not widen this task into unrelated queue-schema redesign beyond the exact `cleanup-blocked` ownership issue found by review.
+4. [ ] Add or extend direct proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for a `cleanup-blocked` row with `runId: null`, and keep the existing non-null `runId` recovery proof as a separate explicit case.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm startup recovery now blocks on `cleanup-blocked` rows even when the persisted `runId` is missing.
+2. [ ] Run the full `npm run test:summary:server:unit` wrapper after the focused recovery proof passes so the shared server baseline carries the corrected startup-ordering contract.
+
+#### Implementation notes
+
+- Record whether the final fix was a startup-reader change, a persisted-shape tightening, or both, and explain how the new proof demonstrates that newer waiting work cannot start while any cleanup-blocked row still owns unresolved cleanup.
+
+---
+
+### Task 29. Remove The Unplanned Token-Counting Utility From The Story 55 Branch
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `28`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because Story 55 currently carries non-support files outside its plan surface.
+
+#### Overview
+
+This task closes the review scope-control finding by removing unrelated branch work from Story 55 instead of silently broadening the queue story. The token-counting CLI and sample payload are not support files, are not named anywhere in the canonical Story 55 plan, and do not have a proof home tied to the ingest-queue contract. The simplest honest response is therefore to remove that utility work from this branch and restore the plan-to-diff match, rather than retrofitting a new unrelated tool contract into a completed queue story.
+
+#### Task Exit Criteria
+
+- `server/scripts/count-tool-tokens.mjs`, `scripts/token-tools-sample.json`, and the related root `package.json` script entry are removed from the Story 55 diff.
+- No other Story 55 runtime, wrapper, or queue behavior changes are introduced while removing that unrelated utility.
+- The plan once again describes the committed non-support file scope honestly without relying on an implicit justification for unrelated tooling.
+
+#### Documentation Locations
+
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-findings.md`
+- `package.json`
+- `server/scripts/count-tool-tokens.mjs`
+- `scripts/token-tools-sample.json`
+
+#### Subtasks
+
+1. [ ] Re-read the current review finding for the unplanned token-counting utility, then inspect `package.json`, `server/scripts/count-tool-tokens.mjs`, and `scripts/token-tools-sample.json` together so the removal covers every branch-owned entry point for that unrelated tool.
+2. [ ] Remove the root `count:tool:tokens` script entry from `package.json` and delete `server/scripts/count-tool-tokens.mjs` plus `scripts/token-tools-sample.json` from the branch.
+3. [ ] Confirm no remaining Story 55 doc, wrapper, or runtime path references the removed token-counting utility, and do not replace it with a new hidden justification note inside this queue story.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the standard server build path still succeeds after removing the unrelated root script and utility files.
+
+#### Implementation notes
+
+- Record exactly which token-counting entry points were removed and why the review disposition kept this queue story scoped to its documented ingest/runtime contract instead of retrofitting a second unrelated feature.
+
+---
+
+### Task 30. Re-Validate Story 55 After Review Pass `0000055-20260404T021138Z-1a7b7d9a`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `27, 28, 29`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed.
+
+#### Overview
+
+This final review-response task reruns the complete Story 55 validation path after Tasks 27 through 29 land. It must confirm that the repaired queue-waiter contract, the corrected startup-recovery ordering, and the restored story scope all satisfy the acceptance criteria without regressing the already-proved queue visibility, UI gating, wrapper-first validation, or compose/runtime path.
+
+#### Task Exit Criteria
+
+- Every Story 55 acceptance criterion is re-checked against the post-review-fix implementation and still has an honest direct or indirect proof home.
+- The current review findings from `0000055-20260404T021138Z-1a7b7d9a` are closed by direct current-repo evidence, not by historical claims.
+- Final close-out notes in this plan explain why the story is complete again after the current review reopen.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `README.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-findings.md`
+- `codeInfoStatus/reviews/0000055-20260404T021138Z-1a7b7d9a-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
+2. [ ] Update `README.md` and `planning/0000055-pr-summary.md` only if Tasks 27 through 29 changed the operator, contract, or proof story that those documents need to communicate.
+3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 27 through 29.
+3. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks.
+
+#### Implementation notes
+
+- Record the final wrapper reruns, acceptance re-check, review-finding closure evidence, and any remaining residual-risk notes from the current review artifacts that justify marking Story 55 complete again after this reopen.

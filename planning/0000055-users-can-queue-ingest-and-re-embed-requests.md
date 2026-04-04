@@ -2173,7 +2173,7 @@ This final review-fix task reruns the complete Story 55 validation path after Ta
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `26`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because the blocking queue waiter still has an unguarded setup-read failure path.
 
 #### Overview
@@ -2197,10 +2197,10 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 
 #### Subtasks
 
-1. [ ] Re-read the current review evidence and findings for `waitForQueueRequestTerminalStatus()`, then inspect `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts` together so the setup-read failure is fixed at the real producer/consumer seam instead of by adding a second story-only wrapper.
-2. [ ] Update `server/src/ingest/ingestJob.ts` so the initial `resolveQueueRequestRunState(requestId)` failure is handled through the same bounded blocking-wait contract as the later timeout fallback path, with listener and timer lifecycle still settling exactly once.
-3. [ ] Update `server/src/ingest/reingestService.ts` only if the caller still needs a small classification adjustment after the waiter fix, but do not widen this task into a broader reingest taxonomy rewrite.
-4. [ ] Add or update direct proof in `server/src/test/unit/reingestService.test.ts` for the exact review-found setup-read rejection case, and keep the existing timeout-fallback proof honest rather than merging the two failure paths into one ambiguous assertion.
+1. [x] Re-read the current review evidence and findings for `waitForQueueRequestTerminalStatus()`, then inspect `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts` together so the setup-read failure is fixed at the real producer/consumer seam instead of by adding a second story-only wrapper.
+2. [x] Update `server/src/ingest/ingestJob.ts` so the initial `resolveQueueRequestRunState(requestId)` failure is handled through the same bounded blocking-wait contract as the later timeout fallback path, with listener and timer lifecycle still settling exactly once.
+3. [x] Update `server/src/ingest/reingestService.ts` only if the caller still needs a small classification adjustment after the waiter fix, but do not widen this task into a broader reingest taxonomy rewrite.
+4. [x] Add or update direct proof in `server/src/test/unit/reingestService.test.ts` for the exact review-found setup-read rejection case, and keep the existing timeout-fallback proof honest rather than merging the two failure paths into one ambiguous assertion.
 
 #### Testing
 
@@ -2212,6 +2212,10 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 #### Implementation notes
 
 - Record what exact producer/consumer failure path was repaired here, why the chosen fix preserves the existing queue terminal contract, and how the new proof distinguishes setup-read failure from the previously covered timeout-fallback path.
+- Subtask 1: re-read the current review finding plus the active producer/consumer seam in `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts`. The real defect is inside `waitForQueueRequestTerminalStatus()`, not in a missing second wrapper at the caller: the first queue-state read happened before listener registration and before the guarded timeout-recovery path was active.
+- Subtask 2: updated `server/src/ingest/ingestJob.ts` so the waiter now registers its listener and timeout first, then performs the initial queue-state read inside that protected lifecycle. If the setup read fails, the code now leaves the listener/timer active and degrades through the existing bounded terminal-or-timeout path instead of surfacing a raw setup failure before cleanup can settle exactly once.
+- Subtask 3: no `server/src/ingest/reingestService.ts` code change was needed after the waiter repair. The existing caller-side classification stays honest once the wait helper no longer leaks the uncategorized setup-read rejection path.
+- Subtask 4: added a direct proof in `server/src/test/unit/reingestService.test.ts` for the exact review-found setup-read rejection case by making the first queue lookup throw and the timeout fallback lookup return `null`. That keeps the new setup-read case distinct from the pre-existing timeout-fallback rejection proof, and both cases now assert `WAIT_TIMEOUT` plus listener cleanup separately.
 
 ---
 

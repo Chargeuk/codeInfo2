@@ -2471,32 +2471,6 @@ export async function waitForQueueRequestTerminalStatus(
   let lastKnown: IngestJobStatus | null = null;
   let activeRunId: string | null = null;
 
-  const immediate = await resolveQueueRequestRunState(requestId);
-  if (immediate.terminal) {
-    return {
-      reason: 'terminal',
-      requestId,
-      runId: immediate.terminal.runId,
-      status: immediate.terminal.status,
-      lastKnown: immediate.terminal.status,
-    };
-  }
-  if (immediate.runId) {
-    activeRunId = immediate.runId;
-  }
-  if (immediate.status) {
-    lastKnown = immediate.status;
-    if (terminalStates.has(immediate.status.state) && activeRunId) {
-      return {
-        reason: 'terminal',
-        requestId,
-        runId: activeRunId,
-        status: immediate.status,
-        lastKnown: immediate.status,
-      };
-    }
-  }
-
   return await new Promise((resolve) => {
     let settled = false;
     let settleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
@@ -2574,6 +2548,42 @@ export async function waitForQueueRequestTerminalStatus(
       void settleFromTimeout();
     }, timeoutMs);
     settleTimer.unref?.();
+
+    // A transient setup read should not escape as a raw error before the
+    // listener and timeout-based recovery path are active.
+    void resolveQueueRequestRunState(requestId)
+      .then((immediate) => {
+        if (immediate.terminal) {
+          settle({
+            reason: 'terminal',
+            requestId,
+            runId: immediate.terminal.runId,
+            status: immediate.terminal.status,
+            lastKnown: immediate.terminal.status,
+          });
+          return;
+        }
+        if (immediate.runId) {
+          activeRunId = immediate.runId;
+        }
+        if (immediate.status) {
+          lastKnown = immediate.status;
+          if (terminalStates.has(immediate.status.state) && activeRunId) {
+            settle({
+              reason: 'terminal',
+              requestId,
+              runId: activeRunId,
+              status: immediate.status,
+              lastKnown: immediate.status,
+            });
+          }
+        }
+      })
+      .catch(() => {
+        // Leave the listener/timer active so the bounded timeout path can
+        // still classify the request through the normal terminal/timeout
+        // contract instead of surfacing a raw setup failure.
+      });
   });
 }
 

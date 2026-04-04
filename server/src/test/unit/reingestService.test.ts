@@ -655,6 +655,53 @@ test('queue-aware wait timeout-path rejection still settles as WAIT_TIMEOUT and 
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
+test('queue-aware wait setup-read rejection still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
+  process.env.NODE_ENV = 'test';
+  let readCount = 0;
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () => {
+      readCount += 1;
+      if (readCount === 1) {
+        throw new Error('queue read failed during waiter setup');
+      }
+      return null;
+    },
+  });
+  mock.method(
+    globalThis,
+    'setTimeout',
+    ((callback: () => void) => {
+      void Promise.resolve().then(callback);
+      return {
+        unref() {
+          return this;
+        },
+      } as ReturnType<typeof globalThis.setTimeout>;
+    }) as typeof globalThis.setTimeout,
+  );
+  mock.method(
+    globalThis,
+    'clearTimeout',
+    (() => undefined) as typeof globalThis.clearTimeout,
+  );
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitOptions: { timeoutMs: 5 },
+    },
+  );
+
+  assert.equal(readCount, 2);
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'error');
+  assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
+});
+
 test('queue unavailable maps to the canonical retryable QUEUE_UNAVAILABLE contract', async () => {
   const listIngestedRepositories = async () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],

@@ -2097,7 +2097,7 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `21, 22, 23, 24, 25`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: None yet.
 - Notes: Inserted on 2026-04-03 because the stored review findings reopened Story 55 and the story must now be revalidated against its acceptance criteria after the review-fix work lands.
 
@@ -2135,3 +2135,4 @@ This final review-fix task reruns the complete Story 55 validation path after Ta
 #### Implementation notes
 
 - Record the final wrapper reruns, acceptance re-check, and review-finding closure evidence that justify marking Story 55 complete again after the review reopen.
+- Implementation-only audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 26 section, and the latest current-repo evidence. No Task 26 subtasks are honestly complete yet because the final review-fix revalidation work has not started on disk, and no `Testing` items were newly marked complete in this audit. The task is now active as `__in_progress__` for the next bounded implementation pass, with Subtasks 1 through 3 and Testing 1 through 3 still remaining.

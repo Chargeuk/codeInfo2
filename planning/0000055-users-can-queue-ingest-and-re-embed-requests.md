@@ -2406,7 +2406,7 @@ This final review-response task reruns the complete Story 55 validation path aft
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `30`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` because the generated contract and its proof no longer match the queue-aware payloads this story ships.
 
 #### Overview
@@ -2459,6 +2459,7 @@ This task closes the public-contract drift found in the stored review artifacts.
 - Testing 2: the first full `npm run test:summary:server:unit` rerun failed on unrelated broader-baseline test `codex chat injects system context and emits MCP tool request/result` with `Timed out waiting for WebSocket event`, not on the Task 31 OpenAPI contract owner. A targeted rerun of that exact test then passed cleanly, and the immediate full-wrapper rerun passed with `tests run: 1612`, `passed: 1612`, `failed: 0`, and `agent_action: skip_log`, so the strengthened `openapi.contract` proof now passes alongside the current broader server-unit baseline.
 - Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the normal backend integration wrapper still accepts the queue-aware OpenAPI contract repair from current `HEAD`.
 - Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 34 exactly as the task text requires.
+- Implementation-plus-automated-proof audit on 2026-04-04: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 31 section, the latest Task 31 proof commit `cff1286c`, and the current owner files `openapi.json` plus `server/src/test/unit/openapi.contract.test.ts` from disk. No blocker remains, no additional subtasks or testing steps needed to be newly checked because the plan already honestly showed all of them complete, and the task is now `__done__` because its contract-sync work and wrapper-backed automated proof are both complete while runnable-system smoke stays explicitly owned by Task 34.
 
 ---
 

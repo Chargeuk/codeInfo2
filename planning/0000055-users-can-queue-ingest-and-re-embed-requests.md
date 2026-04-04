@@ -2513,7 +2513,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `31`
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` as explicit support-file hygiene cleanup for the tracked machine-local runtime snapshot.
 
 #### Overview
@@ -2549,6 +2549,8 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 #### Implementation notes
 
 - Starts empty.
+- **BLOCKER** Current remaining subtasks are still Subtasks 1 through 3. The latest implementation-only pass rewrote `codeInfoStatus/flow-state/manual-testing-runtime.json` toward a more generic shape, but it made no subtask-closing progress: the tracked file still contains the absolute current-repository path `/home/d_a_s/code/codeInfo2`, still carries host-specific `localhost` surface URLs, and no `.gitignore` or adjacent template-owner change now proves where the live machine-specific snapshot should live instead. The attempted work narrowed the problem to the tracked-file shape only, but planner intervention is now required to split, narrow, re-own, or concretize this task before implementation can continue honestly without looping on partial template rewrites.
+- Implementation-only audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 33 section, the latest Task 33 note state, `codeInfoStatus/flow-state/manual-testing-runtime.json`, `.gitignore`, and current git status/diff. Current repo evidence shows a partial Task 33 implementation attempt exists on disk, but no subtask is honestly complete yet, no `Testing` items were newly checked here, and the task now correctly remains `__in_progress__` with the live blocker visible for planner follow-up before any automated proof run.
 
 ---
 

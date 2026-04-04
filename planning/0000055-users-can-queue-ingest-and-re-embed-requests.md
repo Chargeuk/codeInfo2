@@ -2430,23 +2430,31 @@ This task closes the public-contract drift found in the stored review artifacts.
 - `server/src/routes/ingestRoots.ts`
 - `server/src/routes/toolsIngestedRepos.ts`
 - `server/src/test/unit/openapi.contract.test.ts`
+- https://swagger.io/specification/
 
 #### Subtasks
 
-1. [ ] Re-read the current review evidence and findings for OpenAPI drift, then inspect `openapi.json`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/routes/ingestRoots.ts`, and `server/src/routes/toolsIngestedRepos.ts` together so the contract repair reflects the actual current response owners instead of inventing a new parallel schema.
-2. [ ] Update the generated contract for `/ingest/roots` and `/tools/ingested-repos` so queued rows expose `requestId`, waiting-only `queuePosition`, `queueState`, and a nullable-or-absent `runId` when execution has not started yet.
-3. [ ] Update the generated contract so `/ingest/start` and `/ingest/reembed` expose the Story 55 queue-aware `202` response shapes for immediate-start and waiting acceptance instead of leaving those write surfaces undocumented.
-4. [ ] Tighten `server/src/test/unit/openapi.contract.test.ts` so it directly asserts the queue-aware response and repo-list fields the review found missing, including the waiting-row `runId` shape and the absence of a legacy always-present `runId` requirement.
-5. [ ] Keep this task limited to contract sync and contract-proof repair; do not widen it into unrelated OpenAPI cleanup outside the queue-aware surfaces changed by Story 55.
+1. [x] Re-read the current review evidence and findings for OpenAPI drift, then inspect `openapi.json`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/routes/ingestRoots.ts`, and `server/src/routes/toolsIngestedRepos.ts` together so the contract repair reflects the actual current response owners instead of inventing a new parallel schema.
+2. [x] Update the generated contract for `/ingest/roots` and `/tools/ingested-repos` so queued rows expose `requestId`, waiting-only `queuePosition`, `queueState`, and a nullable-or-absent `runId` when execution has not started yet.
+3. [x] Update the generated contract so `/ingest/start` and `/ingest/reembed` expose the Story 55 queue-aware `202` response shapes for immediate-start and waiting acceptance instead of leaving those write surfaces undocumented.
+4. [x] Tighten `server/src/test/unit/openapi.contract.test.ts` so it directly asserts the queue-aware response and repo-list fields the review found missing, including the waiting-row `runId` shape and the absence of a legacy always-present `runId` requirement.
+5. [x] Keep this task limited to contract sync and contract-proof repair; do not widen it into unrelated OpenAPI cleanup outside the queue-aware surfaces changed by Story 55.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the OpenAPI and contract-proof repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts` and confirm the strengthened contract proof passes on the repository's normal server-unit wrapper path.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the strengthened `server/src/test/unit/openapi.contract.test.ts` proof passes on the repository's normal backend unit wrapper alongside the broader server-unit baseline.
+3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the normal Testcontainers-backed backend integration path still passes after the queue-aware OpenAPI contract and proof repair.
+4. [ ] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 34.
 
 #### Implementation notes
 
 - Starts empty.
+- Subtask 1: re-read the current review evidence, findings, and blind-spot challenge from disk, then traced the drift directly in `openapi.json` and the current route owners. The review diagnosis was still accurate from current `HEAD`: repo-list rows were documented as always having string `runId`, queue metadata fields were missing, and the queue-aware write surfaces were absent from the generated contract.
+- Subtask 2: updated `openapi.json` for `/ingest/roots` and `/tools/ingested-repos` so queued rows now document `requestId`, waiting-only `queuePosition`, `queueState`, and nullable `runId` instead of the stale always-present run-centric shape.
+- Subtask 3: added generated OpenAPI entries for `POST /ingest/start` and `POST /ingest/reembed/{root}` with explicit queue-aware `202` acceptance `oneOf` shapes for immediate-start versus waiting responses, matching the shipped Story 55 request-versus-run identifier contract.
+- Subtask 4: tightened `server/src/test/unit/openapi.contract.test.ts` so it now asserts the queue metadata fields on both repo-list surfaces, confirms `runId` is no longer required for queued rows, and verifies the new queue-aware `202` response shapes for start and re-embed acceptance.
+- Subtask 5: kept this pass bounded to generated-contract sync plus the direct contract-proof owner only. I did not widen into broader OpenAPI cleanup, runtime behavior changes, or later browser-proof and workflow-hygiene follow-up tasks, and the `Testing` section remains intentionally unchecked for the later automated-proof step.
 
 ---
 
@@ -2477,6 +2485,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 - `.gitignore`
 - `test-results/screenshots/0000055-queued-row-state.png`
 - `test-results/screenshots/0000055-bulk-selection-state.png`
+- https://playwright.dev/docs/screenshots
 
 #### Subtasks
 
@@ -2488,8 +2497,11 @@ This task closes the stored browser-proof finding without widening Story 55 into
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts` and confirm the queue-specific browser scenarios now pass on the repository's supported Playwright wrapper without relying on warn-and-return skips.
-2. [ ] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the targeted e2e run and are no longer lost behind the current ignore rules.
+1. [ ] Run `npm run build:summary:client` and confirm the supported client build wrapper still passes after the Story 55 browser-proof and screenshot-artifact changes.
+2. [ ] Run full `npm run test:summary:client` and confirm the existing ingest-page client proof homes still pass after the queue-specific browser-proof adjustments and screenshot-artifact durability change.
+3. [ ] Run full `npm run test:summary:e2e` and confirm the supported Playwright wrapper now proves the Story 55 queue-specific browser scenarios without warn-and-return skips, while also producing the required durable screenshot artifacts for later branch review.
+4. [ ] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the full e2e wrapper run and are no longer hidden behind the current ignore rules.
+5. [ ] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 34.
 
 #### Implementation notes
 
@@ -2530,8 +2542,9 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 
 #### Testing
 
-1. [ ] Run a JSON-parse check against the tracked workflow-state file that remains after the cleanup and confirm the tracked artifact is still syntactically valid.
-2. [ ] Run `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore` and confirm the tracked portable file stays normal while the live machine-local snapshot no longer appears as tracked repository state.
+1. [ ] Wrapper-backed build, test, and compose smoke proof are not applicable for this task because it only repairs tracked support-file hygiene and does not change a runnable server, client, or automated harness path. Prove the task through the direct file-shape and tracked-state checks below instead.
+2. [ ] Run a JSON-parse check against the tracked workflow-state file that remains after the cleanup and confirm the tracked artifact is still syntactically valid.
+3. [ ] Run `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore` and confirm the tracked portable file stays normal while the live machine-local snapshot no longer appears as tracked repository state.
 
 #### Implementation notes
 
@@ -2575,7 +2588,7 @@ This final review-response task reruns the complete Story 55 validation path aft
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
 2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 33. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
-3. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks.
+3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks. If a conflicting main-stack instance already owns the fixed host ports, stop that normal stack intentionally first rather than switching to a different runtime variant for this proof.
 
 #### Implementation notes
 

@@ -2312,6 +2312,7 @@ export async function recoverIngestQueueOnStartup() {
 
   const blocked = await queueRuntimeOps.findOldestCleanupBlockedQueueRequest();
   if (blocked) {
+    const blockedRequestId = queueRuntimeOps.getQueueRequestId(blocked);
     const blockedRunId =
       typeof blocked.runId === 'string' && blocked.runId.length > 0
         ? blocked.runId
@@ -2319,11 +2320,17 @@ export async function recoverIngestQueueOnStartup() {
     if (blockedRunId) {
       queueRequestIdsByRunId.set(
         blockedRunId,
-        queueRuntimeOps.getQueueRequestId(blocked),
+        blockedRequestId,
       );
       await finalizeQueueRequestForRun(blockedRunId);
       return { recovered: true, blockedByActiveLock: false };
     }
+
+    logWarning('startup recovery found cleanup-blocked queue request without runId', {
+      requestId: blockedRequestId,
+      canonicalTargetPath: blocked.canonicalTargetPath,
+    });
+    return { recovered: false, blockedByActiveLock: false };
   }
 
   const running = await queueRuntimeOps.findOldestRunningQueueRequest();

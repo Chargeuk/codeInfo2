@@ -2228,7 +2228,7 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `27`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because startup recovery still treats `cleanup-blocked` rows inconsistently when `runId` is null.
 
 #### Overview
@@ -2253,10 +2253,10 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 
 #### Subtasks
 
-1. [ ] Re-read the current review finding for malformed `cleanup-blocked` restart state, then inspect `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/ingest/ingestJob.ts` together so the persisted shape, write helper, startup recovery, and steady-state queue pump all agree on what blocks newer work.
-2. [ ] Update the startup recovery logic in `server/src/ingest/ingestJob.ts` so any persisted `cleanup-blocked` row blocks later recovery until the cleanup owner resolves it, regardless of whether `runId` is present.
-3. [ ] Narrow the persisted-state contract only if necessary for consistency, but do not widen this task into unrelated queue-schema redesign beyond the exact `cleanup-blocked` ownership issue found by review.
-4. [ ] Add or extend direct proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for a `cleanup-blocked` row with `runId: null`, and keep the existing non-null `runId` recovery proof as a separate explicit case.
+1. [x] Re-read the current review finding for malformed `cleanup-blocked` restart state, then inspect `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/ingest/ingestJob.ts` together so the persisted shape, write helper, startup recovery, and steady-state queue pump all agree on what blocks newer work.
+2. [x] Update the startup recovery logic in `server/src/ingest/ingestJob.ts` so any persisted `cleanup-blocked` row blocks later recovery until the cleanup owner resolves it, regardless of whether `runId` is present.
+3. [x] Narrow the persisted-state contract only if necessary for consistency, but do not widen this task into unrelated queue-schema redesign beyond the exact `cleanup-blocked` ownership issue found by review.
+4. [x] Add or extend direct proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for a `cleanup-blocked` row with `runId: null`, and keep the existing non-null `runId` recovery proof as a separate explicit case.
 
 #### Testing
 
@@ -2268,6 +2268,10 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 #### Implementation notes
 
 - Record whether the final fix was a startup-reader change, a persisted-shape tightening, or both, and explain how the new proof demonstrates that newer waiting work cannot start while any cleanup-blocked row still owns unresolved cleanup.
+- Subtask 1: re-read the current review finding plus `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/ingest/ingestJob.ts` together. The persisted shape and write helper already allow `runId: null`, and steady-state `pumpIngestQueue()` already stalls on any `cleanup-blocked` row, so the inconsistency was isolated to startup recovery.
+- Subtask 2: updated `server/src/ingest/ingestJob.ts` so `recoverIngestQueueOnStartup()` now treats any persisted `cleanup-blocked` row as blocking. If `runId` is present it still hands the row to the existing cleanup finalizer, and if `runId` is missing it now logs the malformed persisted state and returns without advancing to `running` or `waiting` recovery.
+- Subtask 3: no persisted-schema tightening was needed for this task. The fix stayed at the startup-reader seam so the existing nullable `runId` contract remains internally consistent with both steady-state queue pumping and restart behavior.
+- Subtask 4: added a separate direct proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for a `cleanup-blocked` row with `runId: null`, and kept the existing non-null `runId` startup-recovery proof as its own explicit case instead of merging them into one ambiguous assertion.
 
 ---
 

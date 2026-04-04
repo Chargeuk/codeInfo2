@@ -329,10 +329,37 @@ test('startup recovery resolves cleanup-blocked before retrying running work or 
   assert.deepEqual(events, ['cleanup-first']);
 });
 
+test('startup recovery does not advance past cleanup-blocked rows with missing runId', async () => {
+  const events: string[] = [];
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () =>
+      createQueueRequest({
+        requestId: '10',
+        root: '/data/repo-cleanup-missing-run',
+        queueState: 'cleanup-blocked',
+        runId: null,
+      }),
+    findOldestRunningQueueRequest: async () => {
+      events.push('running-lookup');
+      return null;
+    },
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promote');
+      return null;
+    },
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+
+  assert.equal(result.recovered, false);
+  assert.deepEqual(events, []);
+});
+
 test('startup recovery retries leftover running work before newer waiting work', async () => {
   const events: string[] = [];
   const runningQueueRequest = createQueueRequest({
-    requestId: '9',
+    requestId: '11',
     root: '/data/repo-running',
     queueState: 'running',
     runId: 'run-recovered',

@@ -2260,10 +2260,10 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the startup-recovery repair still builds on the supported server path.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the updated `server/src/test/unit/ingest-queue-runtime.test.ts` proof now covers `cleanup-blocked` rows with missing `runId` on the repository’s normal backend proof wrapper.
-3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the startup-recovery route/runtime behavior still passes through the repository’s normal Testcontainers-backed backend integration path after the ordering repair.
-4. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the Task 28 startup-recovery change.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the startup-recovery repair still builds on the supported server path.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the updated `server/src/test/unit/ingest-queue-runtime.test.ts` proof now covers `cleanup-blocked` rows with missing `runId` on the repository’s normal backend proof wrapper.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the startup-recovery route/runtime behavior still passes through the repository’s normal Testcontainers-backed backend integration path after the ordering repair.
+4. [x] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the Task 28 startup-recovery change.
 
 #### Implementation notes
 
@@ -2272,6 +2272,10 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 - Subtask 2: updated `server/src/ingest/ingestJob.ts` so `recoverIngestQueueOnStartup()` now treats any persisted `cleanup-blocked` row as blocking. If `runId` is present it still hands the row to the existing cleanup finalizer, and if `runId` is missing it now logs the malformed persisted state and returns without advancing to `running` or `waiting` recovery.
 - Subtask 3: no persisted-schema tightening was needed for this task. The fix stayed at the startup-reader seam so the existing nullable `runId` contract remains internally consistent with both steady-state queue pumping and restart behavior.
 - Subtask 4: added a separate direct proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for a `cleanup-blocked` row with `runId: null`, and kept the existing non-null `runId` startup-recovery proof as its own explicit case instead of merging them into one ambiguous assertion.
+- Testing 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the startup-recovery repair still builds on the supported server wrapper path without requiring log inspection.
+- Testing 2: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1607`, `passed: 1607`, `failed: 0`, and `agent_action: skip_log`, so the new null-`runId` `cleanup-blocked` recovery proof holds on the repository's normal backend wrapper without regressing the broader server unit baseline.
+- Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the startup-recovery route and runtime path still survive the normal Testcontainers-backed backend integration wrapper after the ordering repair.
+- Testing 4: `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` all passed on the standard main-stack path. Compose build finished with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and `compose:up` cleared the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` before the stack came up and shut down cleanly.
 
 ---
 

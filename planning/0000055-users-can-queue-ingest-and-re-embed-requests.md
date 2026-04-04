@@ -2098,7 +2098,7 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 - Repository Name: `Current Repository`
 - Task Dependencies: `21, 22, 23, 24, 25`
 - Task Status: `__in_progress__`
-- Git Commits: `f0d1c5e1`
+- Git Commits: `f0d1c5e1`, `aecc97d2`
 - Notes: Inserted on 2026-04-03 because the stored review findings reopened Story 55 and the story must now be revalidated against its acceptance criteria after the review-fix work lands.
 
 #### Overview

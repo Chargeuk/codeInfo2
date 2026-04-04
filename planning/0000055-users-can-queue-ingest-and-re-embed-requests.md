@@ -2204,10 +2204,10 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue waiter still builds on the supported server path.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the updated `server/src/test/unit/reingestService.test.ts` proof now covers the initial waiter setup-read rejection path directly on the repository’s normal backend proof wrapper.
-3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the blocking re-embed route surface still passes through the repository’s normal Testcontainers-backed backend integration path after the waiter repair.
-4. [ ] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the Task 27 queue waiter change.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue waiter still builds on the supported server path.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the updated `server/src/test/unit/reingestService.test.ts` proof now covers the initial waiter setup-read rejection path directly on the repository’s normal backend proof wrapper.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the blocking re-embed route surface still passes through the repository’s normal Testcontainers-backed backend integration path after the waiter repair.
+4. [x] Run `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` in order so the normal supported main-stack runtime path is smoke-proved after the Task 27 queue waiter change.
 
 #### Implementation notes
 
@@ -2215,6 +2215,10 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 - Subtask 1: re-read the current review finding plus the active producer/consumer seam in `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts`. The real defect is inside `waitForQueueRequestTerminalStatus()`, not in a missing second wrapper at the caller: the first queue-state read happened before listener registration and before the guarded timeout-recovery path was active.
 - Subtask 2: updated `server/src/ingest/ingestJob.ts` so the waiter now registers its listener and timeout first, then performs the initial queue-state read inside that protected lifecycle. If the setup read fails, the code now leaves the listener/timer active and degrades through the existing bounded terminal-or-timeout path instead of surfacing a raw setup failure before cleanup can settle exactly once.
 - Subtask 3: no `server/src/ingest/reingestService.ts` code change was needed after the waiter repair. The existing caller-side classification stays honest once the wait helper no longer leaks the uncategorized setup-read rejection path.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and `warning_count: 0`, so the repaired waiter setup path still builds on the supported server wrapper path without requiring log inspection.
+- Testing 2: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1606`, `passed: 1606`, `failed: 0`, and `agent_action: skip_log`. That keeps the new `reingestService.test.ts` setup-read rejection proof honest on the repository's normal backend wrapper without regressing the broader server unit baseline.
+- Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the blocking re-embed route surface still survives the normal Testcontainers-backed backend integration path after the waiter repair.
+- Testing 4: `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` all passed on the standard main-stack path. Compose build finished with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and `compose:up` cleared the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` before the stack came up and shut down cleanly.
 - Subtask 4: added a direct proof in `server/src/test/unit/reingestService.test.ts` for the exact review-found setup-read rejection case by making the first queue lookup throw and the timeout fallback lookup return `null`. That keeps the new setup-read case distinct from the pre-existing timeout-fallback rejection proof, and both cases now assert `WAIT_TIMEOUT` plus listener cleanup separately.
 
 ---

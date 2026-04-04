@@ -2045,7 +2045,7 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
 - Task Status: `__in_progress__`
-- Git Commits: None yet.
+- Git Commits: `14429f35`
 - Notes: Inserted on 2026-04-03 after review found that the changed cleanup/stop acceptance proof still depends on a fixed `100ms` sleep.
 
 #### Overview

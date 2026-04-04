@@ -24,7 +24,7 @@ codex_agents/**/sessions/
 logs/
 certs/task6-valid/*.key
 
-server/tmp-flows-cmd*/
+server/tmp-flows-*/
 planning/**/*.png
 planning/**/*.jpg
 planning/**/*.jpeg

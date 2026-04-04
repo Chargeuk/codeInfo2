@@ -2442,10 +2442,10 @@ This task closes the public-contract drift found in the stored review artifacts.
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the OpenAPI and contract-proof repair.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the strengthened `server/src/test/unit/openapi.contract.test.ts` proof passes on the repository's normal backend unit wrapper alongside the broader server-unit baseline.
-3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the normal Testcontainers-backed backend integration path still passes after the queue-aware OpenAPI contract and proof repair.
-4. [ ] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 34.
+1. [x] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the OpenAPI and contract-proof repair.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the strengthened `server/src/test/unit/openapi.contract.test.ts` proof passes on the repository's normal backend unit wrapper alongside the broader server-unit baseline.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the normal Testcontainers-backed backend integration path still passes after the queue-aware OpenAPI contract and proof repair.
+4. [x] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 34.
 
 #### Implementation notes
 
@@ -2455,6 +2455,10 @@ This task closes the public-contract drift found in the stored review artifacts.
 - Subtask 3: added generated OpenAPI entries for `POST /ingest/start` and `POST /ingest/reembed/{root}` with explicit queue-aware `202` acceptance `oneOf` shapes for immediate-start versus waiting responses, matching the shipped Story 55 request-versus-run identifier contract.
 - Subtask 4: tightened `server/src/test/unit/openapi.contract.test.ts` so it now asserts the queue metadata fields on both repo-list surfaces, confirms `runId` is no longer required for queued rows, and verifies the new queue-aware `202` response shapes for start and re-embed acceptance.
 - Subtask 5: kept this pass bounded to generated-contract sync plus the direct contract-proof owner only. I did not widen into broader OpenAPI cleanup, runtime behavior changes, or later browser-proof and workflow-hygiene follow-up tasks, and the `Testing` section remains intentionally unchecked for the later automated-proof step.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and no warnings, so the supported server build wrapper still accepts the queue-aware OpenAPI and contract-proof repair from current `HEAD`.
+- Testing 2: the first full `npm run test:summary:server:unit` rerun failed on unrelated broader-baseline test `codex chat injects system context and emits MCP tool request/result` with `Timed out waiting for WebSocket event`, not on the Task 31 OpenAPI contract owner. A targeted rerun of that exact test then passed cleanly, and the immediate full-wrapper rerun passed with `tests run: 1612`, `passed: 1612`, `failed: 0`, and `agent_action: skip_log`, so the strengthened `openapi.contract` proof now passes alongside the current broader server-unit baseline.
+- Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the normal backend integration wrapper still accepts the queue-aware OpenAPI contract repair from current `HEAD`.
+- Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 34 exactly as the task text requires.
 
 ---
 
@@ -2567,6 +2571,7 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 - Testing 2: `git ls-files --error-unmatch codeInfoStatus/flow-state/manual-testing-runtime.json` failed as expected with `pathspec ... did not match any file(s) known to git`, proving the live runtime snapshot is no longer tracked. `git check-ignore -v codeInfoStatus/flow-state/manual-testing-runtime.json` then resolved the ignore ownership to `.gitignore`, confirming the repo-wide exact-path ignore rule now owns that live file.
 - Testing 3: `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore codeinfo_markdown/manual_test_runtime_research.md codeinfo_markdown/manual_test_latest_completed_task.md` reported only `!! codeInfoStatus/flow-state/manual-testing-runtime.json`, which confirms the live snapshot is ignored while the checked-in doc owners and `.gitignore` remain normal clean tracked state.
 - Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 33 section, the latest Task 33 implementation note state, and the direct tracked-state proof outputs above. Current repo evidence now shows every Task 33 subtask and all three Task 33 testing steps are honestly complete, there is no live `**BLOCKER**` note on the task, and Task 33 now correctly closes as `__done__` before the flow moves on to manual testing and later story revalidation.
+- Manual testing assessed on 2026-04-04 and not applicable for this task. This pass stayed task-scoped because Task 33 only changes Git tracking, ignore ownership, and markdown guidance for the live `codeInfoStatus/flow-state/manual-testing-runtime.json` artifact, so there is no runnable, browser-accessible, or externally observable product surface to start, stop, or exercise manually, and the broader runnable-system revalidation remains owned by Task 34.
 
 ---
 

@@ -11,6 +11,7 @@ If no supported Docker or Compose path exists, prefer local wrapper or script wo
 Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence.
 Write the results to `codeInfoStatus/flow-state/manual-testing-runtime.json`.
 Do not commit that file in this step.
+Treat it as a live local runtime-research artifact rather than durable tracked repository state.
 
 </task>
 

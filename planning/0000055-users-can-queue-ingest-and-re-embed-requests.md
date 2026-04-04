@@ -2228,7 +2228,7 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `27`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because startup recovery still treats `cleanup-blocked` rows inconsistently when `runId` is null.
 
 #### Overview
@@ -2276,6 +2276,7 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 - Testing 2: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1607`, `passed: 1607`, `failed: 0`, and `agent_action: skip_log`, so the new null-`runId` `cleanup-blocked` recovery proof holds on the repository's normal backend wrapper without regressing the broader server unit baseline.
 - Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the startup-recovery route and runtime path still survive the normal Testcontainers-backed backend integration wrapper after the ordering repair.
 - Testing 4: `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` all passed on the standard main-stack path. Compose build finished with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and `compose:up` cleared the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` before the stack came up and shut down cleanly.
+- Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 28 section, the implementation commit `cdc97e79`, the proof commit `06cf519c`, and the current repo evidence in `server/src/ingest/ingestJob.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 4 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 28, and the task is now `__done__` because Subtasks 1 through 4 plus Testing steps 1 through 4 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

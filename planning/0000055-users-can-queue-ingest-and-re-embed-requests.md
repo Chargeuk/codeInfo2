@@ -2313,8 +2313,8 @@ This task closes the review scope-control finding by removing unrelated branch w
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` and confirm the repository’s primary containerized build path still packages cleanly after removing the unrelated token-counting utility.
-2. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still succeeds after the root script and utility-file removal.
+1. [x] Run `npm run compose:build:summary` and confirm the repository’s primary containerized build path still packages cleanly after removing the unrelated token-counting utility.
+2. [x] Run `npm run build:summary:server` and confirm the supported server build wrapper still succeeds after the root script and utility-file removal.
 
 #### Implementation notes
 
@@ -2322,6 +2322,8 @@ This task closes the review scope-control finding by removing unrelated branch w
 - Subtask 1: re-read the current review finding plus `package.json`, `server/scripts/count-tool-tokens.mjs`, and `scripts/token-tools-sample.json` together. Those were the only live branch-owned entry points for the unrelated utility, so the removal scope stayed bounded to the review finding instead of widening into general branch cleanup.
 - Subtask 2: removed the root `count:tool:tokens` script entry from `package.json` and deleted `server/scripts/count-tool-tokens.mjs` plus `scripts/token-tools-sample.json` from the branch.
 - Subtask 3: re-checked the repo for remaining runtime, wrapper, or doc references to the removed token-counting utility. The only surviving mentions are the plan and review artifacts that explain why the utility was removed, so no hidden justification or replacement contract was added inside Story 55 itself.
+- Testing 1: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the repository's primary containerized build path still packages after the unrelated token-counting utility was removed.
+- Testing 2: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the supported server build wrapper still succeeds after the root script and utility-file removal.
 
 ---
 

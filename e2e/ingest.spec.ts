@@ -4,6 +4,8 @@ import {
   test,
   type APIRequestContext,
 } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -13,12 +15,24 @@ const mountedLargeFixturePath = `${fixturePath}/${largeFixtureRelPath}`;
 const fixtureName = 'fixtures-e2e';
 
 const preferredEmbeddingModel = 'text-embedding-qwen3-embedding-4b';
+const stableScreenshotDir = path.join('test-results', 'screenshots');
 
 let skipReason: string | undefined;
 let ingestSkip: string | undefined;
 let chosenModelId: string | undefined;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function saveStableScreenshot(
+  page: Parameters<typeof test>[0]['page'],
+  fileName: string,
+) {
+  await mkdir(stableScreenshotDir, { recursive: true });
+  await page.screenshot({
+    path: path.join(stableScreenshotDir, fileName),
+    fullPage: true,
+  });
+}
 
 async function ensureCleanRoots() {
   const ctx = await request.newContext();
@@ -523,6 +537,7 @@ test.describe.serial('Ingest flows', () => {
     await queuedRow.getByRole('button', { name: /details/i }).click();
     await expect(page.getByText(/Request ID/i)).toBeVisible();
     await expect(page.getByText(/Pending queue start/i)).toBeVisible();
+    await saveStableScreenshot(page, '0000055-queued-row-state.png');
   });
 
   test('queued row stays visible after a page refresh while the request is still waiting', async ({
@@ -696,6 +711,7 @@ test.describe.serial('Ingest flows', () => {
       .getByRole('checkbox', { name: /^Select mock-removable$/i })
       .check();
     await expect(bulkRemove).toBeEnabled();
+    await saveStableScreenshot(page, '0000055-bulk-selection-state.png');
 
     await bulkRemove.click();
 

@@ -49,8 +49,8 @@ export function mapIngestPath(
   const hostPathWarning = isAbsoluteHostStylePath
     ? undefined
     : process.env.CODEINFO_HOST_INGEST_DIR
-    ? undefined
-    : 'CODEINFO_HOST_INGEST_DIR not set; using container path base';
+      ? undefined
+      : 'CODEINFO_HOST_INGEST_DIR not set; using container path base';
 
   return {
     repo,

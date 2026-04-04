@@ -299,8 +299,8 @@ Then(
       if (body.state === state) return;
       if (body.state === 'error' && state !== 'error') {
         throw new Error(
-          `Run ended in error: ${body.lastError ?? body.error?.message ?? body.message ?? 'unknown error'}`
-          + ` [code=${body.error?.error ?? 'unknown'}]`,
+          `Run ended in error: ${body.lastError ?? body.error?.message ?? body.message ?? 'unknown error'}` +
+            ` [code=${body.error?.error ?? 'unknown'}]`,
         );
       }
       await new Promise((r) => setTimeout(r, 100));

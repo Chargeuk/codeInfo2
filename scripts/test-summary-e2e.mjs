@@ -276,7 +276,9 @@ try {
         if (report) {
           summary = collectSummary(report);
         } else {
-          const fallbackSummary = parsePlaywrightStatsFallback(testResult.output);
+          const fallbackSummary = parsePlaywrightStatsFallback(
+            testResult.output,
+          );
           if (!fallbackSummary) {
             throw new Error('Playwright JSON report not found in stdout');
           }

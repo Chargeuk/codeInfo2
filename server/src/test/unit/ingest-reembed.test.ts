@@ -16,7 +16,6 @@ import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import { hashFile } from '../../ingest/hashing.js';
 import {
   __resetIngestJobsForTest,
-  getStatus,
   startIngest,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';

@@ -416,7 +416,9 @@ export default function RootsTable({
                   <TableCell padding="checkbox">
                     <Checkbox
                       checked={isSelected}
-                      disabled={busy || blocksSharedSelection(root, activeRunId)}
+                      disabled={
+                        busy || blocksSharedSelection(root, activeRunId)
+                      }
                       onChange={() => toggle(root.path)}
                       inputProps={{ 'aria-label': `Select ${root.name}` }}
                     />

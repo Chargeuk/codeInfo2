@@ -156,14 +156,10 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
           },
           "freshness": {
             "reuse_allowed": false,
-            "restart_required_for": [
-              "server code changes"
-            ],
+            "restart_required_for": ["server code changes"],
             "proof": "No supported freshness marker documented; restart unless a later repository-supported proof is added."
           },
-          "prerequisites": [
-            "docker running"
-          ],
+          "prerequisites": ["docker running"],
           "notes": "Use the paired frontend for browser proof."
         }
       ]

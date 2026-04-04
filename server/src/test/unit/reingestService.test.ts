@@ -160,7 +160,10 @@ test('actual queue terminal cache still resolves completed and failed payloads b
 
     assert.equal(result.ok, true);
     if (!result.ok) continue;
-    assert.equal(result.value.status, state === 'error' ? 'error' : 'completed');
+    assert.equal(
+      result.value.status,
+      state === 'error' ? 'error' : 'completed',
+    );
     assert.equal(result.value.runId, 'ingest-123');
   }
 });
@@ -620,18 +623,14 @@ test('queue-aware wait timeout-path rejection still settles as WAIT_TIMEOUT and 
       throw new Error('queue read failed during timeout fallback');
     },
   });
-  mock.method(
-    globalThis,
-    'setTimeout',
-    ((callback: () => void) => {
-      void Promise.resolve().then(callback);
-      return {
-        unref() {
-          return this;
-        },
-      } as ReturnType<typeof globalThis.setTimeout>;
-    }) as typeof globalThis.setTimeout,
-  );
+  mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
+    void Promise.resolve().then(callback);
+    return {
+      unref() {
+        return this;
+      },
+    } as ReturnType<typeof globalThis.setTimeout>;
+  }) as typeof globalThis.setTimeout);
   mock.method(
     globalThis,
     'clearTimeout',
@@ -667,18 +666,14 @@ test('queue-aware wait setup-read rejection still settles as WAIT_TIMEOUT and un
       return null;
     },
   });
-  mock.method(
-    globalThis,
-    'setTimeout',
-    ((callback: () => void) => {
-      void Promise.resolve().then(callback);
-      return {
-        unref() {
-          return this;
-        },
-      } as ReturnType<typeof globalThis.setTimeout>;
-    }) as typeof globalThis.setTimeout,
-  );
+  mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
+    void Promise.resolve().then(callback);
+    return {
+      unref() {
+        return this;
+      },
+    } as ReturnType<typeof globalThis.setTimeout>;
+  }) as typeof globalThis.setTimeout);
   mock.method(
     globalThis,
     'clearTimeout',

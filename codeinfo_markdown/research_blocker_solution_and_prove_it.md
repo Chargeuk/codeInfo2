@@ -27,15 +27,18 @@ Write the proven blocker answer into the implementation notes marked as `**BLOCK
 If the implementation notes contain a blocker, your research must cover all of the following:
 
 1. Pattern research
+
 - use the `code_info` tool to see how other ingested repositories solve the same class of problem
 - use repository evidence first
 - prefer existing repository and official library solutions over invented approaches
 
 2. External-library and framework confirmation
+
 - use DeepWiki, Context7, and targeted web research when the blocker involves external libraries or frameworks
 - distinguish intended supported usage from accidental workarounds
 
 3. Exact issue-resolution research
+
 - research the exact blocker, error, or failure mode itself using official docs and targeted web searches
 - identify how other engineers resolve the same concrete issue in practice
 - distinguish between temporary workarounds, proper fixes, and anti-patterns

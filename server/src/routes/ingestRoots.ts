@@ -163,9 +163,9 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
       const payload = await listIngestedRepositories({
         getRootsCollection: resolved.getRootsCollection,
         getLockedModel: resolved.getLockedModel,
-        ...((typeof deps.getLockedEmbeddingModel === 'function' ||
-          (!hasLegacyOverrides &&
-            typeof resolved.getLockedEmbeddingModel === 'function'))
+        ...(typeof deps.getLockedEmbeddingModel === 'function' ||
+        (!hasLegacyOverrides &&
+          typeof resolved.getLockedEmbeddingModel === 'function')
           ? { getLockedEmbeddingModel: resolved.getLockedEmbeddingModel }
           : {}),
       });

@@ -8,7 +8,9 @@ function buildApp(options: {
   enabled?: boolean;
   isBusy?: () => boolean;
   removeRoot?: (rootPath: string) => Promise<{ unlocked: boolean }>;
-  deleteWaitingQueueRequestsByTargetPath?: (rootPath: string) => Promise<number>;
+  deleteWaitingQueueRequestsByTargetPath?: (
+    rootPath: string,
+  ) => Promise<number>;
 }) {
   const app = express();
   app.use(express.json());

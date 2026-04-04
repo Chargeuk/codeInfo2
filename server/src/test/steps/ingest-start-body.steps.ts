@@ -70,8 +70,10 @@ Before(async () => {
         new MockLMStudioClient() as unknown as LMStudioClient,
       enqueueOrReuseIngestRequest: async (input: EnqueueIngestRequestInput) => {
         lastStartInput = {
-          embeddingProvider: input.requestPayload
-            .embeddingProvider as 'lmstudio' | 'openai' | undefined,
+          embeddingProvider: input.requestPayload.embeddingProvider as
+            | 'lmstudio'
+            | 'openai'
+            | undefined,
           embeddingModel: input.requestPayload.embeddingModel as
             | string
             | undefined,

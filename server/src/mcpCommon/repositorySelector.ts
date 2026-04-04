@@ -1,9 +1,9 @@
+import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
 import {
   listIngestedRepositories,
   type ListReposResult,
   type RepoEntry,
 } from '../lmstudio/toolService.js';
-import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
 
 export type RepositorySelectorDeps = {
   listIngestedRepositories?: () => Promise<ListReposResult>;
@@ -70,6 +70,7 @@ export async function resolveRepositorySelector(
 
   return selectLatestRepo(
     repos,
-    (repo) => normalizeCanonicalQueueTargetPath(repo.hostPath) === normalizedPath,
+    (repo) =>
+      normalizeCanonicalQueueTargetPath(repo.hostPath) === normalizedPath,
   );
 }

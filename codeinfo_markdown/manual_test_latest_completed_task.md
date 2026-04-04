@@ -47,7 +47,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - environment wiring;
   - startup or shutdown behavior;
   - or any other runtime-loaded code path;
-  then do not reuse an already-running stack unless freshness is explicitly proven.
+    then do not reuse an already-running stack unless freshness is explicitly proven.
 - Acceptable freshness evidence may include:
   - current runtime-research guidance that explicitly permits reuse for this task shape;
   - a repository-supported marker or command that proves the running stack was started from the current relevant repository state;

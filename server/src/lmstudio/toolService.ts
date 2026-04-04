@@ -1,6 +1,6 @@
 import path from 'path';
-import mongoose from 'mongoose';
 import { type IngestQueueState } from '@codeinfo2/common';
+import mongoose from 'mongoose';
 import {
   type EmbeddingProviderId,
   IngestRequiredError,

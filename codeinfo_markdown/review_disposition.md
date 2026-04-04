@@ -32,7 +32,7 @@ Finish the current story review using ONLY the stored review handoff and the art
   - `evidence_file`
   - `findings_file`
   - `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, and `head_commit`
-  still match the normalized review scope and current repository state for every selected repository.
+    still match the normalized review scope and current repository state for every selected repository.
 - Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
 - If the review handoff includes `challenge_file`, treat it as optional additive context for this pass. Read it when present.
 - If `challenge_file` is absent, derive the same reasoning directly from the evidence and findings artifacts instead of failing or asking for a rerun.

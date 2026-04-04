@@ -100,11 +100,7 @@
               "non-live-mounted image content changes"
             ],
             "proof": "README only documents immediate visibility for the listed bind-mounted runtime trees. No broader freshness marker is documented, and AGENTS.md says this agent must not run `*:local:*` commands.",
-            "sources": [
-              "README.md",
-              "docker-compose.local.yml",
-              "AGENTS.md"
-            ]
+            "sources": ["README.md", "docker-compose.local.yml", "AGENTS.md"]
           },
           "prerequisites": [
             "Docker runtime is available.",
@@ -156,11 +152,7 @@
               "image-baked runtime asset changes"
             ],
             "proof": "README says the main stack remains image-baked, so an already-running stack is not safely provable as current after relevant changes. Rebuild and restart with the supported compose wrappers after those changes. When the full Story 50 validation flow is used, `DEV-0000050:T10:image_runtime_assets_baked`, `DEV-0000050:T11:host_network_runtime_ready`, and `DEV-0000050:T12:main_stack_probe_completed` are the documented validation markers.",
-            "sources": [
-              "README.md",
-              "AGENTS.md",
-              "package.json"
-            ]
+            "sources": ["README.md", "AGENTS.md", "package.json"]
           },
           "prerequisites": [
             "Docker runtime is available and supports the repo's compose workflow.",
@@ -212,14 +204,9 @@
               "startup or shutdown behavior changes"
             ],
             "proof": "This UI is served from the image-baked main compose stack. No separate already-running freshness marker is documented beyond the main stack guidance.",
-            "sources": [
-              "README.md",
-              "docker-compose.yml"
-            ]
+            "sources": ["README.md", "docker-compose.yml"]
           },
-          "prerequisites": [
-            "The main compose stack is running."
-          ],
+          "prerequisites": ["The main compose stack is running."],
           "dependencies": {
             "build_outputs_required": false,
             "generated_files_required": false,
@@ -319,11 +306,7 @@
               "fake-scenario configuration changes"
             ],
             "proof": "README says the e2e stack remains image-baked, so an already-running e2e stack is not safely provable as current after relevant changes. Rebuild and restart with the supported e2e compose wrappers after those changes. The broader Story 50 validation flow also records `DEV-0000050:T13:e2e_host_network_config_verified` when that full e2e path is rerun.",
-            "sources": [
-              "README.md",
-              "package.json",
-              "docker-compose.e2e.yml"
-            ]
+            "sources": ["README.md", "package.json", "docker-compose.e2e.yml"]
           },
           "prerequisites": [
             "Docker runtime is available.",
@@ -374,14 +357,9 @@
               "fake-scenario configuration changes"
             ],
             "proof": "This UI is served from the image-baked fake-scenario e2e stack. No separate already-running freshness marker is documented beyond the e2e stack guidance.",
-            "sources": [
-              "README.md",
-              "docker-compose.e2e.yml"
-            ]
+            "sources": ["README.md", "docker-compose.e2e.yml"]
           },
-          "prerequisites": [
-            "The e2e fake-scenario stack is running."
-          ],
+          "prerequisites": ["The e2e fake-scenario stack is running."],
           "dependencies": {
             "build_outputs_required": true,
             "generated_files_required": false,

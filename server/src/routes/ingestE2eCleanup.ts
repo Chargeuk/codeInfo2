@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { isBusy, removeRoot } from '../ingest/ingestJob.js';
-import { deleteWaitingQueueRequestsByTargetPath } from '../ingest/requestQueue.js';
 import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
+import { deleteWaitingQueueRequestsByTargetPath } from '../ingest/requestQueue.js';
 import { baseLogger } from '../logger.js';
 
 export function createIngestE2eCleanupRouter({
@@ -9,8 +9,7 @@ export function createIngestE2eCleanupRouter({
   isBusy: isBusyOverride = isBusy,
   removeRoot: removeRootOverride = removeRoot,
   deleteWaitingQueueRequestsByTargetPath:
-    deleteWaitingQueueRequestsByTargetPathOverride =
-      deleteWaitingQueueRequestsByTargetPath,
+    deleteWaitingQueueRequestsByTargetPathOverride = deleteWaitingQueueRequestsByTargetPath,
 }: {
   enabled?: boolean;
   isBusy?: typeof isBusy;
@@ -61,7 +60,10 @@ export function createIngestE2eCleanupRouter({
         unlocked: removeResult.unlocked,
       });
     } catch (err) {
-      baseLogger.error({ root: canonicalRoot, err }, 'ingest e2e cleanup failed');
+      baseLogger.error(
+        { root: canonicalRoot, err },
+        'ingest e2e cleanup failed',
+      );
       return res.status(500).json({
         status: 'error',
         message: (err as Error).message,

@@ -170,11 +170,7 @@ if (buildResult.code === 0) {
     logStream,
     protocol,
     phase: 'test',
-    semanticProgressPatterns: [
-      /^# Subtest: /,
-      /^ok \d+ - /,
-      /^not ok \d+ - /,
-    ],
+    semanticProgressPatterns: [/^# Subtest: /, /^ok \d+ - /, /^not ok \d+ - /],
     terminalSummaryPatterns: [/^1\.\./, /^# tests /, /^# pass /, /^# fail /],
   });
   output += testResult.output;

@@ -1,11 +1,11 @@
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import {
   expect,
   request,
   test,
   type APIRequestContext,
 } from '@playwright/test';
-import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';

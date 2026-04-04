@@ -2318,18 +2318,18 @@ export async function recoverIngestQueueOnStartup() {
         ? blocked.runId
         : null;
     if (blockedRunId) {
-      queueRequestIdsByRunId.set(
-        blockedRunId,
-        blockedRequestId,
-      );
+      queueRequestIdsByRunId.set(blockedRunId, blockedRequestId);
       await finalizeQueueRequestForRun(blockedRunId);
       return { recovered: true, blockedByActiveLock: false };
     }
 
-    logWarning('startup recovery found cleanup-blocked queue request without runId', {
-      requestId: blockedRequestId,
-      canonicalTargetPath: blocked.canonicalTargetPath,
-    });
+    logWarning(
+      'startup recovery found cleanup-blocked queue request without runId',
+      {
+        requestId: blockedRequestId,
+        canonicalTargetPath: blocked.canonicalTargetPath,
+      },
+    );
     return { recovered: false, blockedByActiveLock: false };
   }
 

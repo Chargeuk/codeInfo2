@@ -15,7 +15,6 @@ import {
 import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import {
   __resetIngestJobsForTest,
-  getStatus,
   pumpIngestQueue,
   startIngest,
   waitForTerminalIngestStatus,

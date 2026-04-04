@@ -16,7 +16,11 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 8. Tasks 11 through 19 re-grounded the reopened `server:unit` overrun story, bounded the wrapper and child-side seams honestly, then confirmed the current `server:unit` baseline is healthy again from current `HEAD` while preserving focused cleanup diagnostics for the intermittent loop-stop path.
 9. Task 20 originally owned the first full acceptance trace and wrapper reruns for Story 55 before the later review reopened the story.
 10. Tasks 21 through 25 closed the reopened review findings by fixing the queue waiter rejection path, removing the queued bulk-remove leak, restoring the shared client baseline, bounding the terminal queue-state cache, and replacing the weak fixed-delay flow-stop proof with a deterministic boundary.
-11. Task 26 now owns the final post-review-fix acceptance trace, refreshed close-out notes, and the last full wrapper reruns recorded in the main plan `Testing` section.
+11. Task 26 closed the first reopened review cycle with refreshed acceptance tracing and full wrapper reruns, but a later review pass reopened the story again with three new scope-corrective findings.
+12. Task 27 repaired the blocking re-embed waiter so an initial queue-state read failure now degrades through the existing bounded terminal-or-timeout contract instead of escaping as a raw setup failure.
+13. Task 28 repaired startup recovery so any persisted `cleanup-blocked` row still blocks newer waiting work even when `runId` is missing, keeping restart ordering aligned with the live queue pump contract.
+14. Task 29 removed the unrelated token-counting utility files and root script entry so the Story 55 branch scope again matches the documented ingest-queue plan.
+15. Task 30 now owns the final post-review acceptance trace, refreshed close-out notes, and the last full wrapper reruns after Tasks 27 through 29.
 
 ## Durable queue contract
 
@@ -58,12 +62,14 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 - Shared repository-list queued visibility and queueable ingest-page submission:
   - implementation homes: [lmstudio.ts](/home/d_a_s/code/codeInfo2/common/src/lmstudio.ts), [toolService.ts](/home/d_a_s/code/codeInfo2/server/src/lmstudio/toolService.ts), [ingestRoots.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestRoots.ts), [useIngestRoots.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestRoots.ts), [IngestForm.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/IngestForm.tsx), [RootsTable.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/RootsTable.tsx)
   - proof homes: Task 8 server-unit, client, cucumber, targeted e2e, and compose notes in [0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md)
-- Review-fix closure for the reopened findings:
-  - waiter rejection and blocking completion now close through [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts) and [reingestService.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/reingestService.test.ts), recorded by Task 21 and the Task 21 follow-up proof reruns in [0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md)
+- Review-fix closure across both reopen cycles:
+  - waiter rejection and blocking completion first closed through [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts) and [reingestService.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/reingestService.test.ts) in Task 21, while Task 27 later closed the distinct setup-read failure path the newer review found at the same waiter seam
   - queued bulk-remove leakage is closed in [RootsTable.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/RootsTable.tsx), [IngestPage.tsx](/home/d_a_s/code/codeInfo2/client/src/pages/IngestPage.tsx), [ingestRoots.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/ingestRoots.test.tsx), and [e2e/ingest.spec.ts](/home/d_a_s/code/codeInfo2/e2e/ingest.spec.ts), recorded by Task 22 in [0000055-users-can-queue-ingest-and-re-embed-requests.md](/home/d_a_s/code/codeInfo2/planning/0000055-users-can-queue-ingest-and-re-embed-requests.md)
   - the unrelated client timeout baseline is restored by Task 23 in [chatPage.flags.network.payload.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/chatPage.flags.network.payload.test.tsx) and [chatPage.flags.websearch.payload.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/chatPage.flags.websearch.payload.test.tsx), with the clean full client wrapper rerun captured in the main plan
   - terminal queue-state retention is bounded by Task 24 in [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), [ingest-queue-runtime.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-queue-runtime.test.ts), and [reingestService.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/reingestService.test.ts)
   - the weak flow-stop proof is replaced by Task 25 in [flows.run.errors.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/integration/flows.run.errors.test.ts), using the deterministic run-lock release plus persisted-turn inspection boundary now recorded in the main plan
+  - startup recovery for malformed `cleanup-blocked` rows is now closed by Task 28 in [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts) and [ingest-queue-runtime.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-queue-runtime.test.ts), keeping restart ordering aligned with the story contract even when `runId` is null
+  - unrelated branch scope drift is now closed by Task 29 removing the root script entry from [package.json](/home/d_a_s/code/codeInfo2/package.json) and deleting the non-story utility files so Story 55 again matches its documented ingest/runtime scope
 - Explicit out-of-scope boundaries retained through close-out:
   - no user-facing removal or cancellation of queued-but-not-started requests
   - no degraded run-anyway mode when Mongo is unavailable
@@ -89,7 +95,7 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 - Task 23: the exact chat-flag timeout owners passed, and the full `test:summary:client` wrapper returned to a clean trustworthy baseline.
 - Task 24: targeted queue-runtime plus waiter-cache unit proof, full `test:summary:server:unit`, and supporting server build reruns passed after terminal-state retention was bounded.
 - Task 25: the strengthened `flows.run.errors.test.ts` proof and the full `test:summary:server:unit` wrapper passed after the fixed-delay check was replaced with a deterministic boundary.
-- Task 26 final wrapper reruns are still pending in the main plan `Testing` section, so this summary now reflects a post-review-fix implementation close-out state rather than claiming final story completion already happened again.
+- Task 26 wrapper reruns already passed during the first reopen cycle, but Task 30 still owns the final full wrapper rerun set after the newer Tasks 27 through 29 review fixes. This summary therefore reflects a current implementation-close-out state rather than claiming final story completion before Task 30 testing is rerun.
 
 ## Deliberate non-changes and remaining out-of-scope boundaries
 

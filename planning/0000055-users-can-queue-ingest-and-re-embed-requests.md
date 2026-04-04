@@ -2173,7 +2173,7 @@ This final review-fix task reruns the complete Story 55 validation path after Ta
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `26`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because the blocking queue waiter still has an unguarded setup-read failure path.
 
 #### Overview
@@ -2220,6 +2220,7 @@ This task closes the reopened queue-waiter review finding. `waitForQueueRequestT
 - Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the blocking re-embed route surface still survives the normal Testcontainers-backed backend integration path after the waiter repair.
 - Testing 4: `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down` all passed on the standard main-stack path. Compose build finished with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and `compose:up` cleared the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` before the stack came up and shut down cleanly.
 - Subtask 4: added a direct proof in `server/src/test/unit/reingestService.test.ts` for the exact review-found setup-read rejection case by making the first queue lookup throw and the timeout fallback lookup return `null`. That keeps the new setup-read case distinct from the pre-existing timeout-fallback rejection proof, and both cases now assert `WAIT_TIMEOUT` plus listener cleanup separately.
+- Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 27 section, the implementation commit `7a1f55a7`, the proof commit `be677b79`, and the current repo evidence in `server/src/ingest/ingestJob.ts` and `server/src/test/unit/reingestService.test.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 through 4 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 27, and the task is now `__done__` because Subtasks 1 through 4 plus Testing steps 1 through 4 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

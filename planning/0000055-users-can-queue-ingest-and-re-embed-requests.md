@@ -2284,7 +2284,7 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `28`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because Story 55 currently carries non-support files outside its plan surface.
 
 #### Overview
@@ -2307,9 +2307,9 @@ This task closes the review scope-control finding by removing unrelated branch w
 
 #### Subtasks
 
-1. [ ] Re-read the current review finding for the unplanned token-counting utility, then inspect `package.json`, `server/scripts/count-tool-tokens.mjs`, and `scripts/token-tools-sample.json` together so the removal covers every branch-owned entry point for that unrelated tool.
-2. [ ] Remove the root `count:tool:tokens` script entry from `package.json` and delete `server/scripts/count-tool-tokens.mjs` plus `scripts/token-tools-sample.json` from the branch.
-3. [ ] Confirm no remaining Story 55 doc, wrapper, or runtime path references the removed token-counting utility, and do not replace it with a new hidden justification note inside this queue story.
+1. [x] Re-read the current review finding for the unplanned token-counting utility, then inspect `package.json`, `server/scripts/count-tool-tokens.mjs`, and `scripts/token-tools-sample.json` together so the removal covers every branch-owned entry point for that unrelated tool.
+2. [x] Remove the root `count:tool:tokens` script entry from `package.json` and delete `server/scripts/count-tool-tokens.mjs` plus `scripts/token-tools-sample.json` from the branch.
+3. [x] Confirm no remaining Story 55 doc, wrapper, or runtime path references the removed token-counting utility, and do not replace it with a new hidden justification note inside this queue story.
 
 #### Testing
 
@@ -2319,6 +2319,9 @@ This task closes the review scope-control finding by removing unrelated branch w
 #### Implementation notes
 
 - Record exactly which token-counting entry points were removed and why the review disposition kept this queue story scoped to its documented ingest/runtime contract instead of retrofitting a second unrelated feature.
+- Subtask 1: re-read the current review finding plus `package.json`, `server/scripts/count-tool-tokens.mjs`, and `scripts/token-tools-sample.json` together. Those were the only live branch-owned entry points for the unrelated utility, so the removal scope stayed bounded to the review finding instead of widening into general branch cleanup.
+- Subtask 2: removed the root `count:tool:tokens` script entry from `package.json` and deleted `server/scripts/count-tool-tokens.mjs` plus `scripts/token-tools-sample.json` from the branch.
+- Subtask 3: re-checked the repo for remaining runtime, wrapper, or doc references to the removed token-counting utility. The only surviving mentions are the plan and review artifacts that explain why the utility was removed, so no hidden justification or replacement contract was added inside Story 55 itself.
 
 ---
 

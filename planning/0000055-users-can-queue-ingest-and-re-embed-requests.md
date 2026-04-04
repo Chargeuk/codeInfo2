@@ -2284,7 +2284,7 @@ This task closes the reopened startup-recovery contract gap. Story 55 requires c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `28`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T021138Z-1a7b7d9a` because Story 55 currently carries non-support files outside its plan surface.
 
 #### Overview
@@ -2324,6 +2324,7 @@ This task closes the review scope-control finding by removing unrelated branch w
 - Subtask 3: re-checked the repo for remaining runtime, wrapper, or doc references to the removed token-counting utility. The only surviving mentions are the plan and review artifacts that explain why the utility was removed, so no hidden justification or replacement contract was added inside Story 55 itself.
 - Testing 1: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the repository's primary containerized build path still packages after the unrelated token-counting utility was removed.
 - Testing 2: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the supported server build wrapper still succeeds after the root script and utility-file removal.
+- Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 29 section, the implementation commit `8883d137`, the proof commit `8d50c82a`, and the current repo evidence in `package.json`. No `Testing` items were newly marked complete in this audit because Testing steps 1 and 2 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 29, and the task is now `__done__` because Subtasks 1 through 3 plus Testing steps 1 and 2 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 
 ---
 

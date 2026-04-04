@@ -2044,7 +2044,7 @@ This task fixes the unbounded `queueRequestTerminalStatuses` growth the review f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `20`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: None yet.
 - Notes: Inserted on 2026-04-03 after review found that the changed cleanup/stop acceptance proof still depends on a fixed `100ms` sleep.
 
@@ -2067,10 +2067,10 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 
 #### Subtasks
 
-1. [ ] Re-read the review finding for the weak flow-stop proof and trace the exact changed test plus the current cleanup/stop runtime signals it already observes.
-2. [ ] Replace the fixed `100ms` sleep assertion with one deterministic boundary based on an existing event, completion marker, or explicit no-further-work condition that the runtime already exposes.
-3. [ ] Keep the strengthened proof scoped to the existing flow-stop contract rather than widening this task into unrelated flow redesign or workflow configuration churn.
-4. [ ] Record in the implementation notes which deterministic boundary now proves that later flow work did not continue and why it is stronger than the old timing guess.
+1. [x] Re-read the review finding for the weak flow-stop proof and trace the exact changed test plus the current cleanup/stop runtime signals it already observes.
+2. [x] Replace the fixed `100ms` sleep assertion with one deterministic boundary based on an existing event, completion marker, or explicit no-further-work condition that the runtime already exposes.
+3. [x] Keep the strengthened proof scoped to the existing flow-stop contract rather than widening this task into unrelated flow redesign or workflow configuration churn.
+4. [x] Record in the implementation notes which deterministic boundary now proves that later flow work did not continue and why it is stronger than the old timing guess.
 
 #### Testing
 
@@ -2080,6 +2080,10 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 #### Implementation notes
 
 - Record the exact deterministic proof boundary chosen here and why it proves the claimed stop invariant more honestly than the fixed-delay check it replaced.
+- Subtask 1: re-read the review finding and traced the weak proof in `server/src/test/integration/flows.run.errors.test.ts` against the existing flow runtime signals. The test already had access to the websocket-side `turn_final` event via `waitForFlowFinal(...)`, so the missing capability was not a new harness seam but just the test still relying on a fixed sleep after the stop path had already become observable.
+- Subtask 2: replaced the fixed `delay(100)` assertion with the existing deterministic `waitForFlowFinal({ status: 'stopped' })` boundary before inspecting the recorded turns. Once that final stopped event arrives, the flow has already published its terminal stop result, so the test can assert directly that the later LLM step never produced a persisted `"ok"` turn.
+- Subtask 3: kept the repair inside the existing flow-stop proof home in `server/src/test/integration/flows.run.errors.test.ts`. No flow-service runtime redesign or websocket contract change was needed because the deterministic boundary was already exposed by the supported test/runtime path.
+- Subtask 4: the new deterministic proof boundary is the flow's own final `stopped` event, followed by an exact turn-count check. That is stronger than the old `100ms` timing guess because it waits for the runtime's real stop completion signal instead of hoping a delayed later step would have shown up within an arbitrary sleep window.
 
 ---
 

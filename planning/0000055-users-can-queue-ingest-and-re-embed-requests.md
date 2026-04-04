@@ -2513,7 +2513,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `31`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` as explicit support-file hygiene cleanup for the tracked machine-local runtime snapshot.
 
 #### Overview
@@ -2566,6 +2566,7 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 - Testing 1: wrapper-backed build, test, and compose smoke proof remained honestly not applicable for Task 33 because this task only changes tracked support-file hygiene. The proof path for this task therefore stayed bounded to direct git tracked-state checks rather than runnable-system wrappers.
 - Testing 2: `git ls-files --error-unmatch codeInfoStatus/flow-state/manual-testing-runtime.json` failed as expected with `pathspec ... did not match any file(s) known to git`, proving the live runtime snapshot is no longer tracked. `git check-ignore -v codeInfoStatus/flow-state/manual-testing-runtime.json` then resolved the ignore ownership to `.gitignore`, confirming the repo-wide exact-path ignore rule now owns that live file.
 - Testing 3: `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore codeinfo_markdown/manual_test_runtime_research.md codeinfo_markdown/manual_test_latest_completed_task.md` reported only `!! codeInfoStatus/flow-state/manual-testing-runtime.json`, which confirms the live snapshot is ignored while the checked-in doc owners and `.gitignore` remain normal clean tracked state.
+- Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 33 section, the latest Task 33 implementation note state, and the direct tracked-state proof outputs above. Current repo evidence now shows every Task 33 subtask and all three Task 33 testing steps are honestly complete, there is no live `**BLOCKER**` note on the task, and Task 33 now correctly closes as `__done__` before the flow moves on to manual testing and later story revalidation.
 
 ---
 

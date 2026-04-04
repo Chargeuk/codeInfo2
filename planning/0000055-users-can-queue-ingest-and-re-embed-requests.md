@@ -2332,7 +2332,7 @@ This task closes the review scope-control finding by removing unrelated branch w
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `27, 28, 29`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed.
 
 #### Overview
@@ -2377,3 +2377,4 @@ This final review-response task reruns the complete Story 55 validation path aft
 - Testing 1: `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, and `npm run build:summary:client` also passed cleanly with `warning_count: 0` and `agent_action: skip_log`. The post-review-fix server and client build paths therefore still pass from current `HEAD` before the broader wrapper reruns.
 - Testing 2: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1607`, `passed: 1607`, `failed: 0`, and `agent_action: skip_log`; full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`; full `npm run test:summary:client` passed cleanly with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log`; and full `npm run test:summary:e2e` passed cleanly with `tests run: 58`, `passed: 58`, `failed: 0`, and `agent_action: skip_log`. The e2e proof also re-confirmed the host-network runtime path via `DEV-0000050:T13:e2e_host_network_config_verified`, and `e2e/ingest.spec.ts` now persists stable screenshot artifacts at `test-results/screenshots/0000055-queued-row-state.png` and `test-results/screenshots/0000055-bulk-selection-state.png` so the queued-row and mixed-selection UI states remain recorded by automated browser proof.
 - Testing 3: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`. `npm run compose:up` then passed the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` and brought the standard main stack up cleanly to healthy server and client containers, and `npm run compose:down` shut that same supported main-stack runtime path down cleanly again.
+- Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 30 section, and the latest current-repo commits through `ac6ae410`. Current repo evidence shows Subtasks 1 through 3 and Testing 1 through 3 are all honestly complete on disk, there is no live `**BLOCKER**` note on Task 30, and the task now correctly closes as `__done__`.

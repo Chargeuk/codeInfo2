@@ -69,6 +69,20 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 </candidate_selection_rules>
 
+<final_story_scope_rules>
+
+- After selecting the candidate task, determine whether it is the highest-numbered real task in the story.
+- If the candidate task is not the final task in the story, keep manual proof task-scoped.
+- If the candidate task is the final task in the story and it is `__done__`, expand manual proof to full-story scope.
+- In that final-task case:
+  - first prove the final task's own acceptance-relevant behavior;
+  - then run a concise end-to-end manual validation of the story's visible or externally observable outcomes across the earlier completed tasks that matter to the user-facing or externally observable story result;
+  - use the story Overview, the final task's Task Exit Criteria, and the completed task sequence as the scope for that broader proof;
+  - keep follow-up work on the final task unless the failure clearly requires planner repair because the plan boundary is now wrong.
+- Record in the implementation notes whether the pass stayed task-scoped or expanded to full-story proof because the candidate task was the final task in the story.
+
+</final_story_scope_rules>
+
 <manual_proof_scope_rules>
 
 - Base manual proof only on the candidate task's own Overview, Task Exit Criteria, Subtasks, and Testing section.
@@ -80,7 +94,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - a user-visible or browser-accessible surface;
   - an HTTP or network surface that can be proved with tools such as `curl`;
   - a paired or connected frontend where the edited behavior actually appears.
-- If the completed task does not affect any runnable, browser-accessible, or externally observable surface, add a brief implementation note stating that manual testing was assessed and is not applicable because the completed change has no relevant runnable proof surface, then stop.
+- If the completed task does not affect any runnable, browser-accessible, or externally observable surface, add a brief implementation note stating that manual testing was assessed and is not applicable because the completed change has no relevant runnable proof surface. If the candidate task is also the final task in the story, state that full-story manual testing was also assessed and remained not applicable for the same reason. Then stop.
 - When manual testing is applicable, explicitly map the manual proof back to the candidate task's visible acceptance-relevant behavior.
 - When the candidate task changes transport contracts, request/response shapes, blocking wait behavior, or other observable runtime behavior, prove only the supported surfaces needed to validate that task's owned contract.
 - Do not extend manual proof into later-task behavior just because the stack is already running.
@@ -114,6 +128,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - If the completed task has a browser-visible or connected frontend surface but you do not capture screenshots, treat the manual proof as incomplete unless a concrete tooling limitation prevents capture.
 - If screenshot capture is blocked, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.
+- When the candidate task is the final task in the story, extend that manual proof into the smallest honest full-story validation that still proves the story's end-to-end observable outcomes.
 - If one proof path contaminates later runtime state and a smaller supported proof path already demonstrated the candidate task's required behavior, stop at the smaller successful proof and record the later-task limitation as a concise implementation note rather than escalating it into a blocker.
 
 </execution_rules>
@@ -167,7 +182,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - If manual testing succeeds without finding further work:
   - leave the candidate task as `__done__`;
-  - add an implementation note stating that manual testing was run, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the screenshot artifacts were saved, and that no additional subtasks were needed.
+  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the screenshot artifacts were saved, and that no additional subtasks were needed.
 
 - If you cannot honestly complete the relevant manual proof because startup, shutdown, environment, dependency, tooling, or readiness conditions are missing:
   - add `**BLOCKER**` only when you cannot honestly prove a behavior that is required by the candidate task's own exit criteria using supported surfaces that should already exist at this point in the plan;
@@ -185,6 +200,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - Report which candidate task you evaluated.
 - Report whether manual testing was skipped, assessed as not applicable, run successfully, or blocked.
+- Report whether the pass stayed task-scoped or expanded to full-story proof.
 - Report whether new subtasks or testing steps were added.
 - Report whether the task status changed back to `__in_progress__`.
 
@@ -199,6 +215,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Confirm any new subtasks and proof-authoring subtasks are detailed enough for a weak junior agent to follow.
 - Confirm no vague `investigate` or `debug` subtasks were added unless planner repair explicitly turned the work into a bounded diagnostic task.
 - Confirm no manual-testing step was added to the task's `Testing` section.
+- Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
 
 </verification_loop>

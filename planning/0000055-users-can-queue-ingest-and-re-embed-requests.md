@@ -384,7 +384,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `65b908b8` - `DEV-[55] - finish task 2 queue runtime validation`
 
@@ -2088,6 +2088,7 @@ This task strengthens the review-weakened acceptance proof around flow-stop clea
 - Testing 2: `npm run test:summary:server:unit` passed cleanly after the Task 25 proof repair, so the shared server baseline now carries the deterministic stop-boundary assertion with `tests run: 1605`, `passed: 1605`, `failed: 0`.
 - Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 25 section, the latest implementation commit `14429f35`, the latest proof commit `8e5c4116`, and the current repo evidence in `server/src/test/integration/flows.run.errors.test.ts`. No `Testing` items were newly marked complete in this audit because Testing steps 1 and 2 were already honestly checked by the latest proof pass before this normalization step. There is no live `**BLOCKER**` note on Task 25, and the task is now `__done__` because Subtasks 1 through 4 plus Testing steps 1 and 2 all have direct current repo evidence with no remaining task-local work before later manual-testing loops.
 - Manual testing was skipped on 2026-04-04 because the live Task 25 status line still reads `__in_progress__`, so the latest task is not honestly complete yet for this loop even though the newest implementation note says the repo evidence is done. No subtasks or Testing-step changes were added here.
+- Implementation-plus-automated-proof audit follow-up on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 25 section, the latest implementation/proof commits (`14429f35`, `8e5c4116`), and the current repo evidence in `server/src/test/integration/flows.run.errors.test.ts`. No `Testing` items were newly marked complete in this follow-up because Testing steps 1 and 2 were already honestly checked earlier; this normalization only corrects the stale live status line so the plan now matches the already-complete subtask and automated-proof state. There is no live `**BLOCKER**` note on Task 25, and the task is now honestly `__done__` for the next manual-testing loop.
 
 ---
 

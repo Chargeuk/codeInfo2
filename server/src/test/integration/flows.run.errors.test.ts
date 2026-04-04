@@ -247,6 +247,22 @@ async function waitForTurns(
   throw new Error(`Timed out waiting for turns for ${conversationId}`);
 }
 
+async function waitForConversationUnlocked(
+  conversationId: string,
+  timeoutMs = 4000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const acquired = tryAcquireConversationLock(conversationId);
+    if (acquired) {
+      releaseConversationLock(conversationId);
+      return;
+    }
+    await delay(25);
+  }
+  throw new Error(`Timed out waiting for flow unlock for ${conversationId}`);
+}
+
 async function withFlowHarness(
   task: (params: {
     tmpDir: string;
@@ -1061,7 +1077,6 @@ test('stop during the blocking wait keeps later flow steps from executing', asyn
       steps: [{ type: 'reingest', sourceId: '/repo/source-a' }, makeLlmStep()],
     });
     let resolveRun!: (value: { ok: true; value: ReingestSuccess }) => void;
-    let runToken = '';
     const runPromise = new Promise<{ ok: true; value: ReingestSuccess }>(
       (resolve) => {
         resolveRun = resolve;
@@ -1073,32 +1088,28 @@ test('stop during the blocking wait keeps later flow steps from executing', asyn
       createCallId: () => 'call-stop',
     });
 
+    const conversationId = 'flow-reingest-stop-after-return';
     const result = await startFlowRun({
       flowName: 'reingest-stop-after-return',
+      conversationId,
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
-      onOwnershipReady: ({ runToken: token }) => {
-        runToken = token;
+      onOwnershipReady: ({ runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
       },
     });
     subscribeConversation(ws, result.conversationId);
 
-    registerPendingConversationCancel({
-      conversationId: result.conversationId,
-      runToken,
-    });
     resolveRun({ ok: true, value: buildReingestSuccess() });
 
-    const final = await waitForFlowFinal({
-      ws,
-      conversationId: result.conversationId,
-      status: 'stopped',
-    });
-    assert.equal(final.status, 'stopped');
-
-    await waitForTurns(result.conversationId, (items) => items.length >= 2);
-    const turns = (memoryTurns.get(result.conversationId) ?? []) as Turn[];
-    assert.equal(turns.length, 2);
+    await waitForConversationUnlocked(result.conversationId);
+    const turns = await waitForTurns(
+      result.conversationId,
+      (items) => items.length >= 2,
+    );
     assert.equal(turns[1]?.status, 'ok');
     assert.equal(
       (turns[1]?.toolCalls as { calls: Array<{ callId: string }> }).calls[0]

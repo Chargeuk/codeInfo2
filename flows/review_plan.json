@@ -44,6 +44,13 @@
       "markdownFile": "review_disposition.md"
     },
     {
+      "type": "command",
+      "label": "Enhance review tasks",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "commandName": "enhance_review_tasks"
+    },
+    {
       "type": "llm",
       "label": "Refresh current plan handoff after review",
       "agentType": "planning_agent",

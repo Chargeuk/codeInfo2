@@ -2683,10 +2683,10 @@ This task restores the broader ingest e2e baseline after Task 34 proved its queu
 
 #### Subtasks
 
-1. [ ] Re-read the Task 34 blocker note, `logs/test-summaries/e2e-tests-latest.log`, and the current `remove clears entry and unlocks model when empty` scenario in `e2e/ingest.spec.ts` before editing. Purpose: keep this follow-up anchored to the exact shared remove-flow timeout that survived Task 34’s queue-specific proof repairs.
-2. [ ] Identify the smallest shared ingest e2e owner needed to make the remove-flow scenario deterministic on current `HEAD`, limiting changes to that scenario and any directly shared setup, teardown, or helper seam it actually depends on. Do not reopen Task 34’s queue-specific scenarios unless new proof shows the shared owner genuinely lives there. Purpose: keep the reopened full-e2e failure explicitly owned without widening Task 34 again.
-3. [ ] Repair the shared remove-flow timeout owner using Playwright-supported web-first assertions, fixture teardown, or request-backed cleanup patterns instead of longer sleeps or blanket timeout increases. Purpose: restore the remove-flow scenario honestly without masking the shared e2e ownership problem.
-4. [ ] Update any directly owning proof text, helper comments, or test-support seams if the final fix changes how the shared remove-flow scenario is set up or torn down. Purpose: keep the shared e2e ownership boundary explicit for the next implementation loop.
+1. [x] Re-read the Task 34 blocker note, `logs/test-summaries/e2e-tests-latest.log`, and the current `remove clears entry and unlocks model when empty` scenario in `e2e/ingest.spec.ts` before editing. Purpose: keep this follow-up anchored to the exact shared remove-flow timeout that survived Task 34’s queue-specific proof repairs.
+2. [x] Identify the smallest shared ingest e2e owner needed to make the remove-flow scenario deterministic on current `HEAD`, limiting changes to that scenario and any directly shared setup, teardown, or helper seam it actually depends on. Do not reopen Task 34’s queue-specific scenarios unless new proof shows the shared owner genuinely lives there. Purpose: keep the reopened full-e2e failure explicitly owned without widening Task 34 again.
+3. [x] Repair the shared remove-flow timeout owner using Playwright-supported web-first assertions, fixture teardown, or request-backed cleanup patterns instead of longer sleeps or blanket timeout increases. Purpose: restore the remove-flow scenario honestly without masking the shared e2e ownership problem.
+4. [x] Update any directly owning proof text, helper comments, or test-support seams if the final fix changes how the shared remove-flow scenario is set up or torn down. Purpose: keep the shared e2e ownership boundary explicit for the next implementation loop.
 
 #### Testing
 
@@ -2698,6 +2698,10 @@ This task restores the broader ingest e2e baseline after Task 34 proved its queu
 - Starts empty.
 - Inserted during Task 34 plan repair because the old Task 34 full-e2e testing gate proved broader than the task’s queue-specific browser-proof ownership.
 - Planner normalization on 2026-04-05 moved this task to active `__in_progress__` status because Task 34's own proof boundary is now complete and the shared remove-flow timeout is the next real executable owner.
+- Subtask 1: re-read Task 34's blocker note together with the current `logs/test-summaries/e2e-tests-latest.log` contents and the `remove clears entry and unlocks model when empty` scenario in `e2e/ingest.spec.ts` before editing. The current `latest` log now reflects Task 34's targeted queue-proof success, so the live owner signal came from Task 34's carried-forward blocker notes plus the still-shared remove-flow scenario code rather than from reopening queue-specific browser work.
+- Subtask 2: identified the smallest shared owner as the remove-flow test's own setup and root-selection seam. The scenario still reused the generic `fixtures-e2e` display name and accepted a path-or-name match while waiting for completion, which could alias earlier suite state on the same shared fixture path and make the full-suite timeout harder to localize.
+- Subtask 3: repaired that shared owner in `e2e/ingest.spec.ts` without widening Task 34. The remove-flow scenario now uses a dedicated `fixtures-e2e-remove` display name, captures the exact `runId` from the `/ingest/start` response through the shared helper seam, requires that `runId` to exist for the test to proceed, and waits for the exact started root plus an explicit completed row state before clicking Remove.
+- Subtask 4: updated the directly owning helper and inline proof comment so the remove-flow scenario documents why it now matches the exact started root instead of any root sharing the same fixture path. No queue-specific Task 34 proof text or unrelated ingest scenarios were reopened during this pass.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

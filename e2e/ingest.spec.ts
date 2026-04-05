@@ -289,6 +289,10 @@ const startIngestAndCaptureOutcome = async (
   );
   await page.getByTestId('start-ingest').click();
   const response = await startResponsePromise;
+  const responseBody = (await response.json().catch(() => ({}))) as {
+    runId?: string;
+    requestId?: string;
+  };
   const submitError = page.getByTestId('submit-error');
   const errorMessage = (await submitError.textContent().catch(() => null))
     ?.trim()
@@ -297,6 +301,8 @@ const startIngestAndCaptureOutcome = async (
   return {
     ok: response.ok(),
     status: response.status(),
+    runId: responseBody.runId ?? null,
+    requestId: responseBody.requestId ?? null,
     errorMessage: errorMessage || null,
   };
 };
@@ -774,17 +780,20 @@ test.describe.serial('Ingest flows', () => {
   });
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {
+    const removeFixtureName = `${fixtureName}-remove`;
     await page.goto(`${baseUrl}/ingest`);
     await page.getByLabel('Folder path').fill(fixturePath);
-    await page.getByLabel('Display name').fill(fixtureName);
+    await page.getByLabel('Display name').fill(removeFixtureName);
     await selectEmbeddingModel(page);
     const cleanupCtx = await request.newContext();
+    let removeRunId: string | null = null;
 
     try {
       let started = false;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const outcome = await startIngestAndCaptureOutcome(page);
         if (outcome.ok) {
+          removeRunId = outcome.runId;
           started = true;
           break;
         }
@@ -810,6 +819,11 @@ test.describe.serial('Ingest flows', () => {
           'ingest remove test failed to start after the bounded retry budget',
         );
       }
+      if (!removeRunId) {
+        throw new Error(
+          'ingest remove test start response did not include a runId',
+        );
+      }
     } finally {
       await cleanupCtx.dispose();
     }
@@ -820,9 +834,11 @@ test.describe.serial('Ingest flows', () => {
         .poll(
           async () => {
             const roots = await fetchRoots(statusCtx);
+            // Match the exact started root so prior suite state with the same
+            // fixture path cannot satisfy this remove-flow boundary early.
             const root = roots.find(
               (entry) =>
-                entry.path === fixturePath || entry.name === fixtureName,
+                entry.runId === removeRunId || entry.name === removeFixtureName,
             );
             return root
               ? `${root.status ?? 'unknown'}:${root.queueState ?? 'none'}`
@@ -840,10 +856,11 @@ test.describe.serial('Ingest flows', () => {
 
     const row = page
       .getByRole('row', {
-        name: new RegExp(`^Select ${fixtureName} `, 'i'),
+        name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
       })
       .first();
     await expect(row).toBeVisible({ timeout: 30_000 });
+    await expect(row.getByText(/completed/i)).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /^Remove$/i }).click();
     await expect(page.getByText(/Removed/i).first()).toBeVisible({

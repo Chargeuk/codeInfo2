@@ -521,12 +521,35 @@ test.describe.serial('Ingest flows', () => {
     await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
 
+    const statusCtx = await request.newContext();
+    try {
+      await expect
+        .poll(
+          async () => {
+            const roots = await fetchRoots(statusCtx);
+            const root = roots.find(
+              (entry) =>
+                entry.path === fixturePath || entry.name === fixtureName,
+            );
+            return root
+              ? `${root.status ?? 'unknown'}:${root.queueState ?? 'none'}`
+              : 'missing';
+          },
+          {
+            timeout: 180_000,
+            message: 'waiting for seeded ingest to reach a completed root',
+          },
+        )
+        .toMatch(/^completed:/i);
+    } finally {
+      await statusCtx.dispose();
+    }
+
     const row = page
       .getByRole('row', {
         name: new RegExp(`^Select ${fixtureName} `, 'i'),
       })
       .first();
-    await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /re-embed/i }).click();
@@ -791,14 +814,35 @@ test.describe.serial('Ingest flows', () => {
       await cleanupCtx.dispose();
     }
 
-    await waitForInProgress(page);
+    const statusCtx = await request.newContext();
+    try {
+      await expect
+        .poll(
+          async () => {
+            const roots = await fetchRoots(statusCtx);
+            const root = roots.find(
+              (entry) =>
+                entry.path === fixturePath || entry.name === fixtureName,
+            );
+            return root
+              ? `${root.status ?? 'unknown'}:${root.queueState ?? 'none'}`
+              : 'missing';
+          },
+          {
+            timeout: 180_000,
+            message: 'waiting for remove-flow ingest to reach a completed root',
+          },
+        )
+        .toMatch(/^completed:/i);
+    } finally {
+      await statusCtx.dispose();
+    }
 
     const row = page
       .getByRole('row', {
         name: new RegExp(`^Select ${fixtureName} `, 'i'),
       })
       .first();
-    await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /^Remove$/i }).click();

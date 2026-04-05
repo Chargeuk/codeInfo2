@@ -2701,6 +2701,7 @@ This task does not try another broad remove-flow repair. It derives a concrete o
 - Subtask 2: added three named `test.step(..., { timeout })` owner markers directly inside the failing remove-flow scenario in `e2e/ingest.spec.ts`: one for server completion polling, one for page refresh or row visibility before remove, and one for the remove-click success confirmation path. Those markers keep the next targeted wrapper run bounded to the exact owner phases the planner asked for without adding sleeps or broad timeout changes.
 - Subtask 3: kept the scenario on the validated mounted runtime path by retaining `/fixtures/repo` and adding an inline comment explaining why the previous `/fixtures/repo/docs` shortcut is not acceptable for this task. No other fixture-path experiments or broader e2e behavior changes were introduced in this pass.
 - Subtask 4 remains open for the later automated-proof step in this flow because this pass was intentionally limited to Task 35 implementation work and did not run the targeted wrapper again.
+- Manual testing was skipped on 2026-04-05 because Task 35 is still `__in_progress__`, so the latest task is not honestly complete yet and live proof must wait until the bounded owner-derivation rerun finishes.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

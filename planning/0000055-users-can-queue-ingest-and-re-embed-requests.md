@@ -2529,7 +2529,7 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `31`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 after browser-proof blocker research proved the remaining missing capability is the shared full-client baseline, not more queue-browser proof implementation.
 
 #### Overview
@@ -2650,6 +2650,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 - Testing 3: the targeted Task 34-owned queue-specific Playwright wrapper passed cleanly on current `HEAD` with `tests run: 4`, `passed: 4`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`. The wrapper also reported the expected host-mapped runtime endpoints (`http://host.docker.internal:6001` and `http://host.docker.internal:8932/mcp`) during the run, so the proof stayed inside the Docker-mapped environment contract.
 - Testing 4: the required screenshots were regenerated at `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` and `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`, and they were promoted into tracked repository state so the durable browser-proof evidence is no longer hidden behind ignored transient-output paths.
 - Testing 5: supported compose smoke remains honestly not applicable for Task 34 because this task only proves the queue-specific browser path and its durable screenshot artifacts. The normal main-stack compose proof still remains owned by Task 36.
+- Automated-proof audit on 2026-04-05: Task 34 now has every subtask and testing step honestly complete on current `HEAD`, no live `**BLOCKER**` remains, and the task status is normalized to `__done__` before Task 35 picks up the separate shared remove-flow follow-up.
 
 ---
 

@@ -781,6 +781,20 @@ test.describe.serial('Ingest flows', () => {
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {
     const removeFixtureName = `${fixtureName}-remove`;
+    const removeRowNamePattern = new RegExp(`^Select ${removeFixtureName} `, 'i');
+    const getRoleMatchedRows = () =>
+      page.getByRole('row', {
+        name: removeRowNamePattern,
+      });
+    const getStableRemoveRows = () =>
+      page
+        .getByRole('row')
+        .filter({ hasText: removeFixtureName })
+        .filter({ hasText: fixturePath })
+        .filter({ hasText: /completed/i })
+        .filter({
+          has: page.getByRole('button', { name: /^Remove$/i }),
+        });
     await page.goto(`${baseUrl}/ingest`);
     // Keep the validated mounted repo-root fixture path here. Task 35's
     // carried-forward timeout artifacts showed the previous `/fixtures/repo/docs`
@@ -866,29 +880,40 @@ test.describe.serial('Ingest flows', () => {
     }
 
     await test.step(
-      'remove-flow owner: page refresh or row visibility before remove',
+      'remove-flow owner: row-selection contract before remove',
       async () => {
+        const roleMatchedRows = getRoleMatchedRows();
+        const stableRows = getStableRemoveRows();
         await expect
           .poll(
             async () => {
-              await page.reload();
-              const rows = page.getByRole('row', {
-                name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
-              });
-              if ((await rows.count()) === 0) {
-                return 'missing';
-              }
-              return (
-                (await rows.first().textContent())?.toLowerCase() ?? 'missing'
+              const roleMatchedCount = await roleMatchedRows.count();
+              const stableCount = await stableRows.count();
+              const stableTexts = (await stableRows.allTextContents()).map(
+                (value) => value.replace(/\s+/g, ' ').trim(),
               );
+              if (stableCount === 0) {
+                return `stable-missing roleMatched=${roleMatchedCount}`;
+              }
+              if (stableCount > 1) {
+                return `multiple-stable stableCount=${stableCount} roleMatched=${roleMatchedCount}`;
+              }
+              const [stableText] = stableTexts;
+              if (roleMatchedCount === 0) {
+                return `role-mismatch ${stableText ?? 'missing'}`;
+              }
+              if (roleMatchedCount > 1) {
+                return `multiple-role-matches roleMatched=${roleMatchedCount} stableText=${stableText ?? 'missing'}`;
+              }
+              return `stable-ready ${stableText ?? 'missing'}`;
             },
             {
               timeout: 30_000,
               message:
-                'waiting for a refreshed remove-flow row to become visible before remove',
+                'waiting for a stable remove-flow row-selection contract before remove',
             },
           )
-          .toContain('completed');
+          .toMatch(/^stable-ready /);
       },
       { timeout: 30_000 },
     );
@@ -896,11 +921,7 @@ test.describe.serial('Ingest flows', () => {
     await test.step(
       'remove-flow owner: remove-click success confirmation',
       async () => {
-        const row = page
-          .getByRole('row', {
-            name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
-          })
-          .first();
+        const row = getStableRemoveRows().first();
         await row.getByRole('button', { name: /^Remove$/i }).click();
         await expect(page.getByText(/Removed/i).first()).toBeVisible({
           timeout: 30_000,

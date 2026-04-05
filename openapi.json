@@ -596,6 +596,156 @@
         }
       }
     },
+    "/ingest/start": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "embeddingProvider": {
+                    "type": "string",
+                    "enum": ["lmstudio", "openai"]
+                  },
+                  "embeddingModel": {
+                    "type": "string"
+                  }
+                },
+                "required": ["path", "name"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Queue-aware ingest acceptance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "queued": {
+                          "type": "boolean",
+                          "enum": [false]
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "runId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["queued", "requestId", "runId"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "queued": {
+                          "type": "boolean",
+                          "enum": [true]
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "queuePosition": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": ["queued", "requestId", "queuePosition"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/reembed/{root}": {
+      "post": {
+        "parameters": [
+          {
+            "name": "root",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queue-aware re-embed acceptance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "queued": {
+                          "type": "boolean",
+                          "enum": [false]
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "runId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["queued", "requestId", "runId"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "queued": {
+                          "type": "boolean",
+                          "enum": [true]
+                        },
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "queuePosition": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": ["queued", "requestId", "queuePosition"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ingest/roots": {
       "get": {
         "responses": {
@@ -611,8 +761,23 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "requestId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "runId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "queuePosition": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "nullable": true
+                          },
+                          "queueState": {
+                            "type": "string",
+                            "enum": ["waiting", "running", "cleanup-blocked"],
+                            "nullable": true
                           },
                           "name": {
                             "type": "string"
@@ -726,7 +891,6 @@
                           }
                         },
                         "required": [
-                          "runId",
                           "name",
                           "path",
                           "embeddingProvider",
@@ -1853,6 +2017,24 @@
                         "properties": {
                           "id": {
                             "type": "string"
+                          },
+                          "requestId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "runId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "queuePosition": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "nullable": true
+                          },
+                          "queueState": {
+                            "type": "string",
+                            "enum": ["waiting", "running", "cleanup-blocked"],
+                            "nullable": true
                           },
                           "description": {
                             "type": "string",

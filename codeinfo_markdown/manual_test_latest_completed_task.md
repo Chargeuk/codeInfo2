@@ -9,6 +9,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Re-open the exact relative `plan_path` from disk before deciding what to test, because another agent may have just edited it.
 - Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists and determine its meaning from the information it contains rather than depending on an exact JSON shape.
 - Treat the runtime research file as a stored summary of the best supported startup, shutdown, prerequisite, surface, availability, and fallback information for the repositories in scope.
+- The runtime research file may legitimately be absent between regeneration steps because it is live local research rather than a durable tracked handoff artifact.
 - Use that information to choose the best supported proof path for the candidate task, but re-check that the selected paths still exist on disk before using them.
 - If the runtime research file is missing, unreadable, or obviously stale for the relevant repository or surface, state that the manual testing runtime research must be regenerated and do not invent a startup path.
 

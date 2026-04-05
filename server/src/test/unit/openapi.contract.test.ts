@@ -13,22 +13,31 @@ function readOpenApi() {
   };
 }
 
-test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', () => {
-  const openapi = readOpenApi();
+function getResponseSchema(
+  openapi: ReturnType<typeof readOpenApi>,
+  pathName: string,
+  method: 'get' | 'post',
+  statusCode: string,
+) {
   const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
-    '/ingest/roots'
+    pathName
   ] as Record<string, unknown> | undefined;
-  const success = (
-    ((schema?.get as Record<string, unknown>)?.responses ?? {}) as Record<
+  const response = (
+    ((schema?.[method] as Record<string, unknown>)?.responses ?? {}) as Record<
       string,
       Record<string, unknown>
     >
-  )['200'];
-  const bodySchema = ((
-    ((success?.content as Record<string, unknown>) ?? {})[
+  )[statusCode];
+  return (((
+    ((response?.content as Record<string, unknown>) ?? {})[
       'application/json'
     ] as Record<string, unknown>
-  )?.schema ?? null) as Record<string, unknown> | null;
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+}
+
+test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', () => {
+  const openapi = readOpenApi();
+  const bodySchema = getResponseSchema(openapi, '/ingest/roots', 'get', '200');
   assert.ok(bodySchema, 'missing /ingest/roots schema');
   const rootItem = ((
     ((bodySchema?.properties as Record<string, unknown>)?.roots ??
@@ -42,6 +51,18 @@ test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', 
   assert.ok(rootProps.embeddingDimensions);
   assert.ok(rootProps.model);
   assert.ok(rootProps.modelId);
+  assert.deepEqual(rootProps.requestId, { type: 'string', nullable: true });
+  assert.deepEqual(rootProps.runId, { type: 'string', nullable: true });
+  assert.deepEqual(rootProps.queuePosition, {
+    type: 'integer',
+    minimum: 1,
+    nullable: true,
+  });
+  assert.deepEqual(rootProps.queueState, {
+    type: 'string',
+    enum: ['waiting', 'running', 'cleanup-blocked'],
+    nullable: true,
+  });
   assert.ok(rootProps.lock);
   assert.ok(rootProps.status);
   assert.ok(rootProps.phase);
@@ -52,24 +73,20 @@ test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', 
     type: 'string',
     enum: ['0000055-queued-repo-list-v1'],
   });
+  assert.equal(
+    (rootItem?.required as string[] | undefined)?.includes('runId') ?? false,
+    false,
+  );
 });
 
 test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alias fields', () => {
   const openapi = readOpenApi();
-  const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
-    '/tools/ingested-repos'
-  ] as Record<string, unknown> | undefined;
-  const success = (
-    ((schema?.get as Record<string, unknown>)?.responses ?? {}) as Record<
-      string,
-      Record<string, unknown>
-    >
-  )['200'];
-  const bodySchema = ((
-    ((success?.content as Record<string, unknown>) ?? {})[
-      'application/json'
-    ] as Record<string, unknown>
-  )?.schema ?? null) as Record<string, unknown> | null;
+  const bodySchema = getResponseSchema(
+    openapi,
+    '/tools/ingested-repos',
+    'get',
+    '200',
+  );
   assert.ok(bodySchema, 'missing /tools/ingested-repos schema');
   const repoItem = ((
     ((bodySchema?.properties as Record<string, unknown>)?.repos ??
@@ -83,6 +100,18 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
   assert.ok(repoProps.embeddingDimensions);
   assert.ok(repoProps.model);
   assert.ok(repoProps.modelId);
+  assert.deepEqual(repoProps.requestId, { type: 'string', nullable: true });
+  assert.deepEqual(repoProps.runId, { type: 'string', nullable: true });
+  assert.deepEqual(repoProps.queuePosition, {
+    type: 'integer',
+    minimum: 1,
+    nullable: true,
+  });
+  assert.deepEqual(repoProps.queueState, {
+    type: 'string',
+    enum: ['waiting', 'running', 'cleanup-blocked'],
+    nullable: true,
+  });
   assert.ok(repoProps.lock);
   assert.ok(repoProps.status);
   assert.ok(repoProps.phase);
@@ -93,6 +122,104 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
     type: 'string',
     enum: ['0000055-queued-repo-list-v1'],
   });
+  assert.equal(
+    (repoItem?.required as string[] | undefined)?.includes('runId') ?? false,
+    false,
+  );
+});
+
+test('OpenAPI /ingest/start queue-aware 202 response documents immediate and waiting acceptance shapes', () => {
+  const openapi = readOpenApi();
+  const bodySchema = getResponseSchema(openapi, '/ingest/start', 'post', '202');
+
+  assert.ok(bodySchema, 'missing /ingest/start 202 schema');
+  const variants = (bodySchema.oneOf ?? null) as
+    | Record<string, unknown>[]
+    | null;
+  assert.ok(variants && variants.length === 2, 'missing queue-aware oneOf');
+
+  const immediateSchema = variants.find((entry) => {
+    const queuedEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).queued as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return queuedEnum.includes(false);
+  });
+  assert.ok(immediateSchema, 'missing immediate-start acceptance schema');
+  assert.deepEqual(immediateSchema?.required, ['queued', 'requestId', 'runId']);
+  assert.equal(
+    'queuePosition' in
+      (((immediateSchema?.properties ?? {}) as Record<string, unknown>) ?? {}),
+    false,
+  );
+
+  const waitingSchema = variants.find((entry) => {
+    const queuedEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).queued as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return queuedEnum.includes(true);
+  });
+  assert.ok(waitingSchema, 'missing waiting acceptance schema');
+  assert.deepEqual(waitingSchema?.required, [
+    'queued',
+    'requestId',
+    'queuePosition',
+  ]);
+  assert.equal(
+    'runId' in
+      (((waitingSchema?.properties ?? {}) as Record<string, unknown>) ?? {}),
+    false,
+  );
+});
+
+test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediate and waiting acceptance shapes', () => {
+  const openapi = readOpenApi();
+  const bodySchema = getResponseSchema(
+    openapi,
+    '/ingest/reembed/{root}',
+    'post',
+    '202',
+  );
+
+  assert.ok(bodySchema, 'missing /ingest/reembed/{root} 202 schema');
+  const variants = (bodySchema.oneOf ?? null) as
+    | Record<string, unknown>[]
+    | null;
+  assert.ok(variants && variants.length === 2, 'missing queue-aware oneOf');
+
+  const immediateSchema = variants.find((entry) => {
+    const queuedEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).queued as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return queuedEnum.includes(false);
+  });
+  assert.ok(immediateSchema, 'missing immediate re-embed acceptance schema');
+  assert.deepEqual(immediateSchema?.required, ['queued', 'requestId', 'runId']);
+
+  const waitingSchema = variants.find((entry) => {
+    const queuedEnum = ((
+      ((entry.properties ?? {}) as Record<string, unknown>).queued as
+        | Record<string, unknown>
+        | undefined
+    )?.enum ?? []) as unknown[];
+    return queuedEnum.includes(true);
+  });
+  assert.ok(waitingSchema, 'missing waiting re-embed acceptance schema');
+  assert.deepEqual(waitingSchema?.required, [
+    'queued',
+    'requestId',
+    'queuePosition',
+  ]);
+  assert.equal(
+    'runId' in
+      (((waitingSchema?.properties ?? {}) as Record<string, unknown>) ?? {}),
+    false,
+  );
 });
 
 test('OpenAPI /codex/device-auth schema enforces empty request and shared provider-auth responses', () => {

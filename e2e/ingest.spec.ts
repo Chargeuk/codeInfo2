@@ -15,7 +15,10 @@ const mountedLargeFixturePath = `${fixturePath}/${largeFixtureRelPath}`;
 const fixtureName = 'fixtures-e2e';
 
 const preferredEmbeddingModel = 'text-embedding-qwen3-embedding-4b';
-const stableScreenshotDir = path.join('test-results', 'screenshots');
+const stableScreenshotDir = path.join(
+  'artifacts',
+  'story-0000055-screenshots',
+);
 
 let skipReason: string | undefined;
 let ingestSkip: string | undefined;
@@ -274,6 +277,28 @@ const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
       { timeout: 30_000, message: 'waiting for ingest to start' },
     )
     .toMatch(/(queued|scanning|embedding|completed)/);
+};
+
+const startIngestAndCaptureOutcome = async (
+  page: Parameters<typeof test>[0]['page'],
+) => {
+  const startResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/ingest/start') &&
+      response.request().method() === 'POST',
+  );
+  await page.getByTestId('start-ingest').click();
+  const response = await startResponsePromise;
+  const submitError = page.getByTestId('submit-error');
+  const errorMessage = (await submitError.textContent().catch(() => null))
+    ?.trim()
+    .replace(/\s+/g, ' ');
+
+  return {
+    ok: response.ok(),
+    status: response.status(),
+    errorMessage: errorMessage || null,
+  };
 };
 
 const selectEmbeddingModel = async (
@@ -730,57 +755,43 @@ test.describe.serial('Ingest flows', () => {
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
     await selectEmbeddingModel(page);
-    const submitError = page.getByTestId('submit-error');
-    const activeEmpty = page
-      .getByText(/No active ingest\. Start a run to see status here\./i)
-      .first();
+    const cleanupCtx = await request.newContext();
 
-    let started = false;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      await page.getByTestId('start-ingest').click();
+    try {
+      let started = false;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const outcome = await startIngestAndCaptureOutcome(page);
+        if (outcome.ok) {
+          started = true;
+          break;
+        }
 
-      const outcome = await Promise.race<'error' | 'started' | 'timeout'>([
-        submitError
-          .waitFor({ state: 'visible', timeout: 10_000 })
-          .then(() => 'error')
-          .catch(() => 'timeout'),
-        activeEmpty
-          .waitFor({ state: 'hidden', timeout: 10_000 })
-          .then(() => 'started')
-          .catch(() => 'timeout'),
-      ]);
+        if (outcome.status === 429 && attempt < 2) {
+          await expect
+            .poll(async () => (await fetchRoots(cleanupCtx)).length, {
+              timeout: 60_000,
+              message:
+                'waiting for existing ingest roots to clear before retrying remove-flow setup',
+            })
+            .toBe(0);
+          continue;
+        }
 
-      if (outcome === 'started') {
-        started = true;
-        break;
+        throw new Error(
+          `ingest remove test start failed (${outcome.errorMessage ?? `HTTP ${outcome.status}`})`,
+        );
       }
 
-      const message = (await submitError.textContent())?.trim() ?? 'unknown';
-      if (message.includes('429') && attempt < 2) {
-        await page.waitForTimeout(2_000);
-        continue;
+      if (!started) {
+        throw new Error(
+          'ingest remove test failed to start after the bounded retry budget',
+        );
       }
-      console.warn(
-        `ingest remove test: start failed (${message}), skipping assertions`,
-      );
-      return;
+    } finally {
+      await cleanupCtx.dispose();
     }
 
-    if (!started) {
-      console.warn('ingest remove test: start timed out, skipping');
-      return;
-    }
-
-    const lateError = await submitError
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (lateError) {
-      const message = (await submitError.textContent())?.trim() ?? 'unknown';
-      console.warn(
-        `ingest remove test: late start error (${message}), skipping assertions`,
-      );
-      return;
-    }
+    await waitForInProgress(page);
 
     const row = page
       .getByRole('row', {

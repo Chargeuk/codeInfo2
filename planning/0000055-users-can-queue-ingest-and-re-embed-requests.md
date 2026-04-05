@@ -2659,7 +2659,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `34`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Inserted during planner repair on 2026-04-05 because the first bounded shared remove-flow repair exhausted at a generic 240-second timeout and the next honest work is a smaller instrumentation or owner-derivation pass before broader e2e rebaseline continues.
 
 #### Overview
@@ -2706,7 +2706,8 @@ This task does not try another broad remove-flow repair. It derives a concrete o
 - **BLOCKING ANSWER** Chosen fix and why it fits current local repo state: planner repair should move the targeted wrapper rerun and owner-signal recording entirely out of Task 35's `Subtasks` section and leave that command only in Task 35's `Testing` section, or equivalently re-own it as the next proof-only follow-up if the plan needs a separate audit owner. That fits the current repo because the implementation work already completed here is exactly the step-scoped instrumentation in `e2e/ingest.spec.ts`, while the only remaining action is to execute the targeted wrapper and observe its proof result. Rejected alternatives are not suitable: do not run the wrapper anyway during a “Subtasks only” pass because that violates the repo's own phase contract; do not mark Subtask 4 or Testing 1 complete from existing artifacts because no rerun after the new `test.step(..., { timeout })` markers is recorded yet; and do not invent another code-side narrowing change because the blocker evidence shows the missing capability is plan ownership, not another unproven Playwright edit.
 - Planner repair on 2026-04-05 removed the duplicate targeted-wrapper rerun from Task 35's `Subtasks` so the task is now ready for the later automated-proof step without changing the underlying instrumentation work or prematurely marking the task `__done__`.
 - Testing 1: the targeted wrapper still ended with `tests run: 1`, `passed: 0`, `failed: 1`, and `agent_action: inspect_log`, but it now failed at the named owner boundary `remove-flow owner: page refresh or row visibility before remove` instead of as an undifferentiated timeout. `logs/test-summaries/e2e-tests-latest.log` points at `e2e/ingest.spec.ts:876`, and `error-context.md` shows the completed `/fixtures/repo` row was visible in the UI at timeout, which gives Task 36 a concrete next repair seam.
-- Manual testing was skipped on 2026-04-05 because Task 35 is still `__in_progress__`, so the latest task is not honestly complete yet and live proof must wait until the bounded owner-derivation rerun finishes.
+- Automated-proof audit on 2026-04-05 confirmed Task 35 is now `__done__`: the implementation subtasks are complete, Testing 1 is complete, there is no live blocker, and the targeted rerun produced the concrete next-owner boundary that Task 36 now owns.
+- Manual testing was skipped earlier on 2026-04-05 while Task 35 was still `__in_progress__`; the later automated-proof audit completed the task boundary without adding a separate manual-testing requirement here.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

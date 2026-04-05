@@ -2591,14 +2591,14 @@ This repaired prerequisite task now records and preserves the restored full `npm
 
 #### Overview
 
-This task closes the stored browser-proof finding without widening Story 55 into a larger test-harness rewrite. The Story 55 plan already requires queue-state browser scenarios to use explicit row or status boundaries instead of fixed sleeps and to keep inspectable stable screenshots for the queue-specific UI states. The implementation work for that browser-proof owner is already on disk; the remaining honest open work is this task's own full client wrapper gate plus the browser and screenshot proof steps, now that Task 33 has already recorded the restored shared full-client baseline on current `HEAD`.
+This task closes the stored browser-proof finding without widening Story 55 into a larger test-harness rewrite. The Story 55 plan already requires queue-state browser scenarios to use explicit row or status boundaries instead of fixed sleeps and to keep inspectable stable screenshots for the queue-specific UI states. The implementation work for that browser-proof owner is already on disk; after the current blocker repair, the remaining honest open work is the targeted queue-specific Playwright proof plus the screenshot-proof steps that this task explicitly owns, while the reopened shared remove-flow timeout moves to a separate follow-up owner.
 
 #### Task Exit Criteria
 
 - The Story 55 queue-specific scenarios in `e2e/ingest.spec.ts` no longer rely on the fixed-delay polling helper or unconditional `waitForTimeout(...)` calls as the normal proof boundary for queued assertions.
 - The remove-flow setup path in `e2e/ingest.spec.ts` fails the test when the required ingest start does not happen, rather than warning and returning early.
 - The required stable screenshot artifacts for the Story 55 queue UI states remain inspectable from the branch later, either by tracking the named files under the durable screenshot path or by moving only those required artifacts to an equivalently durable reviewed location without broadening screenshot churn.
-- Task 33 has already recorded a trustworthy full `npm run test:summary:client` baseline on current `HEAD`, so this task can complete its remaining Testing 2 through 5 gates honestly.
+- Task 33 has already recorded a trustworthy full `npm run test:summary:client` baseline on current `HEAD`, so this task can complete its remaining targeted Playwright and screenshot gates honestly.
 
 #### Documentation Locations
 
@@ -2624,9 +2624,9 @@ This task closes the stored browser-proof finding without widening Story 55 into
 
 1. [x] Run `npm run build:summary:client` and confirm the supported client build wrapper still passes after the Story 55 browser-proof and screenshot-artifact changes.
 2. [x] Run full `npm run test:summary:client` and confirm the existing ingest-page client proof homes still pass after the queue-specific browser-proof adjustments and screenshot-artifact durability change.
-3. [ ] Run full `npm run test:summary:e2e` and confirm the supported Playwright wrapper now proves the Story 55 queue-specific browser scenarios without warn-and-return skips, while also producing the required durable screenshot artifacts for later branch review.
-4. [ ] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the full e2e wrapper run and are no longer hidden behind the current ignore rules.
-5. [ ] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 35.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "queued submission stays available while another run is active and exposes queued row state|queued row stays visible after a page refresh while the request is still waiting|queued row picks up a run owner after the current queue head finishes|Remove selected ignores queued rows in a mixed selection"` and confirm the Task 34-owned queue-specific Playwright scenarios pass without warn-and-return skips or fixed-delay queue assertions.
+4. [ ] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the targeted Task 34-owned e2e wrapper run and are no longer hidden behind the current ignore rules.
+5. [ ] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 36.
 
 #### Implementation notes
 
@@ -2638,27 +2638,75 @@ This task closes the stored browser-proof finding without widening Story 55 into
 - Testing 1: `npm run build:summary:client` passed cleanly with `agent_action: skip_log` and no warnings, so the supported client build wrapper still accepts the bounded Story 55 browser-proof and screenshot-path changes from current `HEAD`.
 - **RESOLVED ISSUE** The earlier full-client wrapper blocker on this task was re-owned by Task 33 so the plan could work through the prerequisite in order. Task 34 now waits behind that shared client-baseline repair instead of remaining the active blocked task.
 - Planner repair on 2026-04-05 moved this task out of active `__in_progress__` state because its remaining full-client gate and later browser-proof completion depend on Task 33 first restoring a trustworthy `npm run test:summary:client` baseline. The implementation work already completed here remains honest on disk, but the task will not resume until that prerequisite lands.
-- Planner repair later on 2026-04-05 promoted Task 34 back to active `__in_progress__` status because Task 33's clean full-client wrapper result is now recorded and the stale timeout-owner diagnostic branch has been retired. The remaining work is therefore the task-local proof already listed here: rerun the full client wrapper against the queue-browser changes, rerun the supported e2e wrapper, and confirm the durable screenshot artifacts remain inspectable.
-- **BLOCKER** Testing 3: full `npm run test:summary:e2e` was rerun repeatedly from current `HEAD`, and each honest rerun still failed with one unexpected timeout in `e2e/ingest.spec.ts` scenario `remove clears entry and unlocks model when empty` while the rest of the wrapper stayed green at `57/58` passing. I tried three task-owned proof repairs inside `e2e/ingest.spec.ts`: first removing the unnecessary `waitForInProgress(...)` gate from the remove-flow setup, then replacing the remove-flow completion wait with an API-backed completed-root poll, and finally removing the extra table refresh that was still consuming timeout budget. The exact missing capability is now a still-unbounded full-wrapper timeout in that remove-flow browser proof even after the queue-specific deterministic-boundary fixes land, so Task 34 should be split or rewritten before work continues: either narrow this task's e2e gate to the queue-specific scenarios it explicitly owns, or create a fresh follow-up task for the remaining long-running remove-flow timeout in the shared ingest e2e suite.
+- Planner repair later on 2026-04-05 promoted Task 34 back to active `__in_progress__` status because Task 33's clean full-client wrapper result is now recorded and the stale timeout-owner diagnostic branch has been retired. After the current blocker repair, the remaining work is now limited to the Task 34-owned targeted queue-specific Playwright rerun plus screenshot confirmation.
+- **RESOLVED ISSUE** The old Task 34 blocker came from treating the full `npm run test:summary:e2e` wrapper as if it were still a Task 34-owned proof boundary. That bounded strategy exhausted cleanly at `57/58` passing: repeated reruns failed only in the shared ingest remove-flow scenario `remove clears entry and unlocks model when empty`, even after three task-owned proof repairs inside `e2e/ingest.spec.ts`. Planner repair on 2026-04-05 therefore narrowed Task 34 back to its queue-specific Playwright scenarios and moved the reopened shared remove-flow timeout into Task 35, so this note is now historical context rather than a live blocker on Task 34.
 - **BLOCKING ANSWER** Repository precedents found: this repo already handles the same blocker class by narrowing the active task back to the proof boundary it actually owns and re-owning the broader shared-suite failure in a successor task. `codeinfo_markdown/research_blocker_impact_on_plan.md` says that when blocker repair proves a different task or seam owns the next real work, the plan must hand execution to that owner instead of leaving the blocked task as the active executable task, and that if the next bounded strategy also exhausts cleanly the repo should prefer a fresh successor task over repeated in-place narrowing. `codeinfo_markdown/implement_next_task_subtasks.md` says the same thing for bounded diagnostic work: do not keep inventing ad hoc narrowing after a cleanly exhausted search. Story 55 already shows the local precedent in Task 8, where the task kept its owned queue-visibility proof boundary and moved the reopened broader cucumber and e2e baseline failures into follow-up tasks once those failures were shown to live outside the active task's real ownership.
 - **BLOCKING ANSWER** External-library precedents found: official Playwright docs and Context7's Playwright docs both treat web-first assertions, fixtures, and request-backed setup or teardown as the supported way to make browser tests deterministic, while `waitForTimeout` is explicitly discouraged except for debugging because it creates flake. The Playwright fixtures docs also say fixture setup and teardown time count against the test timeout, which means a long-running shared setup or cleanup path is a real ownership problem to repair, not a reason to hide the issue behind a longer timeout. The built-in `request`/`APIRequestContext` fixture and fixture/global-teardown patterns are the intended seams when deterministic cleanup must happen outside the visible UI contract. DeepWiki was attempted for `microsoft/playwright`, but that repository is not indexed in this session, so the authoritative external sources here are the official Playwright docs and Context7's mirror of them.
 - **BLOCKING ANSWER** Issue-resolution references found: the current full e2e wrapper log ends with exactly one unexpected failure in `e2e/ingest.spec.ts` scenario `remove clears entry and unlocks model when empty` while the rest of the suite is green at `57/58`, so the blocker is no longer “Task 34 browser proof still uses fixed delays” but “the broader shared ingest remove-flow browser scenario still times out under the full suite.” Direct inspection of `e2e/ingest.spec.ts` shows that failing scenario is a general ingest-remove flow, not one of the queue-specific Story 55 scenarios that Task 34 explicitly owns. Engineering practice for Playwright matches that boundary: Stack Overflow guidance around flaky Playwright assertions and setup/teardown points back to Playwright's own web-first assertions and fixture/request cleanup patterns instead of more sleeps or blanket timeout increases. That means the repeated timeout is evidence of a different shared e2e owner, not proof that Task 34's queue-specific browser contract still needs more code churn.
 - **BLOCKING ANSWER** Chosen fix and why it fits current local repo state: do not keep widening Task 34 around the shared `remove clears entry and unlocks model when empty` timeout. The best technical solution is to narrow Task 34's remaining e2e gate to the queue-specific Playwright scenarios and screenshot proof it explicitly owns, then create or re-own a separate follow-up task for the long-running remove-flow timeout in the shared ingest e2e suite. That fits the current local repo state because Task 34's queue-specific implementation is already on disk, the full client wrapper already passed on current `HEAD`, the full e2e wrapper now fails in exactly one non-queue-specific remove-flow scenario, and the repo already has an established pattern of splitting those broader reopened baseline failures into fresh owners instead of silently broadening the active task.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: do not add more polling, more `waitForTimeout`, or a larger test timeout to Task 34's full e2e gate, because Playwright treats those as debugging aids or timeout configuration, not as proof that the task's owned browser behavior is deterministic. Do not keep mutating queue-specific Story 55 browser code to satisfy a shared remove-flow timeout, because that would conflate two different e2e owners. Do not mark Task 34 done from the current partial proof state, and do not permanently hide the failure by running only filtered subsets while still claiming a full-wrapper pass. The honest next move after this blocker answer is plan repair, not more speculative Task 34 browser changes.
 - Testing 2: full `npm run test:summary:client` passed cleanly on current `HEAD` with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log` in `test-results/client-tests-2026-04-05T20-58-13-808Z.log`, so the existing ingest-page client proof homes still accept the Task 34 queue-browser changes.
+- Plan repair on 2026-04-05: narrowed Task 34's e2e testing gate to the queue-specific Playwright scenarios and moved the reopened shared ingest remove-flow timeout into Task 35 before final story revalidation. This keeps Task 34 aligned to the browser-proof boundary it actually owns and leaves the broader full-e2e baseline repair explicitly owned instead of hidden behind this task.
 
 ---
 
-### Task 35. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+### Task 35. Re-Baseline Reopened Shared Ingest Remove-Flow E2E Timeout Outside Task 34
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `31, 32, 33, 34`
+- Task Dependencies: `34`
+- Task Status: `__todo__`
+- Notes: Inserted during Task 34 plan repair because the full `npm run test:summary:e2e` wrapper exposed a long-running shared ingest remove-flow timeout that Task 34 does not honestly own.
+
+#### Overview
+
+This task restores the broader ingest e2e baseline after Task 34 proved its queue-specific browser boundary but the full wrapper still timed out in `e2e/ingest.spec.ts` scenario `remove clears entry and unlocks model when empty`. It owns the smallest shared remove-flow or shared ingest e2e seam needed to make that scenario deterministic on current `HEAD` without widening Task 34 or weakening the queue-specific browser assertions that are already on disk.
+
+#### Task Exit Criteria
+
+- The shared ingest remove-flow scenario `remove clears entry and unlocks model when empty` no longer times out on current `HEAD`.
+- Full `npm run test:summary:e2e` passes cleanly again without relying on larger blanket timeouts, extra sleeps, or permanent scenario filtering as a substitute for a real fix.
+- Task 34's queue-specific browser-proof boundary stays narrow and does not silently absorb the shared remove-flow timeout work.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `e2e/ingest.spec.ts`
+- `logs/test-summaries/e2e-tests-latest.log`
+- Any directly shared ingest e2e helper or teardown seam that the remove-flow timeout actually depends on
+- https://playwright.dev/docs/test-timeouts
+- https://playwright.dev/docs/test-fixtures
+
+#### Subtasks
+
+1. [ ] Re-read the Task 34 blocker note, `logs/test-summaries/e2e-tests-latest.log`, and the current `remove clears entry and unlocks model when empty` scenario in `e2e/ingest.spec.ts` before editing. Purpose: keep this follow-up anchored to the exact shared remove-flow timeout that survived Task 34’s queue-specific proof repairs.
+2. [ ] Identify the smallest shared ingest e2e owner needed to make the remove-flow scenario deterministic on current `HEAD`, limiting changes to that scenario and any directly shared setup, teardown, or helper seam it actually depends on. Do not reopen Task 34’s queue-specific scenarios unless new proof shows the shared owner genuinely lives there. Purpose: keep the reopened full-e2e failure explicitly owned without widening Task 34 again.
+3. [ ] Repair the shared remove-flow timeout owner using Playwright-supported web-first assertions, fixture teardown, or request-backed cleanup patterns instead of longer sleeps or blanket timeout increases. Purpose: restore the remove-flow scenario honestly without masking the shared e2e ownership problem.
+4. [ ] Update any directly owning proof text, helper comments, or test-support seams if the final fix changes how the shared remove-flow scenario is set up or torn down. Purpose: keep the shared e2e ownership boundary explicit for the next implementation loop.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted shared remove-flow scenario passes on current `HEAD`. If the wrapper reports failure or `agent_action: inspect_log`, inspect `logs/test-summaries/e2e-tests-latest.log`, fix the exact shared owner, and rerun the same targeted wrapper until it reaches a real terminal result.
+2. [ ] Run full `npm run test:summary:e2e` and confirm the full e2e wrapper passes cleanly again after the shared remove-flow repair.
+
+#### Implementation notes
+
+- Starts empty.
+- Inserted during Task 34 plan repair because the old Task 34 full-e2e testing gate proved broader than the task’s queue-specific browser-proof ownership.
+- Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
+- If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
+
+---
+
+### Task 36. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `31, 32, 33, 34, 35`
 - Task Status: `__todo__`
 - Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed.
 
 #### Overview
 
-This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 34 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, the restored full-client baseline, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
+This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 35 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, the restored full-client baseline, the shared ingest remove-flow e2e repair, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
 
 #### Task Exit Criteria
 
@@ -2678,13 +2726,13 @@ This final review-response task reruns the complete Story 55 validation path aft
 #### Subtasks
 
 1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
-2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 34 changed the contract, proof story, or hygiene story those documents need to communicate.
+2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 35 changed the contract, proof story, or hygiene story those documents need to communicate.
 3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 34. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 35. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
 3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks. If a conflicting main-stack instance already owns the fixed host ports, stop that normal stack intentionally first rather than switching to a different runtime variant for this proof.
 
 #### Implementation notes

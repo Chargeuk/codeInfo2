@@ -868,15 +868,27 @@ test.describe.serial('Ingest flows', () => {
     await test.step(
       'remove-flow owner: page refresh or row visibility before remove',
       async () => {
-        const row = page
-          .getByRole('row', {
-            name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
-          })
-          .first();
-        await expect(row).toBeVisible({ timeout: 30_000 });
-        await expect(row.getByText(/completed/i)).toBeVisible({
-          timeout: 30_000,
-        });
+        await expect
+          .poll(
+            async () => {
+              await page.reload();
+              const rows = page.getByRole('row', {
+                name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
+              });
+              if ((await rows.count()) === 0) {
+                return 'missing';
+              }
+              return (
+                (await rows.first().textContent())?.toLowerCase() ?? 'missing'
+              );
+            },
+            {
+              timeout: 30_000,
+              message:
+                'waiting for a refreshed remove-flow row to become visible before remove',
+            },
+          )
+          .toContain('completed');
       },
       { timeout: 30_000 },
     );

@@ -46,6 +46,20 @@ If there is or was a blocker, decide whether it reveals any of the following:
 
 </blocker_history_rules>
 
+<execution_handoff_rules>
+
+- If blocker repair proves that a different prerequisite task must happen before the currently blocked task can continue, you MUST rewrite task order, dependencies, and task statuses so that prerequisite becomes the next active executable task in the normal implementation loop.
+- Do not leave the blocked task as the highest-numbered `__in_progress__` task when a different task now owns the next real work.
+- When inserting or splitting out a prerequisite owner:
+  - move the blocked task out of active `__in_progress__` state;
+  - set the prerequisite owner task to `__in_progress__`;
+  - rewrite the blocked task so it depends explicitly on that prerequisite;
+  - renumber downstream tasks and references if needed so the plan can still be worked through in order.
+- If the blocked task still needs later follow-up after the prerequisite lands, keep that work on the blocked task but mark it `__to_do__` until the prerequisite owner is complete.
+- A repaired plan is not honest if its notes say `work Task B first` while its task-status state would still make the loop select blocked Task A.
+
+</execution_handoff_rules>
+
 <repair_rules>
 
 If any of those are true, you MUST repair the story before continuing:
@@ -87,6 +101,7 @@ If this step rewrites, narrows, or re-owns a task in a way that makes all of tha
 - Do not bypass the normal audit and manual-testing completion path by setting a planner-repaired task directly to `__done__`.
 - Do not leave a known plan defect in place once the blocker has proved it.
 - Do not leave an old active blocker marker in place when the task is no longer actively blocked after this step.
+- Do not encode a prerequisite handoff only in prose or blocker notes; the task-status state must hand execution to the prerequisite task as well.
 - Do not return a repeatedly stalled task to the implementation loop unchanged when the blocker evidence shows the task shape itself is the problem.
 - Do not let one task accumulate multiple generations of long blocker prose when a fresh successor task would give a cleaner handoff.
 - Prefer one concise historical summary plus one current blocker state over repeated full blocker narratives in the same task.
@@ -119,6 +134,7 @@ Before finishing:
 - confirm you re-read the plan from disk;
 - confirm the blocker's plan impact was judged from current plan state rather than memory;
 - confirm any missing prerequisite, task split, renumbering, or testing-gate changes were applied consistently;
+- confirm any prerequisite handoff was encoded in task status so the next real owner is the one the implementation loop will actually pick;
 - confirm the updated plan is runnable and honest at each task boundary after your edits;
 - confirm tracked changes were committed if any were made.
 

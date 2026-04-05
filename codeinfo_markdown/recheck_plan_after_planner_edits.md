@@ -31,6 +31,8 @@ Summarize what changed and what the next pass should do.
 - Read the end of the plan file from disk and report the highest `### <number>.` task heading currently present.
 - Confirm any `Task Status` updates, new tasks, or task renumbering that occurred after the planner edits.
 - If any task is currently `__in_progress__`, the highest-numbered `__in_progress__` task is the active task for the next pass.
+- If planner repair says a different prerequisite task must happen before an earlier blocked task can continue, treat the repair as incomplete unless that prerequisite is now the highest-numbered `__in_progress__` task.
+- Do not accept a repaired plan where a blocked task still occupies the active `__in_progress__` slot ahead of its newly inserted prerequisite.
 - Do not advance to a later `__to_do__` task while any task remains `__in_progress__`.
 - If the active `__in_progress__` task has no unchecked subtasks, do not treat that as permission to advance; instead, report that the task remains active and is ready for automated proof or other remaining non-subtask work.
 - If the active `__in_progress__` task was returned by planner blocker repair, state explicitly whether the repaired task now has a bounded next implementation step or whether planner repair is still incomplete.
@@ -63,6 +65,7 @@ Before finishing:
 - confirm you re-read the plan from disk after the planner edits;
 - confirm you validated the current scope from `current-plan.json`;
 - confirm you preferred the highest-numbered `__in_progress__` task when one exists;
+- confirm the active `__in_progress__` task is also the true next executable owner after planner repair, rather than a still-blocked task ahead of a newly added prerequisite;
 - confirm you did not advance past an `__in_progress__` task merely because its subtasks were complete;
 - confirm you checked `git status -sb` before finalizing.
 

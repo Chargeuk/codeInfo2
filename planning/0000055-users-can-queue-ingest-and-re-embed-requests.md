@@ -2586,7 +2586,7 @@ This repaired prerequisite task now records and preserves the restored full `npm
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `31`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-04 from review pass `0000055-20260404T183747Z-e78729af` because the current queued-state browser proof still uses arbitrary waits, skip-style early returns, and ignored screenshot artifacts. Planner repair on 2026-04-05 first moved this task behind Task 33 while the shared client baseline was still unresolved. Planner repair later the same day promoted this task back to active `__in_progress__` status because Task 33's clean full-client wrapper result is now recorded on current `HEAD`, so the remaining honest work is Task 34's own wrapper and screenshot proof.
 
 #### Overview
@@ -2659,8 +2659,8 @@ This task closes the stored browser-proof finding without widening Story 55 into
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `34`
-- Task Status: `__todo__`
-- Notes: Inserted during Task 34 plan repair because the full `npm run test:summary:e2e` wrapper exposed a long-running shared ingest remove-flow timeout that Task 34 does not honestly own.
+- Task Status: `__in_progress__`
+- Notes: Inserted during Task 34 plan repair because the full `npm run test:summary:e2e` wrapper exposed a long-running shared ingest remove-flow timeout that Task 34 does not honestly own. Planner normalization on 2026-04-05 promoted this task to the active owner after Task 34's targeted browser-proof and screenshot gates were completed on current `HEAD`.
 
 #### Overview
 
@@ -2697,6 +2697,7 @@ This task restores the broader ingest e2e baseline after Task 34 proved its queu
 
 - Starts empty.
 - Inserted during Task 34 plan repair because the old Task 34 full-e2e testing gate proved broader than the task’s queue-specific browser-proof ownership.
+- Planner normalization on 2026-04-05 moved this task to active `__in_progress__` status because Task 34's own proof boundary is now complete and the shared remove-flow timeout is the next real executable owner.
 - Update it during implementation with concise notes describing what was done, what issues were encountered, and what decisions were made.
 - If a blocker is found during implementation, record the exact subtask or testing step, what was attempted, and what capability is missing.
 

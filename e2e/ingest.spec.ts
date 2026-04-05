@@ -782,6 +782,9 @@ test.describe.serial('Ingest flows', () => {
   test('remove clears entry and unlocks model when empty', async ({ page }) => {
     const removeFixtureName = `${fixtureName}-remove`;
     await page.goto(`${baseUrl}/ingest`);
+    // Keep the validated mounted repo-root fixture path here. Task 35's
+    // carried-forward timeout artifacts showed the previous `/fixtures/repo/docs`
+    // shortcut was not guaranteed by the current e2e image contract.
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(removeFixtureName);
     await selectEmbeddingModel(page);
@@ -830,45 +833,72 @@ test.describe.serial('Ingest flows', () => {
 
     const statusCtx = await request.newContext();
     try {
-      await expect
-        .poll(
-          async () => {
-            const roots = await fetchRoots(statusCtx);
-            // Match the exact started root so prior suite state with the same
-            // fixture path cannot satisfy this remove-flow boundary early.
-            const root = roots.find(
-              (entry) =>
-                entry.runId === removeRunId || entry.name === removeFixtureName,
-            );
-            return root
-              ? `${root.status ?? 'unknown'}:${root.queueState ?? 'none'}`
-              : 'missing';
-          },
-          {
-            timeout: 180_000,
-            message: 'waiting for remove-flow ingest to reach a completed root',
-          },
-        )
-        .toMatch(/^completed:/i);
+      await test.step(
+        'remove-flow owner: server completion polling',
+        async () => {
+          await expect
+            .poll(
+              async () => {
+                const roots = await fetchRoots(statusCtx);
+                // Match the exact started root so prior suite state with the
+                // same fixture path cannot satisfy this boundary early.
+                const root = roots.find(
+                  (entry) =>
+                    entry.runId === removeRunId ||
+                    entry.name === removeFixtureName,
+                );
+                return root
+                  ? `${root.status ?? 'unknown'}:${root.queueState ?? 'none'}`
+                  : 'missing';
+              },
+              {
+                timeout: 180_000,
+                message:
+                  'waiting for remove-flow ingest to reach a completed root',
+              },
+            )
+            .toMatch(/^completed:/i);
+        },
+        { timeout: 180_000 },
+      );
     } finally {
       await statusCtx.dispose();
     }
 
-    const row = page
-      .getByRole('row', {
-        name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
-      })
-      .first();
-    await expect(row).toBeVisible({ timeout: 30_000 });
-    await expect(row.getByText(/completed/i)).toBeVisible({ timeout: 30_000 });
+    await test.step(
+      'remove-flow owner: page refresh or row visibility before remove',
+      async () => {
+        const row = page
+          .getByRole('row', {
+            name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
+          })
+          .first();
+        await expect(row).toBeVisible({ timeout: 30_000 });
+        await expect(row.getByText(/completed/i)).toBeVisible({
+          timeout: 30_000,
+        });
+      },
+      { timeout: 30_000 },
+    );
 
-    await row.getByRole('button', { name: /^Remove$/i }).click();
-    await expect(page.getByText(/Removed/i).first()).toBeVisible({
-      timeout: 30_000,
-    });
+    await test.step(
+      'remove-flow owner: remove-click success confirmation',
+      async () => {
+        const row = page
+          .getByRole('row', {
+            name: new RegExp(`^Select ${removeFixtureName} `, 'i'),
+          })
+          .first();
+        await row.getByRole('button', { name: /^Remove$/i }).click();
+        await expect(page.getByText(/Removed/i).first()).toBeVisible({
+          timeout: 30_000,
+        });
 
-    await expect(page.getByText(/No embedded folders yet/i)).toBeVisible({
-      timeout: 30_000,
-    });
+        await expect(page.getByText(/No embedded folders yet/i)).toBeVisible({
+          timeout: 30_000,
+        });
+      },
+      { timeout: 30_000 },
+    );
   });
 });

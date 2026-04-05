@@ -2651,6 +2651,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 - Testing 4: the required screenshots were regenerated at `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` and `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`, and they were promoted into tracked repository state so the durable browser-proof evidence is no longer hidden behind ignored transient-output paths.
 - Testing 5: supported compose smoke remains honestly not applicable for Task 34 because this task only proves the queue-specific browser path and its durable screenshot artifacts. The normal main-stack compose proof still remains owned by Task 36.
 - Automated-proof audit on 2026-04-05: Task 34 now has every subtask and testing step honestly complete on current `HEAD`, no live `**BLOCKER**` remains, and the task status is normalized to `__done__` before Task 35 picks up the separate shared remove-flow follow-up.
+- Manual testing assessed on 2026-04-05 and not applicable for Task 34. This pass stayed task-scoped because Task 34 only hardens the automated Playwright proof and durable screenshot-artifact path for Story 55; it does not add or change a separate runnable, browser-visible, HTTP, or paired-frontend product behavior beyond the owned automated proof surfaces already recorded here. No additional subtasks or Testing-step changes were needed.
 
 ---
 

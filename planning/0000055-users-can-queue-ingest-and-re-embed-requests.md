@@ -2881,7 +2881,7 @@ This task did not try to finish the whole shared remove-flow repair. It only pro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `38`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added during planner repair on 2026-04-06 because Task 38 proved the first trustworthy timeout is earlier than the remove phase. The next honest work is one fresh bounded successor around `startIngestAndCaptureOutcome()` / `submit-error` before Task 36 resumes.
 
 #### Overview
@@ -2924,6 +2924,7 @@ This task does not try to finish the whole shared remove-flow repair. It only pr
 - Subtask 3: landed the smallest owner-exposing instrumentation instead of a broad repair. The submit-phase step now resolves to one explicit earlier outcome from current UI state: `submit-error:<text>`, `active-status:<text>`, `active-heading:<text>`, or `page-closed`, and it throws a named page-lifecycle error if the browser closes before the submit phase resolves.
 - Subtask 4: updated the task-owned handoff text in `e2e/ingest.spec.ts` so later tasks can read that this helper is now the first trustworthy owner surface and that downstream remove-flow markers should stay out of scope until this earlier seam is proved.
 - Testing 1: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` now passes cleanly on current `HEAD` with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`. The new pre-remove submit/start instrumentation no longer leaves the scenario in an ambiguous timeout before the remove flow becomes meaningful.
+- Implementation-plus-automated-proof audit on 2026-04-06: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 39 section, the latest Task 39 proof commit `f2c011c9`, and the current owner seams in `e2e/ingest.spec.ts` plus `logs/test-summaries/e2e-tests-latest.log` from disk. The current plan already honestly showed every subtask and Testing 1 complete, no live `**BLOCKER**` remained, and Task 39 now closes as `__done__` because the bounded earlier-owner proof and its targeted wrapper-backed automated proof are both complete.
 
 ---
 

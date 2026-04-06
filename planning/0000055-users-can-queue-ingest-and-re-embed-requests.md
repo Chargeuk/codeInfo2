@@ -2914,7 +2914,7 @@ This task does not try to finish the whole shared remove-flow repair. It only pr
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted wrapper now either passes the pre-remove submit/start phase or fails at one named earlier seam instead of timing out ambiguously before later remove-flow owners become meaningful.
+1. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted wrapper now either passes the pre-remove submit/start phase or fails at one named earlier seam instead of timing out ambiguously before later remove-flow owners become meaningful.
 
 #### Implementation notes
 
@@ -2923,6 +2923,7 @@ This task does not try to finish the whole shared remove-flow repair. It only pr
 - Subtask 2: replaced the single unbounded `submit-error.textContent()` wait with one bounded pre-remove diagnostic surface in `startIngestAndCaptureOutcome()`. The helper now exposes two named owner seams, `remove-flow owner: start-response wait` and `remove-flow owner: submit-phase resolution`, so the later targeted wrapper can distinguish response-wait, submit-phase, and page-closure failures before any remove-row markers become relevant.
 - Subtask 3: landed the smallest owner-exposing instrumentation instead of a broad repair. The submit-phase step now resolves to one explicit earlier outcome from current UI state: `submit-error:<text>`, `active-status:<text>`, `active-heading:<text>`, or `page-closed`, and it throws a named page-lifecycle error if the browser closes before the submit phase resolves.
 - Subtask 4: updated the task-owned handoff text in `e2e/ingest.spec.ts` so later tasks can read that this helper is now the first trustworthy owner surface and that downstream remove-flow markers should stay out of scope until this earlier seam is proved.
+- Testing 1: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` now passes cleanly on current `HEAD` with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`. The new pre-remove submit/start instrumentation no longer leaves the scenario in an ambiguous timeout before the remove flow becomes meaningful.
 
 ---
 

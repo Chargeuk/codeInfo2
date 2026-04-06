@@ -3060,7 +3060,7 @@ This review-fix task repairs the contract mismatch between route-time admission 
 
 - Queued `/ingest/start` admission and later execution-time validation use one consistent lock-mismatch rule for the empty-collection path.
 - A request that would fail `validateExecutableIngestInput()` for a lock mismatch can no longer be accepted first and only fail later when promoted from the queue.
-- Direct proof exists for both the route-time rejection/acceptance contract and the queued-promotion path that previously contradicted it.
+- Direct proof exists at the route unit, queue-runtime unit, and higher-level ingest-start feature layers for the repaired lock-validation contract.
 
 #### Documentation Locations
 
@@ -3068,6 +3068,8 @@ This review-fix task repairs the contract mismatch between route-time admission 
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
 - `server/src/routes/ingestStart.ts`
 - `server/src/ingest/ingestJob.ts`
+- `server/src/test/features/ingest-start.feature`
+- `server/src/test/steps/ingest-start.steps.ts`
 - `server/src/test/unit/ingest-start.test.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`
 
@@ -3078,13 +3080,15 @@ This review-fix task repairs the contract mismatch between route-time admission 
 3. [ ] Requirement: a request that execution would reject for lock mismatch must not be admitted into the queue first. Owner: `server/src/routes/ingestStart.ts` or its smallest direct shared helper. Proof target after the edit: the route-owner proof in `server/src/test/unit/ingest-start.test.ts` and the queue-promotion proof in `server/src/test/unit/ingest-queue-runtime.test.ts` must both agree with the same rule. Purpose: eliminate the accept-now fail-later path without widening the Story 55 queue surface.
 4. [ ] Requirement: the route-owner contract must reject or classify the old empty-collection lock-mismatch contradiction before enqueueing. Owner: `server/src/routes/ingestStart.ts`. Proof: extend `server/src/test/unit/ingest-start.test.ts` with one direct route-admission case for that exact contradiction. Purpose: make the admission contract fail loudly if the split rule returns.
 5. [ ] Requirement: queue promotion must still enforce the same aligned lock rule after the admission repair. Owner: `server/src/ingest/ingestJob.ts`. Proof: extend `server/src/test/unit/ingest-queue-runtime.test.ts` only as needed to show the promoted path matches the repaired admission rule. Purpose: keep the execution-side proof explicit and separate from the route-owner proof.
+6. [ ] Requirement: the repo's higher-level ingest-start behavior proof must stop claiming that the same lock mismatch is accepted. Owner proof files: `server/src/test/features/ingest-start.feature` and `server/src/test/steps/ingest-start.steps.ts`. Proof action: rewrite or rename the existing model-lock scenario so its title, request setup, and assertions describe the repaired admission contract instead of the stale "accepts the request" behavior. Purpose: keep the cucumber contract honest after the route-level fix and avoid leaving a renamed invariant hidden behind an old scenario title.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the queued start-lock validation repair.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the route-owner contract now covers the old empty-collection lock mismatch contradiction directly.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the queued promotion path still enforces the aligned execution-time rule.
-4. [ ] Run full `npm run test:summary:server:unit` and confirm the wider backend unit/integration baseline still passes after the shared validation-contract repair.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` and confirm the higher-level ingest-start feature proof now matches the repaired lock-validation contract instead of the stale acceptance behavior.
+5. [ ] Run full `npm run test:summary:server:unit` and confirm the wider backend unit/integration baseline still passes after the shared validation-contract repair.
 
 #### Implementation notes
 
@@ -3205,12 +3209,13 @@ This review-fix task restores an honest direct proof home for the Story 55 full 
 
 #### Overview
 
-This final review-response task reruns the full Story 55 validation path after Tasks 42 through 44 land. It must confirm that the queued `/ingest/start` lock-validation contract is now consistent from admission through execution, that review-artifact hygiene no longer hides durable evidence, that the final full-wrapper proof homes are honest and inspectable, and that the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, browser proof, and supported compose path still hold after the review-fix work.
+This final review-response task reruns the full Story 55 validation path after Tasks 42 through 44 land. It must confirm that the queued `/ingest/start` lock-validation contract is now consistent from admission through execution, that review-artifact hygiene no longer hides durable evidence, that the final full-wrapper proof homes are honest and inspectable, and that the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, browser proof, supported compose path, and supported main-stack host-network smoke path still hold after the review-fix work.
 
 #### Task Exit Criteria
 
 - The current review findings from `0000055-20260406T015137Z-60894b27` are closed by direct current-repo evidence, not by historical claims.
 - Every Story 55 acceptance criterion is re-checked against the post-fix implementation and still has an honest direct or indirect proof home, including the queued `/ingest/start` validation contract and the final retained full-wrapper proof homes this review reopened.
+- The supported main-stack runtime path is smoke-proved through the repo's compose and host-network wrappers, not only by container start/stop bookkeeping.
 - Final close-out notes in this plan explain why Story 55 is complete again after the current review reopen and carry forward any residual-risk notes from the stored findings and blind-spot challenge artifacts that remain honest after the fixes.
 
 #### Documentation Locations
@@ -3218,28 +3223,33 @@ This final review-response task reruns the full Story 55 validation path after T
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `planning/0000055-pr-summary.md`
 - `README.md`
+- `docs/developer-reference.md`
+- `docker-compose.yml`
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md`
+- `scripts/test-summary-host-network-main.mjs`
+- `logs/test-summaries/host-network-main-latest.log`
 
 #### Subtasks
 
 1. [ ] Requirement: the final revalidation must name the exact acceptance-criteria group reopened by the Task 42 admission-contract repair before wrapper reruns begin. Owner files: `server/src/routes/ingestStart.ts` and `server/src/ingest/ingestJob.ts`. Proof sources to cite later: Task 42 proof in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts`. Purpose: keep the final revalidation anchored to the contract seam this review actually reopened.
 2. [ ] Requirement: the final revalidation must name the exact proof-retention and review-artifact hygiene obligations reopened by Tasks 43 and 44. Owner files: `.gitignore`, Task 41 close-out notes, and `planning/0000055-pr-summary.md`. Proof sources to cite later: the Task 43 hygiene checks plus the Task 44 retained-artifact verification. Purpose: keep the final revalidation explicit about the two non-runtime findings this review also reopened.
 3. [ ] Requirement: previously proved queue, browser, and runtime behavior must be identified as regression-only scope rather than rediscovered from scratch. Owner files: the existing Story 55 implementation and proof homes already recorded in the plan. Proof sources to cite later: the full wrapper, compose, and retained-artifact checks in this task's Testing section. Purpose: stop the final revalidation from broadening back into a whole-story rediscovery pass.
-4. [ ] Requirement: the PR summary must explain only the reviewed changes from Tasks 42 through 44. Owner file: `planning/0000055-pr-summary.md`. Proof: update it only where it must describe the repaired lock-validation contract, the final retained proof home, or the review-artifact hygiene outcome. Purpose: keep the PR summary aligned with the reviewed changes and no more.
-5. [ ] Requirement: any one other directly owning close-out note must stay synchronized only if it still explains the same repaired contract, proof, or hygiene seam after Subtask 4. Owner file: one directly owning close-out note only if needed. Proof: update just that note if it still lags behind the repaired state. Purpose: keep supporting close-out docs synchronized without broad documentation churn.
-6. [ ] Requirement: the canonical plan must state how the queued `/ingest/start` admission-versus-execution finding was closed. Owner file: this plan's final close-out notes. Proof sources to cite: Task 42 implementation notes plus the route-owner and queue-runtime proof files. Purpose: make the must-fix resolution auditable without reading the whole review artifact again.
-7. [ ] Requirement: the canonical plan must state how the missing retained full-wrapper proof-home finding was closed. Owner file: this plan's final close-out notes. Proof sources to cite: Task 44 retained wrapper artifacts plus the corrected Task 41 and PR-summary paths. Purpose: make the proof-retention resolution auditable without reading the whole review artifact again.
-8. [ ] Requirement: the canonical plan must state how the ignored review-artifact hygiene finding was closed. Owner file: this plan's final close-out notes. Proof sources to cite: Task 43 `.gitignore` repair plus the `git check-ignore` and `git ls-files -ci --exclude-standard` results. Purpose: make the hygiene resolution auditable without reading the whole review artifact again.
-9. [ ] Requirement: residual weak-proof notes from the findings and blind-spot challenge artifacts must remain visible if they are still honest after the reruns. Owner file: this plan's final close-out notes. Proof sources to cite: `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md` and `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md`. Purpose: leave a truthful final close-out instead of implying the review was exhaustive.
-10. [ ] Requirement: the later manual-testing loop must know whether Task 42 changed any runtime-visible ingest behavior that still needs a fresh scenario. Owner surface: the queued `/ingest/start` runtime path. Proof source to leave: either one exact manual-testing scenario for the repaired queue admission seam or one explicit “unchanged manual scope” note in the final close-out. Purpose: keep the later manual-testing loop scoped to the real post-review surface instead of making it guess.
+4. [ ] Requirement: the final revalidation must still prove the normal supported main-stack runtime path, not just container start and stop bookkeeping. Owner files: `docker-compose.yml` and `scripts/test-summary-host-network-main.mjs`. Proof sources to cite later: `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:host-network:main`, `npm run compose:down`, and `logs/test-summaries/host-network-main-latest.log`. Purpose: route runtime smoke through the repo's supported host-network probe instead of treating `compose:up` alone as sufficient proof.
+5. [ ] Requirement: the PR summary must explain only the reviewed changes from Tasks 42 through 44. Owner file: `planning/0000055-pr-summary.md`. Proof: update it only where it must describe the repaired lock-validation contract, the final retained proof home, or the review-artifact hygiene outcome. Purpose: keep the PR summary aligned with the reviewed changes and no more.
+6. [ ] Requirement: any one other directly owning close-out note must stay synchronized only if it still explains the same repaired contract, proof, or hygiene seam after Subtask 5. Owner file: one directly owning close-out note only if needed. Proof: update just that note if it still lags behind the repaired state. Purpose: keep supporting close-out docs synchronized without broad documentation churn.
+7. [ ] Requirement: the canonical plan must state how the queued `/ingest/start` admission-versus-execution finding was closed. Owner file: this plan's final close-out notes. Proof sources to cite: Task 42 implementation notes plus the route-owner, queue-runtime, and cucumber proof files. Purpose: make the must-fix resolution auditable without reading the whole review artifact again.
+8. [ ] Requirement: the canonical plan must state how the missing retained full-wrapper proof-home finding was closed. Owner file: this plan's final close-out notes. Proof sources to cite: Task 44 retained wrapper artifacts plus the corrected Task 41 and PR-summary paths. Purpose: make the proof-retention resolution auditable without reading the whole review artifact again.
+9. [ ] Requirement: the canonical plan must state how the ignored review-artifact hygiene finding was closed. Owner file: this plan's final close-out notes. Proof sources to cite: Task 43 `.gitignore` repair plus the `git check-ignore` and `git ls-files -ci --exclude-standard` results. Purpose: make the hygiene resolution auditable without reading the whole review artifact again.
+10. [ ] Requirement: residual weak-proof notes from the findings and blind-spot challenge artifacts must remain visible if they are still honest after the reruns. Owner file: this plan's final close-out notes. Proof sources to cite: `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md` and `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md`. Purpose: leave a truthful final close-out instead of implying the review was exhaustive.
+11. [ ] Requirement: the later manual-testing loop must know whether Task 42 changed any runtime-visible ingest behavior that still needs a fresh scenario. Owner surface: the queued `/ingest/start` runtime path. Proof source to leave: either one exact manual-testing scenario for the repaired queue admission seam or one explicit “unchanged manual scope” note in the final close-out. Purpose: keep the later manual-testing loop scoped to the real post-review surface instead of making it guess.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
 2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 42 through 44.
-3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks.
+3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, then `npm run test:summary:host-network:main`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks. If a conflicting main-stack instance already owns the fixed host ports, stop that normal stack intentionally first rather than switching to a different runtime variant for this proof.
 4. [ ] Verify that every retained proof path cited in the final close-out notes and PR summary still exists after the final reruns, and that no close-out note still points at a missing `test-results/*.log` file for the full server-unit, server-cucumber, or client wrappers.
 
 #### Implementation notes

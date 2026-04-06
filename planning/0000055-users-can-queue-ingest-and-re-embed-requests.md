@@ -3663,7 +3663,7 @@ This review-fix task restores one stable repository-root identity for queued re-
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `48`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` found that the shared repository-list builder can still emit duplicate rows for one path after repeated ingests, leaving queue and active overlays attached to only one row.
 
 #### Overview
@@ -3750,6 +3750,7 @@ This review-fix task restores path-level authority in the shared repository-list
 - 2026-04-06 proof rerun: `npm run compose:up` started the supported main stack cleanly, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1` containers before smoke proof.
 - 2026-04-06 proof rerun: `npm run test:summary:host-network:main` passed with every required host-network endpoint reachable on `http://host.docker.internal:{5010,5011,5012,8932}`; retained smoke log: `logs/test-summaries/host-network-main-latest.log`.
 - 2026-04-06 proof rerun: `npm run compose:down` shut the supported main stack down cleanly after the Task 49 smoke pass, so the mixed-path follow-up now has all listed automated proof steps complete and is ready for the later audit pass.
+- 2026-04-06 implementation-plus-automated-proof audit: Re-read `codeInfoStatus/flow-state/current-plan.json` and this exact reopened Task 49 section from disk, verified the retained proof homes `logs/test-summaries/build-server-latest.log`, `test-results/server-unit-tests-2026-04-06T19-00-09-480Z.log`, `test-results/server-cucumber-tests-2026-04-06T19-25-25-755Z.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log`, and confirmed there is no live `**BLOCKER**` note in this task. No Testing item needed to be newly checked in this audit because the plan already honestly recorded the reopened Testing 1 through 7 as complete, so Task 49 now closes as `__done__` before later manual testing.
 
 ### Task 50. Validate Re-Embed Acceptance Responses In The Repository Table
 

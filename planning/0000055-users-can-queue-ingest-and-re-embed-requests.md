@@ -3402,20 +3402,26 @@ This final review-response task rechecks Story 55 after Task 46 closes the remai
 - `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-blind-spot-challenge.md`
 - `server/src/ingest/ingestJob.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`
 - `logs/test-summaries/host-network-main-latest.log`
 
 #### Subtasks
 
-1. [ ] Requirement: record exactly how Task 46 closed the `processRun()` no-change fast-path review finding. Output: one concise close-out note in this plan that names the new direct proof home and the control-flow seam that moved.
-2. [ ] Requirement: keep the wider Story 55 proof story explicit but regression-only. Output: one short list in this plan's close-out notes naming the retained direct or indirect proof homes that still cover queue admission, queue runtime, queue-aware transports, queued repo-list visibility, browser proof, and host-network smoke without rerunning unrelated client or browser harnesses in this task.
-3. [ ] Requirement: update `planning/0000055-pr-summary.md` only if it still describes the pre-fix no-change fast-path state. Output: one localized wording update or an explicit note in this task's implementation notes that no PR-summary edit was needed.
-4. [ ] Requirement: carry forward the residual-risk notes honestly. Output: restate that browser proof in `e2e/ingest.spec.ts` still contains short waits around stronger boundaries, and that the no-change fast path is now directly proved under the bootstrap-failure scenario that the review flagged.
+1. [ ] Requirement: read Task 46's implementation notes plus the final `processRun()` boundary in `server/src/ingest/ingestJob.ts` and the new direct proof in `server/src/test/unit/ingest-reembed.test.ts`, then write one close-out note in this plan that names the exact guard or control-flow move that now keeps the zero-work delta path ahead of Chroma bootstrap. Output: one plan note that cites the moved code seam and the exact unit-test proof home. Boundary: do not re-explain the whole queue story here.
+2. [ ] Requirement: restate the retained Story 55 acceptance proof homes as a regression-only checklist in this plan's close-out notes. Output: one flat list that names which existing files still cover queue admission (`server/src/test/unit/ingest-start.test.ts`), queue runtime (`server/src/test/unit/ingest-queue-runtime.test.ts`), re-embed blocking and fast-path behavior (`server/src/test/unit/ingest-reembed.test.ts`), browser queued visibility (`e2e/ingest.spec.ts` plus `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`), and supported runtime smoke (`logs/test-summaries/host-network-main-latest.log`). Boundary: do not invent new proof homes or quietly drop any current retained one that is still honest.
+3. [ ] Requirement: open `planning/0000055-pr-summary.md` and make one explicit decision about whether it still describes the pre-fix no-change fast path. Output: either one localized wording update in `planning/0000055-pr-summary.md` that mentions the Task 46 fast-path fix, or one implementation-note entry here that the existing PR summary already stayed accurate and was left unchanged.
+4. [ ] Requirement: carry forward the residual-risk notes from the stored review artifacts without implying that this revalidation proved more than it really did. Output: one close-out note that still names the remaining browser-proof weak point in `e2e/ingest.spec.ts` and that now marks the no-change fast path as directly proved under the bootstrap-failure scenario that the review flagged.
+5. [ ] Requirement: keep this task scoped to current-repository revalidation only. Output: leave all older completed tasks unchanged except for any one necessary cross-reference or proof-path citation update in this plan or `planning/0000055-pr-summary.md`; do not reopen client, browser, or workflow files unless the new server proof made one of those exact citations stale.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the wrapper still finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the backend wrapper still passes after the Task 46 fix.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the backend wrapper still passes after the Task 46 fix, including the new direct no-change failure-path proof.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the broader queue and re-embed server acceptance proof still passes after the `processRun()` change.
+4. [ ] After Testing 2 and 3 finish, verify that every proof path newly cited by this task still exists on disk before closing the story. Required retained paths: the latest server-unit wrapper log produced by Testing 2, `logs/test-summaries/host-network-main-latest.log`, and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`. Update this plan and `planning/0000055-pr-summary.md` if any cited path would otherwise remain stale.
 
 #### Implementation notes
 

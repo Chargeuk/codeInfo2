@@ -11,10 +11,11 @@ Feature: ingest start endpoint
     Then the ingest start status code is 202
     And ingest status for the last run becomes "completed"
 
-  Scenario: model lock accepts the request instead of rejecting it
+  Scenario: model lock rejects the empty-collection queued admission before enqueueing
     Given chroma stub locked to "embed-locked"
     When I POST ingest start with model "embed-1"
-    Then the ingest start status code is 202
+    Then the ingest start status code is 409
+    And the ingest start error code is "MODEL_LOCKED"
 
   Scenario: dry run completes without embeddings
     Given ingest start models scenario "many"

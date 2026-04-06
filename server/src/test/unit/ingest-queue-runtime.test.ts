@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import mongoose from 'mongoose';
 import {
   __finalizeQueueRequestForRunForTest,
@@ -17,7 +17,9 @@ import {
   recoverIngestQueueOnStartup,
   setIngestDeps,
   validateExecutableIngestInput,
+  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
+import * as chromaClient from '../../ingest/chromaClient.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
 
@@ -198,30 +200,47 @@ test('queue pump creates the real runId only when queued work actually starts', 
   assert.equal(getStatus(promotedRunId)?.runId, promotedRunId);
 });
 
-test('queue-managed execution revalidates the collection lock before starting a promoted request', async () => {
-  await assert.rejects(
-    () =>
-      validateExecutableIngestInput(
-        {
-          model: 'embed-1',
-          embeddingProvider: 'lmstudio',
-          embeddingModel: 'embed-1',
-        },
-        {
-          getLockedEmbeddingModel: async () => ({
-            embeddingProvider: 'lmstudio',
-            embeddingModel: 'embed-2',
-            embeddingDimensions: 768,
-            lockedModelId: 'embed-2',
-            source: 'canonical',
-          }),
-        },
-      ),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'MODEL_LOCKED');
-      return true;
-    },
-  );
+test('queue promotion still enforces the empty-collection lock mismatch before the promoted request can run', async () => {
+  mock.method(chromaClient, 'getLockedEmbeddingModel', async () => ({
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'embed-2',
+    embeddingDimensions: 768,
+    lockedModelId: 'embed-2',
+    source: 'canonical',
+  }));
+
+  const promoted = createQueueRequest({
+    requestId: '5',
+    root: '/data/repo-lock-mismatch',
+    queueState: 'running',
+  });
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => ({
+      ...promoted,
+      runId,
+      requestPayload: {
+        ...promoted.requestPayload,
+        model: 'embed-1',
+        embeddingProvider: 'lmstudio',
+        embeddingModel: 'embed-1',
+      },
+    }),
+  });
+
+  const result = await pumpIngestQueue();
+  assert.equal(result.started, true);
+  assert.ok(result.runId);
+
+  const terminal = await waitForTerminalIngestStatus(result.runId as string, {
+    timeoutMs: 1_000,
+    pollMs: 10,
+  });
+
+  assert.equal(terminal.reason, 'terminal');
+  assert.equal(terminal.status?.state, 'error');
+  assert.equal(terminal.status?.lastError, 'MODEL_LOCKED');
 });
 
 test('queue-managed execution rejects non-allowlisted OpenAI models before promotion can run', async () => {

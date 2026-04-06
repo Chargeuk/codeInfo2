@@ -9,6 +9,7 @@ import {
   getStatus,
   type IngestJobStatus,
   pumpIngestQueue,
+  validateExecutableIngestInput,
 } from '../ingest/ingestJob.js';
 import {
   appendIngestFailureLog,
@@ -76,7 +77,7 @@ function logLockResolverState(
 }
 
 export function createIngestStartRouter({
-  collectionIsEmpty: collectionIsEmptyOverride = collectionIsEmpty,
+  collectionIsEmpty: _collectionIsEmptyOverride = collectionIsEmpty,
   getLockedEmbeddingModel:
     getLockedEmbeddingModelOverride = getLockedEmbeddingModel,
   enqueueOrReuseIngestRequest:
@@ -137,25 +138,27 @@ export function createIngestStartRouter({
 
     try {
       const locked = await getLockedEmbeddingModelOverride();
-      const empty = await collectionIsEmptyOverride();
       logLockResolverState(requestId, 'ingest/start', locked);
       const requested = resolvedSelection.selection;
-      if (
-        !empty &&
-        locked &&
-        (locked.embeddingProvider !== requested.providerId ||
-          locked.embeddingModel !== requested.modelKey)
-      ) {
-        return res.status(409).json({
-          status: 'error',
-          code: 'MODEL_LOCKED',
-          lock: {
-            embeddingProvider: locked.embeddingProvider,
-            embeddingModel: locked.embeddingModel,
-            embeddingDimensions: locked.embeddingDimensions,
-          },
-          lockedModelId: locked.embeddingModel,
+      try {
+        await validateExecutableIngestInput(req.body ?? {}, {
+          selection: requested,
+          getLockedEmbeddingModel: async () => locked,
         });
+      } catch (err) {
+        if ((err as { code?: string }).code === 'MODEL_LOCKED' && locked) {
+          return res.status(409).json({
+            status: 'error',
+            code: 'MODEL_LOCKED',
+            lock: {
+              embeddingProvider: locked.embeddingProvider,
+              embeddingModel: locked.embeddingModel,
+              embeddingDimensions: locked.embeddingDimensions,
+            },
+            lockedModelId: locked.embeddingModel,
+          });
+        }
+        throw err;
       }
       const queueResult = await enqueueOrReuseIngestRequestOverride({
         canonicalTargetPath: normalizeCanonicalQueueTargetPath(path),

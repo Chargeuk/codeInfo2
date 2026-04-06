@@ -149,6 +149,14 @@ Then('the ingest start status code is {int}', (status: number) => {
   assert.equal(response.status, status);
 });
 
+Then('the ingest start error code is {string}', (code: string) => {
+  assert(response, 'expected response');
+  assert.equal(
+    (response.body as { code?: string } | null)?.code,
+    code,
+  );
+});
+
 Then(
   'ingest status for the last run becomes {string}',
   async (state: string) => {

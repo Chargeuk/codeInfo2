@@ -403,6 +403,42 @@ test('ingest-start conflict payload includes canonical lock and compatibility al
   });
 });
 
+test('ingest-start rejects the empty-collection queued-admission lock mismatch before enqueueing', async () => {
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildApp({
+      collectionEmpty: true,
+      locked: {
+        embeddingProvider: 'lmstudio',
+        embeddingModel: 'embed-locked',
+        embeddingDimensions: 768,
+        lockedModelId: 'embed-locked',
+        source: 'canonical',
+      },
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'embed-1',
+    });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.code, 'MODEL_LOCKED');
+  assert.equal(enqueueCalled, false);
+  assert.deepEqual(response.body.lock, {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'embed-locked',
+    embeddingDimensions: 768,
+  });
+});
+
 test('ingest-start sanitizes secret-like values in generic 500 messages', async () => {
   const response = await request(
     buildApp({

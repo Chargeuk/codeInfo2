@@ -86,17 +86,21 @@ Record the final per-repository resolved base branch and the reason it was chose
    - hard-coded secrets or credential-like values.
 9. Treat the hygiene sweep as first-class evidence even when the affected files are support files.
 10. For every acceptance criterion in the canonical plan, identify the current proof source:
-   - code path;
-   - tests;
-   - wrapper/test logs;
-   - screenshots/manual proof;
-   - or note that the proof is weak/missing.
+
+- code path;
+- tests;
+- wrapper/test logs;
+- screenshots/manual proof;
+- or note that the proof is weak/missing.
+
 11. For multi-repository stories, add a dedicated cross-repository evidence section covering:
-   - integration seams;
-   - ownership boundaries;
-   - dependency direction;
-   - compatibility expectations;
-   - any before/after contract comparison that only becomes visible when two or more repositories are considered together.
+
+- integration seams;
+- ownership boundaries;
+- dependency direction;
+- compatibility expectations;
+- any before/after contract comparison that only becomes visible when two or more repositories are considered together.
+
 12. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
 13. For each changed file or helper OUTSIDE the allowed spelling/grammar-only support-file set, record any review hotspots that the findings pass must inspect explicitly:
     - merge-before-validate logic;

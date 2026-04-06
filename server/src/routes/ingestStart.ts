@@ -1,7 +1,6 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import {
-  collectionIsEmpty,
   getLockedEmbeddingModel,
   InvalidLockMetadataError,
 } from '../ingest/chromaClient.js';
@@ -25,7 +24,6 @@ import { baseLogger } from '../logger.js';
 
 type Deps = {
   clientFactory: (baseUrl: string) => LMStudioClient;
-  collectionIsEmpty?: typeof collectionIsEmpty;
   getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
   enqueueOrReuseIngestRequest?: typeof enqueueOrReuseIngestRequest;
   pumpIngestQueue?: typeof pumpIngestQueue;
@@ -77,7 +75,6 @@ function logLockResolverState(
 }
 
 export function createIngestStartRouter({
-  collectionIsEmpty: _collectionIsEmptyOverride = collectionIsEmpty,
   getLockedEmbeddingModel:
     getLockedEmbeddingModelOverride = getLockedEmbeddingModel,
   enqueueOrReuseIngestRequest:

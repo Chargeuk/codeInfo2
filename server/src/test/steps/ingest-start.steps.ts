@@ -151,10 +151,7 @@ Then('the ingest start status code is {int}', (status: number) => {
 
 Then('the ingest start error code is {string}', (code: string) => {
   assert(response, 'expected response');
-  assert.equal(
-    (response.body as { code?: string } | null)?.code,
-    code,
-  );
+  assert.equal((response.body as { code?: string } | null)?.code, code);
 });
 
 Then(

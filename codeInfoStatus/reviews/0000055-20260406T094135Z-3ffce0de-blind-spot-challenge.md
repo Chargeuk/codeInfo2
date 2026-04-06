@@ -54,14 +54,14 @@
    Evidence: `resolveCollectionDimension()` still trims whitespace, falls back to `http://localhost:8000`, prefixes bare hosts with `http://`, and rejects non-positive dimensions by returning `null` in [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts#L767).
 
 10. Scale-shape challenge  
-   Contradictory state attempted: queue-position or repo-list queries scale with repository file or chunk count rather than the number of live queue requests.  
-   Outcome: strengthened rejected-risk note.  
-   Evidence: waiting-position counting remains one fixed `$or` predicate over `createdAt` and `_id` in [requestQueue.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/requestQueue.ts#L66), and repo-list queue overlay still fetches live queue rows with one fixed `$in` selector over three states in [toolService.ts](/home/d_a_s/code/codeInfo2/server/src/lmstudio/toolService.ts#L959).
+    Contradictory state attempted: queue-position or repo-list queries scale with repository file or chunk count rather than the number of live queue requests.  
+    Outcome: strengthened rejected-risk note.  
+    Evidence: waiting-position counting remains one fixed `$or` predicate over `createdAt` and `_id` in [requestQueue.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/requestQueue.ts#L66), and repo-list queue overlay still fetches live queue rows with one fixed `$in` selector over three states in [toolService.ts](/home/d_a_s/code/codeInfo2/server/src/lmstudio/toolService.ts#L959).
 
 11. Stale-hint precedence challenge  
-   Contradictory state attempted: stale persisted root-dimension hints override fresher vector dimensions learned during the current run.  
-   Outcome: strengthened rejected-risk note.  
-   Evidence: `resolveKnownRootEmbeddingDimOrNull()` still prefers observed vector dimensions ahead of persisted root or collection hints in [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts#L810), and the direct precedence proof remains in [ingest-reembed.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-reembed.test.ts#L489).
+    Contradictory state attempted: stale persisted root-dimension hints override fresher vector dimensions learned during the current run.  
+    Outcome: strengthened rejected-risk note.  
+    Evidence: `resolveKnownRootEmbeddingDimOrNull()` still prefers observed vector dimensions ahead of persisted root or collection hints in [ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts#L810), and the direct precedence proof remains in [ingest-reembed.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-reembed.test.ts#L489).
 
 ## Outcome
 

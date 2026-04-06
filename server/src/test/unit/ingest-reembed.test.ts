@@ -199,15 +199,13 @@ const setupIngestChromaMocks = (options?: {
     delete: mock.fn(async () => {}),
   };
 
-  const getOrCreateCollection = mock.fn(
-    async (opts: { name?: string }) => {
-      if (options?.failGetOrCreateCollection) {
-        throw options.failGetOrCreateCollection;
-      }
-      if (opts.name === 'ingest_roots') return roots as never;
-      return vectors as never;
-    },
-  );
+  const getOrCreateCollection = mock.fn(async (opts: { name?: string }) => {
+    if (options?.failGetOrCreateCollection) {
+      throw options.failGetOrCreateCollection;
+    }
+    if (opts.name === 'ingest_roots') return roots as never;
+    return vectors as never;
+  });
   mock.method(
     ChromaClient.prototype,
     'getOrCreateCollection',

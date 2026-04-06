@@ -177,7 +177,9 @@ const waitForTerminal = async (runId: string) => {
   );
 };
 
-const setupIngestChromaMocks = () => {
+const setupIngestChromaMocks = (options?: {
+  failGetOrCreateCollection?: Error;
+}) => {
   const vectors = {
     metadata: { lockedModelId: 'embed-model' as string | null },
     add: mock.fn(async () => {}),
@@ -197,13 +199,19 @@ const setupIngestChromaMocks = () => {
     delete: mock.fn(async () => {}),
   };
 
-  mock.method(
-    ChromaClient.prototype,
-    'getOrCreateCollection',
+  const getOrCreateCollection = mock.fn(
     async (opts: { name?: string }) => {
+      if (options?.failGetOrCreateCollection) {
+        throw options.failGetOrCreateCollection;
+      }
       if (opts.name === 'ingest_roots') return roots as never;
       return vectors as never;
     },
+  );
+  mock.method(
+    ChromaClient.prototype,
+    'getOrCreateCollection',
+    getOrCreateCollection,
   );
   mock.method(ChromaClient.prototype, 'deleteCollection', async () => {});
   mock.method(IngestFileModel, 'find', () => ({
@@ -234,7 +242,7 @@ const setupIngestChromaMocks = () => {
     imports: [],
   }));
 
-  return { vectors, roots };
+  return { vectors, roots, getOrCreateCollection };
 };
 
 const buildIngestDeps = (options?: { modelError?: Error }) => {
@@ -423,6 +431,56 @@ test('blank-only delta reembed stays provider-free when model lookup would fail'
     assert.equal(status.state, 'completed');
     assert.equal(status.error, null);
     assert.equal(deps.getModelCalls(), 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('blank-only delta reembed returns completed when Chroma bootstrap would fail before the zero-work return', async () => {
+  const chromaBootstrapFailure = new Error('chroma bootstrap failed');
+  const { getOrCreateCollection } = setupIngestChromaMocks({
+    failGetOrCreateCollection: chromaBootstrapFailure,
+  });
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'src/blank.ts': '   \n\t\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'src/blank.ts'));
+    const deps = buildIngestDeps();
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [{ relPath: 'src/blank.ts', fileHash }],
+        }),
+      }),
+    }));
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'blank-reembed-bootstrap-failure',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.match(String(status.message ?? ''), /no changes/i);
+    assert.equal(
+      deps.getModelCalls(),
+      0,
+      'zero-work fast path should stay provider-free under bootstrap failure',
+    );
+    assert.equal(
+      getOrCreateCollection.mock.calls.length,
+      0,
+      'zero-work fast path should not bootstrap Chroma collections before returning',
+    );
   } finally {
     await cleanup();
   }

@@ -1070,17 +1070,45 @@ async function processRun(runId: string, input: IngestJobInput) {
       etaMs: undefined,
     });
 
-    const vectors = await getVectorsCollection();
-    const roots = await getRootsCollection();
-    const rootDimsResult = await (
-      roots as unknown as {
-        get: (opts: { include?: string[]; limit?: number }) => Promise<{
-          embeddings?: number[][];
-        }>;
+    let vectors: Collection | null = null;
+    let roots: Collection | null = null;
+    let existingRootDim: number | undefined;
+    let existingRootCollectionDim: number | null = null;
+    let collectionsBootstrapped = false;
+
+    const ensureCollectionsBootstrapped = async () => {
+      if (collectionsBootstrapped && vectors && roots) {
+        return {
+          vectors,
+          roots,
+          existingRootDim,
+          existingRootCollectionDim,
+        };
       }
-    ).get({ include: ['embeddings'], limit: 1 });
-    const existingRootDim = rootDimsResult.embeddings?.[0]?.length;
-    const existingRootCollectionDim = await resolveCollectionDimension(roots);
+
+      const nextVectors = await getVectorsCollection();
+      const nextRoots = await getRootsCollection();
+      const rootDimsResult = await (
+        nextRoots as unknown as {
+          get: (opts: { include?: string[]; limit?: number }) => Promise<{
+            embeddings?: number[][];
+          }>;
+        }
+      ).get({ include: ['embeddings'], limit: 1 });
+
+      vectors = nextVectors;
+      roots = nextRoots;
+      existingRootDim = rootDimsResult.embeddings?.[0]?.length;
+      existingRootCollectionDim = await resolveCollectionDimension(nextRoots);
+      collectionsBootstrapped = true;
+
+      return {
+        vectors: nextVectors,
+        roots: nextRoots,
+        existingRootDim,
+        existingRootCollectionDim,
+      };
+    };
 
     const idsBatch: string[] = [];
     const documentsBatch: string[] = [];
@@ -1116,7 +1144,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         return;
       }
 
-      await vectors.add({
+      await vectors!.add({
         ids: [...idsBatch],
         documents: [...documentsBatch],
         embeddings: [...embeddingsBatch],
@@ -1259,64 +1287,108 @@ async function processRun(runId: string, input: IngestJobInput) {
     async function completeReembedFastPathWithFence({
       counts,
       message,
+      allowCollectionBootstrapFailure = false,
     }: {
       counts: { files: number; chunks: number; embedded: number };
       message: string;
+      allowCollectionBootstrapFailure?: boolean;
     }) {
+      let rootCollection = roots;
+      let rootDim = existingRootDim;
+      let rootCollectionDim = existingRootCollectionDim;
+      if (!rootCollection) {
+        try {
+          const bootstrapped = await ensureCollectionsBootstrapped();
+          rootCollection = bootstrapped.roots;
+          rootDim = bootstrapped.existingRootDim;
+          rootCollectionDim = bootstrapped.existingRootCollectionDim;
+        } catch (error) {
+          if (!allowCollectionBootstrapFailure) {
+            throw error;
+          }
+          logWarning('delta no-op fast path skipped Chroma bootstrap', {
+            runId,
+            root,
+            operation,
+            reason:
+              error instanceof Error
+                ? error.message.slice(0, 300)
+                : String(error ?? 'unknown').slice(0, 300),
+          });
+        }
+      }
+
       const currentLock = await getLockedEmbeddingModel();
-      const rootEmbeddingDim = resolveKnownRootEmbeddingDim({
-        existingRootDim,
-        collectionDim: existingRootCollectionDim,
+      const rootEmbeddingDim = resolveKnownRootEmbeddingDimOrNull({
+        existingRootDim: rootDim,
+        collectionDim: rootCollectionDim,
         vectorDim,
         lockedDim: currentLock?.embeddingDimensions ?? null,
       });
-      const rootMetadata: Metadata = {
-        runId,
-        root,
-        name,
-        model: embeddingModel,
-        embeddingProvider,
-        embeddingModel,
-        embeddingDimensions: rootEmbeddingDim,
-        files: counts.files,
-        chunks: counts.chunks,
-        embedded: counts.embedded,
-        state: 'completed',
-        lastIngestAt: new Date().toISOString(),
-        ingestedAtMs,
-      };
-      attachAstMetadata(rootMetadata);
-      if (description) rootMetadata.description = description;
+      if (rootCollection && rootEmbeddingDim) {
+        const rootMetadata: Metadata = {
+          runId,
+          root,
+          name,
+          model: embeddingModel,
+          embeddingProvider,
+          embeddingModel,
+          embeddingDimensions: rootEmbeddingDim,
+          files: counts.files,
+          chunks: counts.chunks,
+          embedded: counts.embedded,
+          state: 'completed',
+          lastIngestAt: new Date().toISOString(),
+          ingestedAtMs,
+        };
+        attachAstMetadata(rootMetadata);
+        if (description) rootMetadata.description = description;
 
-      const writeRootMetadata = async () => {
-        const writeStarted = Promise.resolve().then(async () => {
-          if (cancelledRuns.has(runId) || cancelCleanupStarted) {
-            return false;
-          }
-          await roots.add({
-            ids: [runId],
-            embeddings: [Array(rootEmbeddingDim).fill(0)],
-            metadatas: [rootMetadata],
+        const writeRootMetadata = async () => {
+          const writeStarted = Promise.resolve().then(async () => {
+            if (cancelledRuns.has(runId) || cancelCleanupStarted) {
+              return false;
+            }
+            await rootCollection.add({
+              ids: [runId],
+              embeddings: [Array(rootEmbeddingDim).fill(0)],
+              metadatas: [rootMetadata],
+            });
+            return true;
           });
-          return true;
-        });
-        const barrier = writeStarted.then(
-          () => undefined,
-          () => undefined,
-        );
-        finalizationBarriers.set(runId, barrier);
-        try {
-          return await writeStarted;
-        } finally {
-          if (finalizationBarriers.get(runId) === barrier) {
-            finalizationBarriers.delete(runId);
+          const barrier = writeStarted.then(
+            () => undefined,
+            () => undefined,
+          );
+          finalizationBarriers.set(runId, barrier);
+          try {
+            return await writeStarted;
+          } finally {
+            if (finalizationBarriers.get(runId) === barrier) {
+              finalizationBarriers.delete(runId);
+            }
           }
-        }
-      };
+        };
 
-      const publishedRootMetadata = await writeRootMetadata();
-      if (!publishedRootMetadata) {
-        return;
+        const publishedRootMetadata = await writeRootMetadata();
+        if (!publishedRootMetadata) {
+          return;
+        }
+      } else if (!rootCollection) {
+        logWarning('delta no-op fast path skipped root metadata bootstrap', {
+          runId,
+          root,
+          operation,
+          reason: 'collection_bootstrap_unavailable_after_zero_work_guard',
+        });
+      } else {
+        logWarning('ingest root metadata skipped without trusted dimension', {
+          runId,
+          root,
+          operation,
+          resultState: 'completed',
+          reason: 'no_embedding_work_dimension_unresolved',
+        });
       }
 
       const publishedTerminalStatus = await (async () => {
@@ -1396,6 +1468,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           await completeReembedFastPathWithFence({
             counts,
             message: `No changes detected for ${root}`,
+            allowCollectionBootstrapFailure: true,
           });
           return;
         }
@@ -1439,6 +1512,17 @@ async function processRun(runId: string, input: IngestJobInput) {
         }
       }
     }
+
+    const {
+      vectors: bootstrappedVectors,
+      roots: bootstrappedRoots,
+      existingRootDim: bootstrappedExistingRootDim,
+      existingRootCollectionDim: bootstrappedExistingRootCollectionDim,
+    } = await ensureCollectionsBootstrapped();
+    vectors = bootstrappedVectors;
+    roots = bootstrappedRoots;
+    existingRootDim = bootstrappedExistingRootDim;
+    existingRootCollectionDim = bootstrappedExistingRootCollectionDim;
 
     const needsEmbeddingWork = workFiles.length > 0;
     let embeddingModelClient: ProviderEmbeddingModel | null = null;
@@ -1615,7 +1699,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         cancelMetadata.description = description;
       }
 
-      await roots.add({
+      await roots!.add({
         ids: [runId],
         embeddings: [Array(rootEmbeddingDim).fill(0)],
         metadatas: [cancelMetadata],
@@ -1993,7 +2077,7 @@ async function processRun(runId: string, input: IngestJobInput) {
 
       if (
         await runFinalizationStep(() =>
-          roots.add({
+          roots!.add({
             ids: [runId],
             embeddings: [Array(rootEmbeddingDim).fill(0)],
             metadatas: [rootMetadata],

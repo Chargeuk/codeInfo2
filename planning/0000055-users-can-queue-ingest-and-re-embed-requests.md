@@ -3316,3 +3316,107 @@ This final review-response task reruns the full Story 55 validation path after T
 - Subtask 14: proved the recovered vectors surface is readable and writeable on the supported stack before the later screenshot rerun. A direct host-side probe against Chroma returned `count() === 0`, then a small supported `POST /ingest/start` request for `/home/d_a_s/code/manual-proof-45-recovery` with model `text-embedding-qwen3-embedding-4b` completed successfully on run `3a4fcce7-e618-4b9c-999a-c5dea14a8fa6`, and the next direct `count()` returned `1` with no `codeinfo2-chroma-1` exit. The first repro attempt against `/tmp/story55-task45-repro-E1v3pG` failed with `ENOENT` because the supported main stack only sees ingest paths under `CODEINFO_HOST_INGEST_DIR=/home/d_a_s/code`; retrying under that mounted host-ingest root fixed the path-contract issue. I then ran `deleteVectorsCollection()` once more and confirmed `count() === 0` again so the later screenshot-backed manual rerun starts from the recovered clean collection. One runtime gotcha remains documented but is not a new blocker on this task: Docker still labels `codeinfo2-chroma-1` `unhealthy` because the compose healthcheck tries to exec `curl` inside the Chroma image and `/api/v1/heartbeat` is deprecated, while the live service itself answered `200` on `http://localhost:8000/api/v2/heartbeat` throughout the recovery proof.
 - Manual testing on 2026-04-06 was skipped in that earlier loop because Task 45 was still `__in_progress__` after the recovery rerun preparation work. The later automated-proof audit closed Task 45 once the retained wrapper artifacts and recovered Chroma proof were re-checked on disk, so this note now remains only as historical context for the separate manual-testing flow.
 - Manual testing on 2026-04-06 was skipped again in that later loop because Task 45 had been left `__in_progress__` on current disk despite the already-retained automated proof. The current automated-proof audit closes the task again after re-checking the retained wrapper artifacts and confirming that no live blocker or incomplete testing step has re-opened Story 55.
+
+## Code Review Findings
+
+- Review handoff: `codeInfoStatus/reviews/0000055-current-review.json`
+- Review pass: `0000055-20260406T072211Z-8d540017`
+- Evidence artifact: `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-blind-spot-challenge.md`
+- Disposition: reopen Story 55 for one `should_fix` finding in `Current Repository`.
+- Required fix summary: `processRun()` in `server/src/ingest/ingestJob.ts` still bootstraps Chroma collections before proving a delta re-embed has zero work, so the intended no-change fast path can still fail on bootstrap or collection-read errors even when no embedding work remains.
+- Challenge outcome: no additional findings. The challenge artifact strengthened the rejected-risk conclusions for admission/runtime parity, waiter cleanup, wrapped-error mapping, env/config handling, scale shape, mocked seams, and stale-hint precedence, while carrying forward the existing weak-proof notes for the no-change fast path and the remaining short waits in browser proof.
+
+### Task 46. Preserve The Delta No-Change Re-Embed Fast Path Before Chroma Bootstrap
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `45`
+- Task Status: `__in_progress__`
+- Notes: Added after review pass `0000055-20260406T072211Z-8d540017` found that the intended zero-work delta re-embed fast path still touches Chroma bootstrap and collection-read seams before it proves there is no work to run.
+
+#### Overview
+
+This review-fix task keeps the delta no-change re-embed path lightweight enough to succeed when there is no work left even if Chroma bootstrap would otherwise fail. The fix must stay local to the zero-work delta branch in `processRun()` and must not widen into unrelated queue, startup-recovery, or browser-proof churn.
+
+#### Task Exit Criteria
+
+- `processRun()` can return the existing zero-work delta re-embed success path without requiring `getVectorsCollection()`, `getRootsCollection()`, `roots.get(...)`, or `resolveCollectionDimension(...)` to succeed first when the run has already proved `deltaWorkCount === 0`.
+- Non-zero-work re-embed runs, full re-embed runs, and start-ingest paths still use the current Chroma bootstrap and dimension-resolution owners where real work requires them.
+- Direct proof exists that a no-change delta re-embed completes successfully even when the pre-fix Chroma bootstrap seams would throw before any real work begins.
+- Existing healthy-bootstrap no-op coverage remains honest and still proves the unchanged success contract for AST and cancel-sensitive re-embed paths.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-blind-spot-challenge.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/ingest-ast-indexing.test.ts`
+- `server/src/test/unit/ingest-cancel.test.ts`
+
+#### Subtasks
+
+1. [ ] Requirement: identify the smallest control-flow move in `server/src/ingest/ingestJob.ts` that lets `processRun()` prove a delta re-embed has zero work before it touches the Chroma collection bootstrap or collection-read seams. Output: one bounded code change in `processRun()` that keeps the zero-work return ahead of `getVectorsCollection()`, `getRootsCollection()`, `roots.get(...)`, and `resolveCollectionDimension(...)` only when no real delta work remains.
+2. [ ] Requirement: preserve the current owners for real work. Output: keep the existing Chroma bootstrap, root lookup, and dimension-resolution path for any branch that still needs vector writes, root metadata reads, or embedding-dimension reconciliation. Boundary: do not change queue admission, queue startup recovery, or browser-facing status logic in this task.
+3. [ ] Requirement: add direct failure-path proof in [server/src/test/unit/ingest-reembed.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-reembed.test.ts) that a no-change delta re-embed still returns the existing success contract when the pre-fix Chroma bootstrap seam would throw before any work starts. Output: one new or updated unit test that forces the bootstrap seam to fail and proves the no-work branch never depends on it.
+4. [ ] Requirement: keep the existing healthy-bootstrap no-op proof homes honest in [server/src/test/unit/ingest-ast-indexing.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-ast-indexing.test.ts) and [server/src/test/unit/ingest-cancel.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-cancel.test.ts). Output: update those tests only if the refactor changes their owning seam or setup assumptions; otherwise leave a note in this task's implementation notes that they remained valid unchanged proof homes.
+5. [ ] Requirement: record the exact review-finding closure in this task's implementation notes. Output: cite the moved `processRun()` boundary, the new direct failure-path proof file, and why the fix does not alter non-zero-work re-embed behavior.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the new no-change failure-path proof passes.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-ast-indexing.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` to confirm the existing healthy-bootstrap no-op proof homes still pass after the refactor.
+4. [ ] Run full `npm run test:summary:server:unit` to confirm the localized `processRun()` change does not regress the broader backend queue and re-embed contract.
+
+#### Implementation notes
+
+- Pending review-fix implementation.
+
+### Task 47. Re-Validate Story 55 After Review Pass `0000055-20260406T072211Z-8d540017`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `46`
+- Task Status: `__to_do__`
+- Notes: Added after review pass `0000055-20260406T072211Z-8d540017` so Story 55 is revalidated once the zero-work delta re-embed fast-path fix lands.
+
+#### Overview
+
+This final review-response task rechecks Story 55 after Task 46 closes the remaining `processRun()` no-change fast-path defect. It should rerun only the backend proof needed to show the review finding is fixed and then restate why the wider queue story still has sufficient direct or indirect proof without rediscovering the whole branch.
+
+#### Task Exit Criteria
+
+- The `processRun()` no-change fast-path finding from `0000055-20260406T072211Z-8d540017` is closed by direct current-repo evidence rather than by historical claims alone.
+- Story 55 still has honest acceptance proof after the Task 46 fix, with the new zero-work failure-path proof added to the existing retained queue, transport, client, browser, and host-network proof homes rather than replacing them.
+- Final close-out notes in this plan explicitly restate the review disposition, the retained proof homes, and the two remaining residual-risk notes carried forward from the review artifacts: the browser proof still contains a few short waits, and the no-change fast path is now directly failure-path proven.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T072211Z-8d540017-blind-spot-challenge.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `logs/test-summaries/host-network-main-latest.log`
+
+#### Subtasks
+
+1. [ ] Requirement: record exactly how Task 46 closed the `processRun()` no-change fast-path review finding. Output: one concise close-out note in this plan that names the new direct proof home and the control-flow seam that moved.
+2. [ ] Requirement: keep the wider Story 55 proof story explicit but regression-only. Output: one short list in this plan's close-out notes naming the retained direct or indirect proof homes that still cover queue admission, queue runtime, queue-aware transports, queued repo-list visibility, browser proof, and host-network smoke without rerunning unrelated client or browser harnesses in this task.
+3. [ ] Requirement: update `planning/0000055-pr-summary.md` only if it still describes the pre-fix no-change fast-path state. Output: one localized wording update or an explicit note in this task's implementation notes that no PR-summary edit was needed.
+4. [ ] Requirement: carry forward the residual-risk notes honestly. Output: restate that browser proof in `e2e/ingest.spec.ts` still contains short waits around stronger boundaries, and that the no-change fast path is now directly proved under the bootstrap-failure scenario that the review flagged.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper still finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the backend wrapper still passes after the Task 46 fix.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the broader queue and re-embed server acceptance proof still passes after the `processRun()` change.
+
+#### Implementation notes
+
+- Pending final review-response validation after Task 46.

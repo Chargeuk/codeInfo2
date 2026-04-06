@@ -3715,13 +3715,13 @@ This review-fix task restores path-level authority in the shared repository-list
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned dedupe proofs in `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
-3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and repository-list integration suite still passes, including the retained `server/src/test/features/ingest-roots.feature` backstop.
-4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the shared-builder repair without `agent_action: inspect_log`.
-5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
-6. [ ] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the dedupe repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
-7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 49 smoke proof.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned dedupe proofs in `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and repository-list integration suite still passes, including the retained `server/src/test/features/ingest-roots.feature` backstop.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the shared-builder repair without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [x] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the dedupe repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+7. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 49 smoke proof.
 
 #### Implementation notes
 
@@ -3729,6 +3729,13 @@ This review-fix task restores path-level authority in the shared repository-list
 - 2026-04-06: Added direct duplicate-path proofs in `server/src/test/unit/mcp-ingested-repositories.test.ts` for queued overlay authority and the partial-row winner rule at the shared builder surface.
 - 2026-04-06: Added matching live-route duplicate-path proofs in `server/src/test/unit/ingest-roots-dedupe.test.ts` for queued overlays, active overlays, and partial-row tolerance while keeping `server/src/routes/ingestRoots.ts` as a thin mapper over the shared builder output.
 - 2026-04-06: This task stayed inside `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `server/src/test/unit/ingest-roots-dedupe.test.ts`, and it did not add a new integration harness.
+- 2026-04-06 proof: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`; retained build log: `logs/test-summaries/build-server-latest.log`.
+- 2026-04-06 proof: `npm run test:summary:server:unit` passed cleanly with `tests run: 1624`, `passed: 1624`, `failed: 0`; retained unit log: `test-results/server-unit-tests-2026-04-06T18-05-11-304Z.log`.
+- 2026-04-06 proof: `npm run test:summary:server:cucumber` passed on retry with `tests run: 84`, `passed: 84`, `failed: 0`; retained cucumber log: `test-results/server-cucumber-tests-2026-04-06T18-32-56-738Z.log`. The first attempt failed in an `After` hook cleanup with transient Chroma `Missing metadata segment`, so the proof was rerun before widening Task 49 into unrelated cleanup work.
+- 2026-04-06 proof: `npm run compose:build:summary` passed with `agent_action: skip_log`, so the supported containerized build path still packages the shared builder dedupe repair; log: `logs/test-summaries/compose-build-latest.log`.
+- 2026-04-06 proof: `npm run compose:up` started the supported main stack cleanly, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1` containers before smoke proof.
+- 2026-04-06 proof: `npm run test:summary:host-network:main` passed with every required host-network endpoint reachable on `http://host.docker.internal:{5010,5011,5012,8932}`; retained smoke log: `logs/test-summaries/host-network-main-latest.log`.
+- 2026-04-06 proof: `npm run compose:down` shut the supported main stack down cleanly after the Task 49 smoke pass, so Task 49 now has all listed automated proof steps complete and is ready for the later audit pass.
 
 ### Task 50. Validate Re-Embed Acceptance Responses In The Repository Table
 

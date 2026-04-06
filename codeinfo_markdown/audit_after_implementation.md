@@ -26,7 +26,9 @@ Do not treat this step as automated-proof completion.
 
 - Audit the coding agent's implementation-only work on the current task honestly.
 - Check whether completed subtasks were implemented but left unmarked, and correct subtask status if the evidence supports it.
-- Do not mark any `Testing` section items complete in this audit unless the plan already honestly shows they were completed earlier.
+- Do not mark any `Testing` section items complete in this audit unless either:
+  - the plan already honestly shows they were completed earlier; or
+  - the immediately preceding implementation pass honestly completed them because an unchecked subtask explicitly required those testing-wrapper outputs.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
 - Before appending an audit note, re-read the latest existing audit or implementation note for this task.
@@ -85,7 +87,7 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you audited implementation-only work rather than treating the task as fully proved;
-- confirm no `Testing` section items were newly marked complete unless they were already honestly complete;
+- confirm no `Testing` section items were newly marked complete unless they were already honestly complete or were honestly completed in the immediately preceding implementation pass because an unchecked subtask explicitly required them;
 - confirm the just-worked task was left `__in_progress__`;
 - confirm you did not leave a stalled task with open subtasks and no live `**BLOCKER**`;
 - confirm you did not allow vague manual-testing investigation subtasks to pass through as honest implementation-ready tasking;

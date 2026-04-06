@@ -8,8 +8,8 @@ Read the stored current-plan handoff and use only that scope for this step.
 Re-open the exact plan file from disk before doing any work.
 Identify the active task from the current plan.
 Work through that task's `Subtasks` section fully and honestly when implementation work still remains there.
-Do not run the task's `Testing` section in this step.
-Do not mark any `Testing` section items complete in this step.
+Do not run the task's `Testing` section in this step unless an unchecked subtask explicitly requires a testing-wrapper output, retained proof-home path, or rerun-generated artifact.
+Do not mark any `Testing` section items complete in this step unless they were honestly completed through that explicit subtask-required path.
 Leave the task ready for the later automated-proof step.
 
 </task>
@@ -41,7 +41,12 @@ Leave the task ready for the later automated-proof step.
 - Work only through the selected task's `Subtasks` section.
 - If the selected task has no unchecked subtasks, do not implement a later task in this step.
 - Complete implementation subtasks, proof-authoring subtasks, and any lint, format, or static-analysis subtasks that are listed inside `Subtasks`.
-- Do not run the task's `Testing` section wrappers in this step.
+- Do not run the task's `Testing` section wrappers in this step unless an unchecked subtask explicitly requires their outputs.
+- When an unchecked subtask explicitly depends on a testing-wrapper output, retained proof-home path, or rerun-generated artifact, you may run only the minimum testing-wrapper steps needed to complete that subtask.
+- When you use that exception:
+  - mark the required `Testing` section items complete immediately after they honestly finish;
+  - add an implementation note that the testing wrapper was run because the subtask explicitly required it;
+  - leave any unrelated unchecked `Testing` section items for the later automated-proof step.
 - Keep the plan honest while you work:
   - mark each completed subtask complete immediately;
   - add concise implementation notes as work progresses;
@@ -87,7 +92,7 @@ Return a concise summary that includes:
 4. any important gotchas encountered.
 
 Do not claim the task is fully complete unless the `Testing` section has also been run later.
-Do not mark `Testing` section items complete in this step.
+Do not claim unrelated automated proof was completed if you only ran subtask-required testing-wrapper steps in this step.
 
 </output_contract>
 
@@ -99,7 +104,7 @@ Before finishing:
 - confirm you kept the highest-numbered `__in_progress__` task active when one existed;
 - confirm you worked only on the selected task's `Subtasks`;
 - confirm you did not advance to a later task when the active task was still `__in_progress__`;
-- confirm you did not run or check off the `Testing` section;
+- confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;
 - confirm completed subtasks were marked immediately;
 - confirm that if unchecked subtasks remain, either at least one subtask was completed in this pass or a live `**BLOCKER**` was added;
 - confirm you did not leave the task in a stalled no-progress state;

@@ -3809,13 +3809,13 @@ This review-fix task aligns the repository-table re-embed success path with Stor
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run full `npm run test:summary:client` and confirm the wrapper passes with the owned acceptance proofs in `client/src/test/ingestRoots.test.tsx` and the comparator contract in `client/src/test/ingestForm.test.tsx`.
-3. [ ] Run full `npm run test:summary:e2e` and confirm the automated browser regression path still passes after the table acceptance repair, with `e2e/ingest.spec.ts` and `logs/test-summaries/e2e-tests-latest.log` as the retained automated browser-proof homes.
-4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the client-facing repair without `agent_action: inspect_log`.
-5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
-6. [ ] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the table repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
-7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 50 smoke proof.
+1. [x] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [x] Run full `npm run test:summary:client` and confirm the wrapper passes with the owned acceptance proofs in `client/src/test/ingestRoots.test.tsx` and the comparator contract in `client/src/test/ingestForm.test.tsx`.
+3. [x] Run full `npm run test:summary:e2e` and confirm the automated browser regression path still passes after the table acceptance repair, with `e2e/ingest.spec.ts` and `logs/test-summaries/e2e-tests-latest.log` as the retained automated browser-proof homes.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the client-facing repair without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [x] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the table repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+7. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 50 smoke proof.
 
 The browser proof remains automated-only in this task. Screenshot retention and final proof-path close-out stay owned by Task 51.
 
@@ -3826,6 +3826,13 @@ The browser proof remains automated-only in this task. Screenshot retention and 
 - 2026-04-06: Kept malformed-response proof in `client/src/test/ingestRoots.test.tsx` and retained `e2e/ingest.spec.ts` plus `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` only as the browser regression backstop to be rerun in Task 51.
 - 2026-04-06: Final Task 50 table acceptance rule: `client/src/components/ingest/RootsTable.tsx` and `client/src/components/ingest/IngestForm.tsx` both require a non-empty `requestId`, then accept `queued === true` as queued success or a non-empty `runId` as immediate success, while `client/src/test/ingestRoots.test.tsx` owns the direct malformed/queued/immediate proof and Task 51 retains the browser backstop in `e2e/ingest.spec.ts`.
 - 2026-04-06: Renamed the comparator acceptance cases in `client/src/test/ingestForm.test.tsx` so they explicitly claim `requestId + runId` and `requestId + queued` semantics after the Task 50 table-contract tightening.
+- 2026-04-06 proof: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`; retained client build log: `logs/test-summaries/build-client-latest.log`.
+- 2026-04-06 proof: `npm run test:summary:client` passed cleanly with `tests run: 668`, `passed: 668`, `failed: 0`; retained client test log: `test-results/client-tests-2026-04-06T19-46-53-803Z.log`.
+- 2026-04-06 proof: `npm run test:summary:e2e` passed cleanly with `tests run: 58`, `passed: 58`, `failed: 0`; retained browser log: `logs/test-summaries/e2e-tests-latest.log`.
+- 2026-04-06 proof: `npm run compose:build:summary` passed with `agent_action: skip_log`, so the supported containerized build path still packages the table-acceptance repair; retained build log: `logs/test-summaries/compose-build-latest.log`.
+- 2026-04-06 proof: `npm run compose:up` started the supported main stack cleanly, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1` containers before smoke proof.
+- 2026-04-06 proof: `npm run test:summary:host-network:main` passed with every required host-network endpoint reachable on `http://host.docker.internal:{5010,5011,5012,8932}`; retained smoke log: `logs/test-summaries/host-network-main-latest.log`.
+- 2026-04-06 proof: `npm run compose:down` shut the supported main stack down cleanly after the Task 50 smoke pass, so Task 50 now has all listed automated proof steps complete and is ready for the later audit pass.
 
 ### Task 51. Re-Validate Story 55 After Review Pass `0000055-20260406T133340Z-11c0e2ff`
 

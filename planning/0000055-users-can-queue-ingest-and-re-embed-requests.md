@@ -3718,13 +3718,13 @@ This review-fix task restores path-level authority in the shared repository-list
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned dedupe proofs in `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
-3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and repository-list integration suite still passes, including the retained `server/src/test/features/ingest-roots.feature` backstop.
-4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the shared-builder repair without `agent_action: inspect_log`.
-5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
-6. [ ] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the dedupe repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
-7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 49 smoke proof.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned dedupe proofs in `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and repository-list integration suite still passes, including the retained `server/src/test/features/ingest-roots.feature` backstop.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the shared-builder repair without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [x] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the dedupe repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+7. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 49 smoke proof.
 
 #### Implementation notes
 
@@ -3743,6 +3743,13 @@ This review-fix task restores path-level authority in the shared repository-list
 - 2026-04-06 manual testing: task-scoped only. Restarted the supported main stack from its prior stopped state, confirmed `GET /health` returned `mongoConnected: true` and `GET /ingest/models` stayed `LMSTUDIO_OK`, then seeded duplicate Chroma root metadata for the current recovered re-embed path `/home/d_a_s/code/codeInfo2/codeInfo2` before re-running `GET /ingest/roots`. The live route returned two rows for that one visible path: one deduped persisted metadata row and one separate running overlay row for queue request `69d3f1a70831c51c3000e44a` / run `3ec65a98-1df3-4894-b277-5f2e897c08a9`, and bounded diagnosis showed the recovered queue document still carries `canonicalTargetPath=/data/codeInfo2/codeInfo2` while `requestPayload.path` and persisted roots use the host-visible path. Added follow-up subtasks 14 through 16 for `server/src/lmstudio/toolService.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `server/src/test/unit/ingest-roots-dedupe.test.ts`, and unchecked Testing 1 through 7 because the server build, automated proof, and compose smoke path must all be rerun after the mixed-path overlay fix. No screenshots were needed because this task's owned manual-proof surface is the HTTP `/ingest/roots` contract rather than a browser-visible UI.
 - 2026-04-06 follow-up implementation: `server/src/lmstudio/toolService.ts` now indexes and resolves repo rows through alias-aware lookup keys derived from mounted and host-visible paths, so recovered or running re-embed queue records with `/data/...` `canonicalTargetPath` and host-visible `requestPayload.path` merge onto the same canonical row before queue or active overlays apply.
 - 2026-04-06 follow-up proof authoring: added the builder-side mixed-path active-overlay proof in `server/src/test/unit/mcp-ingested-repositories.test.ts` and the matching live `GET /ingest/roots` proof in `server/src/test/unit/ingest-roots-dedupe.test.ts`, both asserting one authoritative host-visible row rather than split persisted and running rows.
+- 2026-04-06 proof rerun: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`; retained build log: `logs/test-summaries/build-server-latest.log`.
+- 2026-04-06 proof rerun: `npm run test:summary:server:unit` passed cleanly with `tests run: 1626`, `passed: 1626`, `failed: 0`; retained unit log: `test-results/server-unit-tests-2026-04-06T19-00-09-480Z.log`.
+- 2026-04-06 proof rerun: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`; retained cucumber log: `test-results/server-cucumber-tests-2026-04-06T19-25-25-755Z.log`.
+- 2026-04-06 proof rerun: `npm run compose:build:summary` passed with `agent_action: skip_log`, so the supported containerized build path still packages the mixed-path dedupe repair; retained build log: `logs/test-summaries/compose-build-latest.log`.
+- 2026-04-06 proof rerun: `npm run compose:up` started the supported main stack cleanly, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1` containers before smoke proof.
+- 2026-04-06 proof rerun: `npm run test:summary:host-network:main` passed with every required host-network endpoint reachable on `http://host.docker.internal:{5010,5011,5012,8932}`; retained smoke log: `logs/test-summaries/host-network-main-latest.log`.
+- 2026-04-06 proof rerun: `npm run compose:down` shut the supported main stack down cleanly after the Task 49 smoke pass, so the mixed-path follow-up now has all listed automated proof steps complete and is ready for the later audit pass.
 
 ### Task 50. Validate Re-Embed Acceptance Responses In The Repository Table
 

@@ -287,18 +287,115 @@ const startIngestAndCaptureOutcome = async (
       response.url().includes('/ingest/start') &&
       response.request().method() === 'POST',
   );
-  await page.getByTestId('start-ingest').click();
-  const response = await startResponsePromise;
+  const response = await test.step(
+    'remove-flow owner: start-response wait',
+    async () => {
+      await page.getByTestId('start-ingest').click();
+      return startResponsePromise;
+    },
+    { timeout: 30_000 },
+  );
   const responseBody = (await response.json().catch(() => ({}))) as {
     runId?: string;
     requestId?: string;
   };
-  // Trace-led handoff: if this getter hangs, the first trustworthy owner is still
-  // pre-remove. Later remove-flow owner steps then run during timeout teardown.
-  const submitError = page.getByTestId('submit-error');
-  const errorMessage = (await submitError.textContent().catch(() => null))
-    ?.trim()
-    .replace(/\s+/g, ' ');
+  const submitResolution = await test.step(
+    'remove-flow owner: submit-phase resolution',
+    async () => {
+      let resolution = 'pending';
+      await expect
+        .poll(
+          async () => {
+            if (page.isClosed()) {
+              return 'page-closed';
+            }
+
+            return page.evaluate(() => {
+              const normalize = (value: string | null | undefined) =>
+                value?.replace(/\s+/g, ' ').trim() ?? '';
+              const submitErrorText = normalize(
+                document.querySelector('[data-testid="submit-error"]')
+                  ?.textContent,
+              );
+              if (submitErrorText) {
+                return `submit-error:${submitErrorText}`;
+              }
+
+              const statusChipText = normalize(
+                document.querySelector('[data-testid="ingest-status-chip"]')
+                  ?.textContent,
+              );
+              if (statusChipText) {
+                return `active-status:${statusChipText}`;
+              }
+
+              const activeHeading = Array.from(
+                document.querySelectorAll('h1, h2, h3, h4, h5, h6'),
+              )
+                .map((heading) => normalize(heading.textContent))
+                .find((text) => /active ingest/i.test(text));
+              if (activeHeading) {
+                return `active-heading:${activeHeading}`;
+              }
+
+              return 'pending';
+            });
+          },
+          {
+            timeout: 30_000,
+            message:
+              'waiting for remove-flow submit phase to resolve before later owner markers',
+          },
+        )
+        .not.toBe('pending');
+      resolution = await (async () => {
+        if (page.isClosed()) {
+          return 'page-closed';
+        }
+
+        return page.evaluate(() => {
+          const normalize = (value: string | null | undefined) =>
+            value?.replace(/\s+/g, ' ').trim() ?? '';
+          const submitErrorText = normalize(
+            document.querySelector('[data-testid="submit-error"]')?.textContent,
+          );
+          if (submitErrorText) {
+            return `submit-error:${submitErrorText}`;
+          }
+
+          const statusChipText = normalize(
+            document.querySelector('[data-testid="ingest-status-chip"]')
+              ?.textContent,
+          );
+          if (statusChipText) {
+            return `active-status:${statusChipText}`;
+          }
+
+          const activeHeading = Array.from(
+            document.querySelectorAll('h1, h2, h3, h4, h5, h6'),
+          )
+            .map((heading) => normalize(heading.textContent))
+            .find((text) => /active ingest/i.test(text));
+          if (activeHeading) {
+            return `active-heading:${activeHeading}`;
+          }
+
+          return 'pending';
+        });
+      })();
+      return resolution;
+    },
+    { timeout: 30_000 },
+  );
+
+  if (submitResolution === 'page-closed') {
+    throw new Error(
+      'remove-flow owner: page lifecycle around submit closed before the submit phase resolved',
+    );
+  }
+  const errorMessage = submitResolution.startsWith('submit-error:')
+    ? submitResolution.slice('submit-error:'.length)
+    : null;
 
   return {
     ok: response.ok(),

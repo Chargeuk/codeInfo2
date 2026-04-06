@@ -57,7 +57,17 @@ async function ensureCleanRoots() {
         }),
       );
       if (roots.length === 0) {
-        return;
+        const staleLockCleanup = await ctx.post(
+          `${apiBase}/ingest/e2e/cleanup/${encodeURIComponent(fixturePath)}`,
+        );
+        if (!staleLockCleanup.ok() && staleLockCleanup.status() !== 429) {
+          throw new Error(
+            `failed to clear stale ingest lock for ${fixturePath} (${staleLockCleanup.status()})`,
+          );
+        }
+        if (staleLockCleanup.status() !== 429) {
+          return;
+        }
       }
 
       for (const root of roots) {
@@ -432,8 +442,25 @@ const selectEmbeddingModel = async (
     }
     await modelSelect.selectOption(resolvedValue);
   } else {
+    const lockedSelection = await modelSelect.evaluate((el) => {
+      const select = el as HTMLSelectElement;
+      const selected = select.selectedOptions[0];
+      return {
+        value: selected?.value ?? '',
+        label: selected?.textContent?.trim() ?? '',
+      };
+    });
+    const lockedMatchesChosenModel =
+      lockedSelection.value === (chosenModelId as string) ||
+      lockedSelection.value.endsWith(`::${chosenModelId}`) ||
+      lockedSelection.label.toLowerCase().includes('qwen3 embedding 4b');
+    if (!lockedMatchesChosenModel) {
+      ingestSkip =
+        `embedding model locked to ${lockedSelection.value || lockedSelection.label || 'unknown'} instead of ${chosenModelId}`;
+      test.skip(ingestSkip);
+    }
     console.log(
-      `[e2e:ingest] embedding model select disabled; assuming locked to ${chosenModelId}`,
+      `[e2e:ingest] embedding model select disabled; confirmed locked to ${lockedSelection.value || lockedSelection.label || chosenModelId}`,
     );
   }
 };

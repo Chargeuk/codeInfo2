@@ -3467,3 +3467,82 @@ This final review-response task rechecks Story 55 after Task 46 closes the remai
 - Testing 5: verified every proof path newly cited by Task 47 still exists on disk after the reruns. `test -f` confirmed `test-results/server-unit-tests-2026-04-06T08-50-49-046Z.log`, `logs/test-summaries/host-network-main-latest.log`, and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`, so the final close-out can cite only current inspectable proof homes. The PR summary now points at the same final Task 47 server-unit proof home instead of the older Task 46 predecessor log.
 - Implementation-plus-automated-proof audit on 2026-04-06 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 47 section, implementation commit `e4f32697`, proof commit `6f72fc36`, and the current repo evidence in `planning/0000055-pr-summary.md` plus the retained Task 47 proof artifacts. No `Testing` items were newly marked complete in this audit because Testing 1 through 5 were already honestly checked before the audit step. There is no live `**BLOCKER**` note on Task 47, and the task is now `__done__` because Subtasks 1 through 10 plus Testing 1 through 5 all have direct current repo evidence.
 - Manual testing on 2026-04-06 expanded to full-story proof because Task 47 is the final story task. Starting from a stale/unknown runtime, `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` all succeeded; the live `/ingest` UI showed a queued browser row with `Request ID`, `Pending queue start`, and `waiting (#1)`, the queued row survived a page refresh, and the same row later refreshed to terminal `completed` after queue handoff. Screenshots were saved to `/tmp/playwright-output/story55-queued-state.png`, `/tmp/playwright-output/story55-queued-row-element.png`, `/tmp/playwright-output/story55-queued-refresh.png`, and `/tmp/playwright-output/story55-post-handoff-row-element.png`; browser console output stayed informational and the observed browser network requests stayed at HTTP 200/202 with no failed requests. The supported `POST /ingest/reembed/:root` surface also accepted a no-change re-embed for `/home/d_a_s/code/story55-manual-queued-mounted`, and the server log retained `REEMBED_NO_CHANGE_EARLY_RETURN` for run `a08787bd-1b9f-4d2c-a310-3d6c9f42f5f7`, so no new subtasks or Testing-step changes were needed.
+
+## Post-Implementation Code Review
+
+- Review pass: `0000055-20260406T094135Z-3ffce0de`
+- Branch-vs-base checks performed: verified [current-plan.json](/home/d_a_s/code/codeInfo2/codeInfoStatus/flow-state/current-plan.json) still points at `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`; verified the current repository is still on `feature/0000055-users-can-queue-ingest-and-re-embed-requests`; verified the stored review handoff at [0000055-current-review.json](/home/d_a_s/code/codeInfo2/codeInfoStatus/reviews/0000055-current-review.json) still matches repo root `/home/d_a_s/code/codeInfo2`, branch `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, base `main`, and head commit `3ffce0de`; verified there are no additional repositories in scope.
+- Acceptance-evidence checks performed: reread the stored review artifacts [0000055-20260406T094135Z-3ffce0de-evidence.md](/home/d_a_s/code/codeInfo2/codeInfoStatus/reviews/0000055-20260406T094135Z-3ffce0de-evidence.md), [0000055-20260406T094135Z-3ffce0de-findings.md](/home/d_a_s/code/codeInfo2/codeInfoStatus/reviews/0000055-20260406T094135Z-3ffce0de-findings.md), and [0000055-20260406T094135Z-3ffce0de-blind-spot-challenge.md](/home/d_a_s/code/codeInfo2/codeInfoStatus/reviews/0000055-20260406T094135Z-3ffce0de-blind-spot-challenge.md); confirmed `finding_counts.total=0`; confirmed the retained server-unit, server-cucumber, client, e2e, host-network, and screenshot proof homes named in the evidence artifact still exist on disk.
+- Files inspected in the stored review evidence: [server/src/ingest/ingestJob.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/ingestJob.ts), [server/src/routes/ingestStart.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestStart.ts), [server/src/routes/ingestReembed.ts](/home/d_a_s/code/codeInfo2/server/src/routes/ingestReembed.ts), [server/src/ingest/reingestService.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/reingestService.ts), [server/src/ingest/requestQueue.ts](/home/d_a_s/code/codeInfo2/server/src/ingest/requestQueue.ts), [server/src/lmstudio/toolService.ts](/home/d_a_s/code/codeInfo2/server/src/lmstudio/toolService.ts), [client/src/components/ingest/IngestForm.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/IngestForm.tsx), [client/src/components/ingest/RootsTable.tsx](/home/d_a_s/code/codeInfo2/client/src/components/ingest/RootsTable.tsx), [client/src/hooks/useIngestRoots.ts](/home/d_a_s/code/codeInfo2/client/src/hooks/useIngestRoots.ts), [e2e/ingest.spec.ts](/home/d_a_s/code/codeInfo2/e2e/ingest.spec.ts), [planning/0000055-pr-summary.md](/home/d_a_s/code/codeInfo2/planning/0000055-pr-summary.md), and this plan.
+- Why the repository remains complete: the stored review evidence found no must-fix, should-fix, or optional-simplification item worth reopening; Tasks 46 and 47 closed the last server fast-path review seam and its retained-proof revalidation; the current repository remains on the matching story branch with the review artifacts, retained proof logs, and final plan state all aligned.
+- Why the story remains complete: all 47 tasks are now `__done__`, the final retained wrapper proofs and manual proof are recorded in Task 47, the no-findings review pass found no remaining correctness, contract, hygiene, or support-file issue that required reopening, and no additional repository coordination is required.
+- Cross-repository integration sufficiency: not applicable because the active handoff scope contains only the current repository and the review handoff confirms `additional_repositories: none`.
+- Implementation succinctness judgment: the stored review found the changed code appropriately succinct for the required behavior. No localized optional simplification was strong enough to justify reopening the story.
+
+### Acceptance Criteria Proof Status
+
+1. Direct proof
+2. Direct proof
+3. Direct proof
+4. Direct proof
+5. Direct proof
+6. Direct proof
+7. Direct proof
+8. Direct proof
+9. Direct proof
+10. Direct proof
+11. Direct proof
+12. Direct proof
+13. Direct proof
+14. Direct proof
+15. Direct proof
+16. Direct proof
+17. Direct proof
+18. Direct proof
+19. Direct proof
+20. Direct proof
+21. Direct proof
+22. Direct proof
+23. Direct proof
+24. Direct proof
+25. Direct proof
+26. Direct proof
+27. Direct proof
+28. Direct proof
+29. Direct proof
+30. Direct proof
+31. Direct proof
+32. Direct proof
+33. Direct proof
+34. Direct proof
+35. Direct proof
+36. Direct proof
+37. Direct proof
+38. Direct proof
+39. Direct proof
+40. Direct proof
+41. Direct proof
+42. Direct proof
+43. Direct proof
+44. Direct proof
+
+### Generic Adversarial Checklist
+
+- Execution-routing or harness dependence: direct proof. The review artifacts cite full server-unit, cucumber, client, e2e, host-network, and manual compose-backed proof paths for the shipped behavior.
+- Default launcher, wrapper, dispatcher, CI, or startup-path inclusion: direct proof. The review artifacts explicitly carry wrapper-first server, client, e2e, compose, and host-network proof homes.
+- Shared-state or concurrency safety: direct proof. The review evidence and challenge artifact both cite direct queue-admission collapse, waiter cleanup, and single-flight queue/runtime proofs.
+- Reader and writer atomicity or partial-write tolerance: direct proof. The review evidence cites persisted queue-state, cleanup-blocked, startup-recovery, and missing-`runId` proof owners directly.
+- Cleanup ownership or stale-state safety: direct proof. The review evidence cites queue delete-before-next-run, cleanup-blocked retry, startup recovery, and stale hint precedence proofs directly.
+- Lifecycle ordering: direct proof. The review evidence cites admission-before-enqueue, zero-work-before-bootstrap, queue terminal sequencing, startup recovery ordering, and browser queue handoff proofs directly.
+- Test isolation: indirect proof with residual risk. Server and client harnesses have direct cleanup/reset coverage, but the findings and challenge artifacts both keep one residual weak-proof note for short fixed waits in [ingest.spec.ts](/home/d_a_s/code/codeInfo2/e2e/ingest.spec.ts), so browser-proof isolation is sufficient but not exhaustive.
+
+### Rejected Risk Notes Carried Forward
+
+- `validateExecutableIngestInput()` admission-versus-execution parity: rejected risk with direct proof from the shared validator path, route admission, queue promotion, and their direct unit proofs.
+- `waitForQueueRequestTerminalStatus()` setup-read rejection and leaked-registration cleanup: rejected risk with direct proof from the settle-once helper and the timeout/setup-read cleanup tests.
+- `processRun()` zero-work-before-bootstrap ordering and real-work validation placement: rejected risk with direct server code inspection plus the direct Task 46 bootstrap-failure proof.
+- Hidden-state UI leakage across visible fields or disabled queue rows: rejected risk with direct proof from `IngestForm`, `RootsTable`, and their client/browser tests.
+- Wrapped-error mismatch for `QUEUE_UNAVAILABLE`: rejected risk with direct proof from the shared classifier, REST route, blocking re-embed service, and their direct unit tests.
+- Env/config, scale shape, mocked seam, and stale-hint precedence: rejected risk with direct proof from the cited server owners and their direct unit proofs.
+- Blind-spot challenge follow-up: the challenge artifact generated no new findings and only strengthened the same rejected-risk conclusions.
+- Residual weak proof carried forward: browser acceptance proof still uses a few short fixed waits in [e2e/ingest.spec.ts](/home/d_a_s/code/codeInfo2/e2e/ingest.spec.ts); this remains visible as a proof-strength limitation rather than a reopened story defect.

@@ -3152,8 +3152,8 @@ This hygiene-only review-fix task narrows the review-artifact ignore rules so tr
 
 #### Testing
 
-1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md` and confirm only the intentionally transient handoff path still matches an ignore rule, if any.
-2. [ ] Run `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` and confirm the current Story 55 durable review artifacts are no longer reported as ignored-tracked files because of the review-directory rule.
+1. [x] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md` and confirm only the intentionally transient handoff path still matches an ignore rule, if any.
+2. [x] Run `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` and confirm the current Story 55 durable review artifacts are no longer reported as ignored-tracked files because of the review-directory rule.
 
 #### Implementation notes
 
@@ -3162,6 +3162,8 @@ This hygiene-only review-fix task narrows the review-artifact ignore rules so tr
 - Subtask 4: before the edit, `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` showed the current Story 55 durable review set (`0000055-20260406T015137Z-60894b27-evidence.md`, `0000055-20260406T015137Z-60894b27-findings.md`, `0000055-20260406T015137Z-60894b27-blind-spot-challenge.md`) plus one earlier hidden tracked review-artifact set (`0000055-20260404T183747Z-e78729af-evidence.md`, `0000055-20260404T183747Z-e78729af-findings.md`, `0000055-20260404T183747Z-e78729af-blind-spot-challenge.md`) under the same broad `codeInfoStatus/reviews/` ignore.
 - Subtasks 5-6: narrowed `.gitignore` from the whole `codeInfoStatus/reviews/` directory to the single transient handoff path `codeInfoStatus/reviews/0000055-current-review.json`. No `AGENTS.md` edit was needed because that exact path split is self-explanatory in `.gitignore` and the task-specific notes.
 - Subtask 7: after the edit, rerunning `git check-ignore -v` still matched only `codeInfoStatus/reviews/0000055-current-review.json` via the new exact-path rule, and rerunning `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` returned no hidden tracked review artifacts. The accepted split is now one intentionally ignored transient handoff path with the durable Story 55 `*-evidence.md`, `*-findings.md`, and `*-blind-spot-challenge.md` files visible to normal hygiene scans again.
+- Testing 1: `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md` matched only `.gitignore:25:codeInfoStatus/reviews/0000055-current-review.json`, so the transient handoff remained the lone intentionally ignored Story 55 review path.
+- Testing 2: `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` returned no tracked entries, so the current Story 55 durable review artifacts are no longer hidden as ignored-tracked files by the old review-directory rule.
 
 ---
 

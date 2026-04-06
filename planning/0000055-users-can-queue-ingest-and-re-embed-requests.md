@@ -3368,6 +3368,7 @@ This review-fix task keeps the delta no-change re-embed path lightweight enough 
 7. [ ] Requirement: the existing AST-path healthy-bootstrap no-op proof must remain honest after the refactor. Proof owner: [server/src/test/unit/ingest-ast-indexing.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-ast-indexing.test.ts). Implementation owner to keep compatible: `server/src/ingest/ingestJob.ts`. Purpose: preserve the existing AST no-op proof home without bundling it into unrelated test churn.
 8. [ ] Requirement: the existing cancel-sensitive healthy-bootstrap no-op proof must remain honest after the refactor. Proof owner: [server/src/test/unit/ingest-cancel.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-cancel.test.ts). Implementation owner to keep compatible: `server/src/ingest/ingestJob.ts`. Purpose: preserve the cancel-path no-op proof home without bundling it into unrelated test churn.
 9. [ ] Requirement: the task body must say exactly which proof file closes which invariant. Output owner: this task's `Implementation notes`. Proof files to name explicitly: `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/ingest-cancel.test.ts`, plus unchanged retained queue proofs in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts`. Purpose: leave no hidden proof mapping for reviewers or later audits.
+10. [ ] Requirement: the broader backend queue and re-embed integration surface must remain honest after the Task 46 refactor even if no cucumber feature text changes are needed. Existing integration proof owner: the current `server/src/test/features/ingest-*.feature` suite reached by `npm run test:summary:server:cucumber`. Implementation owner to keep compatible: `server/src/ingest/ingestJob.ts`. Purpose: keep the backend integration proof explicit instead of implying that unit coverage alone is sufficient.
 
 #### Testing
 
@@ -3375,6 +3376,7 @@ This review-fix task keeps the delta no-change re-embed path lightweight enough 
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the new no-change failure-path proof passes.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-ast-indexing.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` to confirm the existing healthy-bootstrap no-op proof homes still pass after the refactor.
 4. [ ] Run full `npm run test:summary:server:unit` to confirm the localized `processRun()` change does not regress the broader backend queue and re-embed contract.
+5. [ ] Run `npm run test:summary:server:cucumber` to confirm the existing backend integration suite still passes after the `processRun()` refactor even though this task does not add a new feature-level proof file.
 
 #### Implementation notes
 
@@ -3408,6 +3410,8 @@ This final review-response task rechecks Story 55 after Task 46 closes the remai
 - `server/src/test/unit/ingest-reembed.test.ts`
 - `server/src/test/unit/ingest-start.test.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `docker-compose.yml`
+- `scripts/test-summary-host-network-main.mjs`
 - `e2e/ingest.spec.ts`
 - `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`
 - `logs/test-summaries/host-network-main-latest.log`
@@ -3430,7 +3434,8 @@ This final review-response task rechecks Story 55 after Task 46 closes the remai
 1. [ ] Run `npm run build:summary:server` and confirm the wrapper still finishes successfully without `agent_action: inspect_log`.
 2. [ ] Run full `npm run test:summary:server:unit` and confirm the backend wrapper still passes after the Task 46 fix, including the new direct no-change failure-path proof.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the broader queue and re-embed server acceptance proof still passes after the `processRun()` change.
-4. [ ] After Testing 2 and 3 finish, verify that every proof path newly cited by this task still exists on disk before closing the story. Required retained paths: the latest server-unit wrapper log produced by Testing 2, `logs/test-summaries/host-network-main-latest.log`, and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`. Update this plan and `planning/0000055-pr-summary.md` if any cited path would otherwise remain stale.
+4. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, then `npm run test:summary:host-network:main`, and finally `npm run compose:down` to confirm the supported main-stack runtime path still passes cleanly after the Task 46 server change.
+5. [ ] After Testing 2, 3, and 4 finish, verify that every proof path newly cited by this task still exists on disk before closing the story. Required retained paths: the latest server-unit wrapper log produced by Testing 2, `logs/test-summaries/host-network-main-latest.log`, and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`. Update this plan and `planning/0000055-pr-summary.md` if any cited path would otherwise remain stale.
 
 #### Implementation notes
 

@@ -3235,6 +3235,7 @@ This review-fix task restores an honest direct proof home for the Story 55 full 
 - Testing 3: reran `npm run test:summary:client` and it passed cleanly with `tests run: 665`, `passed: 665`, `failed: 0`, `agent_action: skip_log`, retained log `test-results/client-tests-2026-04-06T04-36-15-230Z.log`, and supporting JSON sidecar from the same timestamped run, so the full client wrapper still passes after the review-fix work so far.
 - Testing 4: verified the full-wrapper proof paths cited by the updated Task 41 close-out note still exist after the reruns. `test -f` confirmed `test-results/server-unit-tests-2026-04-06T03-39-25-678Z.log`, `test-results/server-cucumber-tests-2026-04-06T04-02-55-265Z.log`, `test-results/client-tests-2026-04-06T04-05-37-052Z.log`, and `logs/test-summaries/e2e-tests-latest.log`, and `planning/0000055-pr-summary.md` still names no stale full-wrapper path.
 - Audit: implementation and automated proof are now complete for Task 44, so this task can leave `__in_progress__` and hand the story to Task 45 for the final revalidation loop.
+- Manual testing assessed on 2026-04-06 and not applicable for Task 44. This pass stayed task-scoped because Task 44 only restores honest retained full-wrapper proof homes and close-out references; it does not add or change a runnable, browser-visible, HTTP, or paired-frontend product surface beyond the automated wrapper evidence already recorded here. No additional subtasks or Testing-step changes were needed.
 
 ---
 

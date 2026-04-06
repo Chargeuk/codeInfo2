@@ -20,7 +20,13 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 12. Task 27 repaired the blocking re-embed waiter so an initial queue-state read failure now degrades through the existing bounded terminal-or-timeout contract instead of escaping as a raw setup failure.
 13. Task 28 repaired startup recovery so any persisted `cleanup-blocked` row still blocks newer waiting work even when `runId` is missing, keeping restart ordering aligned with the live queue pump contract.
 14. Task 29 removed the unrelated token-counting utility files and root script entry so the Story 55 branch scope again matches the documented ingest-queue plan.
-15. Task 30 now owns the final post-review acceptance trace, refreshed close-out notes, and the last full wrapper reruns after Tasks 27 through 29.
+15. Task 30 closed the second earlier review cycle before a later review pass reopened the story again around generated contract drift, non-portable workflow state, and weak browser proof ownership.
+16. Task 31 repaired the generated OpenAPI and contract coverage so the queue-aware ingest routes and repository-list payloads are represented and pinned again.
+17. Task 32 removed machine-local workflow-state values from tracked runtime JSON so the branch no longer carries one developer machine's local paths and host URLs as portable state.
+18. Task 33 restored a trustworthy full `npm run test:summary:client` baseline after the unrelated suite-only timeout that surfaced while the reopened review tasks were landing.
+19. Task 34 made the reopened browser proof deterministic and durable by removing the weak skip path, replacing arbitrary waits with explicit proof boundaries, and moving screenshot evidence into tracked artifacts.
+20. Tasks 35 through 39 then bounded the shared remove-flow failure honestly: first deriving the failing owner, then exhausting the stale row-selection and post-visibility branches, and finally proving the earlier submit/start owner in `startIngestAndCaptureOutcome()`.
+21. Task 40 resumed the shared remove-flow repair from that earlier owner proof and restored both the targeted remove-flow scenario and the full `npm run test:summary:e2e` wrapper on current `HEAD`.
 
 ## Durable queue contract
 
@@ -95,7 +101,13 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 - Task 23: the exact chat-flag timeout owners passed, and the full `test:summary:client` wrapper returned to a clean trustworthy baseline.
 - Task 24: targeted queue-runtime plus waiter-cache unit proof, full `test:summary:server:unit`, and supporting server build reruns passed after terminal-state retention was bounded.
 - Task 25: the strengthened `flows.run.errors.test.ts` proof and the full `test:summary:server:unit` wrapper passed after the fixed-delay check was replaced with a deterministic boundary.
-- Task 26 wrapper reruns already passed during the first reopen cycle, but Task 30 still owns the final full wrapper rerun set after the newer Tasks 27 through 29 review fixes. This summary therefore reflects a current implementation-close-out state rather than claiming final story completion before Task 30 testing is rerun.
+- Task 26 wrapper reruns already passed during the first reopen cycle, but they were later superseded by the newer review-corrective tasks 31 through 40.
+- Task 31 restored the generated OpenAPI and queue-aware contract proof homes needed for the reopened contract-drift finding.
+- Task 32 removed the machine-local runtime snapshot values from tracked workflow state so final close-out no longer depends on one developer machine's absolute paths and localhost URLs.
+- Task 33 returned the full client wrapper to a clean trustworthy baseline.
+- Task 34's targeted queue scenarios and durable screenshot artifacts now pass with stable proof boundaries, and the screenshots live in tracked `artifacts/story-0000055-screenshots/`.
+- Task 39 proved the earlier submit/start owner seam with a clean targeted wrapper rerun, and Task 40 restored both the targeted shared remove-flow scenario and the full `test:summary:e2e` wrapper with `58/58` passing on current `HEAD`.
+- This summary now reflects the post-Task-40 implementation state and leaves only the final cross-wrapper and compose revalidation work to Task 41.
 
 ## Deliberate non-changes and remaining out-of-scope boundaries
 

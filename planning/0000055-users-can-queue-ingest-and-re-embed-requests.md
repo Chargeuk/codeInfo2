@@ -2983,7 +2983,7 @@ This task resumes the broader shared remove-flow repair now that Task 39 has pro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `31, 32, 33, 34, 35, 36, 37, 38, 39, 40`
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed. Planner repair on 2026-04-06 first renumbered this final revalidation from Task 39 to Task 40 because Task 38 proved one fresh earlier-owner diagnostic had to land first as Task 39. Planner repair later the same day then moved final revalidation to Task 41 because Task 39's completed proof had to hand the remaining executable shared remove-flow repair to a fresh higher-numbered Task 40.
 
 #### Overview
@@ -3007,9 +3007,9 @@ This final review-response task reruns the complete Story 55 validation path aft
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
-2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 40 changed the contract, proof story, or hygiene story those documents need to communicate.
-3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
+1. [x] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
+2. [x] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 40 changed the contract, proof story, or hygiene story those documents need to communicate.
+3. [x] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
 
 #### Testing
 
@@ -3020,3 +3020,6 @@ This final review-response task reruns the complete Story 55 validation path aft
 #### Implementation notes
 
 - Planner repair on 2026-04-06 first renumbered this final revalidation from Task 39 to Task 40 because Task 38 proved one fresh earlier-owner diagnostic had to land first. The later same-day repair then moved final revalidation to Task 41 because Task 39's completed proof had to hand the remaining executable shared remove-flow repair to a fresh higher-numbered Task 40 before close-out can be honest.
+- Subtask 1: re-read the full Story 55 plan plus the current findings, evidence, and blind-spot challenge artifacts before touching close-out docs. The current reopened-finding map is now straightforward: Task 31 closed the generated OpenAPI drift, Task 32 removed the machine-local runtime snapshot values, Tasks 34 through 40 replaced the weak browser/remove-flow proof chain with deterministic targeted and full-wrapper evidence, and the original out-of-scope boundaries remain unchanged.
+- Subtask 2: updated `planning/0000055-pr-summary.md` because its old close-out story stopped at Task 30 and no longer described the second reopen cycle. The summary now carries Tasks 31 through 40, including the contract regeneration, workflow-state cleanup, durable screenshot/browser-proof work, and the final shared remove-flow repair plus full e2e restoration.
+- Subtask 3: recorded the final pre-wrapper close-out state here so the later Task 41 testing phase has an honest checklist: the current review findings have implementation homes, the reopened browser proof now has durable tracked artifacts plus clean targeted/full e2e proof homes, and only the final build/test/compose revalidation wrappers remain before the story can be closed again.

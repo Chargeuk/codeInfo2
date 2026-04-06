@@ -3243,7 +3243,7 @@ This review-fix task restores an honest direct proof home for the Story 55 full 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `42, 43, 44`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-06 so Story 55 must be fully revalidated after the current code-review findings are fixed and the final retained proof homes are corrected.
 
 #### Overview

@@ -112,8 +112,8 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 - Task 39 proved the earlier submit/start owner seam with a clean targeted wrapper rerun, and Task 40 restored both the targeted shared remove-flow scenario and the full `test:summary:e2e` wrapper with `58/58` passing on current `HEAD`.
 - Task 42 closed the reopened must-fix queue admission contract by aligning route-time and execution-time lock validation, with direct proof at the route-owner, queue-runtime, and cucumber layers.
 - Task 43 closed the reopened review-artifact hygiene issue by narrowing the ignore rule to the transient current-review handoff instead of the whole `codeInfoStatus/reviews/` directory.
-- Task 44 refreshed the full server-unit, server-cucumber, and client wrapper proof-home claims to timestamped `test-results/*.log` artifacts, but Task 45's final retained-path re-check showed those paths must be refreshed only after the task's last Playwright run.
-- This summary now reflects the post-Task-44 implementation state and leaves only the final cross-wrapper, compose, host-network, and post-Playwright retained-proof refresh work to Task 45.
+- Task 44 refreshed the full server-unit, server-cucumber, and client wrapper proof-home claims to timestamped `test-results/*.log` artifacts, and Task 45's final post-Playwright proof refresh now closes that seam with `test-results/server-unit-tests-2026-04-06T05-40-50-540Z.log`, `test-results/server-cucumber-tests-2026-04-06T06-04-07-757Z.log`, and `test-results/client-tests-2026-04-06T06-06-48-264Z.log`.
+- This summary now reflects the post-Task-45 proof state for the full wrapper, compose, host-network, and retained-artifact close-out path.
 
 ## Deliberate non-changes and remaining out-of-scope boundaries
 

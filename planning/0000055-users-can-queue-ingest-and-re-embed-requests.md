@@ -3243,7 +3243,7 @@ This review-fix task restores an honest direct proof home for the Story 55 full 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `42, 43, 44`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-06 so Story 55 must be fully revalidated after the current code-review findings are fixed and the final retained proof homes are corrected.
 
 #### Overview
@@ -3306,3 +3306,4 @@ This final review-response task reruns the full Story 55 validation path after T
 - Planner repair on 2026-04-06 narrowed the remaining Task 45 work to one bounded post-Playwright proof-refresh pass. Testing 1 through 3 remain honest historical proof for the current code state, but Task 45 cannot finish until Subtask 12 and the rewritten Testing 4 step refresh the final close-out citations from server-unit, server-cucumber, and client wrapper logs produced after the last Playwright run in this task.
 - Subtask 12: updated this plan and `planning/0000055-pr-summary.md` so the final retained server-unit, server-cucumber, and client proof-home citations are explicitly reserved for the post-Playwright reruns in rewritten Testing 4. The close-out story now treats the current `test-results/*.log` references as provisional Task 44 history, not as the final Story 55 citations that Task 45 will keep.
 - Testing 4: reran `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, and `npm run test:summary:client` after the last Playwright pass, and all three wrappers passed cleanly with retained artifacts `test-results/server-unit-tests-2026-04-06T05-40-50-540Z.log`, `test-results/server-cucumber-tests-2026-04-06T06-04-07-757Z.log`, and `test-results/client-tests-2026-04-06T06-06-48-264Z.log`. `test -f` also confirmed those three logs, the client JSON sidecar, `logs/test-summaries/e2e-tests-latest.log`, and `logs/test-summaries/host-network-main-latest.log` all exist on disk, so the final close-out notes and PR summary no longer rely on stale full-wrapper paths.
+- Implementation-plus-automated-proof audit on 2026-04-06: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 45 section, the latest proof commit `5f43714e`, and the current retained artifacts on disk. No testing steps needed to be newly checked in this audit because the plan already honestly showed all four testing steps complete, there is no live `**BLOCKER**`, and the post-Playwright retained-path refresh now satisfies the last open proof gate. Task 45 is therefore `__done__`, while the explicit manual-testing scenario note remains a later handoff rather than a blocker on this automated-proof task.

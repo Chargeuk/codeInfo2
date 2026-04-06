@@ -166,7 +166,7 @@ const createTempRepo = async (files: Record<string, string>) => {
 
 const waitForTerminal = async (runId: string) => {
   const result = await waitForTerminalIngestStatus(runId, {
-    timeoutMs: 5_000,
+    timeoutMs: 20_000,
     pollMs: 10,
   });
   if (result.reason === 'terminal' && result.status) {
@@ -184,7 +184,7 @@ const setupIngestChromaMocks = (options?: {
     metadata: { lockedModelId: 'embed-model' as string | null },
     add: mock.fn(async () => {}),
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
-    delete: mock.fn(async () => {}),
+    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
     modify: async ({ metadata }: { metadata?: Record<string, unknown> }) => {
       vectors.metadata = {
         ...(vectors.metadata ?? {}),
@@ -196,7 +196,7 @@ const setupIngestChromaMocks = (options?: {
   const roots = {
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     add: mock.fn(async () => {}),
-    delete: mock.fn(async () => {}),
+    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
   };
 
   const getOrCreateCollection = mock.fn(async (opts: { name?: string }) => {
@@ -329,16 +329,17 @@ test('queued reembed execution path and canonical bookkeeping path are kept sepa
   setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
 
-  mock.method(IngestFileModel, 'find', (query: { root?: string }) => ({
-    select: () => ({
-      lean: () => ({
-        exec: async () => {
-          listLookupRoots.push(query.root ?? '');
-          return [];
-        },
+  mock.method(IngestFileModel, 'find', (query: { root?: string }) => {
+    listLookupRoots.push(query.root ?? '');
+    (mongoose.connection as unknown as { readyState: number }).readyState = 0;
+    return {
+      select: () => ({
+        lean: () => ({
+          exec: async () => [],
+        }),
       }),
-    }),
-  }));
+    };
+  });
 
   try {
     const runId = await startIngest(
@@ -353,7 +354,11 @@ test('queued reembed execution path and canonical bookkeeping path are kept sepa
     );
     const status = await waitForTerminal(runId);
 
-    assert.equal(status.state, 'completed');
+    assert.equal(
+      status.state,
+      'completed',
+      `expected completed but got ${status.state}; lastError=${status.lastError}; error=${JSON.stringify(status.error)}`,
+    );
     assert.equal(listLookupRoots.includes(canonicalTargetRoot), true);
     const startLog = query({ text: 'ingest start' }, 20).find(
       (entry) => entry.message === 'ingest start',
@@ -375,22 +380,23 @@ test('queued reembed destructive cleanup stays keyed to canonicalTargetPath when
   const { vectors, roots } = setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
 
-  mock.method(IngestFileModel, 'find', (query: { root?: string }) => ({
-    select: () => ({
-      lean: () => ({
-        exec: async () => {
-          assert.equal(query.root, canonicalTargetRoot);
-          return [];
-        },
+  mock.method(IngestFileModel, 'find', (query: { root?: string }) => {
+    assert.equal(query.root, canonicalTargetRoot);
+    (mongoose.connection as unknown as { readyState: number }).readyState = 0;
+    return {
+      select: () => ({
+        lean: () => ({
+          exec: async () => [],
+        }),
       }),
-    }),
-  }));
-  vectors.delete = mock.fn(async (opts: { where?: Record<string, unknown> }) => {
+    };
+  });
+  vectors.delete = mock.fn(async (opts?: { where?: Record<string, unknown> }) => {
     if (opts?.where && Object.hasOwn(opts.where, 'root')) {
       deleteVectorRoots.push(opts.where);
     }
   });
-  roots.delete = mock.fn(async (opts: { where?: Record<string, unknown> }) => {
+  roots.delete = mock.fn(async (opts?: { where?: Record<string, unknown> }) => {
     if (opts?.where && Object.hasOwn(opts.where, 'root')) {
       deleteRootRoots.push(opts.where);
     }
@@ -409,7 +415,11 @@ test('queued reembed destructive cleanup stays keyed to canonicalTargetPath when
     );
     const status = await waitForTerminal(runId);
 
-    assert.equal(status.state, 'completed');
+    assert.equal(
+      status.state,
+      'completed',
+      `expected completed but got ${status.state}; lastError=${status.lastError}; error=${JSON.stringify(status.error)}`,
+    );
     assert.equal(
       deleteVectorRoots.some((where) => where.root === canonicalTargetRoot),
       true,

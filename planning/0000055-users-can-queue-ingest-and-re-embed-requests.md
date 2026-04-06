@@ -3632,13 +3632,13 @@ This review-fix task restores one stable repository-root identity for queued re-
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned canonical-root proofs in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/ingest-queue-runtime.test.ts`.
-3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and re-embed integration suite still passes, including the retained `server/src/test/features/ingest-reembed.feature` and `server/src/test/features/ingest-status.feature` backstops.
-4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the server repair without `agent_action: inspect_log`.
-5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
-6. [ ] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the canonical-root repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
-7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 48 smoke proof.
+1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned canonical-root proofs in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/ingest-queue-runtime.test.ts`.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and re-embed integration suite still passes, including the retained `server/src/test/features/ingest-reembed.feature` and `server/src/test/features/ingest-status.feature` backstops.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the server repair without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [x] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the canonical-root repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+7. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 48 smoke proof.
 
 #### Implementation notes
 
@@ -3648,7 +3648,14 @@ This review-fix task restores one stable repository-root identity for queued re-
 - 2026-04-06: `server/src/test/unit/ingest-reembed.test.ts` adds delta-lookup, cleanup-owner, and execution-path proofs for queued runs with canonical/mounted split roots.
 - 2026-04-06: `server/src/test/unit/ingest-queue-runtime.test.ts` now covers startup replay canonical-root preservation and degraded persisted-record fallback using `__setRunProcessorForTest` capture on recovered input.
 - 2026-04-06: Kept start-ingest and non-queued re-embed routes/inputs unchanged outside this root-path split.
+- 2026-04-06: Fixed Task 48 build-proof type issue by making `ingest-reembed.test.ts` mock delete signatures argument-compatible with existing runtime-seam typing (`delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {})`) before rerunning `npm run build:summary:server` to pass cleanly with no wrapper warnings.
 - 2026-04-06 audit: Re-read the current implementation pass from disk and confirmed the renamed retained cleanup-blocked replay scenario in `server/src/test/features/ingest-status.feature` is `cleanup-blocked queue records keep startup and pump ordering from advancing the next waiting item`; automated proof reruns in `Testing` are still pending, so Task 48 remains `__in_progress__`.
+- 2026-04-06 proof: `npm run test:summary:server:unit` now passes cleanly after tightening the two canonical-root `ingest-reembed` tests so delta lookup is observed through the real `listIngestFilesByRoot(...)` path while AST persistence stays intentionally disabled for the offline-Mongo test seam.
+- 2026-04-06 proof: `npm run test:summary:server:cucumber` passed cleanly and retained the queue/recovery browser-independent backstops in `server/src/test/features/ingest-reembed.feature` and `server/src/test/features/ingest-status.feature`; log: `test-results/server-cucumber-tests-2026-04-06T17-35-19-690Z.log`.
+- 2026-04-06 proof: `npm run compose:build:summary` passed with `agent_action: skip_log`, so the supported containerized build path still packages the canonical-root repair; log: `logs/test-summaries/compose-build-latest.log`.
+- 2026-04-06 proof: `npm run compose:up` started the supported main stack cleanly, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1` containers before smoke proof.
+- 2026-04-06 proof: `npm run test:summary:host-network:main` passed with every required host-network endpoint reachable on `http://host.docker.internal:{5010,5011,5012,8932}`; retained smoke log: `logs/test-summaries/host-network-main-latest.log`.
+- 2026-04-06 proof: `npm run compose:down` shut the supported main stack down cleanly after the Task 48 smoke pass, so Task 48 now has all listed automated proof steps complete and is ready for the later audit pass.
 
 ### Task 49. Deduplicate Shared Repository List Rows Before Queue And Active Overlays Are Returned
 

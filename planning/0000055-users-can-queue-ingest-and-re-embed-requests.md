@@ -3553,3 +3553,315 @@ This final review-response task rechecks Story 55 after Task 46 closes the remai
 2. Why it changed: the story needed durable single-flight queueing instead of immediate rejection during active work, stable queued-row visibility in the ingest UI, honest blocking behavior for re-embed callers, and a final repair for the review finding that the no-change fast path could still touch Chroma bootstrap before proving there was no real work to do.
 3. A simple explanation of any complex logic that needed to be added: the key control-flow seam is in `server/src/ingest/ingestJob.ts`, where queue-backed re-embed execution now proves `deltaWorkCount === 0` before any collection bootstrap or root lookup runs, while real-work branches still perform their normal validation and bootstrap path. Around that, the story keeps one persisted queue contract for waiting/running/cleanup-blocked items, startup recovery, duplicate-request collapse, and browser-visible queued state without allowing more than one active ingest run at a time.
 4. What a reviewer should take particular interest in: review the `processRun()` zero-work-before-bootstrap branch and its direct proof in `server/src/test/unit/ingest-reembed.test.ts`, the queue admission/runtime parity proofs in `ingest-start.test.ts` and `ingest-queue-runtime.test.ts`, and the retained host-network/browser proof homes that show queued rows stay visible and the supported stack still works end to end. The one residual hotspot still called out by the plan is that `e2e/ingest.spec.ts` uses a few short fixed waits, so browser-proof strength is honest but not exhaustive.
+
+## Code Review Findings
+
+- Review handoff: `codeInfoStatus/reviews/0000055-current-review.json`
+- Review pass: `0000055-20260406T133340Z-11c0e2ff`
+- Evidence artifact: `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-findings.md`
+- Challenge artifact: `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-blind-spot-challenge.md`
+- Disposition: reopen Story 55 for one `must_fix` and two `should_fix` findings in `Current Repository`.
+- Required fix summary:
+  - Preserve the stored repository-root identity when queueing re-embed work so delta lookup, stale-vector cleanup, and root metadata cleanup still target the persisted root instead of only the mounted workdir alias.
+  - Restore path-level dedupe in the shared repository-list builder so `/ingest/roots` remains the single source of truth even after repeated ingests create multiple metadata rows for one path.
+  - Reject malformed re-embed success payloads in `RootsTable` unless the response proves queue admission or active execution through the story's queue-aware contract.
+- External review adjudication trail: keep the endorsed and rejected external-review decisions in `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-findings.md` as the durable adjudication record for this pass. The external input markdown remains source input only and is not the durable artifact for this review step.
+- Challenge outcome: no additional findings. The challenge artifact strengthened the same three endorsed findings and carried forward the rejected-risk and blind-spot reasoning without changing the scope of the required repairs.
+
+### Task 48. Preserve Canonical Re-Embed Root Identity Through Queue Admission And Execution
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `47`
+- Task Status: `__to_do__`
+- Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` found that queued re-embed admission now rewrites the persisted target path to the mounted workdir alias before runtime cleanup and delta lookup run.
+
+#### Overview
+
+This review-fix task restores one stable repository-root identity for queued re-embed work so the queue can still use the mounted executable path where needed without losing the original persisted root used by delta lookup, stale-vector cleanup, and root metadata cleanup. The repair should stay upstream and explicit: queue admission must preserve enough root identity for execution to clean up the same repository records that earlier ingests created, rather than adding downstream guesswork during cleanup.
+
+#### Task Exit Criteria
+
+- Queued re-embed persistence no longer destroys the original stored root identity needed by `processRun()` for delta lookup and cleanup.
+- Runtime re-embed cleanup still deletes vectors and root metadata under the same repository root that prior ingest metadata used, even when execution later needs a mounted workdir path.
+- The chosen contract is explicit in code and tests: one field or equivalent structure owns persisted repository-root identity, and one field or equivalent structure owns the executable mounted path when they differ.
+- Direct tests prove a queued re-embed for a remapped legacy root still performs delta lookup and cleanup against the persisted root instead of silently turning into a fresh ingest under a new root key.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-blind-spot-challenge.md`
+- `AGENTS.md`
+- `README.md`
+- `package.json`
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/requestContracts.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/features/ingest-status.feature`
+- `scripts/compose-build-summary.mjs`
+- `scripts/test-summary-server-unit.mjs`
+- `scripts/test-summary-server-cucumber.mjs`
+- `scripts/test-summary-host-network-main.mjs`
+
+#### Subtasks
+
+1. [ ] Requirement: update `buildQueuedReingestRequest()` in `server/src/ingest/reingestService.ts` so queued re-embed requests keep `canonicalTargetPath` aligned to the repository's persisted canonical root instead of rewriting it to the mounted workdir alias. Proof owner: `server/src/test/unit/reingestService.test.ts`. Purpose: preserve the root identity already used by ingest metadata and Chroma cleanup.
+2. [ ] Requirement: keep the executable mounted path separate from the persisted canonical root by carrying it only in the runtime request path field that execution actually uses. Implementation owners: `server/src/ingest/reingestService.ts` and `server/src/ingest/requestContracts.ts`. Proof owner: `server/src/test/unit/reingestService.test.ts`. Purpose: avoid mixing cleanup identity with filesystem execution identity.
+3. [ ] Requirement: keep the no-remap path explicit. If no usable host-to-workdir remap exists, queued re-embed requests should continue using the same path for both canonical bookkeeping and execution instead of inventing a second alias. Implementation owners: `server/src/ingest/reingestService.ts` and `server/src/ingest/requestContracts.ts`. Proof owner: `server/src/test/unit/reingestService.test.ts`. Purpose: keep the repair narrow and predictable.
+4. [ ] Requirement: update the delta lookup path in `server/src/ingest/ingestJob.ts` so `listIngestFilesByRoot(...)` reads the preserved canonical repository root instead of the mounted execution alias. Proof owner: `server/src/test/unit/ingest-reembed.test.ts`. Purpose: keep the existing ingest-file index keyed to the same root identity used before queue remapping.
+5. [ ] Requirement: update the destructive cleanup path in `server/src/ingest/ingestJob.ts` so `deleteVectors(...)` and `deleteRoots(...)` target the preserved canonical repository root instead of the mounted execution alias. Proof owner: `server/src/test/unit/ingest-reembed.test.ts`. Purpose: prevent stale vectors and root metadata from surviving under the old root key.
+6. [ ] Requirement: keep filesystem execution in `server/src/ingest/ingestJob.ts` reading the mounted path from the queued request payload instead of accidentally switching scans back to the canonical root. Proof owner: `server/src/test/unit/ingest-reembed.test.ts`. Purpose: preserve the runtime path that still needs the mounted workdir alias.
+7. [ ] Requirement: update `recoverIngestQueueOnStartup()` and the cleanup-blocked replay path in `server/src/ingest/ingestJob.ts` so a rehydrated queued re-embed request keeps `queueRequest.canonicalTargetPath` as the bookkeeping root and does not overwrite it from `requestPayload.path` during restart. Proof owner: `server/src/test/unit/ingest-queue-runtime.test.ts`. Purpose: prevent startup recovery from reintroducing the same alias bug later.
+8. [ ] Requirement: extend `server/src/test/unit/reingestService.test.ts` so the existing remap proof now asserts the split contract directly: `canonicalTargetPath` stays on the canonical persisted root while `requestPayload.path` carries the mounted executable path. Implementation owners: `server/src/ingest/reingestService.ts` and `server/src/ingest/requestContracts.ts`. Purpose: close the admission-side half of the finding with exact proof.
+9. [ ] Requirement: rename or rewrite the existing `server/src/test/unit/reingestService.test.ts` case titled `queued reembed requests remap legacy listed container paths onto the active codex workdir when host mapping is available` so the test title and assertions explicitly describe the split contract instead of the old double-remap contract. Implementation owners: `server/src/ingest/reingestService.ts` and `server/src/ingest/requestContracts.ts`. Purpose: keep the proof semantics honest once canonical bookkeeping and runtime execution paths diverge.
+10. [ ] Requirement: add or update a second proof in `server/src/test/unit/reingestService.test.ts` for the no-remap case so the same test file proves the contract does not create a synthetic second path when no mapping exists. Implementation owners: `server/src/ingest/reingestService.ts` and `server/src/ingest/requestContracts.ts`. Purpose: keep the fix honest for both remapped and non-remapped branches.
+11. [ ] Requirement: extend `server/src/test/unit/ingest-reembed.test.ts` with a proof that queued delta lookup still calls `listIngestFilesByRoot(...)` with the canonical root when execution uses a mounted path alias. Implementation owner: `server/src/ingest/ingestJob.ts`. Purpose: close the delta-lookup half of the execution finding directly.
+12. [ ] Requirement: extend `server/src/test/unit/ingest-reembed.test.ts` with a separate proof that queued destructive cleanup still calls `deleteVectors(...)` and `deleteRoots(...)` with the canonical root when execution uses a mounted path alias. Implementation owner: `server/src/ingest/ingestJob.ts`. Purpose: close the cleanup half of the execution finding directly.
+13. [ ] Requirement: add one dedicated case in `server/src/test/unit/ingest-reembed.test.ts` proving the same queued re-embed run reads files from `requestPayload.path` while still using `canonicalTargetPath` for bookkeeping calls. Do not hide this branch inside the delta-lookup or cleanup assertions from subtasks 11 and 12. Implementation owner: `server/src/ingest/ingestJob.ts`. Purpose: prove the split contract all the way through execution instead of only through admission and cleanup assertions.
+14. [ ] Requirement: add the recovery-side canonical-root proof in `server/src/test/unit/ingest-queue-runtime.test.ts` as its own named case, or rename the reused case before changing its assertions, so the title explicitly says the replayed request keeps canonical-root bookkeeping after restart or cleanup-blocked replay. Use the awaited recovery-turn boundary already available in that file instead of elapsed time alone. Implementation owner: `server/src/ingest/ingestJob.ts`. Purpose: close the queue-recovery failure mode without overreading the existing cleanup-ordering proofs.
+15. [ ] Requirement: if the final cucumber rerun in this story still relies on `server/src/test/features/ingest-status.feature` for cleanup-blocked replay coverage, rename or split the exact queue scenario text in that file so it explicitly claims queue-blocking and recovery ordering rather than progress-only status coverage. Output owner: this task's `Implementation notes`, citing the retained scenario path and title if changed. Purpose: keep the higher-level proof semantics aligned with the queue behavior this task still relies on.
+16. [ ] Requirement: keep unrelated start-ingest and non-queued re-embed contracts unchanged. Output owner: this task's `Implementation notes`, citing `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/ingest-queue-runtime.test.ts`. Purpose: make the repair boundary explicit for the next implementer.
+17. [ ] Requirement: update `toQueueManagedInput()` in `server/src/ingest/ingestJob.ts` so an older or partially written queued re-embed record with a missing or blank `requestPayload.path` still produces one executable input by falling back to `canonicalTargetPath`. Do not add a second fallback field or a new alias-guessing branch. Proof owner: `server/src/test/unit/ingest-queue-runtime.test.ts`. Purpose: make the persisted-reader fallback explicit instead of assuming every queue record already carries the repaired split contract.
+18. [ ] Requirement: extend `server/src/test/unit/ingest-queue-runtime.test.ts` with a degraded persisted-record proof where the queued request keeps `canonicalTargetPath` but omits the mounted execution path, and assert the replayed run uses that canonical path for both execution and bookkeeping instead of crashing or switching cleanup ownership. Implementation owner: `server/src/ingest/ingestJob.ts`. Purpose: close the partial-state reader/writer compatibility hotspot before implementation starts.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned canonical-root proofs in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/ingest-queue-runtime.test.ts`.
+3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and re-embed integration suite still passes, including the retained `server/src/test/features/ingest-reembed.feature` and `server/src/test/features/ingest-status.feature` backstops.
+4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the server repair without `agent_action: inspect_log`.
+5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [ ] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the canonical-root repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 48 smoke proof.
+
+#### Implementation notes
+
+- Pending implementation.
+
+### Task 49. Deduplicate Shared Repository List Rows Before Queue And Active Overlays Are Returned
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `48`
+- Task Status: `__to_do__`
+- Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` found that the shared repository-list builder can still emit duplicate rows for one path after repeated ingests, leaving queue and active overlays attached to only one row.
+
+#### Overview
+
+This review-fix task restores path-level authority in the shared repository-list builder so `/ingest/roots` remains the story's required source of truth. The fix should happen upstream in the shared builder, not in the route serializer, so all queue-aware readers see one canonical row per repository path before queue or active overlays are applied.
+
+#### Task Exit Criteria
+
+- The shared repository-list builder returns at most one row per repository path even when persisted metadata contains multiple rows for the same path.
+- Queue and active overlays are applied to that canonical deduped row, not to one row while stale duplicates remain in the returned payload.
+- `/ingest/roots` continues to forward the shared builder output without needing route-local cleanup logic.
+- Direct tests prove repeated-ingest metadata no longer produces duplicate rows in the live builder-plus-route path that Story 55 now uses.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-blind-spot-challenge.md`
+- `AGENTS.md`
+- `README.md`
+- `package.json`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/routes/ingestRoots.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- `server/src/test/integration/ingest-reembed.test.ts`
+- `server/src/test/features/ingest-roots.feature`
+- `scripts/compose-build-summary.mjs`
+- `scripts/test-summary-server-unit.mjs`
+- `scripts/test-summary-server-cucumber.mjs`
+- `scripts/test-summary-host-network-main.mjs`
+
+#### Subtasks
+
+1. [ ] Requirement: update `listIngestedRepositories()` in `server/src/lmstudio/toolService.ts` so duplicate metadata rows are collapsed by canonical repository path before queue or active overlays are applied. Proof owners: `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: restore one authoritative repo-list row per path at the shared source.
+2. [ ] Requirement: write the duplicate-selection rule directly in `listIngestedRepositories()` in `server/src/lmstudio/toolService.ts` as one deterministic precedence order for duplicate metadata rows. Do not leave the winner implicit in the current array-plus-map iteration order, and do not move the rule into `server/src/routes/ingestRoots.ts`. Proof owners: `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: keep the dedupe result reviewable and repeatable.
+3. [ ] Requirement: preserve waiting and cleanup-blocked queue-document authority when the deduped row also has queue metadata. Implementation owner: `server/src/lmstudio/toolService.ts`. Proof owners: `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: ensure non-terminal queue overlays land on the canonical returned row instead of on a stale duplicate.
+4. [ ] Requirement: preserve active-run overlays on the canonical deduped row after the duplicate-collapse change. Implementation owner: `server/src/lmstudio/toolService.ts`. Proof owner: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: avoid fixing duplicate rows by regressing active-run visibility on persisted rows that still exist.
+5. [ ] Requirement: preserve synthetic active-row creation after the dedupe change when active runtime state exists for a path with no surviving persisted metadata row. Implementation owner: `server/src/lmstudio/toolService.ts`. Proof owner: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: keep active visibility honest even when dedupe removes the stale persisted row that used to carry it.
+6. [ ] Requirement: keep `server/src/routes/ingestRoots.ts` as a thin mapper over the shared builder output instead of moving primary dedupe back into the route. Proof owner: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: keep the story's repository-list source of truth upstream and reusable.
+7. [ ] Requirement: extend `server/src/test/unit/mcp-ingested-repositories.test.ts` with a duplicate-metadata proof so the MCP `ListIngestedRepositories` path returns exactly one row for a duplicated path while preserving waiting or cleanup-blocked queue fields on that row. Implementation owner: `server/src/lmstudio/toolService.ts`. Purpose: prove the shared builder fix at one direct read surface.
+8. [ ] Requirement: extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with a `GET /ingest/roots` proof that duplicate metadata rows plus queue overlays still serialize as one authoritative row. Implementation owners: `server/src/lmstudio/toolService.ts` and `server/src/routes/ingestRoots.ts`. Purpose: prove the queued live route path that made the regression user-visible.
+9. [ ] Requirement: extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with a separate `GET /ingest/roots` proof that duplicate metadata rows plus active overlays still serialize as one authoritative row. Implementation owners: `server/src/lmstudio/toolService.ts` and `server/src/routes/ingestRoots.ts`. Purpose: prove the active-overlay branch separately instead of hiding it inside one mixed assertion set.
+10. [ ] Requirement: write one `Implementation notes` bullet stating that this task stayed inside `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `server/src/test/unit/ingest-roots-dedupe.test.ts`, and that it did not add a new integration harness. Purpose: document that direct proof lives in the shared builder and live route unit seams while the full backend integration backstop stays in wrapper-level validation.
+11. [ ] Requirement: when duplicate persisted rows for one path disagree and one row is partial or stale, update the duplicate-selection branch in `server/src/lmstudio/toolService.ts` to keep the row that still has non-empty lock, model, and count metadata before queue or active overlays are applied. Do not merge those persisted fields field-by-field from multiple rows. Proof owners: `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: make stale-versus-live partial-state handling explicit instead of assuming duplicate rows are equally complete.
+12. [ ] Requirement: extend `server/src/test/unit/mcp-ingested-repositories.test.ts` with a duplicate-path proof where one persisted row is partial and the shared builder still returns one canonical row with the expected persisted metadata plus the fresh queue overlay. Implementation owner: `server/src/lmstudio/toolService.ts`. Purpose: close the partial-row hotspot at the shared builder surface first.
+13. [ ] Requirement: extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with the matching live-route proof where one persisted duplicate row is partial and `GET /ingest/roots` still serializes one canonical row with the expected persisted metadata plus the fresh queue or active overlay. Implementation owners: `server/src/lmstudio/toolService.ts` and `server/src/routes/ingestRoots.ts`. Purpose: prove that the route keeps the same partial-row tolerance as the shared builder instead of silently reintroducing drift.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the wrapper passes with the owned dedupe proofs in `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the backend queue and repository-list integration suite still passes, including the retained `server/src/test/features/ingest-roots.feature` backstop.
+4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the shared-builder repair without `agent_action: inspect_log`.
+5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [ ] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the dedupe repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 49 smoke proof.
+
+#### Implementation notes
+
+- Pending implementation.
+
+### Task 50. Validate Re-Embed Acceptance Responses In The Repository Table
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `49`
+- Task Status: `__to_do__`
+- Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` found that `RootsTable.doReembed()` still treats malformed `2xx` responses as success even when the response does not prove queue admission or active execution.
+
+#### Overview
+
+This review-fix task aligns the repository-table re-embed success path with Story 55's queue-aware write contract. The UI should only show success when the response proves acceptance through `requestId` plus either queued metadata or a live `runId`; otherwise it should surface an error instead of a false-positive success message.
+
+#### Task Exit Criteria
+
+- `RootsTable.doReembed()` rejects malformed `2xx` payloads that omit the story's required queue-acceptance fields.
+- The success message still distinguishes queued acceptance from immediate execution when the payload is valid.
+- The repository-table path stays behaviorally aligned with `IngestForm` instead of carrying a second looser acceptance contract.
+- Direct client tests prove malformed `2xx` re-embed responses surface an error and valid queued or immediate-success payloads still show the expected success state.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-blind-spot-challenge.md`
+- `AGENTS.md`
+- `README.md`
+- `package.json`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/components/ingest/IngestForm.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+- `client/src/test/ingestForm.test.tsx`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`
+- `scripts/compose-build-summary.mjs`
+- `scripts/test-summary-client.mjs`
+- `scripts/test-summary-e2e.mjs`
+- `scripts/test-summary-host-network-main.mjs`
+
+#### Subtasks
+
+1. [ ] Requirement: update `RootsTable.doReembed()` in `client/src/components/ingest/RootsTable.tsx` so every accepted success payload first requires a non-empty `requestId`. Proof owner: `client/src/test/ingestRoots.test.tsx`. Purpose: stop malformed `2xx` bodies from being treated as accepted work before the table even knows which queue request the server claims to have accepted.
+2. [ ] Requirement: keep the queued branch explicit in `RootsTable.doReembed()`: when `queued === true`, show the queued message, preserve `queuePosition` when present, and do not call `onRunStarted`. Proof owner: `client/src/test/ingestRoots.test.tsx`. Purpose: keep waiting-state behavior distinct from immediate execution.
+3. [ ] Requirement: keep the immediate-execution branch explicit in `RootsTable.doReembed()`: only a non-empty `runId` may trigger `onRunStarted` and the "Re-embed started" message. Proof owner: `client/src/test/ingestRoots.test.tsx`. Purpose: prevent the table from inferring active execution from a bare `2xx`.
+4. [ ] Requirement: malformed `2xx` responses must throw an error path that leaves the row in an error status instead of a success status. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Proof owner: `client/src/test/ingestRoots.test.tsx`. Purpose: make the failure visible to the user instead of silently accepting it.
+5. [ ] Requirement: compare the acceptance branches in `client/src/components/ingest/IngestForm.tsx`, then make `RootsTable.doReembed()` follow that same order exactly: require `requestId`, then distinguish `queued === true` from immediate `runId` success, and send everything else to the error path. Extract one tiny shared helper only if both callers can use the exact same function unchanged inside the existing client seam. Do not create a new shared module or loosen either caller's acceptance contract. Proof owners: `client/src/components/ingest/IngestForm.tsx` as the comparator contract and `client/src/test/ingestRoots.test.tsx` as the direct table proof. Purpose: keep the contract shared while respecting this task's narrow scope.
+6. [ ] Requirement: extend `client/src/test/ingestRoots.test.tsx` with a malformed-success proof where the response is `2xx` but missing `requestId`, and assert that the row shows an error instead of a success message. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Purpose: close the finding's missing-request-id failure path directly.
+7. [ ] Requirement: extend `client/src/test/ingestRoots.test.tsx` with a second malformed-success proof where the response includes `requestId` but proves neither queued admission nor active execution, and assert that the row still shows an error instead of a success message. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Purpose: close the remaining malformed-success branch instead of leaving it implied by the missing-request-id case.
+8. [ ] Requirement: extend `client/src/test/ingestRoots.test.tsx` with a queued-success proof where the response includes `requestId`, `queued: true`, and `queuePosition`, and assert that the row shows `Queued (#1)` without calling `onRunStarted`. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Purpose: keep the queued branch explicit and directly proved.
+9. [ ] Requirement: extend `client/src/test/ingestRoots.test.tsx` with an immediate-success proof where the response includes both `requestId` and `runId`, and assert that `onRunStarted` fires and the success message stays `Re-embed started`. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Purpose: keep the non-queued branch directly proved after tightening validation.
+10. [ ] Requirement: rename or split the existing `client/src/test/ingestRoots.test.tsx` case titled `calls re-embed endpoint and notifies parent when re-embed is clicked` so it explicitly claims the immediate-success `runId` branch rather than the whole re-embed acceptance contract. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Purpose: keep the old happy-path proof from reading like coverage for queued and malformed-success branches it does not prove.
+11. [ ] Requirement: add one `Implementation notes` bullet that names `e2e/ingest.spec.ts` and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` as the retained browser regression backstop for this task's table change, and point that note forward to Task 51's wrapper reruns. Do not move malformed-response proof out of `client/src/test/ingestRoots.test.tsx`. Purpose: keep frontend proof proportional by leaving the mocked malformed-response seam in `client/src/test/ingestRoots.test.tsx` while still making the supported browser backstop explicit.
+12. [ ] Requirement: record the final table acceptance rule in this task's `Implementation notes`, citing `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/IngestForm.tsx`, `client/src/test/ingestRoots.test.tsx`, and the retained Task 51 browser proof seam in `e2e/ingest.spec.ts`. Purpose: leave one explicit rule for later reviews instead of relying on message-text inference.
+13. [ ] Requirement: if Task 50 changes any shared acceptance helper or copied branch wording, rename or refresh the existing immediate-run and queued-acceptance cases in `client/src/test/ingestForm.test.tsx` so they still explicitly claim `requestId + runId` and `requestId + queued` semantics. Implementation owners: `client/src/components/ingest/RootsTable.tsx` and `client/src/components/ingest/IngestForm.tsx`. Purpose: make producer-versus-consumer alignment explicit on both client surfaces instead of only in table-local tests.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` and confirm the wrapper finishes successfully without `agent_action: inspect_log`.
+2. [ ] Run full `npm run test:summary:client` and confirm the wrapper passes with the owned acceptance proofs in `client/src/test/ingestRoots.test.tsx` and the comparator contract in `client/src/test/ingestForm.test.tsx`.
+3. [ ] Run full `npm run test:summary:e2e` and confirm the automated browser regression path still passes after the table acceptance repair, with `e2e/ingest.spec.ts` and `logs/test-summaries/e2e-tests-latest.log` as the retained automated browser-proof homes.
+4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the client-facing repair without `agent_action: inspect_log`.
+5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [ ] Run `npm run test:summary:host-network:main` and confirm the supported host-network smoke proof passes after the table repair, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 50 smoke proof.
+
+The browser proof remains automated-only in this task. Screenshot retention and final proof-path close-out stay owned by Task 51.
+
+#### Implementation notes
+
+- Pending implementation.
+
+### Task 51. Re-Validate Story 55 After Review Pass `0000055-20260406T133340Z-11c0e2ff`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `48, 49, 50`
+- Task Status: `__to_do__`
+- Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` so Story 55 is revalidated only after the three endorsed findings above are closed with direct proof.
+
+#### Overview
+
+This final review-response task revalidates Story 55 once the canonical re-embed root identity repair, shared repository-list dedupe repair, and repository-table acceptance validation repair all land. It should confirm the endorsed findings are closed, preserve the external-review adjudication trail in the findings artifact, and restate why the remaining queue story is still sufficiently proven without rediscovering unrelated external comments.
+
+#### Task Exit Criteria
+
+- The `must_fix` queued re-embed root-identity finding from `0000055-20260406T133340Z-11c0e2ff` is closed by direct current-repo evidence.
+- The two `should_fix` findings for shared repository-list dedupe and repository-table acceptance validation are closed by direct current-repo evidence.
+- The final close-out for this pass cites the current evidence, findings, and challenge artifacts as the durable review record, while preserving the rejected or non-adopted external-comment adjudication trail already written into the findings artifact.
+- Final validation reruns enough server, client, and supported-stack proof to show Story 55 still meets its acceptance criteria after Tasks 48 through 50.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `AGENTS.md`
+- `README.md`
+- `package.json`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-blind-spot-challenge.md`
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/routes/ingestRoots.ts`
+- `client/src/components/ingest/RootsTable.tsx`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- `client/src/test/ingestRoots.test.tsx`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/features/ingest-status.feature`
+- `server/src/test/features/ingest-roots.feature`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `logs/test-summaries/host-network-main-latest.log`
+- `scripts/compose-build-summary.mjs`
+- `scripts/test-summary-server-cucumber.mjs`
+- `scripts/test-summary-client.mjs`
+- `scripts/test-summary-e2e.mjs`
+- `scripts/test-summary-host-network-main.mjs`
+
+#### Subtasks
+
+1. [ ] Requirement: write three explicit close-out bullets in this task's `Implementation notes`: one naming Task 48's canonical-root split, one naming Task 49's shared-builder dedupe owner, and one naming Task 50's table acceptance contract. Purpose: make the review closure readable without replaying the whole story.
+2. [ ] Requirement: update only the review-follow-up portion of `planning/0000055-pr-summary.md` so it names the Task 48 through Task 50 fixes and their final proof homes without rewriting older summary sections. Output owner: `planning/0000055-pr-summary.md`. Purpose: keep the review-response summary aligned with the repaired plan state without reopening older summary sections unnecessarily.
+3. [ ] Requirement: in both this task's `Implementation notes` and the matching close-out note in `planning/0000055-pr-summary.md`, list the durable review-artifact links for this pass and explicitly state that `codeInfoStatus/reviews/0000055-20260406T133340Z-11c0e2ff-findings.md` keeps the endorsed and rejected external-review adjudication trail. Purpose: keep the review trail inspectable without treating the external input markdown as the durable artifact.
+4. [ ] Requirement: cite `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/ingest-queue-runtime.test.ts` as the direct proof owners for the canonical-root identity repair, including the restart and cleanup-blocked replay failure modes. Output owner: this task's `Implementation notes`. Purpose: keep the Task 48 closure explicit instead of implying it from wrapper commands alone.
+5. [ ] Requirement: cite `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` as the direct proof owners for the shared repo-list dedupe repair, including duplicate collapse, queue-overlay precedence, active-overlay preservation, and synthetic active-row behavior. Output owner: this task's `Implementation notes`. Purpose: keep the Task 49 closure explicit instead of bundling it with unrelated proof surfaces.
+6. [ ] Requirement: cite `client/src/test/ingestRoots.test.tsx` as the direct proof owner for the table acceptance-validation repair, including malformed `2xx`, queued success, and immediate-success branches. Output owner: this task's `Implementation notes`. Purpose: keep the Task 50 closure explicit instead of folding it into the broader browser backstop.
+7. [ ] Requirement: after the final `npm run test:summary:server:cucumber` rerun, write the exact retained `test-results/server-cucumber-tests-<timestamp>.log` path into this task's `Implementation notes` and `planning/0000055-pr-summary.md`, and pair it with the exact feature files `server/src/test/features/ingest-reembed.feature`, `server/src/test/features/ingest-status.feature`, and `server/src/test/features/ingest-roots.feature`. Purpose: keep the service-level acceptance path explicit after Tasks 48 and 49 land.
+8. [ ] Requirement: in this task's `Implementation notes`, describe `e2e/ingest.spec.ts` only as the browser regression backstop for queued-row visibility, refresh persistence, and queue-head handoff. Do not cite it as direct proof of the canonical-root repair or shared-builder dedupe internals. Purpose: prevent the browser suite from being overclaimed as direct proof for server-only semantics.
+9. [ ] Requirement: if any helper text or test titles change inside `e2e/ingest.spec.ts`, rename them so `ensureCleanRoots()` is clearly test-harness cleanup and `waitForQueuedRow(...)` is clearly an awaited queue-visibility boundary. Do not add new fixed-sleep assertions or new teardown shortcuts. Output owner: this task's `Implementation notes`, citing the retained browser proof file if helper wording changes. Purpose: keep the final browser proof deterministic and semantically aligned with what it actually proves.
+10. [ ] Requirement: after the final `npm run test:summary:e2e` rerun, write the exact retained browser proof homes `e2e/ingest.spec.ts`, `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`, and `logs/test-summaries/e2e-tests-latest.log` into this task's `Implementation notes`. Purpose: show that the review fixes did not silently break the queue-visible user path.
+11. [ ] Requirement: after the compose build/up/host-network rerun sequence, write `logs/test-summaries/host-network-main-latest.log` into this task's `Implementation notes` as the supported-stack smoke-proof home. Purpose: keep runnable-stack reachability explicit instead of implied by the wrapper checklist alone.
+12. [ ] Requirement: carry forward the remaining rejected-risk and blind-spot reasoning from the current findings and challenge artifacts into this task's `Implementation notes` and the matching close-out note in `planning/0000055-pr-summary.md`. Purpose: preserve the same fallback reasoning contract for later audits.
+13. [ ] Requirement: after all reruns finish, verify on disk that every proof path cited by this task and `planning/0000055-pr-summary.md` still exists, including the exact `test-results/server-cucumber-tests-<timestamp>.log` path retained by this pass, and replace any stale timestamped path before closing the story. Output owners: this task's `Implementation notes` and `planning/0000055-pr-summary.md`. Purpose: keep the repaired review close-out inspectable and honest.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the queue, re-embed, and shared repository-list server proof still passes after Tasks 48 and 49.
+3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the broader backend queue and re-embed integration suite still passes after Tasks 48 and 49.
+4. [ ] Run full `npm run test:summary:client` and confirm the ingest UI proof still passes after Task 50.
+5. [ ] Run full `npm run test:summary:e2e` and confirm the queued-row browser proofs still pass after Tasks 48 through 50.
+6. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the final Story 55 state without `agent_action: inspect_log`.
+7. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before final smoke proof.
+8. [ ] Run `npm run test:summary:host-network:main` and confirm the supported main-stack smoke proof still passes after Tasks 48 through 50, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+9. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the final smoke proof.
+10. [ ] Verify that every proof path newly cited by this task still exists on disk before closing the story, and update this plan plus `planning/0000055-pr-summary.md` if any cited proof home would otherwise be stale.
+
+#### Implementation notes
+
+- Pending implementation.

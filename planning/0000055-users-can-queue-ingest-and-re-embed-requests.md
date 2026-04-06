@@ -3092,6 +3092,8 @@ This review-fix task repairs the contract mismatch between route-time admission 
 5. [x] Run full `npm run test:summary:server:unit` and confirm the wider backend unit/integration baseline still passes after the shared validation-contract repair.
 6. [x] Run full `npm run test:summary:server:cucumber` and confirm the wider backend feature baseline still passes after the same repair instead of only the targeted ingest-start scenario.
 
+Normal supported compose smoke for this reopened review-fix slice is intentionally owned by Task 45, which revalidates Tasks 42 through 44 together through `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:host-network:main`, and `npm run compose:down` after the batch lands.
+
 #### Implementation notes
 
 - Subtask 1: the stored review contradiction is the old route branch in `server/src/routes/ingestStart.ts` that only rejected lock mismatch when `!empty && locked && mismatch`, which let an empty collection accept a queued `/ingest/start` request even though later queue promotion would still fail under the stricter execution rule.
@@ -3379,6 +3381,8 @@ This review-fix task keeps the delta no-change re-embed path lightweight enough 
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-ast-indexing.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` to confirm the existing healthy-bootstrap no-op proof homes still pass after the refactor.
 4. [ ] Run full `npm run test:summary:server:unit` to confirm the localized `processRun()` change does not regress the broader backend queue and re-embed contract.
 5. [ ] Run `npm run test:summary:server:cucumber` to confirm the existing backend integration suite still passes after the `processRun()` refactor even though this task does not add a new feature-level proof file.
+
+Normal supported compose smoke for this review-fix task is intentionally owned by Task 47, which reruns `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:host-network:main`, and `npm run compose:down` after the Task 46 server change lands.
 
 #### Implementation notes
 

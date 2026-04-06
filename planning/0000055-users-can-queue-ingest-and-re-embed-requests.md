@@ -2445,7 +2445,7 @@ This task closes the public-contract drift found in the stored review artifacts.
 1. [x] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the OpenAPI and contract-proof repair.
 2. [x] Run full `npm run test:summary:server:unit` and confirm the strengthened `server/src/test/unit/openapi.contract.test.ts` proof passes on the repository's normal backend unit wrapper alongside the broader server-unit baseline.
 3. [x] Run full `npm run test:summary:server:cucumber` and confirm the normal Testcontainers-backed backend integration path still passes after the queue-aware OpenAPI contract and proof repair.
-4. [x] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 38.
+4. [x] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 39.
 
 #### Implementation notes
 
@@ -2458,8 +2458,8 @@ This task closes the public-contract drift found in the stored review artifacts.
 - Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and no warnings, so the supported server build wrapper still accepts the queue-aware OpenAPI and contract-proof repair from current `HEAD`.
 - Testing 2: the first full `npm run test:summary:server:unit` rerun failed on unrelated broader-baseline test `codex chat injects system context and emits MCP tool request/result` with `Timed out waiting for WebSocket event`, not on the Task 31 OpenAPI contract owner. A targeted rerun of that exact test then passed cleanly, and the immediate full-wrapper rerun passed with `tests run: 1612`, `passed: 1612`, `failed: 0`, and `agent_action: skip_log`, so the strengthened `openapi.contract` proof now passes alongside the current broader server-unit baseline.
 - Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the normal backend integration wrapper still accepts the queue-aware OpenAPI contract repair from current `HEAD`.
-- Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 38 exactly as the task text requires.
-- Implementation-plus-automated-proof audit on 2026-04-04: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 31 section, the latest Task 31 proof commit `cff1286c`, and the current owner files `openapi.json` plus `server/src/test/unit/openapi.contract.test.ts` from disk. No blocker remains, no additional subtasks or testing steps needed to be newly checked because the plan already honestly showed all of them complete, and the task is now `__done__` because its contract-sync work and wrapper-backed automated proof are both complete while runnable-system smoke stays explicitly owned by Task 38.
+- Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 39 exactly as the task text requires.
+- Implementation-plus-automated-proof audit on 2026-04-04: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 31 section, the latest Task 31 proof commit `cff1286c`, and the current owner files `openapi.json` plus `server/src/test/unit/openapi.contract.test.ts` from disk. No blocker remains, no additional subtasks or testing steps needed to be newly checked because the plan already honestly showed all of them complete, and the task is now `__done__` because its contract-sync work and wrapper-backed automated proof are both complete while runnable-system smoke stays explicitly owned by Task 39.
 
 ---
 
@@ -2521,7 +2521,7 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 - Testing 2: `git ls-files --error-unmatch codeInfoStatus/flow-state/manual-testing-runtime.json` failed as expected with `pathspec ... did not match any file(s) known to git`, proving the live runtime snapshot is no longer tracked. `git check-ignore -v codeInfoStatus/flow-state/manual-testing-runtime.json` then resolved the ignore ownership to `.gitignore`, confirming the repo-wide exact-path ignore rule now owns that live file.
 - Testing 3: `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore codeinfo_markdown/manual_test_runtime_research.md codeinfo_markdown/manual_test_latest_completed_task.md` reported only `!! codeInfoStatus/flow-state/manual-testing-runtime.json`, which confirms the live snapshot is ignored while the checked-in doc owners and `.gitignore` remain normal clean tracked state.
 - Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 32 section, the latest Task 32 implementation note state, and the direct tracked-state proof outputs above. Current repo evidence now shows every Task 32 subtask and all three Task 32 testing steps are honestly complete, there is no live `**BLOCKER**` note on the task, and Task 32 correctly closes as `__done__` before the flow moves on to later story revalidation.
-- Manual testing assessed on 2026-04-04 and not applicable for this task. This pass stayed task-scoped because Task 32 only changes Git tracking, ignore ownership, and markdown guidance for the live `codeInfoStatus/flow-state/manual-testing-runtime.json` artifact, so there is no runnable, browser-accessible, or externally observable product surface to start, stop, or exercise manually, and the broader runnable-system revalidation remains owned by Task 38.
+- Manual testing assessed on 2026-04-04 and not applicable for this task. This pass stayed task-scoped because Task 32 only changes Git tracking, ignore ownership, and markdown guidance for the live `codeInfoStatus/flow-state/manual-testing-runtime.json` artifact, so there is no runnable, browser-accessible, or externally observable product surface to start, stop, or exercise manually, and the broader runnable-system revalidation remains owned by Task 39.
 
 ---
 
@@ -2570,7 +2570,7 @@ This repaired prerequisite task now records and preserves the restored full `npm
 #### Implementation notes
 
 - Starts empty.
-- Planner repair on 2026-04-05 moved this client-baseline repair ahead of the remaining browser-proof task so the plan now follows real execution order. Task 33 is the active prerequisite owner, Task 34 waits behind this baseline repair, and final story revalidation remains in Task 38.
+- Planner repair on 2026-04-05 moved this client-baseline repair ahead of the remaining browser-proof task so the plan now follows real execution order. Task 33 is the active prerequisite owner, Task 34 waits behind this baseline repair, and final story revalidation remains in Task 39.
 - Subtask 1: re-read Task 34's blocker evidence from the current review artifacts, then inspected the recorded client-wrapper logs plus `client/src/test/agentsPage.run.test.tsx` and `client/src/test/chatPage.flags.sandbox.payload.test.tsx` together from current `HEAD`. The older evidence still points at those two test files as the intended owner candidates, and no queue-browser proof file needed to be reopened during this prerequisite pass.
 - **RESOLVED ISSUE** The earlier Task 33 blocker came from treating the stale historical timeout as if it still had to reproduce on current `HEAD`. That bounded diagnostic branch exhausted cleanly: `npm run test:summary:client` finished with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log` in `test-results/client-tests-2026-04-05T20-41-06-267Z.log`. Planner repair retired that open-ended timeout-owner hunt, narrowed Task 33 to baseline-and-handoff close-out work, and promoted Task 34 back to the active browser-proof owner.
 - **BLOCKING ANSWER** Repository precedents found: this repo already treats exhausted prerequisite branches as a planning and handoff problem rather than as a reason to invent more implementation work. `codeinfo_markdown/research_blocker_impact_on_plan.md` says to keep the current live blocker or current `**BLOCKING ANSWER**` in full, and when blocker repair proves a different prerequisite or successor now owns the real work, rewrite the handoff so the blocked task does not remain the active executable owner. The same file also says that if the next bounded strategy exhausts cleanly, prefer closing that task on its exhausted branch and creating or resuming a fresh successor rather than narrowing the same task again. The current story already shows that shape in Task 34's notes: its earlier full-client blocker was re-owned by Task 33, while the queue-browser implementation itself is already on disk and only its later proof gates remain.
@@ -2626,7 +2626,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 2. [x] Run full `npm run test:summary:client` and confirm the existing ingest-page client proof homes still pass after the queue-specific browser-proof adjustments and screenshot-artifact durability change.
 3. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "queued submission stays available while another run is active and exposes queued row state|queued row stays visible after a page refresh while the request is still waiting|queued row picks up a run owner after the current queue head finishes|Remove selected ignores queued rows in a mixed selection"` and confirm the Task 34-owned queue-specific Playwright scenarios pass without warn-and-return skips or fixed-delay queue assertions.
 4. [x] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the targeted Task 34-owned e2e wrapper run and are no longer hidden behind the current ignore rules.
-5. [x] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 38.
+5. [x] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 39.
 
 #### Implementation notes
 
@@ -2649,7 +2649,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 - Plan repair on 2026-04-05: narrowed Task 34's e2e testing gate to the queue-specific Playwright scenarios and moved the reopened shared ingest remove-flow timeout into follow-up tasks beginning with Task 35 before final story revalidation. This keeps Task 34 aligned to the browser-proof boundary it actually owns and leaves the broader full-e2e baseline repair explicitly owned instead of hidden behind this task.
 - Testing 3: the targeted Task 34-owned queue-specific Playwright wrapper passed cleanly on current `HEAD` with `tests run: 4`, `passed: 4`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`. The wrapper also reported the expected host-mapped runtime endpoints (`http://host.docker.internal:6001` and `http://host.docker.internal:8932/mcp`) during the run, so the proof stayed inside the Docker-mapped environment contract.
 - Testing 4: the required screenshots were regenerated at `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` and `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`, and they were promoted into tracked repository state so the durable browser-proof evidence is no longer hidden behind ignored transient-output paths.
-- Testing 5: supported compose smoke remains honestly not applicable for Task 34 because this task only proves the queue-specific browser path and its durable screenshot artifacts. The normal main-stack compose proof still remains owned by Task 38.
+- Testing 5: supported compose smoke remains honestly not applicable for Task 34 because this task only proves the queue-specific browser path and its durable screenshot artifacts. The normal main-stack compose proof still remains owned by Task 39.
 - Automated-proof audit on 2026-04-05: Task 34 now has every subtask and testing step honestly complete on current `HEAD`, no live `**BLOCKER**` remains, and the task status is normalized to `__done__` before Task 35 picks up the bounded shared remove-flow instrumentation follow-up.
 - Manual testing assessed on 2026-04-05 and not applicable for Task 34. This pass stayed task-scoped because Task 34 only hardens the automated Playwright proof and durable screenshot-artifact path for Story 55; it does not add or change a separate runnable, browser-visible, HTTP, or paired-frontend product behavior beyond the owned automated proof surfaces already recorded here. No additional subtasks or Testing-step changes were needed.
 
@@ -2717,19 +2717,19 @@ This task does not try another broad remove-flow repair. It derives a concrete o
 ### Task 36. Re-Baseline Reopened Shared Ingest Remove-Flow E2E Timeout Outside Task 34
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `37`
+- Task Dependencies: `38`
 - Task Status: `__todo__`
-- Notes: Re-owned during planner repair on 2026-04-05 because the broader shared remove-flow rebaseline could not continue honestly until Task 35 derived a concrete failing owner boundary. Planner repair later the same day moved this task back out of the active slot because the row-visibility repair branch exhausted cleanly and a fresh row-selection-contract owner must land first as Task 37.
+- Notes: Re-owned during planner repair on 2026-04-05 because the broader shared remove-flow rebaseline could not continue honestly until Task 35 derived a concrete failing owner boundary. Planner repair later the same day moved this task back out of the active slot because the row-visibility repair branch exhausted cleanly and a fresh row-selection-contract owner had to land first as Task 37. Planner repair on 2026-04-06 then moved this task behind Task 38 because Task 37's selector-instrumentation branch also exhausted cleanly without producing a trustworthy next owner.
 
 #### Overview
 
-This task resumes the broader shared remove-flow repair only after Task 37 proves the correct row-selection contract for the already visible completed row. It owns the smallest real fix needed to make `remove clears entry and unlocks model when empty` pass end-to-end on current `HEAD`, and then restore the full `npm run test:summary:e2e` wrapper without reopening Task 34's queue-specific proof surfaces.
+This task resumes the broader shared remove-flow repair only after Task 38 proves the next concrete post-visibility owner for the already visible completed row. It owns the smallest real fix needed to make `remove clears entry and unlocks model when empty` pass end-to-end on current `HEAD`, and then restore the full `npm run test:summary:e2e` wrapper without reopening Task 34's queue-specific proof surfaces.
 
 #### Task Exit Criteria
 
-- The shared ingest remove-flow scenario `remove clears entry and unlocks model when empty` passes on current `HEAD` after applying only the concrete owner fix proven by Task 37.
+- The shared ingest remove-flow scenario `remove clears entry and unlocks model when empty` passes on current `HEAD` after applying only the concrete owner fix proven by Task 38.
 - Full `npm run test:summary:e2e` passes cleanly again without larger blanket timeouts, extra sleeps, or permanent scenario filtering.
-- The final repair remains bounded to the owner Task 37 proves and does not silently broaden back into unrelated ingest e2e behavior.
+- The final repair remains bounded to the owner Task 38 proves and does not silently broaden back into unrelated ingest e2e behavior.
 
 #### Documentation Locations
 
@@ -2738,12 +2738,12 @@ This task resumes the broader shared remove-flow repair only after Task 37 prove
 - `logs/test-summaries/e2e-tests-latest.log`
 - `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/trace.zip`
 - `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/error-context.md`
-- Any directly shared ingest e2e helper or teardown seam the Task 37 row-selection proof identifies
+- Any directly shared ingest e2e helper or teardown seam the Task 38 live-debug proof identifies
 
 #### Subtasks
 
-1. [ ] Re-read the completed Task 37 row-selection-contract notes and use only the proved selector or contradiction they establish as the starting point for the next repair. Purpose: keep the broader rebaseline anchored to concrete evidence instead of reopening speculative branches.
-2. [ ] Repair only the shared remove-flow seam that remains after Task 37 proves the row-selection contract, keeping the valid mounted fixture path contract and the Task 34 queue-proof boundary unchanged. Purpose: restore the remove-flow scenario honestly without re-broadening the task.
+1. [ ] Re-read the completed Task 38 live-debug notes and use only the proved post-visibility owner or contradiction they establish as the starting point for the next repair. Purpose: keep the broader rebaseline anchored to concrete evidence instead of reopening speculative branches.
+2. [ ] Repair only the shared remove-flow seam that remains after Task 38 proves the next concrete post-visibility owner, keeping the valid mounted fixture path contract and the Task 34 queue-proof boundary unchanged. Purpose: restore the remove-flow scenario honestly without re-broadening the task.
 3. [ ] Update any directly owning helper comments, trace-visible notes, or proof text if the final repair changes how the shared remove-flow scenario reaches completion or removal. Purpose: leave a clean direct-owner handoff for the final story revalidation task.
 
 #### Testing
@@ -2759,7 +2759,7 @@ This task resumes the broader shared remove-flow repair only after Task 37 prove
 - Subtask 1: re-read Task 35's completed owner-derivation notes plus `logs/test-summaries/e2e-tests-latest.log`, `trace.zip`, and `error-context.md` before editing. The key current-state signal is that the timeout boundary already narrowed to row visibility while the page snapshot still showed the completed `/fixtures/repo` row, so this pass stayed focused on forcing a bounded UI refresh seam instead of reopening server polling or remove-click ownership.
 - Subtask 2: repaired only the page-refresh or row-visibility seam in `e2e/ingest.spec.ts`. The remove-flow step now uses `expect.poll(...)` to reload the page until the matching row text appears and contains `completed`, rather than waiting on a potentially stale pre-refresh locator after the API-backed completion boundary has already passed.
 - Subtask 3: updated the task-owned proof text in `e2e/ingest.spec.ts` by changing the page-refresh step message to describe the refreshed-row contract directly. The valid `/fixtures/repo` mounted path and Task 34's queue-specific proof boundary both stay unchanged.
-- **BLOCKER** This broader rebaseline task is now blocked behind Task 37. The repeated row-visibility repair branch exhausted cleanly: the latest targeted reruns still ended `tests run: 1`, `passed: 0`, `failed: 1`, `agent_action: inspect_log`, while `error-context.md` kept showing the completed `/fixtures/repo` row and visible `Remove` button at timeout. Task 37 must now prove whether the remaining failure is a stale row-selection locator contract or another directly bounded contradiction before this broader repair can continue honestly.
+- **BLOCKER** This broader rebaseline task is now blocked behind Task 38. Task 37 exhausted the selector-instrumentation branch cleanly: repeated targeted reruns still ended `tests run: 1`, `passed: 0`, `failed: 1`, `agent_action: inspect_log`, and the latest wrapper now times out inside `page.evaluate(...)` before producing any named row-selection outcome even though `error-context.md` still shows the completed `/fixtures/repo` row and visible `Remove` button. Task 38 must now prove the next concrete post-visibility owner with a different supported diagnostic surface before this broader repair can continue honestly.
 - **BLOCKING ANSWER** Repository precedents found: this repo's own workflow says repeated bounded browser-proof narrowing must stop once the current owner seam is contradicted instead of being stretched with more speculative variants. `codeinfo_markdown/implement_next_task_subtasks.md` and `codeinfo_markdown/audit_after_implementation.md` both require a live blocker and planner repair when no subtask-closing progress remains and the current bounded search is exhausted. In code, the local e2e suite already prefers explicit observable contracts over broad page-state guesses: `e2e/chat-user-turn-ws.spec.ts` uses bounded proof seams, and other e2e specs use direct `getByText(...)` or filtered locators when visible text is the real contract instead of trying to infer success from repeated page churn.
 - **BLOCKING ANSWER** External-library precedents found: Playwright's official docs say `getByRole(..., { name })` matches accessible name, while `Locator.filter({ hasText })` and text locators are the supported way to narrow an existing locator by visible text when that is the stable contract. The same docs and Context7 guidance keep `waitForTimeout` and blanket timeout growth in the “debugging only” bucket, not as a proper fix. DeepWiki could not confirm this because `microsoft/playwright` is not indexed in this session, so the authoritative external sources here are the official Playwright docs and Context7's Playwright mirror.
 - **BLOCKING ANSWER** Issue-resolution references found: the saved `error-context.md` already proves the row is present in the DOM and visible to the user with the exact fixture name, `/fixtures/repo` path, `completed` status, and a visible `Remove` button, yet the current row-visibility seam still times out. That means the next honest owner is no longer “make the row appear” but “prove why this locator contract is not matching the already visible row, or replace it with the right stable row-selection contract.” Repeating `page.reload()`, `Refresh`, or row-text polling without first proving that locator contract would only keep retrying stale assumptions.
@@ -2771,18 +2771,18 @@ This task resumes the broader shared remove-flow repair only after Task 37 prove
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `35`
-- Task Status: `__in_progress__`
-- Notes: Added during planner repair on 2026-04-05 because the current Task 36 row-visibility branch exhausted cleanly and the next honest work is a fresh bounded successor that proves why the already visible completed row still does not satisfy the current proof seam.
+- Task Status: `__done__`
+- Notes: Added during planner repair on 2026-04-05 because the current Task 36 row-visibility branch exhausted cleanly and the next honest work was a fresh bounded successor that proved or disproved the current row-selection proof seam. Planner repair on 2026-04-06 then closed this task on its exhausted selector-instrumentation branch and moved the next active work into Task 38.
 
 #### Overview
 
-This task does not try to finish the whole shared remove-flow repair. It only proves the row-selection contract for the already visible completed row so later repair can act on a trustworthy selector instead of on stale row-visibility guesses. The task must stay bounded to the pre-remove row lookup seam in `e2e/ingest.spec.ts` and the directly relevant failure artifacts.
+This task did not try to finish the whole shared remove-flow repair. It only proved the current row-selection proof seam for the already visible completed row strongly enough to either hand Task 36 a trustworthy selector or prove that this selector-instrumentation branch itself had exhausted cleanly. That second exhausted-branch outcome is what happened here, so the active next work now lives in Task 38.
 
 #### Task Exit Criteria
 
-- The targeted `remove clears entry and unlocks model when empty` wrapper no longer fails at an ambiguous “row visibility before remove” seam; it either passes or fails at one named row-selection contract boundary.
-- The result proves whether the current `getByRole('row', { name: ... })` contract is correct, or proves a more stable row-selection contract using the already visible row text and descendant `Remove` button.
-- Task 36 receives one concrete row-selection owner to use for the broader shared remove-flow repair instead of another speculative refresh-loop branch.
+- The targeted `remove clears entry and unlocks model when empty` wrapper either reaches a named row-selection contract boundary or proves that the current Task 37 selector-proof seam itself cannot produce a trustworthy owner signal.
+- The task either proves a trustworthy row-selection contract for Task 36 or closes honestly on an exhausted selector-instrumentation branch with one direct successor owner.
+- Later work can read this task and know not to repeat more role/count/text/page-evaluate variants inside the same proof branch.
 
 #### Documentation Locations
 
@@ -2803,7 +2803,7 @@ This task does not try to finish the whole shared remove-flow repair. It only pr
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted wrapper either passes or fails at one named row-selection contract boundary, not at the stale generic row-visibility seam.
+1. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted wrapper either reaches a named row-selection contract boundary or proves that the current Task 37 selector-proof seam itself is exhausted and must be re-owned. This proof rerun ended with the latter exhausted-branch outcome rather than with a trustworthy row-selection owner.
 
 #### Implementation notes
 
@@ -2812,25 +2812,71 @@ This task does not try to finish the whole shared remove-flow repair. It only pr
 - Subtask 2: added bounded selector-contract instrumentation inside the pre-remove step in `e2e/ingest.spec.ts`. The poll now reports one named row-selection outcome instead of another broad row-visibility timeout: `stable-missing`, `multiple-stable`, `role-mismatch`, `multiple-role-matches`, or `stable-ready`, using both the old role-based row contract and the new stable candidate row contract in the same bounded seam.
 - Subtask 3: updated the remove-flow step to use the stable candidate selector only after the instrumentation proved what that selector should look like from the saved visible-row evidence. The row is now selected by fixture name, mounted path, `completed` status text, and a descendant `Remove` button, while the older role-based row name remains in the instrumentation so the later proof rerun can still expose a direct `role-mismatch` contradiction if that is the real failure.
 - Subtask 4: updated the task-owned proof text in `e2e/ingest.spec.ts` so the pre-remove seam is now explicitly named `remove-flow owner: row-selection contract before remove`. That leaves Task 36 a direct handoff to either the proven stable selector or the next named selector contradiction after the targeted proof rerun.
-- **BLOCKER** Testing 1 is still blocked after repeated targeted wrapper reruns. I first ran the targeted wrapper against the original Task 37 locator instrumentation, then tried a narrower browser-side `page.evaluate(...)` selector summary to avoid Playwright locator-count hangs, and both reruns still ended `tests run: 1`, `passed: 0`, `failed: 1`, `agent_action: inspect_log` in `logs/test-summaries/e2e-tests-latest.log`. The exact contradiction is that even the browser-side DOM summary timed out before returning any named row-selection outcome while `error-context.md` still showed the completed `/fixtures/repo` row and visible `Remove` button already present in the UI, so the current Task 37 selector-proof seam is no longer sufficient to explain or isolate the remaining failure honestly. Planner repair should split, reorder, or rewrite this task before more work continues, because another implementation pass here would only repeat speculative selector instrumentation without a trustworthy bounded owner signal.
+- **RESOLVED ISSUE** Testing 1 initially remained blocked after repeated targeted wrapper reruns. I first ran the targeted wrapper against the original Task 37 locator instrumentation, then tried a narrower browser-side `page.evaluate(...)` selector summary to avoid Playwright locator-count hangs, and both reruns still ended `tests run: 1`, `passed: 0`, `failed: 1`, `agent_action: inspect_log` in `logs/test-summaries/e2e-tests-latest.log`. The exact contradiction was that even the browser-side DOM summary timed out before returning any named row-selection outcome while `error-context.md` still showed the completed `/fixtures/repo` row and visible `Remove` button already present in the UI. Planner repair on 2026-04-06 therefore closed this task on its exhausted selector-instrumentation branch and moved the next live work into Task 38 instead of repeating more speculative selector instrumentation here.
 - **BLOCKING ANSWER** Repository precedents found: this repo's own tasking guidance says to stop widening a bounded Playwright proof seam once it no longer produces trustworthy owner output and hand the work back to planner repair instead of inventing more speculative instrumentation. `codeinfo_markdown/implement_next_task_subtasks.md` and `codeinfo_markdown/audit_after_implementation.md` both require a live blocker once the bounded diagnostic branch is exhausted, and the local code in `e2e/ingest.spec.ts` already followed the repo's normal locator-proof pattern by moving from a broad role-only guess to a stable filtered row locator based on visible text plus the descendant `Remove` button.
 - **BLOCKING ANSWER** External-library precedents found: official Playwright locator guidance says `getByRole(..., { name })` matches accessible name, while `locator.filter({ hasText })` plus `has` is the supported way to narrow to a specific visible list or table row. Official Playwright debugging guidance says the next step when a locator seam is still not trustworthy is to use Trace Viewer, `page.pause()`, Inspector locator picking, and live locator editing rather than piling more timeout growth or blind polling into the test. DeepWiki could not confirm this because `microsoft/playwright` is not indexed in this session, so the external proof here relies on official Playwright docs and Context7's Playwright mirror.
 - **BLOCKING ANSWER** Issue-resolution references found: the latest wrapper log now shows the timeout is no longer a pure locator mismatch signal. It ends with `Test timeout of 240000ms exceeded` and `page.evaluate: Target page, context or browser has been closed` at `e2e/ingest.spec.ts:885`, which means the browser-side selector-summary experiment never produced a named row-selection outcome before the enclosing test timeout closed the page. At the same time, `error-context.md` still shows the completed `/fixtures/repo` row and visible `Remove` button already present in the UI. That combination proves the remaining uncertainty is no longer "which text filter should we add" but "which deeper page or actionability seam keeps the proof step from completing even though the row is visibly there."
 - **BLOCKING ANSWER** Chosen fix and why it fits current local repo state: do not add another row-selection-code experiment inside Task 37. The best technical solution is planner repair to end this selector-instrumentation branch and create or re-own one fresh bounded successor that uses Playwright's supported interactive debugging surfaces against the already reproduced failure state, such as trace review plus a paused live locator check, to prove the next concrete seam before code changes continue. That fits the current repo because the stable filtered locator is already on disk, the visible-row evidence already exists, and the latest rerun proved that even browser-side DOM summarization inside the test cannot return a trustworthy owner signal before the test dies.
-- **BLOCKING ANSWER** Rejected alternatives are not suitable: do not add longer blanket timeouts, more `expect.poll(...)` variants, more `locator.count()` or `allTextContents()` probes, or another `page.evaluate(...)` summary inside the same task, because the current blocker evidence shows those proof-only variants are now part of the exhausted branch rather than a route to a new owner. Do not resume Task 36 yet, because Task 37 still has not produced the trustworthy row-selection handoff it owes. Do not mark Testing 1 complete from the current artifacts, because the targeted wrapper still failed without reaching one named bounded selector outcome.
+- **BLOCKING ANSWER** Rejected alternatives are not suitable: do not add longer blanket timeouts, more `expect.poll(...)` variants, more `locator.count()` or `allTextContents()` probes, or another `page.evaluate(...)` summary inside the same task, because the current blocker evidence shows those proof-only variants are now part of the exhausted branch rather than a route to a new owner. Do not resume Task 36 directly from Task 37's current artifacts, because this task still did not produce the trustworthy post-visibility owner that Task 36 needs. Instead, treat the targeted rerun only as exhausted-branch evidence and hand the next bounded diagnostic to Task 38.
+- Planner repair on 2026-04-06 closed Task 37 on its exhausted selector-instrumentation branch. The targeted wrapper rerun is now recorded as complete evidence for that exhausted branch, and Task 38 owns the next bounded diagnostic surface before Task 36 resumes.
 
 ---
 
-### Task 38. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+### Task 38. Derive The Post-Visibility Remove-Flow Owner With Trace-Led Live Playwright Debugging
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `31, 32, 33, 34, 35, 36, 37`
+- Task Dependencies: `37`
+- Task Status: `__in_progress__`
+- Notes: Added during planner repair on 2026-04-06 because Task 37 exhausted the selector-instrumentation branch cleanly. The next honest work is one fresh bounded successor that uses Playwright's supported trace and live-debug surfaces to prove the next concrete post-visibility owner before Task 36 resumes.
+
+#### Overview
+
+This task does not try to finish the whole shared remove-flow repair. It only proves what still blocks progress after the row is already visible and the stable filtered selector is already on disk. The task must stay bounded to the already reproduced failure state in `e2e/ingest.spec.ts`, `trace.zip`, and `error-context.md`, and it must stop as soon as it can hand Task 36 one concrete post-visibility owner or one new exact contradiction.
+
+#### Task Exit Criteria
+
+- The next targeted remove-flow rerun no longer dies without owner output after the row becomes visible; it either passes or fails at one named post-visibility seam such as button actionability, row lifecycle, page closure, or another exact direct owner.
+- The task proves whether the stable row locator is actually usable in a supported live Playwright debug surface, rather than merely in another speculative in-test summary experiment.
+- Task 36 receives one concrete next owner to repair, or this task stops with one fresh exact blocker that does not repeat Task 37's exhausted selector-instrumentation branch.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `e2e/ingest.spec.ts`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/error-context.md`
+- `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/trace.zip`
+- https://playwright.dev/docs/trace-viewer
+- https://playwright.dev/docs/debug
+- https://playwright.dev/docs/locators
+
+#### Subtasks
+
+1. [ ] Re-read the completed Task 37 exhausted-branch notes, the latest `e2e-tests-latest.log`, `trace.zip`, `error-context.md`, and the current remove-flow steps in `e2e/ingest.spec.ts`. Then write down the exact remaining post-visibility hypotheses this task must separate: button actionability, row lifecycle after visibility, page or context closure, or another single direct owner. Purpose: make the new task stop at one bounded post-visibility seam instead of reopening selector speculation.
+2. [ ] Use Playwright's supported trace and live-debug surfaces against the reproduced remove-flow failure to prove whether the visible stable row and descendant `Remove` button are still actionable at the moment the task currently stalls. Keep this bounded to one reproducible diagnostic path and one stopping threshold: either name the post-visibility owner or stop with one fresh exact contradiction. Purpose: switch to a trustworthy debugging surface now that in-test selector summaries are exhausted.
+3. [ ] If that diagnostic proves one concrete post-visibility owner inside `e2e/ingest.spec.ts`, land only the smallest repair or owner-exposing instrumentation needed to make the normal targeted wrapper report that seam honestly. If the diagnostic does not prove a repairable owner, stop and leave a live blocker with the exact remaining contradiction instead of widening the task again. Purpose: either produce one real next fix for Task 36 or fail honestly at the next bounded surface.
+4. [ ] Update any task-owned proof text or inline comments in `e2e/ingest.spec.ts` so Task 36 can later read one clear handoff from this task without re-running Task 37's exhausted selector branch. Purpose: keep the successor handoff self-explanatory for the next loop.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted wrapper now either passes or fails at one named post-visibility seam instead of timing out without trustworthy owner output after the row is visible.
+
+#### Implementation notes
+
+- Planner repair on 2026-04-06 created this fresh successor because Task 37 exhausted the row-selection instrumentation branch cleanly without producing a trustworthy next owner.
+
+---
+
+### Task 39. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `31, 32, 33, 34, 35, 36, 37, 38`
 - Task Status: `__todo__`
 - Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed.
 
 #### Overview
 
-This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 37 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, the restored full-client baseline, the bounded remove-flow owner derivation, the row-selection contract proof, the shared ingest remove-flow e2e repair, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
+This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 38 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, the restored full-client baseline, the bounded remove-flow owner derivation, the exhausted selector-contract proof, the post-visibility live-debug proof, the shared ingest remove-flow e2e repair, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
 
 #### Task Exit Criteria
 
@@ -2850,13 +2896,13 @@ This final review-response task reruns the complete Story 55 validation path aft
 #### Subtasks
 
 1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
-2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 37 changed the contract, proof story, or hygiene story those documents need to communicate.
+2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 38 changed the contract, proof story, or hygiene story those documents need to communicate.
 3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 37. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 38. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
 3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks. If a conflicting main-stack instance already owns the fixed host ports, stop that normal stack intentionally first rather than switching to a different runtime variant for this proof.
 
 #### Implementation notes

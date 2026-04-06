@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -387,7 +387,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `65b908b8` - `DEV-[55] - finish task 2 queue runtime validation`
 
@@ -3307,3 +3307,4 @@ This final review-response task reruns the full Story 55 validation path after T
 - Subtask 12: updated this plan and `planning/0000055-pr-summary.md` so the final retained server-unit, server-cucumber, and client proof-home citations are explicitly reserved for the post-Playwright reruns in rewritten Testing 4. The close-out story now treats the current `test-results/*.log` references as provisional Task 44 history, not as the final Story 55 citations that Task 45 will keep.
 - Testing 4: reran `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, and `npm run test:summary:client` after the last Playwright pass, and all three wrappers passed cleanly with retained artifacts `test-results/server-unit-tests-2026-04-06T05-40-50-540Z.log`, `test-results/server-cucumber-tests-2026-04-06T06-04-07-757Z.log`, and `test-results/client-tests-2026-04-06T06-06-48-264Z.log`. `test -f` also confirmed those three logs, the client JSON sidecar, `logs/test-summaries/e2e-tests-latest.log`, and `logs/test-summaries/host-network-main-latest.log` all exist on disk, so the final close-out notes and PR summary no longer rely on stale full-wrapper paths.
 - Implementation-plus-automated-proof audit on 2026-04-06: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 45 section, the latest proof commit `5f43714e`, and the current retained artifacts on disk. No testing steps needed to be newly checked in this audit because the plan already honestly showed all four testing steps complete, there is no live `**BLOCKER**`, and the post-Playwright retained-path refresh now satisfies the last open proof gate. Task 45 is therefore `__done__`, while the explicit manual-testing scenario note remains a later handoff rather than a blocker on this automated-proof task.
+- **BLOCKER** Manual testing ran on 2026-04-06 as a full-story pass using only the stored Story 55 handoff scope, the current runtime-research file, `AGENTS.md`, and `README.md`, and it restarted the supported main compose stack from a stopped state before each repro because reuse was not honestly provable. The bounded diagnosis did prove the exact Task 42 contract seam on the live runtime: a first `/ingest/start` request on `/home/d_a_s/code/story55-final-head` with locked model `text-embedding-qwen3-embedding-4b` was accepted, a second `/ingest/start` request on `/home/d_a_s/code/story55-final-reject` with mismatched model `text-embedding-nomic-embed-text-v1.5` returned `409 MODEL_LOCKED` with the canonical lock payload, and the immediate `/ingest/roots` response showed only the running head root, not a queued reject root. The browser pass also reached the Story 55 queue-visible state once: Playwright observed `Story55 UI Queue` rendered as `queued (#1)` beside the active head ingest, and the matching immediate `/ingest/roots` payload showed `requestId`, `queuePosition: 1`, `queueState: "waiting"`, plus the running head root, while browser console and network stayed clean until the later failure. What blocked honest completion is that the supported main-stack runtime repeatedly died immediately after the first Chroma add: `codeinfo2-chroma-1` exited `139`, the browser then hit `/ingest/roots` `502` failures and Chroma error alerts, and the queued-state screenshot attempt only retained the post-crash error screen at `/tmp/playwright-output/task45-queued-state.png` instead of the queued row itself. I inspected `docker ps`, `docker logs codeinfo2-server-1`, `docker logs codeinfo2-chroma-1`, and the owning queue/runtime code in `server/src/routes/ingestStart.ts` plus `server/src/ingest/ingestJob.ts`, and retried the fresh main-stack repro multiple times with smaller disposable proof roots; the remaining unknown is why Chroma segfaults on the first collection add in this supported runtime path, so I could not honestly finish the required screenshot-backed browser portion of the final full-story proof.

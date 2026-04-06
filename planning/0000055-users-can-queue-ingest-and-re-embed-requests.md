@@ -3112,6 +3112,7 @@ This hygiene-only review-fix task narrows the review-artifact ignore rules so tr
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
 - `.gitignore`
+- `AGENTS.md`
 - `codeInfoStatus/reviews/0000055-current-review.json`
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
@@ -3119,13 +3120,14 @@ This hygiene-only review-fix task narrows the review-artifact ignore rules so tr
 
 #### Subtasks
 
-1. [ ] Re-read the current `.gitignore` review rule and separate the truly transient review-handoff state from the durable evidence/findings/challenge artifacts this workflow keeps in commit history. Purpose: choose the smallest honest ignore-pattern split before editing support files.
-2. [ ] Update the ignore pattern and any directly owning workflow note only as far as needed to keep durable review artifacts tracked and visible while transient handoff state remains clearly scoped. Purpose: fix the ignored-tracked hygiene issue without broad support-file churn.
-3. [ ] Verify the current Story 55 review artifacts are no longer hidden by the ignore rule through a direct hygiene scan. Purpose: leave one bounded proof home for the review-artifact retention contract.
+1. [ ] Re-read the current `.gitignore` rule, `AGENTS.md`, and the exact Story 55 review artifact paths named in the finding, then run `git check-ignore -v` plus `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` to identify which pattern is hiding durable artifacts and which files are meant to remain transient handoff state. Stop once the exact ignore-pattern split is named in the task notes; do not broaden into unrelated ignored paths elsewhere in the repo. Purpose: give the later edit one bounded ownership seam instead of a generic ignore-rule cleanup.
+2. [ ] Land the smallest support-file change needed to keep durable `*-evidence.md`, `*-findings.md`, and `*-blind-spot-challenge.md` artifacts visible to Git while leaving only the transient review handoff path ignored if that is still required. If the smallest honest fix is a narrower `.gitignore` pattern with no additional workflow-doc edit, stop there rather than rewriting support files for style. Purpose: remove the ignored-tracked hygiene contradiction without reopening allowed support files beyond the explicit hygiene issue.
+3. [ ] Re-check the exact current Story 55 review artifacts plus one earlier tracked review-artifact set against the new ignore behavior, and update this plan task's implementation notes with the final accepted pattern split and any intentionally still-ignored transient path. Stop once the current Story 55 durable artifacts are no longer hidden by the review-directory rule; do not widen into repository-wide artifact cleanup. Purpose: leave one explicit, bounded handoff proving the hygiene fix actually covered the named finding.
 
 #### Testing
 
-1. [ ] Run `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` and confirm the current Story 55 durable review artifacts are no longer reported as ignored-tracked files because of the review-directory ignore rule.
+1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md` and confirm only the intentionally transient handoff path still matches an ignore rule, if any.
+2. [ ] Run `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` and confirm the current Story 55 durable review artifacts are no longer reported as ignored-tracked files because of the review-directory rule.
 
 #### Implementation notes
 
@@ -3155,20 +3157,25 @@ This review-fix task restores an honest direct proof home for the Story 55 full 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `planning/0000055-pr-summary.md`
 - `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md`
 - `logs/test-summaries/`
 - `test-results/`
+- `scripts/test-summary-server-unit.mjs`
+- `scripts/test-summary-server-cucumber.mjs`
+- `scripts/test-summary-client.mjs`
 
 #### Subtasks
 
-1. [ ] Re-read the current Task 41 proof notes, the review finding, and the actual wrapper artifact locations on disk to decide the smallest honest durable proof home for full server-unit, server-cucumber, and client wrapper results. Purpose: fix the retained-proof contradiction without inventing a new artifact story unnecessarily.
-2. [ ] Rerun the full server-unit, server-cucumber, and client wrappers after Task 42 and capture their terminal results in evidence that actually exists after the run. Purpose: replace the currently missing retained proof files with fresh direct proof.
-3. [ ] Update Task 41 and any directly owning close-out notes so they cite only the proof homes that remain inspectable after the rerun. Purpose: leave the plan and summary aligned with real retained evidence rather than stale filenames.
+1. [ ] Re-read the current Task 41 proof notes, the review finding, the current review evidence artifact, and the actual wrapper artifact locations on disk, then inspect the three wrapper scripts only as far as needed to answer one bounded question: after a clean full rerun, what exact artifact path is supposed to remain inspectable for server-unit, server-cucumber, and client proof? Stop once the answer is one concrete retained proof home per wrapper class, or one explicit statement that only a tracked summary artifact can stay durable. Purpose: remove ambiguity about proof retention before rerunning anything.
+2. [ ] Rerun the full server-unit, server-cucumber, and client wrappers after Task 42 and capture each terminal result in the retained proof home chosen in Subtask 1, preferring an existing wrapper artifact path or tracked review-support artifact over inventing a new file family. If a wrapper still writes only ephemeral per-run logs, record the terminal counts and actual durable path in a tracked note instead of pretending the missing `test-results/*.log` files are retained. Purpose: replace the stale retained-proof claim with fresh direct evidence that really exists after the rerun.
+3. [ ] Update Task 41, `planning/0000055-pr-summary.md`, and any directly owning close-out note so they cite only the retained proof homes that remain inspectable after Subtask 2. Stop after the stale `test-results/*.log` references are gone and the replacement proof path is explicit; do not reopen unrelated Story 55 summary prose. Purpose: leave the close-out story honest and directly reproducible for the later final validation task.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit` and confirm the full backend unit/integration wrapper passes after the Task 42 contract repair.
 2. [ ] Run `npm run test:summary:server:cucumber` and confirm the full backend feature wrapper still passes after the review-fix work so far.
 3. [ ] Run `npm run test:summary:client` and confirm the full client wrapper still passes after the review-fix work so far.
+4. [ ] Run `ls` or `test -f` against every proof path cited by the updated Task 41 and PR-summary notes, and confirm each referenced retained artifact actually exists after the rerun.
 
 #### Implementation notes
 
@@ -3204,15 +3211,17 @@ This final review-response task reruns the full Story 55 validation path after T
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning final wrappers. Purpose: keep the final revalidation grounded in the stored review scope.
-2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 42 through 44 changed the contract, proof story, or hygiene story those documents must communicate. Purpose: leave the close-out story aligned with the latest reviewed state.
-3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current review findings were fixed, which proof homes were rerun, and why the story is honestly complete again. Purpose: leave one canonical close-out record after the reopened work finishes.
+1. [ ] Re-read the full Story 55 plan plus the current review findings, evidence, and blind-spot challenge artifacts, then map the final revalidation into three explicit buckets before rerunning wrappers: acceptance criteria reopened by Task 42, proof-retention and hygiene findings reopened by Tasks 43 and 44, and previously proved queue/browser/runtime behavior that only needs regression confirmation. Stop after those buckets are named in the task notes; do not rediscover new review scope. Purpose: keep the final revalidation concrete and bounded to the stored review pass.
+2. [ ] Rerun the final close-out documents only where Tasks 42 through 44 changed the contract, proof story, or hygiene story, updating `planning/0000055-pr-summary.md` and any directly owning note so they explain the lock-validation repair, the final retained proof home, and the review-artifact hygiene outcome in plain current-state terms. Purpose: ensure the final close-out docs communicate exactly the reviewed changes and no more.
+3. [ ] Record the final review-fix close-out notes in this plan with one explicit closure line for each stored finding and one residual-risk line for any weak-proof note the findings/challenge artifacts carried forward. The close-out must state whether each acceptance group still has direct proof, indirect proof, or a consciously retained residual risk. Purpose: leave one canonical final record that a later audit can close honestly without re-reading the whole review pass.
+4. [ ] Assess whether the Task 42 admission-contract repair changed any runtime-visible ingest behavior that still needs a fresh manual-story proof beyond the normal automated wrappers and compose path. If yes, leave one explicit manual-testing handoff that names the exact queue submission scenario to exercise; if not, record that manual testing remains unchanged and why. Purpose: keep the later manual-testing loop scoped to the real post-review surface instead of making it guess.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
 2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 42 through 44.
 3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks.
+4. [ ] Verify that every retained proof path cited in the final close-out notes and PR summary still exists after the final reruns, and that no close-out note still points at a missing `test-results/*.log` file for the full server-unit, server-cucumber, or client wrappers.
 
 #### Implementation notes
 

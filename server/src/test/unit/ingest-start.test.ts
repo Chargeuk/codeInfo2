@@ -58,7 +58,6 @@ function buildApp(options?: {
     lockedModelId: string;
     source: 'canonical' | 'legacy';
   } | null;
-  collectionEmpty?: boolean;
   enqueueOrReuseIngestRequest?: (
     input: EnqueueIngestRequestInput,
   ) => Promise<EnqueueIngestRequestResult>;
@@ -69,7 +68,6 @@ function buildApp(options?: {
   app.use(
     createIngestStartRouter({
       clientFactory: () => ({}) as never,
-      collectionIsEmpty: async () => options?.collectionEmpty ?? true,
       getLockedEmbeddingModel: async () => options?.locked ?? null,
       enqueueOrReuseIngestRequest: async (input) =>
         options?.enqueueOrReuseIngestRequest
@@ -376,7 +374,6 @@ test('ingest-start rejects non-allowlisted OpenAI model ids deterministically', 
 test('ingest-start conflict payload includes canonical lock and compatibility alias', async () => {
   const response = await request(
     buildApp({
-      collectionEmpty: false,
       locked: {
         embeddingProvider: 'openai',
         embeddingModel: 'text-embedding-3-small',
@@ -403,12 +400,11 @@ test('ingest-start conflict payload includes canonical lock and compatibility al
   });
 });
 
-test('ingest-start rejects the empty-collection queued-admission lock mismatch before enqueueing', async () => {
+test('ingest-start rejects lock mismatch before enqueueing', async () => {
   let enqueueCalled = false;
 
   const response = await request(
     buildApp({
-      collectionEmpty: true,
       locked: {
         embeddingProvider: 'lmstudio',
         embeddingModel: 'embed-locked',

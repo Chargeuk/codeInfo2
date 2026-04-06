@@ -22,7 +22,6 @@ test('POST /ingest/start rejects non-allowlisted OpenAI model with OPENAI_MODEL_
   app.use(
     createIngestStartRouter({
       clientFactory: () => ({}) as never,
-      collectionIsEmpty: async () => true,
       getLockedEmbeddingModel: async () => null,
     }),
   );

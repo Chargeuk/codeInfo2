@@ -17,7 +17,6 @@ function createApp() {
   app.use(
     createIngestStartRouter({
       clientFactory: () => ({}) as never,
-      collectionIsEmpty: async () => true,
       getLockedEmbeddingModel: async () => null,
       enqueueOrReuseIngestRequest: async () => {
         const error = new Error('queue unavailable');

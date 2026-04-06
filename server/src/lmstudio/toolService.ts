@@ -472,6 +472,46 @@ function buildRepoKey(containerPath: string): string {
   return normalizeCanonicalQueueTargetPath(containerPath);
 }
 
+function buildRepoLookupKeys(paths: Array<string | null | undefined>): string[] {
+  const keys = new Set<string>();
+
+  paths.forEach((value) => {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return;
+    }
+    const normalized = normalizeCanonicalQueueTargetPath(value);
+    const mapped = mapIngestPath(normalized);
+    keys.add(buildRepoKey(normalized));
+    keys.add(buildRepoKey(mapped.containerPath));
+    keys.add(buildRepoKey(mapped.hostPath));
+  });
+
+  return [...keys];
+}
+
+function indexRepoByLookupKeys(
+  repoBySourceId: Map<string, RepoEntry>,
+  repo: RepoEntry,
+  paths: Array<string | null | undefined>,
+) {
+  buildRepoLookupKeys(paths).forEach((key) => {
+    repoBySourceId.set(key, repo);
+  });
+}
+
+function findRepoByLookupKeys(
+  repoBySourceId: Map<string, RepoEntry>,
+  paths: Array<string | null | undefined>,
+): RepoEntry | undefined {
+  for (const key of buildRepoLookupKeys(paths)) {
+    const existing = repoBySourceId.get(key);
+    if (existing) {
+      return existing;
+    }
+  }
+  return undefined;
+}
+
 type PersistedRepoCandidate = {
   id: string;
   idx: number;
@@ -1047,9 +1087,13 @@ export async function listIngestedRepositories(
       return bTs - aTs;
     });
 
-  const repoBySourceId = new Map(
-    repos.map((repo) => [buildRepoKey(repo.containerPath), repo]),
-  );
+  const repoBySourceId = new Map<string, RepoEntry>();
+  repos.forEach((repo) => {
+    indexRepoByLookupKeys(repoBySourceId, repo, [
+      repo.containerPath,
+      repo.hostPath,
+    ]);
+  });
   const activeContexts = getActiveRunContexts();
   const activeContextsByRunId = new Map(
     activeContexts.map((entry) => [entry.runId, entry]),
@@ -1066,13 +1110,24 @@ export async function listIngestedRepositories(
   let waitingQueuePosition = 0;
 
   for (const queueRequest of queueRequests) {
-    const repoKey = buildRepoKey(queueRequest.canonicalTargetPath);
-    let repo = repoBySourceId.get(repoKey);
+    const payloadPath =
+      typeof queueRequest.requestPayload.path === 'string'
+        ? queueRequest.requestPayload.path
+        : null;
+    let repo = findRepoByLookupKeys(repoBySourceId, [
+      queueRequest.canonicalTargetPath,
+      payloadPath,
+    ]);
     if (!repo) {
       repo = buildRepoFromQueueRequest({ queueRequest, lock });
       repos.push(repo);
-      repoBySourceId.set(repoKey, repo);
     }
+    indexRepoByLookupKeys(repoBySourceId, repo, [
+      repo.containerPath,
+      repo.hostPath,
+      queueRequest.canonicalTargetPath,
+      payloadPath,
+    ]);
 
     applyQueueOverlay({
       repo,
@@ -1086,11 +1141,12 @@ export async function listIngestedRepositories(
   for (const active of activeContexts) {
     const sourceIdRaw = active.sourceId ?? active.rootPath ?? '';
     if (!sourceIdRaw) continue;
-    const normalizedSourceId = buildRepoKey(
-      mapIngestPath(sourceIdRaw).containerPath,
-    );
+    const normalizedSourceId = buildRepoKey(sourceIdRaw);
     const mappedState = mapInternalStateToExternal(active.state);
-    const existing = repoBySourceId.get(normalizedSourceId);
+    const existing = findRepoByLookupKeys(repoBySourceId, [
+      active.sourceId,
+      active.rootPath,
+    ]);
     if (existing) {
       if (
         existing.queueState === 'waiting' ||
@@ -1107,6 +1163,12 @@ export async function listIngestedRepositories(
       }
       existing.counts = { ...active.counts };
       existing.runId = active.runId;
+      indexRepoByLookupKeys(repoBySourceId, existing, [
+        existing.containerPath,
+        existing.hostPath,
+        active.sourceId,
+        active.rootPath,
+      ]);
       logStatusMapped({
         sourceId: normalizedSourceId,
         internalState: active.state,
@@ -1153,7 +1215,12 @@ export async function listIngestedRepositories(
       ...(mappedState.phase ? { phase: mappedState.phase } : {}),
     };
     repos.push(synthesized);
-    repoBySourceId.set(mapped.containerPath, synthesized);
+    indexRepoByLookupKeys(repoBySourceId, synthesized, [
+      mapped.containerPath,
+      mapped.hostPath,
+      active.sourceId,
+      active.rootPath,
+    ]);
     logStatusMapped({
       sourceId: normalizedSourceId,
       internalState: active.state,

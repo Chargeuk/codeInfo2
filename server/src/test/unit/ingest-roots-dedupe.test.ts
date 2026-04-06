@@ -702,6 +702,101 @@ test('GET /ingest/roots serializes one authoritative row when duplicate metadata
   assert.deepEqual(matches[0]?.counts, { files: 5, chunks: 10, embedded: 3 });
 });
 
+test('GET /ingest/roots keeps one authoritative row for mixed-path recovered reembed overlays', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000064'),
+              canonicalTargetPath: '/data/codeInfo2/codeInfo2',
+              operation: 'reembed',
+              queueState: 'running',
+              requestPayload: {
+                path: '/host/base/codeInfo2/codeInfo2',
+                name: 'codeInfo2',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: 'mixed-path-route-run',
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('mixed-path-route-run', {
+    runId: 'mixed-path-route-run',
+    state: 'embedding',
+    counts: { files: 6, chunks: 12, embedded: 4 },
+  });
+  __setJobInputForTest('mixed-path-route-run', {
+    path: '/data/codeInfo2/codeInfo2',
+    root: '/data/codeInfo2/codeInfo2',
+    canonicalTargetPath: '/data/codeInfo2/codeInfo2',
+    name: 'codeInfo2',
+    model: 'embed-model',
+    operation: 'reembed',
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['partial-row', 'complete-row'],
+        metadatas: [
+          {
+            root: '/host/base/codeInfo2/codeInfo2',
+            name: 'codeInfo2-stale',
+            state: 'completed',
+            lastIngestAt: '2026-01-03T00:00:00.000Z',
+          },
+          {
+            root: '/host/base/codeInfo2/codeInfo2',
+            name: 'codeInfo2',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            files: 10,
+            chunks: 20,
+            embedded: 20,
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+      'embed-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const matches = response.body.roots.filter(
+    (root: { path: string }) => root.path === '/host/base/codeInfo2/codeInfo2',
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0]?.name, 'codeInfo2');
+  assert.equal(matches[0]?.requestId, '000000000000000000000064');
+  assert.equal(matches[0]?.runId, 'mixed-path-route-run');
+  assert.equal(matches[0]?.status, 'ingesting');
+  assert.equal(matches[0]?.phase, 'embedding');
+  assert.deepEqual(matches[0]?.counts, { files: 6, chunks: 12, embedded: 4 });
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('GET /ingest/roots synthesizes active root when persisted metadata is missing', async () => {
   __setStatusForTest('active-synth-run', {
     runId: 'active-synth-run',

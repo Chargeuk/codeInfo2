@@ -8,6 +8,8 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Keep the testing guidance repository-aware and wrapper-first.
 - Do not add manual testing steps here; manual testing is handled separately by the implementation flows.
 - Keep testing proportional to the actual change surface.
+- Prefer updating review-created `__to_do__` tasks and newly added revalidation tasks first.
+- Only update older `__done__` or `__in_progress__` tasks when a minimal testing-ownership, proof-path, dependency, or sequencing correction is required to keep the plan honest.
 
 </instruction_priority>
 
@@ -104,5 +106,6 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Update task testing steps, related subtasks, and documentation references directly where needed.
 - Keep the testing sections wrapper-first, Docker-preferred when supported, and specific to repository evidence.
 - Keep summaries concise.
+- Do not broaden older completed work beyond the minimal testing-honesty corrections needed to keep the active plan executable and truthful.
 
 </output_contract>

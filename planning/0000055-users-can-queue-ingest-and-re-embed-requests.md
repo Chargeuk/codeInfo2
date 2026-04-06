@@ -3843,7 +3843,7 @@ The browser proof remains automated-only in this task. Screenshot retention and 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `48, 49, 50`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` so Story 55 is revalidated only after the three endorsed findings above are closed with direct proof.
 
 #### Overview
@@ -3922,3 +3922,4 @@ This final review-response task revalidates Story 55 once the canonical re-embed
 #### Implementation notes
 
 - Pending implementation.
+- **BLOCKER** Remaining subtasks are still 1 through 13: write the three close-out bullets for Tasks 48 through 50 in this task's implementation notes; update only the review-follow-up portion of `planning/0000055-pr-summary.md`; carry the durable review-artifact links and adjudication-trail note into both close-out locations; cite `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/ingest-queue-runtime.test.ts` as the Task 48 proof owners; cite `server/src/test/unit/mcp-ingested-repositories.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` as the Task 49 proof owners; cite `client/src/test/ingestRoots.test.tsx` as the Task 50 proof owner; record the exact retained cucumber log path plus its feature files; keep `e2e/ingest.spec.ts` scoped to browser-backstop claims and rename helper text if needed; record the retained browser proof homes; record `logs/test-summaries/host-network-main-latest.log` as the supported-stack smoke-proof home; carry forward the rejected-risk and blind-spot reasoning; and verify every cited proof path still exists on disk before close-out. The latest implementation pass made no Task 51 subtask-closing progress: recent commits only refreshed, audited, and manually proved Task 50, and no Task 51-owned files or notes changed. This audit re-read the current handoff, reopened this exact task from disk, and compared it with the latest repo commits, which shows the task is still a broad unopened final-validation bundle rather than an honestly advancing implementation step. Planner intervention is now required to split, narrow, re-own, or concretize Task 51 before implementation continues honestly.

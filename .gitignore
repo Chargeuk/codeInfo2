@@ -22,7 +22,7 @@ copilot/
 codex_agents/**/auth.json
 codex_agents/**/sessions/
 logs/
-codeInfoStatus/reviews/
+codeInfoStatus/reviews/0000055-current-review.json
 codeInfoStatus/flow-state/manual-testing-runtime.json
 certs/task6-valid/*.key
 

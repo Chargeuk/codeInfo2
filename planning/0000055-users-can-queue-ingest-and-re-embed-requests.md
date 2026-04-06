@@ -3116,7 +3116,7 @@ This review-fix task repairs the contract mismatch between route-time admission 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `42`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-06 from review pass `0000055-20260406T015137Z-60894b27` because `.gitignore` now hides `codeInfoStatus/reviews/` even though the Story 55 evidence, findings, and challenge artifacts are durable tracked review outputs rather than disposable runtime state.
 
 #### Overview
@@ -3164,6 +3164,7 @@ This hygiene-only review-fix task narrows the review-artifact ignore rules so tr
 - Subtask 7: after the edit, rerunning `git check-ignore -v` still matched only `codeInfoStatus/reviews/0000055-current-review.json` via the new exact-path rule, and rerunning `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` returned no hidden tracked review artifacts. The accepted split is now one intentionally ignored transient handoff path with the durable Story 55 `*-evidence.md`, `*-findings.md`, and `*-blind-spot-challenge.md` files visible to normal hygiene scans again.
 - Testing 1: `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md` matched only `.gitignore:25:codeInfoStatus/reviews/0000055-current-review.json`, so the transient handoff remained the lone intentionally ignored Story 55 review path.
 - Testing 2: `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` returned no tracked entries, so the current Story 55 durable review artifacts are no longer hidden as ignored-tracked files by the old review-directory rule.
+- Audit: implementation and automated proof are now complete for Task 43, so this task can leave `__in_progress__` and hand the story to Task 44 for the next implementation loop.
 
 ---
 

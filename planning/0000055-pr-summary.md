@@ -30,6 +30,7 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 22. Task 42 aligned queued `/ingest/start` admission with the stricter execution-time lock-validation rule so empty-collection lock mismatches now fail immediately instead of being accepted first and failing only when promoted from the queue.
 23. Task 43 narrowed review-artifact ignore hygiene so the transient `codeInfoStatus/reviews/0000055-current-review.json` handoff remains ignored while durable review evidence, findings, and blind-spot artifacts are visible to normal Git hygiene scans again.
 24. Task 44 restored honest retained proof homes for the final full server-unit, server-cucumber, and client wrappers by rerunning them and replacing Task 41's missing log references with fresh existing timestamped artifacts.
+25. Task 46 moved the delta no-change re-embed return ahead of Chroma bootstrap in `processRun()`, then added a direct failure-path proof so a zero-work delta re-embed now completes even when the pre-fix bootstrap seam would have thrown.
 
 ## Durable queue contract
 
@@ -113,6 +114,7 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 - Task 42 closed the reopened must-fix queue admission contract by aligning route-time and execution-time lock validation, with direct proof at the route-owner, queue-runtime, and cucumber layers.
 - Task 43 closed the reopened review-artifact hygiene issue by narrowing the ignore rule to the transient current-review handoff instead of the whole `codeInfoStatus/reviews/` directory.
 - Task 44 refreshed the full server-unit, server-cucumber, and client wrapper proof-home claims to timestamped `test-results/*.log` artifacts, and Task 45's final post-Playwright proof refresh now closes that seam with `test-results/server-unit-tests-2026-04-06T05-40-50-540Z.log`, `test-results/server-cucumber-tests-2026-04-06T06-04-07-757Z.log`, and `test-results/client-tests-2026-04-06T06-06-48-264Z.log`.
+- Task 46 then closed the last reopened server-side review seam: the `processRun()` no-change fast path now returns before any Chroma bootstrap for zero-work delta re-embed requests, with direct failure-path proof recorded in [ingest-reembed.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/ingest-reembed.test.ts) and the current retained Task 46 server-unit log `test-results/server-unit-tests-2026-04-06T08-09-07-618Z.log` ready to be superseded by the final Task 47 rerun.
 - This summary now reflects the post-Task-45 proof state for the full wrapper, compose, host-network, and retained-artifact close-out path.
 
 ## Deliberate non-changes and remaining out-of-scope boundaries

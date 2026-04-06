@@ -3049,7 +3049,7 @@ Summary of required follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `41`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-06 from review pass `0000055-20260406T015137Z-60894b27` because queued `/ingest/start` requests can still be accepted under one lock rule and then fail later when promotion re-runs the stricter execution-time validation.
 
 #### Overview
@@ -3107,6 +3107,7 @@ This review-fix task repairs the contract mismatch between route-time admission 
 - Testing 4: the targeted cucumber wrapper `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` passed cleanly with `tests run: 3`, `passed: 3`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-cucumber-tests-2026-04-06T02-45-11-303Z.log`, so the higher-level ingest-start feature now matches the repaired lock-validation contract instead of the stale acceptance behavior.
 - Testing 5: full `npm run test:summary:server:unit` passed cleanly on current `HEAD` with `tests run: 1613`, `passed: 1613`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-04-06T02-45-50-663Z.log`, so the wider backend unit/integration baseline still carries the aligned queued-start validation contract after the repair.
 - Testing 6: full `npm run test:summary:server:cucumber` passed cleanly on current `HEAD` with `tests run: 84`, `passed: 84`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-cucumber-tests-2026-04-06T03-09-11-203Z.log`, so the wider backend feature baseline still carries the repaired queued-start admission contract beyond the targeted ingest-start scenario.
+- Audit: implementation and automated proof are now complete for Task 42, so this task can leave `__in_progress__` and hand the story to Task 43 for the next implementation loop while any later manual validation stays with the normal downstream flow.
 
 ---
 

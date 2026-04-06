@@ -3090,6 +3090,7 @@ This review-fix task repairs the contract mismatch between route-time admission 
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the queued promotion path still enforces the aligned execution-time rule.
 4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` and confirm the higher-level ingest-start feature proof now matches the repaired lock-validation contract instead of the stale acceptance behavior.
 5. [ ] Run full `npm run test:summary:server:unit` and confirm the wider backend unit/integration baseline still passes after the shared validation-contract repair.
+6. [ ] Run full `npm run test:summary:server:cucumber` and confirm the wider backend feature baseline still passes after the same repair instead of only the targeted ingest-start scenario.
 
 #### Implementation notes
 

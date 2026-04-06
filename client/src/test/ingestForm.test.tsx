@@ -121,7 +121,7 @@ describe('IngestForm', () => {
     expect(select).toBeDisabled();
   });
 
-  it('submits payload and surfaces runId via onStarted', async () => {
+  it('treats requestId plus runId as immediate ingest success and surfaces runId via onStarted', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ requestId: 'queue-request-123', runId: 'run-123' }),
     );
@@ -160,7 +160,7 @@ describe('IngestForm', () => {
     });
   });
 
-  it('keeps queueable submission enabled and surfaces queued acceptance when another run is active', async () => {
+  it('treats requestId plus queued metadata as queued ingest acceptance while another run is active', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
         queued: true,

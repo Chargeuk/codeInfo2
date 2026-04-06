@@ -118,8 +118,10 @@ describe('RootsTable', () => {
     expect(screen.getByText(/No embedded folders yet/i)).toBeInTheDocument();
   });
 
-  it('calls re-embed endpoint and notifies parent when re-embed is clicked', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'new-run' }));
+  it('treats requestId plus runId as immediate re-embed success and notifies parent', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-1', runId: 'new-run' }),
+    );
     const onRunStarted = jest.fn();
     const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
 
@@ -147,6 +149,102 @@ describe('RootsTable', () => {
       expect.objectContaining({ method: 'POST' }),
     );
     expect(onRunStarted).toHaveBeenCalledWith('new-run');
+    expect(onRefresh).toHaveBeenCalled();
+    expect(await screen.findByText('Re-embed started')).toBeInTheDocument();
+  });
+
+  it('shows an error when a re-embed 2xx response omits requestId', async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'new-run' }));
+    const onRunStarted = jest.fn();
+
+    render(
+      <RootsTable
+        roots={[root]}
+        lockedModelId="embed-1"
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+        onRunStarted={onRunStarted}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo/i });
+    const btn = within(row).getByRole('button', { name: /re-embed/i });
+    await act(async () => {
+      fireEvent.click(btn);
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText('Missing requestId in response'),
+    ).toBeInTheDocument();
+    expect(onRunStarted).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when a re-embed 2xx response includes requestId but proves neither queued nor running acceptance', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-1' }),
+    );
+    const onRunStarted = jest.fn();
+
+    render(
+      <RootsTable
+        roots={[root]}
+        lockedModelId="embed-1"
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+        onRunStarted={onRunStarted}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo/i });
+    const btn = within(row).getByRole('button', { name: /re-embed/i });
+    await act(async () => {
+      fireEvent.click(btn);
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText('Malformed re-embed response'),
+    ).toBeInTheDocument();
+    expect(onRunStarted).not.toHaveBeenCalled();
+  });
+
+  it('treats requestId plus queued metadata as queued re-embed success without notifying parent', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        requestId: 'queue-request-1',
+        queued: true,
+        queuePosition: 1,
+      }),
+    );
+    const onRunStarted = jest.fn();
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
+
+    render(
+      <RootsTable
+        roots={[root]}
+        lockedModelId="embed-1"
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+        onRunStarted={onRunStarted}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo/i });
+    const btn = within(row).getByRole('button', { name: /re-embed/i });
+    await act(async () => {
+      fireEvent.click(btn);
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText('Queued (#1)')).toBeInTheDocument();
+    expect(onRunStarted).not.toHaveBeenCalled();
     expect(onRefresh).toHaveBeenCalled();
   });
 

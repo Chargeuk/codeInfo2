@@ -174,16 +174,27 @@ export default function RootsTable({
         runId?: string;
         queuePosition?: number | null;
       };
-      if (data?.runId) {
-        onRunStarted?.(data.runId);
+      if (typeof data.requestId !== 'string' || data.requestId.length === 0) {
+        throw new Error('Missing requestId in response');
       }
-      setStatus(path, {
-        status: 'success',
-        message:
-          data?.queued === true
-            ? `Queued${typeof data.queuePosition === 'number' ? ` (#${data.queuePosition})` : ''}`
-            : 'Re-embed started',
-      });
+      if (data.queued === true) {
+        setStatus(path, {
+          status: 'success',
+          message: `Queued${
+            typeof data.queuePosition === 'number'
+              ? ` (#${data.queuePosition})`
+              : ''
+          }`,
+        });
+      } else if (typeof data.runId === 'string' && data.runId.length > 0) {
+        onRunStarted?.(data.runId);
+        setStatus(path, {
+          status: 'success',
+          message: 'Re-embed started',
+        });
+      } else {
+        throw new Error('Malformed re-embed response');
+      }
       await onRefresh();
       await onRefreshModels?.();
     } catch (err) {

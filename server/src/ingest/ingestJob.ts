@@ -836,12 +836,14 @@ async function processRun(runId: string, input: IngestJobInput) {
     const ingestedAtMs = Date.now();
     const { path: startPath, name, description, dryRun, operation: op } = input;
     const requestedSelection = resolveInputSelection(input);
-    await validateExecutableIngestInput(input, {
-      selection: requestedSelection,
-    });
     const embeddingProvider = requestedSelection.providerId;
     const embeddingModel = requestedSelection.modelKey;
     const operation = op ?? 'start';
+    if (operation !== 'reembed') {
+      await validateExecutableIngestInput(input, {
+        selection: requestedSelection,
+      });
+    }
     logLifecycle('info', 'ingest start', {
       runId,
       operation,
@@ -955,6 +957,8 @@ async function processRun(runId: string, input: IngestJobInput) {
     const shouldSkipAstForDelta =
       deltaAstMode?.mode === 'ast_skip_non_ast_delta';
     const shouldRebuildAstForDelta = deltaAstMode?.mode === 'ast_full_rebuild';
+    const shouldEarlyReturnDeltaNoOp =
+      operation === 'reembed' && deltaMode === 'delta' && deltaWorkCount === 0;
 
     if (deltaAstMode) {
       logLifecycle('info', 'DEV-0000054:delta_ast_mode_selected', {
@@ -1044,10 +1048,9 @@ async function processRun(runId: string, input: IngestJobInput) {
       operation === 'start' ||
       (operation === 'reembed' &&
         (deltaMode !== 'delta' || shouldRebuildAstForDelta));
-    const deltaSkipMessage =
-      operation === 'reembed' && deltaMode === 'delta' && deltaWorkCount === 0
-        ? `No changes detected for ${root}`
-        : undefined;
+    const deltaSkipMessage = shouldEarlyReturnDeltaNoOp
+      ? `No changes detected for ${root}`
+      : undefined;
     let finalSkipMessage = deltaSkipMessage;
 
     const counts = { files: workFiles.length, chunks: 0, embedded: 0 };
@@ -1296,29 +1299,21 @@ async function processRun(runId: string, input: IngestJobInput) {
       let rootCollection = roots;
       let rootDim = existingRootDim;
       let rootCollectionDim = existingRootCollectionDim;
-      if (!rootCollection) {
+      if (!rootCollection && !allowCollectionBootstrapFailure) {
         try {
           const bootstrapped = await ensureCollectionsBootstrapped();
           rootCollection = bootstrapped.roots;
           rootDim = bootstrapped.existingRootDim;
           rootCollectionDim = bootstrapped.existingRootCollectionDim;
         } catch (error) {
-          if (!allowCollectionBootstrapFailure) {
-            throw error;
-          }
-          logWarning('delta no-op fast path skipped Chroma bootstrap', {
-            runId,
-            root,
-            operation,
-            reason:
-              error instanceof Error
-                ? error.message.slice(0, 300)
-                : String(error ?? 'unknown').slice(0, 300),
-          });
+          throw error;
         }
       }
 
-      const currentLock = await getLockedEmbeddingModel();
+      const currentLock =
+        allowCollectionBootstrapFailure && !collectionsBootstrapped
+          ? null
+          : await getLockedEmbeddingModel();
       const rootEmbeddingDim = resolveKnownRootEmbeddingDimOrNull({
         existingRootDim: rootDim,
         collectionDim: rootCollectionDim,
@@ -1375,11 +1370,13 @@ async function processRun(runId: string, input: IngestJobInput) {
           return;
         }
       } else if (!rootCollection) {
-        logWarning('delta no-op fast path skipped root metadata bootstrap', {
+        logWarning('delta no-op fast path skipped Chroma bootstrap', {
           runId,
           root,
           operation,
-          reason: 'collection_bootstrap_unavailable_after_zero_work_guard',
+          reason: allowCollectionBootstrapFailure
+            ? 'collection_bootstrap_intentionally_skipped_after_zero_work_guard'
+            : 'collection_bootstrap_unavailable_after_zero_work_guard',
         });
       } else {
         logWarning('ingest root metadata skipped without trusted dimension', {
@@ -1446,6 +1443,32 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     }
 
+    if (shouldEarlyReturnDeltaNoOp) {
+      logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
+      logLifecycle(
+        'info',
+        `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=${root} runId=${runId}`,
+        { sourceId: root, runId },
+      );
+      if (cancelledRuns.has(runId)) {
+        return;
+      }
+
+      const counts = { files: 0, chunks: 0, embedded: 0 };
+      await completeReembedFastPathWithFence({
+        counts,
+        message: `No changes detected for ${root}`,
+        allowCollectionBootstrapFailure: true,
+      });
+      return;
+    }
+
+    if (operation === 'reembed') {
+      await validateExecutableIngestInput(input, {
+        selection: requestedSelection,
+      });
+    }
+
     if (operation === 'reembed') {
       if (deltaMode === 'degraded_full') {
         await deleteVectors({ where: { root } });
@@ -1453,25 +1476,6 @@ async function processRun(runId: string, input: IngestJobInput) {
         await deleteVectors({ where: { root } });
         await deleteRoots({ where: { root } });
       } else if (deltaMode === 'delta' && deltaPlan) {
-        if ((deltaWorkCount ?? 0) === 0) {
-          logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
-          logLifecycle(
-            'info',
-            `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=${root} runId=${runId}`,
-            { sourceId: root, runId },
-          );
-          if (cancelledRuns.has(runId)) {
-            return;
-          }
-
-          const counts = { files: 0, chunks: 0, embedded: 0 };
-          await completeReembedFastPathWithFence({
-            counts,
-            message: `No changes detected for ${root}`,
-            allowCollectionBootstrapFailure: true,
-          });
-          return;
-        }
         logLifecycle(
           'info',
           `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=${deltaPlan.added.length} deltaModified=${deltaPlan.changed.length} deltaDeleted=${deltaPlan.deleted.length}`,
@@ -2507,9 +2511,11 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
   deps = d;
   const operation = input.operation ?? 'start';
   const requested = resolveInputSelection(input);
-  await validateExecutableIngestInput(input, {
-    selection: requested,
-  });
+  if (operation !== 'reembed') {
+    await validateExecutableIngestInput(input, {
+      selection: requested,
+    });
+  }
   const runId = randomUUID();
   if (!ingestLock.acquire(runId)) {
     const error = new Error('BUSY');

@@ -3573,7 +3573,7 @@ This final review-response task rechecks Story 55 after Task 46 closes the remai
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `47`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` found that queued re-embed admission now rewrites the persisted target path to the mounted workdir alias before runtime cleanup and delta lookup run.
 
 #### Overview
@@ -3656,6 +3656,7 @@ This review-fix task restores one stable repository-root identity for queued re-
 - 2026-04-06 proof: `npm run compose:up` started the supported main stack cleanly, including healthy `mongo_db_CodeInfo` and `codeinfo2-server-1` containers before smoke proof.
 - 2026-04-06 proof: `npm run test:summary:host-network:main` passed with every required host-network endpoint reachable on `http://host.docker.internal:{5010,5011,5012,8932}`; retained smoke log: `logs/test-summaries/host-network-main-latest.log`.
 - 2026-04-06 proof: `npm run compose:down` shut the supported main stack down cleanly after the Task 48 smoke pass, so Task 48 now has all listed automated proof steps complete and is ready for the later audit pass.
+- 2026-04-06 implementation-plus-automated-proof audit: Re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 48 section from disk, verified the retained proof homes `test-results/server-cucumber-tests-2026-04-06T17-35-19-690Z.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log`, and confirmed there is no live `**BLOCKER**` note in this task. No Testing item needed to be newly checked in this audit because the plan already honestly recorded Testing 1 through 7 as complete, so Task 48 now closes as `__done__` before later manual testing.
 
 ### Task 49. Deduplicate Shared Repository List Rows Before Queue And Active Overlays Are Returned
 

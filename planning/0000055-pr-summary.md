@@ -27,6 +27,9 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 19. Task 34 made the reopened browser proof deterministic and durable by removing the weak skip path, replacing arbitrary waits with explicit proof boundaries, and moving screenshot evidence into tracked artifacts.
 20. Tasks 35 through 39 then bounded the shared remove-flow failure honestly: first deriving the failing owner, then exhausting the stale row-selection and post-visibility branches, and finally proving the earlier submit/start owner in `startIngestAndCaptureOutcome()`.
 21. Task 40 resumed the shared remove-flow repair from that earlier owner proof and restored both the targeted remove-flow scenario and the full `npm run test:summary:e2e` wrapper on current `HEAD`.
+22. Task 42 aligned queued `/ingest/start` admission with the stricter execution-time lock-validation rule so empty-collection lock mismatches now fail immediately instead of being accepted first and failing only when promoted from the queue.
+23. Task 43 narrowed review-artifact ignore hygiene so the transient `codeInfoStatus/reviews/0000055-current-review.json` handoff remains ignored while durable review evidence, findings, and blind-spot artifacts are visible to normal Git hygiene scans again.
+24. Task 44 restored honest retained proof homes for the final full server-unit, server-cucumber, and client wrappers by rerunning them and replacing Task 41's missing log references with fresh existing timestamped artifacts.
 
 ## Durable queue contract
 
@@ -107,7 +110,10 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 - Task 33 returned the full client wrapper to a clean trustworthy baseline.
 - Task 34's targeted queue scenarios and durable screenshot artifacts now pass with stable proof boundaries, and the screenshots live in tracked `artifacts/story-0000055-screenshots/`.
 - Task 39 proved the earlier submit/start owner seam with a clean targeted wrapper rerun, and Task 40 restored both the targeted shared remove-flow scenario and the full `test:summary:e2e` wrapper with `58/58` passing on current `HEAD`.
-- This summary now reflects the post-Task-40 implementation state and leaves only the final cross-wrapper and compose revalidation work to Task 41.
+- Task 42 closed the reopened must-fix queue admission contract by aligning route-time and execution-time lock validation, with direct proof at the route-owner, queue-runtime, and cucumber layers.
+- Task 43 closed the reopened review-artifact hygiene issue by narrowing the ignore rule to the transient current-review handoff instead of the whole `codeInfoStatus/reviews/` directory.
+- Task 44 refreshed the full server-unit, server-cucumber, and client wrapper proof-home claims to timestamped `test-results/*.log` artifacts, but Task 45's final retained-path re-check has since reopened that proof-retention seam because those cited wrapper log paths are not present on current disk after the latest reruns.
+- This summary now reflects the post-Task-44 implementation state and leaves only the final cross-wrapper, compose, and host-network revalidation work to Task 45.
 
 ## Deliberate non-changes and remaining out-of-scope boundaries
 

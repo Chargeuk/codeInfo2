@@ -21,6 +21,7 @@ Finish the current story review using ONLY the stored review handoff and the art
   - tracked temp, generated, or runtime artifact directories.
 - Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
 - This is the only review step allowed to mutate plans.
+- This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
 
 </critical_rules>
 
@@ -92,6 +93,13 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 17. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
 18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
 19. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
+20. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
+    - a new `Code Review Findings` section for the current `review_pass_id`;
+    - at least one new review-created `Task Status: __to_do__` task that responds to the endorsed findings;
+    - a fresh final re-test or revalidation task after those new review-fix tasks.
+21. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
+22. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
+23. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 
 </disposition_rules>
 
@@ -102,6 +110,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
   - reopen or defer localized `optional_simplification` findings according to the rules above;
   - append `Post-Implementation Code Review` when there are no findings.
 - If this review mutates plans, include the durable review artifacts in the resulting commit history alongside those plan changes.
+- Do not finish this step while the stored review handoff and the canonical plan disagree about whether actionable findings exist.
 
 </output_contract>
 
@@ -115,5 +124,6 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 - Confirm the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope.
 - Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.
 - Confirm durable artifacts are treated as commit-worthy, the current-plan handoff is not mistaken for the durable review artifact, and the review handoff remains transient workflow state rather than the durable artifact.
+- Confirm that a findings-present pass left new review-created `__to_do__` tasks plus a final revalidation task in the plan, or that a no-findings pass left the required `Post-Implementation Code Review` section for the current `review_pass_id`.
 
 </verification_loop>

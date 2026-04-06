@@ -44,6 +44,13 @@
       "markdownFile": "external_review_disposition.md"
     },
     {
+      "type": "llm",
+      "label": "Ensure findings became tasks",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "ensure_review_findings_became_tasks.md"
+    },
+    {
       "type": "command",
       "label": "Enhance review tasks",
       "agentType": "planning_agent",

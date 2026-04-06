@@ -112,8 +112,8 @@ Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed 
 - Task 39 proved the earlier submit/start owner seam with a clean targeted wrapper rerun, and Task 40 restored both the targeted shared remove-flow scenario and the full `test:summary:e2e` wrapper with `58/58` passing on current `HEAD`.
 - Task 42 closed the reopened must-fix queue admission contract by aligning route-time and execution-time lock validation, with direct proof at the route-owner, queue-runtime, and cucumber layers.
 - Task 43 closed the reopened review-artifact hygiene issue by narrowing the ignore rule to the transient current-review handoff instead of the whole `codeInfoStatus/reviews/` directory.
-- Task 44 refreshed the full server-unit, server-cucumber, and client wrapper proof-home claims to timestamped `test-results/*.log` artifacts, but Task 45's final retained-path re-check has since reopened that proof-retention seam because those cited wrapper log paths are not present on current disk after the latest reruns.
-- This summary now reflects the post-Task-44 implementation state and leaves only the final cross-wrapper, compose, and host-network revalidation work to Task 45.
+- Task 44 refreshed the full server-unit, server-cucumber, and client wrapper proof-home claims to timestamped `test-results/*.log` artifacts, but Task 45's final retained-path re-check showed those paths must be refreshed only after the task's last Playwright run.
+- This summary now reflects the post-Task-44 implementation state and leaves only the final cross-wrapper, compose, host-network, and post-Playwright retained-proof refresh work to Task 45.
 
 ## Deliberate non-changes and remaining out-of-scope boundaries
 

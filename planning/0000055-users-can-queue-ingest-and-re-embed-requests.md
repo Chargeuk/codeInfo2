@@ -2963,8 +2963,8 @@ This task resumes the broader shared remove-flow repair now that Task 39 has pro
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted shared remove-flow scenario passes on current `HEAD`.
-2. [ ] Run full `npm run test:summary:e2e` and confirm the full e2e wrapper passes cleanly again after the shared remove-flow repair.
+1. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted shared remove-flow scenario passes on current `HEAD`.
+2. [x] Run full `npm run test:summary:e2e` and confirm the full e2e wrapper passes cleanly again after the shared remove-flow repair.
 
 #### Implementation notes
 
@@ -2972,6 +2972,8 @@ This task resumes the broader shared remove-flow repair now that Task 39 has pro
 - Subtask 1: re-read Task 39's completed submit/start owner notes, the current `startIngestAndCaptureOutcome()` helper, and the latest targeted wrapper result before changing anything. The proved current starting point is no longer a post-visibility row-selection or remove-button seam; it is the now-bounded pre-remove submit/start path that Task 39 already repaired and proved.
 - Subtask 2: no additional source edit beyond Task 39's landed submit/start instrumentation was honestly needed to restore the shared targeted remove-flow scenario on current `HEAD`. That current helper change is the smallest real repair that survives current proof, and it leaves the valid `/fixtures/repo` fixture contract plus Task 34's queue-specific proof surface unchanged.
 - Subtask 3: no extra helper comment or proof-text edit was needed in this successor because the existing named owner seams in `e2e/ingest.spec.ts` already leave a clear handoff for final revalidation. This task therefore ends its implementation phase with the shared repair carried by the current code on disk and waits only for the targeted and full-wrapper proof reruns.
+- Testing 1: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` passed cleanly on current `HEAD` with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 2: full `npm run test:summary:e2e` also passed cleanly on current `HEAD` with `tests run: 58`, `passed: 58`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`. The shared remove-flow repair now restores the full e2e wrapper without reopening Task 34's queue-specific proof surfaces.
 
 ---
 

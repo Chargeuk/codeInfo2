@@ -472,6 +472,101 @@ function buildRepoKey(containerPath: string): string {
   return normalizeCanonicalQueueTargetPath(containerPath);
 }
 
+type PersistedRepoCandidate = {
+  id: string;
+  idx: number;
+  rawPath: string;
+  canonicalPath: string;
+  metadata: Record<string, unknown>;
+};
+
+function hasRawLockMetadata(metadata: Record<string, unknown>): boolean {
+  return (
+    normalizeEmbeddingProvider(metadata.embeddingProvider) !== null &&
+    normalizeEmbeddingModel(metadata.embeddingModel) !== null &&
+    normalizeEmbeddingDimensions(metadata.embeddingDimensions) !== null
+  );
+}
+
+function hasRawModelMetadata(metadata: Record<string, unknown>): boolean {
+  return (
+    normalizeEmbeddingModel(metadata.embeddingModel) !== null ||
+    normalizeEmbeddingModel(metadata.model) !== null
+  );
+}
+
+function hasRawCountMetadata(metadata: Record<string, unknown>): boolean {
+  return (
+    typeof metadata.files === 'number' ||
+    typeof metadata.chunks === 'number' ||
+    typeof metadata.embedded === 'number'
+  );
+}
+
+function persistedMetadataCompletenessScore(
+  metadata: Record<string, unknown>,
+): number {
+  return (
+    (hasRawLockMetadata(metadata) ? 4 : 0) +
+    (hasRawModelMetadata(metadata) ? 2 : 0) +
+    (hasRawCountMetadata(metadata) ? 1 : 0)
+  );
+}
+
+function comparePersistedRepoCandidates(
+  a: PersistedRepoCandidate,
+  b: PersistedRepoCandidate,
+): number {
+  const scoreDiff =
+    persistedMetadataCompletenessScore(a.metadata) -
+    persistedMetadataCompletenessScore(b.metadata);
+  if (scoreDiff !== 0) return scoreDiff;
+
+  const aTs =
+    typeof a.metadata.lastIngestAt === 'string'
+      ? Date.parse(a.metadata.lastIngestAt)
+      : 0;
+  const bTs =
+    typeof b.metadata.lastIngestAt === 'string'
+      ? Date.parse(b.metadata.lastIngestAt)
+      : 0;
+  if (aTs !== bTs) return aTs - bTs;
+
+  const idDiff = a.id.localeCompare(b.id);
+  if (idDiff !== 0) return idDiff;
+
+  return a.idx - b.idx;
+}
+
+function dedupePersistedRepoCandidates(
+  metadatas: Record<string, unknown>[],
+  ids: unknown[],
+): PersistedRepoCandidate[] {
+  const bestByPath = new Map<string, PersistedRepoCandidate>();
+
+  metadatas.forEach((metadata, idx) => {
+    const rawPath = typeof metadata.root === 'string' ? metadata.root : '';
+    const canonicalPath = buildRepoKey(mapIngestPath(rawPath).containerPath);
+    const candidate: PersistedRepoCandidate = {
+      id: typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
+      idx,
+      rawPath,
+      canonicalPath,
+      metadata,
+    };
+    const existing = bestByPath.get(canonicalPath);
+    if (!existing || comparePersistedRepoCandidates(candidate, existing) > 0) {
+      bestByPath.set(canonicalPath, candidate);
+    }
+  });
+
+  return [...bestByPath.values()].sort((a, b) => {
+    const tsDiff = comparePersistedRepoCandidates(b, a);
+    if (tsDiff !== 0) return tsDiff;
+    return a.canonicalPath.localeCompare(b.canonicalPath);
+  });
+}
+
 function deriveQueuePayloadName(
   queueRequest: Pick<
     IngestQueueRequest,
@@ -872,10 +967,14 @@ export async function listIngestedRepositories(
 
   const metadatas = Array.isArray(raw?.metadatas) ? raw.metadatas : [];
   const ids = Array.isArray(raw?.ids) ? raw.ids : [];
-  const repos: RepoEntry[] = metadatas
-    .map((meta, idx) => {
-      const m = (meta ?? {}) as Record<string, unknown>;
-      const rawPath = typeof m.root === 'string' ? m.root : '';
+  const persistedCandidates = dedupePersistedRepoCandidates(
+    metadatas.map((meta) => (meta ?? {}) as Record<string, unknown>),
+    ids,
+  );
+  const repos: RepoEntry[] = persistedCandidates
+    .map((candidate) => {
+      const m = candidate.metadata;
+      const rawPath = candidate.rawPath;
       const mapped = mapIngestPath(rawPath);
       const name =
         typeof m.name === 'string' && m.name.trim().length > 0
@@ -883,12 +982,12 @@ export async function listIngestedRepositories(
           : buildRepoId(
               typeof m.name === 'string' ? m.name : null,
               rawPath,
-              typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
+              candidate.id,
             );
       const repoId = buildRepoId(
         typeof m.name === 'string' ? m.name : null,
         rawPath,
-        typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
+        candidate.id,
       );
       const repoLock = resolveRepoLock(
         m,

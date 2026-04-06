@@ -15,30 +15,37 @@ import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const ORIGINAL_DEV_0000038_MARKERS = process.env.DEV_0000038_MARKERS;
 
-function createMcpApp({ lockedModelId }: { lockedModelId: string | null }) {
+function createMcpApp({
+  lockedModelId,
+  roots,
+}: {
+  lockedModelId: string | null;
+  roots?: { ids: string[]; metadatas: Record<string, unknown>[] };
+}) {
   const app = express();
   app.use(express.json());
   app.use(
     createMcpRouter({
       getRootsCollection: async () =>
         ({
-          get: async () => ({
-            ids: ['run-1'],
-            metadatas: [
-              {
-                name: 'repo',
-                root: '/data/repo',
-                model: 'embed-model',
-                files: 3,
-                chunks: 12,
-                embedded: 12,
-                lastIngestAt: '2026-01-01T00:00:00.000Z',
-                state: 'completed',
-                description: 'sample',
-                lastError: null,
-              },
-            ],
-          }),
+          get: async () =>
+            roots ?? {
+              ids: ['run-1'],
+              metadatas: [
+                {
+                  name: 'repo',
+                  root: '/data/repo',
+                  model: 'embed-model',
+                  files: 3,
+                  chunks: 12,
+                  embedded: 12,
+                  lastIngestAt: '2026-01-01T00:00:00.000Z',
+                  state: 'completed',
+                  description: 'sample',
+                  lastError: null,
+                },
+              ],
+            },
         }) as never,
       getLockedModel: async () => lockedModelId,
     }),
@@ -187,6 +194,215 @@ test('ListIngestedRepositories emits queued requestId with null runId before exe
   assert.equal(parsed.repos[0]?.runId, null);
   assert.equal(parsed.repos[0]?.queueState, 'waiting');
   assert.equal(parsed.repos[0]?.queuePosition, 1);
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('ListIngestedRepositories returns one canonical row for duplicate metadata and preserves waiting queue overlay', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000059'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const app = createMcpApp({
+    lockedModelId: 'embed-model',
+    roots: {
+      ids: ['older-row', 'newer-row'],
+      metadatas: [
+        {
+          name: 'repo-old',
+          root: '/data/repo',
+          model: 'embed-model',
+          lastIngestAt: '2026-01-01T00:00:00.000Z',
+          state: 'completed',
+        },
+        {
+          name: 'repo',
+          root: '/data/repo',
+          embeddingProvider: 'lmstudio',
+          embeddingModel: 'embed-model',
+          embeddingDimensions: 768,
+          model: 'embed-model',
+          files: 4,
+          chunks: 8,
+          embedded: 8,
+          lastIngestAt: '2026-01-02T00:00:00.000Z',
+          state: 'completed',
+        },
+      ],
+    },
+  });
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'duplicate-queued-row',
+      method: 'tools/call',
+      params: { name: 'ListIngestedRepositories', arguments: {} },
+    });
+
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<{
+      containerPath: string;
+      requestId?: string | null;
+      runId?: string | null;
+      queuePosition?: number | null;
+      queueState?: string | null;
+      counts: { files: number; chunks: number; embedded: number };
+      embeddingModel: string;
+    }>;
+  };
+  assert.equal(response.status, 200);
+  assert.equal(
+    parsed.repos.filter((repo) => repo.containerPath === '/data/repo').length,
+    1,
+  );
+  assert.equal(parsed.repos[0]?.requestId, '000000000000000000000059');
+  assert.equal(parsed.repos[0]?.runId, null);
+  assert.equal(parsed.repos[0]?.queueState, 'waiting');
+  assert.equal(parsed.repos[0]?.queuePosition, 1);
+  assert.deepEqual(parsed.repos[0]?.counts, {
+    files: 4,
+    chunks: 8,
+    embedded: 8,
+  });
+  assert.equal(parsed.repos[0]?.embeddingModel, 'embed-model');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('ListIngestedRepositories keeps the more complete duplicate metadata row before applying queue overlay', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000060'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const app = createMcpApp({
+    lockedModelId: 'embed-model',
+    roots: {
+      ids: ['partial-row', 'complete-row'],
+      metadatas: [
+        {
+          name: 'repo-stale',
+          root: '/data/repo',
+          lastIngestAt: '2026-01-03T00:00:00.000Z',
+          state: 'completed',
+        },
+        {
+          name: 'repo',
+          root: '/data/repo',
+          embeddingProvider: 'lmstudio',
+          embeddingModel: 'embed-model',
+          embeddingDimensions: 768,
+          model: 'embed-model',
+          files: 9,
+          chunks: 12,
+          embedded: 12,
+          lastIngestAt: '2026-01-01T00:00:00.000Z',
+          state: 'completed',
+        },
+      ],
+    },
+  });
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'partial-duplicate-row',
+      method: 'tools/call',
+      params: { name: 'ListIngestedRepositories', arguments: {} },
+    });
+
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<{
+      containerPath: string;
+      name: string;
+      counts: { files: number; chunks: number; embedded: number };
+      embeddingProvider: string;
+      embeddingModel: string;
+      queueState?: string | null;
+    }>;
+  };
+  assert.equal(response.status, 200);
+  assert.equal(
+    parsed.repos.filter((repo) => repo.containerPath === '/data/repo').length,
+    1,
+  );
+  assert.equal(parsed.repos[0]?.name, 'repo');
+  assert.deepEqual(parsed.repos[0]?.counts, {
+    files: 9,
+    chunks: 12,
+    embedded: 12,
+  });
+  assert.equal(parsed.repos[0]?.embeddingProvider, 'lmstudio');
+  assert.equal(parsed.repos[0]?.embeddingModel, 'embed-model');
+  assert.equal(parsed.repos[0]?.queueState, 'waiting');
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
     value: originalReadyState,

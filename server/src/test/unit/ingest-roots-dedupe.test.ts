@@ -395,6 +395,168 @@ test('GET /ingest/roots keeps queue document fields authoritative when persisted
   });
 });
 
+test('GET /ingest/roots serializes one authoritative row when duplicate metadata and queue overlay target the same path', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000061'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                description: 'queued from test',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['older-row', 'newer-row'],
+        metadatas: [
+          {
+            name: 'repo-old',
+            root: '/data/repo',
+            model: 'embed-model',
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            name: 'repo',
+            root: '/data/repo',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            files: 4,
+            chunks: 8,
+            embedded: 8,
+            state: 'completed',
+            lastIngestAt: '2026-01-02T00:00:00.000Z',
+          },
+        ],
+      },
+      'embed-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const matches = response.body.roots.filter(
+    (root: { path: string }) => root.path === '/data/repo',
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0]?.requestId, '000000000000000000000061');
+  assert.equal(matches[0]?.queueState, 'waiting');
+  assert.equal(matches[0]?.queuePosition, 1);
+  assert.deepEqual(matches[0]?.counts, { files: 4, chunks: 8, embedded: 8 });
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('GET /ingest/roots keeps the more complete duplicate metadata row before applying queue overlay', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000062'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['partial-row', 'complete-row'],
+        metadatas: [
+          {
+            name: 'repo-stale',
+            root: '/data/repo',
+            state: 'completed',
+            lastIngestAt: '2026-01-03T00:00:00.000Z',
+          },
+          {
+            name: 'repo',
+            root: '/data/repo',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            files: 9,
+            chunks: 12,
+            embedded: 12,
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+      'embed-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const matches = response.body.roots.filter(
+    (root: { path: string }) => root.path === '/data/repo',
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0]?.name, 'repo');
+  assert.deepEqual(matches[0]?.counts, { files: 9, chunks: 12, embedded: 12 });
+  assert.equal(matches[0]?.embeddingModel, 'embed-model');
+  assert.equal(matches[0]?.queueState, 'waiting');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('GET /ingest/roots maps ingesting phase states and omits phase for terminal statuses', async () => {
   const response = await request(
     createRootsApp(
@@ -484,6 +646,60 @@ test('GET /ingest/roots applies active overlay and synthesizes missing active ro
   assert.equal(overlaid.phase, 'embedding');
   assert.deepEqual(overlaid.counts, { files: 4, chunks: 8, embedded: 2 });
   assert.equal(overlaid.lastIngestAt, '2026-01-02T00:00:00.000Z');
+});
+
+test('GET /ingest/roots serializes one authoritative row when duplicate metadata and active overlay target the same path', async () => {
+  __setStatusForTest('active-deduped-run', {
+    runId: 'active-deduped-run',
+    state: 'embedding',
+    counts: { files: 5, chunks: 10, embedded: 3 },
+  });
+  __setJobInputForTest('active-deduped-run', {
+    path: '/data/repo',
+    root: '/data/repo',
+    name: 'repo',
+    model: 'text-embed',
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['stale-row', 'complete-row'],
+        metadatas: [
+          {
+            root: '/data/repo',
+            name: 'repo-stale',
+            state: 'completed',
+            lastIngestAt: '2026-01-03T00:00:00.000Z',
+          },
+          {
+            root: '/data/repo',
+            name: 'repo',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'text-embed',
+            embeddingDimensions: 768,
+            model: 'text-embed',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+            state: 'completed',
+            lastIngestAt: '2026-01-02T00:00:00.000Z',
+          },
+        ],
+      },
+      'text-embed',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const matches = response.body.roots.filter(
+    (root: { path: string }) => root.path === '/data/repo',
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0]?.status, 'ingesting');
+  assert.equal(matches[0]?.phase, 'embedding');
+  assert.equal(matches[0]?.runId, 'active-deduped-run');
+  assert.deepEqual(matches[0]?.counts, { files: 5, chunks: 10, embedded: 3 });
 });
 
 test('GET /ingest/roots synthesizes active root when persisted metadata is missing', async () => {

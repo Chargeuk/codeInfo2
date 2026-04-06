@@ -293,6 +293,8 @@ const startIngestAndCaptureOutcome = async (
     runId?: string;
     requestId?: string;
   };
+  // Trace-led handoff: if this getter hangs, the first trustworthy owner is still
+  // pre-remove. Later remove-flow owner steps then run during timeout teardown.
   const submitError = page.getByTestId('submit-error');
   const errorMessage = (await submitError.textContent().catch(() => null))
     ?.trim()

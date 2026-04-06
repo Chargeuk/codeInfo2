@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 

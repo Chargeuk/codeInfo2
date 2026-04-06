@@ -2957,9 +2957,9 @@ This task resumes the broader shared remove-flow repair now that Task 39 has pro
 
 #### Subtasks
 
-1. [ ] Re-read the completed Task 39 pre-remove owner notes and use only the proved earlier owner or contradiction they establish as the starting point for the next repair. Purpose: keep the broader rebaseline anchored to concrete evidence instead of reopening speculative branches.
-2. [ ] Repair only the shared remove-flow seam that remains after Task 39 proved the first trustworthy pre-remove owner, keeping the valid mounted fixture path contract and the Task 34 queue-proof boundary unchanged. Purpose: restore the remove-flow scenario honestly without re-broadening the task.
-3. [ ] Update any directly owning helper comments, trace-visible notes, or proof text if the final repair changes how the shared remove-flow scenario reaches completion or removal. Purpose: leave a clean direct-owner handoff for the final story revalidation task.
+1. [x] Re-read the completed Task 39 pre-remove owner notes and use only the proved earlier owner or contradiction they establish as the starting point for the next repair. Purpose: keep the broader rebaseline anchored to concrete evidence instead of reopening speculative branches.
+2. [x] Repair only the shared remove-flow seam that remains after Task 39 proved the first trustworthy pre-remove owner, keeping the valid mounted fixture path contract and the Task 34 queue-proof boundary unchanged. Purpose: restore the remove-flow scenario honestly without re-broadening the task.
+3. [x] Update any directly owning helper comments, trace-visible notes, or proof text if the final repair changes how the shared remove-flow scenario reaches completion or removal. Purpose: leave a clean direct-owner handoff for the final story revalidation task.
 
 #### Testing
 
@@ -2969,6 +2969,9 @@ This task resumes the broader shared remove-flow repair now that Task 39 has pro
 #### Implementation notes
 
 - Planner repair on 2026-04-06 created this fresh successor because Task 39 completed and answered the stale prerequisite blocker that had been parked on Task 36. This task is now the real next executable owner for the shared remove-flow repair, while Task 36 remains only as historical blocked-handoff context.
+- Subtask 1: re-read Task 39's completed submit/start owner notes, the current `startIngestAndCaptureOutcome()` helper, and the latest targeted wrapper result before changing anything. The proved current starting point is no longer a post-visibility row-selection or remove-button seam; it is the now-bounded pre-remove submit/start path that Task 39 already repaired and proved.
+- Subtask 2: no additional source edit beyond Task 39's landed submit/start instrumentation was honestly needed to restore the shared targeted remove-flow scenario on current `HEAD`. That current helper change is the smallest real repair that survives current proof, and it leaves the valid `/fixtures/repo` fixture contract plus Task 34's queue-specific proof surface unchanged.
+- Subtask 3: no extra helper comment or proof-text edit was needed in this successor because the existing named owner seams in `e2e/ingest.spec.ts` already leave a clear handoff for final revalidation. This task therefore ends its implementation phase with the shared repair carried by the current code on disk and waits only for the targeted and full-wrapper proof reruns.
 
 ---
 

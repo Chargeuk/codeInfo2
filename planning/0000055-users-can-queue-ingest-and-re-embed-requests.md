@@ -3213,10 +3213,10 @@ This review-fix task restores an honest direct proof home for the Story 55 full 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit` and confirm the full backend unit/integration wrapper passes after the Task 42 contract repair.
-2. [ ] Run `npm run test:summary:server:cucumber` and confirm the full backend feature wrapper still passes after the review-fix work so far.
-3. [ ] Run `npm run test:summary:client` and confirm the full client wrapper still passes after the review-fix work so far.
-4. [ ] Run `ls` or `test -f` against every proof path cited by the updated Task 41 and PR-summary notes, and confirm each referenced retained artifact actually exists after the rerun.
+1. [x] Run `npm run test:summary:server:unit` and confirm the full backend unit/integration wrapper passes after the Task 42 contract repair.
+2. [x] Run `npm run test:summary:server:cucumber` and confirm the full backend feature wrapper still passes after the review-fix work so far.
+3. [x] Run `npm run test:summary:client` and confirm the full client wrapper still passes after the review-fix work so far.
+4. [x] Run `ls` or `test -f` against every proof path cited by the updated Task 41 and PR-summary notes, and confirm each referenced retained artifact actually exists after the rerun.
 
 #### Implementation notes
 
@@ -3230,6 +3230,10 @@ This review-fix task restores an honest direct proof home for the Story 55 full 
 - Subtask 8: reran full `npm run test:summary:client` and it passed cleanly with `tests run: 665`, `passed: 665`, `failed: 0`, `agent_action: skip_log`, retained log `test-results/client-tests-2026-04-06T04-05-37-052Z.log`, and supporting JSON `test-results/client-tests-2026-04-06T04-05-37-052Z.json`. That fresh timestamped client log now replaces the stale Task 41 client proof claim.
 - Subtask 9: updated Task 41's full-wrapper close-out note so its retained server-unit, server-cucumber, and client proof paths now point at the fresh existing Task 44 rerun artifacts instead of the missing early-morning `test-results/*.log` paths from the review finding.
 - Subtask 10: checked `planning/0000055-pr-summary.md` for stale full-wrapper-path citations before editing and found none, so no PR-summary change was needed. After the Task 41 update, every currently cited full-wrapper proof path now exists on disk and no additional close-out note still named the stale proof home.
+- Testing 1: reran `npm run test:summary:server:unit` and it passed cleanly with `tests run: 1613`, `passed: 1613`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-06T04-09-58-457Z.log`, so the full backend unit/integration wrapper still passes after the Task 42 repair.
+- Testing 2: reran `npm run test:summary:server:cucumber` and it passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-06T04-33-34-240Z.log`, so the full backend feature wrapper still passes after the review-fix work so far.
+- Testing 3: reran `npm run test:summary:client` and it passed cleanly with `tests run: 665`, `passed: 665`, `failed: 0`, `agent_action: skip_log`, retained log `test-results/client-tests-2026-04-06T04-36-15-230Z.log`, and supporting JSON sidecar from the same timestamped run, so the full client wrapper still passes after the review-fix work so far.
+- Testing 4: verified the full-wrapper proof paths cited by the updated Task 41 close-out note still exist after the reruns. `test -f` confirmed `test-results/server-unit-tests-2026-04-06T03-39-25-678Z.log`, `test-results/server-cucumber-tests-2026-04-06T04-02-55-265Z.log`, `test-results/client-tests-2026-04-06T04-05-37-052Z.log`, and `logs/test-summaries/e2e-tests-latest.log`, and `planning/0000055-pr-summary.md` still names no stale full-wrapper path.
 
 ---
 

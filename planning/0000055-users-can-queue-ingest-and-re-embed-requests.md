@@ -3757,7 +3757,7 @@ This review-fix task restores path-level authority in the shared repository-list
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `49`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260406T133340Z-11c0e2ff` found that `RootsTable.doReembed()` still treats malformed `2xx` responses as success even when the response does not prove queue admission or active execution.
 
 #### Overview
@@ -3836,6 +3836,7 @@ The browser proof remains automated-only in this task. Screenshot retention and 
 - 2026-04-06 implementation-plus-automated-proof audit: Re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 50 section from disk, verified the retained proof homes `logs/test-summaries/build-client-latest.log`, `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log`, and confirmed there is no live `**BLOCKER**` note in this task. Reopened Testing 2 because the cited retained client wrapper log `test-results/client-tests-2026-04-06T19-46-53-803Z.log` is no longer present on disk, so Task 50 remains `__in_progress__` until the full client wrapper is rerun or its proof home is refreshed honestly.
 - 2026-04-06 manual testing skipped: Task 50 is still `__in_progress__` because Testing 2 was reopened when the retained full client-wrapper proof log was no longer present on disk, so the latest task is not honestly complete yet and live manual proof must wait until that client proof is refreshed.
 - 2026-04-06 proof refresh: reran `npm run test:summary:client` after the retained proof-home audit reopened Testing 2; the wrapper passed cleanly with `tests run: 668`, `passed: 668`, `failed: 0`, and the refreshed retained log is `test-results/client-tests-2026-04-06T20-06-53-506Z.log`.
+- 2026-04-06 implementation-plus-automated-proof audit: Re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 50 section from disk after the proof-refresh commit `908593f3`, verified that the refreshed client wrapper log `test-results/client-tests-2026-04-06T20-06-53-506Z.log` now exists alongside the retained build, e2e, compose-build, and host-network proof homes, and confirmed there is still no live `**BLOCKER**` note in this task. Task 50 is now `__done__` because every subtask and every automated-proof step has direct current-repo evidence again, so the task no longer has any incomplete work before the later manual-testing loop.
 
 ### Task 51. Re-Validate Story 55 After Review Pass `0000055-20260406T133340Z-11c0e2ff`
 

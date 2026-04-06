@@ -2445,7 +2445,7 @@ This task closes the public-contract drift found in the stored review artifacts.
 1. [x] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the OpenAPI and contract-proof repair.
 2. [x] Run full `npm run test:summary:server:unit` and confirm the strengthened `server/src/test/unit/openapi.contract.test.ts` proof passes on the repository's normal backend unit wrapper alongside the broader server-unit baseline.
 3. [x] Run full `npm run test:summary:server:cucumber` and confirm the normal Testcontainers-backed backend integration path still passes after the queue-aware OpenAPI contract and proof repair.
-4. [x] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 40.
+4. [x] Normal supported compose smoke is not applicable for this task because it only repairs generated contract artifacts and their direct proof owner, not the runnable server/client behavior itself. Keep the full runnable-system smoke proof in Task 41.
 
 #### Implementation notes
 
@@ -2458,8 +2458,8 @@ This task closes the public-contract drift found in the stored review artifacts.
 - Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and no warnings, so the supported server build wrapper still accepts the queue-aware OpenAPI and contract-proof repair from current `HEAD`.
 - Testing 2: the first full `npm run test:summary:server:unit` rerun failed on unrelated broader-baseline test `codex chat injects system context and emits MCP tool request/result` with `Timed out waiting for WebSocket event`, not on the Task 31 OpenAPI contract owner. A targeted rerun of that exact test then passed cleanly, and the immediate full-wrapper rerun passed with `tests run: 1612`, `passed: 1612`, `failed: 0`, and `agent_action: skip_log`, so the strengthened `openapi.contract` proof now passes alongside the current broader server-unit baseline.
 - Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 84`, `passed: 84`, `failed: 0`, and `agent_action: skip_log`, so the normal backend integration wrapper still accepts the queue-aware OpenAPI contract repair from current `HEAD`.
-- Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 40 exactly as the task text requires.
-- Implementation-plus-automated-proof audit on 2026-04-04: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 31 section, the latest Task 31 proof commit `cff1286c`, and the current owner files `openapi.json` plus `server/src/test/unit/openapi.contract.test.ts` from disk. No blocker remains, no additional subtasks or testing steps needed to be newly checked because the plan already honestly showed all of them complete, and the task is now `__done__` because its contract-sync work and wrapper-backed automated proof are both complete while runnable-system smoke stays explicitly owned by Task 40.
+- Testing 4: normal supported compose smoke remained honestly not applicable for Task 31 because this task only repairs generated contract artifacts and their direct proof owner. The runnable-system smoke proof stays deferred to Task 41 exactly as the task text requires.
+- Implementation-plus-automated-proof audit on 2026-04-04: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 31 section, the latest Task 31 proof commit `cff1286c`, and the current owner files `openapi.json` plus `server/src/test/unit/openapi.contract.test.ts` from disk. No blocker remains, no additional subtasks or testing steps needed to be newly checked because the plan already honestly showed all of them complete, and the task is now `__done__` because its contract-sync work and wrapper-backed automated proof are both complete while runnable-system smoke stays explicitly owned by Task 41.
 
 ---
 
@@ -2521,7 +2521,7 @@ This task closes the support-file hygiene finding for `codeInfoStatus/flow-state
 - Testing 2: `git ls-files --error-unmatch codeInfoStatus/flow-state/manual-testing-runtime.json` failed as expected with `pathspec ... did not match any file(s) known to git`, proving the live runtime snapshot is no longer tracked. `git check-ignore -v codeInfoStatus/flow-state/manual-testing-runtime.json` then resolved the ignore ownership to `.gitignore`, confirming the repo-wide exact-path ignore rule now owns that live file.
 - Testing 3: `git status --short --ignored=matching -- codeInfoStatus/flow-state/manual-testing-runtime.json .gitignore codeinfo_markdown/manual_test_runtime_research.md codeinfo_markdown/manual_test_latest_completed_task.md` reported only `!! codeInfoStatus/flow-state/manual-testing-runtime.json`, which confirms the live snapshot is ignored while the checked-in doc owners and `.gitignore` remain normal clean tracked state.
 - Implementation-plus-automated-proof audit on 2026-04-04 after re-reading `codeInfoStatus/flow-state/current-plan.json`, this exact Task 32 section, the latest Task 32 implementation note state, and the direct tracked-state proof outputs above. Current repo evidence now shows every Task 32 subtask and all three Task 32 testing steps are honestly complete, there is no live `**BLOCKER**` note on the task, and Task 32 correctly closes as `__done__` before the flow moves on to later story revalidation.
-- Manual testing assessed on 2026-04-04 and not applicable for this task. This pass stayed task-scoped because Task 32 only changes Git tracking, ignore ownership, and markdown guidance for the live `codeInfoStatus/flow-state/manual-testing-runtime.json` artifact, so there is no runnable, browser-accessible, or externally observable product surface to start, stop, or exercise manually, and the broader runnable-system revalidation remains owned by Task 40.
+- Manual testing assessed on 2026-04-04 and not applicable for this task. This pass stayed task-scoped because Task 32 only changes Git tracking, ignore ownership, and markdown guidance for the live `codeInfoStatus/flow-state/manual-testing-runtime.json` artifact, so there is no runnable, browser-accessible, or externally observable product surface to start, stop, or exercise manually, and the broader runnable-system revalidation remains owned by Task 41.
 
 ---
 
@@ -2570,7 +2570,7 @@ This repaired prerequisite task now records and preserves the restored full `npm
 #### Implementation notes
 
 - Starts empty.
-- Planner repair on 2026-04-05 moved this client-baseline repair ahead of the remaining browser-proof task so the plan now follows real execution order. Task 33 is the active prerequisite owner, Task 34 waits behind this baseline repair, and final story revalidation remains in Task 40.
+- Planner repair on 2026-04-05 moved this client-baseline repair ahead of the remaining browser-proof task so the plan now follows real execution order. Task 33 is the active prerequisite owner, Task 34 waits behind this baseline repair, and final story revalidation remains in Task 41.
 - Subtask 1: re-read Task 34's blocker evidence from the current review artifacts, then inspected the recorded client-wrapper logs plus `client/src/test/agentsPage.run.test.tsx` and `client/src/test/chatPage.flags.sandbox.payload.test.tsx` together from current `HEAD`. The older evidence still points at those two test files as the intended owner candidates, and no queue-browser proof file needed to be reopened during this prerequisite pass.
 - **RESOLVED ISSUE** The earlier Task 33 blocker came from treating the stale historical timeout as if it still had to reproduce on current `HEAD`. That bounded diagnostic branch exhausted cleanly: `npm run test:summary:client` finished with `tests run: 665`, `passed: 665`, `failed: 0`, and `agent_action: skip_log` in `test-results/client-tests-2026-04-05T20-41-06-267Z.log`. Planner repair retired that open-ended timeout-owner hunt, narrowed Task 33 to baseline-and-handoff close-out work, and promoted Task 34 back to the active browser-proof owner.
 - **BLOCKING ANSWER** Repository precedents found: this repo already treats exhausted prerequisite branches as a planning and handoff problem rather than as a reason to invent more implementation work. `codeinfo_markdown/research_blocker_impact_on_plan.md` says to keep the current live blocker or current `**BLOCKING ANSWER**` in full, and when blocker repair proves a different prerequisite or successor now owns the real work, rewrite the handoff so the blocked task does not remain the active executable owner. The same file also says that if the next bounded strategy exhausts cleanly, prefer closing that task on its exhausted branch and creating or resuming a fresh successor rather than narrowing the same task again. The current story already shows that shape in Task 34's notes: its earlier full-client blocker was re-owned by Task 33, while the queue-browser implementation itself is already on disk and only its later proof gates remain.
@@ -2626,7 +2626,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 2. [x] Run full `npm run test:summary:client` and confirm the existing ingest-page client proof homes still pass after the queue-specific browser-proof adjustments and screenshot-artifact durability change.
 3. [x] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "queued submission stays available while another run is active and exposes queued row state|queued row stays visible after a page refresh while the request is still waiting|queued row picks up a run owner after the current queue head finishes|Remove selected ignores queued rows in a mixed selection"` and confirm the Task 34-owned queue-specific Playwright scenarios pass without warn-and-return skips or fixed-delay queue assertions.
 4. [x] Confirm the required Story 55 screenshot artifacts exist in the tracked durable location after the targeted Task 34-owned e2e wrapper run and are no longer hidden behind the current ignore rules.
-5. [x] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 40.
+5. [x] Normal supported compose smoke is not applicable for this task because it repairs the automated browser-proof path and screenshot-artifact durability rather than changing the main runnable server/client implementation. Keep the normal main-stack smoke proof in Task 41.
 
 #### Implementation notes
 
@@ -2649,7 +2649,7 @@ This task closes the stored browser-proof finding without widening Story 55 into
 - Plan repair on 2026-04-05: narrowed Task 34's e2e testing gate to the queue-specific Playwright scenarios and moved the reopened shared ingest remove-flow timeout into follow-up tasks beginning with Task 35 before final story revalidation. This keeps Task 34 aligned to the browser-proof boundary it actually owns and leaves the broader full-e2e baseline repair explicitly owned instead of hidden behind this task.
 - Testing 3: the targeted Task 34-owned queue-specific Playwright wrapper passed cleanly on current `HEAD` with `tests run: 4`, `passed: 4`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`. The wrapper also reported the expected host-mapped runtime endpoints (`http://host.docker.internal:6001` and `http://host.docker.internal:8932/mcp`) during the run, so the proof stayed inside the Docker-mapped environment contract.
 - Testing 4: the required screenshots were regenerated at `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` and `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`, and they were promoted into tracked repository state so the durable browser-proof evidence is no longer hidden behind ignored transient-output paths.
-- Testing 5: supported compose smoke remains honestly not applicable for Task 34 because this task only proves the queue-specific browser path and its durable screenshot artifacts. The normal main-stack compose proof still remains owned by Task 40.
+- Testing 5: supported compose smoke remains honestly not applicable for Task 34 because this task only proves the queue-specific browser path and its durable screenshot artifacts. The normal main-stack compose proof still remains owned by Task 41.
 - Automated-proof audit on 2026-04-05: Task 34 now has every subtask and testing step honestly complete on current `HEAD`, no live `**BLOCKER**` remains, and the task status is normalized to `__done__` before Task 35 picks up the bounded shared remove-flow instrumentation follow-up.
 - Manual testing assessed on 2026-04-05 and not applicable for Task 34. This pass stayed task-scoped because Task 34 only hardens the automated Playwright proof and durable screenshot-artifact path for Story 55; it does not add or change a separate runnable, browser-visible, HTTP, or paired-frontend product behavior beyond the owned automated proof surfaces already recorded here. No additional subtasks or Testing-step changes were needed.
 
@@ -2714,22 +2714,22 @@ This task does not try another broad remove-flow repair. It derives a concrete o
 
 ---
 
-### Task 36. Re-Baseline Reopened Shared Ingest Remove-Flow E2E Timeout Outside Task 34
+### Task 36. Close The Earlier Blocked Shared Remove-Flow Handoff After Task 39 Proof
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `39`
-- Task Status: `__todo__`
-- Notes: Re-owned during planner repair on 2026-04-05 because the broader shared remove-flow rebaseline could not continue honestly until Task 35 derived a concrete failing owner boundary. Planner repair later the same day moved this task back out of the active slot because the row-visibility repair branch exhausted cleanly and a fresh row-selection-contract owner had to land first as Task 37. Planner repair on 2026-04-06 then moved this task behind Task 38 because Task 37's selector-instrumentation branch also exhausted cleanly without producing a trustworthy next owner. Planner repair later the same day moved this task behind Task 39 because Task 38 proved the first trustworthy owner is earlier than the remove phase.
+- Task Status: `__done__`
+- Notes: Re-owned during planner repair on 2026-04-05 because the broader shared remove-flow rebaseline could not continue honestly until Task 35 derived a concrete failing owner boundary. Planner repair later the same day moved this task back out of the active slot because the row-visibility repair branch exhausted cleanly and a fresh row-selection-contract owner had to land first as Task 37. Planner repair on 2026-04-06 then moved this task behind Task 38 because Task 37's selector-instrumentation branch also exhausted cleanly without producing a trustworthy next owner. Planner repair later the same day moved this task behind Task 39 because Task 38 proved the first trustworthy owner is earlier than the remove phase. After Task 39 completed, planner repair closed this task as a historical blocked handoff and re-owned the remaining executable shared remove-flow repair into Task 40 so the implementation loop can pick the real next owner honestly.
 
 #### Overview
 
-This task resumes the broader shared remove-flow repair only after Task 39 proves the first trustworthy pre-remove owner for the remove-flow failure. It owns the smallest real fix needed to make `remove clears entry and unlocks model when empty` pass end-to-end on current `HEAD`, and then restore the full `npm run test:summary:e2e` wrapper without reopening Task 34's queue-specific proof surfaces.
+This task no longer owns the executable shared remove-flow repair. It now records the closed blocked-handoff branch that waited for Task 39's earlier-owner proof, and it captures why the remaining runnable repair had to be re-owned into Task 40 once that prerequisite completed.
 
 #### Task Exit Criteria
 
-- The shared ingest remove-flow scenario `remove clears entry and unlocks model when empty` passes on current `HEAD` after applying only the concrete owner fix proven by Task 39.
-- Full `npm run test:summary:e2e` passes cleanly again without larger blanket timeouts, extra sleeps, or permanent scenario filtering.
-- The final repair remains bounded to the owner Task 39 proves and does not silently broaden back into unrelated ingest e2e behavior.
+- The stale live blocker is retired because Task 39 completed and proved the prerequisite earlier-owner seam this task was waiting on.
+- The remaining executable shared remove-flow repair is re-owned into Task 40 so the implementation loop can pick it honestly from the bottom of the plan.
+- Later tasks can still read this section as the historical blocked-handoff context without reopening it as the next executable task.
 
 #### Documentation Locations
 
@@ -2738,18 +2738,17 @@ This task resumes the broader shared remove-flow repair only after Task 39 prove
 - `logs/test-summaries/e2e-tests-latest.log`
 - `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/trace.zip`
 - `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/error-context.md`
-- Any directly shared ingest e2e helper or teardown seam the Task 39 pre-remove proof identifies
+- The Task 39 proof notes and the fresh successor task that now owns the executable shared remove-flow repair
 
 #### Subtasks
 
-1. [ ] Re-read the completed Task 39 pre-remove owner notes and use only the proved earlier owner or contradiction they establish as the starting point for the next repair. Purpose: keep the broader rebaseline anchored to concrete evidence instead of reopening speculative branches.
-2. [ ] Repair only the shared remove-flow seam that remains after Task 39 proves the first trustworthy pre-remove owner, keeping the valid mounted fixture path contract and the Task 34 queue-proof boundary unchanged. Purpose: restore the remove-flow scenario honestly without re-broadening the task.
-3. [ ] Update any directly owning helper comments, trace-visible notes, or proof text if the final repair changes how the shared remove-flow scenario reaches completion or removal. Purpose: leave a clean direct-owner handoff for the final story revalidation task.
+1. [x] Record that Task 39 completed and answered the prerequisite earlier-owner question this blocked handoff was waiting on. Purpose: retire the stale blocked state from the historical task honestly.
+2. [x] Re-own the remaining executable shared remove-flow repair into a fresh successor task above Task 39 so the implementation loop can select the real next work from current plan order. Purpose: avoid leaving the resumed repair hidden below already completed later tasks.
+3. [x] Update downstream references so final revalidation waits on the fresh successor task rather than on this historical blocked handoff. Purpose: keep the repaired plan runnable and honest at each task boundary.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted shared remove-flow scenario passes on current `HEAD`.
-2. [ ] Run full `npm run test:summary:e2e` and confirm the full e2e wrapper passes cleanly again after the shared remove-flow repair.
+1. [x] No direct wrapper rerun is owned by this historical handoff closure. Task 40 now owns the next targeted and full shared remove-flow e2e proof after the prerequisite handoff was repaired.
 
 #### Implementation notes
 
@@ -2759,11 +2758,12 @@ This task resumes the broader shared remove-flow repair only after Task 39 prove
 - Subtask 1: re-read Task 35's completed owner-derivation notes plus `logs/test-summaries/e2e-tests-latest.log`, `trace.zip`, and `error-context.md` before editing. The key current-state signal is that the timeout boundary already narrowed to row visibility while the page snapshot still showed the completed `/fixtures/repo` row, so this pass stayed focused on forcing a bounded UI refresh seam instead of reopening server polling or remove-click ownership.
 - Subtask 2: repaired only the page-refresh or row-visibility seam in `e2e/ingest.spec.ts`. The remove-flow step now uses `expect.poll(...)` to reload the page until the matching row text appears and contains `completed`, rather than waiting on a potentially stale pre-refresh locator after the API-backed completion boundary has already passed.
 - Subtask 3: updated the task-owned proof text in `e2e/ingest.spec.ts` by changing the page-refresh step message to describe the refreshed-row contract directly. The valid `/fixtures/repo` mounted path and Task 34's queue-specific proof boundary both stay unchanged.
-- **BLOCKER** This broader rebaseline task is now blocked behind Task 39. Task 38 proved the first trustworthy owner is earlier than the remove phase: the latest trace-led reread showed the hard timeout lands at `startIngestAndCaptureOutcome()` / `getByTestId('submit-error')`, and the later row-visible snapshot plus page-closed errors are only teardown fallout after the global timeout. Task 39 must now prove that earlier pre-remove owner before this broader repair can continue honestly.
+- **RESOLVED ISSUE** This broader rebaseline task was blocked behind Task 39 while the plan still needed the first trustworthy earlier owner before the shared remove-flow repair could continue. Task 39 then completed and proved that prerequisite owner, so planner repair on 2026-04-06 retired this stale blocker and re-owned the remaining executable repair into Task 40 instead of leaving that resumed work hidden below later completed tasks.
 - **BLOCKING ANSWER** Repository precedents found: this repo's own workflow says repeated bounded browser-proof narrowing must stop once the current owner seam is contradicted instead of being stretched with more speculative variants. `codeinfo_markdown/implement_next_task_subtasks.md` and `codeinfo_markdown/audit_after_implementation.md` both require a live blocker and planner repair when no subtask-closing progress remains and the current bounded search is exhausted. In code, the local e2e suite already prefers explicit observable contracts over broad page-state guesses: `e2e/chat-user-turn-ws.spec.ts` uses bounded proof seams, and other e2e specs use direct `getByText(...)` or filtered locators when visible text is the real contract instead of trying to infer success from repeated page churn.
 - **BLOCKING ANSWER** External-library precedents found: Playwright's official docs say `getByRole(..., { name })` matches accessible name, while `Locator.filter({ hasText })` and text locators are the supported way to narrow an existing locator by visible text when that is the stable contract. The same docs and Context7 guidance keep `waitForTimeout` and blanket timeout growth in the “debugging only” bucket, not as a proper fix. DeepWiki could not confirm this because `microsoft/playwright` is not indexed in this session, so the authoritative external sources here are the official Playwright docs and Context7's Playwright mirror.
 - **BLOCKING ANSWER** Issue-resolution references found: the saved `error-context.md` already proves the row is present in the DOM and visible to the user with the exact fixture name, `/fixtures/repo` path, `completed` status, and a visible `Remove` button, yet the current row-visibility seam still times out. That means the next honest owner is no longer “make the row appear” but “prove why this locator contract is not matching the already visible row, or replace it with the right stable row-selection contract.” Repeating `page.reload()`, `Refresh`, or row-text polling without first proving that locator contract would only keep retrying stale assumptions.
 - **BLOCKING ANSWER** Chosen fix and why it fits current local repo state: do not continue broad Task 36 repair in place. Split or rewrite it into one fresh bounded successor that instruments the row-selection contract itself: capture candidate row counts and row text after the completion boundary, prove whether the failing seam is a stale `getByRole('row', { name: ... })` contract, and if so switch the repair to a stable table-row locator such as a row filtered by the fixture name/path/status text and the descendant `Remove` button before resuming the broader remove-flow pass. That fits the current repo because the backend completion seam is already proven, the UI snapshot already shows the target row, and the remaining uncertainty is now specifically about how the proof selects that row rather than about queue/runtime state. Rejected alternatives are not suitable: more timeout growth, more reload loops, more `Refresh` clicks, or another blind row-text poll would all keep mutating the same stale seam without proving why the visible row still does not satisfy the current locator contract.
+- Planner repair on 2026-04-06 closed Task 36 as a historical blocked handoff after Task 39 completed. The remaining executable shared remove-flow repair now lives in Task 40, which is the next active owner above the completed prerequisite tasks.
 
 ---
 
@@ -2929,16 +2929,59 @@ This task does not try to finish the whole shared remove-flow repair. It only pr
 
 ---
 
-### Task 40. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+### Task 40. Resume Shared Ingest Remove-Flow Repair After Task 39 Submit-Phase Proof
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `31, 32, 33, 34, 35, 36, 37, 38, 39`
-- Task Status: `__todo__`
-- Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed. Planner repair on 2026-04-06 renumbered this final revalidation from Task 39 to Task 40 because Task 38 proved one fresh earlier-owner diagnostic had to land first as Task 39.
+- Task Dependencies: `39`
+- Task Status: `__in_progress__`
+- Notes: Added during planner repair on 2026-04-06 because Task 39 completed and the remaining shared remove-flow repair could not honestly resume in-place below already completed later tasks. This fresh successor now owns the executable shared remove-flow repair that Task 36 had been waiting to resume.
 
 #### Overview
 
-This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 39 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, the restored full-client baseline, the bounded remove-flow owner derivation, the exhausted selector-contract proof, the post-visibility live-debug proof, the fresh earlier-owner diagnostic, the shared ingest remove-flow e2e repair, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
+This task resumes the broader shared remove-flow repair now that Task 39 has proved the first trustworthy pre-remove owner for the failure. It owns the smallest real fix needed to make `remove clears entry and unlocks model when empty` pass end-to-end on current `HEAD`, and then restore the full `npm run test:summary:e2e` wrapper without reopening Task 34's queue-specific proof surfaces.
+
+#### Task Exit Criteria
+
+- The shared ingest remove-flow scenario `remove clears entry and unlocks model when empty` passes on current `HEAD` after applying only the concrete owner fix proven by Task 39.
+- Full `npm run test:summary:e2e` passes cleanly again without larger blanket timeouts, extra sleeps, or permanent scenario filtering.
+- The final repair remains bounded to the owner Task 39 proved and does not silently broaden back into unrelated ingest e2e behavior.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `e2e/ingest.spec.ts`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/trace.zip`
+- `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/error-context.md`
+- Any directly shared ingest e2e helper or teardown seam the Task 39 pre-remove proof identifies
+
+#### Subtasks
+
+1. [ ] Re-read the completed Task 39 pre-remove owner notes and use only the proved earlier owner or contradiction they establish as the starting point for the next repair. Purpose: keep the broader rebaseline anchored to concrete evidence instead of reopening speculative branches.
+2. [ ] Repair only the shared remove-flow seam that remains after Task 39 proved the first trustworthy pre-remove owner, keeping the valid mounted fixture path contract and the Task 34 queue-proof boundary unchanged. Purpose: restore the remove-flow scenario honestly without re-broadening the task.
+3. [ ] Update any directly owning helper comments, trace-visible notes, or proof text if the final repair changes how the shared remove-flow scenario reaches completion or removal. Purpose: leave a clean direct-owner handoff for the final story revalidation task.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` and confirm the targeted shared remove-flow scenario passes on current `HEAD`.
+2. [ ] Run full `npm run test:summary:e2e` and confirm the full e2e wrapper passes cleanly again after the shared remove-flow repair.
+
+#### Implementation notes
+
+- Planner repair on 2026-04-06 created this fresh successor because Task 39 completed and answered the stale prerequisite blocker that had been parked on Task 36. This task is now the real next executable owner for the shared remove-flow repair, while Task 36 remains only as historical blocked-handoff context.
+
+---
+
+### Task 41. Re-Validate Story 55 After Review Pass `0000055-20260404T183747Z-e78729af`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `31, 32, 33, 34, 35, 36, 37, 38, 39, 40`
+- Task Status: `__todo__`
+- Notes: Added on 2026-04-04 so Story 55 must be fully revalidated after the current review findings are fixed. Planner repair on 2026-04-06 first renumbered this final revalidation from Task 39 to Task 40 because Task 38 proved one fresh earlier-owner diagnostic had to land first as Task 39. Planner repair later the same day then moved final revalidation to Task 41 because Task 39's completed proof had to hand the remaining executable shared remove-flow repair to a fresh higher-numbered Task 40.
+
+#### Overview
+
+This final review-response task reruns the complete Story 55 validation path after Tasks 31 through 40 land. It must confirm that the repaired generated contract, the deterministic browser proof with durable screenshot evidence, the restored full-client baseline, the bounded remove-flow owner derivation, the exhausted selector-contract proof, the post-visibility live-debug proof, the fresh earlier-owner diagnostic, the resumed shared ingest remove-flow e2e repair, and the workflow-state hygiene cleanup all satisfy the current review findings without regressing the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, or supported compose paths.
 
 #### Task Exit Criteria
 
@@ -2958,15 +3001,15 @@ This final review-response task reruns the complete Story 55 validation path aft
 #### Subtasks
 
 1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning wrappers.
-2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 39 changed the contract, proof story, or hygiene story those documents need to communicate.
+2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 31 through 40 changed the contract, proof story, or hygiene story those documents need to communicate.
 3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current-review findings were fixed, which proof homes were rerun, and why the story is honestly complete again.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
-2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 39. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 31 through 40. Keep the Story 55 screenshot artifacts in their durable tracked location so the reopened browser proof remains inspectable from the branch later.
 3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks. If a conflicting main-stack instance already owns the fixed host ports, stop that normal stack intentionally first rather than switching to a different runtime variant for this proof.
 
 #### Implementation notes
 
-- Planner repair on 2026-04-06 renumbered this final revalidation from Task 39 to Task 40 because Task 38 proved one fresh earlier-owner diagnostic had to land first. Final validation still stays here, but it now honestly waits for Task 39 as well as the already completed review-response tasks.
+- Planner repair on 2026-04-06 first renumbered this final revalidation from Task 39 to Task 40 because Task 38 proved one fresh earlier-owner diagnostic had to land first. The later same-day repair then moved final revalidation to Task 41 because Task 39's completed proof had to hand the remaining executable shared remove-flow repair to a fresh higher-numbered Task 40 before close-out can be honest.

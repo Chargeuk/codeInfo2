@@ -2933,7 +2933,7 @@ This task does not try to finish the whole shared remove-flow repair. It only pr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `39`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added during planner repair on 2026-04-06 because Task 39 completed and the remaining shared remove-flow repair could not honestly resume in-place below already completed later tasks. This fresh successor now owns the executable shared remove-flow repair that Task 36 had been waiting to resume.
 
 #### Overview
@@ -2974,6 +2974,7 @@ This task resumes the broader shared remove-flow repair now that Task 39 has pro
 - Subtask 3: no extra helper comment or proof-text edit was needed in this successor because the existing named owner seams in `e2e/ingest.spec.ts` already leave a clear handoff for final revalidation. This task therefore ends its implementation phase with the shared repair carried by the current code on disk and waits only for the targeted and full-wrapper proof reruns.
 - Testing 1: `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "remove clears entry and unlocks model when empty"` passed cleanly on current `HEAD` with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`.
 - Testing 2: full `npm run test:summary:e2e` also passed cleanly on current `HEAD` with `tests run: 58`, `passed: 58`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`. The shared remove-flow repair now restores the full e2e wrapper without reopening Task 34's queue-specific proof surfaces.
+- Implementation-plus-automated-proof audit on 2026-04-06: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 40 section, the latest Task 40 proof commit `fdbf48dc`, and the current shared e2e proof note plus `logs/test-summaries/e2e-tests-latest.log` from disk. The current plan already honestly showed every subtask and both testing steps complete, no live `**BLOCKER**` remained, and Task 40 now closes as `__done__` because the resumed shared remove-flow repair and its targeted plus full-wrapper automated proof are both complete.
 
 ---
 

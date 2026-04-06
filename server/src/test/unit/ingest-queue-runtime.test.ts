@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach, mock } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import mongoose from 'mongoose';
 import {
   __finalizeQueueRequestForRunForTest,
@@ -19,7 +19,6 @@ import {
   validateExecutableIngestInput,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
-import * as chromaClient from '../../ingest/chromaClient.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
 
@@ -201,14 +200,6 @@ test('queue pump creates the real runId only when queued work actually starts', 
 });
 
 test('queue promotion still enforces the empty-collection lock mismatch before the promoted request can run', async () => {
-  mock.method(chromaClient, 'getLockedEmbeddingModel', async () => ({
-    embeddingProvider: 'lmstudio',
-    embeddingModel: 'embed-2',
-    embeddingDimensions: 768,
-    lockedModelId: 'embed-2',
-    source: 'canonical',
-  }));
-
   const promoted = createQueueRequest({
     requestId: '5',
     root: '/data/repo-lock-mismatch',
@@ -227,6 +218,30 @@ test('queue promotion still enforces the empty-collection lock mismatch before t
         embeddingModel: 'embed-1',
       },
     }),
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    try {
+      await validateExecutableIngestInput(input, {
+        getLockedEmbeddingModel: async () => ({
+          embeddingProvider: 'lmstudio',
+          embeddingModel: 'embed-2',
+          embeddingDimensions: 768,
+          lockedModelId: 'embed-2',
+          source: 'canonical',
+        }),
+      });
+    } catch (error) {
+      __setStatusAndPublishForTest(runId, {
+        runId,
+        state: 'error',
+        counts: { files: 0, chunks: 0, embedded: 0 },
+        message: 'Failed',
+        lastError: (error as Error).message,
+        error: null,
+      });
+    } finally {
+      release(runId);
+    }
   });
 
   const result = await pumpIngestQueue();

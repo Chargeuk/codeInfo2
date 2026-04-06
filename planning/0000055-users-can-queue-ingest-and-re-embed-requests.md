@@ -3085,12 +3085,12 @@ This review-fix task repairs the contract mismatch between route-time admission 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the queued start-lock validation repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the route-owner contract now covers the old empty-collection lock mismatch contradiction directly.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the queued promotion path still enforces the aligned execution-time rule.
-4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` and confirm the higher-level ingest-start feature proof now matches the repaired lock-validation contract instead of the stale acceptance behavior.
-5. [ ] Run full `npm run test:summary:server:unit` and confirm the wider backend unit/integration baseline still passes after the shared validation-contract repair.
-6. [ ] Run full `npm run test:summary:server:cucumber` and confirm the wider backend feature baseline still passes after the same repair instead of only the targeted ingest-start scenario.
+1. [x] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the queued start-lock validation repair.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the route-owner contract now covers the old empty-collection lock mismatch contradiction directly.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the queued promotion path still enforces the aligned execution-time rule.
+4. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` and confirm the higher-level ingest-start feature proof now matches the repaired lock-validation contract instead of the stale acceptance behavior.
+5. [x] Run full `npm run test:summary:server:unit` and confirm the wider backend unit/integration baseline still passes after the shared validation-contract repair.
+6. [x] Run full `npm run test:summary:server:cucumber` and confirm the wider backend feature baseline still passes after the same repair instead of only the targeted ingest-start scenario.
 
 #### Implementation notes
 
@@ -3101,6 +3101,12 @@ This review-fix task repairs the contract mismatch between route-time admission 
 - Subtask 5: replaced the old bare-validator queue-runtime proof with a real promotion-reader proof in `server/src/test/unit/ingest-queue-runtime.test.ts`. The test now drives `pumpIngestQueue()` through a promoted waiting request and asserts that the run reaches terminal `error` with `lastError: MODEL_LOCKED` under the same mismatch.
 - Subtask 6: rewrote the stale cucumber scenario in `server/src/test/features/ingest-start.feature` and added a direct error-code assertion step in `server/src/test/steps/ingest-start.steps.ts` so the higher-level ingest-start contract now says the empty-collection lock mismatch is rejected, not accepted.
 - Subtask 7: kept the reopened proofs deterministic by reusing the existing release/reset/temp-dir cleanup seams in the route, queue-runtime, and cucumber owners, and by asserting on direct response or terminal promotion outcomes rather than timing guesses or test-order dependence.
+- Testing 1: `npm run build:summary:server` passed cleanly on current `HEAD` with `agent_action: skip_log`, `warning_count: 0`, and log `logs/test-summaries/build-server-latest.log`, so the server build path still accepts the aligned queued `/ingest/start` lock-validation repair.
+- Testing 2: the targeted route-owner wrapper `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` passed cleanly with `tests run: 13`, `passed: 13`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-04-06T02-43-36-083Z.log`, so the direct empty-collection queued-admission contradiction is now covered at the route seam.
+- Testing 3: the first targeted queue-runtime rerun failed because the proof tried to `mock.method(...)` the ESM `getLockedEmbeddingModel` export directly, which Node refused to redefine in this file. Replacing that proof-side seam with the existing `__setRunProcessorForTest(...)` hook kept the test anchored to `pumpIngestQueue()` while avoiding the export-redefinition contradiction, and the rerun then passed cleanly with `tests run: 12`, `passed: 12`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-04-06T02-44-47-935Z.log`.
+- Testing 4: the targeted cucumber wrapper `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start.feature` passed cleanly with `tests run: 3`, `passed: 3`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-cucumber-tests-2026-04-06T02-45-11-303Z.log`, so the higher-level ingest-start feature now matches the repaired lock-validation contract instead of the stale acceptance behavior.
+- Testing 5: full `npm run test:summary:server:unit` passed cleanly on current `HEAD` with `tests run: 1613`, `passed: 1613`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-04-06T02-45-50-663Z.log`, so the wider backend unit/integration baseline still carries the aligned queued-start validation contract after the repair.
+- Testing 6: full `npm run test:summary:server:cucumber` passed cleanly on current `HEAD` with `tests run: 84`, `passed: 84`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-cucumber-tests-2026-04-06T03-09-11-203Z.log`, so the wider backend feature baseline still carries the repaired queued-start admission contract beyond the targeted ingest-start scenario.
 
 ---
 

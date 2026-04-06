@@ -3028,3 +3028,192 @@ This final review-response task reruns the complete Story 55 validation path aft
 - Testing 3: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/compose-build-latest.log`, then `npm run compose:up` started the supported main stack without a host-port conflict and `npm run compose:down` removed the stack cleanly. This keeps the main-stack proof on the supported runtime path rather than an alternate local-only variant.
 - Implementation-plus-automated-proof audit on 2026-04-06: re-read `codeInfoStatus/flow-state/current-plan.json`, reopened this exact Task 41 section from disk, checked the latest proof commit `2563abc3`, and verified the current repo evidence still shows every Task 41 subtask and testing step complete with no live `**BLOCKER**` note. No testing box needed to be newly checked in this audit because the plan already honestly recorded the full build, wrapper, and compose revalidation results, so Task 41 is now `__done__`.
 - Manual testing ran on 2026-04-06 as a full-story proof pass after re-reading only the stored Story 55 handoff scope, the current runtime-research file, `AGENTS.md`, and `README.md`. Because the runtime research marks the main compose stack as restart-by-default for relevant runtime-loaded changes and no freshness marker proved reuse honestly, I used the supported main-stack path from a stopped state (`npm run compose:build`, `npm run compose:up`, live `curl` checks against `http://localhost:5010/health`, `/ingest/models`, and `/ingest/roots`, then `npm run compose:down`) while leaving the already-running local compose overlay untouched. Browser proof on `http://localhost:5001/ingest` showed a fresh queued submission while another run was active, the queued details drawer exposed the durable `Request ID`, `Pending queue start`, and `waiting (#1)` state, API proof showed the waiting row with `requestId`, `queuePosition: 1`, and no `runId`, and after releasing the queue head the queued row picked up live `runId` `60d7494a-9377-4162-a7cf-00d3b6ef5a20`, stopped showing `queued (#1)` after refresh, and finished cleanly before I removed the disposable proof roots and deleted their host folders. Screenshots were saved at `/tmp/playwright-output/story55-manual-queued-state.png` and `/tmp/playwright-output/story55-manual-post-handoff.png`; browser console output stayed informational, browser network requests showed no failed calls, and I did not require the completed-row details drawer to retain the historical run owner because the owned Story 55 acceptance and e2e proof only require the queued row to gain an owner before terminal state and stop presenting itself as queued after handoff. No additional subtasks or Testing-step changes were needed.
+
+## Code Review Findings
+
+Review pass `0000055-20260406T015137Z-60894b27` reopened Story 55 with three current-repository findings recorded in:
+
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md`
+
+Summary of required follow-up:
+
+1. `must_fix`: queued `/ingest/start` admission still permits one empty-collection lock-mismatch case that later fails under stricter execution-time validation, so blocking callers can see an accepted queued request fail only when promoted.
+2. `should_fix`: Task 41 currently cites exact `test-results/*.log` paths for full server-unit, server-cucumber, and client wrapper proof, but those files are no longer on disk, so the close-out proof needs one honest durable retained evidence home.
+3. `should_fix`: `.gitignore` now hides `codeInfoStatus/reviews/`, but durable review artifacts inside that directory still need tracked, non-ignored status so review evidence retention and hygiene scans stay honest.
+
+---
+
+### Task 42. Align Queued `/ingest/start` Admission Validation With Execution-Time Lock Rules
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `41`
+- Task Status: `__in_progress__`
+- Notes: Added on 2026-04-06 from review pass `0000055-20260406T015137Z-60894b27` because queued `/ingest/start` requests can still be accepted under one lock rule and then fail later when promotion re-runs the stricter execution-time validation.
+
+#### Overview
+
+This review-fix task repairs the contract mismatch between route-time admission for queued `/ingest/start` requests and the execution-time validation that later runs in the ingest queue. The fix must make the empty-collection lock case behave consistently from first admission through later queue promotion so blocking callers never receive an accepted queued request that was already invalid under the execution rule that will eventually run.
+
+#### Task Exit Criteria
+
+- Queued `/ingest/start` admission and later execution-time validation use one consistent lock-mismatch rule for the empty-collection path.
+- A request that would fail `validateExecutableIngestInput()` for a lock mismatch can no longer be accepted first and only fail later when promoted from the queue.
+- Direct proof exists for both the route-time rejection/acceptance contract and the queued-promotion path that previously contradicted it.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
+- `server/src/routes/ingestStart.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the stored review finding plus the current route-time and execution-time validation owners, then choose one canonical lock-mismatch rule for queued `/ingest/start` requests that stays consistent from admission through later promotion. Purpose: remove the current empty-collection exception contradiction before editing code.
+2. [ ] Land the smallest production change needed to make queued admission and later execution share that same lock-validation contract. Purpose: prevent accept-now fail-later queue behavior without widening the Story 55 queue surface.
+3. [ ] Add or tighten direct proof in the route-owner and queue-runtime-owner tests so the previously contradictory queued `/ingest/start` path cannot regress silently. Purpose: prove both halves of the old split rule now agree.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the supported server build wrapper still passes after the queued start-lock validation repair.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the route-owner contract now covers the old empty-collection lock mismatch contradiction directly.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the queued promotion path still enforces the aligned execution-time rule.
+4. [ ] Run full `npm run test:summary:server:unit` and confirm the wider backend unit/integration baseline still passes after the shared validation-contract repair.
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### Task 43. Repair Review-Artifact Ignore Hygiene For `codeInfoStatus/reviews/`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `42`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-06 from review pass `0000055-20260406T015137Z-60894b27` because `.gitignore` now hides `codeInfoStatus/reviews/` even though the Story 55 evidence, findings, and challenge artifacts are durable tracked review outputs rather than disposable runtime state.
+
+#### Overview
+
+This hygiene-only review-fix task narrows the review-artifact ignore rules so transient workflow state can stay clearly separated without leaving durable review artifacts hidden under an ignored directory. The fix must keep the current review evidence, findings, and challenge artifacts commit-worthy and visible to normal hygiene scans.
+
+#### Task Exit Criteria
+
+- Durable review artifacts under `codeInfoStatus/reviews/` are no longer hidden by the ignore rule that marks them as ignored-tracked files.
+- Any still-ignored review paths are limited to transient workflow state rather than durable evidence, findings, or challenge artifacts.
+- A direct hygiene check proves the current Story 55 durable review artifacts are no longer reported by `git ls-files -ci --exclude-standard` because of the review-directory ignore rule.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
+- `.gitignore`
+- `codeInfoStatus/reviews/0000055-current-review.json`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read the current `.gitignore` review rule and separate the truly transient review-handoff state from the durable evidence/findings/challenge artifacts this workflow keeps in commit history. Purpose: choose the smallest honest ignore-pattern split before editing support files.
+2. [ ] Update the ignore pattern and any directly owning workflow note only as far as needed to keep durable review artifacts tracked and visible while transient handoff state remains clearly scoped. Purpose: fix the ignored-tracked hygiene issue without broad support-file churn.
+3. [ ] Verify the current Story 55 review artifacts are no longer hidden by the ignore rule through a direct hygiene scan. Purpose: leave one bounded proof home for the review-artifact retention contract.
+
+#### Testing
+
+1. [ ] Run `git ls-files -ci --exclude-standard -- codeInfoStatus/reviews` and confirm the current Story 55 durable review artifacts are no longer reported as ignored-tracked files because of the review-directory ignore rule.
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### Task 44. Restore Honest Durable Proof Homes For Story 55 Full Wrapper Close-Out
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `42, 43`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-06 from review pass `0000055-20260406T015137Z-60894b27` because Task 41 currently names full server-unit, server-cucumber, and client wrapper log files that are no longer present on disk, leaving the close-out proof weaker than the plan claims.
+
+#### Overview
+
+This review-fix task restores an honest direct proof home for the Story 55 full server-unit, server-cucumber, and client wrappers. It must rerun the missing full-wrapper proof after the contract fix lands, then update the final close-out notes so they reference only evidence that actually exists and remains inspectable on disk or in durable tracked artifacts.
+
+#### Task Exit Criteria
+
+- Fresh direct current-repo evidence exists for the full server-unit, server-cucumber, and client wrappers after Task 42 lands.
+- Task 41 and any directly owning close-out notes no longer claim retained proof at `test-results/*.log` paths that are absent from current disk.
+- The durable proof home for those wrapper results is explicit and inspectable without relying on historical claims.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
+- `logs/test-summaries/`
+- `test-results/`
+
+#### Subtasks
+
+1. [ ] Re-read the current Task 41 proof notes, the review finding, and the actual wrapper artifact locations on disk to decide the smallest honest durable proof home for full server-unit, server-cucumber, and client wrapper results. Purpose: fix the retained-proof contradiction without inventing a new artifact story unnecessarily.
+2. [ ] Rerun the full server-unit, server-cucumber, and client wrappers after Task 42 and capture their terminal results in evidence that actually exists after the run. Purpose: replace the currently missing retained proof files with fresh direct proof.
+3. [ ] Update Task 41 and any directly owning close-out notes so they cite only the proof homes that remain inspectable after the rerun. Purpose: leave the plan and summary aligned with real retained evidence rather than stale filenames.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit` and confirm the full backend unit/integration wrapper passes after the Task 42 contract repair.
+2. [ ] Run `npm run test:summary:server:cucumber` and confirm the full backend feature wrapper still passes after the review-fix work so far.
+3. [ ] Run `npm run test:summary:client` and confirm the full client wrapper still passes after the review-fix work so far.
+
+#### Implementation notes
+
+- None yet.
+
+---
+
+### Task 45. Re-Validate Story 55 After Review Pass `0000055-20260406T015137Z-60894b27`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `42, 43, 44`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-06 so Story 55 must be fully revalidated after the current code-review findings are fixed and the final retained proof homes are corrected.
+
+#### Overview
+
+This final review-response task reruns the full Story 55 validation path after Tasks 42 through 44 land. It must confirm that the queued `/ingest/start` lock-validation contract is now consistent from admission through execution, that review-artifact hygiene no longer hides durable evidence, that the final full-wrapper proof homes are honest and inspectable, and that the already-proved queue runtime, queue-aware transport behavior, shared repo-list visibility, browser proof, and supported compose path still hold after the review-fix work.
+
+#### Task Exit Criteria
+
+- The current review findings from `0000055-20260406T015137Z-60894b27` are closed by direct current-repo evidence, not by historical claims.
+- Every Story 55 acceptance criterion is re-checked against the post-fix implementation and still has an honest direct or indirect proof home, including the queued `/ingest/start` validation contract and the final retained full-wrapper proof homes this review reopened.
+- Final close-out notes in this plan explain why Story 55 is complete again after the current review reopen and carry forward any residual-risk notes from the stored findings and blind-spot challenge artifacts that remain honest after the fixes.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `README.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-findings.md`
+- `codeInfoStatus/reviews/0000055-20260406T015137Z-60894b27-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 55 plan plus the current review artifacts and trace every acceptance criterion, reopened finding, and still-relevant out-of-scope boundary against the post-fix implementation before rerunning final wrappers. Purpose: keep the final revalidation grounded in the stored review scope.
+2. [ ] Update `planning/0000055-pr-summary.md` and any other task-owned close-out notes only if Tasks 42 through 44 changed the contract, proof story, or hygiene story those documents must communicate. Purpose: leave the close-out story aligned with the latest reviewed state.
+3. [ ] Record the final review-fix close-out notes in this plan so the story shows which current review findings were fixed, which proof homes were rerun, and why the story is honestly complete again. Purpose: leave one canonical close-out record after the reopened work finishes.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
+2. [ ] Run `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, and `npm run test:summary:e2e`, and confirm all full wrappers pass after Tasks 42 through 44.
+3. [ ] Run `npm run compose:build:summary`, then `npm run compose:up`, and finally `npm run compose:down`, and confirm the supported main-stack runtime path still passes cleanly after the current review-fix tasks.
+
+#### Implementation notes
+
+- None yet.

@@ -319,6 +319,110 @@ test('ingest-reembed queue-target normalization resolves encoded route aliases t
   assert.equal(normalizeCanonicalQueueTargetPath('/tmp/repo'), '/tmp/repo');
 });
 
+test('queued reembed execution path and canonical bookkeeping path are kept separate for runtime operations', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/hello.ts': 'export const x = 1;\n',
+  });
+  const mountedExecutionRoot = root;
+  const canonicalTargetRoot = `${root}-canonical-stored`;
+  const listLookupRoots: string[] = [];
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+
+  mock.method(IngestFileModel, 'find', (query: { root?: string }) => ({
+    select: () => ({
+      lean: () => ({
+        exec: async () => {
+          listLookupRoots.push(query.root ?? '');
+          return [];
+        },
+      }),
+    }),
+  }));
+
+  try {
+    const runId = await startIngest(
+      {
+        path: mountedExecutionRoot,
+        canonicalTargetPath: canonicalTargetRoot,
+        name: 'queued-reembed-path-semantics',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(listLookupRoots.includes(canonicalTargetRoot), true);
+    const startLog = query({ text: 'ingest start' }, 20).find(
+      (entry) => entry.message === 'ingest start',
+    );
+    assert.equal(startLog?.context?.path, mountedExecutionRoot);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queued reembed destructive cleanup stays keyed to canonicalTargetPath when execution path is mounted', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/hello.ts': 'export const x = 1;\n',
+  });
+  const mountedExecutionRoot = root;
+  const canonicalTargetRoot = `${root}-canonical-stored`;
+  const deleteVectorRoots: Array<Record<string, unknown>> = [];
+  const deleteRootRoots: Array<Record<string, unknown>> = [];
+  const { vectors, roots } = setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+
+  mock.method(IngestFileModel, 'find', (query: { root?: string }) => ({
+    select: () => ({
+      lean: () => ({
+        exec: async () => {
+          assert.equal(query.root, canonicalTargetRoot);
+          return [];
+        },
+      }),
+    }),
+  }));
+  vectors.delete = mock.fn(async (opts: { where?: Record<string, unknown> }) => {
+    if (opts?.where && Object.hasOwn(opts.where, 'root')) {
+      deleteVectorRoots.push(opts.where);
+    }
+  });
+  roots.delete = mock.fn(async (opts: { where?: Record<string, unknown> }) => {
+    if (opts?.where && Object.hasOwn(opts.where, 'root')) {
+      deleteRootRoots.push(opts.where);
+    }
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: mountedExecutionRoot,
+        canonicalTargetPath: canonicalTargetRoot,
+        name: 'queued-reembed-path-semantics',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(
+      deleteVectorRoots.some((where) => where.root === canonicalTargetRoot),
+      true,
+    );
+    assert.equal(
+      deleteRootRoots.some((where) => where.root === canonicalTargetRoot),
+      true,
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test('ingest-reembed queue outage mapping returns retryable 503 QUEUE_UNAVAILABLE', async () => {
   const response = await request(
     buildApp({

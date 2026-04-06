@@ -12,7 +12,10 @@ import {
   waitForQueueRequestTerminalStatus,
 } from './ingestJob.js';
 import { resolveMountedIngestPath } from './pathMap.js';
-import { normalizeCanonicalQueueTargetPath } from './requestContracts.js';
+import {
+  normalizeCanonicalQueueTargetPath,
+  splitQueuedIngestExecutionPath,
+} from './requestContracts.js';
 import {
   enqueueOrReuseIngestRequest,
   type EnqueueIngestRequestResult,
@@ -406,18 +409,23 @@ export function buildQueuedReingestRequest(
   const embeddingModel = repo.lock?.embeddingModel ?? repo.embeddingModel;
   const model =
     provider === 'openai' ? `${provider}/${embeddingModel}` : embeddingModel;
-  const resolvedRunPath = resolveMountedIngestPath({
-    containerPath: repo.containerPath,
-    hostPath: repo.hostPath,
+  const requestPaths = splitQueuedIngestExecutionPath({
+    canonicalTargetPath: repo.containerPath,
+    mountedPath: resolveMountedIngestPath({
+      containerPath: repo.containerPath,
+      hostPath: repo.hostPath,
+    }),
   });
 
   return {
-    canonicalTargetPath: resolvedRunPath,
+    canonicalTargetPath: requestPaths.canonicalTargetPath,
     operation: 'reembed',
     sourceSurface: 'reingest_repository',
     requestPayload: {
-      path: resolvedRunPath,
-      name: repo.id ?? (path.posix.basename(resolvedRunPath) || 'repo'),
+      path: requestPaths.requestPayloadPath,
+      name:
+        repo.id ??
+        (path.posix.basename(requestPaths.canonicalTargetPath) || 'repo'),
       ...(repo.description ? { description: repo.description } : {}),
       model,
       embeddingProvider: provider,

@@ -475,6 +475,85 @@ test('startup recovery retries leftover running work before newer waiting work',
   ]);
 });
 
+test('startup recovery replays queued reembed work using canonicalTargetPath for bookkeeping', async () => {
+  const events: string[] = [];
+  const canonicalRoot = '/data/canonical-running-root';
+  const mountedPath = '/tmp/mounted-running-root';
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '12',
+    root: canonicalRoot,
+    queueState: 'running',
+    runId: 'run-recovered-split',
+  });
+  recoveryQueueRequest.requestPayload.path = mountedPath;
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => {
+      events.push('running-selected');
+      return recoveryQueueRequest;
+    },
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promoted');
+      return null;
+    },
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`started:${runId}:${input.path}`);
+    events.push(`canonical:${input.canonicalTargetPath}`);
+    release(runId);
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  await waitForNextTurn();
+
+  assert.equal(result.recovered, true);
+  assert.deepEqual(events, [
+    'running-selected',
+    `started:run-recovered-split:${mountedPath}`,
+    `canonical:${canonicalRoot}`,
+  ]);
+});
+
+test('startup recovery fallback uses canonicalTargetPath when persisted requestPayload.path is missing', async () => {
+  const events: string[] = [];
+  const canonicalRoot = '/data/canonical-degraded-root';
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '13',
+    root: canonicalRoot,
+    queueState: 'running',
+    runId: 'run-recovered-degraded',
+  });
+  delete (recoveryQueueRequest.requestPayload as { path?: string }).path;
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => {
+      events.push('running-selected');
+      return recoveryQueueRequest;
+    },
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promoted');
+      return null;
+    },
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`started:${runId}:${input.path}`);
+    events.push(`canonical:${input.canonicalTargetPath}`);
+    release(runId);
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  await waitForNextTurn();
+
+  assert.equal(result.recovered, true);
+  assert.deepEqual(events, [
+    'running-selected',
+    `started:run-recovered-degraded:${canonicalRoot}`,
+    `canonical:${canonicalRoot}`,
+  ]);
+});
+
 test('recovery selectors use one oldest-item lookup per queue state instead of loading the full queue', async () => {
   const counts = {
     cleanupBlockedLookups: 0,

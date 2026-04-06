@@ -11,6 +11,27 @@ export type CanonicalEmbeddingRequestFields = {
   model?: unknown;
 };
 
+export type QueuedIngestRequestPaths = {
+  canonicalTargetPath: string;
+  requestPayloadPath: string;
+};
+
+export function splitQueuedIngestExecutionPath(params: {
+  canonicalTargetPath: string;
+  mountedPath?: unknown;
+}): QueuedIngestRequestPaths {
+  const canonical = normalizeCanonicalQueueTargetPath(params.canonicalTargetPath);
+  const mounted =
+    typeof params.mountedPath === 'string' && params.mountedPath.length > 0
+      ? params.mountedPath
+      : canonical;
+
+  return {
+    canonicalTargetPath: canonical,
+    requestPayloadPath: mounted,
+  };
+}
+
 export type ResolvedRequestEmbeddingSelection = {
   selection: ResolvedEmbeddingModelSelection;
   requestedModelId: string;

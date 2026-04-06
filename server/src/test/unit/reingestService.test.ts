@@ -518,11 +518,11 @@ test('queue delay is treated as normal blocking progress before the terminal run
   assert.equal(result.value.completionMode, 'reingested');
 });
 
-test('queued reembed requests remap legacy listed container paths onto the active codex workdir when host mapping is available', async () => {
+test('queued reembed requests keep canonicalTargetPath while using a mounted execution path when host mapping is available', async () => {
   const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
   const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
-  process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
-  process.env.CODEINFO_CODEX_WORKDIR = '/home/d_a_s/code';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/tmp/codeinfo-host-ingest';
+  process.env.CODEINFO_CODEX_WORKDIR = '/tmp/codeinfo-codex-workdir';
 
   try {
     const result = await runReingestRepository(
@@ -535,7 +535,7 @@ test('queued reembed requests remap legacy listed container paths onto the activ
                 id: 'repo-a',
                 containerPath: '/data/codeInfo2/codeInfo2',
               }),
-              hostPath: '/home/d_a_s/code/codeInfo2/codeInfo2',
+              hostPath: '/tmp/codeinfo-host-ingest/codeInfo2/codeInfo2',
             },
           ],
           lockedModelId: 'model',
@@ -543,11 +543,11 @@ test('queued reembed requests remap legacy listed container paths onto the activ
         enqueueOrReuseIngestRequest: async (input) => {
           assert.equal(
             input.canonicalTargetPath,
-            '/home/d_a_s/code/codeInfo2/codeInfo2',
+            '/data/codeInfo2/codeInfo2',
           );
           assert.equal(
             input.requestPayload.path,
-            '/home/d_a_s/code/codeInfo2/codeInfo2',
+            '/tmp/codeinfo-codex-workdir/codeInfo2/codeInfo2',
           );
           return buildQueueResult({
             requestId: 'queue-request-remapped',
@@ -564,6 +564,63 @@ test('queued reembed requests remap legacy listed container paths onto the activ
           reason: 'terminal',
           requestId: 'queue-request-remapped',
           runId: 'ingest-remapped',
+          status: buildTerminal('completed'),
+          lastKnown: buildTerminal('completed'),
+        }),
+        appendLog: noopLog,
+        waitOptions: { timeoutMs: 5_000 },
+      },
+    );
+
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.status, 'completed');
+    } finally {
+      if (originalHostIngestDir === undefined) {
+        delete process.env.CODEINFO_HOST_INGEST_DIR;
+      } else {
+        process.env.CODEINFO_HOST_INGEST_DIR = originalHostIngestDir;
+    }
+    if (originalCodexWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalCodexWorkdir;
+    }
+  }
+});
+
+test('queued reembed requests keep canonicalTargetPath and execution path aligned when host mapping is unavailable', async () => {
+  const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  delete process.env.CODEINFO_HOST_INGEST_DIR;
+  delete process.env.CODEINFO_CODEX_WORKDIR;
+
+  try {
+    const result = await runReingestRepository(
+      { sourceId: '/data/repo-a' },
+      {
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
+          lockedModelId: 'model',
+        }),
+        enqueueOrReuseIngestRequest: async (input) => {
+          assert.equal(input.canonicalTargetPath, '/data/repo-a');
+          assert.equal(input.requestPayload.path, '/data/repo-a');
+          return buildQueueResult({
+            requestId: 'queue-request-unmapped',
+            canonicalTargetPath: String(input.canonicalTargetPath),
+          });
+        },
+        pumpIngestQueue: async () => ({
+          started: true,
+          blockedByCleanup: false,
+          requestId: 'queue-request-unmapped',
+          runId: 'ingest-unmapped',
+        }),
+        waitForQueueRequestTerminalStatus: async () => ({
+          reason: 'terminal',
+          requestId: 'queue-request-unmapped',
+          runId: 'ingest-unmapped',
           status: buildTerminal('completed'),
           lastKnown: buildTerminal('completed'),
         }),

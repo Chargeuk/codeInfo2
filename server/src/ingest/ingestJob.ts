@@ -77,6 +77,7 @@ import {
 
 export type IngestJobInput = {
   path: string;
+  canonicalTargetPath?: string;
   name: string;
   description?: string;
   model: string;
@@ -397,16 +398,18 @@ function toQueueManagedInput(queueRequest: {
   requestPayload: Record<string, unknown>;
 }): IngestJobInput {
   const payload = queueRequest.requestPayload;
+  const canonicalTargetPath = queueRequest.canonicalTargetPath;
   const pathValue =
     typeof payload.path === 'string' && payload.path.length > 0
       ? payload.path
-      : queueRequest.canonicalTargetPath;
+      : canonicalTargetPath;
   const nameValue =
     typeof payload.name === 'string' && payload.name.length > 0
       ? payload.name
       : path.posix.basename(pathValue) || 'repo';
 
   return {
+    canonicalTargetPath,
     path: pathValue,
     name: nameValue,
     ...(typeof payload.description === 'string'
@@ -834,7 +837,14 @@ async function processRun(runId: string, input: IngestJobInput) {
   jobInputs.set(runId, input);
   try {
     const ingestedAtMs = Date.now();
-    const { path: startPath, name, description, dryRun, operation: op } = input;
+    const {
+      path: startPath,
+      canonicalTargetPath,
+      name,
+      description,
+      dryRun,
+      operation: op,
+    } = input;
     const requestedSelection = resolveInputSelection(input);
     const embeddingProvider = requestedSelection.providerId;
     const embeddingModel = requestedSelection.modelKey;
@@ -860,7 +870,11 @@ async function processRun(runId: string, input: IngestJobInput) {
       message: 'Discovering files',
     });
     const ingestConfig = resolveConfig();
-    const { files, root } = await discoverFiles(startPath, ingestConfig);
+    const { files, root: discoveredRoot } = await discoverFiles(
+      startPath,
+      ingestConfig,
+    );
+    const root = canonicalTargetPath ?? discoveredRoot;
     jobInputs.set(runId, { ...input, root });
     if (files.length === 0 && operation !== 'reembed') {
       const errorStatus = buildNoEligibleFilesErrorStatus({
@@ -2344,7 +2358,10 @@ function startManagedRun(params: {
     lastError: null,
     error: null,
   });
-  jobInputs.set(params.runId, { ...params.input, root: params.input.path });
+  jobInputs.set(params.runId, {
+    ...params.input,
+    root: params.input.canonicalTargetPath ?? params.input.path,
+  });
   if (params.queueRequestId) {
     queueRequestIdsByRunId.set(params.runId, params.queueRequestId);
   }

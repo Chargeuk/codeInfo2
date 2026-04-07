@@ -4097,6 +4097,8 @@ This task restores the execution-time validation boundary for queued re-embed wo
 - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-findings.md`
 - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-blind-spot-challenge.md`
+- `package.json`
+- `scripts/test-summary-server-unit.mjs`
 - `server/src/ingest/ingestJob.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`
@@ -4139,7 +4141,8 @@ This task reruns the full Story 55 validation path after Task 54 lands. It must 
 - The must-fix finding from `0000055-20260407T154633Z-23c0b6df` is closed by direct current-repo evidence.
 - The default server and client build wrappers still reach the repaired Story 55 state successfully.
 - Full server unit, server cucumber, and client wrapper proofs still pass after the Task 54 repair.
-- Browser proof and supported-stack smoke proof still pass after the Task 54 repair, including supported startup and teardown ordering.
+- The browser proof still passes after the Task 54 repair.
+- The normal supported main-stack path still builds through `npm run compose:build:summary`, starts through `npm run compose:up`, passes `npm run test:summary:host-network:main`, and shuts down through `npm run compose:down`.
 - Fresh retained proof homes for this review pass exist on disk and are cited honestly in this task and `planning/0000055-pr-summary.md`.
 - Story 55 still satisfies its acceptance criteria after the Task 54 repair across server, client, browser, and supported-stack validation.
 
@@ -4150,6 +4153,16 @@ This task reruns the full Story 55 validation path after Task 54 lands. It must 
 - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-findings.md`
 - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-blind-spot-challenge.md`
+- `README.md`
+- `package.json`
+- `docker-compose.yml`
+- `docker-compose.e2e.yml`
+- `scripts/test-summary-server-unit.mjs`
+- `scripts/test-summary-server-cucumber.mjs`
+- `scripts/test-summary-client.mjs`
+- `scripts/test-summary-e2e.mjs`
+- `scripts/compose-build-summary.mjs`
+- `scripts/test-summary-host-network-main.mjs`
 - `server/src/ingest/ingestJob.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`

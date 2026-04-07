@@ -1457,6 +1457,12 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     }
 
+    if (operation === 'reembed') {
+      await validateExecutableIngestInput(input, {
+        selection: requestedSelection,
+      });
+    }
+
     if (shouldEarlyReturnDeltaNoOp) {
       logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
       logLifecycle(
@@ -1475,12 +1481,6 @@ async function processRun(runId: string, input: IngestJobInput) {
         allowCollectionBootstrapFailure: true,
       });
       return;
-    }
-
-    if (operation === 'reembed') {
-      await validateExecutableIngestInput(input, {
-        selection: requestedSelection,
-      });
     }
 
     if (operation === 'reembed') {

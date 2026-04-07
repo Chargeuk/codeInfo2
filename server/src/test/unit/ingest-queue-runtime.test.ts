@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
+import { mock } from 'node:test';
+import { ChromaClient } from 'chromadb';
 import mongoose from 'mongoose';
 import {
   __finalizeQueueRequestForRunForTest,
@@ -19,7 +24,12 @@ import {
   validateExecutableIngestInput,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
+import {
+  getLockedEmbeddingModel,
+  resetCollectionsForTests,
+} from '../../ingest/chromaClient.js';
 import { release } from '../../ingest/lock.js';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
 
 function waitForNextTurn() {
@@ -52,6 +62,86 @@ function createQueueRequest(params: {
   };
 }
 
+async function createTempRepo(files: Record<string, string>) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codeinfo2-queue-'));
+  await fs.mkdir(path.join(root, '.git'));
+  await Promise.all(
+    Object.entries(files).map(async ([relPath, contents]) => {
+      const fullPath = path.join(root, relPath);
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, contents, 'utf8');
+    }),
+  );
+  process.env.CODEINFO_INGEST_TEST_GIT_PATHS = Object.keys(files).join(',');
+  return {
+    root,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
+}
+
+function setupIngestChromaMocks() {
+  const vectors = {
+    metadata: {
+      lockedModelId: 'embed-1' as string | null,
+      embeddingProvider: null as string | null,
+      embeddingModel: null as string | null,
+      embeddingDimensions: null as number | null,
+    },
+    add: mock.fn(async () => {}),
+    get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
+    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
+    modify: async ({ metadata }: { metadata?: Record<string, unknown> }) => {
+      vectors.metadata = {
+        ...(vectors.metadata ?? {}),
+        ...(metadata ?? {}),
+      } as {
+        lockedModelId: string | null;
+        embeddingProvider: string | null;
+        embeddingModel: string | null;
+        embeddingDimensions: number | null;
+      };
+    },
+    count: async () => 0,
+  };
+  const roots = {
+    get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
+    add: mock.fn(async () => {}),
+    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
+  };
+
+  mock.method(
+    ChromaClient.prototype,
+    'getOrCreateCollection',
+    async (opts: { name?: string }) => {
+      if (opts.name === 'ingest_roots') return roots as never;
+      return vectors as never;
+    },
+  );
+  mock.method(ChromaClient.prototype, 'deleteCollection', async () => {});
+  mock.method(IngestFileModel, 'find', () => ({
+    select: () => ({
+      lean: () => ({
+        exec: async () => [],
+      }),
+    }),
+  }));
+  mock.method(
+    IngestFileModel,
+    'bulkWrite',
+    mock.fn(async () => ({})),
+  );
+  mock.method(
+    IngestFileModel,
+    'deleteMany',
+    mock.fn(() => ({ exec: async () => ({}) })),
+  );
+  (mongoose.connection as unknown as { readyState: number }).readyState = 0;
+  process.env.NODE_ENV = 'test';
+  return { vectors };
+}
+
 function setNoopQueueRuntimeOps() {
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => null,
@@ -65,9 +155,13 @@ function setNoopQueueRuntimeOps() {
 }
 
 beforeEach(() => {
+  mock.restoreAll();
+  mock.reset();
+  resetCollectionsForTests();
   process.env.NODE_ENV = 'test';
   __resetIngestJobsForTest();
   release();
+  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
   __setRunSchedulerForTest((task) => {
     task();
   });
@@ -78,11 +172,15 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  mock.restoreAll();
+  mock.reset();
+  resetCollectionsForTests();
   setNoopQueueRuntimeOps();
   __setRunSchedulerForTest(null);
   __setRunProcessorForTest(null);
   __resetIngestJobsForTest();
   release();
+  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
 });
 
 test('queue pump immediately promotes the oldest eligible queue item when the ingest lock is idle', async () => {
@@ -199,63 +297,91 @@ test('queue pump creates the real runId only when queued work actually starts', 
   assert.equal(getStatus(promotedRunId)?.runId, promotedRunId);
 });
 
-test('queue promotion still enforces the empty-collection lock mismatch before the promoted request can run', async () => {
-  const promoted = createQueueRequest({
-    requestId: '5',
-    root: '/data/repo-lock-mismatch',
-    queueState: 'running',
+test('queue promotion rejects queued zero-work reembed drift at execution time and releases queue ownership cleanly', async () => {
+  const { vectors } = setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/blank.ts': '   \n\t\n',
   });
+  const requestId = '5';
+  const deletedRequestIds: string[] = [];
 
-  __setQueueRuntimeOpsForTest({
-    findOldestCleanupBlockedQueueRequest: async () => null,
-    promoteOldestWaitingQueueRequest: async (runId: string) => ({
-      ...promoted,
-      runId,
-      requestPayload: {
-        ...promoted.requestPayload,
-        model: 'embed-1',
-        embeddingProvider: 'lmstudio',
-        embeddingModel: 'embed-1',
-      },
-    }),
-  });
-  __setRunProcessorForTest(async (runId, input) => {
-    try {
-      await validateExecutableIngestInput(input, {
-        getLockedEmbeddingModel: async () => ({
-          embeddingProvider: 'lmstudio',
-          embeddingModel: 'embed-2',
-          embeddingDimensions: 768,
-          lockedModelId: 'embed-2',
-          source: 'canonical',
+  try {
+    const blankFileHash = 'blank-file-hash';
+    mock.method(IngestFileModel, 'find', (query: { root?: string }) => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () =>
+            query.root === root
+              ? [{ relPath: 'src/blank.ts', fileHash: blankFileHash }]
+              : [],
         }),
-      });
-    } catch (error) {
-      __setStatusAndPublishForTest(runId, {
-        runId,
-        state: 'error',
-        counts: { files: 0, chunks: 0, embedded: 0 },
-        message: 'Failed',
-        lastError: (error as Error).message,
-        error: null,
-      });
-    } finally {
-      release(runId);
-    }
-  });
+      }),
+    }));
+    await getLockedEmbeddingModel();
+    vectors.metadata = {
+      lockedModelId: 'embed-locked',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-locked',
+      embeddingDimensions: 768,
+    };
 
-  const result = await pumpIngestQueue();
-  assert.equal(result.started, true);
-  assert.ok(result.runId);
+    const promoted = createQueueRequest({
+      requestId,
+      root,
+      queueState: 'running',
+    });
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...promoted,
+          runId,
+          requestPayload: {
+            ...promoted.requestPayload,
+            path: root,
+            canonicalTargetPath: `${root}-queued`,
+            model: 'embed-1',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-1',
+            operation: 'reembed',
+          },
+        };
+      },
+    });
 
-  const terminal = await waitForTerminalIngestStatus(result.runId as string, {
-    timeoutMs: 1_000,
-    pollMs: 10,
-  });
+    const result = await pumpIngestQueue();
+    assert.equal(result.started, true);
+    assert.ok(result.runId);
 
-  assert.equal(terminal.reason, 'terminal');
-  assert.equal(terminal.status?.state, 'error');
-  assert.equal(terminal.status?.lastError, 'MODEL_LOCKED');
+    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'MODEL_LOCKED');
+    assert.ok(
+      deletedRequestIds.length >= 1,
+      'promotion-time rejection should still finalize and release the queued request',
+    );
+
+    const afterTerminal = await pumpIngestQueue();
+    assert.equal(afterTerminal.started, false);
+    assert.equal(afterTerminal.blockedByCleanup, false);
+    assert.equal(afterTerminal.runId, null);
+  } finally {
+    await cleanup();
+  }
 });
 
 test('queue-managed execution rejects non-allowlisted OpenAI models before promotion can run', async () => {

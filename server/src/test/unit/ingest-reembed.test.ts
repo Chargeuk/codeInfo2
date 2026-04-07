@@ -12,7 +12,10 @@ import {
   __resetAstParserLogStateForTest,
   __setParseAstSourceForTest,
 } from '../../ast/parser.js';
-import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
+import {
+  getLockedEmbeddingModel,
+  resetCollectionsForTests,
+} from '../../ingest/chromaClient.js';
 import { hashFile } from '../../ingest/hashing.js';
 import {
   __resetIngestJobsForTest,
@@ -180,8 +183,14 @@ const waitForTerminal = async (runId: string) => {
 const setupIngestChromaMocks = (options?: {
   failGetOrCreateCollection?: Error;
 }) => {
+  let collectionFailure = options?.failGetOrCreateCollection ?? null;
   const vectors = {
-    metadata: { lockedModelId: 'embed-model' as string | null },
+    metadata: {
+      lockedModelId: 'embed-model' as string | null,
+      embeddingProvider: null as string | null,
+      embeddingModel: null as string | null,
+      embeddingDimensions: null as number | null,
+    },
     add: mock.fn(async () => {}),
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
@@ -189,7 +198,12 @@ const setupIngestChromaMocks = (options?: {
       vectors.metadata = {
         ...(vectors.metadata ?? {}),
         ...(metadata ?? {}),
-      } as { lockedModelId: string | null };
+      } as {
+        lockedModelId: string | null;
+        embeddingProvider: string | null;
+        embeddingModel: string | null;
+        embeddingDimensions: number | null;
+      };
     },
     count: async () => 0,
   };
@@ -200,8 +214,8 @@ const setupIngestChromaMocks = (options?: {
   };
 
   const getOrCreateCollection = mock.fn(async (opts: { name?: string }) => {
-    if (options?.failGetOrCreateCollection) {
-      throw options.failGetOrCreateCollection;
+    if (collectionFailure) {
+      throw collectionFailure;
     }
     if (opts.name === 'ingest_roots') return roots as never;
     return vectors as never;
@@ -240,7 +254,14 @@ const setupIngestChromaMocks = (options?: {
     imports: [],
   }));
 
-  return { vectors, roots, getOrCreateCollection };
+  return {
+    vectors,
+    roots,
+    getOrCreateCollection,
+    setCollectionFailure: (error: Error | null) => {
+      collectionFailure = error;
+    },
+  };
 };
 
 const buildIngestDeps = (options?: { modelError?: Error }) => {
@@ -472,7 +493,7 @@ test('ingest-reembed queue outage mapping returns retryable 503 QUEUE_UNAVAILABL
   assert.ok(warnEntry, 'expected retryable reembed queue outage warn log');
 });
 
-test('blank-only delta reembed keeps completed no-op semantics', async () => {
+test('blank-only delta reembed keeps completed no-op semantics after execution-time validation passes', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
     'src/blank.ts': '   \n\t\n',
@@ -487,6 +508,7 @@ test('blank-only delta reembed keeps completed no-op semantics', async () => {
         }),
       }),
     }));
+    await getLockedEmbeddingModel();
 
     const runId = await startIngest(
       {
@@ -510,8 +532,63 @@ test('blank-only delta reembed keeps completed no-op semantics', async () => {
   }
 });
 
-test('blank-only delta reembed stays provider-free when model lookup would fail', async () => {
-  setupIngestChromaMocks();
+test('queued zero-work delta reembed rejects execution-time lock drift before provider lookup or Chroma bootstrap', async () => {
+  const { vectors, getOrCreateCollection } = setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'src/blank.ts': '   \n\t\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'src/blank.ts'));
+    const deps = buildIngestDeps();
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [{ relPath: 'src/blank.ts', fileHash }],
+        }),
+      }),
+    }));
+    await getLockedEmbeddingModel();
+    const bootstrapCallsBeforeRun = getOrCreateCollection.mock.calls.length;
+    vectors.metadata = {
+      lockedModelId: 'embed-locked',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-locked',
+      embeddingDimensions: 768,
+    };
+
+    const runId = await startIngest(
+      {
+        path: root,
+        canonicalTargetPath: `${root}-queued`,
+        name: 'blank-reembed-execution-drift',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'error');
+    assert.equal(status.lastError, 'MODEL_LOCKED');
+    assert.equal(
+      deps.getModelCalls(),
+      0,
+      'zero-work drift rejection should fail before provider lookup starts',
+    );
+    assert.equal(
+      getOrCreateCollection.mock.calls.length,
+      bootstrapCallsBeforeRun,
+      'zero-work drift rejection should fail before Chroma bootstrap starts',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('blank-only delta reembed stays provider-free when model lookup would fail after execution-time validation passes', async () => {
+  const { getOrCreateCollection } = setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const { root, cleanup } = await createTempRepo({
     'src/blank.ts': '   \n\t\n',
@@ -528,6 +605,8 @@ test('blank-only delta reembed stays provider-free when model lookup would fail'
         }),
       }),
     }));
+    await getLockedEmbeddingModel();
+    const bootstrapCallsBeforeRun = getOrCreateCollection.mock.calls.length;
 
     const runId = await startIngest(
       {
@@ -543,16 +622,20 @@ test('blank-only delta reembed stays provider-free when model lookup would fail'
     assert.equal(status.state, 'completed');
     assert.equal(status.error, null);
     assert.equal(deps.getModelCalls(), 0);
+    assert.equal(
+      getOrCreateCollection.mock.calls.length,
+      bootstrapCallsBeforeRun,
+      'zero-work fast path should stay Chroma-bootstrap-free after validation passes',
+    );
   } finally {
     await cleanup();
   }
 });
 
-test('blank-only delta reembed returns completed when Chroma bootstrap would fail before the zero-work return', async () => {
+test('blank-only delta reembed returns completed when Chroma bootstrap would fail after validation passes', async () => {
   const chromaBootstrapFailure = new Error('chroma bootstrap failed');
-  const { getOrCreateCollection } = setupIngestChromaMocks({
-    failGetOrCreateCollection: chromaBootstrapFailure,
-  });
+  const { getOrCreateCollection, setCollectionFailure } =
+    setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const { root, cleanup } = await createTempRepo({
     'src/blank.ts': '   \n\t\n',
@@ -568,6 +651,9 @@ test('blank-only delta reembed returns completed when Chroma bootstrap would fai
         }),
       }),
     }));
+    await getLockedEmbeddingModel();
+    const bootstrapCallsBeforeRun = getOrCreateCollection.mock.calls.length;
+    setCollectionFailure(chromaBootstrapFailure);
 
     const runId = await startIngest(
       {
@@ -586,12 +672,12 @@ test('blank-only delta reembed returns completed when Chroma bootstrap would fai
     assert.equal(
       deps.getModelCalls(),
       0,
-      'zero-work fast path should stay provider-free under bootstrap failure',
+      'zero-work fast path should stay provider-free under bootstrap failure after validation passes',
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      0,
-      'zero-work fast path should not bootstrap Chroma collections before returning',
+      bootstrapCallsBeforeRun,
+      'zero-work fast path should not bootstrap Chroma collections after validation passes',
     );
   } finally {
     await cleanup();

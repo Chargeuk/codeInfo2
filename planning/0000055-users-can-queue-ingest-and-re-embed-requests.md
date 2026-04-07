@@ -4251,7 +4251,7 @@ This task reruns the full Story 55 validation path after Task 54 lands. It must 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `55`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-07 from review pass `0000055-20260407T173819Z-108af325` after the findings artifact confirmed that `.gitignore` still hides tracked runtime source under `server/src/copilot/fake/`.
 
 #### Overview
@@ -4309,6 +4309,7 @@ This task repairs the repository hygiene defect where `.gitignore` still ignores
 - 2026-04-07 subtask-required proof checkpoint: ran `git check-ignore -v --no-index` because Subtasks 8 through 12 depend on the final reader-side ignore outcome before the hygiene repair can be recorded honestly. The repaired writer surface is the old broad `.gitignore` pattern `copilot/`, and the reader now resolves each reviewed tracked fake-Copilot source file to the explicit unignore lines for `server/src/copilot/fake/copilotScenarioCatalog.ts`, `server/src/copilot/fake/mockCopilotDeviceAuth.ts`, `server/src/copilot/fake/mockCopilotSdk.ts`, and `server/src/copilot/fake/runtimeSeam.ts` instead of to rule `copilot/`.
 - 2026-04-07 subtask-required proof checkpoint: ran `git ls-files -ci --exclude-standard -- server/src/copilot/fake/copilotScenarioCatalog.ts server/src/copilot/fake/mockCopilotDeviceAuth.ts server/src/copilot/fake/mockCopilotSdk.ts server/src/copilot/fake/runtimeSeam.ts` because Subtasks 8 through 13 require the tracked-while-ignored reader result before the summary update is honest. The command returned no tracked fake-Copilot source path, so no adjacent tracked source file under `server/src/copilot/` needed a bounded follow-up beyond the four reviewed files and no runtime-owned file changed unexpectedly enough to justify wrapper reruns.
 - 2026-04-07 Subtasks 9-12 close-out: the repaired writer surface is `.gitignore`, while the reader surfaces are `git check-ignore -v --no-index` plus `git ls-files -ci --exclude-standard`. The protected tracked source paths are `server/src/copilot/fake/copilotScenarioCatalog.ts`, `server/src/copilot/fake/mockCopilotDeviceAuth.ts`, `server/src/copilot/fake/mockCopilotSdk.ts`, and `server/src/copilot/fake/runtimeSeam.ts`; `git check-ignore` now points each one at the explicit unignore rule instead of `.gitignore:17:copilot/`, and `git ls-files -ci` now reports none of them as tracked-while-ignored.
+- 2026-04-07 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 56 section from disk, rechecked `.gitignore`, the four tracked fake-Copilot source files, and the retained proof notes already recorded in this task, and confirmed there is no live `**BLOCKER**` note on the task. No subtask or Testing checkbox needed to be newly marked complete in this audit because the plan already honestly recorded Subtasks 1 through 13 and Testing 1 through 2 as complete from the preceding implementation-owned pass. Task 56 is now `__done__` because its implementation work and automated repository-hygiene proof are both complete on current repo state, and Task 57 is now the next final revalidation owner.
 
 ### Task 57. Re-Validate Story 55 After Review Pass `0000055-20260407T173819Z-108af325`
 

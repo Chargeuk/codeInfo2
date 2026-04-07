@@ -472,7 +472,9 @@ function buildRepoKey(containerPath: string): string {
   return normalizeCanonicalQueueTargetPath(containerPath);
 }
 
-function buildRepoLookupKeys(paths: Array<string | null | undefined>): string[] {
+function buildRepoLookupKeys(
+  paths: Array<string | null | undefined>,
+): string[] {
   const keys = new Set<string>();
 
   paths.forEach((value) => {

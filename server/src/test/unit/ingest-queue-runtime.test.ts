@@ -7,6 +7,10 @@ import { mock } from 'node:test';
 import { ChromaClient } from 'chromadb';
 import mongoose from 'mongoose';
 import {
+  getLockedEmbeddingModel,
+  resetCollectionsForTests,
+} from '../../ingest/chromaClient.js';
+import {
   __finalizeQueueRequestForRunForTest,
   __getQueueRequestTerminalStatusCountForTest,
   __resetIngestJobsForTest,
@@ -24,13 +28,9 @@ import {
   validateExecutableIngestInput,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
-import {
-  getLockedEmbeddingModel,
-  resetCollectionsForTests,
-} from '../../ingest/chromaClient.js';
 import { release } from '../../ingest/lock.js';
-import { IngestFileModel } from '../../mongo/ingestFile.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
 
 function waitForNextTurn() {
   return new Promise<void>((resolve) => {
@@ -91,7 +91,7 @@ function setupIngestChromaMocks() {
     },
     add: mock.fn(async () => {}),
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
-    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
+    delete: mock.fn(async () => {}),
     modify: async ({ metadata }: { metadata?: Record<string, unknown> }) => {
       vectors.metadata = {
         ...(vectors.metadata ?? {}),
@@ -108,7 +108,7 @@ function setupIngestChromaMocks() {
   const roots = {
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     add: mock.fn(async () => {}),
-    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
+    delete: mock.fn(async () => {}),
   };
 
   mock.method(

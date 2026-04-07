@@ -193,7 +193,7 @@ const setupIngestChromaMocks = (options?: {
     },
     add: mock.fn(async () => {}),
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
-    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
+    delete: mock.fn(async () => {}),
     modify: async ({ metadata }: { metadata?: Record<string, unknown> }) => {
       vectors.metadata = {
         ...(vectors.metadata ?? {}),
@@ -210,7 +210,7 @@ const setupIngestChromaMocks = (options?: {
   const roots = {
     get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     add: mock.fn(async () => {}),
-    delete: mock.fn(async (_opts?: { where?: Record<string, unknown> }) => {}),
+    delete: mock.fn(async () => {}),
   };
 
   const getOrCreateCollection = mock.fn(async (opts: { name?: string }) => {
@@ -412,11 +412,13 @@ test('queued reembed destructive cleanup stays keyed to canonicalTargetPath when
       }),
     };
   });
-  vectors.delete = mock.fn(async (opts?: { where?: Record<string, unknown> }) => {
-    if (opts?.where && Object.hasOwn(opts.where, 'root')) {
-      deleteVectorRoots.push(opts.where);
-    }
-  });
+  vectors.delete = mock.fn(
+    async (opts?: { where?: Record<string, unknown> }) => {
+      if (opts?.where && Object.hasOwn(opts.where, 'root')) {
+        deleteVectorRoots.push(opts.where);
+      }
+    },
+  );
   roots.delete = mock.fn(async (opts?: { where?: Record<string, unknown> }) => {
     if (opts?.where && Object.hasOwn(opts.where, 'root')) {
       deleteRootRoots.push(opts.where);

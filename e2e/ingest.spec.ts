@@ -455,8 +455,7 @@ const selectEmbeddingModel = async (
       lockedSelection.value.endsWith(`::${chosenModelId}`) ||
       lockedSelection.label.toLowerCase().includes('qwen3 embedding 4b');
     if (!lockedMatchesChosenModel) {
-      ingestSkip =
-        `embedding model locked to ${lockedSelection.value || lockedSelection.label || 'unknown'} instead of ${chosenModelId}`;
+      ingestSkip = `embedding model locked to ${lockedSelection.value || lockedSelection.label || 'unknown'} instead of ${chosenModelId}`;
       test.skip(ingestSkip);
     }
     console.log(

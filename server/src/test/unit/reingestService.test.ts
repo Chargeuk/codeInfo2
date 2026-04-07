@@ -541,10 +541,7 @@ test('queued reembed requests keep canonicalTargetPath while using a mounted exe
           lockedModelId: 'model',
         }),
         enqueueOrReuseIngestRequest: async (input) => {
-          assert.equal(
-            input.canonicalTargetPath,
-            '/data/codeInfo2/codeInfo2',
-          );
+          assert.equal(input.canonicalTargetPath, '/data/codeInfo2/codeInfo2');
           assert.equal(
             input.requestPayload.path,
             '/tmp/codeinfo-codex-workdir/codeInfo2/codeInfo2',
@@ -575,11 +572,11 @@ test('queued reembed requests keep canonicalTargetPath while using a mounted exe
     assert.equal(result.ok, true);
     if (!result.ok) return;
     assert.equal(result.value.status, 'completed');
-    } finally {
-      if (originalHostIngestDir === undefined) {
-        delete process.env.CODEINFO_HOST_INGEST_DIR;
-      } else {
-        process.env.CODEINFO_HOST_INGEST_DIR = originalHostIngestDir;
+  } finally {
+    if (originalHostIngestDir === undefined) {
+      delete process.env.CODEINFO_HOST_INGEST_DIR;
+    } else {
+      process.env.CODEINFO_HOST_INGEST_DIR = originalHostIngestDir;
     }
     if (originalCodexWorkdir === undefined) {
       delete process.env.CODEINFO_CODEX_WORKDIR;
@@ -600,7 +597,9 @@ test('queued reembed requests keep canonicalTargetPath and execution path aligne
       { sourceId: '/data/repo-a' },
       {
         listIngestedRepositories: async () => ({
-          repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
+          repos: [
+            buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' }),
+          ],
           lockedModelId: 'model',
         }),
         enqueueOrReuseIngestRequest: async (input) => {

@@ -20,7 +20,9 @@ export function splitQueuedIngestExecutionPath(params: {
   canonicalTargetPath: string;
   mountedPath?: unknown;
 }): QueuedIngestRequestPaths {
-  const canonical = normalizeCanonicalQueueTargetPath(params.canonicalTargetPath);
+  const canonical = normalizeCanonicalQueueTargetPath(
+    params.canonicalTargetPath,
+  );
   const mounted =
     typeof params.mountedPath === 'string' && params.mountedPath.length > 0
       ? params.mountedPath

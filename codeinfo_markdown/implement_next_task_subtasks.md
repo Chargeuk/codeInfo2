@@ -51,6 +51,9 @@ Leave the task ready for the later automated-proof step.
   - mark each completed subtask complete immediately;
   - add concise implementation notes as work progresses;
   - keep notes specific about what changed, what issue was overcome, or why work is blocked.
+- Do not batch plan updates until the whole rerun chain finishes. If a reread, setup, wording, or proof-authoring subtask is honestly complete before later wrapper-backed subtasks begin, mark it complete immediately before moving on.
+- Treat each subtask-required wrapper run as its own checkpoint. When one wrapper reaches a terminal state that honestly closes a subtask or a directly corresponding `Testing` item, update the plan and implementation notes before starting the next wrapper.
+- It is not valid to say work was completed \"in practice\" while deferring the checkbox or note update until later in the same pass. If the work is complete enough to rely on, it is complete enough to record immediately.
 - If the task needs additional in-scope implementation work to stay honest, you may add concise new unchecked subtasks to the same task before completing that work.
 - If the task needs additional automated proof obligations to stay honest, do not run them here; leave those for the later automated-proof step.
 - If the selected task still has unchecked subtasks at the end of this step, then one of the following must be true:
@@ -106,6 +109,7 @@ Before finishing:
 - confirm you did not advance to a later task when the active task was still `__in_progress__`;
 - confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;
 - confirm completed subtasks were marked immediately;
+- confirm you did not defer completed subtask or directly corresponding testing updates until the end of a longer wrapper chain;
 - confirm that if unchecked subtasks remain, either at least one subtask was completed in this pass or a live `**BLOCKER**` was added;
 - confirm you did not leave the task in a stalled no-progress state;
 - confirm any blocker was written into `Implementation Notes` as `**BLOCKER**`;

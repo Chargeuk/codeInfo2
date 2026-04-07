@@ -35,7 +35,8 @@ Do not perform manual testing in this step.
 <skip_rules>
 
 - If the candidate task contains a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, do not run automated proof. Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`.
-- If the candidate task still has unchecked subtasks, do not run automated proof.
+- If the candidate task still has unchecked subtasks that require additional non-proof implementation work, do not run automated proof.
+- If every remaining unchecked subtask explicitly depends on testing-wrapper outputs, retained proof-home paths, or rerun-generated artifacts from the task's `Testing` section, you may continue with automated proof and close those proof-owned subtasks as the corresponding testing work completes.
 - If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.
 - If the candidate task has no unchecked `Testing` items left because the testing section is already honestly complete, skip automated proof and leave final completion to the later audit step.
 - If you skip automated proof for either reason, return a concise explanation and leave the task `__in_progress__`.
@@ -49,6 +50,8 @@ Do not perform manual testing in this step.
 - Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.
 - Mark each unchecked testing step complete immediately after it honestly passes.
+- If a testing step honestly closes one or more remaining proof-owned subtasks, mark those subtasks complete immediately as well and update the implementation notes before starting the next testing step.
+- Do not batch proof-owned subtask updates until the end of the full rerun chain. Each completed wrapper-backed checkpoint must be recorded as soon as it is honest.
 - If a testing step fails, diagnose the exact failure, fix it if it is within the task's scope, and rerun the affected proof honestly.
 - Keep implementation notes concise as you work so later steps can see what changed and why.
 
@@ -112,6 +115,7 @@ Before finishing:
 - confirm you selected the highest-numbered `__in_progress__` task;
 - confirm you ran only the `Testing` section or honestly skipped it;
 - confirm each completed testing step was marked immediately;
+- confirm any proof-owned subtasks closed by a testing step were marked immediately instead of being deferred until the end of the rerun chain;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;
 - confirm tracked changes were committed if any were made.

@@ -1,0 +1,30 @@
+{
+  "Description": "Gather review evidence for the active story using a sequential review-agent prompt stack.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/02-proof-and-risk-matrix.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/03-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/04-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/05-bulk-side-effect-cardinality.md"
+    }
+  ]
+}

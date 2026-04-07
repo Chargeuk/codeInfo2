@@ -226,11 +226,11 @@
           ]
         },
         {
-          "type": "llm",
+          "type": "command",
           "label": "Review evidence gate",
           "agentType": "review_agent",
           "identifier": "reviewer",
-          "markdownFile": "review_evidence_gate.md"
+          "commandName": "review_evidence_gate"
         },
         {
           "type": "llm",

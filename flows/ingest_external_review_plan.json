@@ -16,11 +16,11 @@
       ]
     },
     {
-      "type": "llm",
+      "type": "command",
       "label": "External review evidence gate",
       "agentType": "review_agent",
       "identifier": "reviewer",
-      "markdownFile": "external_review_evidence_gate.md"
+      "commandName": "external_review_evidence_gate"
     },
     {
       "type": "llm",

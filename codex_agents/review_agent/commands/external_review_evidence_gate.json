@@ -1,0 +1,35 @@
+{
+  "Description": "Gather external-review evidence for the active story using the shared evidence-gate sequence plus external-review-specific additions.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/02-proof-and-risk-matrix.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/03-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/04-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/05-bulk-side-effect-cardinality.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "external_review_evidence_gate.md"
+    }
+  ]
+}

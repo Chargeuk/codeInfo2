@@ -3960,7 +3960,7 @@ This prerequisite repairs the proof-retention seam only. It moves Playwright run
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `52`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Renumbered from the former Task 52 after planner repair on 2026-04-06 inserted Task 52 to repair the Playwright-versus-wrapper retention seam first.
 
 #### Overview
@@ -4054,3 +4054,4 @@ This final review-response task now owns only the fresh rerun and retained-proof
 - **BLOCKING ANSWER** Rejected alternatives were not suitable. Sending Task 53 straight to automated proof next would still conflict with `run_automated_proof_and_fix_issues.md`, which skips when unchecked subtasks remain. Splitting or re-owning the task again would be premature because Task 53 is already the bounded rerun-and-note-refresh owner created by the earlier planner repair, and no new missing seam has appeared since Task 52 closed. Continuing to route Task 53 through implementation-only audits that do not run the subtask-required wrappers would just repeat the same no-progress loop that triggered this blocker.
 - Planner normalization on 2026-04-07 moved the remaining wrapper execution language fully into this task's `Testing` section and left the subtasks as proof-authoring, retained-path refresh, and close-out-note work only. This keeps Task 53 aligned with the task-up separation contract while preserving the same owner, dependencies, and rerun proof intent.
 - Further planner normalization on 2026-04-07 collapsed the remaining post-test bookkeeping into a short non-execution checklist so Task 53 no longer shadows the wrapper sequence with one subtask per test suite. The task still points to the same rerun proof homes, but the runnable commands now live only in `Testing` while the subtasks describe the follow-up documentation and path-verification work.
+- 2026-04-07 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 53 section from disk, rechecked the current retained wrapper/browser/smoke proof homes cited by the latest Task 53 notes, and confirmed they still exist on current disk with no live `**BLOCKER**` note in this task. No subtask or Testing checkbox needed to be newly marked complete in this audit because the current plan already honestly recorded Subtasks 1 through 5 and Testing 1 through 10 as complete from the preceding implementation-owned rerun pass. Task 53 is now `__done__` because its implementation work, retained-proof refresh, and automated-proof evidence are all complete on current repo state, while any later manual testing remains outside this task's automated-proof boundary rather than as an open blocker here.

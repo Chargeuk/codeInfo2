@@ -17,6 +17,12 @@ codex/
 copilot/
 !server/src/codex/
 !server/src/codex/**
+!server/src/copilot/
+!server/src/copilot/fake/
+!server/src/copilot/fake/copilotScenarioCatalog.ts
+!server/src/copilot/fake/mockCopilotDeviceAuth.ts
+!server/src/copilot/fake/mockCopilotSdk.ts
+!server/src/copilot/fake/runtimeSeam.ts
 !client/src/components/codex/
 !client/src/components/codex/**
 codex_agents/**/auth.json

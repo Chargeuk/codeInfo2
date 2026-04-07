@@ -4264,6 +4264,7 @@ This task repairs the repository hygiene defect where `.gitignore` still ignores
 - `git check-ignore -v --no-index` no longer reports `.gitignore` rule `copilot/` for the tracked fake-Copilot source files touched by this story.
 - `git ls-files -ci --exclude-standard -- server/src/copilot/fake/...` no longer reports those tracked fake-Copilot source files as tracked-while-ignored.
 - The proof record names the exact `.gitignore` line or pattern replaced and the exact tracked fake-Copilot source files protected by that change.
+- No build, test, compose, or smoke-wrapper rerun is required unless the task unexpectedly changes runtime-owned files outside `.gitignore`.
 - The repair stays limited to repository hygiene in `.gitignore`; it does not rewrite Story 55 runtime code, tests, wrappers, or review artifacts.
 
 #### Documentation Locations

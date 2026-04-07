@@ -4056,3 +4056,124 @@ This final review-response task now owns only the fresh rerun and retained-proof
 - Further planner normalization on 2026-04-07 collapsed the remaining post-test bookkeeping into a short non-execution checklist so Task 53 no longer shadows the wrapper sequence with one subtask per test suite. The task still points to the same rerun proof homes, but the runnable commands now live only in `Testing` while the subtasks describe the follow-up documentation and path-verification work.
 - 2026-04-07 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 53 section from disk, rechecked the current retained wrapper/browser/smoke proof homes cited by the latest Task 53 notes, and confirmed they still exist on current disk with no live `**BLOCKER**` note in this task. No subtask or Testing checkbox needed to be newly marked complete in this audit because the current plan already honestly recorded Subtasks 1 through 5 and Testing 1 through 10 as complete from the preceding implementation-owned rerun pass. Task 53 is now `__done__` because its implementation work, retained-proof refresh, and automated-proof evidence are all complete on current repo state, while any later manual testing remains outside this task's automated-proof boundary rather than as an open blocker here.
 - 2026-04-07 manual proof pass: expanded to full-story scope because Task 53 is the final story task, restarted the documented main stack with `npm run compose:build` plus `npm run compose:up` because prior runtime freshness was not provable, and returned it to the prior stopped state with `npm run compose:down` after proof. Manual checks proved the queue-aware REST contracts on the real stack (`queued:false` with durable `requestId` plus active `runId` for idle starts, then `queued:true` with `queuePosition: 1` and no `runId` for queued follow-up re-embed requests), the matching `/ingest/roots` running-versus-waiting repo-list states, and the browser-visible queued-row behavior on `/ingest` with Playwright plus no browser-console errors or failed network requests. Screenshot artifacts were saved at `/tmp/playwright-output/artifacts/story-0000055-screenshots/0000055-manual-full-story-queued-row.png` and `/tmp/playwright-output/artifacts/story-0000055-screenshots/0000055-manual-full-story-completed-state.png`; no additional subtasks or testing-step changes were needed.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260407T154633Z-23c0b6df`
+
+- Findings summary: `must_fix=1`, `should_fix=0`, `optional_simplification=0`.
+- Scope: current repository only.
+- Durable review artifacts:
+  - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-findings.md`
+  - `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-blind-spot-challenge.md`
+- Endorsed finding: `server/src/ingest/ingestJob.ts` lets the delta no-op re-embed fast path return through `completeReembedFastPathWithFence()` before the queued execution reaches the promotion-time `validateExecutableIngestInput()` check. A queued re-embed can therefore complete as `completed` after execution-time lock or model drift if `deltaWorkCount === 0`, which violates the queue invariant that executable input is rechecked when queued work actually starts.
+- Challenge outcome: `no_new_findings`. The blind-spot challenge strengthened the same must-fix and confirmed the rest of the challenged seams remain rejected risks or residual weak proof only.
+
+### Task 54. Restore Execution-Time Validation For Delta No-Op Queued Re-Embeds
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `53`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-07 from review pass `0000055-20260407T154633Z-23c0b6df` after review evidence showed the new delta no-op fast path can bypass the queued execution-time validation invariant.
+
+#### Overview
+
+This task restores the execution-time validation boundary for queued re-embed work even when the delta path finds no new work to embed. The fix must preserve the intended optimization that successful zero-work re-embeds still avoid provider lookup and Chroma bootstrap, but it must no longer let a queued request complete after the executable ingest input has drifted out of validity by the time that queued item actually starts.
+
+#### Task Exit Criteria
+
+- A queued delta no-op re-embed still re-checks executable ingest input at execution time before it can complete successfully.
+- The zero-work fast path still avoids provider lookup and Chroma bootstrap when the execution-time validation passes.
+- Direct unit proof covers the contradictory queued-no-op-plus-lock-drift or model-drift case and proves that it now rejects instead of completing.
+- Direct unit proof still covers the successful zero-work path so the fix does not regress the provider-free/bootstrap-free optimization.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-findings.md`
+- `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-blind-spot-challenge.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+
+#### Subtasks
+
+1. [ ] Requirement: re-read the current review artifacts and the zero-work fast-path owner files before editing so the implementation keeps one exact invariant in view: queued re-embed execution must re-check executable ingest input even when `deltaWorkCount === 0`. Purpose: keep the fix tied to the review finding instead of broadening into unrelated queue/runtime changes.
+2. [ ] Requirement: update `server/src/ingest/ingestJob.ts` so the delta no-op completion path runs only after the same execution-time validation boundary that normal queued promotion already expects. Keep the successful no-op path free of provider lookup and Chroma bootstrap when validation passes. Purpose: restore the execution-time correctness invariant without regressing the intended fast path.
+3. [ ] Requirement: add or update direct unit coverage in `server/src/test/unit/ingest-reembed.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts` for the contradictory queued-no-op-plus-drift case proved by the review. The proof must show that a queued request accepted earlier can no longer complete through the no-op fast path after execution-time lock or model drift. Purpose: make the reviewed defect directly testable instead of relying on indirect queue behavior.
+4. [ ] Requirement: keep or refresh direct proof for the successful zero-work path so the review-fix task also proves the optimization still skips provider lookup and Chroma bootstrap when validation is still valid at execution time. Purpose: ensure the repair does not silently remove the intended fast path while fixing the invariant.
+5. [ ] Requirement: after Testing 1 and 2 finish, refresh this task's `Implementation notes` with the exact execution-time validation seam, the direct proof owners, and the retained targeted proof homes used here. Purpose: leave the review-created owner and proof boundary explicit before the broader revalidation task runs.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the zero-work re-embed unit coverage passes with the repaired execution-time validation behavior.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm queued promotion still rejects execution-time drift consistently with the repaired no-op path.
+
+#### Implementation notes
+
+- Inserted on 2026-04-07 from review pass `0000055-20260407T154633Z-23c0b6df`. The endorsed finding is not about the zero-work optimization itself; it is about the current fast path returning before the queued execution reaches the execution-time `validateExecutableIngestInput()` boundary.
+
+### Task 55. Re-Validate Story 55 After Review Pass `0000055-20260407T154633Z-23c0b6df`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `54`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-07 as the required full revalidation task after the review-created execution-time validation repair for review pass `0000055-20260407T154633Z-23c0b6df`.
+
+#### Overview
+
+This task reruns the full Story 55 validation path after Task 54 lands. It must prove the current review finding is closed, refresh the retained proof homes for this review pass, and confirm the queue/runtime/client/browser/supported-stack acceptance path still holds after the zero-work execution-time validation repair.
+
+#### Task Exit Criteria
+
+- The must-fix finding from `0000055-20260407T154633Z-23c0b6df` is closed by direct current-repo evidence.
+- Fresh retained proof homes for this review pass exist on disk and are cited honestly in this task and `planning/0000055-pr-summary.md`.
+- Story 55 still satisfies its acceptance criteria after the Task 54 repair across server, client, browser, and supported-stack validation.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-findings.md`
+- `codeInfoStatus/reviews/0000055-20260407T154633Z-23c0b6df-blind-spot-challenge.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/features/ingest-status.feature`
+- `server/src/test/features/ingest-roots.feature`
+- `client/src/test/ingestRoots.test.tsx`
+- `e2e/ingest.spec.ts`
+- `logs/test-summaries/build-server-latest.log`
+- `logs/test-summaries/build-client-latest.log`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `logs/test-summaries/compose-build-latest.log`
+- `logs/test-summaries/host-network-main-latest.log`
+
+#### Subtasks
+
+1. [ ] Requirement: re-read the Story 55 acceptance criteria and the current review artifacts for review pass `0000055-20260407T154633Z-23c0b6df` before rerunning validation so the refreshed close-out notes name the repaired zero-work execution-time validation seam precisely. Purpose: keep the final rerun aligned with the current review outcome instead of older review passes.
+2. [ ] Requirement: after Testing 1 through 4 finish, refresh the server-side rerun record in this task's `Implementation notes` and `planning/0000055-pr-summary.md`, including the direct proof for the repaired no-op execution-time validation path and the current retained `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, and `test-results/client-tests-<timestamp>.log` homes. Purpose: keep the server/client acceptance path explicit for this review pass.
+3. [ ] Requirement: after Testing 5 through 9 finish, refresh the browser and supported-stack rerun record in this task's `Implementation notes` and `planning/0000055-pr-summary.md`, including `e2e/ingest.spec.ts`, `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`, `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log`. Purpose: show that the server-side review fix did not regress the queue-visible user path or the supported-stack smoke path.
+4. [ ] Requirement: after Testing 1 through 10 finish, verify on disk that every proof path newly cited for review pass `0000055-20260407T154633Z-23c0b6df` still exists, replace any stale timestamped path, and finalize this task's close-out note plus the matching `planning/0000055-pr-summary.md` note so they state that the durable review artifacts still preserve the endorsed and rejected adjudication trail while the reopened finding is now closed by current repo evidence. Purpose: leave one honest final rerun record for this review pass that remains directly inspectable on disk.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client`, and confirm both wrappers finish successfully without `agent_action: inspect_log`.
+2. [ ] Run full `npm run test:summary:server:unit` and confirm the repaired zero-work execution-time validation path plus the broader queue/runtime/server proof still passes.
+3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the broader backend queue and re-embed integration suite still passes after Task 54.
+4. [ ] Run full `npm run test:summary:client` and confirm the ingest UI proof still passes after Task 54.
+5. [ ] Run full `npm run test:summary:e2e` and confirm the queued-row browser proofs still pass after Task 54.
+6. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the Story 55 state without `agent_action: inspect_log`.
+7. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before final smoke proof.
+8. [ ] Run `npm run test:summary:host-network:main` and confirm the supported main-stack smoke proof still passes after Task 54, with `logs/test-summaries/host-network-main-latest.log` as the retained smoke-proof home.
+9. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the final smoke proof.
+10. [ ] Verify that every proof path newly cited by this task still exists on disk before closing the story, and update this plan plus `planning/0000055-pr-summary.md` if any cited proof home would otherwise be stale.
+
+#### Implementation notes
+
+- Inserted on 2026-04-07 from review pass `0000055-20260407T154633Z-23c0b6df` because the canonical plan must revalidate the full Story 55 acceptance path after the review-created Task 54 repair lands.

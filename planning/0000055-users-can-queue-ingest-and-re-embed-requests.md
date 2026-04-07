@@ -4233,3 +4233,121 @@ This task reruns the full Story 55 validation path after Task 54 lands. It must 
 - 2026-04-07 Subtask 11 close-out: finalized the matching `planning/0000055-pr-summary.md` note so this review pass now states that the durable review artifacts still preserve the endorsed and rejected adjudication trail while the reopened zero-work execution-time validation finding is closed by current repo evidence and fresh retained wrapper/browser/supported-stack proof homes.
 - 2026-04-07 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 55 section from disk, rechecked the retained proof homes cited by the latest rerun notes, and confirmed they still exist on current disk with no live `**BLOCKER**` note in this task. No subtask or Testing checkbox needed to be newly marked complete in this audit because the current plan already honestly recorded Subtasks 1 through 11 and Testing 1 through 10 as complete from the preceding implementation-owned rerun pass. Task 55 is now `__done__` because its implementation work, retained-proof refresh, and automated-proof evidence are all complete on current repo state.
 - 2026-04-07 manual proof pass: expanded to full-story scope because Task 55 is the final story task, restarted the documented main stack from its prior stopped state with `npm run compose:build` plus `npm run compose:up` because freshness was not provable, and returned that same main stack to stopped state with `npm run compose:down` after proof while leaving the unrelated `compose:local` stack running as found. Manual checks on the real supported stack proved queue-aware `POST /ingest/start` acceptance (`queued:false` with durable `requestId` plus active `runId` for `/home/d_a_s/code/comfyui`, then `queued:true` with `queuePosition: 1` and no `runId` for `/home/d_a_s/code/manual-proof-42-head`), plus matching `/ingest/roots` running-versus-waiting state with `queueState: running` for the head item and `queueState: waiting` with `queuePosition: 1` for the queued item. Browser proof on `/ingest` showed the queued row and details drawer with `Request ID`, `Pending queue start`, and `waiting (#1)` visible, saved screenshot `/tmp/playwright-output/story-0000055-screenshots/0000055-task55-manual-queued-row.png`, and produced no browser-console errors or failed network requests. I intentionally stopped at this smaller successful queued-state proof instead of waiting for the long `comfyui` head ingest to drain because that would have turned the pass into a soak run after the owned queue-contract and queued-visibility acceptance outcomes were already proved on supported surfaces; no additional subtasks or testing-step changes were needed.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260407T173819Z-108af325`
+
+- Findings summary: `must_fix=0`, `should_fix=1`, `optional_simplification=0`.
+- Scope: current repository only.
+- Durable review artifacts:
+  - `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-findings.md`
+  - `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-blind-spot-challenge.md`
+- Endorsed finding: `.gitignore` still ignores the broad `copilot/` tree while this branch tracks real source files under `server/src/copilot/fake/`, including `server/src/copilot/fake/mockCopilotSdk.ts`. That tracked-while-ignored mismatch is a repository hygiene defect because future adjacent runtime-source edits in the same subtree can be skipped by default ignore behavior.
+- Challenge outcome: `no_new_findings`. The blind-spot challenge strengthened the rejected runtime-risk notes and left this tracked-while-ignored hygiene issue as the only endorsed follow-up.
+
+### Task 56. Repair Copilot Ignore Hygiene For Tracked Fake SDK Source
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `55`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-07 from review pass `0000055-20260407T173819Z-108af325` after the findings artifact confirmed that `.gitignore` still hides tracked runtime source under `server/src/copilot/fake/`.
+
+#### Overview
+
+This task repairs the repository hygiene defect where `.gitignore` still ignores the broad `copilot/` tree even though Story 55 changes tracked server-side fake Copilot runtime source under `server/src/copilot/fake/`. The fix must be limited to ignore-rule cleanup so tracked source in that subtree is no longer skipped by default ignore behavior while unrelated secret or transient ignores stay intact.
+
+#### Task Exit Criteria
+
+- `.gitignore` no longer causes `server/src/copilot/fake/mockCopilotSdk.ts` or its adjacent tracked fake-Copilot source files to match the broad `copilot/` ignore rule.
+- `git check-ignore -v --no-index` no longer reports `.gitignore` rule `copilot/` for the tracked fake-Copilot source files touched by this story.
+- `git ls-files -ci --exclude-standard -- server/src/copilot/fake/...` no longer reports those tracked fake-Copilot source files as tracked-while-ignored.
+- The repair stays limited to repository hygiene in `.gitignore`; it does not rewrite Story 55 runtime code, tests, wrappers, or review artifacts.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-findings.md`
+- `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-blind-spot-challenge.md`
+- `.gitignore`
+- `server/src/copilot/fake/copilotScenarioCatalog.ts`
+- `server/src/copilot/fake/mockCopilotDeviceAuth.ts`
+- `server/src/copilot/fake/mockCopilotSdk.ts`
+- `server/src/copilot/fake/runtimeSeam.ts`
+
+#### Subtasks
+
+1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-evidence.md`, `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-findings.md`, `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-blind-spot-challenge.md`, and `.gitignore` before editing. Output: one hygiene-only ignore-rule repair scoped to the tracked fake-Copilot source subtree. Purpose: keep the review-created task bounded to the endorsed hygiene finding instead of broadening into Copilot runtime changes.
+2. [ ] Requirement: update `.gitignore` so the broad `copilot/` rule no longer hides tracked source under `server/src/copilot/fake/`, using the smallest explicit unignore or narrowed pattern that protects `server/src/copilot/fake/copilotScenarioCatalog.ts`, `server/src/copilot/fake/mockCopilotDeviceAuth.ts`, `server/src/copilot/fake/mockCopilotSdk.ts`, and `server/src/copilot/fake/runtimeSeam.ts`. Purpose: remove the tracked-while-ignored hygiene defect at the exact reviewed subtree.
+3. [ ] Requirement: keep the `.gitignore` repair limited to tracked-source visibility. Do not change Story 55 runtime code, Copilot fake-runtime behavior, review artifacts, or unrelated ignore rules unless the ignore proof shows one adjacent tracked fake-Copilot source path also needs the same explicit protection. Purpose: keep this review-created fix proportional to the actual finding.
+4. [ ] Requirement: after Testing 1 and 2 finish, refresh this task's `Implementation notes` with the exact `.gitignore` pattern change and the protected tracked source paths under `server/src/copilot/fake/`. Purpose: leave the hygiene repair directly inspectable on disk before the final validation task runs.
+5. [ ] Requirement: after Testing 1 and 2 finish, update `planning/0000055-pr-summary.md` with the same `.gitignore` hygiene fix, including the reviewed fake-Copilot source paths and the final proof commands used to show they are no longer tracked-while-ignored. Purpose: keep the maintained summary aligned with the review-created hygiene repair.
+
+#### Testing
+
+1. [ ] Run `git check-ignore -v --no-index server/src/copilot/fake/copilotScenarioCatalog.ts server/src/copilot/fake/mockCopilotDeviceAuth.ts server/src/copilot/fake/mockCopilotSdk.ts server/src/copilot/fake/runtimeSeam.ts` and confirm those tracked fake-Copilot source files no longer resolve to `.gitignore` rule `copilot/`.
+2. [ ] Run `git ls-files -ci --exclude-standard -- server/src/copilot/fake/copilotScenarioCatalog.ts server/src/copilot/fake/mockCopilotDeviceAuth.ts server/src/copilot/fake/mockCopilotSdk.ts server/src/copilot/fake/runtimeSeam.ts` and confirm it reports no tracked fake-Copilot source file as ignored.
+
+#### Implementation notes
+
+- Inserted on 2026-04-07 from review pass `0000055-20260407T173819Z-108af325` because the current review found a support-file hygiene defect: `.gitignore` still hides tracked runtime source under `server/src/copilot/fake/`.
+
+### Task 57. Re-Validate Story 55 After Review Pass `0000055-20260407T173819Z-108af325`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `56`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-07 as the required final validation task after the review-created `.gitignore` hygiene repair for review pass `0000055-20260407T173819Z-108af325`.
+
+#### Overview
+
+This task closes the current review pass after Task 56 lands. It must prove the tracked-while-ignored hygiene finding is closed, refresh the maintained summary for this review pass, and confirm the existing Story 55 acceptance evidence still remains the canonical proof set because the review-created fix touched only `.gitignore` and not the queue/runtime/client/browser implementation.
+
+#### Task Exit Criteria
+
+- The `should_fix` hygiene finding from `0000055-20260407T173819Z-108af325` is closed by direct current-repo evidence.
+- The tracked fake-Copilot source files under `server/src/copilot/fake/` are no longer reported as ignored by the current repository ignore rules.
+- The maintained summary for Story 55 records that this review pass was a repository-hygiene cleanup only and that the retained Task 55 acceptance proof homes remain the story’s current runtime evidence.
+- The final cited review-artifact and proof-home paths for this review pass still exist on disk.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-findings.md`
+- `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-blind-spot-challenge.md`
+- `.gitignore`
+- `server/src/copilot/fake/copilotScenarioCatalog.ts`
+- `server/src/copilot/fake/mockCopilotDeviceAuth.ts`
+- `server/src/copilot/fake/mockCopilotSdk.ts`
+- `server/src/copilot/fake/runtimeSeam.ts`
+- `logs/test-summaries/build-server-latest.log`
+- `logs/test-summaries/build-client-latest.log`
+- `test-results/server-unit-tests-2026-04-07T16-50-03-994Z.log`
+- `test-results/server-cucumber-tests-2026-04-07T17-10-21-503Z.log`
+- `test-results/client-tests-2026-04-07T17-13-48-290Z.log`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `logs/test-summaries/compose-build-latest.log`
+- `logs/test-summaries/host-network-main-latest.log`
+- `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`
+
+#### Subtasks
+
+1. [ ] Requirement: re-read Task 56, this review pass's findings artifact, and this plan's Task 55 close-out notes before finalizing the hygiene follow-up. Output: one final validation note that distinguishes the `.gitignore` cleanup from the already-proved Story 55 runtime acceptance work. Purpose: keep the review-created final task honest about the narrow change surface.
+2. [ ] Requirement: after Testing 1 and 2 finish, refresh this task's `Implementation notes` with the final ignore-rule proof outcome for `.gitignore` and the protected tracked source files under `server/src/copilot/fake/`. Purpose: make the closed hygiene finding directly inspectable on disk.
+3. [ ] Requirement: after Testing 1 through 3 finish, update `planning/0000055-pr-summary.md` so it states that review pass `0000055-20260407T173819Z-108af325` closed a tracked-while-ignored hygiene defect in `.gitignore` and relied on the existing Task 55 retained wrapper/browser/supported-stack proof homes for the unchanged Story 55 runtime acceptance evidence. Purpose: keep the maintained summary aligned with the final review disposition.
+4. [ ] Requirement: after Testing 1 through 3 finish, verify on disk that the three current review artifacts plus the retained Task 55 proof homes cited by this task still exist, and replace any stale citation in this task's `Implementation notes` or `planning/0000055-pr-summary.md` before closing the story again. Purpose: leave one honest final review-close record that remains directly inspectable on disk.
+
+#### Testing
+
+1. [ ] Run `git check-ignore -v --no-index server/src/copilot/fake/copilotScenarioCatalog.ts server/src/copilot/fake/mockCopilotDeviceAuth.ts server/src/copilot/fake/mockCopilotSdk.ts server/src/copilot/fake/runtimeSeam.ts` and confirm those tracked fake-Copilot source files still do not resolve to `.gitignore` rule `copilot/`.
+2. [ ] Run `git ls-files -ci --exclude-standard -- server/src/copilot/fake/copilotScenarioCatalog.ts server/src/copilot/fake/mockCopilotDeviceAuth.ts server/src/copilot/fake/mockCopilotSdk.ts server/src/copilot/fake/runtimeSeam.ts` and confirm it still reports no tracked fake-Copilot source file as ignored.
+3. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-evidence.md`, `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-findings.md`, `codeInfoStatus/reviews/0000055-20260407T173819Z-108af325-blind-spot-challenge.md`, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-04-07T16-50-03-994Z.log`, `test-results/server-cucumber-tests-2026-04-07T17-10-21-503Z.log`, `test-results/client-tests-2026-04-07T17-13-48-290Z.log`, `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/host-network-main-latest.log`, and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` still exist before final close-out.
+
+#### Implementation notes
+
+- Inserted on 2026-04-07 as the required final validation task after review pass `0000055-20260407T173819Z-108af325` reopened Story 55 for one repository-hygiene fix in `.gitignore`.

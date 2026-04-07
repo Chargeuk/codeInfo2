@@ -103,6 +103,17 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 
 </disposition_rules>
 
+<review_task_shape_rules>
+
+- Apply these rules whenever this step adds or rewrites review-created follow-up tasks because findings are present.
+- Keep runnable build, test, compose, browser, and wrapper commands in each task's `Testing` section.
+- Keep each task's `Subtasks` section for implementation work, proof-authoring work, note refreshes, exact proof-file citations, screenshot updates, retained proof-home paths, and other post-run artifacts.
+- Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
+- When one wrapper run produces outputs consumed by multiple follow-up subtasks, keep the execution command once in `Testing` and split the dependent proof-authoring or note-refresh work into separate subtasks.
+- Do not create hybrid subtasks such as `run wrapper X and update note Y` when the execution step can live in `Testing` and the resulting proof work can be expressed separately in `Subtasks`.
+
+</review_task_shape_rules>
+
 <output_contract>
 
 - Produce the correct plan mutations for the findings outcome:

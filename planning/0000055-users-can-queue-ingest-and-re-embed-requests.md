@@ -4385,3 +4385,103 @@ This task closes the current review pass after Task 56 lands. It must prove the 
 - 2026-04-07 Subtasks 8-13 close-out: refreshed `planning/0000055-pr-summary.md` so this review pass now states that `.gitignore` closed the tracked-while-ignored hygiene defect, that no fresh wrapper rerun was required because Task 56 touched only ignore rules, and that the retained Task 55 wrapper/browser/supported-stack proof homes remain the unchanged Story 55 runtime acceptance evidence. The final review-close record also confirms the three `0000055-20260407T173819Z-108af325` review artifacts and every carried-forward Task 55 proof path still exist on disk.
 - 2026-04-07 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 57 section from disk, rechecked the retained hygiene-proof notes, the review artifacts, the carried-forward Task 55 proof homes, and the refreshed `planning/0000055-pr-summary.md` close-out note, and confirmed there is no live `**BLOCKER**` note on the task. No subtask or Testing checkbox needed to be newly marked complete in this audit because the plan already honestly recorded Subtasks 1 through 13 and Testing 1 through 3 as complete from the preceding implementation-owned pass. Task 57 is now `__done__` because its implementation work, repository-hygiene proof, retained-proof verification, and final review-close record are all complete on current repo state.
 - 2026-04-07 manual-testing assessment: task-scoped manual testing is not applicable for Task 57 because this completed change only closes a repository-hygiene review follow-up around `.gitignore`, retained review artifacts, and carried-forward proof-path verification rather than changing a runnable system, browser-visible surface, HTTP contract, or other externally observable runtime behavior. Because Task 57 is also the final story task, full-story manual testing was assessed and remained not applicable for the same reason: this pass only validates hygiene and retained evidence continuity, while the actual Story 55 runtime acceptance surfaces were already proved and carried forward from Task 55 without any new runnable change here. No additional subtasks or testing-step changes were needed.
+
+## Post-Implementation Code Review
+
+### Review Pass `0000055-20260407T182948Z-fbeb903e`
+
+- Findings summary: `must_fix=0`, `should_fix=0`, `optional_simplification=0`.
+- Scope: current repository only; `additional_repositories`: none.
+- Branch-vs-base checks performed:
+  - Re-read `codeInfoStatus/flow-state/current-plan.json` and confirmed the canonical plan path is `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`.
+  - Confirmed the current repository branch is `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, matching the story number in the canonical plan filename.
+  - Confirmed the stored review handoff `codeInfoStatus/reviews/0000055-current-review.json` matches the same canonical `plan_path`, current repository root `/home/d_a_s/code/codeInfo2`, branch `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, base `main`, and head commit `fbeb903e`.
+- Acceptance-evidence checks performed:
+  - Re-read `codeInfoStatus/reviews/0000055-20260407T182948Z-fbeb903e-evidence.md`, `codeInfoStatus/reviews/0000055-20260407T182948Z-fbeb903e-findings.md`, and `codeInfoStatus/reviews/0000055-20260407T182948Z-fbeb903e-blind-spot-challenge.md`.
+  - Verified the retained proof homes cited by Tasks 55 through 57 still exist on disk: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-04-07T16-50-03-994Z.log`, `test-results/server-cucumber-tests-2026-04-07T17-10-21-503Z.log`, `test-results/client-tests-2026-04-07T17-13-48-290Z.log`, `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/host-network-main-latest.log`, and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`.
+  - Verified the review-follow-up hygiene proofs remain current on disk: the repaired `.gitignore` exceptions for `server/src/copilot/fake/copilotScenarioCatalog.ts`, `server/src/copilot/fake/mockCopilotDeviceAuth.ts`, `server/src/copilot/fake/mockCopilotSdk.ts`, and `server/src/copilot/fake/runtimeSeam.ts`, plus the retained `git check-ignore -v --no-index ...` and `git ls-files -ci --exclude-standard ...` results recorded in Tasks 56 and 57.
+- Files inspected in this review pass:
+  - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+  - `planning/0000055-pr-summary.md`
+  - `codeInfoStatus/reviews/0000055-current-review.json`
+  - `codeInfoStatus/reviews/0000055-20260407T182948Z-fbeb903e-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260407T182948Z-fbeb903e-findings.md`
+  - `codeInfoStatus/reviews/0000055-20260407T182948Z-fbeb903e-blind-spot-challenge.md`
+  - `.gitignore`
+  - `server/src/ingest/ingestJob.ts`
+  - `server/src/ingest/reingestService.ts`
+  - `server/src/lmstudio/toolService.ts`
+  - `server/src/test/unit/ingest-reembed.test.ts`
+  - `server/src/test/unit/reingestService.test.ts`
+  - `server/src/test/unit/mcp-ingested-repositories.test.ts`
+  - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+  - `server/src/test/unit/mcp2.reingest.tool.test.ts`
+  - `server/src/test/unit/mcp.reingest.classic.test.ts`
+- Repository completion conclusion: the current repository remains complete because Tasks 1 through 57 are now `__done__`, the retained wrapper/browser/supported-stack evidence from Task 55 still exists, and the later review-only hygiene follow-up in Tasks 56 and 57 closed without reopening any runtime or contract defect.
+- Story completion conclusion: Story 55 remains complete because the durable queue feature, queue-aware UI visibility, caller blocking behavior, cleanup-blocked lifecycle, and later `.gitignore` hygiene follow-up all have direct current-repo proof and no endorsed review findings remain.
+- Cross-repository integration evidence: not applicable because `additional_repositories` is empty and the review scope was current repository only.
+- Implementation succinctness assessment: the implemented code is appropriately succinct for the required behavior. The only residual cleanup noted by this pass is proof quality, not product behavior, because the remaining weakness is timing-based disconnect smoke proof rather than an endorsed runtime or contract defect.
+
+### Acceptance Criteria Proof Status
+
+1. Direct proof: durable Mongo-backed queue collection exists and is covered by current queue storage tests.
+2. Direct proof: canonical embed target normalization happens before dedupe and insertion decisions.
+3. Direct proof: Mongo-unavailable admission is rejected before a new run starts.
+4. Direct proof: `QUEUE_UNAVAILABLE` remains the retryable transport contract instead of a generic failure.
+5. Direct proof: one collection covers both waiting and running queue items.
+6. Direct proof: the persisted queue-state enum stays limited to `waiting`, `running`, and `cleanup-blocked`.
+7. Direct proof: accepted idle requests are inserted and started immediately through the queue pump.
+8. Direct proof: accepted busy-time requests are inserted and left waiting in FIFO order.
+9. Direct proof: queue ordering remains FIFO by creation time.
+10. Direct proof: startup automatically resumes the oldest remaining queued item when idle.
+11. Direct proof: leftover `running` items are retried on startup instead of using a separate abandoned state.
+12. Direct proof: terminal runs delete their queue record before the next queued item starts.
+13. Direct proof: delete failure enters `cleanup-blocked`, logs, retries with backoff, and stalls the queue.
+14. Direct proof: waiting duplicates collapse instead of creating a second queue item.
+15. Direct proof: waiting duplicates keep queue identity and queue position while updating settings in place.
+16. Direct proof: waiting duplicate updates preserve original `createdAt` and provenance while refreshing `updatedAt` and payload.
+17. Direct proof: running duplicates do not mutate the active run's settings.
+18. Direct proof: duplicate collapse works across both start-ingest and re-embed once canonical target paths match.
+19. Direct proof: duplicate collapse returns success with the reused queue request id.
+20. Direct proof: queue-aware success payloads expose `queued`, `requestId`, and `queuePosition`.
+21. Direct proof: `requestId` remains the durable queue identifier.
+22. Direct proof: `runId` remains the active ingest-run identifier once work starts.
+23. Direct proof: no separate `deduped` response field was introduced.
+24. Direct proof: immediately started requests return both queue and active-run identifiers.
+25. Direct proof: waiting requests return `queued: true`, `requestId`, waiting-only `queuePosition`, and no active `runId`.
+26. Direct proof: `queuePosition` continues to count only waiting items.
+27. Direct proof: flow, command, and MCP callers still wait for queued work to reach terminal completion.
+28. Direct proof: queue delay is treated as normal blocking progress rather than as an error.
+29. Direct proof: event-driven waiting remains the primary blocking path for queued completion.
+30. Direct proof: timeout remains only a fallback safety guard.
+31. Direct proof: queued state and queue position render through the repository list UI.
+32. Direct proof: the shared repository-list payload remains the source of truth for queued visibility.
+33. Direct proof: shared read-contract updates remain aligned across common/server/client surfaces.
+34. Direct proof: brand-new queued repositories still appear in the repository list immediately.
+35. Direct proof: queued visibility still survives refresh through the shared server-backed list contract.
+36. Direct proof: queueable submissions remain available while another run is active.
+37. Direct proof: retained visible form values do not mutate an already accepted queue item without a new submit.
+38. Direct proof: unrelated field locks such as the model lock remain unchanged.
+39. Direct proof: runtime execution remains single-flight while queue orchestration is durable.
+40. Direct proof: queue request identity continues to use Mongo document identity.
+41. Direct proof: startup resolves `cleanup-blocked` items before newer waiting work.
+42. Direct proof: REST plus MCP/flow/command surfaces preserve the intended queue error contract.
+43. Direct proof: queued-but-not-started user removal remains out of scope.
+44. Direct proof: documentation and tests were updated to describe and prove the durable queue contract.
+
+### Generic Adversarial Checklist
+
+- Execution-routing or harness dependence: direct proof. The review challenged `processRun()`, `completeReembedFastPathWithFence()`, `waitForQueueRequestTerminalStatus()`, and `listIngestedRepositories()/applyQueueOverlay()` directly against current code and current proof owners.
+- Default launcher, wrapper, dispatcher, CI, or startup-path inclusion: direct proof. Task 55 retained the full wrapper/build/browser/supported-stack evidence, and the no-findings pass verified those proof homes still exist on disk.
+- Shared-state or concurrency safety: direct proof. Queue single-flight ownership, waiting-listener cleanup, and queue overlay precedence all have direct current tests, though the disconnect smoke proofs remain less isolated than the strongest gate-based pattern.
+- Reader and writer atomicity or partial-write tolerance: direct proof. Queue delete-before-next-run ordering, `cleanup-blocked` handling, and the `.gitignore` writer-vs-reader hygiene repair all have direct proof.
+- Cleanup ownership or stale-state safety: direct proof. Cleanup-blocked retry ownership, stale duplicate metadata overlay handling, and stale vector-dimension replacement all have direct proof.
+- Lifecycle ordering: direct proof. Admission-vs-execution validation, startup replay ordering, queue deletion ordering, and blocking waiter settle/timeout ordering all have direct proof.
+- Test isolation: indirect proof with residual risk. Most high-risk seams now have direct deterministic proof, but the MCP disconnect smoke tests in `server/src/test/unit/mcp2.reingest.tool.test.ts` and `server/src/test/unit/mcp.reingest.classic.test.ts` still depend on fixed elapsed delays rather than a deterministic gate, so they should be treated as adequate smoke proof rather than maximal isolation proof.
+
+### Rejected Risk Notes Carried Forward
+
+- Rejected risk carried forward from the findings artifact: the queued zero-work delta re-embed path still has direct proof for execution-time validation before the no-op return, provider-free successful zero-work completion after validation, and bootstrap-failure-safe no-op completion after validation.
+- Rejected risk carried forward from the findings artifact: the blocking queue waiter still has direct proof for timeout cleanup, setup-read rejection cleanup, and listener release back to zero.
+- Rejected risk carried forward from the findings artifact: the shared repository-list overlay still has direct proof that duplicate metadata collapses to one authoritative row and that waiting overlays preserve the correct precedence.
+- Blind-spot challenge follow-up: no new findings were generated. The challenge strengthened the rejected risks above, plus confirmed the wrapped `QUEUE_UNAVAILABLE` contract, strict env gating for the e2e cleanup route, the lack of large-selector growth in queue overlay logic, and README portability for the changed documentation surfaces.

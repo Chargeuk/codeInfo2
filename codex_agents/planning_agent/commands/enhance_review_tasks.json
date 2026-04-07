@@ -39,7 +39,12 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "task_up/12-junior-executor-audit.md"
+      "markdownFile": "task_up/12-subtasks-and-testing-separation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/13-junior-executor-audit.md"
     },
     {
       "type": "message",

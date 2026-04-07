@@ -704,16 +704,16 @@ This task owns the checked-in runtime-config and fixture drift that the restored
 1. [x] Read the current full-wrapper failure names and inspect `codex_agents/*/config.toml`, `.env.e2e`, `server/src/test/unit/agents-config-defaults.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/codexConfig.test.ts`, and the current runtime-config owners before editing anything. Purpose: anchor the task to the exact checked-in config drift rather than guessing from old failures.
 2. [x] Update the checked-in config fixtures and shared runtime-config expectations so the clean wrapper baseline no longer sees drift around `web_search`, Context7 overlay, MCP placeholder resolution, or `.env.e2e` placeholder shape. Purpose: fix the upstream checked-in sources instead of compensating later in tests.
 3. [x] Update any affected proof titles or assertions in the owning config tests so they describe the current checked-in contract honestly. Purpose: keep proof text aligned with the contract being restored instead of relying on stale names.
-4. [x] Requirement: after Testing 4 finishes, refresh this task's `Implementation notes` with the final ESLint verdict for the exact touched file list from Subtasks 1-3. Purpose: keep the zero-warning lint proof explicit after the execution step completes.
-5. [x] Requirement: after Testing 5 finishes, refresh this task's `Implementation notes` with the final Prettier verdict for the exact touched file list from Subtasks 1-3. Purpose: keep the formatting proof explicit after the execution step completes.
+4. [x] Requirement: after Testing 4 finishes, refresh this task's `Implementation notes` with the final ESLint verdict for `server/src/test/unit/codexConfig.test.ts`. Purpose: keep the zero-warning lint proof explicit after the execution step completes.
+5. [x] Requirement: after Testing 5 finishes, refresh this task's `Implementation notes` with the final Prettier verdict for `codex_agents/review_agent/config.toml`, `codex/chat/config.toml`, `codex/chat/config_minimax.toml`, and `server/src/test/unit/codexConfig.test.ts`. Purpose: keep the formatting proof explicit after the execution step completes.
 
 #### Testing
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired checked-in runtime config still builds on the supported server path.
-2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact config-cluster `--file` arguments named in this task's subtasks, and confirm each targeted proof file now reaches a clean terminal verdict.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper for `server/src/test/unit/agents-config-defaults.test.ts`, `server/src/test/unit/runtimeConfig.test.ts`, and `server/src/test/unit/codexConfig.test.ts`, and confirm each targeted proof file now reaches a clean terminal verdict.
 3. [x] Re-run full `npm run test:summary:server:unit` and confirm the config-cluster failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this config-drift cluster.
-4. [x] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
-5. [x] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+4. [x] Run `npx eslint server/src/test/unit/codexConfig.test.ts --max-warnings=0`. The pass condition is zero errors and zero warnings.
+5. [x] Run `npx prettier --check --ignore-unknown codex_agents/review_agent/config.toml codex/chat/config.toml codex/chat/config_minimax.toml server/src/test/unit/codexConfig.test.ts`. The pass condition is that every listed file is already formatted.
 
 #### Implementation notes
 
@@ -762,16 +762,16 @@ This task owns the pre-queue transport proof files that now fail earlier on the 
 1. [x] Re-read the current Task 3 exit criteria and inspect the exact failing proof homes named by the current full-wrapper log, starting with `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`. Purpose: confirm whether each failure is a stale proof expectation, missing fixture setup, or a genuine transport regression.
 2. [x] Update the stale proof harnesses or transport seams only where the current Story 55 queue contract now reaches `QUEUE_UNAVAILABLE` or another queue-aware terminal state earlier than the old assertions expected. Purpose: keep the proof homes aligned with the already implemented queue contract instead of reopening Task 3 broadly.
 3. [x] Rename or split any stale proof titles that still describe pre-queue single-flight behavior as the expected happy path. Purpose: make the proof text match the queue-aware behavior now under test.
-4. [x] Requirement: after Testing 4 finishes, refresh this task's `Implementation notes` with the final ESLint verdict for the exact touched file list from Subtasks 1-3. Purpose: keep the zero-warning lint proof explicit after the execution step completes.
-5. [x] Requirement: after Testing 5 finishes, refresh this task's `Implementation notes` with the final Prettier verdict for the exact touched file list from Subtasks 1-3. Purpose: keep the formatting proof explicit after the execution step completes.
+4. [x] Requirement: after Testing 4 finishes, refresh this task's `Implementation notes` with the final ESLint verdict for `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/ingest-failure-logging-coverage.test.ts`, `server/src/test/integration/ingest-reembed-invalid-state.test.ts`, and `server/src/test/integration/openai-model-unavailable-contract.test.ts`. Purpose: keep the zero-warning lint proof explicit after the execution step completes.
+5. [x] Requirement: after Testing 5 finishes, refresh this task's `Implementation notes` with the final Prettier verdict for the same Task 6 file list. Purpose: keep the formatting proof explicit after the execution step completes.
 
 #### Testing
 
 1. [x] Run `npm run build:summary:server` and confirm the wrapper finishes successfully without `agent_action: inspect_log` so the repaired queue-aware transport proof homes still compile on the supported server path.
-2. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` arguments named in this task's subtasks until each transport-proof file reaches a clean terminal verdict with the current queue-aware contract.
+2. [x] Run the targeted `npm run test:summary:server:unit` wrapper for `server/src/test/integration/ingest-failure-logging-coverage.test.ts`, `server/src/test/integration/ingest-reembed-invalid-state.test.ts`, `server/src/test/integration/openai-model-unavailable-contract.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts` until each transport-proof file reaches a clean terminal verdict with the current queue-aware contract.
 3. [x] Re-run full `npm run test:summary:server:unit` and confirm the transport-proof failures are gone. If other failures remain, each remaining failure must belong only to later tasks instead of to this queue-aware proof cluster.
-4. [x] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
-5. [x] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+4. [x] Run `npx eslint server/src/test/integration/flows.run.errors.test.ts server/src/test/integration/ingest-failure-logging-coverage.test.ts server/src/test/integration/ingest-reembed-invalid-state.test.ts server/src/test/integration/openai-model-unavailable-contract.test.ts --max-warnings=0`. The pass condition is zero errors and zero warnings.
+5. [x] Run `npx prettier --check server/src/test/integration/flows.run.errors.test.ts server/src/test/integration/ingest-failure-logging-coverage.test.ts server/src/test/integration/ingest-reembed-invalid-state.test.ts server/src/test/integration/openai-model-unavailable-contract.test.ts`. The pass condition is that every listed file is already formatted.
 
 #### Implementation notes
 
@@ -820,15 +820,15 @@ This task owns the remaining non-config, non-transport failures that the restore
 1. [x] Start from the latest full-wrapper log after Tasks 5 and 6 complete, list every remaining failure name, and inspect the owning files or helpers before editing code. Begin with currently known candidates such as `server/src/test/unit/ws-server.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, conversation-lock owners, and any AST or websocket helper they share. Purpose: narrow the residual failures to concrete local owners instead of debugging the full suite blindly.
 2. [x] Repair each narrowed owner using the repo’s existing deterministic cleanup, timing, and lifecycle patterns. Prefer replacing brittle waits or mixed fixture state upstream over adding more downstream sleeps. Purpose: fix the exact timeout or lifecycle seam rather than widening the wrapper contract again.
 3. [x] Add or update the owning proof text, helper notes, or targeted diagnostics so the repaired timeout or lifecycle seam is explicit and regression-resistant. Purpose: make the restored full-suite baseline understandable to later developers.
-4. [x] Requirement: after Testing 3 finishes, refresh this task's `Implementation notes` with the final ESLint verdict for the exact touched file list from Subtasks 1-3. Purpose: keep the zero-warning lint proof explicit after the execution step completes.
-5. [x] Requirement: after Testing 4 finishes, refresh this task's `Implementation notes` with the final Prettier verdict for the exact touched file list from Subtasks 1-3. Purpose: keep the formatting proof explicit after the execution step completes.
+4. [x] Requirement: after Testing 3 finishes, refresh this task's `Implementation notes` with the final ESLint verdict for `server/src/test/integration/chat-copilot-lock.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, and `server/src/test/unit/ws-server.test.ts`. Purpose: keep the zero-warning lint proof explicit after the execution step completes.
+5. [x] Requirement: after Testing 4 finishes, refresh this task's `Implementation notes` with the final Prettier verdict for the same Task 7 file list. Purpose: keep the formatting proof explicit after the execution step completes.
 
 #### Testing
 
-1. [x] Run the targeted `npm run test:summary:server:unit` wrapper with the exact `--file` or `--test-name` bounds named in this task's subtasks until each narrowed owner reaches a clean terminal verdict without brittle timing or lingering lifecycle noise.
+1. [x] Run the targeted `npm run test:summary:server:unit` wrapper for `server/src/test/integration/chat-copilot-lock.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, and `server/src/test/unit/ws-server.test.ts` until each narrowed owner reaches a clean terminal verdict without brittle timing or lingering lifecycle noise.
 2. [x] Re-run full `npm run test:summary:server:unit` and confirm the shared server-unit wrapper passes cleanly. If it still fails, reopen only the newly named remaining owners rather than broadening the task again.
-3. [x] Run `npx eslint <exact touched file list> --max-warnings=0` for the files changed in Subtasks 1-3. The pass condition is zero errors and zero warnings.
-4. [x] Run `npx prettier --check <exact touched file list>` for the files changed in Subtasks 1-3. The pass condition is that every touched file is already formatted.
+3. [x] Run `npx eslint server/src/test/integration/chat-copilot-lock.test.ts server/src/test/unit/ingest-ast-indexing.test.ts server/src/test/unit/ws-server.test.ts --max-warnings=0`. The pass condition is zero errors and zero warnings.
+4. [x] Run `npx prettier --check server/src/test/integration/chat-copilot-lock.test.ts server/src/test/unit/ingest-ast-indexing.test.ts server/src/test/unit/ws-server.test.ts`. The pass condition is that every listed file is already formatted.
 
 #### Implementation notes
 

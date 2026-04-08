@@ -73,6 +73,7 @@ When working from a file in `./planning` that is NOT a pr-summary file, update t
    - what was done;
    - any issue that had to be overcome;
    - or why the step is blocked.
+7. This `Implementation Notes` update is plan-maintenance, not a separate subtask or testing item, and should not be pre-modeled as a future-dependent checklist entry.
 
 ## Branching And Phase Flow
 

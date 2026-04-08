@@ -31,6 +31,9 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 
 - Make every eligible review-created task concrete enough for a weak, junior, forgetful implementer who may read one subtask at a time.
 - Ensure each eligible task has explicit ownership, clear subtasks, honest proof homes, and realistic wrapper-first testing.
+- Keep review-created tasks executable in order: no subtask may depend on a later `Testing` step to become runnable.
+- Do not encode `Implementation notes` refreshes after testing as standalone subtasks.
+- If final close-out needs retained proof homes, adjudication notes, or artifact-existence confirmations, place those expectations in `Task Exit Criteria`, `Testing`, or a bounded final validation task description rather than as post-testing subtasks.
 - Treat vague review-fix wording as a defect to rewrite, not something to leave for later.
 - If a review finding is still too unclear for concrete repair tasking, convert it into a bounded diagnostic task with an explicit stopping rule rather than a vague “investigate” task.
 

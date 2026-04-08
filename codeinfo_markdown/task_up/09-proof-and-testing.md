@@ -56,6 +56,12 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - When a task changes async coordination helpers or test-support utilities that register shared waiters, listeners, callbacks, subscriptions, or queue entries, ensure the proof covers timeout, rejection, cancellation, or early-return cleanup rather than only the successful resolution path.
 - When a task changes fallback or precedence helpers that may compare stale persisted hints against fresh observed values, ensure the proof covers both the degraded-history path and the later successful path.
 - Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
+- Explicit proof-authoring subtasks should describe creation or update of proof-owning files, screenshots, logs, or artifacts that are part of the implementation work.
+- Do not turn routine `Implementation notes` refreshes into standalone subtasks.
+- When a testing step produces a result that must be preserved in `Implementation notes`, express that as:
+  - a requirement in the relevant `Testing` bullet; or
+  - a task exit criterion that the note must be refreshed after the step completes.
+- Do not create subtasks that are gated on "after Testing N finishes" unless the task is explicitly about authoring or repairing a harness or reporting workflow itself.
 - When proof depends on renamed or repurposed tests, add an explicit subtask to rename or rewrite the proof so the test title and assertions still describe the same invariant.
 - When UI state can become disabled, hidden, mode-gated, or resettable, require proof for stale-state behavior: whether the stale value must be cleared, retained locally, or merely excluded from submission.
 - When caller behavior depends on the difference between raw SDK errors and wrapped or normalized errors, require proof for both paths and do not treat raw `AbortError` coverage as sufficient when production code may emit provider-specific wrapped abort codes instead.

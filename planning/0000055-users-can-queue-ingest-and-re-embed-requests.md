@@ -4638,7 +4638,7 @@ This task repairs the queued re-embed metadata corruption path identified in the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `58`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-08 from review pass `0000055-20260408T005855Z-5f96266d` after the findings artifact endorsed one row-level gating regression and one bulk-reporting regression in `RootsTable`.
 
 #### Overview
@@ -4730,6 +4730,7 @@ This task repairs the two endorsed client-side findings in `client/src/component
 - Testing 5: `npm run compose:up` started the supported main stack cleanly with Mongo, Chroma, server, client, and Playwright MCP all reaching started or healthy state on the normal runtime path.
 - Testing 6: `npm run test:summary:host-network:main` passed with all four supported endpoints reachable over `http://host.docker.internal` and retained log `logs/test-summaries/host-network-main-latest.log`.
 - Testing 7: `npm run compose:down` removed the supported main stack cleanly after the host-network smoke proof.
+- 2026-04-08 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 59 section from disk, rechecked the current proof commit `c0d68f97`, and verified the retained proof homes `logs/test-summaries/build-client-latest.log`, `test-results/client-tests-2026-04-08T08-00-58-002Z.log`, `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/host-network-main-latest.log`, and `artifacts/story-0000055-screenshots/0000055-bulk-partial-failure-state.png` still exist on current disk. No subtask or Testing checkbox needed to be newly marked complete in this audit because the plan already honestly recorded Subtasks 1 through 28 and Testing 1 through 7 as complete from the preceding implementation-owned proof pass, and there is no live `**BLOCKER**` note in Task 59. Task 59 is now `__done__` because its bounded client repair and automated-proof chain are both complete on current repo state, while the remaining incomplete work belongs to downstream Task 60 rather than to this `RootsTable` batch-honesty repair.
 
 ### Task 60. Replace The Stale Queue-Dedupe Marker Claim With Honest Retained Proof
 

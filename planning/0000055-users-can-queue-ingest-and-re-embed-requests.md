@@ -4605,11 +4605,6 @@ This task repairs the queued re-embed metadata corruption path identified in the
 27. [ ] Requirement: if direct proof shows another queued re-embed caller shape can still bypass the stable-name field order, record that exact caller shape in this task's `Implementation notes` before stopping further repair. Purpose: keep any wider follow-up bounded and explicit instead of silently broadening the same fix.
 28. [ ] Requirement: if direct proof shows another queued re-embed caller shape can still bypass the stable-name field order, record that caller's current field values in this task's `Implementation notes` before stopping further repair. Purpose: leave the bounded follow-up concrete enough for a later implementer to reproduce.
 29. [ ] Requirement: if direct proof shows another queued re-embed caller shape can still bypass the stable-name field order, record the smallest missing seam in `planning/0000055-pr-summary.md` before stopping further repair. Purpose: leave the bounded follow-up visible on disk instead of silently widening the same fix.
-30. [ ] Requirement: after Testing 1 through 7 finish, refresh this task's `Implementation notes` with the exact stable-name field order. Purpose: leave the repaired metadata writer contract directly inspectable on disk.
-31. [ ] Requirement: after Testing 1 through 7 finish, refresh this task's `Implementation notes` with the exact helper function edited. Purpose: leave the repaired metadata writer seam directly inspectable on disk.
-32. [ ] Requirement: after Testing 1 through 7 finish, refresh this task's `Implementation notes` with the exact new, renamed, or split unit, route, and Cucumber proof names that closed the finding. Purpose: leave the repaired proof semantics directly inspectable on disk.
-33. [ ] Requirement: after Testing 1 through 7 finish, update `planning/0000055-pr-summary.md` with the same stable-name rule. Purpose: keep the maintained summary aligned with the repaired queue-admission contract.
-34. [ ] Requirement: after Testing 1 through 7 finish, update `planning/0000055-pr-summary.md` with the retained proof files that demonstrate overlay-shaped rows no longer persist a transient `runId` as repository metadata. Purpose: keep the maintained proof inventory aligned with the repaired queue-admission contract.
 
 #### Testing
 
@@ -4692,13 +4687,6 @@ This task repairs the two endorsed client-side findings in `client/src/component
 26. [ ] Requirement: if the minimal repair would force a broader refresh-cardinality rewrite, record the exact blocker in this task's `Implementation notes` before stopping wider changes. Purpose: keep any broader follow-up explicit rather than silently widening this task.
 27. [ ] Requirement: if the minimal repair would force a broader refresh-cardinality rewrite, record the smallest missing seam in this task's `Implementation notes` before stopping wider changes. Purpose: leave the bounded follow-up concrete enough for a later implementer to continue.
 28. [ ] Requirement: if the minimal repair would force a new browser harness seam, record the proof surface that could not yet be closed in `planning/0000055-pr-summary.md` before stopping wider changes. Purpose: keep any broader follow-up explicit rather than silently widening this task.
-29. [ ] Requirement: after Testing 1 through 7 finish, refresh this task's `Implementation notes` with the exact destructive-state rule now shared by row-level and bulk behavior. Purpose: make the repaired gating contract directly inspectable on disk.
-30. [ ] Requirement: after Testing 1 through 7 finish, refresh this task's `Implementation notes` with the exact batch-message contract used for mixed success. Purpose: make the repaired batch-reporting contract directly inspectable on disk.
-31. [ ] Requirement: after Testing 1 through 7 finish, refresh this task's `Implementation notes` with the exact screenshot asset path produced by the browser proof. Purpose: make the repaired visible-state proof directly inspectable on disk.
-32. [ ] Requirement: after Testing 1 through 7 finish, refresh this task's `Implementation notes` with the exact new, renamed, or split React and Playwright proof names that closed the findings. Purpose: leave the repaired proof semantics directly inspectable on disk.
-33. [ ] Requirement: after Testing 1 through 7 finish, update `planning/0000055-pr-summary.md` with the same row-level gating rule. Purpose: keep the maintained summary aligned with the repaired client-side contract.
-34. [ ] Requirement: after Testing 1 through 7 finish, update `planning/0000055-pr-summary.md` with the same mixed-success selection and message behavior. Purpose: keep the maintained summary aligned with the repaired client-side contract.
-35. [ ] Requirement: after Testing 1 through 7 finish, update `planning/0000055-pr-summary.md` with the browser-proof screenshot path. Purpose: keep the maintained proof inventory aligned with the repaired client-side contract.
 
 #### Testing
 
@@ -4760,9 +4748,6 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 12. [ ] Requirement: if another stale `QUEUE_WAITING_DUPLICATE_REUSED` citation is discovered elsewhere in the same canonical plan while performing Subtasks 2 through 11, repair that citation in the same task. Purpose: prevent a second stale citation from surviving the same proof-contract cleanup pass.
 13. [ ] Requirement: if another stale `QUEUE_WAITING_DUPLICATE_REUSED` citation is discovered elsewhere in the same canonical plan while performing Subtasks 2 through 11, record the exact repaired section in this task's `Implementation notes`. Purpose: leave the extra stale-citation cleanup directly inspectable on disk.
 14. [ ] Requirement: keep this task on the documentation and retained-proof-contract surface only unless one of the cited proof-owner files fails inspection. Purpose: build, compose, and browser smoke proof are not applicable when the task only repairs stale plan and summary claims rather than runnable code.
-15. [ ] Requirement: after Testing 1 finishes, refresh this task's `Implementation notes` with the exact stale wording removed or replaced. Purpose: leave the wording-level proof-contract repair directly inspectable on disk.
-16. [ ] Requirement: after Testing 1 finishes, refresh this task's `Implementation notes` with the exact plan sections touched. Purpose: leave the proof-contract repair surface directly inspectable on disk.
-17. [ ] Requirement: after Testing 1 finishes, refresh this task's `Implementation notes` with the exact retained proof sources that now carry the duplicate-queue evidence. Purpose: leave the final proof-owner map directly inspectable on disk.
 
 #### Testing
 

@@ -1,94 +1,96 @@
 client/src/components/ingest/RootsTable.tsx
-@@ -31,6 +32,7 @@ export type RootsTableProps = {
-isLoading: boolean;
-error?: string;
-disabled?: boolean;
+Comment on lines 34 to +35
+  disabled?: boolean;
+  hasActiveRun?: boolean;
 Copilot AI
-25 minutes ago
-disabled is still part of RootsTableProps and is destructured, but the updated interaction gating logic appears to rely on busy/hasActiveRun/queue state and no longer uses disabled. If callers still pass disabled to block interactions (previous behavior), this prop should be consistently applied (e.g., to selection, buttons, and bulk actions) or removed from the API to avoid a misleading/unused prop.
+1 hour ago
+disabled is still part of RootsTableProps and is destructured in the component, but it isn’t referenced anywhere in the updated implementation. If noUnusedLocals/linting is enabled, this can fail builds; even if not, it’s misleading API surface. Either remove disabled from the props type/destructuring (and update callers), or wire it into the button/checkbox disabling logic consistently.
 
 Suggested change
-disabled?: boolean;
+  disabled?: boolean;
+  hasActiveRun?: boolean;
 Copilot uses AI. Check for mistakes.
-@Chargeuk Reply...
+@Chargeuk	Reply...
 client/src/components/ingest/RootsTable.tsx
-client/src/components/ingest/RootsTable.tsx
-Comment on lines +171 to +186
-const data = (await res.json()) as {
-queued?: boolean;
-requestId?: string;
-runId?: string;
-queuePosition?: number | null;
-};
-if (data?.runId) {
-onRunStarted?.(data.runId);
-}
-setStatus(path, { status: 'success', message: 'Re-embed started' });
-setStatus(path, {
-status: 'success',
-message:
-data?.queued === true
-? `Queued${typeof data.queuePosition === 'number' ? ` (#${data.queuePosition})` : ''}`
-: 'Re-embed started',
-});
+              const message = actionState[root.path]?.message;
+              const rowDisabled = busy || state === 'loading';
+              const removeDisabled =
+                rowDisabled || hasActiveRun || blocksUserRemove(root);
 Copilot AI
-25 minutes ago
-doReembed() treats any 2xx response as success even if the payload is missing required acceptance fields. In particular, if neither queued === true nor a non-empty runId is present, the UI will show success ('Re-embed started') even though the server didn't confirm execution or queue admission. Consider validating the response similarly to IngestForm (e.g., require a requestId, and require either queued === true or a non-empty runId), otherwise surface an error so the user doesn’t get a false-positive success state.
+1 hour ago
+removeDisabled doesn’t consider root.status === 'ingesting'. That makes it possible for an actively ingesting row (e.g., status: 'ingesting' with no queueState due to older payloads or partial data) to still show an enabled “Remove” button when hasActiveRun is false. Given you already treat status === 'ingesting' as selection-blocking, remove should be gated too (e.g., include root.status === 'ingesting' in removeDisabled or broaden blocksUserRemove).
 
+Suggested change
+                rowDisabled || hasActiveRun || blocksUserRemove(root);
+                rowDisabled ||
+                hasActiveRun ||
+                root.status === 'ingesting' ||
+                blocksUserRemove(root);
 Copilot uses AI. Check for mistakes.
-@Chargeuk Reply...
+@Chargeuk	Reply...
 client/src/hooks/useIngestRoots.ts
-Comment on lines 24 to +28
-export type IngestRoot = {
-runId: string;
-requestId?: string | null;
-runId?: string | null;
-queuePosition?: number | null;
-queueState?: IngestQueueState | null;
+Comment on lines +168 to +179
+    requestId: typeof entry.requestId === 'string' ? entry.requestId : null,
+    runId: typeof entry.runId === 'string' ? entry.runId : null,
+    queuePosition:
+      typeof entry.queuePosition === 'number' && entry.queuePosition > 0
+        ? entry.queuePosition
+        : null,
+    queueState:
+      entry.queueState === 'waiting' ||
+      entry.queueState === 'running' ||
+      entry.queueState === 'cleanup-blocked'
+        ? entry.queueState
+        : null,
 Copilot AI
-25 minutes ago
-The new fields are modeled as both optional (?) and nullable (| null). This makes downstream handling more complex because consumers must consider three states (undefined/null/value). If the intent is “field always present but maybe null,” prefer requestId: string | null etc; if the intent is “field may be omitted,” prefer requestId?: string etc. Picking one approach will simplify UI logic and reduce ambiguous semantics.
+1 hour ago
+The new fields are typed as optional and nullable, but normalizeRoot always sets them and uses null as the “absent” value. That leads to a confusing contract for consumers (undefined vs null), especially now that UI logic branches on truthiness. Recommendation: standardize on one representation—either make these fields non-optional and always string | null / number | null, or keep them optional and use undefined for “not present” during normalization.
 
 Copilot uses AI. Check for mistakes.
-@Chargeuk Reply...
-client/src/test/chatPage.flags.websearch.payload.test.tsx
-const resetSwitch = await screen.findByTestId('web-search-switch');
-await waitFor(() => expect(resetSwitch).toBeChecked());
-});
-}, 10000);
+@Chargeuk	Reply...
+client/src/components/ingest/RootsTable.tsx
+Comment on lines 198 to 199
+      await onRefresh();
+      await onRefreshModels?.();
 Copilot AI
-25 minutes ago
-This increases the entire test timeout to 10s. If the underlying issue is intermittent async UI readiness, it’s usually clearer to increase the timeout on the specific waitFor(...) / findBy... call that needs it (or fix the missing await/flush) rather than extending the full test window, which can hide real hangs and slows failure feedback.
+1 hour ago
+doReembed performs onRefresh()/onRefreshModels() every time it runs, and handleBulk calls doReembed in a loop. For bulk operations, this can multiply network requests and rerenders (N refreshes for N selected items). Consider deferring refresh/model-refresh to handleBulk (refresh once after the loop), or adding an option to doReembed/doRemove to skip per-item refresh when invoked from bulk.
 
 Copilot uses AI. Check for mistakes.
+@Chargeuk	Reply...
+client/src/components/ingest/RootsTable.tsx
+@@ -153,10 +227,12 @@ export default function RootsTable({
+  };
+
+  const handleBulk = async (action: 'reembed' | 'remove') => {
+Copilot AI
+1 hour ago
+doReembed performs onRefresh()/onRefreshModels() every time it runs, and handleBulk calls doReembed in a loop. For bulk operations, this can multiply network requests and rerenders (N refreshes for N selected items). Consider deferring refresh/model-refresh to handleBulk (refresh once after the loop), or adding an option to doReembed/doRemove to skip per-item refresh when invoked from bulk.
+
+Copilot uses AI. Check for mistakes.
+@Chargeuk	Reply...
+client/src/components/ingest/RootsTable.tsx
+Comment on lines +235 to 238
+      for (const path of targetPaths) {
+        if (action === 'reembed') await doReembed(path);
+        if (action === 'remove') await doRemove(path);
+      }
+Copilot AI
+1 hour ago
+doReembed performs onRefresh()/onRefreshModels() every time it runs, and handleBulk calls doReembed in a loop. For bulk operations, this can multiply network requests and rerenders (N refreshes for N selected items). Consider deferring refresh/model-refresh to handleBulk (refresh once after the loop), or adding an option to doReembed/doRemove to skip per-item refresh when invoked from bulk.
+
+Copilot uses AI. Check for mistakes.
+
 
 server/src/ingest/reingestService.ts
-Comment on lines +415 to +419
-canonicalTargetPath: resolvedRunPath,
-operation: 'reembed',
-sourceSurface: 'reingest_repository',
-requestPayload: {
-path: resolvedRunPath,
+Comment on lines +427 to +428
+        repo.id ??
+        (path.posix.basename(requestPaths.canonicalTargetPath) || 'repo'),
 @chatgpt-codex-connector
 chatgpt-codex-connector bot
-19 minutes ago
-P1 Badge Preserve canonical root when queueing reembed requests
+1 hour ago
+P1 Badge Preserve repository name when queueing re-embed
 
-Using resolvedRunPath for both canonicalTargetPath and queued path remaps legacy roots (for example, /data/... to the codex workdir path) before re-embed execution. processRun then keys delta lookup and cleanup by exact root (listIngestFilesByRoot(root), deleteVectors({ where: { root } }), deleteRoots({ where: { root } })), so existing records under the original root are missed; this can trigger a fresh ingest under a new root key while stale vectors/metadata remain under the old key. Keep the persisted root identity for re-embed bookkeeping (or explicitly clean both aliases) to avoid duplicate/corrupted ingest state.
-
-Useful? React with 👍 / 👎.
-
-@Chargeuk Reply...
-server/src/routes/ingestRoots.ts
-path: sourceId,
-const lock = payload.lock ?? null;
-logLockResolverState(requestId, 'ingest/roots', lock);
-const roots: RootEntry[] = payload.repos.map((repo) => {
-@chatgpt-codex-connector
-chatgpt-codex-connector bot
-19 minutes ago
-P2 Badge Reintroduce path-level deduping in ingest roots response
-
-The route now serializes payload.repos directly, but that source can contain multiple metadata rows for the same repository path because each ingest run writes a new root entry. Without a path-level dedupe step, /ingest/roots can return duplicate rows for one repo after repeated ingests, and queue/active overlays only update one of those entries, leaving stale/conflicting state in the UI for actions keyed by path.
+Build the queued payload name from a stable display field, not repo.id. In this flow repo.id is mutable and can be replaced with the active runId during repo-list overlays, so queueing a re-embed while a run is active can enqueue a UUID as name; that value is then persisted by the next ingest and effectively renames the repository in metadata/UI. Using repo.name (with basename fallback) avoids this data corruption path.
 
 Useful? React with 👍 / 👎.

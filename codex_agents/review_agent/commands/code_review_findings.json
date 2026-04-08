@@ -14,7 +14,32 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/03-generic-adversarial-review.md"
+      "markdownFile": "code_review_findings/generic_adversarial/01-validation-and-deferred-execution.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/02-default-paths-and-lifecycle.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/03-config-compatibility-and-contracts.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/04-errors-diagnostics-and-precedence.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/05-scale-proof-and-test-boundaries.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/06-consistency-and-portability.md"
     },
     {
       "type": "message",

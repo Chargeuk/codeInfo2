@@ -4782,7 +4782,7 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 
 #### Testing
 
-1. [ ] Run `rg -n "QUEUE_WAITING_DUPLICATE_REUSED|QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID|QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER|waiting duplicate reuse|running duplicate reuse" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md server/src/test/unit/ingest-request-queue.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/unit/ingest-reembed.test.ts` and confirm the stale duplicate marker no longer appears in the maintained plan surfaces while the direct retained proof owners for duplicate queue reuse still exist on disk.
+1. [x] Run `rg -n "QUEUE_WAITING_DUPLICATE_REUSED|QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID|QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER|waiting duplicate reuse|running duplicate reuse" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md server/src/test/unit/ingest-request-queue.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/unit/ingest-reembed.test.ts` and confirm the stale duplicate marker no longer appears in the maintained plan surfaces while the direct retained proof owners for duplicate queue reuse still exist on disk.
        Build, summary-wrapper, and compose smoke reruns are not applicable here because this task only repairs plan and summary proof-contract text; the direct disk check above is the complete automated proof path for this documentation-only repair.
 
 #### Implementation notes
@@ -4793,6 +4793,7 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 - Replaced the stale wording `Queue dedupe proof marker: QUEUE_WAITING_DUPLICATE_REUSED` in the canonical `Log Or Proof Markers` section with direct retained proof owners `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`, and stated explicitly that no retained runtime marker currently owns duplicate queue reuse proof.
 - Repaired one additional canonical-plan citation in the reopened-findings summary so it no longer says the plan still claims the missing marker in the present tense. The repaired plan sections are `Log Or Proof Markers` and the later `Endorsed findings that reopen the plan` summary under the current review-pass notes.
 - Updated `planning/0000055-pr-summary.md` to match the repaired proof contract and the no-runtime-marker wording while keeping the task bounded to documentation and retained-proof-contract surfaces only.
+- Testing 1: ran the task-owned `rg -n` disk check. The output still included the retained write-contract and startup-recovery markers plus historical/task-owned references to the old duplicate marker string inside this canonical plan, but the maintained proof-contract surfaces no longer use that stale duplicate marker and the direct retained proof owners still exist on disk in `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`.
 
 ### Task 61. Re-Validate Story 55 After Review Pass `0000055-20260408T005855Z-5f96266d`
 

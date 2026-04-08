@@ -4538,7 +4538,7 @@ This task closes the current review pass after Task 56 lands. It must prove the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `57`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-08 from review pass `0000055-20260408T005855Z-5f96266d` after the findings artifact endorsed the queued re-embed metadata-stability regression.
 
 #### Overview
@@ -4631,6 +4631,7 @@ This task repairs the queued re-embed metadata corruption path identified in the
 - Testing 5: `npm run compose:up` started the normal supported main stack cleanly after `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` and brought up healthy `mongo_db_CodeInfo`, `codeinfo2-server-1`, and started `codeinfo2-client-1`, so the runtime path was ready for the host-network smoke proof.
 - Testing 6: `npm run test:summary:host-network:main` passed cleanly with `result: passed` and all four expected MCP endpoints reachable over `http://host.docker.internal` at HTTP 200. The retained smoke-proof home for this task is `logs/test-summaries/host-network-main-latest.log`.
 - Testing 7: `npm run compose:down` shut the supported main stack down cleanly after the host-network smoke pass, so the full Task 58 automated-proof chain now has a clean runtime teardown and no live smoke-path blocker remains.
+- 2026-04-08 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 58 section from disk, rechecked the current proof commit `03c50967`, and verified the retained proof homes `logs/test-summaries/build-server-latest.log`, `test-results/server-unit-tests-2026-04-08T07-05-56-036Z.log`, `test-results/server-cucumber-tests-2026-04-08T07-28-43-202Z.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log` still exist on current disk. No subtask or Testing checkbox needed to be newly marked complete in this audit because the plan already honestly recorded Subtasks 1 through 29 and Testing 1 through 7 as complete from the preceding implementation-owned proof pass, and there is no live `**BLOCKER**` note in Task 58. Task 58 is now `__done__` because its bounded implementation work and automated-proof chain are both complete on current repo state, while the remaining incomplete work belongs to downstream Task 59 rather than to this queued re-embed naming repair.
 
 ### Task 59. Restore Honest Destructive-Action Gating And Bulk Failure Reporting In `RootsTable`
 

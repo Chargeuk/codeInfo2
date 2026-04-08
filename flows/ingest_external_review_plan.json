@@ -30,11 +30,11 @@
       "commandName": "external_review_findings"
     },
     {
-      "type": "llm",
+      "type": "command",
       "label": "External blind-spot challenge",
       "agentType": "review_agent",
       "identifier": "reviewer",
-      "markdownFile": "external_review_blind_spot_challenge.md"
+      "commandName": "external_review_blind_spot_challenge"
     },
     {
       "type": "llm",

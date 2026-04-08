@@ -30,11 +30,11 @@
       "commandName": "code_review_findings"
     },
     {
-      "type": "llm",
+      "type": "command",
       "label": "Blind-spot challenge",
       "agentType": "review_agent",
       "identifier": "reviewer",
-      "markdownFile": "review_blind_spot_challenge.md"
+      "commandName": "review_blind_spot_challenge"
     },
     {
       "type": "llm",

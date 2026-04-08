@@ -63,6 +63,29 @@ let lastQueuePumpResult: {
   requestId: string | null;
 } | null = null;
 
+function getRootsPayload() {
+  assert(response, 'expected response');
+  return (response.body as { roots?: unknown[] }).roots ?? [];
+}
+
+function findRootByPath(rootPath: string) {
+  const roots = getRootsPayload();
+  const entry = roots.find(
+    (root) => (root as { path?: string }).path === rootPath,
+  ) as
+    | {
+        path?: string;
+        name?: string;
+        requestId?: string | null;
+        runId?: string | null;
+        queueState?: string | null;
+        queuePosition?: number | null;
+      }
+    | undefined;
+  assert(entry, `expected root entry for ${rootPath}`);
+  return entry;
+}
+
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.NODE_ENV = 'test';
@@ -317,6 +340,46 @@ Then('ingest manage roots first run id is null', () => {
   assert(roots.length > 0, 'no roots returned');
   assert.equal((roots[0] as { runId?: string | null }).runId, null);
 });
+
+Then(
+  'ingest manage roots entry for {string} has name {string}',
+  (rootPath: string, expectedName: string) => {
+    const root = findRootByPath(rootPath);
+    assert.equal(root.name, expectedName);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has request id present',
+  (rootPath: string) => {
+    const root = findRootByPath(rootPath);
+    assert.equal(typeof root.requestId, 'string');
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has run id null',
+  (rootPath: string) => {
+    const root = findRootByPath(rootPath);
+    assert.equal(root.runId, null);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has queue state {string}',
+  (rootPath: string, queueState: string) => {
+    const root = findRootByPath(rootPath);
+    assert.equal(root.queueState, queueState);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has queue position {int}',
+  (rootPath: string, queuePosition: number) => {
+    const root = findRootByPath(rootPath);
+    assert.equal(root.queuePosition, queuePosition);
+  },
+);
 
 Then(
   'ingest manage roots first queue state is {string}',

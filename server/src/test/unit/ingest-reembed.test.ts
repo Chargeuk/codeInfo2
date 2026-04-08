@@ -40,6 +40,7 @@ type PumpIngestQueueResult = Awaited<
 function buildRepoEntry(): RepoEntry {
   return {
     id: 'repo',
+    name: 'repo',
     description: null,
     containerPath: '/tmp/repo',
     hostPath: '/host/tmp/repo',
@@ -330,6 +331,46 @@ test('ingest-reembed waiting queue-aware contract returns queued state without r
     queuePosition: 1,
   });
   assert.equal('runId' in response.body, false);
+});
+
+test('ingest-reembed queue admission persists the stable repo name instead of an overlay run id', async () => {
+  let queuedInput: EnqueueIngestRequestInput | null = null;
+  const response = await request(
+    buildApp({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            ...buildRepoEntry(),
+            id: 'active-run-123',
+            name: 'Stable Repo Name',
+            containerPath: '/tmp/repo',
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
+      enqueueOrReuseIngestRequest: async (input) => {
+        queuedInput = input;
+        return buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+        });
+      },
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: 'some-other-run',
+      }),
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-123',
+    queuePosition: 1,
+  });
+  assert.equal(queuedInput?.requestPayload.name, 'Stable Repo Name');
+  assert.equal(queuedInput?.requestPayload.path, '/tmp/repo');
 });
 
 test('ingest-reembed queue-target normalization resolves encoded route aliases to one canonical target', () => {

@@ -30,10 +30,13 @@ afterEach(() => {
 
 const buildRepoEntry = (params: {
   id?: string;
+  name?: string;
+  description?: string | null;
   containerPath: string;
 }): RepoEntry => ({
   id: params.id ?? 'repo-a',
-  description: null,
+  name: params.name,
+  description: params.description ?? null,
   containerPath: params.containerPath,
   hostPath: `/host${params.containerPath}`,
   lastIngestAt: null,
@@ -518,11 +521,14 @@ test('queue delay is treated as normal blocking progress before the terminal run
   assert.equal(result.value.completionMode, 'reingested');
 });
 
-test('queued reembed requests keep canonicalTargetPath while using a mounted execution path when host mapping is available', async () => {
+test('queued reembed requests prefer the stable display name while keeping canonical and execution paths split when host mapping is available', async () => {
   const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
   const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   process.env.CODEINFO_HOST_INGEST_DIR = '/tmp/codeinfo-host-ingest';
   process.env.CODEINFO_CODEX_WORKDIR = '/tmp/codeinfo-codex-workdir';
+  const activeRunId = 'active-run-123';
+  const stableDisplayName = 'Stable Repo Name';
+  const stableDescription = 'Stable description';
 
   try {
     const result = await runReingestRepository(
@@ -532,7 +538,9 @@ test('queued reembed requests keep canonicalTargetPath while using a mounted exe
           repos: [
             {
               ...buildRepoEntry({
-                id: 'repo-a',
+                id: activeRunId,
+                name: stableDisplayName,
+                description: stableDescription,
                 containerPath: '/data/codeInfo2/codeInfo2',
               }),
               hostPath: '/tmp/codeinfo-host-ingest/codeInfo2/codeInfo2',
@@ -542,10 +550,15 @@ test('queued reembed requests keep canonicalTargetPath while using a mounted exe
         }),
         enqueueOrReuseIngestRequest: async (input) => {
           assert.equal(input.canonicalTargetPath, '/data/codeInfo2/codeInfo2');
+          assert.equal(input.requestPayload.name, stableDisplayName);
           assert.equal(
             input.requestPayload.path,
             '/tmp/codeinfo-codex-workdir/codeInfo2/codeInfo2',
           );
+          assert.equal(input.requestPayload.description, stableDescription);
+          assert.equal(input.requestPayload.embeddingProvider, 'lmstudio');
+          assert.equal(input.requestPayload.embeddingModel, 'model');
+          assert.equal(input.requestPayload.model, 'model');
           return buildQueueResult({
             requestId: 'queue-request-remapped',
             canonicalTargetPath: String(input.canonicalTargetPath),
@@ -586,7 +599,7 @@ test('queued reembed requests keep canonicalTargetPath while using a mounted exe
   }
 });
 
-test('queued reembed requests keep canonicalTargetPath and execution path aligned when host mapping is unavailable', async () => {
+test('queued reembed requests fall back to the canonical-target basename when no stable display name is available', async () => {
   const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
   const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   delete process.env.CODEINFO_HOST_INGEST_DIR;
@@ -598,12 +611,16 @@ test('queued reembed requests keep canonicalTargetPath and execution path aligne
       {
         listIngestedRepositories: async () => ({
           repos: [
-            buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' }),
+            buildRepoEntry({
+              id: 'active-run-456',
+              containerPath: '/data/repo-a',
+            }),
           ],
           lockedModelId: 'model',
         }),
         enqueueOrReuseIngestRequest: async (input) => {
           assert.equal(input.canonicalTargetPath, '/data/repo-a');
+          assert.equal(input.requestPayload.name, 'repo-a');
           assert.equal(input.requestPayload.path, '/data/repo-a');
           return buildQueueResult({
             requestId: 'queue-request-unmapped',

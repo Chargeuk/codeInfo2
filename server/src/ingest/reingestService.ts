@@ -416,6 +416,10 @@ export function buildQueuedReingestRequest(
       hostPath: repo.hostPath,
     }),
   });
+  const stableName =
+    typeof repo.name === 'string' && repo.name.trim().length > 0
+      ? repo.name.trim()
+      : path.posix.basename(requestPaths.canonicalTargetPath) || 'repo';
 
   return {
     canonicalTargetPath: requestPaths.canonicalTargetPath,
@@ -423,9 +427,7 @@ export function buildQueuedReingestRequest(
     sourceSurface: 'reingest_repository',
     requestPayload: {
       path: requestPaths.requestPayloadPath,
-      name:
-        repo.id ??
-        (path.posix.basename(requestPaths.canonicalTargetPath) || 'repo'),
+      name: stableName,
       ...(repo.description ? { description: repo.description } : {}),
       model,
       embeddingProvider: provider,

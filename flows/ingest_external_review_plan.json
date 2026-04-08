@@ -23,11 +23,11 @@
       "commandName": "external_review_evidence_gate"
     },
     {
-      "type": "llm",
+      "type": "command",
       "label": "External review findings",
       "agentType": "review_agent",
       "identifier": "reviewer",
-      "markdownFile": "external_review_findings.md"
+      "commandName": "external_review_findings"
     },
     {
       "type": "llm",

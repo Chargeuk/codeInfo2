@@ -1,0 +1,40 @@
+{
+  "Description": "Perform the internal findings pass for the active story using a sequential review-agent prompt stack.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/02-plan-and-cross-repo-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/03-generic-adversarial-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/04-changed-test-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/05-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/06-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/07-bulk-side-effect-cardinality.md"
+    }
+  ]
+}

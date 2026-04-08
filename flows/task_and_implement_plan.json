@@ -233,11 +233,11 @@
           "commandName": "review_evidence_gate"
         },
         {
-          "type": "llm",
+          "type": "command",
           "label": "Code review findings",
           "agentType": "review_agent",
           "identifier": "reviewer",
-          "markdownFile": "code_review_findings.md"
+          "commandName": "code_review_findings"
         },
         {
           "type": "llm",

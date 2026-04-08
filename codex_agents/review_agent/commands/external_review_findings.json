@@ -1,0 +1,45 @@
+{
+  "Description": "Perform the external findings pass for the active story using the shared findings sequence plus external-review-specific additions.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/02-plan-and-cross-repo-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/03-generic-adversarial-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/04-changed-test-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/05-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/06-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/07-bulk-side-effect-cardinality.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "external_review_findings.md"
+    }
+  ]
+}

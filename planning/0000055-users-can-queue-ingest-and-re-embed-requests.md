@@ -192,8 +192,8 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Queue write-contract proof marker: `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`
   - Expected outcome: A queued request response proves the request/run split by exposing `requestId`, omitting `runId`, and returning a waiting-only `queuePosition`.
-- Queue dedupe proof marker: `QUEUE_WAITING_DUPLICATE_REUSED`
-  - Expected outcome: A second request for the same canonical target while the first item is still waiting returns success with the same `requestId` and queue position instead of creating another queue item.
+- Queue dedupe proof owners: `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`
+  - Expected outcome: A second request for the same canonical target while the first item is still waiting returns success with the same `requestId` and queue position instead of creating another queue item, and no retained runtime marker currently owns that duplicate-reuse proof.
 - Startup recovery proof marker: `QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER`
   - Expected outcome: After a restart, any cleanup-blocked item is resolved before the next waiting item starts, and the oldest remaining waiting item resumes without relying on manual intervention or arbitrary fixed delays.
 
@@ -4531,7 +4531,7 @@ This task closes the current review pass after Task 56 lands. It must prove the 
   - queued re-embed requests can persist a transient active-run identifier as repository `name` when `buildQueuedReingestRequest()` trusts `repo.id` from an overlay-shaped row instead of a stable display field
   - the row-level Remove action in `RootsTable` can remain enabled for `status: 'ingesting'` rows when `queueState` is absent, even though the same state is already treated as destructive-action-blocking elsewhere in the component
   - bulk re-embed and remove flows still report unconditional batch success and clear the full selection even when one or more per-row actions fail
-  - the plan still claims a dedupe proof marker `QUEUE_WAITING_DUPLICATE_REUSED` that is not actually implemented or retained as live proof on disk
+  - the plan previously claimed a dedupe proof marker `QUEUE_WAITING_DUPLICATE_REUSED` that was not actually implemented or retained as live proof on disk, so the follow-up repair replaced that stale marker wording with the direct maintained dedupe proof owners
 - Challenge outcome: `no_new_findings`. `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-blind-spot-challenge.md` strengthened the rejected-risk notes and did not add any finding beyond the four items above.
 
 ### Task 58. Preserve Stable Repository Names When Queueing Re-Embed Requests
@@ -4737,7 +4737,7 @@ This task repairs the two endorsed client-side findings in `client/src/component
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `59`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-08 from review pass `0000055-20260408T005855Z-5f96266d` after the findings artifact confirmed that the plan still cites a non-existent dedupe proof marker.
 
 #### Overview
@@ -4765,20 +4765,20 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 
 #### Subtasks
 
-1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-findings.md` before editing the proof contract. Purpose: keep this task tied to the endorsed stale-marker finding instead of broad proof cleanup.
-2. [ ] Requirement: inspect the `Log Or Proof Markers` section in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` before editing. Purpose: identify the primary stale marker claim that still names `QUEUE_WAITING_DUPLICATE_REUSED`.
-3. [ ] Requirement: inspect the current Story 55 final-review summary text in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` before editing. Purpose: identify any later plan-owned text that still implies duplicate queue reuse is proved by the missing marker.
-4. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before editing. Purpose: identify whether the maintained summary still implies duplicate queue reuse is proved by the missing marker.
-5. [ ] Requirement: inspect `server/src/test/unit/ingest-request-queue.test.ts` before editing the proof contract. Purpose: confirm that this retained proof owner still proves duplicate queue reuse on current disk state.
-6. [ ] Requirement: inspect `server/src/test/unit/ingest-start.test.ts` before editing the proof contract. Purpose: confirm that this retained proof owner still proves duplicate queue reuse on current disk state.
-7. [ ] Requirement: inspect `server/src/test/unit/ingest-reembed.test.ts` before editing the proof contract. Purpose: confirm that this retained proof owner still proves duplicate queue reuse on current disk state.
-8. [ ] Requirement: update the `Log Or Proof Markers` section in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` so duplicate queue reuse is proved by the current direct proof owners `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts` instead of by `QUEUE_WAITING_DUPLICATE_REUSED`. Purpose: replace the primary stale claim with the smallest honest retained-proof wording that matches current disk state.
-9. [ ] Requirement: update any later duplicate-proof summary text in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` that still points readers back to the missing marker. Purpose: keep the whole canonical plan internally consistent instead of fixing only the first stale citation.
-10. [ ] Requirement: update `planning/0000055-pr-summary.md` to match the repaired canonical proof contract. Purpose: keep the maintained summary aligned with the honest proof source for duplicate queue reuse.
-11. [ ] Requirement: update `planning/0000055-pr-summary.md` to state explicitly that no retained runtime marker currently owns duplicate queue reuse proof. Purpose: keep the maintained summary aligned with current disk state instead of the stale marker claim.
-12. [ ] Requirement: if another stale `QUEUE_WAITING_DUPLICATE_REUSED` citation is discovered elsewhere in the same canonical plan while performing Subtasks 2 through 11, repair that citation in the same task. Purpose: prevent a second stale citation from surviving the same proof-contract cleanup pass.
-13. [ ] Requirement: if another stale `QUEUE_WAITING_DUPLICATE_REUSED` citation is discovered elsewhere in the same canonical plan while performing Subtasks 2 through 11, record the exact repaired section in this task's `Implementation notes`. Purpose: leave the extra stale-citation cleanup directly inspectable on disk.
-14. [ ] Requirement: keep this task on the documentation and retained-proof-contract surface only unless one of the cited proof-owner files fails inspection. Purpose: build, compose, and browser smoke proof are not applicable when the task only repairs stale plan and summary claims rather than runnable code.
+1. [x] Requirement: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-findings.md` before editing the proof contract. Purpose: keep this task tied to the endorsed stale-marker finding instead of broad proof cleanup.
+2. [x] Requirement: inspect the `Log Or Proof Markers` section in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` before editing. Purpose: identify the primary stale marker claim that still names `QUEUE_WAITING_DUPLICATE_REUSED`.
+3. [x] Requirement: inspect the current Story 55 final-review summary text in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` before editing. Purpose: identify any later plan-owned text that still implies duplicate queue reuse is proved by the missing marker.
+4. [x] Requirement: inspect `planning/0000055-pr-summary.md` before editing. Purpose: identify whether the maintained summary still implies duplicate queue reuse is proved by the missing marker.
+5. [x] Requirement: inspect `server/src/test/unit/ingest-request-queue.test.ts` before editing the proof contract. Purpose: confirm that this retained proof owner still proves duplicate queue reuse on current disk state.
+6. [x] Requirement: inspect `server/src/test/unit/ingest-start.test.ts` before editing the proof contract. Purpose: confirm that this retained proof owner still proves duplicate queue reuse on current disk state.
+7. [x] Requirement: inspect `server/src/test/unit/ingest-reembed.test.ts` before editing the proof contract. Purpose: confirm that this retained proof owner still proves duplicate queue reuse on current disk state.
+8. [x] Requirement: update the `Log Or Proof Markers` section in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` so duplicate queue reuse is proved by the current direct proof owners `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts` instead of by `QUEUE_WAITING_DUPLICATE_REUSED`. Purpose: replace the primary stale claim with the smallest honest retained-proof wording that matches current disk state.
+9. [x] Requirement: update any later duplicate-proof summary text in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` that still points readers back to the missing marker. Purpose: keep the whole canonical plan internally consistent instead of fixing only the first stale citation.
+10. [x] Requirement: update `planning/0000055-pr-summary.md` to match the repaired canonical proof contract. Purpose: keep the maintained summary aligned with the honest proof source for duplicate queue reuse.
+11. [x] Requirement: update `planning/0000055-pr-summary.md` to state explicitly that no retained runtime marker currently owns duplicate queue reuse proof. Purpose: keep the maintained summary aligned with current disk state instead of the stale marker claim.
+12. [x] Requirement: if another stale `QUEUE_WAITING_DUPLICATE_REUSED` citation is discovered elsewhere in the same canonical plan while performing Subtasks 2 through 11, repair that citation in the same task. Purpose: prevent a second stale citation from surviving the same proof-contract cleanup pass.
+13. [x] Requirement: if another stale `QUEUE_WAITING_DUPLICATE_REUSED` citation is discovered elsewhere in the same canonical plan while performing Subtasks 2 through 11, record the exact repaired section in this task's `Implementation notes`. Purpose: leave the extra stale-citation cleanup directly inspectable on disk.
+14. [x] Requirement: keep this task on the documentation and retained-proof-contract surface only unless one of the cited proof-owner files fails inspection. Purpose: build, compose, and browser smoke proof are not applicable when the task only repairs stale plan and summary claims rather than runnable code.
 
 #### Testing
 
@@ -4788,6 +4788,11 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 #### Implementation notes
 
 - Inserted on 2026-04-08 from review pass `0000055-20260408T005855Z-5f96266d` because the findings artifact confirmed the plan's `QUEUE_WAITING_DUPLICATE_REUSED` proof-marker claim is stale on current disk state.
+- Re-read the 2026-04-08 findings first and confirmed Task 60 is bounded to a documentation honesty repair, not a runtime queue-behavior change. The stale owner is the plan-owned `QUEUE_WAITING_DUPLICATE_REUSED` marker claim, while the queue-admission behavior itself is still directly covered by retained unit proof.
+- Inspected the `Log Or Proof Markers` section, the later Story 55 review-summary text in the canonical plan, `planning/0000055-pr-summary.md`, and the retained proof-owner files `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts` before editing. Current disk state still has direct duplicate-reuse proof in those three test files, but no live retained runtime marker for duplicate queue reuse.
+- Replaced the stale wording `Queue dedupe proof marker: QUEUE_WAITING_DUPLICATE_REUSED` in the canonical `Log Or Proof Markers` section with direct retained proof owners `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`, and stated explicitly that no retained runtime marker currently owns duplicate queue reuse proof.
+- Repaired one additional canonical-plan citation in the reopened-findings summary so it no longer says the plan still claims the missing marker in the present tense. The repaired plan sections are `Log Or Proof Markers` and the later `Endorsed findings that reopen the plan` summary under the current review-pass notes.
+- Updated `planning/0000055-pr-summary.md` to match the repaired proof contract and the no-runtime-marker wording while keeping the task bounded to documentation and retained-proof-contract surfaces only.
 
 ### Task 61. Re-Validate Story 55 After Review Pass `0000055-20260408T005855Z-5f96266d`
 

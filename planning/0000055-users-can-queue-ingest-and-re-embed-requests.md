@@ -4767,7 +4767,7 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 #### Testing
 
 1. [ ] Run `rg -n "QUEUE_WAITING_DUPLICATE_REUSED|QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID|QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER|waiting duplicate reuse|running duplicate reuse" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md server/src/test/unit/ingest-request-queue.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/unit/ingest-reembed.test.ts` and confirm the stale duplicate marker no longer appears in the maintained plan surfaces while the direct retained proof owners for duplicate queue reuse still exist on disk.
-Build, summary-wrapper, and compose smoke reruns are not applicable here because this task only repairs plan and summary proof-contract text; the direct disk check above is the complete automated proof path for this documentation-only repair.
+       Build, summary-wrapper, and compose smoke reruns are not applicable here because this task only repairs plan and summary proof-contract text; the direct disk check above is the complete automated proof path for this documentation-only repair.
 
 #### Implementation notes
 

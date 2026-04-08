@@ -44,6 +44,21 @@
     {
       "type": "message",
       "role": "user",
+      "markdownFile": "code_review_findings/08-untrusted-input-boundaries.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/09-idempotency-and-replay-safety.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/10-event-driven-vs-time-based-coordination.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
       "markdownFile": "code_review_findings/04-changed-test-review.md"
     },
     {

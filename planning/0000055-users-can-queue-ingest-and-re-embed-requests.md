@@ -4737,7 +4737,7 @@ This task repairs the two endorsed client-side findings in `client/src/component
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `59`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-08 from review pass `0000055-20260408T005855Z-5f96266d` after the findings artifact confirmed that the plan still cites a non-existent dedupe proof marker.
 
 #### Overview
@@ -4794,6 +4794,7 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 - Repaired one additional canonical-plan citation in the reopened-findings summary so it no longer says the plan still claims the missing marker in the present tense. The repaired plan sections are `Log Or Proof Markers` and the later `Endorsed findings that reopen the plan` summary under the current review-pass notes.
 - Updated `planning/0000055-pr-summary.md` to match the repaired proof contract and the no-runtime-marker wording while keeping the task bounded to documentation and retained-proof-contract surfaces only.
 - Testing 1: ran the task-owned `rg -n` disk check. The output still included the retained write-contract and startup-recovery markers plus historical/task-owned references to the old duplicate marker string inside this canonical plan, but the maintained proof-contract surfaces no longer use that stale duplicate marker and the direct retained proof owners still exist on disk in `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`.
+- 2026-04-08 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 60 section from disk, rechecked the current proof commit `47714841`, and confirmed the task-owned `rg -n` verification still shows the maintained proof-contract surfaces repaired while the retained proof-owner files `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts` still exist on current disk. No subtask or Testing checkbox needed to be newly marked complete in this audit because the plan already honestly recorded Subtasks 1 through 14 and Testing 1 as complete from the preceding implementation-owned proof pass, and there is no live `**BLOCKER**` note in Task 60. Task 60 is now `__done__` because its bounded documentation repair and task-local automated proof are both complete on current repo state, while the remaining incomplete work belongs to downstream Task 61 rather than to this duplicate-proof-contract wording repair.
 
 ### Task 61. Re-Validate Story 55 After Review Pass `0000055-20260408T005855Z-5f96266d`
 

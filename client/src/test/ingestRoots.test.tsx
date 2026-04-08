@@ -464,6 +464,303 @@ describe('RootsTable', () => {
     );
   });
 
+  it('disables the row-level Remove button for an ingesting row without queueState', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-active-head',
+            name: 'repo-active-head',
+            status: 'ingesting',
+            phase: 'embedding',
+            runId: 'run-active-head',
+            requestId: 'queue-request-head',
+            queueState: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const activeRow = await screen.findByRole('row', {
+      name: /repo-active-head/i,
+    });
+
+    expect(
+      within(activeRow).getByRole('button', { name: /^Remove$/i }),
+    ).toBeDisabled();
+    expect(
+      within(activeRow).getByRole('button', { name: /re-embed/i }),
+    ).toBeEnabled();
+  });
+
+  it('keeps active ingest head rows without queueState out of shared destructive selection', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-active-head',
+            name: 'repo-active-head',
+            status: 'ingesting',
+            phase: 'embedding',
+            runId: 'run-active-head',
+            requestId: 'queue-request-head',
+            queueState: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const activeRow = await screen.findByRole('row', {
+      name: /repo-active-head/i,
+    });
+    const activeCheckbox = within(activeRow).getByRole('checkbox', {
+      name: /select repo-active-head/i,
+    });
+    const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+
+    expect(activeCheckbox).toBeDisabled();
+    fireEvent.click(activeCheckbox);
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+    expect(bulkRemove).toBeDisabled();
+  });
+
+  it('reports partial failure honestly after a mixed-success bulk remove', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/remove/%2Frepo-success')) {
+        return mockJsonResponse({ status: 'ok', unlocked: false });
+      }
+      if (url.includes('/ingest/remove/%2Frepo-failed')) {
+        return mockJsonResponse({ status: 'error' }, { status: 500 });
+      }
+      if (url.includes('/ingest/roots')) {
+        return mockJsonResponse({ roots: [] });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-success', name: 'repo-success' },
+          { ...root, path: '/repo-failed', name: 'repo-failed' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('checkbox', { name: /select all roots/i });
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-success/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-failed/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove selected/i }));
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText(
+        'Partial failure: 1 of 2 selected actions completed. 1 failed and remain selected for retry.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('retains only failing rows after a mixed-success bulk remove settles', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/remove/%2Frepo-success')) {
+        return mockJsonResponse({ status: 'ok', unlocked: false });
+      }
+      if (url.includes('/ingest/remove/%2Frepo-failed')) {
+        return mockJsonResponse({ status: 'error' }, { status: 500 });
+      }
+      if (url.includes('/ingest/roots')) {
+        return mockJsonResponse({ roots: [] });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-success', name: 'repo-success' },
+          { ...root, path: '/repo-failed', name: 'repo-failed' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('checkbox', { name: /select all roots/i });
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-success/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-failed/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove selected/i }));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText('1 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-success/i }),
+    ).not.toBeChecked();
+  });
+
+  it('reports full bulk failure honestly and keeps failed rows selected for retry', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/remove/%2Frepo-failed-a')) {
+        return mockJsonResponse({ status: 'error' }, { status: 500 });
+      }
+      if (url.includes('/ingest/remove/%2Frepo-failed-b')) {
+        return mockJsonResponse({ status: 'error' }, { status: 503 });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-failed-a', name: 'repo-failed-a' },
+          { ...root, path: '/repo-failed-b', name: 'repo-failed-b' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('checkbox', { name: /select all roots/i });
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-failed-a/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-failed-b/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove selected/i }));
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText(
+        '2 selected actions failed. The failed rows remain selected for retry.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed-a/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed-b/i }),
+    ).toBeChecked();
+  });
+
+  it('normalizes failed responses and thrown per-row failures into the same mixed-success bulk contract', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/remove/%2Frepo-success')) {
+        return mockJsonResponse({ status: 'ok', unlocked: false });
+      }
+      if (url.includes('/ingest/remove/%2Frepo-failed-response')) {
+        return mockJsonResponse({ status: 'error' }, { status: 500 });
+      }
+      if (url.includes('/ingest/remove/%2Frepo-failed-throw')) {
+        throw new Error('network down');
+      }
+      if (url.includes('/ingest/roots')) {
+        return mockJsonResponse({ roots: [] });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-success', name: 'repo-success' },
+          {
+            ...root,
+            path: '/repo-failed-response',
+            name: 'repo-failed-response',
+          },
+          { ...root, path: '/repo-failed-throw', name: 'repo-failed-throw' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('checkbox', { name: /select all roots/i });
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-success/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-failed-response/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-failed-throw/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove selected/i }));
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText(
+        'Partial failure: 1 of 3 selected actions completed. 2 failed and remain selected for retry.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed-response/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed-throw/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-success/i }),
+    ).not.toBeChecked();
+    expect(await screen.findByText('Remove failed (500)')).toBeInTheDocument();
+    expect(await screen.findByText('network down')).toBeInTheDocument();
+  });
+
   it('keeps active running rows out of visible mixed selection when the page reports the active run id', async () => {
     render(
       <RootsTable

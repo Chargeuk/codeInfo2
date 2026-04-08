@@ -44,6 +44,11 @@ type ActionState = {
   message?: string;
 };
 
+type ActionResult = {
+  ok: boolean;
+  path: string;
+};
+
 const statusColor: Record<
   string,
   'default' | 'info' | 'success' | 'warning' | 'error'
@@ -57,18 +62,22 @@ const statusColor: Record<
   error: 'error',
 };
 
-function blocksUserRemove(root: IngestRoot) {
+function blocksDestructiveAction(root: IngestRoot) {
   return (
+    root.status === 'ingesting' ||
     root.queueState === 'waiting' ||
     root.queueState === 'running' ||
     root.queueState === 'cleanup-blocked'
   );
 }
 
+function blocksUserRemove(root: IngestRoot) {
+  return blocksDestructiveAction(root);
+}
+
 function blocksSharedSelection(root: IngestRoot, activeRunId?: string) {
   return (
-    root.status === 'ingesting' ||
-    blocksUserRemove(root) ||
+    blocksDestructiveAction(root) ||
     (typeof activeRunId === 'string' &&
       activeRunId.length > 0 &&
       root.runId === activeRunId)
@@ -157,7 +166,7 @@ export default function RootsTable({
 
   const clearSelection = () => setSelected(new Set());
 
-  const doReembed = async (path: string) => {
+  const doReembed = async (path: string): Promise<ActionResult> => {
     setStatus(path, { status: 'loading', message: 'Starting re-embed…' });
     try {
       const res = await fetch(
@@ -197,12 +206,14 @@ export default function RootsTable({
       }
       await onRefresh();
       await onRefreshModels?.();
+      return { ok: true, path };
     } catch (err) {
       setStatus(path, { status: 'error', message: (err as Error).message });
+      return { ok: false, path };
     }
   };
 
-  const doRemove = async (path: string) => {
+  const doRemove = async (path: string): Promise<ActionResult> => {
     setStatus(path, { status: 'loading', message: 'Removing…' });
     try {
       const res = await fetch(
@@ -221,8 +232,10 @@ export default function RootsTable({
         next.delete(path);
         return next;
       });
+      return { ok: true, path };
     } catch (err) {
       setStatus(path, { status: 'error', message: (err as Error).message });
+      return { ok: false, path };
     }
   };
 
@@ -231,19 +244,39 @@ export default function RootsTable({
       action === 'remove' ? removableSelectedPaths : Array.from(selected);
     if (targetPaths.length === 0) return;
     setBulkMessage({ status: 'loading', message: 'Working on selected…' });
-    try {
-      for (const path of targetPaths) {
-        if (action === 'reembed') await doReembed(path);
-        if (action === 'remove') await doRemove(path);
+    const results: ActionResult[] = [];
+    for (const path of targetPaths) {
+      if (action === 'reembed') {
+        results.push(await doReembed(path));
       }
+      if (action === 'remove') {
+        results.push(await doRemove(path));
+      }
+    }
+    const failedPaths = results
+      .filter((result) => !result.ok)
+      .map((result) => result.path);
+    const successCount = results.length - failedPaths.length;
+    if (failedPaths.length === 0) {
       setBulkMessage({
         status: 'success',
         message: 'Finished selected actions',
       });
       clearSelection();
-    } catch (err) {
-      setBulkMessage({ status: 'error', message: (err as Error).message });
+      return;
     }
+    setSelected(new Set(failedPaths));
+    if (successCount === 0) {
+      setBulkMessage({
+        status: 'error',
+        message: `${failedPaths.length} selected action${failedPaths.length === 1 ? '' : 's'} failed. The failed row${failedPaths.length === 1 ? ' remains' : 's remain'} selected for retry.`,
+      });
+      return;
+    }
+    setBulkMessage({
+      status: 'error',
+      message: `Partial failure: ${successCount} of ${results.length} selected actions completed. ${failedPaths.length} failed and remain selected for retry.`,
+    });
   };
 
   const headerActions = useMemo(

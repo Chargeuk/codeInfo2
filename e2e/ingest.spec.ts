@@ -901,6 +901,106 @@ test.describe.serial('Ingest flows', () => {
     expect(removeRequests[0]).not.toContain('/ingest/remove/%2Fmock-queued');
   });
 
+  test('bulk remove keeps failed rows selected and reports partial failure honestly', async ({
+    page,
+  }) => {
+    const removeRequests: string[] = [];
+    let mockedRoots = {
+      roots: [
+        {
+          runId: 'run-success',
+          name: 'mock-success',
+          description: 'completed fixture',
+          path: '/mock-success',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+        {
+          runId: 'run-failed',
+          name: 'mock-failed',
+          description: 'completed fixture',
+          path: '/mock-failed',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '2025-02-19',
+      lockedModelId: 'embed-1',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+    await page.route('**/ingest/remove/**', async (route) => {
+      const url = route.request().url();
+      removeRequests.push(url);
+      if (url.includes('/ingest/remove/%2Fmock-success')) {
+        mockedRoots = {
+          ...mockedRoots,
+          roots: mockedRoots.roots.filter((root) => root.path !== '/mock-success'),
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'ok', unlocked: false }),
+        });
+        return;
+      }
+      if (url.includes('/ingest/remove/%2Fmock-failed')) {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'error', code: 'REMOVE_FAILED' }),
+        });
+        return;
+      }
+      await route.abort('failed');
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    await page.getByRole('checkbox', { name: /^Select mock-success$/i }).check();
+    await page.getByRole('checkbox', { name: /^Select mock-failed$/i }).check();
+    await expect(page.getByText('2 selected')).toBeVisible();
+
+    await page.getByRole('button', { name: /remove selected/i }).click();
+
+    await expect
+      .poll(() => removeRequests.length, {
+        timeout: 10_000,
+        message: 'waiting for bulk remove mixed-success requests',
+      })
+      .toBe(2);
+
+    await expect(
+      page.getByText(
+        'Partial failure: 1 of 2 selected actions completed. 1 failed and remain selected for retry.',
+      ),
+    ).toBeVisible();
+    await expect(page.getByText('1 selected')).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', { name: /^Select mock-failed$/i }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('checkbox', { name: /^Select mock-success$/i }),
+    ).toHaveCount(0);
+
+    await saveStableScreenshot(
+      page,
+      '0000055-bulk-partial-failure-state.png',
+    );
+  });
+
   test('remove clears entry and unlocks model when empty', async ({ page }) => {
     const removeFixtureName = `${fixtureName}-remove`;
     const removeRowNamePattern = new RegExp(

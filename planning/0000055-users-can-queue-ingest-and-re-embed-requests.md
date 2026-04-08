@@ -4801,7 +4801,7 @@ This task repairs the stale Story 55 proof contract around duplicate queue admis
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `58, 59, 60`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-08 as the required final validation task after the review-created follow-up work for review pass `0000055-20260408T005855Z-5f96266d`.
 
 #### Overview
@@ -4849,11 +4849,11 @@ This task closes review pass `0000055-20260408T005855Z-5f96266d` after Tasks 58 
 
 #### Subtasks
 
-1. [ ] Requirement: re-read Task 58 before final validation. Purpose: keep the close-out aligned with the queued re-embed naming repair that reopened the story.
-2. [ ] Requirement: re-read Task 59 before final validation. Purpose: keep the close-out aligned with the `RootsTable` destructive-state and mixed-success repair that reopened the story.
-3. [ ] Requirement: re-read Task 60 before final validation. Purpose: keep the close-out aligned with the duplicate-proof-contract repair that reopened the story.
-4. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings instead of the broader external-comment inventory.
-5. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward rejected-risk notes.
+1. [x] Requirement: re-read Task 58 before final validation. Purpose: keep the close-out aligned with the queued re-embed naming repair that reopened the story.
+2. [x] Requirement: re-read Task 59 before final validation. Purpose: keep the close-out aligned with the `RootsTable` destructive-state and mixed-success repair that reopened the story.
+3. [x] Requirement: re-read Task 60 before final validation. Purpose: keep the close-out aligned with the duplicate-proof-contract repair that reopened the story.
+4. [x] Requirement: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings instead of the broader external-comment inventory.
+5. [x] Requirement: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward rejected-risk notes.
 6. [ ] Requirement: after Testing 1 through 10 finish, refresh this task's `Implementation notes` with one explicit closure note for the queued re-embed naming finding. Purpose: make the Task 58 close-out directly inspectable on disk.
 7. [ ] Requirement: after Testing 1 through 10 finish, refresh this task's `Implementation notes` with the exact helper file that now owns the queued re-embed naming proof. Purpose: make the Task 58 implementation owner directly inspectable on disk.
 8. [ ] Requirement: after Testing 1 through 10 finish, refresh this task's `Implementation notes` with the exact test files that now own the queued re-embed naming proof. Purpose: make the Task 58 proof owners directly inspectable on disk.
@@ -4902,3 +4902,9 @@ This task closes review pass `0000055-20260408T005855Z-5f96266d` after Tasks 58 
 #### Implementation notes
 
 - Inserted on 2026-04-08 as the required final revalidation task after review pass `0000055-20260408T005855Z-5f96266d` reopened Story 55 for four endorsed findings drawn from the stored review artifacts.
+- Subtask 1: re-read Task 58 from the canonical plan before touching final close-out notes so Task 61 stays anchored to the queued re-embed naming repair and its retained helper/test proof owners.
+- Subtask 2: re-read Task 59 from the canonical plan before touching final close-out notes so Task 61 stays anchored to the `RootsTable` destructive-state and mixed-success bulk-reporting repair plus its retained React, Playwright, and screenshot proof owners.
+- Subtask 3: re-read Task 60 from the canonical plan before touching final close-out notes so Task 61 stays anchored to the duplicate-proof-contract wording repair and its retained plan/summary proof surfaces.
+- Subtask 4: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-findings.md` so the final close-out remains scoped to the two endorsed `must_fix` and two endorsed `should_fix` findings instead of drifting back into the broader external-comment inventory.
+- Subtask 5: re-read `codeInfoStatus/reviews/0000055-20260408T005855Z-5f96266d-blind-spot-challenge.md` so the final close-out keeps the carry-forward rejected-risk and residual-risk expectations aligned with the latest durable review artifact.
+- Implementation-only pass on 2026-04-08: Task 61 is now `__in_progress__` after completing the required reread subtasks. Subtasks 6 through 35 remain intentionally unchecked because they are explicitly gated on Testing 1 through 10 or Testing 11, which belong to the later automated-proof step rather than this implementation-only pass.

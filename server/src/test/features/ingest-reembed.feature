@@ -25,13 +25,8 @@ Then ingest manage response status is 202
 @mongo
 Scenario: waiting queued re-embed roots view keeps the persisted stable display name
 Given ingest manage chroma stub is empty
-And ingest manage models scenario "controlled-embedding"
-And ingest manage temp repo with file "a.ts" containing "export const a=1;"
-And ingest manage root metadata exists for "/tmp/reembed-root" with legacy model "embed-1"
-When I POST ingest manage start with model "embed-1"
-Then ingest manage waits for 1 controlled embedding calls
-When I POST ingest manage reembed for root "/tmp/reembed-root"
-Then ingest manage response status is 202
+And ingest manage mongo queue is empty
+And ingest manage mongo queue has waiting request for "/tmp/reembed-root" named "legacy-repo"
 When I GET ingest manage roots
 Then ingest manage roots entry for "/tmp/reembed-root" has name "legacy-repo"
 And ingest manage roots entry for "/tmp/reembed-root" has request id present

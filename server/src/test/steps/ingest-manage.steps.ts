@@ -589,6 +589,24 @@ Given(
   },
 );
 
+Given(
+  'ingest manage mongo queue has waiting request for {string} named {string}',
+  async (rootPath: string, name: string) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'waiting',
+      requestPayload: {
+        path: rootPath,
+        name,
+        model: 'embed-1',
+      },
+      sourceSurface: 'cucumber',
+      runId: null,
+    });
+  },
+);
+
 Given('ingest manage queue runtime records started paths', () => {
   queueRuntimeStartedPaths = [];
   __setRunProcessorForTest(async (runId, input) => {

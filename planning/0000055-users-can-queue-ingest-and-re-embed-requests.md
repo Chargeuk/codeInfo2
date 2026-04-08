@@ -4608,13 +4608,13 @@ This task repairs the queued re-embed metadata corruption path identified in the
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the queued re-embed naming repair.
-2. [ ] Run full `npm run test:summary:server:unit` and confirm the full server unit wrapper still passes while the proof owners named in this task's subtasks cover the repaired queued re-embed naming path.
-3. [ ] Run full `npm run test:summary:server:cucumber` and confirm the Testcontainers-backed re-embed feature baseline still passes through the supported backend integration path after the naming repair.
-4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the queued re-embed naming repair without `agent_action: inspect_log`.
-5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
-6. [ ] Run `npm run test:summary:host-network:main` and confirm the normal supported main-stack smoke proof still passes after the queued re-embed naming repair.
-7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 58 smoke proof.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the queued re-embed naming repair.
+2. [x] Run full `npm run test:summary:server:unit` and confirm the full server unit wrapper still passes while the proof owners named in this task's subtasks cover the repaired queued re-embed naming path.
+3. [x] Run full `npm run test:summary:server:cucumber` and confirm the Testcontainers-backed re-embed feature baseline still passes through the supported backend integration path after the naming repair.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the queued re-embed naming repair without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [x] Run `npm run test:summary:host-network:main` and confirm the normal supported main-stack smoke proof still passes after the queued re-embed naming repair.
+7. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 58 smoke proof.
 
 #### Implementation notes
 
@@ -4624,6 +4624,13 @@ This task repairs the queued re-embed metadata corruption path identified in the
 - Subtasks 15-21: extended direct proof in `server/src/test/unit/reingestService.test.ts` for both the overlay-shaped row (`id` as active `runId`, stable `name` retained) and the no-name fallback path, with assertions that the repaired naming path leaves execution-path, canonical-path, description, provider/model fields, and derived model behavior unchanged. Added a separate route-level proof in `server/src/test/unit/ingest-reembed.test.ts` so queue admission through `/ingest/reembed/:root` now asserts the stable display name is persisted instead of the overlay `id`.
 - Subtasks 22-26: extended `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts` with a waiting-state roots proof that searches by path and asserts the queued re-embed row keeps the stable persisted name before execution starts. That proof is anchored to deterministic waiting-state signals (`requestId` present, `runId` null, `queueState: waiting`, `queuePosition: 1`) instead of arbitrary waiting, and the reused helper-level test title was renamed so path-split semantics and stable-name semantics are not conflated.
 - Subtasks 27-29: no additional queued re-embed caller shape bypassed the repaired stable-name order in the direct proof added here, so no follow-up caller-shape note or `planning/0000055-pr-summary.md` change was needed in this implementation pass.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and retained log `logs/test-summaries/build-server-latest.log`. Before the passing rerun I had to tighten the new `server/src/test/unit/ingest-reembed.test.ts` route proof so it captured only the concrete queue payload fields the assertion needed; that kept the task-scoped proof buildable without widening the runtime repair.
+- Testing 2: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1628`, `passed: 1628`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-08T07-05-56-036Z.log`, so the helper-level, route-level, and waiting-state proof owners added in this task all now sit on top of a passing full server unit baseline.
+- Testing 3: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 85`, `passed: 85`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-08T07-28-43-202Z.log`. The first rerun exposed suite contamination from a controlled-embedding version of the new waiting-state scenario, so I narrowed that proof to a direct seeded waiting-row seam in `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts`, which preserved the stable-name roots-read assertion without leaving the shared cucumber baseline dirty.
+- Testing 4: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/compose-build-latest.log`, so the supported containerized build path still packages the Task 58 naming repair without any compose-only contract drift.
+- Testing 5: `npm run compose:up` started the normal supported main stack cleanly after `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` and brought up healthy `mongo_db_CodeInfo`, `codeinfo2-server-1`, and started `codeinfo2-client-1`, so the runtime path was ready for the host-network smoke proof.
+- Testing 6: `npm run test:summary:host-network:main` passed cleanly with `result: passed` and all four expected MCP endpoints reachable over `http://host.docker.internal` at HTTP 200. The retained smoke-proof home for this task is `logs/test-summaries/host-network-main-latest.log`.
+- Testing 7: `npm run compose:down` shut the supported main stack down cleanly after the host-network smoke pass, so the full Task 58 automated-proof chain now has a clean runtime teardown and no live smoke-path blocker remains.
 
 ### Task 59. Restore Honest Destructive-Action Gating And Bulk Failure Reporting In `RootsTable`
 

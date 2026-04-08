@@ -334,7 +334,12 @@ test('ingest-reembed waiting queue-aware contract returns queued state without r
 });
 
 test('ingest-reembed queue admission persists the stable repo name instead of an overlay run id', async () => {
-  let queuedInput: EnqueueIngestRequestInput | null = null;
+  let queuedPayload:
+    | {
+        name?: string;
+        path?: string;
+      }
+    | null = null;
   const response = await request(
     buildApp({
       listIngestedRepositories: async () => ({
@@ -349,7 +354,16 @@ test('ingest-reembed queue admission persists the stable repo name instead of an
         lockedModelId: 'embed-model',
       }),
       enqueueOrReuseIngestRequest: async (input) => {
-        queuedInput = input;
+        queuedPayload = {
+          name:
+            typeof input.requestPayload.name === 'string'
+              ? input.requestPayload.name
+              : undefined,
+          path:
+            typeof input.requestPayload.path === 'string'
+              ? input.requestPayload.path
+              : undefined,
+        };
         return buildQueueResult({
           canonicalTargetPath: input.canonicalTargetPath,
         });
@@ -369,8 +383,12 @@ test('ingest-reembed queue admission persists the stable repo name instead of an
     requestId: 'queue-request-123',
     queuePosition: 1,
   });
-  assert.equal(queuedInput?.requestPayload.name, 'Stable Repo Name');
-  assert.equal(queuedInput?.requestPayload.path, '/tmp/repo');
+  if (!queuedPayload) {
+    assert.fail('expected queue admission input');
+  }
+  const capturedPayload = queuedPayload as { name?: string; path?: string };
+  assert.equal(capturedPayload.name, 'Stable Repo Name');
+  assert.equal(capturedPayload.path, '/tmp/repo');
 });
 
 test('ingest-reembed queue-target normalization resolves encoded route aliases to one canonical target', () => {

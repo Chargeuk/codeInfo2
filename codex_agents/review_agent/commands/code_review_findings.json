@@ -44,37 +44,37 @@
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/08-untrusted-input-boundaries.md"
+      "markdownFile": "code_review_findings/04-untrusted-input-boundaries.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/09-idempotency-and-replay-safety.md"
+      "markdownFile": "code_review_findings/05-idempotency-and-replay-safety.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/10-event-driven-vs-time-based-coordination.md"
+      "markdownFile": "code_review_findings/06-event-driven-vs-time-based-coordination.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/04-changed-test-review.md"
+      "markdownFile": "code_review_findings/07-changed-test-review.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/05-ui-affordance-parity.md"
+      "markdownFile": "code_review_findings/08-ui-affordance-parity.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/06-field-role-stability.md"
+      "markdownFile": "code_review_findings/09-field-role-stability.md"
     },
     {
       "type": "message",
       "role": "user",
-      "markdownFile": "code_review_findings/07-bulk-side-effect-cardinality.md"
+      "markdownFile": "code_review_findings/10-bulk-side-effect-cardinality.md"
     }
   ]
 }

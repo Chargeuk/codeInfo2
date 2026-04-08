@@ -4704,13 +4704,13 @@ This task repairs the two endorsed client-side findings in `client/src/component
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the `RootsTable` repair.
-2. [ ] Run full `npm run test:summary:client` and confirm the full client wrapper still passes while the proof owners named in this task's subtasks cover the repaired row-level Remove gate, mixed-success selection retention, and failure messaging paths.
-3. [ ] Run full `npm run test:summary:e2e` and confirm the automated browser wrapper still passes while `e2e/ingest.spec.ts` and the screenshot artifact named in this task stay the proof owners for the repaired mixed-success UI state.
-4. [ ] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the `RootsTable` repair without `agent_action: inspect_log`.
-5. [ ] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
-6. [ ] Run `npm run test:summary:host-network:main` and confirm the normal supported main-stack smoke proof still passes after the `RootsTable` repair.
-7. [ ] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 59 smoke proof.
+1. [x] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the `RootsTable` repair.
+2. [x] Run full `npm run test:summary:client` and confirm the full client wrapper still passes while the proof owners named in this task's subtasks cover the repaired row-level Remove gate, mixed-success selection retention, and failure messaging paths.
+3. [x] Run full `npm run test:summary:e2e` and confirm the automated browser wrapper still passes while `e2e/ingest.spec.ts` and the screenshot artifact named in this task stay the proof owners for the repaired mixed-success UI state.
+4. [x] Run `npm run compose:build:summary` and confirm the supported containerized build path still packages the `RootsTable` repair without `agent_action: inspect_log`.
+5. [x] Run `npm run compose:up` and confirm the normal supported main-stack runtime path starts cleanly before smoke proof.
+6. [x] Run `npm run test:summary:host-network:main` and confirm the normal supported main-stack smoke proof still passes after the `RootsTable` repair.
+7. [x] Run `npm run compose:down` and confirm the normal supported main-stack runtime path shuts down cleanly after the Task 59 smoke proof.
 
 #### Implementation notes
 
@@ -4723,6 +4723,13 @@ This task repairs the two endorsed client-side findings in `client/src/component
 - Added a separate Playwright scenario in `e2e/ingest.spec.ts` for mixed-success bulk remove behavior instead of repurposing the earlier queued-row selection proof. The new browser proof uses deterministic intercepted `/ingest/remove/*` outcomes, proves both the partial-failure batch message and retained failed-row selection, and refreshed `artifacts/story-0000055-screenshots/0000055-bulk-partial-failure-state.png`.
 - Ran `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "bulk remove keeps failed rows selected and reports partial failure honestly"` only because Subtasks 19 through 21 required a real browser proof and screenshot artifact. The targeted wrapper passed with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and log `logs/test-summaries/e2e-tests-latest.log`.
 - The bounded Task 59 repair did not require a broader refresh-cardinality rewrite or a new browser harness seam, so no blocker note or PR-summary follow-up was needed during the implementation-only pass.
+- Testing 1: `npm run build:summary:client` passed cleanly with `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-client-latest.log`.
+- Testing 2: full `npm run test:summary:client` passed with `tests run: 674`, `passed: 674`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-08T08-00-58-002Z.log`.
+- Testing 3: full `npm run test:summary:e2e` passed with `tests run: 49`, `passed: 49`, `failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/e2e-tests-latest.log`. The normal wrapper path still covers the new mixed-success bulk-remove browser proof and screenshot owner.
+- Testing 4: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/compose-build-latest.log`.
+- Testing 5: `npm run compose:up` started the supported main stack cleanly with Mongo, Chroma, server, client, and Playwright MCP all reaching started or healthy state on the normal runtime path.
+- Testing 6: `npm run test:summary:host-network:main` passed with all four supported endpoints reachable over `http://host.docker.internal` and retained log `logs/test-summaries/host-network-main-latest.log`.
+- Testing 7: `npm run compose:down` removed the supported main stack cleanly after the host-network smoke proof.
 
 ### Task 60. Replace The Stale Queue-Dedupe Marker Claim With Honest Retained Proof
 

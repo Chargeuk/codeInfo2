@@ -12,6 +12,8 @@ Ensure `Subtasks` and `Testing` stay separated so implementation and proof-autho
 <subtask_testing_separation_rules>
 
 - Re-read the active plan from disk before editing.
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each task, check whether any `Subtasks` bullet directly tells the implementer to run a build, test, compose, browser, or wrapper command.
 - If a subtask mixes execution and proof-authoring, rewrite it so:
   - the execution command lives in `Testing`;

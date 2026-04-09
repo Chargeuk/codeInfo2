@@ -45,10 +45,17 @@
     },
     {
       "type": "command",
-      "label": "Enhance review tasks",
+      "label": "Task up review tasks",
       "agentType": "planning_agent",
       "identifier": "planner",
-      "commandName": "enhance_review_tasks"
+      "commandName": "task_up_review_tasks"
+    },
+    {
+      "type": "llm",
+      "label": "Check review tasking quality",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "review_task_enhancement/04-check-quality.md"
     },
     {
       "type": "llm",

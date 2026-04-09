@@ -4931,3 +4931,482 @@ This task closes review pass `0000055-20260408T005855Z-5f96266d` after Tasks 58 
 - 2026-04-08 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 61 section from disk, rechecked the current proof commit `93ac13aa`, and verified the retained final-validation proof homes `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-04-08T08-46-00-141Z.log`, `test-results/server-cucumber-tests-2026-04-08T17-53-48-358Z.log`, `test-results/client-tests-2026-04-08T17-56-28-168Z.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/host-network-main-latest.log`, `logs/test-summaries/e2e-tests-latest.log`, plus the three durable review artifacts and refreshed `planning/0000055-pr-summary.md` all still exist on current disk. The only previously unchecked subtask was the smoke-failure contingency note for Testing 9, and this audit marked it complete because the current Task 61 notes already record that `npm run compose:down` shut the stack down cleanly and therefore no cleanup-failure contingency note was needed after the passing smoke path. There is no live `**BLOCKER**` note in Task 61, every subtask and Testing item is now honestly complete on current repo state, and Task 61 is now `__done__`.
 - 2026-04-08 manual proof pass: expanded to full-story scope because Task 61 is the final story task. I restarted the documented main stack from stale-or-unknown provenance with `npm run compose:build` plus `npm run compose:up`, confirmed the live queue contract on supported surfaces with `GET /health`, `GET /ingest/roots`, and the paired `/ingest` browser UI showing the waiting row `Task55 Manual Queued` with durable `requestId`, `Pending queue start`, and `waiting (#1)`, then finished the reopened frontend seams with deterministic browser-routed proofs that kept the queued re-embed name stable (`Stable Re-embed Repo` with `req-stable-58` and `waiting (#2)`), kept row-level destructive gating disabled for the `ingest-no-queue` row, and preserved honest mixed-success bulk failure reporting where only `mock-failed` remained selected after the intentional `/ingest/remove/%2Fmock-failed` `500`. Playwright MCP reported screenshot artifacts at `/tmp/playwright-output/story-0000055-task61-live-queued-story.png`, `/tmp/playwright-output/story-0000055-task61-stable-name-and-gating.png`, and `/tmp/playwright-output/story-0000055-task61-bulk-partial-failure.png`; the captured states were aligned, readable, and usable, and browser inspection found no unexpected console or network failures beyond the intentional mocked `500` in the partial-failure scenario. Task 60's doc-only proof-contract repair remained validated by direct disk evidence rather than a separate runnable seam, `npm run compose:down` returned the main stack to its prior stopped state while leaving `compose:local` running as found, and no additional subtasks or Testing-step changes were needed.
 
+## Code Review Findings
+
+- Review pass: `0000055-20260409T201302Z-13774922`
+- Evidence artifact: `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`
+- Findings artifact: `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`
+- Blind-spot challenge artifact: `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`
+- Scope: current repository only; `additional_repositories` is empty in `codeInfoStatus/flow-state/current-plan.json`
+- Disposition: Story 55 is re-opened because this review pass recorded `1` `must_fix` and `8` `should_fix` findings in the current repository.
+- Review-created follow-up sequence:
+  - `Task 62` repairs the shared repo-list contract so repository identity stays stable during active overlays, waiting duplicate updates surface the latest queued metadata, and the queued repo-list schema version comes from one shared contract constant.
+  - `Task 63` repairs queue duplicate-update diagnostics and blocking waiter error mapping so waiting duplicate reuse is logged honestly and queue-state read failures no longer collapse into `WAIT_TIMEOUT`.
+  - `Task 64` repairs deferred execution validation plus the deletions-only re-embed fast path so malformed queued payloads fail at execution-time validation and zero-work deletion-only runs do not fail on unnecessary Chroma bootstrap work.
+  - `Task 65` removes the tracked zero-byte root artifacts identified in the findings artifact.
+  - `Task 66` restores one explicit bulk re-embed affordance in `RootsTable` and removes per-item refresh churn from batch actions.
+  - `Task 67` performs the fresh full-story revalidation and updates the maintained summary after Tasks 62 through 66 land.
+- Deferred review note: the optional simplification about replacing timer-driven ingest test polling with stronger event-driven test coordination is deferred for this pass. It is localized and real, but it is proof-quality churn rather than a current correctness or contract break, and the reopened tasks above already cover the actionable product and contract regressions from this pass.
+- Durable review-artifact rule for this reopened pass: the evidence, findings, and blind-spot challenge artifacts above must remain commit-worthy companions to the plan changes created from this review.
+
+### Task 62. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `61`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one shared repo-list identity regression, one waiting-metadata regression, and one localized schema-constant simplification.
+
+#### Overview
+
+This task repairs the shared repo-list contract around queue overlays. Repository rows must keep one stable repository identity even while a run is active, and waiting duplicate updates must surface the latest queued provider/model metadata instead of stale persisted values. This task also folds the duplicated queued schema-version literal back onto the shared contract constant so future repo-list schema bumps stay one-source-of-truth. The fix must stay bounded to the shared repo-list builder, its readers, and their direct proofs; it should not broaden into unrelated queue redesign or client-table refactors.
+
+#### Task Exit Criteria
+
+- `repo.id` remains a stable repository identifier in shared repo-list responses during waiting, running, and active-overlay states.
+- `runId` remains the transient runtime identifier and no longer overwrites repository identity in the shared repo-list contract.
+- Waiting duplicate updates for existing roots surface the latest queued provider/model metadata, request identifiers, and waiting-state fields in `/ingest/roots`, `tools/ingested-repos`, and MCP list consumers.
+- Active-only synthesized rows use a stable repository identifier rather than a transient `runId`.
+- Repository-id-based re-embed selection still resolves the stable repository identifier while an active overlay is present.
+- The queued repo-list schema version comes from `common/src/lmstudio.ts` instead of a duplicated server-side literal.
+- For an existing repository row that is reused by a waiting duplicate update, stale persisted provider or model values are excluded from the client-visible queued state and the fresh waiting metadata is shown instead.
+- If the details drawer is already open for that reused row when the fresh waiting metadata arrives, the open drawer re-renders from the waiting overlay state and does not retain stale persisted provider or model values.
+- Direct proof exists in the server repo-list tests, one repository-selector-consuming re-embed proof, and the client normalization tests for the repaired identity and waiting-metadata precedence rules.
+- This task stays bounded to the endorsed repo-list/read-model findings from this review pass.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`
+- `common/src/lmstudio.ts`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/routes/ingestRoots.ts`
+- `server/src/mcp/server.ts`
+- `server/src/mcpCommon/repositorySelector.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- `server/src/test/unit/mcp.reingest.classic.test.ts`
+- `server/src/test/features/ingest-roots.feature`
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/test/ingestRoots.test.tsx`
+- `client/src/test/useIngestRoots.test.tsx`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/components/ingest/RootDetailsDrawer.tsx`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`
+
+#### Proof Mapping
+
+- Stable active-overlay repository identity: owned by `server/src/lmstudio/toolService.ts`; prove in `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Waiting duplicate metadata freshness for existing roots: owned by `server/src/lmstudio/toolService.ts` and `client/src/hooks/useIngestRoots.ts`; prove in `server/src/test/unit/tools-ingested-repos.test.ts` and `client/src/test/useIngestRoots.test.tsx`.
+- Active-only synthesized-row identity: owned by `server/src/lmstudio/toolService.ts`; prove in `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Repository-id selector compatibility during active overlays: owned by `server/src/mcpCommon/repositorySelector.ts` and `server/src/lmstudio/toolService.ts`; prove in `server/src/test/unit/mcp.reingest.classic.test.ts`.
+- The supported ingest-roots feature path still projects the repaired stable identity and waiting metadata through the normal Testcontainers-backed API surface: owned by `server/src/routes/ingestRoots.ts` and `server/src/lmstudio/toolService.ts`; prove in `server/src/test/features/ingest-roots.feature`.
+- Shared schema-version constant reuse: owned by `common/src/lmstudio.ts` and `server/src/lmstudio/toolService.ts`; prove through `client/src/test/useIngestRoots.test.tsx` plus the wrapper build artifacts from `logs/test-summaries/build-client-latest.log`.
+- Existing-row reuse on the client prefers fresh waiting metadata over stale persisted hints in the table row: owned by `client/src/hooks/useIngestRoots.ts` and `client/src/components/ingest/RootsTable.tsx`; prove in `client/src/test/useIngestRoots.test.tsx` and `client/src/test/ingestRoots.test.tsx`.
+- An already open details surface for that reused row re-renders from the fresh waiting metadata instead of retaining stale persisted hints: owned by `client/src/hooks/useIngestRoots.ts` and `client/src/components/ingest/RootDetailsDrawer.tsx`; prove in `client/src/test/ingestRoots.test.tsx`.
+- The supported browser ingest flow keeps the reused-row waiting metadata visible in the row and details surface, with an updated retained screenshot artifact: owned by `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, and `e2e/ingest.spec.ts`; prove in `e2e/ingest.spec.ts` and `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` before editing. Purpose: keep the repair aligned with the stored review outcome for this pass.
+2. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before editing. Purpose: keep the repair aligned with the endorsed repo-list findings for this pass.
+3. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before editing. Purpose: keep the repair aligned with the carry-forward challenge reasoning for this pass.
+4. [ ] Requirement: inspect the shared repo-list overlay path in `server/src/lmstudio/toolService.ts` before changing identity precedence. Purpose: identify exactly where active overlays currently overwrite stable repository identity.
+5. [ ] Requirement: inspect the shared schema constant in `common/src/lmstudio.ts` before changing the queued repo-list schema version. Purpose: identify the one canonical constant this task must reuse.
+6. [ ] Requirement: inspect the repository-id selector consumers in `server/src/mcpCommon/repositorySelector.ts` before changing shared repo-list identity. Purpose: identify the selector-facing seam that still depends on stable repository ids.
+7. [ ] Requirement: inspect the client normalizer in `client/src/hooks/useIngestRoots.ts` before changing waiting-metadata precedence. Purpose: identify the reader seam that must stay aligned with the repaired shared repo-list contract.
+8. [ ] Requirement: update the shared repo-list overlay logic in `server/src/lmstudio/toolService.ts` so active overlays preserve stable repository identity and keep transient `runId` in its dedicated runtime field instead of overwriting `repo.id`. Purpose: close the endorsed active-overlay identity regression without changing the queue contract to overload repository ids.
+9. [ ] Requirement: update the waiting overlay path in `server/src/lmstudio/toolService.ts` so existing-root rows read the latest queued provider/model metadata from the current waiting request payload whenever a duplicate waiting request updates that payload in place. Purpose: close the endorsed stale waiting-metadata regression for `/ingest/roots`, `tools/ingested-repos`, and MCP list consumers.
+10. [ ] Requirement: update the active-only synthesized row path in `server/src/lmstudio/toolService.ts` so it derives one stable repository identity from the shared repo-list contract rather than from the transient active `runId`. Purpose: keep the no-persisted-row path aligned with the repaired identity contract.
+11. [ ] Requirement: replace the duplicated queued repo-list schema-version literal in `server/src/lmstudio/toolService.ts` with the shared constant exported from `common/src/lmstudio.ts`, without changing the actual schema-version value used on the wire. Purpose: close the localized shared-contract simplification without widening the runtime behavior.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove an active overlay keeps the stable repository `id` while surfacing the transient `runId` separately on the same row. Purpose: give the repaired active-overlay identity rule one direct server proof home.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove a waiting duplicate update shows the latest queued provider/model metadata instead of stale persisted root metadata for the same existing repository row. Purpose: give the repaired fresh-versus-stale waiting-metadata rule its own direct server proof home.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/mcp-ingested-repositories.test.ts`. Description: prove the MCP reader mirror keeps the repaired stable repository identity and waiting metadata when the row is synthesized from live queue state instead of a persisted root record. Purpose: keep reader/writer compatibility honest for the active-only and mixed-state reader path.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: prove a repo-id-based re-embed selection still resolves the same repository while an active overlay is present. Purpose: directly prove the selector-facing consequence called out by the finding instead of inferring it from repo-list-only tests.
+16. [ ] Test type: server cucumber. Location: `server/src/test/features/ingest-roots.feature`. Description: prove the normal ingest-roots feature path still projects one stable row with fresh waiting metadata when live queue state overlays an existing repository target. Purpose: keep the repaired server contract honest on the supported Testcontainers-backed feature path, not only in unit seams.
+17. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the client normalizer keeps the repaired stable repository id and prefers fresh waiting overlay metadata over stale persisted hints on the shared reader surface. Purpose: keep the client mirror honest without widening the product scope.
+18. [ ] Requirement: update `client/src/hooks/useIngestRoots.ts` so a waiting duplicate update becomes the authoritative derived client state for an existing repository row and excludes stale persisted provider or model hints whenever fresh waiting metadata is present. Purpose: keep the create-vs-reuse mixed state out of normalized client state before row rendering begins.
+19. [ ] Requirement: update `client/src/components/ingest/RootsTable.tsx` so a reused existing repository row renders the normalized waiting metadata instead of stale persisted provider or model values. Purpose: keep the visible table row aligned with the repaired waiting-overlay precedence rule.
+20. [ ] Requirement: update `client/src/components/ingest/RootDetailsDrawer.tsx` so an already open details drawer for the reused row re-renders from the normalized waiting metadata after refresh instead of retaining stale persisted provider or model values. Purpose: keep the open details surface aligned with the same repaired create-vs-reuse state transition.
+21. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove an existing repository row with stale persisted metadata and a fresh waiting duplicate update renders the fresh waiting metadata in the table row. Purpose: prevent stale persisted hints from leaking into the main client-visible list state during the reuse path.
+22. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove an already open details drawer for that reused row re-renders to the fresh waiting metadata after refresh instead of retaining stale persisted values. Purpose: make the restored details-surface state transition explicit and reviewable.
+23. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the supported ingest browser flow keeps the fresh waiting metadata visible in the reused row and its details surface, using explicit queued-row and open-drawer assertions instead of elapsed-time waits, and refresh `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` if the visible queued-state rendering changes. Keep teardown or cleanup completion awaited if the scenario leaves waiting rows or refreshed roots behind. Purpose: keep the repaired client-visible waiting-metadata precedence honest on the supported Playwright path.
+24. [ ] Proof maintenance. Location: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`, `server/src/test/features/ingest-roots.feature`, and `e2e/ingest.spec.ts` only if reused proof titles drift. Description: rename, split, or add distinct proof cases if an older active-overlay, roots-loading, queued-row, or generic waiting-overlay title would otherwise still claim preserved persisted metadata, brand-new queued-root visibility, or generic roots loading after this task starts proving fresh waiting metadata for a reused row and an already open details surface. Purpose: keep the reused proof homes semantically aligned with the repaired stale-versus-fresh waiting-metadata invariant.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the shared repo-list contract repair.
+2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the shared repo-list contract repair touches the shared contract surface in `common/src/lmstudio.ts`.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the proof owners named in `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `server/src/test/unit/mcp.reingest.classic.test.ts`.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes, including the repaired `server/src/test/features/ingest-roots.feature` coverage for waiting-overlay identity and metadata freshness.
+5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the proof owners named in `client/src/test/useIngestRoots.test.tsx` and `client/src/test/ingestRoots.test.tsx`.
+6. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes, including the repaired `e2e/ingest.spec.ts` scenario and the retained screenshot artifact `artifacts/story-0000055-screenshots/0000055-queued-row-state.png` when that visible seam changes.
+
+#### Implementation notes
+
+- Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that active overlays now replace stable repository ids, waiting duplicate updates can still surface stale provider/model metadata, and the queued schema version is duplicated in implementation code instead of flowing from one shared contract constant.
+
+### Task 63. Restore Queue Duplicate Diagnostics And Blocking Waiter Error Semantics
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `62`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one duplicate-diagnostic contract regression and one blocking-waiter error-mapping regression.
+
+#### Overview
+
+This task repairs the queue admission and blocking-wait surfaces that currently hide important queue state. Waiting duplicate updates must log that queued work was updated rather than duplicated, and queue-state read failures during blocking waits must surface as queue-read failures instead of masquerading as ordinary wait timeouts. The fix should stay bounded to queue diagnostics and blocking-wait error semantics; it should not broaden into unrelated queue admission redesign or transport-contract changes outside the repaired error mapping.
+
+#### Task Exit Criteria
+
+- Waiting duplicate updates keep the existing queue success contract while also producing a distinct operator-visible diagnostic that the queued request was updated in place rather than duplicated.
+- The route and service layers preserve the helper's duplicate-reuse diagnostics instead of dropping them on the floor.
+- Queue-state read failures in the blocking waiter no longer settle as ordinary `timeout` results.
+- `reingestService` maps blocking queue-read failures to a distinct queue-read or backend-read error path instead of `WAIT_TIMEOUT`.
+- Blocking-wait setup, timeout, queue-read rejection, and other early-return exits unregister the shared waiter/listener state before returning so later callers do not inherit leaked queue-aware waiters.
+- Direct proof exists for both the duplicate-diagnostic path and the queue-read-failure path in the route, service, and one transport-mirror proof that consumes the same blocking result.
+- This task stays bounded to the endorsed queue-diagnostic and waiter-error findings from this review pass.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/routes/ingestStart.ts`
+- `server/src/routes/ingestReembed.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/features/ingest-start.feature`
+- `server/src/test/features/ingest-reembed.feature`
+
+#### Proof Mapping
+
+- Start-ingest duplicate-update diagnostic: owned by `server/src/ingest/requestQueue.ts` and `server/src/routes/ingestStart.ts`; prove in `server/src/test/unit/ingest-start.test.ts`.
+- Re-embed duplicate-update diagnostic: owned by `server/src/ingest/requestQueue.ts` and `server/src/routes/ingestReembed.ts`; prove in `server/src/test/unit/ingest-reembed.test.ts`.
+- Queue-read failure stays distinct from timeout in the blocking waiter: owned by `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts`; prove in `server/src/test/unit/reingestService.test.ts`.
+- Queue-aware waiter cleanup stays listener-safe for queue-read rejection, genuine timeout, and terminal early-return exits: owned by `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts`; prove in `server/src/test/unit/reingestService.test.ts`.
+- Command-facing blocking caller keeps the repaired queue-read failure semantics: owned by `server/src/ingest/reingestService.ts`; prove in `server/src/test/integration/commands.reingest.test.ts`.
+- The supported start and re-embed feature paths still accept queued work through the normal Testcontainers-backed API surface after the diagnostic repair: owned by `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`; prove in `server/src/test/features/ingest-start.feature` and `server/src/test/features/ingest-reembed.feature`.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` before editing. Purpose: keep the repair aligned with the stored review outcome for this pass.
+2. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before editing. Purpose: keep the repair aligned with the endorsed queue-diagnostic and waiter-error findings for this pass.
+3. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before editing. Purpose: keep the repair aligned with the carry-forward challenge reasoning for this pass.
+4. [ ] Requirement: inspect `enqueueOrReuseIngestRequest()` in `server/src/ingest/requestQueue.ts` before changing duplicate-update diagnostics. Purpose: locate exactly where the helper computes the reuse and updated flags.
+5. [ ] Requirement: inspect `server/src/routes/ingestStart.ts` before changing route-owned queue acceptance logging. Purpose: locate the start-ingest surface that currently drops the duplicate-update diagnostic.
+6. [ ] Requirement: inspect `server/src/routes/ingestReembed.ts` before changing route-owned queue acceptance logging. Purpose: locate the re-embed surface that currently drops the duplicate-update diagnostic.
+7. [ ] Requirement: inspect the blocking waiter in `server/src/ingest/ingestJob.ts` before changing queue-read failure settlement. Purpose: locate exactly where queue-state read failures currently collapse into timeout-shaped results.
+8. [ ] Requirement: inspect the blocking-result mapper in `server/src/ingest/reingestService.ts` before changing transport error mapping. Purpose: locate exactly where timeout-shaped waiter results become `WAIT_TIMEOUT`.
+9. [ ] Requirement: update the queue acceptance logging in `server/src/routes/ingestStart.ts` so waiting duplicate updates emit an explicit updated-in-place diagnostic while preserving the existing success payload shape unless a change is strictly required to keep the repaired contract coherent. Purpose: close the endorsed duplicate-diagnostic regression on the start-ingest route without widening the public response contract.
+10. [ ] Requirement: update the queue acceptance logging in `server/src/routes/ingestReembed.ts` so waiting duplicate updates emit an explicit updated-in-place diagnostic while preserving the existing success payload shape unless a change is strictly required to keep the repaired contract coherent. Purpose: close the endorsed duplicate-diagnostic regression on the re-embed route without widening the public response contract.
+11. [ ] Requirement: update the blocking waiter in `server/src/ingest/ingestJob.ts` so queue-state read failures settle as a distinct non-timeout failure path instead of `timeout`. Purpose: close the endorsed waiter-read-misclassification regression at the waiter seam.
+12. [ ] Requirement: update `server/src/ingest/reingestService.ts` so the repaired waiter failure path maps to a distinct queue-read or backend-read error instead of `WAIT_TIMEOUT`. Purpose: keep transport and operator diagnostics honest when the queue backend cannot be read.
+13. [ ] Requirement: update the queue-aware waiter cleanup path in `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts` so queue-read rejection, genuine timeout, and terminal early-return exits all unregister the same listener or waiter registration before returning. Purpose: keep the repaired error mapping from leaking shared waiter state across retries or later callers.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove the start-ingest route emits the repaired updated-in-place duplicate diagnostic while preserving the existing queue success payload shape. Purpose: give the repaired logging contract one explicit route-level proof home.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove the re-embed route emits the repaired updated-in-place duplicate diagnostic while preserving the existing queue success payload shape. Purpose: give the repaired logging contract one separate route-level proof home.
+16. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove a queue-state read failure no longer normalizes into `WAIT_TIMEOUT` after the waiter and service mapping are repaired. Purpose: give the repaired raw queue-read failure path one direct proof home.
+17. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove the queue-aware waiter unregisters its listener or subscription before returning the repaired queue-read or backend-read error. Purpose: make shared waiter cleanup explicit on the rejection path instead of inferring it from the returned error alone.
+18. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove a genuine long wait still normalizes into `WAIT_TIMEOUT` and unregisters the queue-aware listener before returning. Purpose: preserve the real timeout contract while keeping timeout cleanup explicit and distinct from backend-read failures.
+19. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove a terminal early-return path such as observed cancellation still unregisters the queue-aware listener before returning the terminal result. Purpose: keep the repaired waiter cleanup honest for non-timeout, non-rejection exits that share the same registration path.
+20. [ ] Test type: server integration. Location: `server/src/test/integration/commands.reingest.test.ts`. Description: prove one command-facing blocking caller now surfaces the repaired queue-read failure semantics instead of `WAIT_TIMEOUT`. Purpose: keep at least one transport mirror honest instead of leaving the new error mapping only at helper level.
+21. [ ] Test type: server cucumber. Location: `server/src/test/features/ingest-start.feature`. Description: prove the supported start-ingest feature path still accepts queued work after the duplicate-diagnostic repair without changing the published transport contract. Purpose: keep one repaired queue-aware route on the repository’s Testcontainers-backed feature path.
+22. [ ] Test type: server cucumber. Location: `server/src/test/features/ingest-reembed.feature`. Description: prove the supported re-embed feature path still accepts queued work after the duplicate-diagnostic repair without changing the published transport contract. Purpose: keep the second repaired queue-aware route on the repository’s Testcontainers-backed feature path.
+23. [ ] Proof maintenance. Location: `server/src/test/unit/reingestService.test.ts`. Description: rename, split, or replace any reused setup-read-rejection, timeout, or early-return proof whose current title still claims `WAIT_TIMEOUT` for queue-read failures or otherwise hides shared waiter cleanup behind a generic timeout label before its assertions are updated to the repaired queue-read or backend-read outcome. Purpose: keep the blocking-wait proof text aligned with the repaired error and cleanup semantics instead of preserving the stale wording this task is removing.
+24. [ ] Proof maintenance. Location: `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/features/ingest-start.feature`, and `server/src/test/features/ingest-reembed.feature` only if reused proof titles drift. Description: add distinct duplicate-update-diagnostic or queue-acceptance cases instead of broadening old happy-path queue-acceptance titles until they silently cover operator diagnostics, duplicate-update wording, or unrelated transport behavior. Purpose: keep the route and feature proof homes honest about whether they prove acceptance semantics, operator diagnostics, or both.
+25. [ ] Requirement: if the repaired waiter error needs a new marker or reason string, keep that vocabulary shared and explicit in the owning helper or mapper instead of duplicating free-form strings across routes and services. Purpose: keep the repaired error contract succinct and consistent.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the queue-diagnostic and waiter-error repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the proof owners named in `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/reingestService.test.ts`, and `server/src/test/integration/commands.reingest.test.ts`.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes, including the repaired `server/src/test/features/ingest-start.feature` and `server/src/test/features/ingest-reembed.feature` paths for queued acceptance after the diagnostic repair.
+
+#### Implementation notes
+
+- Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that waiting duplicate updates compute useful diagnostics but lose them before any operator-visible surface, and the blocking queue waiter currently hides backend-read failures behind `WAIT_TIMEOUT`.
+
+### Task 64. Reuse Admission Validation For Deferred Queue Execution And The Deletions-Only Re-Embed Fast Path
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `63`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one deferred-execution validation gap and one deletions-only re-embed fast-path regression.
+
+#### Overview
+
+This task repairs two server runtime seams where deferred execution no longer respects the intended admission contract. First, queued execution must reject malformed queued payloads at execution time instead of defaulting them into later provider failures. Second, the deletions-only re-embed fast path must keep the same zero-work bootstrap-failure tolerance as the already-hardened no-embedding-work branch, so a run that has only deletion cleanup left does not fail on unnecessary Chroma bootstrap work. The fix should stay bounded to those endorsed runtime seams and their proof surfaces.
+
+#### Task Exit Criteria
+
+- Deferred queued execution reuses the admission-time required-model rule, or an equivalent shared validator, before execution proceeds.
+- Malformed queued payloads fail as explicit execution-time validation failures instead of degrading into later provider or network failures.
+- Both queue promotion and startup recovery hit the repaired validation boundary before provider work begins when the queued payload is malformed.
+- Malformed queued payload validation failures finalize through the owned queue error or cleanup path and release queue ownership without leaving partial running state behind.
+- Deletions-only re-embed runs remain successful when there is no embedding work left and Chroma bootstrap metadata cannot be fetched.
+- The repaired runtime behavior has direct proof in the server unit suites that own queue runtime and re-embed fast-path behavior.
+- This task stays bounded to the endorsed deferred-validation and deletions-only fast-path findings from this review pass.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`
+- `server/src/ingest/requestContracts.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/features/ingest-delta-reembed.feature`
+
+#### Proof Mapping
+
+- Deferred queued execution rejects malformed payloads during queue promotion and finalizes the rejected item without leaving active queue ownership behind: owned by `server/src/ingest/requestContracts.ts` and `server/src/ingest/ingestJob.ts`; prove in `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- Deferred queued execution rejects malformed payloads during startup recovery and finalizes the rejected item without leaving partial running state behind: owned by `server/src/ingest/requestContracts.ts` and `server/src/ingest/ingestJob.ts`; prove in `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- Malformed queued payloads fail at validation rather than later provider work: owned by `server/src/ingest/ingestJob.ts`; prove in `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- Deletions-only re-embed survives Chroma bootstrap failure when no embedding work remains: owned by `server/src/ingest/ingestJob.ts`; prove in `server/src/test/unit/ingest-reembed.test.ts`.
+- The supported delta re-embed feature path still completes deletions-only cleanup after the fast-path repair on the repository’s Testcontainers-backed integration harness: owned by `server/src/ingest/ingestJob.ts`; prove in `server/src/test/features/ingest-delta-reembed.feature`.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` before editing. Purpose: keep the repair aligned with the stored review outcome for this pass.
+2. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before editing. Purpose: keep the repair aligned with the endorsed deferred-validation and deletions-only findings for this pass.
+3. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before editing. Purpose: keep the repair aligned with the carry-forward challenge reasoning for this pass.
+4. [ ] Requirement: inspect the admission validator in `server/src/ingest/requestContracts.ts` before changing deferred queue execution. Purpose: identify the existing required-model rule this task must reuse or share.
+5. [ ] Requirement: inspect the deferred execution rebuild path in `server/src/ingest/ingestJob.ts` before changing queue replay. Purpose: identify exactly where malformed queued payloads are currently normalized instead of rejected.
+6. [ ] Requirement: update deferred queued execution in `server/src/ingest/ingestJob.ts` so it rejects malformed queued payloads with the same required-model semantics used at admission time, or with one clearly shared equivalent validator. Route the rejection through the owned queue error or cleanup path so queue ownership is released instead of left partially running. Purpose: close the endorsed execution-time validation gap without introducing a new stuck-runtime state.
+7. [ ] Requirement: update the deletions-only re-embed fast path in `server/src/ingest/ingestJob.ts` so it preserves the zero-work bootstrap-failure tolerance already used when no embedding work remains. Purpose: close the endorsed deletions-only fast-path regression without widening unrelated re-embed control flow.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove malformed queued payloads fail at the repaired execution-time validation boundary during queue promotion before provider work begins and that the rejected queue item finalizes without leaving active queue ownership behind. Purpose: give the repaired deferred-validation seam one explicit proof home for the promotion entry point and its cleanup ownership.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove malformed queued payloads fail at the repaired execution-time validation boundary during startup recovery before provider work begins and that recovery does not leave the queue in a partial running state. Purpose: give the repaired deferred-validation seam one explicit proof home for the startup-recovery entry point and its partial-state handling.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove deletions-only re-embed still succeeds when Chroma bootstrap metadata cannot be fetched and there is no embedding work left. Purpose: give the repaired deletions-only fast path one direct proof home.
+11. [ ] Test type: server cucumber. Location: `server/src/test/features/ingest-delta-reembed.feature`. Description: prove the supported delta re-embed feature path still completes and cleans up correctly for the deletions-only path after the fast-path repair. Purpose: keep the repaired deletions-only behavior honest on the repository’s Testcontainers-backed feature harness.
+12. [ ] Proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` only if reused proof titles drift. Description: add distinct malformed-payload validation cases instead of rewriting existing zero-work drift or deletions-only fast-path titles until they appear to prove both queue-validation failure and post-validation zero-work success at the same time. Purpose: keep the runtime proof files semantically aligned with whether they prove validation rejection, deletions-only completion, or both.
+13. [ ] Requirement: if the repaired deferred-validation path introduces one explicit reason or marker for malformed queued payloads, keep that vocabulary in the owning runtime seam instead of duplicating free-form strings across the re-embed and start-ingest code paths. Purpose: keep the repair succinct and consistent.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the deferred-validation and deletions-only fast-path repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the proof owners named in `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-reembed.test.ts`.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes, including the repaired `server/src/test/features/ingest-delta-reembed.feature` coverage for the deletions-only fast path.
+
+#### Implementation notes
+
+- Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that deferred queue execution now accepts malformed queued payloads too far into runtime and that the deletions-only re-embed fast path still performs unnecessary bootstrap work after it has already proven there is no embedding work left.
+
+### Task 65. Remove The Tracked Zero-Byte Root Artifacts From Story 55
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `64`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed the tracked zero-byte root files as accidental committed artifacts.
+
+#### Overview
+
+This task removes the accidental zero-byte root artifacts that are currently tracked in the Story 55 diff. The repair must stay bounded to deleting those artifact files and any strictly necessary hygiene note that prevents the same accidental tracking from recurring. It must not broaden into unrelated support-file cleanup or general repository reorganization.
+
+#### Task Exit Criteria
+
+- The named zero-byte root artifact files are no longer tracked in the Story 55 branch diff.
+- No unrelated root files are removed as part of this hygiene cleanup.
+- Any prevention step added here stays bounded to this accidental-artifact pattern and does not reopen allowed support files for unrelated scope cleanup.
+- The task's final notes name the exact removed artifact paths and whether any minimal prevention step was required.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`
+- `=`
+- `CACHED`
+- `[auth]`
+- `[client`
+- `[internal]`
+- `[server`
+- `[server]`
+- `bash`
+- `codeinfo2@1.0.0`
+- `npm`
+- `reading`
+- `resolve`
+- `transferring`
+
+#### Proof Mapping
+
+- Exact artifact set no longer appears in the tracked branch diff: owned by the named root artifact files and any minimal hygiene control such as `.gitignore`; prove with the `git diff --name-status origin/main...HEAD` check in `Testing`.
+- Exact artifact set no longer exists on disk after cleanup: owned by the named root artifact files; prove with the direct shell absence check in `Testing`.
+- Prevention remains minimal if a hygiene control is added: owned by `.gitignore` only if touched; prove by the same tracked-diff check staying limited to the artifact cleanup.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` before deleting files. Purpose: keep this hygiene cleanup bounded to the stored review evidence for this pass.
+2. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before deleting files. Purpose: keep this hygiene cleanup bounded to the exact artifact list endorsed by the stored review pass.
+3. [ ] Requirement: verify on disk that the exact zero-byte artifact set named in the findings artifact is still the file set being removed. Purpose: avoid broadening the hygiene cleanup beyond the endorsed accidental artifacts.
+4. [ ] Requirement: remove the tracked zero-byte root artifacts `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`. Purpose: close the endorsed accidental-artifact finding.
+5. [ ] Requirement: update `.gitignore` or another bounded hygiene control only if direct proof shows one minimal prevention step is strictly required to stop the same accidental tracking pattern from reappearing. Purpose: keep any prevention work bounded to this artifact problem instead of widening into general ignore-file churn.
+
+#### Testing
+
+1. [ ] Run `git diff --name-status origin/main...HEAD` and confirm the tracked zero-byte root artifacts are no longer present in the branch diff. No repository wrapper build or test run is required here because this task only removes accidental tracked artifacts and does not change product runtime behavior.
+2. [ ] Run `for path in '=' 'CACHED' '[auth]' '[client' '[internal]' '[server' '[server]' 'bash' 'codeinfo2@1.0.0' 'npm' 'reading' 'resolve' 'transferring'; do test ! -e \"$path\"; done` and confirm all named root artifacts are absent from disk after the cleanup.
+
+#### Implementation notes
+
+- Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact identified thirteen tracked zero-byte files at the repository root that are not covered by the plan, the support-file allowlist, or any retained proof role.
+
+### Task 66. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `65`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one bulk re-embed affordance mismatch and one batch-refresh churn regression in `RootsTable`.
+
+#### Overview
+
+This task repairs the changed client bulk flow so shared selection, row-level re-embed affordances, and bulk payload construction obey one explicit invariant. It also removes the per-success refresh churn from batch-shaped actions so roots and model refreshes happen at the batch boundary rather than once per successful row. The fix must stay bounded to `RootsTable` behavior, its direct tests, and any one screenshot or browser proof needed to keep the repaired batch contract visible.
+
+#### Task Exit Criteria
+
+- Rows are not silently excluded from `Re-embed selected` while remaining individually re-embeddable under the same visible state.
+- Shared selection, bulk re-embed targeting, and row-level re-embed button gating use one explicit invariant, whether by broadening shared selection or by narrowing the row-level affordance to match.
+- If a row becomes non-bulk-reembeddable after it was previously selected, that row is cleared from shared selection as soon as the live row state changes and the submit path re-filters against the same live eligibility set so stale local selection cannot leak into the outgoing batch payload.
+- The repaired bulk submit path reuses the current loaded row state and one batch request rather than triggering a pre-submit reload or one eligibility probe per selected row.
+- Batch-shaped re-embed and remove flows refresh roots and models at the batch boundary instead of once per successful row, unless direct proof shows one narrower exception is strictly required.
+- Direct proof exists in `client/src/test/ingestRoots.test.tsx` for the repaired shared-selection contract and the repaired refresh call count.
+- If the repaired affordance changes a retained visible browser seam, one explicit browser proof and screenshot asset exist for that repaired seam.
+- If any intentional asymmetry remains between row-level re-embed and bulk re-embed, this task's final notes name the exact product reason and visible signpost.
+- This task stays bounded to the endorsed `RootsTable` affordance and refresh findings from this review pass.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`
+
+#### Proof Mapping
+
+- Shared selection and row-level re-embed affordances stay aligned for the repaired row state: owned by `client/src/components/ingest/RootsTable.tsx`; prove in `client/src/test/ingestRoots.test.tsx`.
+- Selected-row stale-state handling stays explicit when a row becomes ineligible before submit: owned by `client/src/components/ingest/RootsTable.tsx`; prove in `client/src/test/ingestRoots.test.tsx` and, if the visible seam changes, `e2e/ingest.spec.ts`.
+- Bulk re-embed submission stays bounded to the current loaded row set and one batch request: owned by `client/src/components/ingest/RootsTable.tsx`; prove in `client/src/test/ingestRoots.test.tsx`.
+- Batch refresh and model reload happen once per batch action: owned by `client/src/components/ingest/RootsTable.tsx`; prove in `client/src/test/ingestRoots.test.tsx`.
+- Any retained visible browser seam stays honest after the repair: owned by `e2e/ingest.spec.ts` and `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`; prove with the full `npm run test:summary:e2e` wrapper output and the updated screenshot artifact when that seam changes.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` before editing. Purpose: keep the repair aligned with the stored review evidence for this pass.
+2. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before editing. Purpose: keep the repair aligned with the endorsed visible-behavior findings for this pass.
+3. [ ] Requirement: inspect `client/src/components/ingest/RootsTable.tsx` before changing bulk behavior. Purpose: identify the current shared-selection rule, row-level re-embed gate, and per-success refresh sites that now disagree.
+4. [ ] Requirement: inspect `client/src/test/ingestRoots.test.tsx` before changing proof coverage. Purpose: identify the current client proof seams that must stay aligned with the repaired behavior.
+5. [ ] Requirement: update `client/src/components/ingest/RootsTable.tsx` so one shared bulk-eligibility rule drives the row checkbox state, shared-selection counts, bulk re-embed targeting, and row-level re-embed button gating for the same row state. Do not widen this pass into unrelated table layout, copy, or non-re-embed affordance changes. Purpose: close the endorsed affordance mismatch at the exact `RootsTable` decision points a user can see.
+6. [ ] Requirement: update the batch action helpers in `client/src/components/ingest/RootsTable.tsx` so `onRefresh()` and `onRefreshModels?.()` run at the batch boundary rather than once per successful row, unless one narrower exception proves strictly necessary to keep the repaired contract honest. Purpose: close the endorsed batch-refresh churn regression.
+7. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove the repaired row-level and bulk re-embed affordances stay aligned for the queue-blocked or mixed-state row that triggered the finding. Purpose: give the repaired affordance rule its own explicit client proof home.
+8. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove one bulk action triggers one roots refresh cycle and one model-refresh cycle rather than one refresh per successful row. Purpose: give the repaired refresh-cardinality rule its own explicit client proof home.
+9. [ ] Requirement: update `client/src/components/ingest/RootsTable.tsx` so a row that becomes non-bulk-reembeddable after it was selected is cleared from shared selection as soon as the live row state changes. Purpose: make the visible selected-state transition explicit instead of leaving an ineligible row selected.
+10. [ ] Requirement: update the bulk re-embed submit path in `client/src/components/ingest/RootsTable.tsx` so the outgoing batch payload is re-derived from the current live bulk-eligible row set already loaded in `RootsTable` at click time rather than from stale `selected` state alone. Do not add a pre-submit roots reload or one eligibility probe per selected row unless direct proof shows the current loaded row set is insufficient. Purpose: keep contradictory selected-versus-ineligible mixed state out of the submitted payload while keeping the repaired bulk selector bounded.
+11. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove a row selected for bulk re-embed is cleared from visible shared selection when it becomes queue-blocked or otherwise non-bulk-reembeddable before submit. Purpose: give the mixed-state clear-on-ineligible transition its own explicit client proof home.
+12. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove the bulk re-embed submit path re-filters against the current live eligible row set so a row that becomes ineligible just before submit does not influence the outgoing batch payload. Purpose: make the submission guard against stale local selection explicit and reviewable.
+13. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove the repaired bulk re-embed submit path uses the current loaded row set to form one outgoing batch request and does not trigger an extra pre-submit roots reload or one eligibility request per selected row. Purpose: keep the repaired selector path explicitly bounded instead of only proving the small-row happy path.
+14. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: add or update a Playwright scenario titled `aligned row and bulk re-embed affordances` that drives the repaired mixed-state row through the visible row-versus-bulk eligibility boundary using deterministic disabled-state or selected-row checks instead of fixed-delay waits. Keep fixture cleanup or awaited teardown explicit if the scenario mutates shared ingest fixtures or leaves temporary row state behind. Purpose: keep the visible affordance repair on the supported browser path.
+15. [ ] Proof artifact. Location: `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`. Description: keep the retained screenshot asset aligned with the repaired row-selection and bulk re-embed affordance boundary, and update the browser-proof owner in `e2e/ingest.spec.ts` if the repaired visible state changes how that artifact must be captured. Purpose: keep the visible browser proof directly inspectable on disk without moving the browser execution step out of `Testing`.
+16. [ ] Proof maintenance. Location: `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` only if reused proof titles drift. Description: rename, split, or rewrite any reused proof title whose stated invariant would no longer match its assertions after the Task 66 repair, especially if an older bulk-remove, generic shared-selection, or queue-blocked-selection title would otherwise be stretched to cover row-versus-bulk re-embed affordance alignment. Purpose: keep the named proof surfaces honest and reviewable.
+17. [ ] Proof maintenance. Location: `client/src/test/ingestRoots.test.tsx`. Description: add distinct re-embed-affordance and stale-selection cases instead of broadening the existing remove-focused or generic selection tests until they silently mix destructive-action semantics with re-embed eligibility semantics. Purpose: keep the client unit proof file explicit about whether it proves remove behavior, generic selection behavior, or the repaired bulk re-embed state machine.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the `RootsTable` affordance and refresh repair.
+2. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the proof owner named in `client/src/test/ingestRoots.test.tsx` for affordance alignment, stale-selection clearing, bounded submit behavior, and batch refresh cardinality.
+3. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes, including the repaired `e2e/ingest.spec.ts` scenario and the retained screenshot artifact `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png` when that visible seam changes.
+
+#### Implementation notes
+
+- Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that `RootsTable` now applies one selection rule to bulk re-embed and a different affordance rule to row-level re-embed, and it still multiplies refresh side effects once per successful row even though the user-visible flow is batch-shaped.
+
+### Task 67. Re-Validate Story 55 After Review Pass `0000055-20260409T201302Z-13774922`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `66`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-09 as the required final revalidation task after review pass `0000055-20260409T201302Z-13774922` reopened Story 55 for one must-fix, eight should-fix, and one reopened optional simplification.
+
+#### Overview
+
+This task revalidates Story 55 after Tasks 62 through 66 land. It must prove the reopened shared repo-list contract, queue diagnostics, deferred execution validation, artifact hygiene, and `RootsTable` batch behavior are all closed on current disk state, refresh the maintained summary for this new review pass, and keep the durable review artifacts directly inspectable alongside the repaired plan state.
+
+#### Task Exit Criteria
+
+- Tasks 62 through 66 are all `__done__` with direct proof owners and no live blocker notes.
+- The full relevant wrapper path for server, client, compose smoke, and browser validation passes on current repo state.
+- `planning/0000055-pr-summary.md` records the reopened review pass `0000055-20260409T201302Z-13774922`, the bounded closures for Tasks 62 through 66, the deferred optional simplification note from this pass, and the fresh proof homes used for final validation.
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` still exist on disk at final close-out.
+- This task's final notes name the exact proof-owner files that closed Tasks 62 through 66 and the exact wrapper proof homes used for final validation.
+- This task closes the reopened review pass without widening into a new story scope.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`
+- `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`
+- `logs/test-summaries/build-server-latest.log`
+- `logs/test-summaries/build-client-latest.log`
+- `logs/test-summaries/compose-build-latest.log`
+- `logs/test-summaries/host-network-main-latest.log`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `test-results/server-unit-tests-<timestamp>.log`
+- `test-results/server-cucumber-tests-<timestamp>.log`
+- `test-results/client-tests-<timestamp>.log`
+
+#### Proof Mapping
+
+- Task-closure traceability for Tasks 62 through 66: owned by `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and `planning/0000055-pr-summary.md`; prove by updating the maintained summary and this task's final notes with the exact proof-owner files.
+- Full wrapper revalidation for server, client, and browser behavior: owned by the current repo work closed in Tasks 62 through 66; prove with `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, `test-results/client-tests-<timestamp>.log`, and `logs/test-summaries/e2e-tests-latest.log`.
+- Supported startup, smoke, and teardown ordering: owned by the same repaired story surfaces plus the standard runtime path; prove with `logs/test-summaries/compose-build-latest.log` and `logs/test-summaries/host-network-main-latest.log`.
+- Durable review-artifact retention: owned by `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`; prove with the direct on-disk existence check in `Testing`.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read Task 62 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened shared repo-list contract work and its proof owners.
+2. [ ] Requirement: re-read Task 63 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened queue-diagnostic and waiter-error work and its proof owners.
+3. [ ] Requirement: re-read Task 64 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened deferred-validation and deletions-only fast-path work and its proof owners.
+4. [ ] Requirement: re-read Task 65 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened artifact-hygiene work and its proof owners.
+5. [ ] Requirement: re-read Task 66 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
+6. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
+7. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
+8. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 62 through 66, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
+9. [ ] Requirement: before marking this task `__done__`, verify that Tasks 62 through 66 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the review-created fixes from this pass.
+2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the review-created fixes from this pass.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes cleanly after the review-created fixes from this pass.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes cleanly after the review-created fixes from this pass.
+5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes cleanly after the review-created fixes from this pass.
+6. [ ] Run `npm run compose:build:summary` and confirm the normal main-stack compose build wrapper passes cleanly before runtime smoke validation.
+7. [ ] Run `npm run compose:up` and confirm the normal supported main stack starts through the repository's default compose path.
+8. [ ] Run `npm run test:summary:host-network:main` and confirm the live main-stack host-network probe passes against the started normal compose stack.
+9. [ ] Run `npm run compose:down` and confirm the normal supported main stack is shut down after smoke validation. If Testing 7 or 8 failed after the stack started, this shutdown step is still required before deeper diagnosis.
+10. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes from this pass.
+11. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` still exist before final close-out.
+
+#### Implementation notes
+
+- Inserted on 2026-04-09 as the required final revalidation task after review pass `0000055-20260409T201302Z-13774922` reopened Story 55 for the shared repo-list, queue-diagnostic, deferred-validation, hygiene, and `RootsTable` regressions captured in the stored review artifacts.

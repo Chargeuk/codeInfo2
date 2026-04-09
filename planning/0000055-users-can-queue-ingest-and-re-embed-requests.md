@@ -4998,9 +4998,9 @@ This task removes the root-level zero-byte files that were accidentally tracked 
 
 #### Testing
 
-1. [ ] Run `git diff --name-status main...HEAD -- = CACHED '[auth]' '[client' '[internal]' '[server' '[server]' bash codeinfo2@1.0.0 npm reading resolve transferring` and confirm those files no longer appear as tracked additions in the Story 55 branch diff.
-2. [ ] Run `git ls-files --stage -- = CACHED '[auth]' '[client' '[internal]' '[server' '[server]' bash codeinfo2@1.0.0 npm reading resolve transferring` and confirm none of those accidental artifact paths remain tracked.
-3. [ ] Run `rg -n "^- `(=|CACHED|\\[auth\\]|\\[client|\\[internal\\]|\\[server|\\[server\\]|bash|codeinfo2@1\\.0\\.0|npm|reading|resolve|transferring)`$" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-*.md` and confirm the removed files are not still being claimed as proof owners or story assets.
+1. [ ] Run `git diff --name-status main...HEAD` and confirm each root-level artifact path named in `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md` no longer appears as a tracked addition in the Story 55 branch diff.
+2. [ ] Run `git ls-files --stage` and confirm none of those root-level artifact paths remain tracked.
+3. [ ] Run `rg -n '^- `(=|CACHED|\\[auth\\]|\\[client|\\[internal\\]|\\[server|\\[server\\]|bash|codeinfo2@1\\.0\\.0|npm|reading|resolve|transferring)`$' planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-*.md` and confirm none of those removed artifact names are still claimed as proof owners or story assets.
 
 #### Implementation notes
 
@@ -5057,7 +5057,7 @@ This task repairs the bulk re-embed path in `RootsTable` so it uses the current 
 #### Testing
 
 1. [ ] Run `npm run build:summary:client` and confirm the client build still passes after the click-time filtering repair.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` and confirm the new stale-selection proof plus the still-valid bulk re-embed happy-path proof both pass on the supported wrapper path.
+2. [ ] Run `npm run test:summary:client` and confirm the retained client wrapper passes cleanly after the `RootsTable` repair, including the new proof owned by `client/src/test/ingestRoots.test.tsx`.
 
 #### Implementation notes
 
@@ -5110,8 +5110,9 @@ This task repairs the weakened proof surfaces introduced by the current branch d
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the deterministic queue-terminal-cache proof passes on the supported wrapper path.
-2. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "cancel in-progress ingest"` and confirm the repaired cancel browser proof passes without the fixed one-second wait and with a title-to-assertion match.
+1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the deterministic queue-proof repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the retained server unit wrapper passes cleanly after the queue-runtime proof repair, including the proof owned by `server/src/test/unit/ingest-queue-runtime.test.ts`.
+3. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the cancel-proof repair, including the scenario owned by `e2e/ingest.spec.ts`.
 
 #### Implementation notes
 
@@ -5172,10 +5173,8 @@ This task restores execution-time invalid-state validation for queued re-embed w
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after restoring the execution-time invalid-state guard.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` and confirm the direct queued re-embed guard proof passes.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the invalid-before-start cleanup proof releases queue ownership cleanly on the supported wrapper path.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the runtime re-embed path still preserves the intended happy-path and invalid-state behavior.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts` and confirm the delayed invalid-state integration proof passes on the supported wrapper path.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the retained server unit wrapper passes cleanly after the execution-time invalid-state repair, including the proof owned by `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the retained Testcontainers-backed cucumber wrapper passes cleanly after the invalid-state repair, including any updated scenario in `server/src/test/features/ingest-reembed.feature`.
 
 #### Implementation notes
 
@@ -5234,8 +5233,8 @@ This task restores executable path integrity for queued ingest and recovery. A q
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the queued path-integrity repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the queued start-ingest path-integrity proof passes.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the malformed queued-row recovery proof passes with explicit rejection instead of silent fallback.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the retained server unit wrapper passes cleanly after the queued path-integrity repair, including the proofs owned by `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts`.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the retained Testcontainers-backed cucumber wrapper passes cleanly after the path-integrity repair, including any updated scenario in `server/src/test/features/ingest-reembed.feature`.
 
 #### Implementation notes
 
@@ -5298,9 +5297,9 @@ This task repairs two shared repo-list compatibility defects in the same project
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the shared repo-list repair.
 2. [ ] Run `npm run build:summary:client` and confirm the client build still passes after the normalization repair.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm the server projection proof passes.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts` and confirm the shared MCP repo-list projection stays aligned with the repaired field roles.
-5. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the client normalization proof passes.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the retained server unit wrapper passes cleanly after the shared repo-list repair, including the proofs owned by `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the retained Testcontainers-backed cucumber wrapper passes cleanly after the shared repo-list repair, including any updated scenario in `server/src/test/features/ingest-roots.feature`.
+5. [ ] Run `npm run test:summary:client` and confirm the retained client wrapper passes cleanly after the normalization repair, including the proof owned by `client/src/test/useIngestRoots.test.tsx`.
 
 #### Implementation notes
 
@@ -5361,8 +5360,8 @@ This task restores the queue-duplicate audit trail promised by the Story 55 cont
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the duplicate-update audit repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the waiting-duplicate audit proof plus the running-item reuse non-regression proof both pass for start-ingest.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the waiting-duplicate audit proof plus the non-update acceptance non-regression proof both pass for re-embed.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the retained server unit wrapper passes cleanly after the duplicate-update audit repair, including the proofs owned by `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts`.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the retained Testcontainers-backed cucumber wrapper passes cleanly after the duplicate-update audit repair, including any updated scenario in `server/src/test/features/ingest-logging.feature`.
 
 #### Implementation notes
 
@@ -5435,9 +5434,8 @@ This task bounds the replay-safety gap in waiting-item duplicate updates. The cu
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the replay-safety task lands on its minimal-repair or bounded-blocker branch.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` and confirm the retained duplicate-admission proof covers the branch this task chose.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the route-level start-ingest duplicate semantics stay aligned with the chosen replay-safety branch.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the route-level re-embed duplicate semantics stay aligned with the chosen replay-safety branch.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the retained server unit wrapper passes cleanly after the replay-safety task lands on its minimal-repair or bounded-blocker branch, including the proofs owned by `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the retained Testcontainers-backed cucumber wrapper passes cleanly after the replay-safety task, including any updated scenario in `server/src/test/features/ingest-start.feature` or `server/src/test/features/ingest-reembed.feature`.
 
 #### Implementation notes
 

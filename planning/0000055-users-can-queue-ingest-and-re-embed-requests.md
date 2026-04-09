@@ -4972,6 +4972,7 @@ This task removes the root-level zero-byte files that were accidentally tracked 
 - The tracked root-level zero-byte files named by the findings artifact are no longer present as tracked additions in the Story 55 branch diff.
 - The cleanup stays narrow to the accidental runtime artifacts and does not widen into unrelated repository-hygiene churn.
 - The task records exactly which files were removed and why they were judged to be non-story runtime artifacts rather than retained proof assets.
+- The task either leaves `.gitignore` unchanged or adds only one exact root-level prevention rule that cannot hide legitimate story files.
 
 #### Documentation Locations
 
@@ -4994,15 +4995,15 @@ This task removes the root-level zero-byte files that were accidentally tracked 
 #### Subtasks
 
 1. [ ] Re-read the review findings entry for the tracked root-level artifacts before removing anything. Purpose: keep this task bounded to the exact must-fix hygiene issue from the stored review handoff.
-2. [ ] Inspect the named root-level files on disk and confirm they still match the findings artifact's accidental-runtime shape, including zero-byte size and no active proof-owner role in the current plan. Purpose: prevent accidental removal of any retained asset that later evidence depends on.
+2. [ ] Inspect the named root-level files on disk, confirm they are still zero-byte files, and confirm they are not cited anywhere in the active Story 55 proof inventory. Purpose: prevent accidental removal of any retained artifact the current plan still relies on.
 3. [ ] Remove the tracked root-level artifact files named in the findings artifact from the repository. Purpose: restore branch hygiene so Story 55 does not carry stray shell or terminal output as product output.
-4. [ ] If any future-recurrence prevention is needed, keep it narrowly targeted to this exact accidental artifact shape and do not broaden `.gitignore` with patterns that could hide legitimate repo content. Purpose: avoid replacing one hygiene problem with an over-broad ignore rule.
-5. [ ] Refresh this task's `Implementation notes` with the exact files removed and the exact check that proved they had no current proof role. Purpose: leave the hygiene decision inspectable on disk for a later reviewer.
+4. [ ] Inspect the current root-level ignore rules and decide whether any exact prevention rule is still needed after the file removal. If no safe narrow rule exists, leave `.gitignore` unchanged and record that decision in the task notes instead of broadening ignore coverage. Purpose: keep recurrence prevention explicit without hiding legitimate repository content.
 
 #### Testing
 
 1. [ ] Run `git diff --name-status main...HEAD -- = CACHED '[auth]' '[client' '[internal]' '[server' '[server]' bash codeinfo2@1.0.0 npm reading resolve transferring` and confirm those files no longer appear as tracked additions in the Story 55 branch diff.
 2. [ ] Run `git ls-files --stage -- = CACHED '[auth]' '[client' '[internal]' '[server' '[server]' bash codeinfo2@1.0.0 npm reading resolve transferring` and confirm none of those accidental artifact paths remain tracked.
+3. [ ] Run `rg -n "^- `(=|CACHED|\\[auth\\]|\\[client|\\[internal\\]|\\[server|\\[server\\]|bash|codeinfo2@1\\.0\\.0|npm|reading|resolve|transferring)`$" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-*.md` and confirm the removed files are not still being claimed as proof owners or story assets.
 
 #### Implementation notes
 
@@ -5023,7 +5024,8 @@ This task repairs the bulk re-embed path in `RootsTable` so it uses the current 
 
 - `handleBulk('reembed')` no longer posts queue-blocked or active-run-blocked rows simply because they survived in `selected` until the click.
 - The repair stays bounded to current-state target filtering and does not reopen the deferred batch-refresh simplification work.
-- Direct proof shows a row that becomes blocked after selection is excluded from the bulk re-embed payload when the action actually runs.
+- Direct React proof shows a row that becomes blocked after selection is excluded from the outgoing bulk re-embed payload when the action actually runs.
+- The repaired proof owner remains `client/src/test/ingestRoots.test.tsx`, while broader browser coverage stays with the later full revalidation task.
 
 #### Documentation Locations
 
@@ -5037,18 +5039,16 @@ This task repairs the bulk re-embed path in `RootsTable` so it uses the current 
 #### Subtasks
 
 1. [ ] Re-read the stored finding and the focused UI-affordance challenge for stale bulk re-embed selection before editing `RootsTable`. Purpose: keep this task tied to the endorsed click-time filtering defect instead of the broader external review inventory.
-2. [ ] Inspect `selectableRootPaths`, the selection-pruning effect, and `handleBulk('reembed')` in `client/src/components/ingest/RootsTable.tsx`. Purpose: confirm the exact place where stale `selected` values still bypass current gating.
-3. [ ] Update the bulk re-embed branch so it derives its outgoing targets from the current selectable set at click time rather than directly from `Array.from(selected)`. Purpose: keep the outgoing bulk payload aligned with the same current-state affordance rules already exposed in the UI.
-4. [ ] Preserve the existing bulk remove behavior and keep row-level re-embed affordances unchanged unless the same current-state filtering repair requires a shared helper. Purpose: avoid broadening this task into unrelated UI behavior changes.
-5. [ ] Add one direct React proof in `client/src/test/ingestRoots.test.tsx` showing that a row which becomes blocked after selection is excluded from the bulk re-embed payload when the user clicks the action. Purpose: give this exact stale-selection race a retained proof owner.
-6. [ ] If a browser-visible proof is needed to keep the behavior understandable, add or refresh one bounded Playwright scenario without relying on arbitrary elapsed waits. Purpose: keep any browser proof anchored to observable UI state rather than timing luck.
-7. [ ] Refresh this task's `Implementation notes` with the exact filter used at click time and the exact proof owner files updated. Purpose: keep the repaired selection rule inspectable on disk.
+2. [ ] Inspect `selectableRootPaths`, the selection-pruning effect, `canReembedRoot()`, and `handleBulk('reembed')` in `client/src/components/ingest/RootsTable.tsx`. Purpose: confirm the exact current-state filter the outgoing bulk payload should reuse.
+3. [ ] Update the bulk re-embed branch so it derives its outgoing targets from the current re-embeddable paths at click time instead of directly from `Array.from(selected)`. Purpose: keep the outgoing bulk payload aligned with the same gating rules already exposed by the UI.
+4. [ ] Preserve the existing bulk remove behavior and keep row-level re-embed affordances unchanged unless a shared helper is the smallest way to keep the re-embed bulk path honest. Purpose: avoid broadening this task into unrelated UI behavior changes.
+5. [ ] Add one direct React proof in `client/src/test/ingestRoots.test.tsx` showing that a row which becomes blocked after selection is excluded from the outgoing bulk re-embed request payload when the user clicks the action. Purpose: give this exact stale-selection race a retained proof owner.
+6. [ ] Add one direct React proof that still allows an already selected row to bulk re-embed when it remains valid at click time. Purpose: keep the stale-selection repair from over-tightening the bulk re-embed path into a no-op.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:client` and confirm the client build still passes after the click-time filtering repair.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` and confirm the direct stale-selection proof passes on the supported wrapper path.
-3. [ ] If this task adds or changes a browser proof owner, run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "bulk re-embed"` and confirm the bounded browser proof passes without timing-based waits.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` and confirm the new stale-selection proof plus the still-valid bulk re-embed happy-path proof both pass on the supported wrapper path.
 
 #### Implementation notes
 
@@ -5070,6 +5070,7 @@ This task repairs the weakened proof surfaces introduced by the current branch d
 - The queue-terminal-cache eviction proof no longer depends on real elapsed sleep for correctness.
 - The cancel browser proof waits on observable state boundaries instead of a fixed one-second timeout.
 - The cancel browser proof title and assertions agree on one honest invariant: either it proves visible cancellation, or it is renamed to the weaker invariant it truly checks.
+- The retained proof owners for this task stay explicit: `server/src/test/unit/ingest-queue-runtime.test.ts` for queue-terminal-cache eviction and `e2e/ingest.spec.ts` for the cancel browser flow.
 
 #### Documentation Locations
 
@@ -5082,16 +5083,15 @@ This task repairs the weakened proof surfaces introduced by the current branch d
 #### Subtasks
 
 1. [ ] Re-read the three proof-strength findings for the queue-terminal-cache eviction test and the cancel browser test before editing. Purpose: keep this task bounded to deterministic proof repair instead of broad runtime changes.
-2. [ ] Inspect the current queue-terminal-cache eviction proof in `server/src/test/unit/ingest-queue-runtime.test.ts` and replace the real-time sleep with a deterministic clock, fake timer, or explicit eviction trigger already supported by the runtime seam. Purpose: make the retained queue-wait proof stable under load.
-3. [ ] Inspect the current cancel browser proof in `e2e/ingest.spec.ts` and remove the fixed one-second wait in favor of the stronger UI or network boundaries the page already exposes. Purpose: keep the browser proof driven by observable product state.
-4. [ ] Tighten the cancel browser proof so its title and terminal assertion describe the same invariant. Purpose: prevent a “cancelled” title from passing on a late `completed` outcome unless the scenario is explicitly renamed to that weaker behavior.
-5. [ ] Update the retained proof-owner comments or task notes only after the deterministic proof shape is actually on disk. Purpose: keep the plan's proof claims aligned with the stronger retained tests.
-6. [ ] Refresh this task's `Implementation notes` with the exact deterministic boundary chosen for the queue test and the exact browser boundary chosen for the cancel flow. Purpose: make the proof-strength repair directly inspectable later.
+2. [ ] Inspect the current queue-terminal-cache eviction proof in `server/src/test/unit/ingest-queue-runtime.test.ts` and replace the real-time sleep with one deterministic boundary the test can control directly, such as fake timers or an explicit eviction seam already exposed by the runtime. Purpose: make the retained queue-wait proof stable under load.
+3. [ ] Inspect the current cancel browser proof in `e2e/ingest.spec.ts` and remove the fixed one-second wait in favor of the stronger page-visible state boundaries the test already reaches before it clicks cancel. Purpose: keep the browser proof driven by observable product state.
+4. [ ] Tighten the cancel browser proof so its title and terminal assertion describe the same invariant, preferring a real cancellation assertion over a renamed weaker title if the current product contract still promises visible cancellation. Purpose: prevent the proof from passing on a late completion while still claiming cancellation.
+5. [ ] Keep the browser proof's stopping rule explicit: once the run is visibly in progress and the cancel affordance is enabled, the test should proceed immediately instead of adding extra elapsed waiting. Purpose: make the repaired browser proof readable for a junior implementer and reproducible under wrapper execution.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the deterministic queue-terminal-cache proof passes on the supported wrapper path.
-2. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "cancel"` and confirm the repaired cancel browser proof passes without the fixed one-second wait.
+2. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "cancel in-progress ingest"` and confirm the repaired cancel browser proof passes without the fixed one-second wait and with a title-to-assertion match.
 
 #### Implementation notes
 
@@ -5113,6 +5113,7 @@ This task restores execution-time invalid-state validation for queued re-embed w
 - Queued re-embed execution re-checks the repo state right before work starts and rejects the run when the repo has become invalid since queue admission.
 - The execution-time guard stays aligned with the legacy direct re-embed contract instead of inventing a second incompatible invalid-state rule.
 - Direct proof covers at least one valid-at-admission then invalid-before-start queued re-embed transition.
+- The repaired proof owners stay explicit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
 
 #### Documentation Locations
 
@@ -5127,16 +5128,16 @@ This task restores execution-time invalid-state validation for queued re-embed w
 #### Subtasks
 
 1. [ ] Re-read the invalid-state finding and inspect both the queue-admission guard in `reingestService.ts` and the legacy direct execution-time guard in `ingestJob.ts`. Purpose: keep the fix aligned with one existing invalid-state rule instead of inventing new branching.
-2. [ ] Add or reuse one execution-time validation seam so queued re-embed runs re-check the repository state immediately before the work starts. Purpose: prevent later execution of a queued request whose target repo is no longer in a valid re-embed state.
+2. [ ] Add or reuse one execution-time validation seam so queued re-embed runs re-check the repository state immediately before the work starts, using the same invalid-state vocabulary the direct re-embed path already owns today. Purpose: prevent later execution of a queued request whose target repo is no longer in a valid re-embed state.
 3. [ ] Keep the resulting queued failure on the existing structured error path rather than collapsing it into a generic runtime failure. Purpose: preserve caller contracts while restoring the missing guard.
-4. [ ] Add unit or integration coverage for a queued re-embed that is valid when queued and invalid when promoted. Purpose: leave a direct proof owner for the delayed-state-transition seam the findings artifact identified.
-5. [ ] Refresh this task's `Implementation notes` with the exact execution-time validation seam and the exact proof files updated. Purpose: make the repaired invalid-state path directly inspectable.
+4. [ ] Add direct proof for a queued re-embed that is valid when queued and invalid when promoted, and add one non-regression proof that a still-valid queued re-embed continues to start normally. Purpose: cover both the delayed invalid-state seam and the intended happy path.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after restoring the execution-time invalid-state guard.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` and confirm the direct queued re-embed guard proof passes.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts` and confirm the delayed invalid-state integration proof passes on the supported wrapper path.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the runtime re-embed path still preserves the intended happy-path and invalid-state behavior.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts` and confirm the delayed invalid-state integration proof passes on the supported wrapper path.
 
 #### Implementation notes
 
@@ -5158,6 +5159,7 @@ This task restores executable path integrity for queued ingest and recovery. A q
 - Queued start-ingest persists one authoritative executable path shape instead of storing a raw alias that can diverge from the canonical queue identity.
 - Startup recovery rejects malformed queued execution payloads that are missing the required executable path instead of silently defaulting to `canonicalTargetPath`.
 - Direct proof covers both the queued start-ingest path-integrity seam and the malformed-recovery seam.
+- The repaired proof owners stay explicit: `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts`.
 
 #### Documentation Locations
 
@@ -5172,17 +5174,16 @@ This task restores executable path integrity for queued ingest and recovery. A q
 #### Subtasks
 
 1. [ ] Re-read the two queued-path findings before editing the server path-handling code. Purpose: keep this task bounded to execution-path integrity rather than to unrelated queue runtime behavior.
-2. [ ] Inspect how queued start-ingest currently derives `canonicalTargetPath` and how it persists `requestPayload.path`. Purpose: identify the narrowest place to keep the durable executable path aligned with the canonical queue identity.
+2. [ ] Inspect how queued start-ingest currently derives `canonicalTargetPath`, how it persists `requestPayload.path`, and where the later execution path is reconstructed. Purpose: identify the narrowest place to keep the executable path aligned with the queue identity all the way through deferred execution.
 3. [ ] Update queued start-ingest so the accepted request persists one authoritative executable path shape that matches the validated queue target contract. Purpose: prevent raw alias drift from crossing the queue boundary into later filesystem discovery.
-4. [ ] Inspect the deferred execution and startup-recovery path reconstruction in `server/src/ingest/ingestJob.ts` and remove the silent `payload.path ?? canonicalTargetPath` success fallback for malformed queued rows. Purpose: make malformed persisted queue state fail loudly instead of running against a substituted path.
-5. [ ] Add direct proof for the malformed queued-row recovery case and the queued start-ingest path-integrity case. Purpose: keep both sides of the repaired contract covered by retained tests.
-6. [ ] Refresh this task's `Implementation notes` with the exact authoritative path field used after the repair and the exact malformed-row behavior chosen for recovery. Purpose: leave the repaired queue-path contract inspectable on disk.
+4. [ ] Inspect the deferred execution and startup-recovery path reconstruction in `server/src/ingest/ingestJob.ts` and replace the silent `payload.path ?? canonicalTargetPath` success fallback with an explicit malformed-row failure path. Purpose: make persisted queue corruption fail loudly instead of running against a substituted path.
+5. [ ] Add one direct proof that a normalized queued start-ingest request later executes from the stored authoritative path, and one direct proof that a malformed queued row missing that path is rejected during recovery. Purpose: keep both sides of the repaired contract covered by retained tests.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the queued path-integrity repair.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the queued start-ingest path-integrity proof passes.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the malformed queued-row recovery proof passes without the silent fallback.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the malformed queued-row recovery proof passes with explicit rejection instead of silent fallback.
 
 #### Implementation notes
 
@@ -5204,6 +5205,7 @@ This task repairs two shared repo-list compatibility defects in the same project
 - Shared repo-list projection keeps stable repository identity in `id` even while active overlays add runtime state.
 - Legacy provider-qualified model ids such as `openai/<model>` are still interpreted with provider-aware meaning when the newer explicit queue fields are absent.
 - Direct proof exists in both the server projection layer and the client normalization layer for the repaired shared contract.
+- The repaired proof owners stay explicit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `client/src/test/useIngestRoots.test.tsx`.
 
 #### Documentation Locations
 
@@ -5221,16 +5223,16 @@ This task repairs two shared repo-list compatibility defects in the same project
 1. [ ] Re-read the two shared repo-list findings and the focused field-role challenge before editing the projection or client normalization. Purpose: keep this task bounded to the endorsed shared-contract defects.
 2. [ ] Inspect the server overlay path that rewrites `id` during active overlays and keep the stable repository identity in `id` while leaving runtime execution identity in `runId`. Purpose: prevent active runtime state from replacing the row's durable repository identity.
 3. [ ] Inspect the legacy fallback path for `payload.model` in both `toolService.ts` and `useIngestRoots.ts`, then restore provider-aware parsing for legacy provider-qualified model ids when explicit queue provider fields are absent. Purpose: keep older queued rows compatible with the same provider meaning admission already used.
-4. [ ] Add direct server proof for stable `id` preservation across active overlays and for provider-aware legacy OpenAI fallback. Purpose: give the shared projection contract retained proof owners on disk.
+4. [ ] Add direct server proof for stable `id` preservation across active overlays, and add a separate direct server proof for provider-aware legacy OpenAI fallback. Purpose: keep the two shared-contract repairs independently inspectable on disk.
 5. [ ] Add direct client proof that the normalized row preserves stable repo identity and provider-aware legacy fallback without displaying runtime ids as repo identity. Purpose: prove the consumer contract that the review artifact identified as weak.
-6. [ ] Refresh this task's `Implementation notes` with the exact overlay field roles and the exact legacy fallback cases now covered by retained tests. Purpose: keep the shared-contract repair readable for later reviewers.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the shared repo-list repair.
 2. [ ] Run `npm run build:summary:client` and confirm the client build still passes after the normalization repair.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm the server projection proof passes.
-4. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the client normalization proof passes.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts` and confirm the shared MCP repo-list projection stays aligned with the repaired field roles.
+5. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the client normalization proof passes.
 
 #### Implementation notes
 
@@ -5252,6 +5254,7 @@ This task restores the queue-duplicate audit trail promised by the Story 55 cont
 - A waiting-item in-place update is logged or otherwise recorded distinctly from a generic queue acceptance, in line with the story description.
 - Running-item reuse and waiting-item update remain distinguishable in the route-level audit path.
 - Direct proof exists for the repaired audit trail, and the plan can cite that retained proof honestly.
+- The repaired audit vocabulary stays explicit in the task notes and route-owner tests so later close-out does not need to rediscover how waiting-item updates differ from running-item reuse.
 
 #### Documentation Locations
 
@@ -5268,13 +5271,12 @@ This task restores the queue-duplicate audit trail promised by the Story 55 cont
 1. [ ] Re-read the duplicate-update audit finding before editing the route surfaces. Purpose: keep this task bounded to the missing audit trail rather than broader duplicate semantics.
 2. [ ] Inspect the current `enqueueOrReuseIngestRequest()` return shape and the route-level acceptance logging in `ingestStart.ts` and `ingestReembed.ts`. Purpose: confirm exactly where `updatedExisting` and `reusedExisting` are currently dropped.
 3. [ ] Add one explicit route-level audit branch that distinguishes waiting-item updates from generic new admissions and from running-item reuse, without changing the public acceptance response shape unless the story contract requires it. Purpose: restore the promised “updated rather than duplicated” audit trail with the smallest contract-safe change.
-4. [ ] Add direct proof in the route-owner tests that a waiting-item rewrite emits the repaired audit signal. Purpose: give the restored duplicate-update contract a retained proof owner on disk.
-5. [ ] Refresh this task's `Implementation notes` with the exact audit vocabulary chosen and the exact proof-owner files updated. Purpose: keep the story's duplicate-update audit trail inspectable for later close-out.
+4. [ ] Add direct proof in the route-owner tests that a waiting-item rewrite emits the repaired audit signal, and add a separate non-regression proof that running-item reuse does not emit the waiting-update audit path. Purpose: give the restored duplicate-update contract retained proof owners on disk for both branches.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the duplicate-update audit repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the waiting-duplicate audit proof passes for start-ingest.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the waiting-duplicate audit proof plus the running-item reuse non-regression proof both pass for start-ingest.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the waiting-duplicate audit proof passes for re-embed.
 
 #### Implementation notes
@@ -5299,6 +5301,7 @@ This task bounds the replay-safety gap in waiting-item duplicate updates. The cu
   - the task stops with one bounded blocker note that names the missing freshness signal the current transport contract would need before a safe overwrite rule can be repaired.
 - The work stays bounded to waiting-item duplicate overwrite semantics and does not widen into a general queue redesign.
 - The resulting plan state leaves one concrete next action rather than an un-owned replay-safety finding.
+- The proof owners for the chosen branch stay explicit in `server/src/test/unit/ingest-request-queue.test.ts` and the route-owner duplicate tests so later close-out does not need to infer how the replay-safe branch was validated.
 
 #### Documentation Locations
 
@@ -5315,17 +5318,21 @@ This task bounds the replay-safety gap in waiting-item duplicate updates. The cu
 #### Subtasks
 
 1. [ ] Re-read the replay-safety finding before editing the queue-admission contract. Purpose: keep this task bounded to the stale-replay overwrite risk rather than to unrelated duplicate behavior already covered elsewhere.
-2. [ ] Inspect the current waiting-item update path in `server/src/ingest/requestQueue.ts` and list every freshness signal already available at the queue boundary today, including any request identity, updated timestamp, or stable client-visible identifier that could distinguish a stale replay from an intentional newer submit. Purpose: avoid inventing broader new inputs until the current transport surfaces are exhausted.
-3. [ ] If one minimal freshness guard is already supported by the current transport contract, land only that repair and keep the overwrite semantics otherwise unchanged. Purpose: prefer the smallest upstream repair that removes the replay hazard without redesigning duplicate handling.
-4. [ ] If the current transport contract cannot distinguish stale replay from intentional overwrite safely, stop with one explicit `**BLOCKER**` note in this task and name the exact missing signal or contract field that would be required before a replay-safe overwrite rule can be implemented honestly. Purpose: keep the finding owned and concrete rather than leaving it implicit.
-5. [ ] Add direct proof for whichever branch lands: a retained duplicate-update proof for the minimal repair, or a bounded diagnostic proof that demonstrates why the current contract cannot separate the two cases. Purpose: leave this replay-safety seam inspectable on disk either way.
-6. [ ] Refresh this task's `Implementation notes` with the exact minimal guard chosen or the exact blocker contradiction reached. Purpose: make the replay-safety disposition readable for the next loop without re-deriving the same queue-admission reasoning.
+2. [ ] Inspect the current waiting-item update path in `server/src/ingest/requestQueue.ts` and inventory every freshness signal already available at the queue boundary today, including request identity, persisted timestamps, route-visible payload shape, and any stable caller-visible identifier that survives retries. Purpose: avoid inventing broader new inputs until the current transport surfaces are exhausted.
+3. [ ] Choose one explicit branch before changing behavior:
+   - minimal-repair branch: the current transport contract already exposes one trustworthy freshness signal that can distinguish stale replay from intentional overwrite; or
+   - bounded-blocker branch: the current transport contract does not expose such a signal, so the task must stop without guessing.
+   Purpose: keep the replay-safety task executable for a junior implementer instead of leaving the decision implicit.
+4. [ ] If the minimal-repair branch is viable, land only that guard at the waiting-item overwrite boundary and keep the rest of the duplicate-update contract unchanged. Purpose: prefer the smallest upstream repair that removes the replay hazard without redesigning queue behavior.
+5. [ ] If the bounded-blocker branch is the honest outcome, record one explicit `**BLOCKER**` note naming the exact missing freshness signal or contract field required before replay-safe overwrite can be implemented safely. Purpose: leave one concrete next requirement instead of vague “investigate later” wording.
+6. [ ] Add direct proof for whichever branch lands: a retained duplicate-update proof for the minimal repair, or a bounded diagnostic proof that demonstrates why the current contract cannot separate stale replay from intentional overwrite today. Purpose: leave this replay-safety seam inspectable on disk either way.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the replay-safety task lands on its minimal-repair or bounded-blocker branch.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` and confirm the retained duplicate-admission proof covers the branch this task chose.
-3. [ ] If the chosen branch touches the route surfaces, run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` so the route-level duplicate semantics stay aligned with the queue helper.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the route-level start-ingest duplicate semantics stay aligned with the chosen replay-safety branch.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the route-level re-embed duplicate semantics stay aligned with the chosen replay-safety branch.
 
 #### Implementation notes
 
@@ -5348,6 +5355,8 @@ This task closes the current review cycle after the review-created follow-up wor
 - Full wrapper validation is rerun after the review-created fixes, including server, client, compose, host-network smoke, and browser coverage.
 - The durable review artifacts for review pass `0000055-20260408T225213Z-37aad4f1` still exist on disk at final close-out.
 - This plan's end-state explicitly records that the current review pass has been closed, and the final close-out notes cite the exact proof homes used.
+- The final close-out explicitly names which task or proof owner resolved each reopened review seam from Tasks 62 through 69.
+- The canonical plan is re-opened from disk after final validation and still shows a review state that matches the stored review outcome for this pass.
 
 #### Documentation Locations
 
@@ -5368,10 +5377,7 @@ This task closes the current review cycle after the review-created follow-up wor
 
 1. [ ] Re-read Tasks 62 through 69 before final validation. Purpose: keep the final close-out anchored to the exact review-created tasks for this pass.
 2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md` and `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-blind-spot-challenge.md` before final validation. Purpose: keep final close-out aligned with the endorsed findings and carried-forward rejected-risk notes from this pass.
-3. [ ] After Testing 1 through 9 complete, refresh this task's `Implementation notes` with the exact proof owners that now close each reopened review seam from Tasks 62 through 69. Purpose: keep final review closure inspectable on disk.
-4. [ ] After Testing 1 through 9 complete, refresh this task's `Implementation notes` with the exact wrapper proof homes used for final validation. Purpose: keep the final validation evidence directly inspectable.
-5. [ ] After Testing 10 completes, verify on disk that the three durable review artifacts for `0000055-20260408T225213Z-37aad4f1` still exist and refresh this task's `Implementation notes` with that verification. Purpose: preserve the durable review record at close-out.
-6. [ ] After the full validation chain completes, re-open this canonical plan from disk and verify it still contains the `Code Review Findings` section for `0000055-20260408T225213Z-37aad4f1`, the review-created tasks, and the final validation record for this pass. Purpose: make the plan-state verification explicit instead of implied.
+3. [ ] Before the full rerun chain starts, identify the direct proof owners that should close Tasks 62 through 69 and use those same files when writing the final close-out notes after validation. Purpose: keep the final review record anchored to explicit proof homes instead of vague “tests updated” language.
 
 #### Testing
 
@@ -5385,6 +5391,7 @@ This task closes the current review cycle after the review-created follow-up wor
 8. [ ] Run `npm run compose:down` and confirm the supported main-stack runtime shuts down cleanly after smoke validation.
 9. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes.
 10. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-evidence.md`, `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md`, and `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-blind-spot-challenge.md` still exist before final close-out.
+11. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` from disk after the full validation chain and confirm it still contains the `Code Review Findings` section for `0000055-20260408T225213Z-37aad4f1`, the review-created task sequence, and this task's final close-out record.
 
 #### Implementation notes
 

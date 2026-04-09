@@ -4977,20 +4977,9 @@ This task removes the root-level zero-byte files that were accidentally tracked 
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
 - `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md`
-- `=`
-- `CACHED`
-- `[auth]`
-- `[client`
-- `[internal]`
-- `[server`
-- `[server]`
-- `bash`
-- `codeinfo2@1.0.0`
-- `npm`
-- `reading`
-- `resolve`
-- `transferring`
+- `.gitignore`
 
 #### Subtasks
 
@@ -5043,6 +5032,7 @@ This task repairs the bulk re-embed path in `RootsTable` so it uses the current 
 - `client/src/components/ingest/RootsTable.tsx`
 - `client/src/test/ingestRoots.test.tsx`
 - `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`
 
 #### Subtasks
 
@@ -5061,6 +5051,7 @@ This task repairs the bulk re-embed path in `RootsTable` so it uses the current 
 - Requirement: a row that becomes queue-blocked or active-run-blocked after selection is excluded from the outgoing bulk re-embed request at click time. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Proof home: `client/src/test/ingestRoots.test.tsx`.
 - Requirement: a still-valid selected row continues to bulk re-embed successfully after the click-time filtering repair. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Proof home: `client/src/test/ingestRoots.test.tsx`.
 - Edge case: the repair stays scoped to bulk re-embed and does not silently change bulk remove target selection when both paths share helper logic. Implementation owner: `client/src/components/ingest/RootsTable.tsx`. Proof home: existing bulk-remove assertions retained or extended in `client/src/test/ingestRoots.test.tsx`.
+- Browser regression surface: the supported Story 55 Playwright coverage continues through `e2e/ingest.spec.ts`, with the stable mixed-selection artifact in `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png` refreshed in Task 70 if the repaired UI changes what the browser proof should show. Implementation owner: `client/src/components/ingest/RootsTable.tsx` and `e2e/ingest.spec.ts`. Proof home: `e2e/ingest.spec.ts` and `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`.
 
 #### Testing
 
@@ -5149,6 +5140,8 @@ This task restores execution-time invalid-state validation for queued re-embed w
 - `server/src/test/unit/reingestService.test.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
 - `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 
 #### Subtasks
 
@@ -5166,6 +5159,7 @@ This task restores execution-time invalid-state validation for queued re-embed w
 - Requirement: queued re-embed re-checks repository validity at execution time using the same invalid-state vocabulary as the direct runtime path. Implementation owner: `server/src/ingest/reingestService.ts` and `server/src/ingest/ingestJob.ts`. Proof home: `server/src/test/unit/reingestService.test.ts`.
 - Failure mode: a repository that becomes invalid after queue admission still starts work later. Implementation owner: `server/src/ingest/reingestService.ts` and `server/src/ingest/ingestJob.ts`. Proof home: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
 - Requirement: a still-valid queued re-embed keeps the intended happy path after the new runtime guard is restored. Implementation owner: `server/src/ingest/reingestService.ts` and `server/src/ingest/ingestJob.ts`. Proof home: `server/src/test/unit/ingest-reembed.test.ts`.
+- Integration regression surface: the supported Testcontainers-backed queue and re-embed HTTP coverage remains `server/src/test/features/ingest-reembed.feature` with step owners in `server/src/test/steps/ingest-manage.steps.ts`, rechecked during Task 70's full `npm run test:summary:server:cucumber` rerun. Implementation owner: `server/src/ingest/reingestService.ts` and `server/src/ingest/ingestJob.ts`. Proof home: `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts`.
 
 #### Testing
 
@@ -5205,6 +5199,8 @@ This task restores executable path integrity for queued ingest and recovery. A q
 - `server/src/ingest/ingestJob.ts`
 - `server/src/test/unit/ingest-start.test.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 
 #### Subtasks
 
@@ -5222,6 +5218,7 @@ This task restores executable path integrity for queued ingest and recovery. A q
 - Requirement: queued start-ingest persists one authoritative executable path that stays aligned with the validated queue identity. Implementation owner: `server/src/routes/ingestStart.ts` and `server/src/ingest/requestContracts.ts`. Proof home: `server/src/test/unit/ingest-start.test.ts`.
 - Failure mode: startup recovery silently substitutes `canonicalTargetPath` when the persisted execution path is missing. Implementation owner: `server/src/ingest/ingestJob.ts`. Proof home: `server/src/test/unit/ingest-queue-runtime.test.ts`.
 - Edge case: the persisted authoritative path wins over raw alias drift and stale fallback hints across queue admission and recovery. Implementation owner: `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `server/src/ingest/ingestJob.ts`. Proof home: `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- Integration regression surface: startup and queue-hand-off behavior remains covered through `server/src/test/features/ingest-reembed.feature` with queue-runtime step ownership in `server/src/test/steps/ingest-manage.steps.ts`, rechecked during Task 70's full `npm run test:summary:server:cucumber` rerun. Implementation owner: `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `server/src/ingest/ingestJob.ts`. Proof home: `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts`.
 
 #### Testing
 
@@ -5261,6 +5258,8 @@ This task repairs two shared repo-list compatibility defects in the same project
 - `server/src/test/unit/mcp-ingested-repositories.test.ts`
 - `server/src/test/unit/tools-ingested-repos.test.ts`
 - `client/src/test/useIngestRoots.test.tsx`
+- `server/src/test/features/ingest-roots.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 
 #### Subtasks
 
@@ -5281,6 +5280,7 @@ This task repairs two shared repo-list compatibility defects in the same project
 - Requirement: active overlays keep the durable repository identity in `id` while leaving runtime execution identity in `runId`. Implementation owner: `server/src/lmstudio/toolService.ts`. Proof home: `server/src/test/unit/tools-ingested-repos.test.ts`.
 - Requirement: provider-qualified legacy model strings such as `openai/<model>` retain the correct provider meaning when explicit queue fields are absent. Implementation owner: `server/src/lmstudio/toolService.ts`. Proof home: `server/src/test/unit/mcp-ingested-repositories.test.ts`.
 - Edge case: explicit queue provider fields continue to outrank legacy `payload.model` fallback hints during client normalization. Implementation owner: `server/src/lmstudio/toolService.ts` and `client/src/hooks/useIngestRoots.ts`. Proof home: `client/src/test/useIngestRoots.test.tsx`.
+- Integration regression surface: the supported ingest-roots HTTP contract and queued-row projection remain covered through `server/src/test/features/ingest-roots.feature` with step ownership in `server/src/test/steps/ingest-manage.steps.ts`, rechecked during Task 70's full `npm run test:summary:server:cucumber` rerun. Implementation owner: `server/src/lmstudio/toolService.ts` and `client/src/hooks/useIngestRoots.ts`. Proof home: `server/src/test/features/ingest-roots.feature` and `server/src/test/steps/ingest-manage.steps.ts`.
 
 #### Testing
 
@@ -5321,6 +5321,8 @@ This task restores the queue-duplicate audit trail promised by the Story 55 cont
 - `server/src/routes/ingestReembed.ts`
 - `server/src/test/unit/ingest-start.test.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/features/ingest-logging.feature`
+- `server/src/test/steps/ingest-logging.steps.ts`
 
 #### Subtasks
 
@@ -5341,12 +5343,13 @@ This task restores the queue-duplicate audit trail promised by the Story 55 cont
 - Requirement: a waiting-item rewrite emits a distinct audit signal on start-ingest instead of collapsing into generic acceptance logging. Implementation owner: `server/src/ingest/requestQueue.ts` and `server/src/routes/ingestStart.ts`. Proof home: `server/src/test/unit/ingest-start.test.ts`.
 - Requirement: running-item reuse on start-ingest remains distinct from the waiting-update audit branch. Implementation owner: `server/src/ingest/requestQueue.ts` and `server/src/routes/ingestStart.ts`. Proof home: `server/src/test/unit/ingest-start.test.ts`.
 - Requirement: the re-embed route also distinguishes waiting-item update from non-update acceptance paths. Implementation owner: `server/src/ingest/requestQueue.ts` and `server/src/routes/ingestReembed.ts`. Proof home: `server/src/test/unit/ingest-reembed.test.ts`.
+- Integration regression surface: route-level audit markers and ingest log behavior remain supported by `server/src/test/features/ingest-logging.feature` with step ownership in `server/src/test/steps/ingest-logging.steps.ts`, rechecked during Task 70's full `npm run test:summary:server:cucumber` rerun. Implementation owner: `server/src/ingest/requestQueue.ts`, `server/src/routes/ingestStart.ts`, and `server/src/routes/ingestReembed.ts`. Proof home: `server/src/test/features/ingest-logging.feature` and `server/src/test/steps/ingest-logging.steps.ts`.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build still passes after the duplicate-update audit repair.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm the waiting-duplicate audit proof plus the running-item reuse non-regression proof both pass for start-ingest.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the waiting-duplicate audit proof passes for re-embed.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm the waiting-duplicate audit proof plus the non-update acceptance non-regression proof both pass for re-embed.
 
 #### Implementation notes
 
@@ -5383,6 +5386,9 @@ This task bounds the replay-safety gap in waiting-item duplicate updates. The cu
 - `server/src/test/unit/ingest-request-queue.test.ts`
 - `server/src/test/unit/ingest-start.test.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/features/ingest-start.feature`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 
 #### Subtasks
 
@@ -5408,6 +5414,7 @@ This task bounds the replay-safety gap in waiting-item duplicate updates. The cu
 - Requirement: the queue-helper duplicate-update path either enforces the minimal replay-safe guard or proves that the current transport contract cannot safely distinguish stale replay from intentional overwrite. Implementation owner: `server/src/ingest/requestQueue.ts`. Proof home: `server/src/test/unit/ingest-request-queue.test.ts`.
 - Requirement: start-ingest duplicate handling stays aligned with the chosen replay-safety branch. Implementation owner: `server/src/routes/ingestStart.ts`. Proof home: `server/src/test/unit/ingest-start.test.ts`.
 - Requirement: re-embed duplicate handling stays aligned with the chosen replay-safety branch. Implementation owner: `server/src/routes/ingestReembed.ts`. Proof home: `server/src/test/unit/ingest-reembed.test.ts`.
+- Integration regression surface: the supported queue-related HTTP behavior remains covered through `server/src/test/features/ingest-start.feature`, `server/src/test/features/ingest-reembed.feature`, and step ownership in `server/src/test/steps/ingest-manage.steps.ts`, rechecked during Task 70's full `npm run test:summary:server:cucumber` rerun. Implementation owner: `server/src/ingest/requestQueue.ts`, `server/src/routes/ingestStart.ts`, and `server/src/routes/ingestReembed.ts`. Proof home: `server/src/test/features/ingest-start.feature`, `server/src/test/features/ingest-reembed.feature`, and `server/src/test/steps/ingest-manage.steps.ts`.
 
 #### Testing
 
@@ -5446,6 +5453,16 @@ This task closes the current review cycle after the review-created follow-up wor
 - `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md`
 - `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-blind-spot-challenge.md`
+- `README.md`
+- `docs/developer-reference.md`
+- `scripts/test-summary-host-network-main.mjs`
+- `scripts/test-summary-e2e.mjs`
+- `docker-compose.yml`
+- `docker-compose.e2e.yml`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`
+- `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`
+- `artifacts/story-0000055-screenshots/0000055-bulk-partial-failure-state.png`
 - `logs/test-summaries/build-server-latest.log`
 - `logs/test-summaries/build-client-latest.log`
 - `logs/test-summaries/compose-build-latest.log`
@@ -5460,12 +5477,15 @@ This task closes the current review cycle after the review-created follow-up wor
 1. [ ] Re-read Tasks 62 through 69 before final validation. Purpose: keep the final close-out anchored to the exact review-created tasks for this pass.
 2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md` and `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-blind-spot-challenge.md` before final validation. Purpose: keep final close-out aligned with the endorsed findings and carried-forward rejected-risk notes from this pass.
 3. [ ] Before the full rerun chain starts, identify the direct proof owners that should close Tasks 62 through 69 and use those same files when writing the final close-out notes after validation. Purpose: keep the final review record anchored to explicit proof homes instead of vague “tests updated” language.
+4. [ ] Re-check the supported Testcontainers-backed feature owners `server/src/test/features/ingest-reembed.feature`, `server/src/test/features/ingest-roots.feature`, `server/src/test/features/ingest-status.feature`, `server/src/test/features/ingest-start.feature`, and their step-owner files before the full cucumber rerun, extending those feature or step files if any reopened server seam is still unit-only. Purpose: keep the final `npm run test:summary:server:cucumber` pass honest for the changed queue, re-embed, and ingest-roots behavior.
+5. [ ] Refresh the retained Story 55 browser proof artifacts in `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`, `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`, and `artifacts/story-0000055-screenshots/0000055-bulk-partial-failure-state.png` if the repaired browser flows change what those screenshots should show. Purpose: keep the stable Story 55 visual proof aligned with `e2e/ingest.spec.ts` and the final browser wrapper run.
 
 #### Requirement-To-Proof Matrix
 
 - Requirement: every reopened seam from Tasks 62 through 69 has one named proof owner before the full wrapper rerun begins. Implementation owner: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and the files named by Tasks 62 through 69. Proof home: this task's final close-out notes in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`.
 - Requirement: final validation proves wrapper reachability across server, client, compose build, host-network smoke, and browser execution. Implementation owner: the repository code touched by Tasks 62 through 69. Proof home: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/host-network-main-latest.log`, `logs/test-summaries/e2e-tests-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, and `test-results/client-tests-<timestamp>.log`.
 - Requirement: the durable review artifacts remain on disk and the canonical plan still matches the stored review outcome after revalidation. Implementation owner: `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-*.md` and `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof home: the three review artifact files and the final close-out notes in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`.
+- Requirement: the final browser proof keeps the retained Story 55 screenshots aligned with the exercised queued-row and bulk-state UI flows. Implementation owner: `e2e/ingest.spec.ts`. Proof home: `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`, `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`, and `artifacts/story-0000055-screenshots/0000055-bulk-partial-failure-state.png`.
 
 #### Testing
 
@@ -5475,11 +5495,13 @@ This task closes the current review cycle after the review-created follow-up wor
 4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes cleanly after the review-created fixes.
 5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes cleanly after the review-created fixes.
 6. [ ] Run `npm run compose:build:summary` and confirm the supported compose build wrapper passes cleanly before runtime smoke validation.
-7. [ ] Run `npm run compose:up`, then `npm run test:summary:host-network:main`, and confirm the supported main-stack smoke path passes after the review-created fixes.
-8. [ ] Run `npm run compose:down` and confirm the supported main-stack runtime shuts down cleanly after smoke validation.
-9. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes.
-10. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-evidence.md`, `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md`, and `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-blind-spot-challenge.md` still exist before final close-out.
-11. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` from disk after the full validation chain and confirm it still contains the `Code Review Findings` section for `0000055-20260408T225213Z-37aad4f1`, the review-created task sequence, and this task's final close-out record.
+7. [ ] Run `npm run compose:up` and confirm the supported main-stack runtime starts cleanly before host-network smoke validation.
+8. [ ] Run `npm run test:summary:host-network:main` and confirm the supported main-stack smoke path passes after the review-created fixes.
+9. [ ] Run `npm run compose:down` and confirm the supported main-stack runtime shuts down cleanly after smoke validation.
+10. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes.
+11. [ ] Verify on disk that `artifacts/story-0000055-screenshots/0000055-queued-row-state.png`, `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`, and `artifacts/story-0000055-screenshots/0000055-bulk-partial-failure-state.png` still exist and match the retained Story 55 browser proof set after the e2e rerun.
+12. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-evidence.md`, `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-findings.md`, and `codeInfoStatus/reviews/0000055-20260408T225213Z-37aad4f1-blind-spot-challenge.md` still exist before final close-out.
+13. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` from disk after the full validation chain and confirm it still contains the `Code Review Findings` section for `0000055-20260408T225213Z-37aad4f1`, the review-created task sequence, and this task's final close-out record.
 
 #### Implementation notes
 

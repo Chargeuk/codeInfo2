@@ -5868,14 +5868,16 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 
 #### Testing
 
-1. [ ] Run `git diff --name-status origin/main...HEAD` and confirm the tracked zero-byte root artifacts are no longer present in the branch diff. No repository wrapper build or test run is required here because this task only removes accidental tracked artifacts and does not change product runtime behavior.
-2. [ ] Run `for path in '=' 'CACHED' '[auth]' '[client' '[internal]' '[server' '[server]' 'bash' 'codeinfo2@1.0.0' 'npm' 'reading' 'resolve' 'transferring'; do test ! -e \"$path\"; done` and confirm all named root artifacts are absent from disk after the cleanup.
+1. [x] Run `git diff --name-status origin/main...HEAD` and confirm the tracked zero-byte root artifacts are no longer present in the branch diff. No repository wrapper build or test run is required here because this task only removes accidental tracked artifacts and does not change product runtime behavior.
+2. [x] Run `for path in '=' 'CACHED' '[auth]' '[client' '[internal]' '[server' '[server]' 'bash' 'codeinfo2@1.0.0' 'npm' 'reading' 'resolve' 'transferring'; do test ! -e \"$path\"; done` and confirm all named root artifacts are absent from disk after the cleanup.
 
 #### Implementation notes
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact identified thirteen tracked zero-byte files at the repository root that are not covered by the plan, the support-file allowlist, or any retained proof role.
 - 2026-04-10 reread and verification checkpoint: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, then verified on disk with `git ls-files --stage` plus direct size checks that the exact tracked root artifact set is still `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`, all at zero bytes.
 - 2026-04-10 cleanup checkpoint: removed the exact thirteen tracked zero-byte root artifacts from the repository root and left all unrelated root files untouched.
+- 2026-04-10 automated proof checkpoint: `git diff --name-status origin/main...HEAD` still shows the wider Story 55 branch diff, but none of the Task 74 artifact paths appear in that tracked diff anymore, so Testing 1 is honestly complete.
+- 2026-04-10 automated proof checkpoint: the direct shell absence loop for `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring` exited cleanly with no output, so Testing 2 is honestly complete and all named artifact paths are absent from disk.
 - 2026-04-10 prevention checkpoint: inspected the current root `.gitignore` and found no direct repo evidence that one narrow ignore rule is strictly required for this accidental-artifact pattern, so Task 74 stays bounded to file removal rather than widening into speculative ignore-file churn. Removed paths: `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`.
 
 ### Task 75. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior

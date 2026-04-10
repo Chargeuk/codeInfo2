@@ -5818,7 +5818,7 @@ This task repairs two server runtime seams where deferred execution no longer re
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `73`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed the tracked zero-byte root files as accidental committed artifacts.
 
 #### Overview
@@ -5860,11 +5860,11 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 
 #### Subtasks
 
-1. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` before deleting files. Purpose: keep this hygiene cleanup bounded to the stored review evidence for this pass.
-2. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before deleting files. Purpose: keep this hygiene cleanup bounded to the exact artifact list endorsed by the stored review pass.
-3. [ ] Requirement: verify on disk that the exact zero-byte artifact set named in the findings artifact is still the file set being removed. Purpose: avoid broadening the hygiene cleanup beyond the endorsed accidental artifacts.
-4. [ ] Requirement: remove the tracked zero-byte root artifacts `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`. Purpose: close the endorsed accidental-artifact finding.
-5. [ ] Requirement: update `.gitignore` or another bounded hygiene control only if direct proof shows one minimal prevention step is strictly required to stop the same accidental tracking pattern from reappearing. Purpose: keep any prevention work bounded to this artifact problem instead of widening into general ignore-file churn.
+1. [x] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` before deleting files. Purpose: keep this hygiene cleanup bounded to the stored review evidence for this pass.
+2. [x] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before deleting files. Purpose: keep this hygiene cleanup bounded to the exact artifact list endorsed by the stored review pass.
+3. [x] Requirement: verify on disk that the exact zero-byte artifact set named in the findings artifact is still the file set being removed. Purpose: avoid broadening the hygiene cleanup beyond the endorsed accidental artifacts.
+4. [x] Requirement: remove the tracked zero-byte root artifacts `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`. Purpose: close the endorsed accidental-artifact finding.
+5. [x] Requirement: update `.gitignore` or another bounded hygiene control only if direct proof shows one minimal prevention step is strictly required to stop the same accidental tracking pattern from reappearing. Purpose: keep any prevention work bounded to this artifact problem instead of widening into general ignore-file churn.
 
 #### Testing
 
@@ -5874,6 +5874,9 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 #### Implementation notes
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact identified thirteen tracked zero-byte files at the repository root that are not covered by the plan, the support-file allowlist, or any retained proof role.
+- 2026-04-10 reread and verification checkpoint: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md` and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, then verified on disk with `git ls-files --stage` plus direct size checks that the exact tracked root artifact set is still `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`, all at zero bytes.
+- 2026-04-10 cleanup checkpoint: removed the exact thirteen tracked zero-byte root artifacts from the repository root and left all unrelated root files untouched.
+- 2026-04-10 prevention checkpoint: inspected the current root `.gitignore` and found no direct repo evidence that one narrow ignore rule is strictly required for this accidental-artifact pattern, so Task 74 stays bounded to file removal rather than widening into speculative ignore-file churn. Removed paths: `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`.
 
 ### Task 75. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
 

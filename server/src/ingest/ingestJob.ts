@@ -74,6 +74,7 @@ import {
   hashFile,
   resolveConfig,
 } from './index.js';
+import { resolveRequestEmbeddingSelection } from './requestContracts.js';
 
 export type IngestJobInput = {
   path: string;
@@ -91,7 +92,7 @@ export type IngestNormalizedError = {
   error: string;
   message: string;
   retryable: boolean;
-  provider: 'lmstudio' | 'openai';
+  provider: 'lmstudio' | 'openai' | 'ingest';
   upstreamStatus?: number;
   retryAfterMs?: number;
 };
@@ -612,6 +613,12 @@ function createModelLockedError() {
   return error;
 }
 
+function createValidationError(message: string, code = 'VALIDATION') {
+  const error = new Error(message);
+  (error as { code?: string }).code = code;
+  return error;
+}
+
 export async function validateExecutableIngestInput(
   input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
   options?: {
@@ -619,7 +626,19 @@ export async function validateExecutableIngestInput(
     selection?: ResolvedEmbeddingModelSelection;
   },
 ) {
-  const requested = options?.selection ?? resolveInputSelection(input);
+  const requested =
+    options?.selection ??
+    (() => {
+      const resolved = resolveRequestEmbeddingSelection({
+        model: input.model,
+        embeddingProvider: input.embeddingProvider,
+        embeddingModel: input.embeddingModel,
+      });
+      if ('status' in resolved) {
+        throw createValidationError(resolved.message, resolved.code);
+      }
+      return resolved.selection;
+    })();
   if (
     requested.providerId === 'openai' &&
     !isOpenAiAllowlistedEmbeddingModel(requested.modelKey)
@@ -658,6 +677,19 @@ function mapIngestError(err: unknown): {
     return {
       message: payload.message,
       normalized: payload,
+    };
+  }
+  if ((err as { code?: unknown })?.code === 'VALIDATION') {
+    return {
+      message:
+        err instanceof Error ? err.message : String(err ?? 'VALIDATION'),
+      normalized: {
+        error: 'VALIDATION',
+        message:
+          err instanceof Error ? err.message : String(err ?? 'VALIDATION'),
+        retryable: false,
+        provider: 'ingest',
+      },
     };
   }
   const lmstudio = mapLmStudioIngestError(err);
@@ -1527,6 +1559,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           await completeReembedFastPathWithFence({
             counts,
             message,
+            allowCollectionBootstrapFailure: true,
           });
           return;
         }

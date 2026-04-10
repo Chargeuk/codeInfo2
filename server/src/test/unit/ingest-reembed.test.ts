@@ -977,3 +977,57 @@ test('deletions-only delta reembed stays provider-free when model lookup would f
     await cleanup();
   }
 });
+
+test('deletions-only delta reembed returns completed when Chroma bootstrap would fail after validation passes', async () => {
+  const chromaBootstrapFailure = new Error('chroma bootstrap failed');
+  const { getOrCreateCollection, setCollectionFailure } =
+    setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'docs/deleted.txt': 'to be removed\n',
+  });
+
+  try {
+    const deps = buildIngestDeps();
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [
+            { relPath: 'docs/deleted.txt', fileHash: 'deleted-hash' },
+          ],
+        }),
+      }),
+    }));
+    await getLockedEmbeddingModel();
+    const bootstrapCallsBeforeRun = getOrCreateCollection.mock.calls.length;
+    await fs.rm(path.join(root, 'docs/deleted.txt'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
+    setCollectionFailure(chromaBootstrapFailure);
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'deleted-reembed-bootstrap-failure',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      deps,
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.error, null);
+    assert.equal(
+      deps.getModelCalls(),
+      0,
+      'deletions-only fast path should stay provider-free under bootstrap failure after validation passes',
+    );
+    assert.equal(
+      getOrCreateCollection.mock.calls.length,
+      bootstrapCallsBeforeRun,
+      'deletions-only fast path should not bootstrap Chroma collections after validation passes',
+    );
+  } finally {
+    await cleanup();
+  }
+});

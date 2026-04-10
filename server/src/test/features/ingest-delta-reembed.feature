@@ -89,6 +89,20 @@ Feature: Ingest delta re-embed
     And ingest delta vectors for "b.ts" should be absent
 
   @mongo
+  Scenario: Supported deletions-only re-embed keeps surviving files while cleaning deleted files
+    Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+    And ingest delta temp repo with file "b.ts" containing "export const b=1;"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    When I delete ingest delta temp file "b.ts"
+    And I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And ingest delta vectors for "b.ts" should be absent
+    And ingest delta ingest_files row for "b.ts" should be absent
+    And ingest delta vectors for "a.ts" should contain its original hash
+    And ingest delta ingest_files row for "a.ts" should equal its original hash
+
+  @mongo
   Scenario: Non-AST-only delta re-embed skips AST work
     Given ingest delta temp repo with file "src/app.ts" containing "export const app=1;"
     And ingest delta temp repo with file "docs/guide.md" containing "# Guide"

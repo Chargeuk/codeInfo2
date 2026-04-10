@@ -384,6 +384,73 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
   }
 });
 
+test('queue promotion rejects malformed queued payloads at execution time and releases queue ownership cleanly', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/index.ts': 'export const value = 1;\n',
+  });
+  const requestId = '6';
+  const deletedRequestIds: string[] = [];
+
+  try {
+    const promoted = createQueueRequest({
+      requestId,
+      root,
+      queueState: 'running',
+    });
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...promoted,
+          runId,
+          requestPayload: {
+            ...promoted.requestPayload,
+            path: root,
+            canonicalTargetPath: root,
+            operation: 'reembed',
+            model: '',
+          },
+        };
+      },
+    });
+
+    const result = await pumpIngestQueue();
+    assert.equal(result.started, true);
+    assert.ok(result.runId);
+
+    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'model is required');
+    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.ok(
+      deletedRequestIds.length >= 1,
+      'malformed queued payloads should still finalize and release the queued request',
+    );
+
+    const afterTerminal = await pumpIngestQueue();
+    assert.equal(afterTerminal.started, false);
+    assert.equal(afterTerminal.blockedByCleanup, false);
+    assert.equal(afterTerminal.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('queue-managed execution rejects non-allowlisted OpenAI models before promotion can run', async () => {
   await assert.rejects(
     () =>
@@ -678,6 +745,62 @@ test('startup recovery fallback uses canonicalTargetPath when persisted requestP
     `started:run-recovered-degraded:${canonicalRoot}`,
     `canonical:${canonicalRoot}`,
   ]);
+});
+
+test('startup recovery rejects malformed queued payloads before provider work and does not leave partial running state behind', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/recover.ts': 'export const recover = true;\n',
+  });
+  const deletedRequestIds: string[] = [];
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '14',
+    root,
+    queueState: 'running',
+    runId: 'run-recovered-invalid-payload',
+  });
+  recoveryQueueRequest.requestPayload = {
+    ...recoveryQueueRequest.requestPayload,
+    path: root,
+    model: '',
+    operation: 'reembed',
+  };
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+
+    const result = await recoverIngestQueueOnStartup();
+    assert.equal(result.recovered, true);
+
+    const terminal = await waitForTerminalIngestStatus(
+      'run-recovered-invalid-payload',
+      {
+        timeoutMs: 1_000,
+        pollMs: 10,
+      },
+    );
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'model is required');
+    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.deepEqual(deletedRequestIds, ['14']);
+
+    const afterRecovery = await pumpIngestQueue();
+    assert.equal(afterRecovery.started, false);
+    assert.equal(afterRecovery.blockedByCleanup, false);
+    assert.equal(afterRecovery.runId, null);
+  } finally {
+    await cleanup();
+  }
 });
 
 test('recovery selectors use one oldest-item lookup per queue state instead of loading the full queue', async () => {

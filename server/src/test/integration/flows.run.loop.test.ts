@@ -184,6 +184,11 @@ const withFlowServer = async (
       conversationId: string,
       expectedRunToken?: string,
     ) => boolean;
+    onStopUnwindCheckpoint?: (params: {
+      checkpoint: string;
+      conversationId: string;
+      detail?: string;
+    }) => void;
   },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -201,6 +206,7 @@ const withFlowServer = async (
         startFlowRun({
           ...params,
           chatFactory: () => new ScriptedChat(responder),
+          onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
           cleanupInflightFn: options?.cleanupInflightFn,
           releaseConversationLockFn: options?.releaseConversationLockFn,
         }),
@@ -276,6 +282,13 @@ type OwnershipReleaseCall = {
   released: boolean;
   beforeState: RuntimeCleanupSnapshot;
   afterState: RuntimeCleanupSnapshot;
+};
+
+type StopUnwindCheckpoint = {
+  checkpoint: string;
+  conversationId: string;
+  detail?: string;
+  state: RuntimeCleanupSnapshot;
 };
 
 const snapshotRuntimeCleanupState = (
@@ -1173,6 +1186,8 @@ test('flow stop during a looped flow prevents later iterations from continuing',
   const ownershipReleaseCalls: OwnershipReleaseCall[] = [];
   let ownershipReacquiredAfterRelease = false;
   let ownershipReacquiredState: RuntimeCleanupSnapshot | null = null;
+  const stopUnwindCheckpointLimit = 20;
+  const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
   const cleanupEvents: Array<
     {
       label: string;
@@ -1233,6 +1248,19 @@ test('flow stop during a looped flow prevents later iterations from continuing',
     ownershipReacquiredState,
     recentReleaseCalls: ownershipReleaseCalls.slice(-5),
   });
+  const recordStopUnwindCheckpoint = (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => {
+    stopUnwindCheckpoints.push({
+      ...params,
+      state: snapshotRuntimeCleanupState(params.conversationId),
+    });
+    if (stopUnwindCheckpoints.length > stopUnwindCheckpointLimit) {
+      stopUnwindCheckpoints.shift();
+    }
+  };
 
   await withFlowServer(
     (message) => {
@@ -1310,8 +1338,15 @@ test('flow stop during a looped flow prevents later iterations from continuing',
             'FLOW_LOOP_OWNERSHIP_RELEASE',
             JSON.stringify(ownershipReleaseSummary),
           );
+          console.error(
+            'FLOW_LOOP_STOP_UNWIND',
+            JSON.stringify({
+              totalCheckpoints: stopUnwindCheckpoints.length,
+              recentCheckpoints: stopUnwindCheckpoints,
+            }),
+          );
           if (error instanceof Error) {
-            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })} ownershipRelease=${JSON.stringify(ownershipReleaseSummary)}`;
+            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })} ownershipRelease=${JSON.stringify(ownershipReleaseSummary)} stopUnwind=${JSON.stringify({ totalCheckpoints: stopUnwindCheckpoints.length, recentCheckpoints: stopUnwindCheckpoints })}`;
           }
           throw error;
         }
@@ -1349,6 +1384,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         });
         return released;
       },
+      onStopUnwindCheckpoint: recordStopUnwindCheckpoint,
     },
   );
 });

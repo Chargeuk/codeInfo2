@@ -2352,6 +2352,11 @@ async function runFlowUnlocked(params: {
   resumeStepPath?: number[];
   customTitle?: string;
   runToken: string;
+  onStopUnwindCheckpoint?: (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => void;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
 }) {
@@ -2382,6 +2387,10 @@ async function runFlowUnlocked(params: {
   const finalizeFlowRuntime = () => {
     if (finalizedFlowRuntime) return;
     finalizedFlowRuntime = true;
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowUnlocked.finalize.enter',
+      conversationId: params.conversationId,
+    });
 
     const inflightState = getInflight(params.conversationId);
     const activeInflight =
@@ -2455,6 +2464,11 @@ async function runFlowUnlocked(params: {
         params.conversationId,
         params.runToken,
       );
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.finalize.exit',
+        conversationId: params.conversationId,
+        detail: `pendingCancelCleared=${String(pendingCancelCleared)} lockReleased=${String(lockReleased)}`,
+      });
       baseLogger.info(
         {
           flowName: params.flowName,
@@ -2687,6 +2701,12 @@ async function runFlowUnlocked(params: {
 
       if (!shouldStopAfter(result.status)) {
         stepInflightId = crypto.randomUUID();
+      } else {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runInstruction.return.stop',
+          conversationId: params.conversationId,
+          detail: `status=${result.status} step=${instructionParams.command?.stepIndex ?? 'none'}`,
+        });
       }
       return result;
     }
@@ -2848,6 +2868,11 @@ async function runFlowUnlocked(params: {
     });
 
     if (shouldStopAfter(result.status)) {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runBreakStep.return.stop',
+        conversationId: params.conversationId,
+        detail: `status=${result.status} step=${command.stepIndex}`,
+      });
       return { status: result.status, shouldBreak: false };
     }
 
@@ -3312,6 +3337,11 @@ async function runFlowUnlocked(params: {
         break;
       }
       if (outcome !== 'ok') {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runStartLoopStep.return.non_ok',
+          conversationId: params.conversationId,
+          detail: `outcome=${outcome} loopDepth=${loopStack.length}`,
+        });
         loopStack.pop();
         return outcome;
       }
@@ -3390,6 +3420,11 @@ async function runFlowUnlocked(params: {
         });
         const status = await runLlmStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.llm',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3431,6 +3466,11 @@ async function runFlowUnlocked(params: {
         });
         const { status, shouldBreak } = await runBreakStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.break',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3479,6 +3519,11 @@ async function runFlowUnlocked(params: {
         });
         const status = await runCommandStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.command',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3520,6 +3565,11 @@ async function runFlowUnlocked(params: {
         });
         const status = await runReingestStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.reingest',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3553,7 +3603,18 @@ async function runFlowUnlocked(params: {
 
   try {
     const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
-    if (outcome !== 'ok') return;
+    if (outcome !== 'ok') {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.return.non_ok',
+        conversationId: params.conversationId,
+        detail: `outcome=${outcome}`,
+      });
+      return;
+    }
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowUnlocked.return.ok',
+      conversationId: params.conversationId,
+    });
   } finally {
     finalizeFlowRuntime();
   }
@@ -3837,8 +3898,13 @@ export async function startFlowRun(
         resumeStepPath,
         customTitle: params.customTitle,
         runToken,
+        onStopUnwindCheckpoint: params.onStopUnwindCheckpoint,
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
+      });
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
+        conversationId,
       });
     } catch (err) {
       if ((err as FlowRunError | undefined)?.code) {
@@ -3853,10 +3919,19 @@ export async function startFlowRun(
         );
       }
     } finally {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'startFlowRun.async.finally.enter',
+        conversationId,
+      });
       cleanupPendingConversationCancel({ conversationId, runToken });
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
-      releaseConversationLockFn(conversationId, runToken);
+      const released = releaseConversationLockFn(conversationId, runToken);
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'startFlowRun.async.finally.exit',
+        conversationId,
+        detail: `lockReleased=${String(released)}`,
+      });
     }
   })();
 

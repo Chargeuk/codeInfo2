@@ -4952,8 +4952,9 @@ This task closes review pass `0000055-20260408T005855Z-5f96266d` after Tasks 58 
   - `Task 72` re-establishes the reopened unrelated `flows.run.loop` server-unit baseline before deferred-validation proof resumes.
   - `Task 73` repairs deferred execution validation plus the deletions-only re-embed fast path so malformed queued payloads fail at execution-time validation and zero-work deletion-only runs do not fail on unnecessary Chroma bootstrap work.
   - `Task 74` removes the tracked zero-byte root artifacts identified in the findings artifact.
-  - `Task 75` restores one explicit bulk re-embed affordance in `RootsTable` and removes per-item refresh churn from batch actions.
-  - `Task 76` performs the fresh full-story revalidation and updates the maintained summary after Tasks 63 through 75 land.
+  - `Task 75` restores e2e compose-build client install reliability so the browser-proof path gets past setup before later UI assertions resume.
+  - `Task 76` restores one explicit bulk re-embed affordance in `RootsTable` and removes per-item refresh churn from batch actions.
+  - `Task 77` performs the fresh full-story revalidation and updates the maintained summary after Tasks 63 through 76 land.
 - Deferred review note: the optional simplification about replacing timer-driven ingest test polling with stronger event-driven test coordination is deferred for this pass. It is localized and real, but it is proof-quality churn rather than a current correctness or contract break, and the reopened tasks above already cover the actionable product and contract regressions from this pass.
 - Durable review-artifact rule for this reopened pass: the evidence, findings, and blind-spot challenge artifacts above must remain commit-worthy companions to the plan changes created from this review.
 
@@ -5882,12 +5883,63 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 - 2026-04-10 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 74 section from disk after commit `e883f603`, confirmed the retained proof state still matches current repo evidence, and verified that Subtasks 1 through 5 plus Testing 1 and 2 are honestly complete with no live `**BLOCKER**` note remaining. Closed Task 74 as `__done__` so Task 75 is now the next active owner.
 - 2026-04-10 manual-testing assessment: task-scoped manual testing is not applicable for Task 74 because this completed change only removes accidental tracked zero-byte root artifacts and does not affect a supported runnable system, browser-visible surface, HTTP contract, or paired frontend behavior. The task's owned `git diff` and direct shell absence checks already prove the acceptance boundary on current disk, so no additional subtasks or Testing-step changes were needed.
 
-### Task 75. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
+### Task 75. Restore E2E Compose-Build Client Install Reliability Before `RootsTable` Browser Proof Resumes
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `74`
 - Task Status: `__in_progress__`
-- Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one bulk re-embed affordance mismatch and one batch-refresh churn regression in `RootsTable`.
+- Notes: Added on 2026-04-10 by planner repair after the repeated setup-only `npm run test:summary:e2e` blocker proved the active red path dies in the Docker client-image `npm ci` layer before any Task 76 browser assertions run.
+
+#### Overview
+
+This prerequisite task owns only the repeated e2e setup/build failure in the client image install lane. The work here must stay bounded to the e2e compose-build owner files and environment seams: `client/Dockerfile`, `package.json`, `docker-compose.e2e.yml`, `scripts/test-summary-e2e.mjs`, and `scripts/docker-compose-with-env.sh`, plus the existing `CODEINFO_NPM_REGISTRY` or supported npm network-config seam if the current log proves it. The goal is to restore an honest e2e setup path that gets past the client-image `npm ci` layer, or to end with one explicit exhausted-branch owner conclusion, before Task 76 resumes its browser-proof ownership.
+
+#### Task Exit Criteria
+
+- The repeated client-image `npm ci` setup failure is either repaired in the bounded compose-build owner or closed on one explicit exhausted branch that names a narrower environment owner outside Task 76.
+- The repair stays out of `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`, `e2e/ingest.spec.ts`, and screenshot-asset work except to confirm that the wrapper now reaches those later proof homes.
+- Direct proof exists that `npm run compose:e2e:build` no longer dies in the client-image install layer, or one explicit exhausted-branch owner conclusion is recorded in `Implementation notes`.
+- If a targeted `npm run test:summary:e2e` rerun is used to confirm handoff, it must either reach browser execution or fail later in Task 76's owned browser seam rather than stopping again in compose-build setup.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `client/Dockerfile`
+- `package.json`
+- `docker-compose.e2e.yml`
+- `scripts/test-summary-e2e.mjs`
+- `scripts/docker-compose-with-env.sh`
+
+#### Proof Mapping
+
+- The e2e compose-build path gets past the client-image dependency install without dying in `npm ci`: owned by `client/Dockerfile` plus the bounded compose-build owner files; prove with `npm run compose:e2e:build`.
+- The e2e wrapper can resume later browser-proof ownership after setup repair: owned by the same bounded build/setup owner; prove with a targeted `npm run test:summary:e2e` rerun that reaches browser execution or fails only in Task 76's browser seam.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read Task 76's current `**BLOCKER**`, current `**BLOCKING ANSWER**`, and `logs/test-summaries/e2e-tests-latest.log` before editing. Purpose: keep this prerequisite anchored to the proved setup-only client-image install failure instead of reopening `RootsTable` product-code work.
+2. [ ] Requirement: inspect `client/Dockerfile`, `package.json`, `docker-compose.e2e.yml`, `scripts/test-summary-e2e.mjs`, and `scripts/docker-compose-with-env.sh` before changing behavior. Purpose: identify the exact bounded compose-build owner and the existing `CODEINFO_NPM_REGISTRY` / npm-network seam this task can honestly use.
+3. [ ] Requirement: determine whether the repeated `npm ci` `ECONNRESET` is fixable through one bounded repo-owned compose-build reliability change inside the allowed files or whether the current evidence exhausts cleanly into a narrower external environment owner. Stop as soon as one exact owner is proved. Purpose: keep this prerequisite concrete instead of letting Task 76 absorb indefinite environment narrowing.
+4. [ ] Requirement: if Subtask 3 proves one local compose-build owner, repair only that owner so the e2e setup path gets past the client-image install layer. If it instead proves the failure is still external-only after the bounded repo-owned checks, record the exhausted branch in `Implementation notes` and hand execution either to one fresh environment prerequisite task or back to planner review explicitly. Purpose: keep the repair exact and avoid widening into unrelated UI or browser code.
+5. [ ] Requirement: if the setup repair succeeds, record the handoff explicitly when the next targeted e2e rerun reaches browser execution or fails only in Task 76's owned browser-proof seam. Purpose: return the active owner to the correct task as soon as the compose-build blocker is no longer the red path.
+
+#### Testing
+
+1. [ ] Run `npm run compose:e2e:build` and confirm the bounded e2e compose build now gets past the client-image `npm ci` layer, or yields one explicit exhausted-branch owner conclusion.
+2. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "aligned row and bulk re-embed affordances"` only after Testing 1 if setup is repaired, and confirm the wrapper now reaches browser execution or fails only in Task 76's later browser-proof seam instead of stopping again in compose-build setup.
+
+#### Implementation notes
+
+- Inserted on 2026-04-10 by planner repair because Task 76's current blocker and blocker answer prove the active red path is now the setup-time Docker client-image install layer, not the repaired `RootsTable` or browser-proof owner.
+
+### Task 76. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `75`
+- Task Status: `__to_do__`
+- Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one bulk re-embed affordance mismatch and one batch-refresh churn regression in `RootsTable`. Re-owned to `__to_do__` on 2026-04-10 by planner repair after the repeated setup-only e2e compose-build `npm ci` blocker proved a separate prerequisite owner must restore browser setup reliability before this task's remaining browser-proof gate can finish honestly.
 
 #### Overview
 
@@ -5959,27 +6011,28 @@ This task repairs the changed client bulk flow so shared selection, row-level re
 - 2026-04-10 proof-authoring checkpoint: updated `client/src/test/ingestRoots.test.tsx` with distinct re-embed-affordance, stale-selection-clear, live-eligibility re-filter, and batch-refresh-cardinality cases, and rewrote the affected titles so they no longer pretend remove-focused selection tests also prove row-versus-bulk re-embed alignment. Updated `e2e/ingest.spec.ts` so the retained screenshot `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png` is now owned by a deterministic `aligned row and bulk re-embed affordances` browser scenario rather than the older remove-focused flow.
 - 2026-04-10 automated proof checkpoint: `npm run build:summary:client` passed cleanly with `warning_count: 0`, `agent_action: skip_log`, and log `logs/test-summaries/build-client-latest.log`, so Testing 1 is honestly complete before the client and browser wrappers run.
 - 2026-04-10 automated proof checkpoint: `npm run test:summary:client` passed cleanly with `tests run: 680`, `passed: 680`, `failed: 0`, `agent_action: skip_log`, and log `test-results/client-tests-2026-04-10T23-38-30-473Z.log`, so Testing 2 is honestly complete and the full client baseline now carries the repaired `RootsTable` affordance and refresh proofs.
-- **BLOCKER** 2026-04-10 Testing 3 `npm run test:summary:e2e`: the wrapper failed twice during setup before any browser assertions ran because the e2e compose build hit a transient external `npm ci` `ECONNRESET` while building the client image in Docker (`logs/test-summaries/e2e-tests-latest.log`). I tried the one allowed honest retry of the same wrapper after inspecting the first setup-failure log, and the second run failed in the same compose-build step with the same network-aborted client-image install, so there is no task-owned browser or Playwright seam to repair from current repo code. This task should stay `__in_progress__` and be resumed after environment/network stability returns; if repeated setup-only build failures continue, planner repair should split the external compose-build reliability issue from the Task 75 browser-proof owner instead of forcing more client-code churn.
-- **BLOCKING ANSWER** Fresh blocker research on 2026-04-10 proves the correct technical answer is not more Task 75 `RootsTable`, Jest, Playwright, or screenshot work. Repository precedents first: `AGENTS.md` explicitly says likely transient Docker/Compose network or cache build failures get one honest retry before deeper investigation, and the retry already happened here; Story 55 also repeatedly re-owns blockers when the red wrapper path is outside the active task's source seam. Current local evidence matches that pattern: `logs/test-summaries/e2e-tests-latest.log` shows the failure occurs during `npm run compose:e2e:build`, specifically `client/Dockerfile` step `RUN npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund`, and the wrapper never reaches `e2e:test`. The same Dockerfile already exposes the bounded environment seam `CODEINFO_NPM_REGISTRY`, so the task-owned code is not the failing layer. External-library and framework confirmation support an environment/build-owner fix rather than more UI churn: official npm config docs say npm already retries idempotent registry reads on network failures and exposes supported knobs `fetch-retries`, `fetch-retry-factor`, `fetch-retry-mintimeout`, `fetch-retry-maxtimeout`, `fetch-timeout`, plus `proxy` and `https-proxy` / matching environment variables for unstable or proxied networks. DeepWiki on `npm/cli` did not surface more specific guidance for this case, and Context7 library resolution failed with a transport fetch error during this step, so the external proof here relies on the official npm docs plus targeted issue-resolution references. Those issue-resolution references line up with the same conclusion: GitHub `actions/runner-images` issue `#3737` documents intermittent `npm ci` `ECONNRESET` failures in CI as external connectivity incidents, and Docker/NPM practitioners on Stack Overflow report the same class of Docker-build install failure as registry/proxy/cache/network configuration trouble rather than app-code regressions. The chosen fix fits the current repo state because the only failing command is the Docker build's client-image dependency install, the repo already has a documented retry-once rule and an existing registry-override seam, and no browser assertion or repaired Task 75 client behavior has failed yet. Rejected alternatives are not suitable: widening Task 75 into more `RootsTable` edits or Playwright rewrites would be dishonest because the wrapper never reaches browser execution; marking Testing 3 complete would be false; and inventing unsupported sleeps, screenshot-only work, or ad hoc npm-flag churn inside the UI task would hide an external compose-build owner instead of naming it cleanly. If the network stabilizes, rerun `npm run test:summary:e2e` unchanged; if the same setup-only `npm ci` `ECONNRESET` keeps recurring, the next honest owner is a separate compose-build reliability repair that uses the existing registry/proxy seam or supported npm fetch-retry configuration rather than more Task 75 product-code changes.
+- **RESOLVED ISSUE** 2026-04-10 Testing 3 `npm run test:summary:e2e`: the wrapper failed twice during setup before any browser assertions ran because the e2e compose build hit a transient external `npm ci` `ECONNRESET` while building the client image in Docker (`logs/test-summaries/e2e-tests-latest.log`). I tried the one allowed honest retry of the same wrapper after inspecting the first setup-failure log, and the second run failed in the same compose-build step with the same network-aborted client-image install, so there was no task-owned browser or Playwright seam to repair from current repo code. Planner repair on 2026-04-10 resolved this blocker by moving the active owner to new Task 75 so the compose-build reliability issue can be handled before this task's remaining browser-proof gate resumes.
+- **BLOCKING ANSWER** Fresh blocker research on 2026-04-10 proves the correct technical answer is not more current-task `RootsTable`, Jest, Playwright, or screenshot work. Repository precedents first: `AGENTS.md` explicitly says likely transient Docker/Compose network or cache build failures get one honest retry before deeper investigation, and the retry already happened here; Story 55 also repeatedly re-owns blockers when the red wrapper path is outside the active task's source seam. Current local evidence matches that pattern: `logs/test-summaries/e2e-tests-latest.log` shows the failure occurs during `npm run compose:e2e:build`, specifically `client/Dockerfile` step `RUN npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund`, and the wrapper never reaches `e2e:test`. The same Dockerfile already exposes the bounded environment seam `CODEINFO_NPM_REGISTRY`, so the task-owned code is not the failing layer. External-library and framework confirmation support an environment/build-owner fix rather than more UI churn: official npm config docs say npm already retries idempotent registry reads on network failures and exposes supported knobs `fetch-retries`, `fetch-retry-factor`, `fetch-retry-mintimeout`, `fetch-retry-maxtimeout`, `fetch-timeout`, plus `proxy` and `https-proxy` / matching environment variables for unstable or proxied networks. DeepWiki on `npm/cli` did not surface more specific guidance for this case, and Context7 library resolution failed with a transport fetch error during this step, so the external proof here relies on the official npm docs plus targeted issue-resolution references. Those issue-resolution references line up with the same conclusion: GitHub `actions/runner-images` issue `#3737` documents intermittent `npm ci` `ECONNRESET` failures in CI as external connectivity incidents, and Docker/NPM practitioners on Stack Overflow report the same class of Docker-build install failure as registry/proxy/cache/network configuration trouble rather than app-code regressions. The chosen fix fits the current repo state because the only failing command is the Docker build's client-image dependency install, the repo already has a documented retry-once rule and an existing registry-override seam, and no browser assertion or repaired Task 76 client behavior has failed yet. Rejected alternatives are not suitable: widening Task 76 into more `RootsTable` edits or Playwright rewrites would be dishonest because the wrapper never reaches browser execution; marking Testing 3 complete would be false; and inventing unsupported sleeps, screenshot-only work, or ad hoc npm-flag churn inside the UI task would hide an external compose-build owner instead of naming it cleanly. If the network stabilizes, rerun `npm run test:summary:e2e` unchanged; if the same setup-only `npm ci` `ECONNRESET` keeps recurring, the next honest owner is a separate compose-build reliability repair that uses the existing registry/proxy seam or supported npm fetch-retry configuration rather than more Task 76 product-code changes.
+- 2026-04-10 planner repair: moved the active owner to new Task 75 because the repeated e2e setup failure still lives in compose-build reliability before browser execution starts. This task now waits behind that prerequisite with its implementation work plus Testing 1 and 2 preserved, and Testing 3 remains the next proof gate once the setup path is restored.
 
-### Task 76. Re-Validate Story 55 After Review Pass `0000055-20260409T201302Z-13774922`
+### Task 77. Re-Validate Story 55 After Review Pass `0000055-20260409T201302Z-13774922`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `75`
+- Task Dependencies: `76`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 as the required final revalidation task after review pass `0000055-20260409T201302Z-13774922` reopened Story 55 for one must-fix, eight should-fix, and one reopened optional simplification.
 
 #### Overview
 
-This task revalidates Story 55 after Tasks 63 through 75 land. It must prove the immediate stop-hand-off prerequisite, the broader stop-unwind prerequisite, the caller-hand-off prerequisite, the ownership-release prerequisite, the exhausted full-suite-only contradiction branch, the tighter immediate caller hand-off prerequisite, the unrelated client-chat timeout prerequisite, the reopened shared repo-list contract, queue diagnostics, the reopened `flows.run.loop` prerequisite, deferred execution validation, artifact hygiene, and `RootsTable` batch behavior are all closed on current disk state, refresh the maintained summary for this new review pass, and keep the durable review artifacts directly inspectable alongside the repaired plan state.
+This task revalidates Story 55 after Tasks 63 through 76 land. It must prove the immediate stop-hand-off prerequisite, the broader stop-unwind prerequisite, the caller-hand-off prerequisite, the ownership-release prerequisite, the exhausted full-suite-only contradiction branch, the tighter immediate caller hand-off prerequisite, the unrelated client-chat timeout prerequisite, the reopened shared repo-list contract, queue diagnostics, the reopened `flows.run.loop` prerequisite, deferred execution validation, artifact hygiene, the compose-build reliability prerequisite, and `RootsTable` batch behavior are all closed on current disk state, refresh the maintained summary for this new review pass, and keep the durable review artifacts directly inspectable alongside the repaired plan state.
 
 #### Task Exit Criteria
 
-- Tasks 63 through 75 are all `__done__` with direct proof owners and no live blocker notes.
+- Tasks 63 through 76 are all `__done__` with direct proof owners and no live blocker notes.
 - The full relevant wrapper path for server, client, compose smoke, and browser validation passes on current repo state.
-- `planning/0000055-pr-summary.md` records the reopened review pass `0000055-20260409T201302Z-13774922`, the bounded closures for Tasks 63 through 75, the deferred optional simplification note from this pass, and the fresh proof homes used for final validation.
+- `planning/0000055-pr-summary.md` records the reopened review pass `0000055-20260409T201302Z-13774922`, the bounded closures for Tasks 63 through 76, the deferred optional simplification note from this pass, and the fresh proof homes used for final validation.
 - `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` still exist on disk at final close-out.
-- This task's final notes name the exact proof-owner files that closed Tasks 63 through 75 and the exact wrapper proof homes used for final validation.
+- This task's final notes name the exact proof-owner files that closed Tasks 63 through 76 and the exact wrapper proof homes used for final validation.
 - This task closes the reopened review pass without widening into a new story scope.
 
 #### Documentation Locations
@@ -6000,8 +6053,8 @@ This task revalidates Story 55 after Tasks 63 through 75 land. It must prove the
 
 #### Proof Mapping
 
-- Task-closure traceability for Tasks 63 through 75: owned by `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and `planning/0000055-pr-summary.md`; prove by updating the maintained summary and this task's final notes with the exact proof-owner files.
-- Full wrapper revalidation for server, client, and browser behavior: owned by the current repo work closed in Tasks 63 through 75; prove with `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, `test-results/client-tests-<timestamp>.log`, and `logs/test-summaries/e2e-tests-latest.log`.
+- Task-closure traceability for Tasks 63 through 76: owned by `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and `planning/0000055-pr-summary.md`; prove by updating the maintained summary and this task's final notes with the exact proof-owner files.
+- Full wrapper revalidation for server, client, and browser behavior: owned by the current repo work closed in Tasks 63 through 76; prove with `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, `test-results/client-tests-<timestamp>.log`, and `logs/test-summaries/e2e-tests-latest.log`.
 - Supported startup, smoke, and teardown ordering: owned by the same repaired story surfaces plus the standard runtime path; prove with `logs/test-summaries/compose-build-latest.log` and `logs/test-summaries/host-network-main-latest.log`.
 - Durable review-artifact retention: owned by `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`; prove with the direct on-disk existence check in `Testing`.
 
@@ -6019,11 +6072,12 @@ This task revalidates Story 55 after Tasks 63 through 75 land. It must prove the
 10. [ ] Requirement: re-read Task 72 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `flows.run.loop` prerequisite and its proof owners.
 11. [ ] Requirement: re-read Task 73 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened deferred-validation and deletions-only fast-path work and its proof owners.
 12. [ ] Requirement: re-read Task 74 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened artifact-hygiene work and its proof owners.
-13. [ ] Requirement: re-read Task 75 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
-14. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
-15. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
-16. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 63 through 75, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
-17. [ ] Requirement: before marking this task `__done__`, verify that Tasks 63 through 75 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
+13. [ ] Requirement: re-read Task 75 from the canonical plan before final validation. Purpose: keep the close-out aligned with the compose-build reliability prerequisite and its proof owners.
+14. [ ] Requirement: re-read Task 76 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
+15. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
+16. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
+17. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 63 through 76, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
+18. [ ] Requirement: before marking this task `__done__`, verify that Tasks 63 through 76 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
 
 #### Testing
 

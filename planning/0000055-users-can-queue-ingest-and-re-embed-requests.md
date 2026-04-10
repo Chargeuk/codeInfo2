@@ -4940,20 +4940,78 @@ This task closes review pass `0000055-20260408T005855Z-5f96266d` after Tasks 58 
 - Scope: current repository only; `additional_repositories` is empty in `codeInfoStatus/flow-state/current-plan.json`
 - Disposition: Story 55 is re-opened because this review pass recorded `1` `must_fix` and `8` `should_fix` findings in the current repository.
 - Review-created follow-up sequence:
-  - `Task 62` repairs the shared repo-list contract so repository identity stays stable during active overlays, waiting duplicate updates surface the latest queued metadata, and the queued repo-list schema version comes from one shared contract constant.
-  - `Task 63` repairs queue duplicate-update diagnostics and blocking waiter error mapping so waiting duplicate reuse is logged honestly and queue-state read failures no longer collapse into `WAIT_TIMEOUT`.
-  - `Task 64` repairs deferred execution validation plus the deletions-only re-embed fast path so malformed queued payloads fail at execution-time validation and zero-work deletion-only runs do not fail on unnecessary Chroma bootstrap work.
-  - `Task 65` removes the tracked zero-byte root artifacts identified in the findings artifact.
-  - `Task 66` restores one explicit bulk re-embed affordance in `RootsTable` and removes per-item refresh churn from batch actions.
-  - `Task 67` performs the fresh full-story revalidation and updates the maintained summary after Tasks 62 through 66 land.
+  - `Task 62` re-establishes a trustworthy `server:unit` baseline for the unrelated `flows.run.loop` cleanup blocker that is currently preventing the reopened review work from proving cleanly.
+  - `Task 63` repairs the shared repo-list contract so repository identity stays stable during active overlays, waiting duplicate updates surface the latest queued metadata, and the queued repo-list schema version comes from one shared contract constant.
+  - `Task 64` repairs queue duplicate-update diagnostics and blocking waiter error mapping so waiting duplicate reuse is logged honestly and queue-state read failures no longer collapse into `WAIT_TIMEOUT`.
+  - `Task 65` repairs deferred execution validation plus the deletions-only re-embed fast path so malformed queued payloads fail at execution-time validation and zero-work deletion-only runs do not fail on unnecessary Chroma bootstrap work.
+  - `Task 66` removes the tracked zero-byte root artifacts identified in the findings artifact.
+  - `Task 67` restores one explicit bulk re-embed affordance in `RootsTable` and removes per-item refresh churn from batch actions.
+  - `Task 68` performs the fresh full-story revalidation and updates the maintained summary after Tasks 62 through 67 land.
 - Deferred review note: the optional simplification about replacing timer-driven ingest test polling with stronger event-driven test coordination is deferred for this pass. It is localized and real, but it is proof-quality churn rather than a current correctness or contract break, and the reopened tasks above already cover the actionable product and contract regressions from this pass.
 - Durable review-artifact rule for this reopened pass: the evidence, findings, and blind-spot challenge artifacts above must remain commit-worthy companions to the plan changes created from this review.
 
-### Task 62. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
+### Task 62. Re-Establish The Unrelated `flows.run.loop` Cleanup Baseline Before Shared Repo-List Proof Resumes
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `61`
 - Task Status: `__in_progress__`
+- Notes: Inserted on 2026-04-10 by blocker repair after Task 63's automated-proof pass proved the next honest work is an unrelated `server:unit` cleanup owner in `server/src/test/integration/flows.run.loop.test.ts`, not more shared repo-list implementation.
+
+#### Overview
+
+This prerequisite task owns the unrelated full `server:unit` blocker that is preventing the reopened Story 55 work from proving cleanly. The saved failing wrapper log already shows the current proof stop is `flow stop during a looped flow prevents later iterations from continuing`, timing out while `cleanupConversationRuntime(...)` waits for inflight ownership to drain. The work here must stay bounded to the exact flow-loop cleanup owner and its directly shared teardown seams so the next implementation loop gets one concrete stop point instead of retrying Task 63 against a known unrelated blocker.
+
+#### Task Exit Criteria
+
+- The exact failing `flow stop during a looped flow prevents later iterations from continuing` seam is re-established with targeted wrapper proof, or it is cleanly exhausted through the bounded targeted commands below with the next owner made explicit.
+- Any repair stays inside the existing deterministic cleanup seams in `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/support/wsClient.ts`, `server/src/flows/service.ts`, and any one directly shared helper they already depend on.
+- The chosen repair uses explicit teardown and deterministic cleanup boundaries rather than longer sleeps, timeout-only changes, or summary-wrapper modifications.
+- If the exact test and the full `flows.run.loop` file both pass but the later full wrapper still fails on a different owner, this task records that exhausted branch and hands execution to a fresh successor task instead of widening the same blocker task indefinitely.
+- A fresh full `npm run test:summary:server:unit` pass exists before Task 63 resumes automated proof.
+- This task leaves the repo with one honest next owner for the full-wrapper baseline, not another vague "keep narrowing" handoff.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `test-results/server-unit-tests-2026-04-10T00-13-45-849Z.log`
+- `server/src/test/integration/flows.run.loop.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/support/wsClient.ts`
+- `server/src/flows/service.ts`
+- `server/src/agents/retry.ts`
+
+#### Proof Mapping
+
+- The exact blocker seam is reproduced or cleanly exhausted with bounded wrapper commands: owned by `server/src/test/integration/flows.run.loop.test.ts`; prove with the targeted `server:unit` wrapper logs named in `Testing`.
+- The chosen cleanup repair stays on the existing flow runtime/test boundary rather than on the wrapper: owned by `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/support/wsClient.ts`, `server/src/flows/service.ts`, and `server/src/agents/retry.ts`; prove with the targeted wrapper results plus the implementation notes for the exact owner that changed.
+- The prerequisite is complete only when the full `server:unit` baseline is trustworthy again: owned by the repaired flow cleanup seam; prove with the fresh full `npm run test:summary:server:unit` wrapper log.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read the current Task 63 `**RESOLVED ISSUE**` and `**BLOCKING ANSWER**` notes plus `test-results/server-unit-tests-2026-04-10T00-13-45-849Z.log` before editing. Purpose: keep this prerequisite bounded to the exact saved blocker state that stopped Task 63.
+2. [ ] Requirement: inspect `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, `server/src/test/support/wsClient.ts`, `server/src/flows/service.ts`, and `server/src/agents/retry.ts` before changing code. Purpose: confirm the current local cleanup, close, and abort-aware patterns that the blocker answer already proved are the supported repair seams.
+3. [ ] Requirement: run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` before widening any code changes. Purpose: prove whether the saved blocker still reproduces on the exact named test from current `HEAD`.
+4. [ ] Requirement: if Subtask 3 passes, run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` before widening beyond the loop-file owner. Purpose: distinguish an exact-test owner from a broader `flows.run.loop` file interaction while keeping the blocker bounded.
+5. [ ] Requirement: update only the exact cleanup owner files needed so the flow-loop teardown releases inflight ownership deterministically through the existing cleanup seams. Do not edit the summary wrapper, add timeout-only retries, or switch to terminate-first websocket teardown unless the current owner proof shows a genuinely unresponsive peer. Purpose: keep the repair on the proven technical boundary instead of hiding the blocker.
+6. [ ] Requirement: if Subtasks 3 and 4 both pass but the next full wrapper still fails outside this owner boundary, stop this task after recording that exhausted branch in `Implementation notes` and create a fresh successor blocker task for the next observed owner instead of continuing to widen this task. Purpose: keep the blocker handoff bounded and honest when the current owner class is exhausted.
+7. [ ] Requirement: rerun `npm run test:summary:server:unit` after the bounded repair or exhausted-branch decision. Purpose: prove the full baseline is restored before Task 63 resumes, or prove that a fresh successor task is now required.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` and confirm the exact blocker seam either reproduces with one concrete owner or passes cleanly on current `HEAD`.
+2. [ ] If Testing 1 passes, run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` and confirm the broader loop-file boundary also passes before widening to the full suite.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes cleanly again before Task 63 resumes. If this step fails on a different owner after Testing 1 and 2 both passed, this task must end by creating a fresh successor task rather than staying open-ended.
+
+#### Implementation notes
+
+- Inserted on 2026-04-10 because Task 63's automated-proof blocker proved the current plan was missing a prerequisite owner: the next honest work is the unrelated `flows.run.loop` cleanup baseline, not more shared repo-list proof retries.
+
+### Task 63. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `62`
+- Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one shared repo-list identity regression, one waiting-metadata regression, and one localized schema-constant simplification.
 
 #### Overview
@@ -5049,19 +5107,20 @@ This task repairs the shared repo-list contract around queue overlays. Repositor
 #### Implementation notes
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that active overlays now replace stable repository ids, waiting duplicate updates can still surface stale provider/model metadata, and the queued schema version is duplicated in implementation code instead of flowing from one shared contract constant.
-- 2026-04-09 reread and inspection pass: re-read the Task 62 review evidence, findings, and blind-spot challenge from disk, then inspected `server/src/lmstudio/toolService.ts`, `common/src/lmstudio.ts`, `server/src/mcpCommon/repositorySelector.ts`, and `client/src/hooks/useIngestRoots.ts` before editing. Current disk state matches the review: active overlays still overwrite stable `repo.id` with `runId`, waiting overlays only project queue-state/request fields instead of fresh provider/model metadata, and the queued schema version is still duplicated in `server/src/lmstudio/toolService.ts`.
+- 2026-04-09 reread and inspection pass: re-read the Task 63 review evidence, findings, and blind-spot challenge from disk, then inspected `server/src/lmstudio/toolService.ts`, `common/src/lmstudio.ts`, `server/src/mcpCommon/repositorySelector.ts`, and `client/src/hooks/useIngestRoots.ts` before editing. Current disk state matches the review: active overlays still overwrite stable `repo.id` with `runId`, waiting overlays only project queue-state/request fields instead of fresh provider/model metadata, and the queued schema version is still duplicated in `server/src/lmstudio/toolService.ts`.
 - 2026-04-09 server contract repair: updated `server/src/lmstudio/toolService.ts` so active overlays leave the stable repository `id` untouched, waiting overlays project fresh queued provider/model metadata onto reused existing rows, active-only synthesized rows derive a stable repository id from name/path instead of `runId`, and the returned schema version now reuses `INGEST_ROOTS_SCHEMA_VERSION` from `common/src/lmstudio.ts`.
 - 2026-04-09 proof authoring and client read-model repair: updated `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/features/ingest-roots.feature`, and `server/src/test/steps/ingest-manage.steps.ts` so the server-side proof homes now cover stable repository ids, fresh waiting metadata, and repo-id selector compatibility during active overlays. On the client side, `client/src/hooks/useIngestRoots.ts` now carries the stable repo id and makes waiting-overlay embedding metadata authoritative over stale lock hints, `client/src/components/ingest/RootsTable.tsx` plus `client/src/components/ingest/RootDetailsDrawer.tsx` now render that normalized waiting metadata consistently, and `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`, plus `e2e/ingest.spec.ts` now contain distinct reused-row waiting-metadata proof cases instead of stretching older generic queued-row titles.
-- Implementation-only audit on 2026-04-10: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 62 section from disk, rechecked the current branch `HEAD`, reviewed implementation commit `50050f3f`, and spot-checked the current owners in `common/src/lmstudio.ts`, `server/src/lmstudio/toolService.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/features/ingest-roots.feature`, `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No additional Task 62 subtasks needed to be newly marked complete in this audit because Subtasks 1 through 24 already match current repo evidence, no Task 62 `Testing` items were newly checked here, there is no live `**BLOCKER**` note on Task 62, and the task remains `__in_progress__` because the wrapper-backed build, server, client, cucumber, and e2e proof steps are still outstanding for this loop.
-- 2026-04-10 automated proof checkpoint: `npm run build:summary:server` initially failed because `server/src/mcp/server.ts`, `server/src/routes/ingestRoots.ts`, and `server/src/routes/toolsIngestedRepos.ts` still imported `INGEST_REPO_SCHEMA_VERSION` from `server/src/lmstudio/toolService.ts` after Task 62 folded the implementation onto `INGEST_ROOTS_SCHEMA_VERSION`. Restored a bounded compatibility alias export in `server/src/lmstudio/toolService.ts`, reran the same wrapper, and the server build then passed cleanly with `agent_action: skip_log` and `log: logs/test-summaries/build-server-latest.log`.
+- Implementation-only audit on 2026-04-10: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 63 section from disk, rechecked the current branch `HEAD`, reviewed implementation commit `50050f3f`, and spot-checked the current owners in `common/src/lmstudio.ts`, `server/src/lmstudio/toolService.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/features/ingest-roots.feature`, `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`, and `e2e/ingest.spec.ts`. No additional Task 63 subtasks needed to be newly marked complete in this audit because Subtasks 1 through 24 already match current repo evidence, no Task 63 `Testing` items were newly checked here, there was no live blocker note at that point in the loop, and the task stayed active until the later unrelated full-wrapper blocker proved a prerequisite owner was missing.
+- 2026-04-10 automated proof checkpoint: `npm run build:summary:server` initially failed because `server/src/mcp/server.ts`, `server/src/routes/ingestRoots.ts`, and `server/src/routes/toolsIngestedRepos.ts` still imported `INGEST_REPO_SCHEMA_VERSION` from `server/src/lmstudio/toolService.ts` after Task 63 folded the implementation onto `INGEST_ROOTS_SCHEMA_VERSION`. Restored a bounded compatibility alias export in `server/src/lmstudio/toolService.ts`, reran the same wrapper, and the server build then passed cleanly with `agent_action: skip_log` and `log: logs/test-summaries/build-server-latest.log`.
 - 2026-04-10 automated proof checkpoint: `npm run build:summary:client` passed cleanly after the bounded schema-version compatibility fix, with `agent_action: skip_log` and `log: logs/test-summaries/build-client-latest.log`. This keeps the shared contract surface in `common/src/lmstudio.ts` and the client reader/build path aligned before the full test wrappers run.
-- **BLOCKER** 2026-04-10 Testing step 3 (`npm run test:summary:server:unit`): the full server unit wrapper failed before Task 62 could be proven because `server/src/test/integration/flows.run.loop.test.ts:731` timed out waiting for unrelated flow runtime cleanup (`not ok 279 - flow stop during a looped flow prevents later iterations from continuing`, `Timed out waiting for flow runtime cleanup (inflight=true, ownership=true, inflightId=8b46b95e-2939-4c65-896a-2128cd99beb3, runToken=fadf7f27-a424-4a1f-951d-1d5144056d3c)`). I inspected `test-results/server-unit-tests-2026-04-10T00-13-45-849Z.log` as directed by the wrapper after the clean Task 62 build checkpoints, but this failure sits outside the Task 62 shared repo-list scope and prevents the required full-wrapper proof from completing honestly. The plan should be split or reordered so this unrelated looped-flow cleanup regression is repaired in its owning task before Task 62 automated proof resumes, or Task 62's proof requirement should be narrowed if the full-wrapper dependency is no longer intentional.
-- **BLOCKING ANSWER** Repository precedents prove the correct path is to keep Task 62's full `npm run test:summary:server:unit` proof requirement intact and re-own this blocker to a dedicated prerequisite task that repairs the unrelated `flows.run.loop` cleanup seam at its source rather than weakening Task 62. `code_info` plus direct repo reads show the local pattern clearly: Story 48, Story 46, Story 54, and earlier Story 55 blocker notes all treated this same `flow stop during a looped flow prevents later iterations from continuing` class of failure as a separate owner and rejected wrapper-only workarounds; `server/src/test/integration/flows.run.loop.test.ts` and `server/src/test/integration/flows.run.command.test.ts` already use `cleanupConversationRuntime(...)` plus `try/finally`, `server/src/test/support/wsClient.ts` already waits for graceful `close` completion, and `server/src/flows/service.ts` already centralizes runtime release in `finalizeFlowRuntime()` with `cleanupInflight(...)`, `cleanupPendingConversationCancel(...)`, and `releaseConversationLock(...)`. Current local state also proves an older workaround path is no longer the right fix: `server/src/test/integration/flows.run.loop.test.ts` now uses abort-aware `delayWithAbort(...)` inside `ScriptedChat`, so the remaining blocker is not "teach delayed mock responses to respect abort" but "re-own the shared runtime-cleanup failure that still leaves inflight ownership behind during the full suite." External-library precedents match that same conclusion. DeepWiki's `nodejs/node` docs summary says `node:test` expects explicit teardown via `after`/`afterEach`/global teardown and treats async work that outlives a test as a failure signal, while the official Node test-runner docs say extraneous asynchronous activity that outlives the test is still reported after the test ends (`https://nodejs.org/api/test.html#extraneous-asynchronous-activity`). The `ws` project docs reserve `WebSocket#terminate()` for broken-heartbeat or unresponsive-peer cases and distinguish it from the normal graceful `close()` path (`https://github.com/websockets/ws#how-to-detect-and-close-broken-connections`). Practical issue-resolution references reach the same result: engineers stop hanging websocket tests by explicitly closing the socket and awaiting the `close` event rather than by letting the runner time out (`https://stackoverflow.com/questions/55963562/how-to-stop-jest-from-hanging-when-testing-websockets`). Context7 lookup for Node docs failed in this environment (`TypeError: fetch failed`), so the blocker proof relies on the direct repo evidence, official Node docs, DeepWiki's Node summary, the `ws` README, and the targeted issue-resolution reference above. The chosen fix therefore fits the current repo state best: add a blocker-owning task before Task 62 resumes, reproduce the current `flows.run.loop` failure in isolation from the saved full-wrapper state, prove whether `getInflight(...)` or `getActiveRunOwnership(...)` is the state that fails to drain through `cleanupConversationRuntime(...)`, and repair that exact flow-runtime/test-seam cleanup with deterministic teardown at the owner boundary (for example `try/finally` or `afterEach` cleanup, awaited `close`/`waitForRuntimeCleanup(...)`, and existing runtime-finalizer hooks) before rerunning the full server-unit wrapper. Rejected alternatives are not suitable: do not narrow Task 62 to targeted tests without a planner decision because its current proof contract explicitly names the full wrapper, do not increase timeouts or polling because Node and local repo precedent both treat leaked async cleanup as a real failure instead of a slowness budget issue, do not patch the summary wrapper because it is only reporting the child-process failure honestly, and do not switch to terminate-first websocket teardown because current evidence points to cooperative flow-runtime cleanup ownership rather than a broken peer that justifies bypassing graceful close.
+- **RESOLVED ISSUE** 2026-04-10 Testing step 3 (`npm run test:summary:server:unit`): the full server unit wrapper failed before Task 63 could be proven because `server/src/test/integration/flows.run.loop.test.ts:731` timed out waiting for unrelated flow runtime cleanup (`not ok 279 - flow stop during a looped flow prevents later iterations from continuing`, `Timed out waiting for flow runtime cleanup (inflight=true, ownership=true, inflightId=8b46b95e-2939-4c65-896a-2128cd99beb3, runToken=fadf7f27-a424-4a1f-951d-1d5144056d3c)`). I inspected `test-results/server-unit-tests-2026-04-10T00-13-45-849Z.log` as directed by the wrapper after the clean Task 63 build checkpoints. Planner repair on 2026-04-10 resolved the plan defect by moving this unrelated blocker into new prerequisite Task 62, so this task is no longer the active owner for that full-wrapper failure.
+- **BLOCKING ANSWER** Repository precedents prove the correct path is to keep Task 63's full `npm run test:summary:server:unit` proof requirement intact and re-own this blocker to prerequisite Task 62, which repairs the unrelated `flows.run.loop` cleanup seam at its source rather than weakening Task 63. `code_info` plus direct repo reads show the local pattern clearly: Story 48, Story 46, Story 54, and earlier Story 55 blocker notes all treated this same `flow stop during a looped flow prevents later iterations from continuing` class of failure as a separate owner and rejected wrapper-only workarounds; `server/src/test/integration/flows.run.loop.test.ts` and `server/src/test/integration/flows.run.command.test.ts` already use `cleanupConversationRuntime(...)` plus `try/finally`, `server/src/test/support/wsClient.ts` already waits for graceful `close` completion, and `server/src/flows/service.ts` already centralizes runtime release in `finalizeFlowRuntime()` with `cleanupInflight(...)`, `cleanupPendingConversationCancel(...)`, and `releaseConversationLock(...)`. Current local state also proves an older workaround path is no longer the right fix: `server/src/test/integration/flows.run.loop.test.ts` now uses abort-aware `delayWithAbort(...)` inside `ScriptedChat`, so the remaining blocker is not "teach delayed mock responses to respect abort" but "re-own the shared runtime-cleanup failure that still leaves inflight ownership behind during the full suite." External-library precedents match that same conclusion. DeepWiki's `nodejs/node` docs summary says `node:test` expects explicit teardown via `after`/`afterEach`/global teardown and treats async work that outlives a test as a failure signal, while the official Node test-runner docs say extraneous asynchronous activity that outlives the test is still reported after the test ends (`https://nodejs.org/api/test.html#extraneous-asynchronous-activity`). The `ws` project docs reserve `WebSocket#terminate()` for broken-heartbeat or unresponsive-peer cases and distinguish it from the normal graceful `close()` path (`https://github.com/websockets/ws#how-to-detect-and-close-broken-connections`). Practical issue-resolution references reach the same result: engineers stop hanging websocket tests by explicitly closing the socket and awaiting the `close` event rather than by letting the runner time out (`https://stackoverflow.com/questions/55963562/how-to-stop-jest-from-hanging-when-testing-websockets`). Context7 lookup for Node docs failed in this environment (`TypeError: fetch failed`), so the blocker proof relies on the direct repo evidence, official Node docs, DeepWiki's Node summary, the `ws` README, and the targeted issue-resolution reference above. The chosen fix therefore fits the current repo state best: Task 62 now owns reproducing the current `flows.run.loop` failure in isolation from the saved full-wrapper state, proving whether `getInflight(...)` or `getActiveRunOwnership(...)` is the state that fails to drain through `cleanupConversationRuntime(...)`, and repairing that exact flow-runtime/test-seam cleanup with deterministic teardown at the owner boundary (for example `try/finally` or `afterEach` cleanup, awaited `close`/`waitForRuntimeCleanup(...)`, and existing runtime-finalizer hooks) before rerunning the full server-unit wrapper. Rejected alternatives are not suitable: do not narrow Task 63 to targeted tests without a planner decision because its current proof contract explicitly names the full wrapper, do not increase timeouts or polling because Node and local repo precedent both treat leaked async cleanup as a real failure instead of a slowness budget issue, do not patch the summary wrapper because it is only reporting the child-process failure honestly, and do not switch to terminate-first websocket teardown because current evidence points to cooperative flow-runtime cleanup ownership rather than a broken peer that justifies bypassing graceful close.
+- Planner repair on 2026-04-10: inserted new Task 62 as the prerequisite owner for the unrelated full `server:unit` blocker, returned this shared repo-list task to `__to_do__`, preserved the completed build checkpoints already earned here, and left the remaining wrapper-backed proof steps for the normal audit loop after Task 62 restores the baseline.
 
-### Task 63. Restore Queue Duplicate Diagnostics And Blocking Waiter Error Semantics
+### Task 64. Restore Queue Duplicate Diagnostics And Blocking Waiter Error Semantics
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `62`
+- Task Dependencies: `63`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one duplicate-diagnostic contract regression and one blocking-waiter error-mapping regression.
 
@@ -5145,10 +5204,10 @@ This task repairs the queue admission and blocking-wait surfaces that currently 
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that waiting duplicate updates compute useful diagnostics but lose them before any operator-visible surface, and the blocking queue waiter currently hides backend-read failures behind `WAIT_TIMEOUT`.
 
-### Task 64. Reuse Admission Validation For Deferred Queue Execution And The Deletions-Only Re-Embed Fast Path
+### Task 65. Reuse Admission Validation For Deferred Queue Execution And The Deletions-Only Re-Embed Fast Path
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `63`
+- Task Dependencies: `64`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one deferred-execution validation gap and one deletions-only re-embed fast-path regression.
 
@@ -5213,10 +5272,10 @@ This task repairs two server runtime seams where deferred execution no longer re
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that deferred queue execution now accepts malformed queued payloads too far into runtime and that the deletions-only re-embed fast path still performs unnecessary bootstrap work after it has already proven there is no embedding work left.
 
-### Task 65. Remove The Tracked Zero-Byte Root Artifacts From Story 55
+### Task 66. Remove The Tracked Zero-Byte Root Artifacts From Story 55
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `64`
+- Task Dependencies: `65`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed the tracked zero-byte root files as accidental committed artifacts.
 
@@ -5274,10 +5333,10 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact identified thirteen tracked zero-byte files at the repository root that are not covered by the plan, the support-file allowlist, or any retained proof role.
 
-### Task 66. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
+### Task 67. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `65`
+- Task Dependencies: `66`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one bulk re-embed affordance mismatch and one batch-refresh churn regression in `RootsTable`.
 
@@ -5333,7 +5392,7 @@ This task repairs the changed client bulk flow so shared selection, row-level re
 13. [ ] Test type: client unit. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove the repaired bulk re-embed submit path uses the current loaded row set to form one outgoing batch request and does not trigger an extra pre-submit roots reload or one eligibility request per selected row. Purpose: keep the repaired selector path explicitly bounded instead of only proving the small-row happy path.
 14. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: add or update a Playwright scenario titled `aligned row and bulk re-embed affordances` that drives the repaired mixed-state row through the visible row-versus-bulk eligibility boundary using deterministic disabled-state or selected-row checks instead of fixed-delay waits. Keep fixture cleanup or awaited teardown explicit if the scenario mutates shared ingest fixtures or leaves temporary row state behind. Purpose: keep the visible affordance repair on the supported browser path.
 15. [ ] Proof artifact. Location: `artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png`. Description: keep the retained screenshot asset aligned with the repaired row-selection and bulk re-embed affordance boundary, and update the browser-proof owner in `e2e/ingest.spec.ts` if the repaired visible state changes how that artifact must be captured. Purpose: keep the visible browser proof directly inspectable on disk without moving the browser execution step out of `Testing`.
-16. [ ] Proof maintenance. Location: `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` only if reused proof titles drift. Description: rename, split, or rewrite any reused proof title whose stated invariant would no longer match its assertions after the Task 66 repair, especially if an older bulk-remove, generic shared-selection, or queue-blocked-selection title would otherwise be stretched to cover row-versus-bulk re-embed affordance alignment. Purpose: keep the named proof surfaces honest and reviewable.
+16. [ ] Proof maintenance. Location: `client/src/test/ingestRoots.test.tsx` and `e2e/ingest.spec.ts` only if reused proof titles drift. Description: rename, split, or rewrite any reused proof title whose stated invariant would no longer match its assertions after the Task 67 repair, especially if an older bulk-remove, generic shared-selection, or queue-blocked-selection title would otherwise be stretched to cover row-versus-bulk re-embed affordance alignment. Purpose: keep the named proof surfaces honest and reviewable.
 17. [ ] Proof maintenance. Location: `client/src/test/ingestRoots.test.tsx`. Description: add distinct re-embed-affordance and stale-selection cases instead of broadening the existing remove-focused or generic selection tests until they silently mix destructive-action semantics with re-embed eligibility semantics. Purpose: keep the client unit proof file explicit about whether it proves remove behavior, generic selection behavior, or the repaired bulk re-embed state machine.
 
 #### Testing
@@ -5346,24 +5405,24 @@ This task repairs the changed client bulk flow so shared selection, row-level re
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that `RootsTable` now applies one selection rule to bulk re-embed and a different affordance rule to row-level re-embed, and it still multiplies refresh side effects once per successful row even though the user-visible flow is batch-shaped.
 
-### Task 67. Re-Validate Story 55 After Review Pass `0000055-20260409T201302Z-13774922`
+### Task 68. Re-Validate Story 55 After Review Pass `0000055-20260409T201302Z-13774922`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `66`
+- Task Dependencies: `67`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 as the required final revalidation task after review pass `0000055-20260409T201302Z-13774922` reopened Story 55 for one must-fix, eight should-fix, and one reopened optional simplification.
 
 #### Overview
 
-This task revalidates Story 55 after Tasks 62 through 66 land. It must prove the reopened shared repo-list contract, queue diagnostics, deferred execution validation, artifact hygiene, and `RootsTable` batch behavior are all closed on current disk state, refresh the maintained summary for this new review pass, and keep the durable review artifacts directly inspectable alongside the repaired plan state.
+This task revalidates Story 55 after Tasks 62 through 67 land. It must prove the blocker prerequisite, reopened shared repo-list contract, queue diagnostics, deferred execution validation, artifact hygiene, and `RootsTable` batch behavior are all closed on current disk state, refresh the maintained summary for this new review pass, and keep the durable review artifacts directly inspectable alongside the repaired plan state.
 
 #### Task Exit Criteria
 
-- Tasks 62 through 66 are all `__done__` with direct proof owners and no live blocker notes.
+- Tasks 62 through 67 are all `__done__` with direct proof owners and no live blocker notes.
 - The full relevant wrapper path for server, client, compose smoke, and browser validation passes on current repo state.
-- `planning/0000055-pr-summary.md` records the reopened review pass `0000055-20260409T201302Z-13774922`, the bounded closures for Tasks 62 through 66, the deferred optional simplification note from this pass, and the fresh proof homes used for final validation.
+- `planning/0000055-pr-summary.md` records the reopened review pass `0000055-20260409T201302Z-13774922`, the bounded closures for Tasks 62 through 67, the deferred optional simplification note from this pass, and the fresh proof homes used for final validation.
 - `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` still exist on disk at final close-out.
-- This task's final notes name the exact proof-owner files that closed Tasks 62 through 66 and the exact wrapper proof homes used for final validation.
+- This task's final notes name the exact proof-owner files that closed Tasks 62 through 67 and the exact wrapper proof homes used for final validation.
 - This task closes the reopened review pass without widening into a new story scope.
 
 #### Documentation Locations
@@ -5384,22 +5443,23 @@ This task revalidates Story 55 after Tasks 62 through 66 land. It must prove the
 
 #### Proof Mapping
 
-- Task-closure traceability for Tasks 62 through 66: owned by `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and `planning/0000055-pr-summary.md`; prove by updating the maintained summary and this task's final notes with the exact proof-owner files.
-- Full wrapper revalidation for server, client, and browser behavior: owned by the current repo work closed in Tasks 62 through 66; prove with `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, `test-results/client-tests-<timestamp>.log`, and `logs/test-summaries/e2e-tests-latest.log`.
+- Task-closure traceability for Tasks 62 through 67: owned by `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and `planning/0000055-pr-summary.md`; prove by updating the maintained summary and this task's final notes with the exact proof-owner files.
+- Full wrapper revalidation for server, client, and browser behavior: owned by the current repo work closed in Tasks 62 through 67; prove with `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, `test-results/client-tests-<timestamp>.log`, and `logs/test-summaries/e2e-tests-latest.log`.
 - Supported startup, smoke, and teardown ordering: owned by the same repaired story surfaces plus the standard runtime path; prove with `logs/test-summaries/compose-build-latest.log` and `logs/test-summaries/host-network-main-latest.log`.
 - Durable review-artifact retention: owned by `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`; prove with the direct on-disk existence check in `Testing`.
 
 #### Subtasks
 
-1. [ ] Requirement: re-read Task 62 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened shared repo-list contract work and its proof owners.
-2. [ ] Requirement: re-read Task 63 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened queue-diagnostic and waiter-error work and its proof owners.
-3. [ ] Requirement: re-read Task 64 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened deferred-validation and deletions-only fast-path work and its proof owners.
-4. [ ] Requirement: re-read Task 65 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened artifact-hygiene work and its proof owners.
-5. [ ] Requirement: re-read Task 66 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
-6. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
-7. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
-8. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 62 through 66, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
-9. [ ] Requirement: before marking this task `__done__`, verify that Tasks 62 through 66 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
+1. [ ] Requirement: re-read Task 62 from the canonical plan before final validation. Purpose: keep the close-out aligned with the blocker-prerequisite work and its proof owners.
+2. [ ] Requirement: re-read Task 63 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened shared repo-list contract work and its proof owners.
+3. [ ] Requirement: re-read Task 64 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened queue-diagnostic and waiter-error work and its proof owners.
+4. [ ] Requirement: re-read Task 65 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened deferred-validation and deletions-only fast-path work and its proof owners.
+5. [ ] Requirement: re-read Task 66 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened artifact-hygiene work and its proof owners.
+6. [ ] Requirement: re-read Task 67 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
+7. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
+8. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
+9. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 62 through 67, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
+10. [ ] Requirement: before marking this task `__done__`, verify that Tasks 62 through 67 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
 
 #### Testing
 

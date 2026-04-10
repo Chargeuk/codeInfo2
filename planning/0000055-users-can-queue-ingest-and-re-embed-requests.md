@@ -5738,7 +5738,7 @@ This prerequisite task owns only the reopened `flows.run.loop` cleanup contradic
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `72`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one deferred-execution validation gap and one deletions-only re-embed fast-path regression. Re-owned to `__to_do__` on 2026-04-10 by planner repair after the first full `server:unit` rerun for this task reproved an unrelated `flows.run.loop` prerequisite before the remaining Task 73 proof gates could finish honestly, then promoted back to `__in_progress__` on 2026-04-10 after Task 72's bounded runtime repair proved the full wrapper now fails only in this task's own malformed-payload proof homes.
 
 #### Overview
@@ -5811,6 +5811,7 @@ This task repairs two server runtime seams where deferred execution no longer re
 - 2026-04-10 automated proof checkpoint: reran the failing Task 73 proof homes in `server/src/test/unit/ingest-queue-runtime.test.ts` and aligned them with the current queue finalizer and normalized request-id contract by awaiting two next-turn ticks before repumping the queue and by asserting against `requestQueue.getQueueRequestId(recoveryQueueRequest)` instead of the short fixture seed. The targeted rerun passed with `tests run: 2`, `passed: 2`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-04-10T22-42-41-258Z.log`.
 - 2026-04-10 automated proof checkpoint: reran the full `npm run test:summary:server:unit` wrapper after the Task 73 proof-home fix and it passed cleanly with `tests run: 1639`, `passed: 1639`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-04-10T22-42-57-147Z.log`.
 - 2026-04-10 automated proof checkpoint: ran the full `npm run test:summary:server:cucumber` wrapper after the Task 73 proof-home fix and it passed cleanly with `tests run: 87`, `passed: 87`, `agent_action: skip_log`, and log `test-results/server-cucumber-tests-2026-04-10T23-02-44-675Z.log`.
+- 2026-04-10 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 73 section from disk after commit `06d91015`, confirmed the retained proof artifacts still exist at `logs/test-summaries/build-server-latest.log`, `test-results/server-unit-tests-2026-04-10T22-42-57-147Z.log`, and `test-results/server-cucumber-tests-2026-04-10T23-02-44-675Z.log`, and verified that Subtasks 1 through 13 plus Testing 1 through 3 now honestly match current repo evidence with no live `**BLOCKER**` note remaining. Closed Task 73 as `__done__` so Task 74 is now the next active owner.
 
 ### Task 74. Remove The Tracked Zero-Byte Root Artifacts From Story 55
 

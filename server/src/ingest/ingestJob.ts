@@ -619,6 +619,20 @@ function createValidationError(message: string, code = 'VALIDATION') {
   return error;
 }
 
+function resolveValidatedInputSelection(
+  input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
+): ResolvedEmbeddingModelSelection {
+  const resolved = resolveRequestEmbeddingSelection({
+    model: input.model,
+    embeddingProvider: input.embeddingProvider,
+    embeddingModel: input.embeddingModel,
+  });
+  if ('status' in resolved) {
+    throw createValidationError(resolved.message, resolved.code);
+  }
+  return resolved.selection;
+}
+
 export async function validateExecutableIngestInput(
   input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
   options?: {
@@ -626,19 +640,7 @@ export async function validateExecutableIngestInput(
     selection?: ResolvedEmbeddingModelSelection;
   },
 ) {
-  const requested =
-    options?.selection ??
-    (() => {
-      const resolved = resolveRequestEmbeddingSelection({
-        model: input.model,
-        embeddingProvider: input.embeddingProvider,
-        embeddingModel: input.embeddingModel,
-      });
-      if ('status' in resolved) {
-        throw createValidationError(resolved.message, resolved.code);
-      }
-      return resolved.selection;
-    })();
+  const requested = options?.selection ?? resolveValidatedInputSelection(input);
   if (
     requested.providerId === 'openai' &&
     !isOpenAiAllowlistedEmbeddingModel(requested.modelKey)
@@ -879,10 +881,10 @@ async function processRun(runId: string, input: IngestJobInput) {
       dryRun,
       operation: op,
     } = input;
-    const requestedSelection = resolveInputSelection(input);
+    const operation = op ?? 'start';
+    const requestedSelection = resolveValidatedInputSelection(input);
     const embeddingProvider = requestedSelection.providerId;
     const embeddingModel = requestedSelection.modelKey;
-    const operation = op ?? 'start';
     if (operation !== 'reembed') {
       await validateExecutableIngestInput(input, {
         selection: requestedSelection,
@@ -2562,7 +2564,7 @@ export async function recoverIngestQueueOnStartup() {
 export async function startIngest(input: IngestJobInput, d: Deps) {
   deps = d;
   const operation = input.operation ?? 'start';
-  const requested = resolveInputSelection(input);
+  const requested = resolveValidatedInputSelection(input);
   if (operation !== 'reembed') {
     await validateExecutableIngestInput(input, {
       selection: requested,

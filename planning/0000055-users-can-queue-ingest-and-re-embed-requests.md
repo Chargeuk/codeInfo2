@@ -5401,7 +5401,7 @@ This prerequisite task owns only the immediate caller hand-off above `runFlowIns
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `68`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-10 by planner repair after the shared repo-list task's current `**BLOCKING ANSWER**` proved the full client wrapper now fails only in unrelated `chatPage` suites outside the repo-list/read-model ownership boundary.
 
 #### Overview
@@ -5456,6 +5456,7 @@ This prerequisite task owns only the unrelated client timeout suites that now bl
 - 2026-04-10 targeted proof checkpoint: ran `npm run test:summary:client -- --file client/src/test/chatPage.codexDefaults.test.tsx` because Task 69 Subtask 3 explicitly requires the bounded suite proof. The wrapper passed cleanly with `tests run: 10`, `passed: 10`, `agent_action: skip_log`, and `log: test-results/client-tests-2026-04-10T19-12-10-232Z.log`, so the Codex-defaults suite no longer reproduces the earlier 5000 ms timeout on current disk.
 - 2026-04-10 targeted proof checkpoint: ran `npm run test:summary:client -- --file client/src/test/chatPage.flags.sandbox.payload.test.tsx` because Task 69 Subtask 4 explicitly requires the second bounded suite proof. The wrapper passed cleanly with `tests run: 3`, `passed: 3`, `agent_action: skip_log`, and `log: test-results/client-tests-2026-04-10T19-12-41-959Z.log`, so the sandbox-payload suite also no longer reproduces the earlier 5000 ms timeout on current disk.
 - 2026-04-10 full-wrapper checkpoint: ran `npm run test:summary:client` because Task 69 Subtask 5 explicitly requires restoring the full client baseline before Task 70 resumes. The wrapper passed cleanly with `tests run: 677`, `passed: 677`, `agent_action: skip_log`, and `log: test-results/client-tests-2026-04-10T19-13-18-481Z.log`, so the bounded chat timeout branch is now closed on current disk without widening back into the repo-list task.
+- 2026-04-10 implementation-plus-automated-proof audit: re-read the current plan state and retained client-wrapper proofs after commit `0d50a819`, confirmed Subtasks 1 through 5 plus Testing 1 through 3 still match disk with no live `**BLOCKER**`, and closed Task 69 as `__done__` so Task 70 is now the next owner.
 
 ### Task 70. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
 

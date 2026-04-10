@@ -5035,7 +5035,7 @@ This prerequisite task owns the unrelated full `server:unit` blocker that is pre
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `62`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Inserted on 2026-04-10 by planner repair after Task 64 exhausted its broader post-return checkpoint branch and the current blocker proof narrowed the next honest owner to the immediate `runFlowInstruction(...)` post-`bridge.finalize(...)` cleanup chain.
 
 #### Overview
@@ -5086,6 +5086,7 @@ This prerequisite task owns the tighter stop-path seam inside `runFlowInstructio
 - 2026-04-10 bounded first-hop diagnostic: updated `server/src/flows/service.ts` to thread the existing test-only `onStopUnwindCheckpoint` hook directly into `runFlowInstruction(...)` and emit retained first-hop checkpoints after `bridge.finalize(...)`, after `cleanupInflightFn(...)`, after `cleanupPendingConversationCancel(...)`, and at the `return result` boundary. This kept the diagnostic local to the immediate stop-cleanup chain without widening back into the broader unwind or ownership-release tasks.
 - 2026-04-10 wrapper-backed first-hop proof: ran `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` because Subtask 5 required a bounded wrapper rerun after the immediate-seam diagnostic. The wrapper passed cleanly with `tests run: 16`, `passed: 16`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-04-10T03-44-58-272Z.log`, so Testing 1 is honestly complete and Task 64 can resume from a trustworthy immediate hand-off boundary.
 - 2026-04-10 immediate owner closure: no additional product-path repair was required beyond the bounded first-hop checkpoint seam because the targeted loop-file boundary no longer reproduced once that exact hand-off proof was restored. This task therefore closes its immediate owner class as repaired-on-current-disk-state and returns the broader stop-unwind follow-up to Task 64 instead of inventing another narrower prerequisite.
+- 2026-04-10 automated-proof audit: re-checked the Task 63 implementation pass against current disk state, confirmed Subtasks 1 through 5 plus Testing 1 still match commit `fb58b201` and wrapper log `test-results/server-unit-tests-2026-04-10T03-44-58-272Z.log`, found no live `**BLOCKER**`, and closed the task as `__done__` so Task 64 is now the next real owner.
 
 ### Task 64. Restore The Broader Post-Instruction Stop-Unwind Boundary Before Ownership-Release Cleanup
 

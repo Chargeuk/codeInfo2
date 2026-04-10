@@ -5284,7 +5284,7 @@ This prerequisite task now waits behind Task 65's tighter caller-hand-off repair
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `66`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one shared repo-list identity regression, one waiting-metadata regression, and one localized schema-constant simplification.
 
 #### Overview
@@ -5388,6 +5388,7 @@ This task repairs the shared repo-list contract around queue overlays. Repositor
 - 2026-04-10 automated proof checkpoint: `npm run build:summary:client` passed cleanly after the bounded schema-version compatibility fix, with `agent_action: skip_log` and `log: logs/test-summaries/build-client-latest.log`. This keeps the shared contract surface in `common/src/lmstudio.ts` and the client reader/build path aligned before the full test wrappers run.
 - **RESOLVED ISSUE** 2026-04-10 blocker-history summary: this shared repo-list task hit the same unrelated full `server:unit` `flows.run.loop` cleanup seam twice. The first full-wrapper failure was re-owned to earlier Task 62 and closed that branch at the file-level boundary, but a later full-suite rerun on `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log` proved that closure was a false green because inflight cleanup drained while ownership stayed pinned. Planner repair first moved the active prerequisite owner to Task 64, and the current repair narrows that prerequisite again to Task 63, so this task no longer carries unrelated flow-runtime diagnosis.
 - Planner repair on 2026-04-10: inserted new Task 63 ahead of Task 64 because the repeated full-wrapper blocker proved the prerequisite cleanup owner had to be reopened or replaced again at a tighter seam. This task returns to `__to_do__` with its completed implementation subtasks and build checkpoints preserved; Testing 3 through 6 remain the next proof gates after Tasks 63 through 65 restore the full `server:unit` baseline again.
+- 2026-04-10 implementation-only audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 67 section from disk, rechecked current repo evidence through commits `50050f3f`, `09fbc0e2`, and `e723105e`, and confirmed Subtasks 1 through 24 plus Testing 1 and 2 already honestly match current disk state. No `Testing` items were newly checked in this audit, no live `**BLOCKER**` note remains on this task, and Testing 3 through 6 are still the remaining full-wrapper and browser-proof gates, so Task 67 now correctly sits at `__in_progress__` instead of staying hidden as `__to_do__`.
 
 ### Task 68. Restore Queue Duplicate Diagnostics And Blocking Waiter Error Semantics
 

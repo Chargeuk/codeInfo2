@@ -4954,7 +4954,7 @@ This task closes review pass `0000055-20260408T005855Z-5f96266d` after Tasks 58 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `61`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Inserted on 2026-04-10 by blocker repair after Task 63's automated-proof pass proved the next honest work is an unrelated `server:unit` cleanup owner in `server/src/test/integration/flows.run.loop.test.ts`, not more shared repo-list implementation.
 
 #### Overview
@@ -5026,6 +5026,7 @@ This prerequisite task owns the unrelated full `server:unit` blocker that is pre
 - **BLOCKING ANSWER** Rejected alternatives are not suitable. Another speculative cleanup edit without a proved owner would repeat the no-op registry-clearing branch that already exhausted cleanly. Timeout growth would only delay the same `waitForRuntimeCleanup(...)` failure without identifying the missing transition. Wrapper changes or force-exit behavior would make the `server:unit` wrappers less trustworthy and would still hide the real cleanup defect. Blanket `ws.terminate()`-first teardown is also the wrong fit because the current repo and `ws` docs reserve that path for broken peers, while Task 62 still points to a cooperative local runtime-cleanup boundary that should be diagnosed and repaired upstream.
 - Planner repair on 2026-04-10: narrowed Task 62 in place instead of creating another vague retry loop. The task still owns the same concrete `flows.run.loop` cleanup boundary, but its remaining open subtasks now require one bounded owner-extraction step before any cleanup patch, keep the file-level wrapper as the gate for that proof, and only allow the full `server:unit` rerun after the file-level boundary is trustworthy again.
 - 2026-04-10 full-wrapper restoration checkpoint: after the bounded hook-backed owner-extraction step restored a clean `flows.run.loop` file boundary, reran `npm run test:summary:server:unit` exactly as Subtask 7 required and the full wrapper passed cleanly with `tests run: 1630`, `passed: 1630`, `agent_action: skip_log`, and `log: test-results/server-unit-tests-2026-04-10T01-34-13-568Z.log`. No fresh successor blocker task was required, so the bounded Task 62 owner class is now closed and Task 63 can resume later audit/proof work from a trustworthy server-unit baseline.
+- 2026-04-10 automated-proof audit: re-read Task 62 from disk after commit `3fcb01d1` and verified the repo evidence still matches the checked plan state. Subtasks 1 through 7 and Testing 1 through 3 are all honestly complete, no standalone `**BLOCKER**` note remains on this task, and the restored full `server:unit` wrapper baseline means this prerequisite is now `__done__` so Task 63 becomes the next later owner.
 
 ### Task 63. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
 

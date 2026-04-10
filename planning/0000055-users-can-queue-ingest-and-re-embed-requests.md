@@ -4940,13 +4940,14 @@ This task closes review pass `0000055-20260408T005855Z-5f96266d` after Tasks 58 
 - Scope: current repository only; `additional_repositories` is empty in `codeInfoStatus/flow-state/current-plan.json`
 - Disposition: Story 55 is re-opened because this review pass recorded `1` `must_fix` and `8` `should_fix` findings in the current repository.
 - Review-created follow-up sequence:
-  - `Task 63` re-establishes the full-suite-only `server:unit` ownership-release baseline after Task 62's false green.
-  - `Task 64` repairs the shared repo-list contract so repository identity stays stable during active overlays, waiting duplicate updates surface the latest queued metadata, and the queued repo-list schema version comes from one shared contract constant.
-  - `Task 65` repairs queue duplicate-update diagnostics and blocking waiter error mapping so waiting duplicate reuse is logged honestly and queue-state read failures no longer collapse into `WAIT_TIMEOUT`.
-  - `Task 66` repairs deferred execution validation plus the deletions-only re-embed fast path so malformed queued payloads fail at execution-time validation and zero-work deletion-only runs do not fail on unnecessary Chroma bootstrap work.
-  - `Task 67` removes the tracked zero-byte root artifacts identified in the findings artifact.
-  - `Task 68` restores one explicit bulk re-embed affordance in `RootsTable` and removes per-item refresh churn from batch actions.
-  - `Task 69` performs the fresh full-story revalidation and updates the maintained summary after Tasks 63 through 68 land.
+  - `Task 63` restores the higher post-instruction stop-unwind boundary so the stopped final does not outrun runtime cleanup.
+  - `Task 64` re-establishes the full-suite-only `server:unit` ownership-release baseline after Task 62's false green and Task 63's stop-unwind repair.
+  - `Task 65` repairs the shared repo-list contract so repository identity stays stable during active overlays, waiting duplicate updates surface the latest queued metadata, and the queued repo-list schema version comes from one shared contract constant.
+  - `Task 66` repairs queue duplicate-update diagnostics and blocking waiter error mapping so waiting duplicate reuse is logged honestly and queue-state read failures no longer collapse into `WAIT_TIMEOUT`.
+  - `Task 67` repairs deferred execution validation plus the deletions-only re-embed fast path so malformed queued payloads fail at execution-time validation and zero-work deletion-only runs do not fail on unnecessary Chroma bootstrap work.
+  - `Task 68` removes the tracked zero-byte root artifacts identified in the findings artifact.
+  - `Task 69` restores one explicit bulk re-embed affordance in `RootsTable` and removes per-item refresh churn from batch actions.
+  - `Task 70` performs the fresh full-story revalidation and updates the maintained summary after Tasks 63 through 69 land.
 - Deferred review note: the optional simplification about replacing timer-driven ingest test polling with stronger event-driven test coordination is deferred for this pass. It is localized and real, but it is proof-quality churn rather than a current correctness or contract break, and the reopened tasks above already cover the actionable product and contract regressions from this pass.
 - Durable review-artifact rule for this reopened pass: the evidence, findings, and blind-spot challenge artifacts above must remain commit-worthy companions to the plan changes created from this review.
 
@@ -5029,16 +5030,72 @@ This prerequisite task owns the unrelated full `server:unit` blocker that is pre
 - 2026-04-10 automated-proof audit: re-read Task 62 from disk after commit `3fcb01d1` and verified the repo evidence still matched the checked plan state at that point in the loop. Subtasks 1 through 7 and Testing 1 through 3 were honestly complete and no standalone `**BLOCKER**` note remained on this task, so the baseline was marked `__done__` before the later false-green recurrence created successor Task 63.
 - 2026-04-10 manual-testing assessment: task-scoped manual testing is not applicable for Task 62 because this completed change only restores an internal `server:unit` cleanup baseline plus test-harness observability around `server/src/test/integration/flows.run.loop.test.ts` and its directly shared teardown seams. It does not change a supported runnable system, browser-visible surface, HTTP contract, or paired frontend behavior that can be honestly proved beyond the targeted and full wrapper paths already owned by this task, so no additional subtasks or Testing-step changes were needed.
 
-### Task 63. Re-Establish The Full-Suite-Only `flows.run.loop` Ownership-Release Baseline After Task 62's False Green
+### Task 63. Restore The Post-Instruction Stop-Unwind Boundary Before Ownership-Release Cleanup
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `62`
 - Task Status: `__in_progress__`
-- Notes: Inserted on 2026-04-10 by planner repair after Task 64's full `server:unit` rerun proved Task 62 restored the file-level loop boundary but did not honestly close the full-suite ownership-release prerequisite.
+- Notes: Inserted on 2026-04-10 by planner repair after Task 64's blocker proof showed the stopped final is emitted before control reaches either runtime cleanup boundary, so the ownership-release task can no longer be the active owner honestly.
 
 #### Overview
 
-This prerequisite task re-owns the unrelated full-suite cleanup failure that reappeared after Task 62 had already been marked `__done__`. The latest wrapper log now proves the failure is narrower than the earlier generic cleanup blocker: `cleanupInflightFn(...)` repeatedly drains inflight state, but ownership stays pinned to the same `runToken` during full-suite execution. The work here must stay bounded to the flow-runtime ownership-release seam and any one directly shared helper already involved in `finalizeFlowRuntime()`, so the next implementation loop can prove whether lock release is skipped, mismatched, or reacquired under full-suite conditions without widening into Task 64's shared repo-list contract.
+This prerequisite task re-owns the higher stop-path seam that sits above Task 64's ownership-release baseline. Current proof shows the loop-stop path can publish `turn_final.status === 'stopped'` while never returning to either `runFlowUnlocked()` cleanup or the outer `startFlowRun()` cleanup, so ownership release never even starts. The work here must stay bounded to the post-instruction unwind chain in `server/src/flows/service.ts`, the loop-stop integration harness, and at most one directly shared helper already on that path, so the next implementation loop can prove which exact awaited frame prevents control from reaching final runtime cleanup without widening into Task 64's downstream ownership-release work or Task 65's shared repo-list contract.
+
+#### Task Exit Criteria
+
+- The current loop-stop failure from `test-results/server-unit-tests-2026-04-10T02-40-43-354Z.log` is either repaired or cleanly exhausted into one explicit next owner.
+- The repaired or instrumented path proves which exact frame blocks control after the stopped final is emitted: either `runInstruction(...)` does not return cleanly, `runBreakStep(...)` / `runStartLoopStep(...)` / `runSteps(...)` fail to unwind a stopped result, or the outer async `startFlowRun()` wrapper never reaches its cleanup finally after `runFlowUnlocked()` should be complete.
+- The repaired path restores the shipped stop contract from `planning/0000043-stop-any-point-cancellation.md`: a successful stopped confirmation is not considered complete until the associated active run ownership has been cleaned up.
+- Any new diagnostics stay inside `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, and at most one directly shared helper already on the same unwind path.
+- A fresh targeted `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` pass or named exhausted-branch owner conclusion exists before Task 64 resumes.
+- A fresh full `npm run test:summary:server:unit` pass exists before Task 65 resumes automated proof.
+- If this unwind owner class is exhausted cleanly and the failure still belongs elsewhere, this task ends by naming that successor owner explicitly instead of remaining investigative.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000043-stop-any-point-cancellation.md`
+- `planning/0000055-pr-summary.md`
+- `test-results/server-unit-tests-2026-04-10T02-40-43-354Z.log`
+- `server/src/test/integration/flows.run.loop.test.ts`
+- `server/src/flows/service.ts`
+- `server/src/chat/inflightRegistry.ts`
+- `server/src/agents/runLock.ts`
+
+#### Proof Mapping
+
+- The current post-instruction unwind blocker is reproduced or cleanly exhausted from the saved failing state: owned by `server/src/test/integration/flows.run.loop.test.ts`; prove with the wrapper logs named in `Testing`.
+- The repaired diagnostic proves where stopped control fails to unwind after `emitStoppedFlowStep(...)`: owned by `server/src/flows/service.ts` and the loop-stop harness, plus at most one directly shared helper they already depend on; prove with the bounded wrapper results and implementation notes for the exact missing or restored checkpoint.
+- The prerequisite is complete only when the full `server:unit` baseline is trustworthy again: owned by the repaired stop-unwind seam; prove with a fresh full `npm run test:summary:server:unit` wrapper log.
+
+#### Subtasks
+
+1. [ ] Requirement: re-read Task 64's current `**BLOCKING ANSWER**` together with `planning/0000043-stop-any-point-cancellation.md` and `test-results/server-unit-tests-2026-04-10T02-40-43-354Z.log` before editing. Purpose: keep this successor task bounded to the proved contract violation that reopened the prerequisite.
+2. [ ] Requirement: inspect `server/src/flows/service.ts` around `emitStoppedFlowStep(...)`, `runInstruction(...)`, `runBreakStep(...)`, `runStartLoopStep(...)`, `runSteps(...)`, `runFlowUnlocked(...)`, and the outer async `startFlowRun()` wrapper, plus `server/src/test/integration/flows.run.loop.test.ts`, before changing code. Purpose: confirm the exact local unwind path that should reach the two cleanup boundaries.
+3. [ ] Requirement: add one bounded unwind-checkpoint diagnostic to the existing loop-stop harness so the next wrapper-backed repro proves which exact frame never hands control forward after the stopped final: the instruction return path, one loop unwind frame, or the outer async cleanup wrapper. Stop as soon as one exact missing checkpoint or awaited frame is proved. Purpose: replace the current broad "post-instruction unwind seam" label with one executable owner conclusion.
+4. [ ] Requirement: if Subtask 3 proves one exact owner inside `server/src/flows/service.ts`, the loop-stop harness, or one directly shared helper already on that call chain, update only that exact owner so the stopped path reaches ownership cleanup honestly. If Subtask 3 instead proves that owner class is exhausted, record the exhausted branch in `Implementation notes` and create a fresh successor prerequisite task instead of widening this task. Purpose: keep the repair upstream, exact, and bounded.
+5. [ ] Requirement: rerun the relevant wrapper proofs after the bounded unwind repair or exhaustion so Task 64 only resumes on a trustworthy stop baseline. Purpose: close or honestly hand off the prerequisite before the ownership-release task continues.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` after the unwind diagnostic or repair, and confirm the loop-file boundary either passes cleanly or yields one named exhausted-branch owner conclusion.
+2. [ ] Run `npm run test:summary:server:unit` only after Testing 1 is trustworthy again, and confirm the full server-unit wrapper passes. If this step still fails on a different owner, end this task by naming that successor owner explicitly rather than leaving this prerequisite open-ended.
+
+#### Implementation notes
+
+- Inserted on 2026-04-10 because Task 64's latest blocker proof showed the ownership-release task had exhausted its local owner class: the stop path can now prove `releaseConversationLockFn(...)` never starts, but it still cannot prove which higher unwind frame prevents control from reaching either cleanup boundary after the stopped final is emitted.
+- 2026-04-10 planner repair: split this fresh prerequisite out ahead of Task 64 after the latest blocker answer proved the live defect is a stop-contract violation upstream of both lock-release call sites. Task 64 now waits on this new owner, and the next implementation loop must prove one exact post-instruction unwind frame before any more ownership-release work resumes.
+
+### Task 64. Re-Establish The Full-Suite-Only `flows.run.loop` Ownership-Release Baseline After Task 62's False Green
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `63`
+- Task Status: `__to_do__`
+- Notes: Inserted on 2026-04-10 by planner repair after Task 65's full `server:unit` rerun proved Task 62 restored the file-level loop boundary but did not honestly close the full-suite ownership-release prerequisite. Re-owned to `__to_do__` on 2026-04-10 after a second blocker proof showed this task had exhausted the ownership-release owner class and must now wait for Task 63's higher stop-unwind prerequisite.
+
+#### Overview
+
+This prerequisite task re-owns the unrelated full-suite cleanup failure that reappeared after Task 62 had already been marked `__done__`. The latest wrapper log now proves the failure is narrower than the earlier generic cleanup blocker: `cleanupInflightFn(...)` repeatedly drains inflight state, but ownership stays pinned to the same `runToken` during full-suite execution. The work here must stay bounded to the flow-runtime ownership-release seam and any one directly shared helper already involved in `finalizeFlowRuntime()`, so the next implementation loop can prove whether lock release is skipped, mismatched, or reacquired under full-suite conditions without widening into Task 65's shared repo-list contract.
 
 #### Task Exit Criteria
 
@@ -5046,7 +5103,7 @@ This prerequisite task re-owns the unrelated full-suite cleanup failure that rea
 - The repaired or instrumented path proves what happens after inflight cleanup: `releaseConversationLock(...)` is either reached and clears ownership, reached and returns `false` with a proved token mismatch or reacquisition owner, or is proved not to run at all.
 - Any new diagnostics stay inside `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/agents/runLock.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/test/support/wsClient.ts`, and at most one directly shared helper they already depend on.
 - The chosen fix uses deterministic teardown and owner proof, not timeout growth, wrapper changes, or terminate-first websocket cleanup.
-- A fresh full `npm run test:summary:server:unit` pass exists before Task 64 resumes automated proof.
+- A fresh full `npm run test:summary:server:unit` pass exists before Task 65 resumes automated proof.
 - If the ownership-release owner class is exhausted cleanly and the failure still belongs elsewhere, this task ends by naming that new owner explicitly instead of remaining open-ended.
 
 #### Documentation Locations
@@ -5070,11 +5127,11 @@ This prerequisite task re-owns the unrelated full-suite cleanup failure that rea
 
 #### Subtasks
 
-1. [x] Requirement: re-read Task 62's final notes plus Task 64's current `**BLOCKING ANSWER**` and `**BLOCKER**` notes together with `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log` before editing. Purpose: keep this successor task bounded to the exact false-green recurrence that reopened the prerequisite.
+1. [x] Requirement: re-read Task 62's final notes plus Task 65's current `**BLOCKING ANSWER**` and `**BLOCKER**` notes together with `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log` before editing. Purpose: keep this successor task bounded to the exact false-green recurrence that reopened the prerequisite.
 2. [x] Requirement: inspect `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/agents/runLock.ts`, `server/src/chat/inflightRegistry.ts`, and `server/src/test/support/wsClient.ts` before changing code. Purpose: confirm the current local ordering for inflight cleanup, pending-cancel cleanup, lock release, and websocket teardown.
 3. [x] Requirement: add one bounded ownership-release diagnostic to the existing loop-test seam so the next wrapper-backed repro proves whether `releaseConversationLockFn(...)` is never reached, is reached but returns `false`, or whether the same conversation lock is reacquired before cleanup settles during full-suite execution. Stop as soon as one branch is proved. Purpose: replace the earlier generic cleanup diagnosis with one concrete post-inflight owner signal.
 4. [ ] Requirement: if Subtask 3 proves a specific post-inflight owner inside `server/src/flows/service.ts`, `server/src/agents/runLock.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/ws/server.ts`, or the loop harness, update only that exact owner. If Subtask 3 instead proves this owner class is exhausted, record the exhausted branch in `Implementation notes` and create a fresh successor prerequisite task instead of widening this task. Purpose: keep the repair upstream, exact, and bounded.
-5. [ ] Requirement: rerun the relevant wrapper proofs after the bounded ownership-release repair or exhaustion so Task 64 only resumes on a trustworthy baseline. Purpose: close or honestly hand off the prerequisite before the shared repo-list task continues.
+5. [ ] Requirement: rerun the relevant wrapper proofs after the bounded ownership-release repair or exhaustion so Task 65 only resumes on a trustworthy baseline. Purpose: close or honestly hand off the prerequisite before the shared repo-list task continues.
 
 #### Testing
 
@@ -5083,21 +5140,17 @@ This prerequisite task re-owns the unrelated full-suite cleanup failure that rea
 
 #### Implementation notes
 
-- Inserted on 2026-04-10 because Task 64's retried full `server:unit` wrapper proved Task 62 had closed on a false green: the file-level loop boundary was clean, but the same full-suite cleanup failure returned immediately afterward.
-- 2026-04-10 reread and inspection checkpoint: re-read Task 62's final notes, Task 64's current `**BLOCKING ANSWER**` notes, and the saved full-suite failure in `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log` before editing. Then re-inspected `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/agents/runLock.ts`, `server/src/chat/inflightRegistry.ts`, and `server/src/test/support/wsClient.ts`; current `HEAD` still matches the repaired handoff, with `finalizeFlowRuntime()` ordered as inflight cleanup, pending-cancel cleanup, then lock release, and the current stop-path test already wrapping the cleanup hooks but not retaining a durable ownership-release summary.
+- Inserted on 2026-04-10 because Task 65's retried full `server:unit` wrapper proved Task 62 had closed on a false green: the file-level loop boundary was clean, but the same full-suite cleanup failure returned immediately afterward.
+- 2026-04-10 reread and inspection checkpoint: re-read Task 62's final notes, Task 65's current `**BLOCKING ANSWER**` notes, and the saved full-suite failure in `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log` before editing. Then re-inspected `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/agents/runLock.ts`, `server/src/chat/inflightRegistry.ts`, and `server/src/test/support/wsClient.ts`; current `HEAD` still matches the repaired handoff, with `finalizeFlowRuntime()` ordered as inflight cleanup, pending-cancel cleanup, then lock release, and the current stop-path test already wrapping the cleanup hooks but not retaining a durable ownership-release summary.
 - 2026-04-10 bounded ownership diagnostic: updated `server/src/test/integration/flows.run.loop.test.ts` so the stop-path failure now retains a dedicated ownership-release summary alongside the capped cleanup events. The new test-only seam records each `releaseConversationLockFn(...)` call with before/after runtime state, summarizes whether release was never reached, returned `false`, or was followed by ownership reacquisition, and appends that summary directly to the thrown timeout message so the next wrapper-backed repro keeps the ownership branch durable even when the recent event buffer rolls over.
 - 2026-04-10 wrapper-backed owner proof: ran `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` because Task 63's bounded ownership diagnosis required a wrapper-backed loop-file rerun before any broader handoff. The wrapper failed again on `flow stop during a looped flow prevents later iterations from continuing`, but the new retained summary in `test-results/server-unit-tests-2026-04-10T02-40-43-354Z.log` proved the ownership branch as `never_reached`: `cleanupInflightFn(...)` kept firing while `releaseConversationLockFn(...)` was never called at all, so Testing 1 is honestly complete as a named exhausted-branch owner conclusion rather than a clean pass.
-- **BLOCKER** Subtask 4 is blocked after the bounded ownership-release search exhausted the current owner class without revealing one exact lock-release fix point. I re-read the repaired Task 63 scope, added the dedicated ownership-release summary, reran the loop-file wrapper, and confirmed from `test-results/server-unit-tests-2026-04-10T02-40-43-354Z.log` that `releaseConversationLockFn(...)` is never reached while repeated instruction-level `cleanupInflightFn(...)` calls continue on the same conversation. The missing capability is one bounded proof seam between stopped instruction unwinding and `runFlowUnlocked()` finalization, because the current task-owned diagnostics can now prove "lock release never starts" but cannot distinguish whether the stop path is hanging inside loop-step unwinding, a repeated stopped-step emission path, or another post-instruction service frame before final runtime cleanup. This task should be split or rewritten into a successor prerequisite that owns that higher-level post-instruction unwind seam rather than widening the current ownership-release task ad hoc.
-- **BLOCKING ANSWER** Fresh blocker research on 2026-04-10 proves the earlier "Task 62 is done" conclusion is no longer honest, and the current failing owner class is narrower than generic cleanup. The repeated `FLOW_LOOP_CLEANUP_EVENTS` payload in `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log` shows `cleanupInflightFn(...)` repeatedly taking `inflightId` to `null` while `ownershipRunToken` stays pinned to the same `runToken`, and the current runtime code in `server/src/flows/service.ts` still orders `finalizeFlowRuntime()` as `cleanupInflight(...)`, then `cleanupPendingConversationCancel(...)`, then `releaseConversationLock(...)`. `server/src/agents/runLock.ts` only clears ownership when the expected token matches, so the current failing owner class has narrowed from generic cleanup to post-inflight ownership release or a full-suite-only path that prevents the lock-release phase from clearing.
-- **BLOCKING ANSWER** Repository precedents still point to prerequisite re-ownership, not feature-task widening. Story 46, Story 48, Story 54, and the earlier Story 55 blocker records all re-own repeated full-wrapper cleanup regressions to a cleanup-baseline task and keep the dependent feature task blocked until the wrapper baseline is trustworthy again.
-- **BLOCKING ANSWER** External precedents confirm that the next honest fix is deterministic teardown at the real cleanup owner. Context7 `/nodejs/node` plus the official Node docs show that `node:test` reports extraneous asynchronous activity after the test ends, that `afterEach()` and `after()` are intended to run cleanup even when tests fail, and that `process.getActiveResourcesInfo()` is the supported diagnostic when a resource class still keeps the event loop alive. DeepWiki `nodejs/node` reaches the same conclusion, and DeepWiki `websockets/ws` plus the `ws` README keep the same shutdown split the repo already follows: use graceful `close()` first and reserve `terminate()` for unresponsive peers, not for masking a cooperative local cleanup defect. Targeted issue-resolution references also agree that the reliable websocket-test fix is to close the socket and wait for the `'close'` event rather than hoping the runner times out cleanly.
-- **BLOCKING ANSWER** The chosen solution is therefore: this successor prerequisite task must start from `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log`, keep the current hook-backed `flows.run.loop` diagnostics, and add one bounded proof step that shows whether `releaseConversationLockFn(...)` is never reached, is reached but returns `false`, or whether a full-suite-only owner reacquires the same conversation lock before cleanup settles. Only if those ownership paths prove clean should the task fall back to `process.getActiveResourcesInfo()` to name a remaining live resource type. Rejected alternatives are not suitable: more Task 64 reruns would only restate the same unrelated blocker; timeout growth or summary-wrapper changes would hide a real cleanup defect; and terminate-first websocket teardown is unsupported for this evidence because the saved log shows cooperative inflight cleanup progressing while ownership alone remains stuck.
+- **RESOLVED ISSUE** 2026-04-10 ownership-release diagnostics exhausted this task's current owner class cleanly. The completed diagnostic work proved `releaseConversationLockFn(...)` never starts while repeated `cleanupInflightFn(...)` calls continue, so earlier lock-release, run-lock, and websocket-focused narrowing for this task was superseded once the stronger proof showed the real defect sits upstream of both cleanup boundaries. This task now waits for Task 63 to repair or exhaust that higher post-instruction stop-unwind seam before ownership-release work resumes honestly.
 - **BLOCKING ANSWER** Stronger blocker proof on 2026-04-10 shows the missing owner is now upstream of both lock-release call sites, not inside `releaseConversationLock(...)` itself. The current loop-stop harness in `server/src/test/integration/flows.run.loop.test.ts` already wraps every `releaseConversationLockFn(...)` call, and the latest named failure from `test-results/server-unit-tests-2026-04-10T02-40-43-354Z.log` still reports `ownershipRelease.branch === "never_reached"` with `releaseCallCount === 0` even after the test has observed the terminal `turn_final.status === 'stopped'`. In local runtime code, that wrapped callback is used in both cleanup boundaries: inside `runFlowUnlocked()`'s `finalizeFlowRuntime()` finally block in `server/src/flows/service.ts`, and again in the outer async `startFlowRun()` finally block in the same file. Because neither wrapped call fires, the async flow has not unwound back to either cleanup boundary after the stopped final is emitted. That directly conflicts with the shipped stop contract recorded in `planning/0000043-stop-any-point-cancellation.md`, which says a successful stopped confirmation means the matching `turn_final` has been published and the associated active run ownership has already been cleaned up. Repository precedents from Story 43 plus the earlier Story 46/48/54/55 blocker repairs therefore prove the next honest owner is a fresh prerequisite at the post-instruction unwind seam between `emitStoppedFlowStep()` and the `runSteps()` / `runFlowUnlocked()` finally chain, not another patch inside `runLock.ts`, `cleanupInflight(...)`, or websocket teardown. External confirmation still supports that choice rather than a workaround: Node's `node:test` docs and `process.getActiveResourcesInfo()` guidance treat late async activity as a cleanup-boundary problem to diagnose explicitly, while the `ws` docs and targeted WebSocket test references continue to favor graceful `close()` plus waiting for `'close'` over `terminate()` masking. The chosen solution is therefore to re-own the blocker to one bounded unwind-seam task that proves which exact post-instruction frame keeps control from reaching either finalizer, then patch only that owner and rerun the wrapper baseline. Rejected alternatives remain unsuitable: adding more lock-release instrumentation cannot observe a call site that never executes; `process.getActiveResourcesInfo()` is only a fallback after the unwind seam is proved clean; and timeout growth, wrapper changes, or terminate-first websocket cleanup would hide a real server-side contract violation instead of fixing it.
 
-### Task 64. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
+### Task 65. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `63`
+- Task Dependencies: `64`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one shared repo-list identity regression, one waiting-metadata regression, and one localized schema-constant simplification.
 
@@ -5203,10 +5256,10 @@ This task repairs the shared repo-list contract around queue overlays. Repositor
 - **RESOLVED ISSUE** 2026-04-10 blocker-history summary: this shared repo-list task hit the same unrelated full `server:unit` `flows.run.loop` cleanup seam twice. The first full-wrapper failure was re-owned to earlier Task 62 and closed that branch at the file-level boundary, but a later full-suite rerun on `test-results/server-unit-tests-2026-04-10T02-07-39-714Z.log` proved that closure was a false green because inflight cleanup drained while ownership stayed pinned. Planner repair on 2026-04-10 moved the active prerequisite owner to new Task 63 so this task no longer carries unrelated flow-runtime diagnosis.
 - Planner repair on 2026-04-10: inserted new Task 63 ahead of this task because the repeated full-wrapper blocker proved the prerequisite cleanup owner had to be reopened or replaced. This task returns to `__to_do__` with its completed implementation subtasks and build checkpoints preserved; Testing 3 through 6 remain the next proof gates after Task 63 restores the full `server:unit` baseline again.
 
-### Task 65. Restore Queue Duplicate Diagnostics And Blocking Waiter Error Semantics
+### Task 66. Restore Queue Duplicate Diagnostics And Blocking Waiter Error Semantics
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `64`
+- Task Dependencies: `65`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one duplicate-diagnostic contract regression and one blocking-waiter error-mapping regression.
 
@@ -5290,10 +5343,10 @@ This task repairs the queue admission and blocking-wait surfaces that currently 
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that waiting duplicate updates compute useful diagnostics but lose them before any operator-visible surface, and the blocking queue waiter currently hides backend-read failures behind `WAIT_TIMEOUT`.
 
-### Task 66. Reuse Admission Validation For Deferred Queue Execution And The Deletions-Only Re-Embed Fast Path
+### Task 67. Reuse Admission Validation For Deferred Queue Execution And The Deletions-Only Re-Embed Fast Path
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `65`
+- Task Dependencies: `66`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one deferred-execution validation gap and one deletions-only re-embed fast-path regression.
 
@@ -5358,10 +5411,10 @@ This task repairs two server runtime seams where deferred execution no longer re
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that deferred queue execution now accepts malformed queued payloads too far into runtime and that the deletions-only re-embed fast path still performs unnecessary bootstrap work after it has already proven there is no embedding work left.
 
-### Task 67. Remove The Tracked Zero-Byte Root Artifacts From Story 55
+### Task 68. Remove The Tracked Zero-Byte Root Artifacts From Story 55
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `66`
+- Task Dependencies: `67`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed the tracked zero-byte root files as accidental committed artifacts.
 
@@ -5419,10 +5472,10 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact identified thirteen tracked zero-byte files at the repository root that are not covered by the plan, the support-file allowlist, or any retained proof role.
 
-### Task 68. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
+### Task 69. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `67`
+- Task Dependencies: `68`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one bulk re-embed affordance mismatch and one batch-refresh churn regression in `RootsTable`.
 
@@ -5491,24 +5544,24 @@ This task repairs the changed client bulk flow so shared selection, row-level re
 
 - Inserted on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` because the stored findings artifact showed that `RootsTable` now applies one selection rule to bulk re-embed and a different affordance rule to row-level re-embed, and it still multiplies refresh side effects once per successful row even though the user-visible flow is batch-shaped.
 
-### Task 69. Re-Validate Story 55 After Review Pass `0000055-20260409T201302Z-13774922`
+### Task 70. Re-Validate Story 55 After Review Pass `0000055-20260409T201302Z-13774922`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `68`
+- Task Dependencies: `69`
 - Task Status: `__to_do__`
 - Notes: Added on 2026-04-09 as the required final revalidation task after review pass `0000055-20260409T201302Z-13774922` reopened Story 55 for one must-fix, eight should-fix, and one reopened optional simplification.
 
 #### Overview
 
-This task revalidates Story 55 after Tasks 63 through 68 land. It must prove the blocker prerequisite, reopened shared repo-list contract, queue diagnostics, deferred execution validation, artifact hygiene, and `RootsTable` batch behavior are all closed on current disk state, refresh the maintained summary for this new review pass, and keep the durable review artifacts directly inspectable alongside the repaired plan state.
+This task revalidates Story 55 after Tasks 63 through 69 land. It must prove the stop-unwind prerequisite, the ownership-release prerequisite, the reopened shared repo-list contract, queue diagnostics, deferred execution validation, artifact hygiene, and `RootsTable` batch behavior are all closed on current disk state, refresh the maintained summary for this new review pass, and keep the durable review artifacts directly inspectable alongside the repaired plan state.
 
 #### Task Exit Criteria
 
-- Tasks 63 through 68 are all `__done__` with direct proof owners and no live blocker notes.
+- Tasks 63 through 69 are all `__done__` with direct proof owners and no live blocker notes.
 - The full relevant wrapper path for server, client, compose smoke, and browser validation passes on current repo state.
-- `planning/0000055-pr-summary.md` records the reopened review pass `0000055-20260409T201302Z-13774922`, the bounded closures for Tasks 63 through 68, the deferred optional simplification note from this pass, and the fresh proof homes used for final validation.
+- `planning/0000055-pr-summary.md` records the reopened review pass `0000055-20260409T201302Z-13774922`, the bounded closures for Tasks 63 through 69, the deferred optional simplification note from this pass, and the fresh proof homes used for final validation.
 - `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` still exist on disk at final close-out.
-- This task's final notes name the exact proof-owner files that closed Tasks 63 through 68 and the exact wrapper proof homes used for final validation.
+- This task's final notes name the exact proof-owner files that closed Tasks 63 through 69 and the exact wrapper proof homes used for final validation.
 - This task closes the reopened review pass without widening into a new story scope.
 
 #### Documentation Locations
@@ -5529,8 +5582,8 @@ This task revalidates Story 55 after Tasks 63 through 68 land. It must prove the
 
 #### Proof Mapping
 
-- Task-closure traceability for Tasks 63 through 68: owned by `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and `planning/0000055-pr-summary.md`; prove by updating the maintained summary and this task's final notes with the exact proof-owner files.
-- Full wrapper revalidation for server, client, and browser behavior: owned by the current repo work closed in Tasks 63 through 68; prove with `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, `test-results/client-tests-<timestamp>.log`, and `logs/test-summaries/e2e-tests-latest.log`.
+- Task-closure traceability for Tasks 63 through 69: owned by `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and `planning/0000055-pr-summary.md`; prove by updating the maintained summary and this task's final notes with the exact proof-owner files.
+- Full wrapper revalidation for server, client, and browser behavior: owned by the current repo work closed in Tasks 63 through 69; prove with `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-<timestamp>.log`, `test-results/server-cucumber-tests-<timestamp>.log`, `test-results/client-tests-<timestamp>.log`, and `logs/test-summaries/e2e-tests-latest.log`.
 - Supported startup, smoke, and teardown ordering: owned by the same repaired story surfaces plus the standard runtime path; prove with `logs/test-summaries/compose-build-latest.log` and `logs/test-summaries/host-network-main-latest.log`.
 - Durable review-artifact retention: owned by `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md`; prove with the direct on-disk existence check in `Testing`.
 
@@ -5544,8 +5597,8 @@ This task revalidates Story 55 after Tasks 63 through 68 land. It must prove the
 6. [ ] Requirement: re-read Task 68 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
 7. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
 8. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
-9. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 63 through 68, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
-10. [ ] Requirement: before marking this task `__done__`, verify that Tasks 63 through 68 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
+9. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 63 through 69, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
+10. [ ] Requirement: before marking this task `__done__`, verify that Tasks 63 through 69 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
 
 #### Testing
 

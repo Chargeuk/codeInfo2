@@ -36,6 +36,9 @@ export type QueueRequestDocumentFilter = {
   runId?: string | null;
 };
 
+export const QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE =
+  'QUEUE_REQUEST_UPDATED_IN_PLACE';
+
 function createQueueUnavailableError(): EnqueueQueueUnavailableError {
   const error = new Error(
     'Mongo-backed ingest queue is unavailable while Mongo is disconnected',

@@ -333,6 +333,42 @@ test('ingest-reembed waiting queue-aware contract returns queued state without r
   assert.equal('runId' in response.body, false);
 });
 
+test('ingest-reembed waiting duplicate updates emit an updated-in-place diagnostic without changing the queue response shape', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          reusedExisting: true,
+          updatedExisting: true,
+        }),
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: 'other-run',
+      }),
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-123',
+    queuePosition: 1,
+  });
+
+  const entries = query({ text: 'QUEUE_REQUEST_UPDATED_IN_PLACE' }, 20);
+  const updateEntry = entries.find(
+    (entry) =>
+      entry.context?.endpoint === '/ingest/reembed/:root' &&
+      entry.context?.queueRequestId === 'queue-request-123' &&
+      entry.context?.updatedExisting === true &&
+      entry.context?.reusedExisting === true,
+  );
+  assert.ok(updateEntry, 'expected updated-in-place queue diagnostic');
+});
+
 test('ingest-reembed queue admission persists the stable repo name instead of an overlay run id', async () => {
   let queuedPayload:
     | {

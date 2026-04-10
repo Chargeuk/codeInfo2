@@ -7,7 +7,10 @@ import {
 } from '../ingest/providers/index.js';
 import { buildQueuedReingestRequest } from '../ingest/reingestService.js';
 import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
-import { enqueueOrReuseIngestRequest } from '../ingest/requestQueue.js';
+import {
+  enqueueOrReuseIngestRequest,
+  QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+} from '../ingest/requestQueue.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -51,6 +54,25 @@ export function createIngestReembedRouter({
         (pumpResult.requestId === queueResult.requestId
           ? (pumpResult.runId ?? null)
           : null);
+      if (queueResult.updatedExisting) {
+        append({
+          level: 'info',
+          message: QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId: (res.locals?.requestId as string | undefined) ?? undefined,
+          context: {
+            endpoint: '/ingest/reembed/:root',
+            root: normalizedRoot,
+            queueRequestId: queueResult.requestId,
+            runId,
+            queued: !runId,
+            queuePosition: runId ? undefined : queueResult.queuePosition,
+            reusedExisting: queueResult.reusedExisting,
+            updatedExisting: queueResult.updatedExisting,
+          },
+        });
+      }
       append({
         level: 'info',
         message: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID',

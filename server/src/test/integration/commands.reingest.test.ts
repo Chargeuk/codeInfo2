@@ -1004,6 +1004,79 @@ test('direct command target working resolves a host working_folder into the moun
   }
 });
 
+test('direct command target working preserves QUEUE_READ_FAILED blocking results from reingest_repository', async () => {
+  const harness = await setupRepoCommandHarness('target-working-queue-read-failed');
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'working-target-queue-read-failed',
+      items: [{ type: 'reingest', target: 'working' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({
+        id: 'Owner Repo',
+        containerPath: harness.repoRoot,
+      }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => ({
+        ok: true,
+        value: buildReingestSuccess({
+          status: 'error',
+          sourceId: sourceId ?? harness.repoRoot,
+          resolvedRepositoryId: 'Owner Repo',
+          completionMode: null,
+          errorCode: 'QUEUE_READ_FAILED',
+        }),
+      }),
+      createCallId: () => 'call-working-queue-read-failed',
+    });
+
+    const result = await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'working-target-queue-read-failed',
+      working_folder: harness.repoRoot,
+      source: 'REST',
+    });
+
+    const turns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(turns.length, 2);
+    assert.equal(turns[0]?.role, 'user');
+    assert.equal(turns[1]?.role, 'assistant');
+    assert.deepEqual(turns[1]?.toolCalls, {
+      calls: [
+        {
+          type: 'tool-result',
+          callId: 'call-working-queue-read-failed',
+          name: 'reingest_repository',
+          stage: 'success',
+          result: {
+            kind: 'reingest_step_result',
+            stepType: 'reingest',
+            targetMode: 'working',
+            requestedSelector: null,
+            sourceId: harness.repoRoot,
+            resolvedRepositoryId: 'Owner Repo',
+            outcome: 'failed',
+            status: 'error',
+            completionMode: null,
+            operation: 'reembed',
+            runId: 'run-123',
+            files: 3,
+            chunks: 7,
+            embedded: 7,
+            errorCode: 'QUEUE_READ_FAILED',
+          },
+          error: null,
+        },
+      ],
+    });
+  } finally {
+    await harness.restore();
+  }
+});
+
 test('target plan_scope fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-order');
   const repoA = path.join(harness.tempRoot, 'repo-a');

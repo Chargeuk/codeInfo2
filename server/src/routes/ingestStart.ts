@@ -18,7 +18,10 @@ import {
   normalizeCanonicalQueueTargetPath,
   resolveRequestEmbeddingSelection,
 } from '../ingest/requestContracts.js';
-import { enqueueOrReuseIngestRequest } from '../ingest/requestQueue.js';
+import {
+  enqueueOrReuseIngestRequest,
+  QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+} from '../ingest/requestQueue.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 
@@ -177,6 +180,25 @@ export function createIngestStartRouter({
         (pumpResult.requestId === queueResult.requestId
           ? (pumpResult.runId ?? null)
           : null);
+      if (queueResult.updatedExisting) {
+        append({
+          level: 'info',
+          message: QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            endpoint: '/ingest/start',
+            queueRequestId: queueResult.requestId,
+            canonicalTargetPath: queueResult.canonicalTargetPath,
+            runId,
+            queued: !runId,
+            queuePosition: runId ? undefined : queueResult.queuePosition,
+            reusedExisting: queueResult.reusedExisting,
+            updatedExisting: queueResult.updatedExisting,
+          },
+        });
+      }
       append({
         level: 'info',
         message: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID',

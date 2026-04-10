@@ -132,8 +132,10 @@ export type WaitForQueueRequestTerminalStatusOptions = {
   timeoutMs: number;
 };
 
+export const QUEUE_READ_FAILED_WAIT_REASON = 'queue-read-failed';
+
 export type WaitForQueueRequestTerminalStatusResult = {
-  reason: 'terminal' | 'timeout';
+  reason: 'terminal' | 'timeout' | typeof QUEUE_READ_FAILED_WAIT_REASON;
   requestId: string;
   runId: string | null;
   status: IngestJobStatus | null;
@@ -2674,7 +2676,7 @@ export async function waitForQueueRequestTerminalStatus(
         });
       } catch {
         settle({
-          reason: 'timeout',
+          reason: QUEUE_READ_FAILED_WAIT_REASON,
           requestId,
           runId: activeRunId,
           status: null,
@@ -2720,9 +2722,13 @@ export async function waitForQueueRequestTerminalStatus(
         }
       })
       .catch(() => {
-        // Leave the listener/timer active so the bounded timeout path can
-        // still classify the request through the normal terminal/timeout
-        // contract instead of surfacing a raw setup failure.
+        settle({
+          reason: QUEUE_READ_FAILED_WAIT_REASON,
+          requestId,
+          runId: activeRunId,
+          status: null,
+          lastKnown,
+        });
       });
   });
 }

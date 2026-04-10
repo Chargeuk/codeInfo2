@@ -7,6 +7,7 @@ import {
 import { append } from '../logStore.js';
 import {
   pumpIngestQueue,
+  QUEUE_READ_FAILED_WAIT_REASON,
   type WaitForQueueRequestTerminalStatusOptions,
   type WaitForQueueRequestTerminalStatusResult,
   waitForQueueRequestTerminalStatus,
@@ -24,6 +25,7 @@ import {
 const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
   'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.';
+const QUEUE_READ_FAILED_ERROR_CODE = 'QUEUE_READ_FAILED';
 
 type ValidationReason =
   | 'missing'
@@ -532,6 +534,9 @@ export async function runReingestRepository(
     if (waitResult.reason === 'timeout') {
       terminalStatus = 'error';
       errorCode = 'WAIT_TIMEOUT';
+    } else if (waitResult.reason === QUEUE_READ_FAILED_WAIT_REASON) {
+      terminalStatus = 'error';
+      errorCode = QUEUE_READ_FAILED_ERROR_CODE;
     } else if (waitResult.status?.state === 'cancelled') {
       terminalStatus = 'cancelled';
     } else if (waitResult.status?.state === 'completed') {

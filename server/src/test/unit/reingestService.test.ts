@@ -273,6 +273,32 @@ test('timeout during wait returns deterministic terminal error payload', async (
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
+test('queue read failure during wait returns deterministic terminal error payload', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitForQueueRequestTerminalStatus: async () => ({
+        reason: 'queue-read-failed',
+        requestId: 'queue-request-123',
+        runId: 'ingest-123',
+        status: null,
+        lastKnown: buildTerminal('cancelled', {
+          files: 2,
+          chunks: 3,
+          embedded: 1,
+        }),
+      }),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'error');
+  assert.equal(result.value.completionMode, null);
+  assert.equal(result.value.errorCode, 'QUEUE_READ_FAILED');
+});
+
 test('missing run status after start returns deterministic terminal error payload', async () => {
   const result = await runReingestRepository(
     { sourceId: '/data/repo-a' },
@@ -684,7 +710,42 @@ test('queue-aware wait cleanup uses the request identity and preserves timeout e
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
-test('queue-aware wait timeout-path rejection still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
+test('queue-aware wait genuine timeout still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
+  process.env.NODE_ENV = 'test';
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () => null,
+  });
+  mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
+    void Promise.resolve().then(callback);
+    return {
+      unref() {
+        return this;
+      },
+    } as ReturnType<typeof globalThis.setTimeout>;
+  }) as typeof globalThis.setTimeout);
+  mock.method(
+    globalThis,
+    'clearTimeout',
+    (() => undefined) as typeof globalThis.clearTimeout,
+  );
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitOptions: { timeoutMs: 5 },
+    },
+  );
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'error');
+  assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
+});
+
+test('queue-aware wait timeout-fallback read rejection settles as QUEUE_READ_FAILED and unregisters listeners', async () => {
   process.env.NODE_ENV = 'test';
   let readCount = 0;
   __setQueueRuntimeOpsForTest({
@@ -724,10 +785,10 @@ test('queue-aware wait timeout-path rejection still settles as WAIT_TIMEOUT and 
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.status, 'error');
-  assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
+  assert.equal(result.value.errorCode, 'QUEUE_READ_FAILED');
 });
 
-test('queue-aware wait setup-read rejection still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
+test('queue-aware wait setup-read rejection settles as QUEUE_READ_FAILED and unregisters listeners', async () => {
   process.env.NODE_ENV = 'test';
   let readCount = 0;
   __setQueueRuntimeOpsForTest({
@@ -767,7 +828,46 @@ test('queue-aware wait setup-read rejection still settles as WAIT_TIMEOUT and un
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.status, 'error');
-  assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
+  assert.equal(result.value.errorCode, 'QUEUE_READ_FAILED');
+});
+
+test('queue-aware wait observed cancelled terminal state unregisters listeners before returning', async () => {
+  process.env.NODE_ENV = 'test';
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () =>
+      ({
+        _id: { toString: () => 'queue-request-123' },
+        canonicalTargetPath: '/data/repo-a',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: {},
+        runId: 'ingest-123',
+      }) as never,
+  });
+  __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
+  __setStatusAndPublishForTest(
+    'ingest-123',
+    buildTerminal('cancelled', {
+      files: 1,
+      chunks: 2,
+      embedded: 0,
+    }),
+  );
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitOptions: { timeoutMs: 5 },
+    },
+  );
+
+  assert.equal(__getIngestEventListenerCountForTest(), 0);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'cancelled');
+  assert.equal(result.value.errorCode, null);
 });
 
 test('queue unavailable maps to the canonical retryable QUEUE_UNAVAILABLE contract', async () => {

@@ -5587,7 +5587,7 @@ This task repairs the shared repo-list contract around queue overlays. Repositor
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `70`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed one duplicate-diagnostic contract regression and one blocking-waiter error-mapping regression.
 
 #### Overview
@@ -5674,6 +5674,7 @@ This task repairs the queue admission and blocking-wait surfaces that currently 
 - 2026-04-10 automated proof checkpoint: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and `log: logs/test-summaries/build-server-latest.log`, so Testing 1 is now honestly complete before the full server wrappers run.
 - 2026-04-10 automated proof checkpoint: the first `npm run test:summary:server:unit` run failed in two Task 71 proof homes: the new command-facing integration test still expected tool-result `stage: 'success'` for an error outcome, and the waiter still let the mocked timeout callback outrun the setup-read rejection path. Updated `server/src/test/integration/commands.reingest.test.ts` to expect the correct `stage: 'error'` outcome and moved the timeout registration below the immediate setup read in `server/src/ingest/ingestJob.ts` so setup-read failures settle through `queue-read-failed` before any synthetic timeout fallback. Reran the same full wrapper honestly and it then passed cleanly with `tests run: 1636`, `passed: 1636`, `agent_action: skip_log`, and `log: test-results/server-unit-tests-2026-04-10T20-20-26-819Z.log`, so Testing 2 is now honestly complete.
 - 2026-04-10 automated proof checkpoint: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 86`, `passed: 86`, `agent_action: skip_log`, and `log: test-results/server-cucumber-tests-2026-04-10T20-39-46-255Z.log`. Testing 3 is now honestly complete, so Task 71 has no unchecked Testing items left and is ready for later audit rather than more proof reruns in this step.
+- 2026-04-10 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 71 section from disk after commit `eb1a8e83`, confirmed the retained proof artifacts still exist at `logs/test-summaries/build-server-latest.log`, `test-results/server-unit-tests-2026-04-10T20-20-26-819Z.log`, and `test-results/server-cucumber-tests-2026-04-10T20-39-46-255Z.log`, and verified that Subtasks 1 through 25 plus Testing 1 through 3 now honestly match current repo evidence with no live `**BLOCKER**` note remaining. Closed Task 71 as `__done__` so Task 72 is now the next active owner.
 
 ### Task 72. Reuse Admission Validation For Deferred Queue Execution And The Deletions-Only Re-Embed Fast Path
 

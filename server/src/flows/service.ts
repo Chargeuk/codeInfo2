@@ -1106,6 +1106,11 @@ const runFlowInstruction = async (params: {
   command?: TurnCommandMetadata;
   runtime?: TurnRuntimeMetadata;
   runToken?: string;
+  onStopUnwindCheckpoint?: (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => void;
   cleanupInflightFn?: typeof cleanupInflight;
 }): Promise<FlowInstructionResult> => {
   const createdAtIso = new Date().toISOString();
@@ -1425,12 +1430,22 @@ const runFlowInstruction = async (params: {
         threadId: params.threadId,
       },
     });
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowInstruction.afterBridgeFinalize',
+      conversationId: params.flowConversationId,
+      detail: `status=${result.status}`,
+    });
   }
 
   try {
     cleanupInflightFn({
       conversationId: params.flowConversationId,
       inflightId: params.inflightId,
+    });
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowInstruction.afterCleanupInflight',
+      conversationId: params.flowConversationId,
+      detail: `inflightId=${params.inflightId}`,
     });
   } catch (cleanupError) {
     baseLogger.error(
@@ -1446,13 +1461,23 @@ const runFlowInstruction = async (params: {
       inflightId: params.inflightId,
     });
   } finally {
-    cleanupPendingConversationCancel({
+    const pendingCancelCleared = cleanupPendingConversationCancel({
       conversationId: params.flowConversationId,
       runToken: params.runToken,
       inflightId: params.inflightId,
     });
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowInstruction.afterCleanupPendingConversationCancel',
+      conversationId: params.flowConversationId,
+      detail: `cleared=${String(pendingCancelCleared)}`,
+    });
   }
 
+  params.onStopUnwindCheckpoint?.({
+    checkpoint: 'runFlowInstruction.returnResult',
+    conversationId: params.flowConversationId,
+    detail: `status=${result.status}`,
+  });
   return result;
 };
 
@@ -2605,6 +2630,7 @@ async function runFlowUnlocked(params: {
         runtime: instructionParams.runtime,
         attempt,
         runToken: params.runToken,
+        onStopUnwindCheckpoint: params.onStopUnwindCheckpoint,
         cleanupInflightFn,
         onResult: (candidate) => {
           if (

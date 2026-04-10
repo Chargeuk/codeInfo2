@@ -1050,7 +1050,7 @@ test('direct command target working preserves QUEUE_READ_FAILED blocking results
           type: 'tool-result',
           callId: 'call-working-queue-read-failed',
           name: 'reingest_repository',
-          stage: 'success',
+          stage: 'error',
           result: {
             kind: 'reingest_step_result',
             stepType: 'reingest',

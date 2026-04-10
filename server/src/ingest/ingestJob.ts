@@ -2686,13 +2686,10 @@ export async function waitForQueueRequestTerminalStatus(
     };
 
     ingestEvents.on('run-status', onRunStatus);
-    settleTimer = globalThis.setTimeout(() => {
-      void settleFromTimeout();
-    }, timeoutMs);
-    settleTimer.unref?.();
 
-    // A transient setup read should not escape as a raw error before the
-    // listener and timeout-based recovery path are active.
+    // Register the listener first, then wire the immediate state read before
+    // starting the timeout fallback so setup-read failures keep their own
+    // classified path instead of racing into a synthetic timeout result.
     void resolveQueueRequestRunState(requestId)
       .then((immediate) => {
         if (immediate.terminal) {
@@ -2730,6 +2727,11 @@ export async function waitForQueueRequestTerminalStatus(
           lastKnown,
         });
       });
+
+    settleTimer = globalThis.setTimeout(() => {
+      void settleFromTimeout();
+    }, timeoutMs);
+    settleTimer.unref?.();
   });
 }
 

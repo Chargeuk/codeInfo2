@@ -145,6 +145,10 @@ export default function RootsTable({
     () => Array.from(selected).filter((path) => selectableRootPaths.has(path)),
     [selectableRootPaths, selected],
   );
+  const reembeddableSelectedPaths = useMemo(
+    () => Array.from(selected).filter((path) => selectableRootPaths.has(path)),
+    [selectableRootPaths, selected],
+  );
   const canBulkRemove =
     !busy && !hasActiveRun && removableSelectedPaths.length > 0;
   const selectableRootCount = selectableRootPaths.size;
@@ -219,8 +223,6 @@ export default function RootsTable({
       } else {
         throw new Error('Malformed re-embed response');
       }
-      await onRefresh();
-      await onRefreshModels?.();
       return { ok: true, path };
     } catch (err) {
       setStatus(path, { status: 'error', message: (err as Error).message });
@@ -240,13 +242,6 @@ export default function RootsTable({
       );
       if (!res.ok) throw new Error(`Remove failed (${res.status})`);
       setStatus(path, { status: 'success', message: 'Removed' });
-      await onRefresh();
-      await onRefreshModels?.();
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(path);
-        return next;
-      });
       return { ok: true, path };
     } catch (err) {
       setStatus(path, { status: 'error', message: (err as Error).message });
@@ -254,9 +249,32 @@ export default function RootsTable({
     }
   };
 
+  const handleRowReembed = async (path: string) => {
+    const result = await doReembed(path);
+    if (!result.ok) {
+      return;
+    }
+    await onRefresh();
+    await onRefreshModels?.();
+  };
+
+  const handleRowRemove = async (path: string) => {
+    const result = await doRemove(path);
+    if (!result.ok) {
+      return;
+    }
+    await onRefresh();
+    await onRefreshModels?.();
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(path);
+      return next;
+    });
+  };
+
   const handleBulk = async (action: 'reembed' | 'remove') => {
     const targetPaths =
-      action === 'remove' ? removableSelectedPaths : Array.from(selected);
+      action === 'remove' ? removableSelectedPaths : reembeddableSelectedPaths;
     if (targetPaths.length === 0) return;
     setBulkMessage({ status: 'loading', message: 'Working on selected…' });
     const results: ActionResult[] = [];
@@ -272,6 +290,10 @@ export default function RootsTable({
       .filter((result) => !result.ok)
       .map((result) => result.path);
     const successCount = results.length - failedPaths.length;
+    if (successCount > 0) {
+      await onRefresh();
+      await onRefreshModels?.();
+    }
     if (failedPaths.length === 0) {
       setBulkMessage({
         status: 'success',
@@ -385,13 +407,13 @@ export default function RootsTable({
 
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="body2" color="text.secondary">
-          {selected.size} selected
+        {selected.size} selected
         </Typography>
         <Button
           variant="outlined"
           size="small"
           onClick={() => void handleBulk('reembed')}
-          disabled={busy || selected.size === 0}
+          disabled={busy || reembeddableSelectedPaths.length === 0}
         >
           Re-embed selected
         </Button>
@@ -449,6 +471,8 @@ export default function RootsTable({
               const state = actionState[root.path]?.status;
               const message = actionState[root.path]?.message;
               const rowDisabled = busy || state === 'loading';
+              const reembedDisabled =
+                rowDisabled || blocksSharedSelection(root, activeRunId);
               const removeDisabled =
                 rowDisabled || hasActiveRun || blocksUserRemove(root);
               const isSelected = selected.has(root.path);
@@ -531,8 +555,8 @@ export default function RootsTable({
                       <Button
                         variant="text"
                         size="small"
-                        onClick={() => void doReembed(root.path)}
-                        disabled={rowDisabled}
+                        onClick={() => void handleRowReembed(root.path)}
+                        disabled={reembedDisabled}
                       >
                         Re-embed
                       </Button>
@@ -540,7 +564,7 @@ export default function RootsTable({
                         variant="text"
                         color="error"
                         size="small"
-                        onClick={() => void doRemove(root.path)}
+                        onClick={() => void handleRowRemove(root.path)}
                         disabled={removeDisabled}
                       >
                         Remove

@@ -300,7 +300,7 @@ describe('RootsTable', () => {
     ).toBeDisabled();
   });
 
-  it('keeps queue-blocked rows out of the visible bulk selection state', async () => {
+  it('keeps waiting rows out of bulk re-embed selection and disables the matching row action', async () => {
     render(
       <RootsTable
         roots={[
@@ -328,16 +328,25 @@ describe('RootsTable', () => {
     const queuedCheckbox = within(queuedRow).getByRole('checkbox', {
       name: /select repo-queued/i,
     });
+    const queuedReembed = within(queuedRow).getByRole('button', {
+      name: /re-embed/i,
+    });
     const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+    const bulkReembed = screen.getByRole('button', {
+      name: /re-embed selected/i,
+    });
 
     expect(queuedCheckbox).toBeDisabled();
+    expect(queuedReembed).toBeDisabled();
     expect(bulkRemove).toBeDisabled();
+    expect(bulkReembed).toBeDisabled();
     fireEvent.click(queuedCheckbox);
     expect(screen.getByText('0 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeDisabled();
+    expect(bulkReembed).toBeDisabled();
   });
 
-  it('keeps queue-blocked rows out of mixed select-all counts and remove targets', async () => {
+  it('keeps running rows out of mixed bulk selection and disables the matching row re-embed action', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ status: 'ok', unlocked: true }),
     );
@@ -372,16 +381,24 @@ describe('RootsTable', () => {
       name: /repo-running/i,
     });
     const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+    const bulkReembed = screen.getByRole('button', {
+      name: /re-embed selected/i,
+    });
+    const runningReembed = within(runningRow).getByRole('button', {
+      name: /re-embed/i,
+    });
 
     expect(
       within(runningRow).getByRole('checkbox', {
         name: /select repo-running/i,
       }),
     ).toBeDisabled();
+    expect(runningReembed).toBeDisabled();
 
     fireEvent.click(selectAll);
     expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeEnabled();
+    expect(bulkReembed).toBeEnabled();
 
     await act(async () => {
       fireEvent.click(bulkRemove);
@@ -464,7 +481,7 @@ describe('RootsTable', () => {
     );
   });
 
-  it('disables the row-level Remove button for an ingesting row without queueState', async () => {
+  it('disables the row-level Re-embed and Remove buttons for an active ingest head without queueState', async () => {
     render(
       <RootsTable
         roots={[
@@ -496,7 +513,7 @@ describe('RootsTable', () => {
     ).toBeDisabled();
     expect(
       within(activeRow).getByRole('button', { name: /re-embed/i }),
-    ).toBeEnabled();
+    ).toBeDisabled();
   });
 
   it('keeps active ingest head rows without queueState out of shared destructive selection', async () => {
@@ -796,15 +813,197 @@ describe('RootsTable', () => {
     const runningCheckbox = within(runningRow).getByRole('checkbox', {
       name: /select repo-running-live/i,
     });
+    const runningReembed = within(runningRow).getByRole('button', {
+      name: /re-embed/i,
+    });
     const bulkRemove = screen.getByRole('button', { name: /remove selected/i });
+    const bulkReembed = screen.getByRole('button', {
+      name: /re-embed selected/i,
+    });
 
     expect(runningCheckbox).toBeDisabled();
+    expect(runningReembed).toBeDisabled();
     fireEvent.click(runningCheckbox);
     expect(screen.getByText('0 selected')).toBeInTheDocument();
 
     fireEvent.click(selectAll);
     expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeDisabled();
+    expect(bulkReembed).toBeEnabled();
+  });
+
+  it('clears a selected row from shared bulk re-embed state when live row data becomes queue-blocked', async () => {
+    const { rerender } = render(
+      <RootsTable
+        roots={[{ ...root, path: '/repo-transition', name: 'repo-transition' }]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select repo-transition/i }),
+    );
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /re-embed selected/i }),
+    ).toBeEnabled();
+
+    rerender(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-transition',
+            name: 'repo-transition',
+            status: 'ingesting',
+            phase: 'queued',
+            queueState: 'waiting',
+            requestId: 'queue-request-transition',
+            runId: null,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /re-embed selected/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-transition/i }),
+    ).toBeDisabled();
+  });
+
+  it('refreshes roots and models once after a successful bulk re-embed batch', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/reembed/%2Frepo-a')) {
+        return mockJsonResponse({ requestId: 'queue-request-a', runId: 'run-a' });
+      }
+      if (url.includes('/ingest/reembed/%2Frepo-b')) {
+        return mockJsonResponse({ requestId: 'queue-request-b', runId: 'run-b' });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
+    const onRefreshModels: () => Promise<void> = jest.fn(async () => undefined);
+
+    render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-a', name: 'repo-a' },
+          { ...root, path: '/repo-b', name: 'repo-b' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+        onRefreshModels={onRefreshModels}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /select all roots/i }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /re-embed selected/i }));
+      await Promise.resolve();
+    });
+
+    const reembedCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/ingest/reembed/'),
+    );
+
+    expect(reembedCalls).toHaveLength(2);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onRefreshModels).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-filters bulk re-embed targets against the current live eligible row set before submit', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/reembed/%2Frepo-eligible')) {
+        return mockJsonResponse({
+          requestId: 'queue-request-eligible',
+          runId: 'run-eligible',
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
+    const onRefreshModels: () => Promise<void> = jest.fn(async () => undefined);
+    const { rerender } = render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-eligible', name: 'repo-eligible' },
+          { ...root, path: '/repo-stale', name: 'repo-stale' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+        onRefreshModels={onRefreshModels}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select repo-eligible/i }),
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /select repo-stale/i }));
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+
+    rerender(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-eligible', name: 'repo-eligible' },
+          {
+            ...root,
+            path: '/repo-stale',
+            name: 'repo-stale',
+            status: 'ingesting',
+            phase: 'queued',
+            queueState: 'waiting',
+            requestId: 'queue-request-stale',
+            runId: null,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+        onRefreshModels={onRefreshModels}
+      />,
+    );
+
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /re-embed selected/i }));
+      await Promise.resolve();
+    });
+
+    const reembedCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/ingest/reembed/'),
+    );
+
+    expect(reembedCalls).toHaveLength(1);
+    expect(String(reembedCalls[0]?.[0] ?? '')).toContain(
+      '/ingest/reembed/%2Frepo-eligible',
+    );
+    expect(String(reembedCalls[0]?.[0] ?? '')).not.toContain('/repo-stale');
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onRefreshModels).toHaveBeenCalledTimes(1);
   });
 
   it('renders AST counts in the table when available', async () => {

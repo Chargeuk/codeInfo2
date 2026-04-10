@@ -869,6 +869,105 @@ test.describe.serial('Ingest flows', () => {
     }
   });
 
+  test('aligned row and bulk re-embed affordances', async ({ page }) => {
+    const reembedRequests: string[] = [];
+    const mockedRoots = {
+      roots: [
+        {
+          runId: 'run-removable',
+          name: 'mock-removable',
+          description: 'completed fixture',
+          path: '/mock-removable',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+        {
+          requestId: 'queue-request-queued',
+          runId: null,
+          name: 'mock-queued',
+          description: 'waiting fixture',
+          path: '/mock-queued',
+          model: 'embed-1',
+          status: 'ingesting',
+          phase: 'queued',
+          queueState: 'waiting',
+          queuePosition: 1,
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '2025-02-19',
+      lockedModelId: 'embed-1',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+    await page.route('**/ingest/reembed/**', async (route) => {
+      reembedRequests.push(route.request().url());
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          requestId: 'queue-request-removable',
+          runId: 'run-removable-next',
+          queued: false,
+        }),
+      });
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    const queuedRow = page.getByRole('row', { name: /mock-queued/i }).first();
+    const removableRow = page
+      .getByRole('row', { name: /mock-removable/i })
+      .first();
+    const bulkReembed = page.getByRole('button', {
+      name: /re-embed selected/i,
+    });
+
+    await expect(removableRow).toBeVisible();
+    await expect(queuedRow).toBeVisible();
+    await expect(
+      queuedRow.getByRole('button', { name: /^re-embed$/i }),
+    ).toBeDisabled();
+    await expect(
+      removableRow.getByRole('button', { name: /^re-embed$/i }),
+    ).toBeEnabled();
+
+    const queuedCheckbox = page.getByRole('checkbox', {
+      name: /^Select mock-queued$/i,
+    });
+    await expect(queuedCheckbox).toBeDisabled();
+    await expect(bulkReembed).toBeDisabled();
+
+    await page
+      .getByRole('checkbox', { name: /^Select mock-removable$/i })
+      .check();
+    await expect(page.getByText('1 selected')).toBeVisible();
+    await expect(bulkReembed).toBeEnabled();
+    await saveStableScreenshot(page, '0000055-bulk-selection-state.png');
+
+    await bulkReembed.click();
+
+    await expect
+      .poll(() => reembedRequests.length, {
+        timeout: 10_000,
+        message: 'waiting for bulk re-embed to issue the eligible request only',
+      })
+      .toBe(1);
+    expect(reembedRequests[0]).toContain('/ingest/reembed/%2Fmock-removable');
+    expect(reembedRequests[0]).not.toContain('/ingest/reembed/%2Fmock-queued');
+  });
+
   test('Remove selected ignores queued rows in a mixed selection', async ({
     page,
   }) => {
@@ -942,7 +1041,6 @@ test.describe.serial('Ingest flows', () => {
       .getByRole('checkbox', { name: /^Select mock-removable$/i })
       .check();
     await expect(bulkRemove).toBeEnabled();
-    await saveStableScreenshot(page, '0000055-bulk-selection-state.png');
 
     await bulkRemove.click();
 

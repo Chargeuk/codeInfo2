@@ -84,6 +84,21 @@ function blocksSharedSelection(root: IngestRoot, activeRunId?: string) {
   );
 }
 
+function getRootEmbeddingDisplay(root: IngestRoot) {
+  const provider =
+    root.queueState === 'waiting'
+      ? root.embeddingProvider ?? root.lock?.embeddingProvider
+      : root.embeddingProvider;
+  const model =
+    root.queueState === 'waiting'
+      ? root.embeddingModel ?? root.model
+      : root.embeddingModel ?? root.model;
+  if (provider && model) {
+    return `${provider} / ${model}`;
+  }
+  return model ?? '—';
+}
+
 export default function RootsTable({
   roots,
   activeRunId,
@@ -448,10 +463,7 @@ export default function RootsTable({
                     : phase
                       ? `${root.status} (${phase})`
                       : root.status;
-              const rootModelDisplay =
-                root.embeddingModel && root.embeddingProvider
-                  ? `${root.embeddingProvider} / ${root.embeddingModel}`
-                  : root.model;
+              const rootModelDisplay = getRootEmbeddingDisplay(root);
               const rootError =
                 root.lastError ?? root.error?.message ?? root.error?.details;
               const astCounts = root.ast;

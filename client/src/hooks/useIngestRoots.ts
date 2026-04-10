@@ -22,6 +22,7 @@ export type NormalizedIngestError = {
 };
 
 export type IngestRoot = {
+  id?: string;
   requestId?: string | null;
   runId?: string | null;
   queuePosition?: number | null;
@@ -135,6 +136,15 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
       : undefined;
 
   const error = normalizeError(entry.error);
+  const queueState =
+    entry.queueState === 'waiting' ||
+    entry.queueState === 'running' ||
+    entry.queueState === 'cleanup-blocked'
+      ? entry.queueState
+      : null;
+  const waitingOverlayPresent =
+    queueState === 'waiting' && typeof entry.requestId === 'string';
+  const canonicalEmbeddingProvider = normalizeProvider(entry.embeddingProvider);
   const embeddingModel =
     typeof entry.embeddingModel === 'string'
       ? entry.embeddingModel
@@ -146,7 +156,9 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
       ? (entry.lock as Record<string, unknown>)
       : undefined;
   const lockModel =
-    typeof lockObj?.embeddingModel === 'string'
+    waitingOverlayPresent && embeddingModel
+      ? embeddingModel
+      : typeof lockObj?.embeddingModel === 'string'
       ? lockObj.embeddingModel
       : typeof lockObj?.lockedModelId === 'string'
         ? lockObj.lockedModelId
@@ -154,8 +166,9 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
           ? lockObj.modelId
           : embeddingModel || undefined;
   const lockProvider =
+    (waitingOverlayPresent ? canonicalEmbeddingProvider : undefined) ??
     normalizeProvider(lockObj?.embeddingProvider) ??
-    normalizeProvider(entry.embeddingProvider) ??
+    canonicalEmbeddingProvider ??
     (lockModel ? 'lmstudio' : undefined);
   const lockDimensions =
     typeof lockObj?.embeddingDimensions === 'number'
@@ -165,18 +178,23 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
         : undefined;
 
   return {
+    id:
+      typeof entry.id === 'string'
+        ? entry.id
+        : typeof entry.name === 'string'
+          ? entry.name
+          : typeof entry.path === 'string'
+            ? entry.path
+            : typeof entry.containerPath === 'string'
+              ? entry.containerPath
+              : '',
     requestId: typeof entry.requestId === 'string' ? entry.requestId : null,
     runId: typeof entry.runId === 'string' ? entry.runId : null,
     queuePosition:
       typeof entry.queuePosition === 'number' && entry.queuePosition > 0
         ? entry.queuePosition
         : null,
-    queueState:
-      entry.queueState === 'waiting' ||
-      entry.queueState === 'running' ||
-      entry.queueState === 'cleanup-blocked'
-        ? entry.queueState
-        : null,
+    queueState,
     name:
       typeof entry.name === 'string'
         ? entry.name
@@ -192,9 +210,13 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
           ? entry.containerPath
           : '',
     model: embeddingModel,
-    modelId: typeof entry.modelId === 'string' ? entry.modelId : embeddingModel,
-    embeddingProvider:
-      normalizeProvider(entry.embeddingProvider) ?? lockProvider ?? 'lmstudio',
+    modelId:
+      typeof entry.modelId === 'string'
+        ? entry.modelId
+        : waitingOverlayPresent && embeddingModel
+          ? embeddingModel
+          : embeddingModel,
+    embeddingProvider: canonicalEmbeddingProvider ?? lockProvider ?? 'lmstudio',
     embeddingModel,
     embeddingDimensions:
       typeof entry.embeddingDimensions === 'number'

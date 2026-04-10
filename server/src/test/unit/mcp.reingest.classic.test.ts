@@ -243,6 +243,65 @@ test('classic MCP canonicalizes reingest sourceId selectors before dispatch', as
   assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
 });
 
+test('classic MCP resolves stable repository ids even when an active overlay exposes a transient runId', async () => {
+  let capturedArgs: unknown;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-a',
+            runId: 'active-run-a',
+            description: null,
+            containerPath: '/data/repo-a',
+            hostPath: '/host/repo-a',
+            lastIngestAt: '2025-01-01T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            modelId: 'embed-model',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'embed-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'embed-model',
+              modelId: 'embed-model',
+            },
+            counts: { files: 1, chunks: 2, embedded: 2 },
+            lastError: null,
+            status: 'ingesting',
+            phase: 'scanning',
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
+      runReingestRepository: async (args) => {
+        capturedArgs = args;
+        return { ok: true, value: terminalCompleted } as ReingestResult;
+      },
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 2.15,
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: 'repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+});
+
 test('classic MCP leaves unresolved reingest selectors unchanged', async () => {
   let capturedArgs: unknown;
   const app = express();

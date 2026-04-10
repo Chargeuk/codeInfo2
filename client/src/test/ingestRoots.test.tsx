@@ -981,6 +981,71 @@ describe('RootsTable', () => {
     expect(screen.getByText(/Pending queue start/i)).toBeInTheDocument();
   });
 
+  it('renders fresh waiting metadata for a reused row instead of stale persisted model hints', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            id: 'stable-repo-id',
+            requestId: 'queue-request-fresh',
+            runId: null,
+            queueState: 'waiting',
+            queuePosition: 1,
+            path: '/repo-reused',
+            name: 'repo-reused',
+            status: 'ingesting',
+            phase: 'queued',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-3-small',
+            model: 'stale-persisted-model',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const reusedRow = await screen.findByRole('row', { name: /repo-reused/i });
+    expect(
+      within(reusedRow).getByText('openai / text-embedding-3-small'),
+    ).toBeInTheDocument();
+    expect(
+      within(reusedRow).queryByText('stale-persisted-model'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('re-renders an open details drawer from fresh waiting metadata for a reused row', async () => {
+    render(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          ...root,
+          id: 'stable-repo-id',
+          requestId: 'queue-request-fresh',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          path: '/repo-reused',
+          name: 'repo-reused',
+          status: 'ingesting',
+          phase: 'queued',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
+          model: 'stale-persisted-model',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('openai / text-embedding-3-small')).toBeInTheDocument();
+    expect(screen.queryByText('stale-persisted-model')).not.toBeInTheDocument();
+    expect(screen.getByText(/waiting \(#1\)/i)).toBeInTheDocument();
+  });
+
   it('hides phase text for completed status rows', async () => {
     render(
       <RootsTable

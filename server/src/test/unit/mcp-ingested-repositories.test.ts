@@ -190,17 +190,23 @@ test('ListIngestedRepositories emits queued requestId with null runId before exe
     response.body?.result?.content?.[0]?.text ?? '{}',
   ) as {
     repos: Array<{
+      id?: string;
       requestId?: string | null;
       runId?: string | null;
       queuePosition?: number | null;
       queueState?: string | null;
+      embeddingProvider?: string;
+      embeddingModel?: string;
     }>;
   };
   assert.equal(response.status, 200);
+  assert.equal(parsed.repos[0]?.id, 'queued-repo');
   assert.equal(parsed.repos[0]?.requestId, '000000000000000000000058');
   assert.equal(parsed.repos[0]?.runId, null);
   assert.equal(parsed.repos[0]?.queueState, 'waiting');
   assert.equal(parsed.repos[0]?.queuePosition, 1);
+  assert.equal(parsed.repos[0]?.embeddingProvider, 'lmstudio');
+  assert.equal(parsed.repos[0]?.embeddingModel, 'embed-model');
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
     value: originalReadyState,
@@ -463,7 +469,7 @@ test('ListIngestedRepositories omits phase for terminal statuses and maps skippe
   assert.equal(byId.get('skipped')?.phase, undefined);
 });
 
-test('ListIngestedRepositories shows active overlay and synthesized active entries', async () => {
+test('ListIngestedRepositories shows active overlay and keeps stable repository ids', async () => {
   __setStatusForTest('active-run', {
     runId: 'active-run',
     state: 'queued',
@@ -508,11 +514,19 @@ test('ListIngestedRepositories shows active overlay and synthesized active entri
   const parsed = JSON.parse(
     response.body?.result?.content?.[0]?.text ?? '{}',
   ) as {
-    repos: Array<{ containerPath: string; status: string; phase?: string }>;
+    repos: Array<{
+      id: string;
+      containerPath: string;
+      runId?: string | null;
+      status: string;
+      phase?: string;
+    }>;
   };
   const overlaid = parsed.repos.find(
     (repo) => repo.containerPath === '/data/repo',
   );
+  assert.equal(overlaid?.id, 'repo');
+  assert.equal(overlaid?.runId, 'active-run');
   assert.equal(overlaid?.status, 'ingesting');
   assert.equal(overlaid?.phase, 'queued');
 });
@@ -631,7 +645,7 @@ test('ListIngestedRepositories keeps one authoritative row for mixed-path recove
   });
 });
 
-test('ListIngestedRepositories synthesizes active-only entries', async () => {
+test('ListIngestedRepositories synthesizes active-only entries with stable repository ids', async () => {
   __setStatusForTest('active-only-run', {
     runId: 'active-only-run',
     state: 'scanning',
@@ -669,11 +683,19 @@ test('ListIngestedRepositories synthesizes active-only entries', async () => {
   const parsed = JSON.parse(
     response.body?.result?.content?.[0]?.text ?? '{}',
   ) as {
-    repos: Array<{ containerPath: string; status: string; phase?: string }>;
+    repos: Array<{
+      id: string;
+      containerPath: string;
+      runId?: string | null;
+      status: string;
+      phase?: string;
+    }>;
   };
   const synthesized = parsed.repos.find(
     (repo) => repo.containerPath === '/data/only-active',
   );
+  assert.equal(synthesized?.id, 'only-active');
+  assert.equal(synthesized?.runId, 'active-only-run');
   assert.equal(synthesized?.status, 'ingesting');
   assert.equal(synthesized?.phase, 'scanning');
 });

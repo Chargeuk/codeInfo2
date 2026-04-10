@@ -51,10 +51,7 @@ export default function RootDetailsDrawer({
         .filter(Boolean)
         .join(' · ')
     : null;
-  const rootModelDisplay =
-    root?.embeddingProvider && root?.embeddingModel
-      ? `${root.embeddingProvider} / ${root.embeddingModel}`
-      : root?.model;
+  const rootModelDisplay = root ? getRootEmbeddingDisplay(root) : undefined;
   const rootError =
     root?.lastError ?? root?.error?.message ?? root?.error?.details;
 
@@ -186,6 +183,21 @@ export default function RootDetailsDrawer({
       </Box>
     </Drawer>
   );
+}
+
+function getRootEmbeddingDisplay(root: IngestRoot) {
+  const provider =
+    root.queueState === 'waiting'
+      ? root.embeddingProvider ?? root.lock?.embeddingProvider
+      : root.embeddingProvider;
+  const model =
+    root.queueState === 'waiting'
+      ? root.embeddingModel ?? root.model
+      : root.embeddingModel ?? root.model;
+  if (provider && model) {
+    return `${provider} / ${model}`;
+  }
+  return model ?? '—';
 }
 
 function LabelValue({

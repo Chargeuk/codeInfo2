@@ -1,5 +1,8 @@
 import path from 'path';
-import { type IngestQueueState } from '@codeinfo2/common';
+import {
+  INGEST_ROOTS_SCHEMA_VERSION,
+  type IngestQueueState,
+} from '@codeinfo2/common';
 import mongoose from 'mongoose';
 import {
   type EmbeddingProviderId,
@@ -95,8 +98,6 @@ export type ListReposResult = {
   lockedModelId: string | null;
   schemaVersion?: string;
 };
-
-export const INGEST_REPO_SCHEMA_VERSION = '0000055-queued-repo-list-v1';
 
 function parseDev0000038MarkerGate(value: string | undefined): boolean {
   if (typeof value !== 'string') return false;
@@ -685,6 +686,52 @@ function buildRepoFromQueueRequest(params: {
   };
 }
 
+function applyWaitingQueueRequestMetadata(
+  repo: RepoEntry,
+  queueRequest: IngestQueueRequest,
+) {
+  const payload = queueRequest.requestPayload;
+  const name = deriveQueuePayloadName(queueRequest);
+  const provider =
+    normalizeEmbeddingProvider(payload.embeddingProvider) ??
+    repo.embeddingProvider ??
+    repo.lock?.embeddingProvider ??
+    'lmstudio';
+  const model =
+    normalizeEmbeddingModel(payload.embeddingModel) ??
+    normalizeEmbeddingModel(payload.model) ??
+    normalizeEmbeddingModel(repo.embeddingModel) ??
+    normalizeEmbeddingModel(repo.lock?.embeddingModel) ??
+    normalizeEmbeddingModel(repo.modelId) ??
+    normalizeEmbeddingModel(repo.model) ??
+    '';
+  const dimensions =
+    normalizeEmbeddingDimensions(payload.embeddingDimensions) ??
+    (repo.lock?.embeddingProvider === provider &&
+    repo.lock.embeddingModel === model
+      ? repo.lock.embeddingDimensions
+      : repo.embeddingProvider === provider && repo.embeddingModel === model
+        ? repo.embeddingDimensions
+        : 0);
+
+  repo.name = name;
+  if (typeof payload.description === 'string') {
+    repo.description = payload.description;
+  }
+  repo.embeddingProvider = provider;
+  repo.embeddingModel = model;
+  repo.embeddingDimensions = dimensions;
+  repo.model = model;
+  repo.modelId = model;
+  repo.lock = {
+    embeddingProvider: provider,
+    embeddingModel: model,
+    embeddingDimensions: dimensions,
+    lockedModelId: model,
+    modelId: model,
+  };
+}
+
 function applyQueueOverlay(params: {
   repo: RepoEntry;
   queueRequest: IngestQueueRequest;
@@ -709,6 +756,7 @@ function applyQueueOverlay(params: {
     queueRequest.queueState === 'waiting' ? queuePosition : null;
 
   if (queueRequest.queueState === 'waiting') {
+    applyWaitingQueueRequestMetadata(repo, queueRequest);
     repo.status = 'ingesting';
     repo.phase = 'queued';
     return;
@@ -1156,7 +1204,6 @@ export async function listIngestedRepositories(
       ) {
         continue;
       }
-      existing.id = active.runId;
       existing.status = mappedState.status;
       if (mappedState.phase) {
         existing.phase = mappedState.phase;
@@ -1192,11 +1239,16 @@ export async function listIngestedRepositories(
           },
         )
       : resolveRepoLock({}, null);
+    const synthesizedId = buildRepoId(
+      active.name ?? null,
+      mapped.containerPath,
+      active.runId,
+    );
     const synthesized: RepoEntry = {
-      id: active.runId,
+      id: synthesizedId,
       name:
         active.name ??
-        (path.posix.basename(mapped.containerPath) || active.runId),
+        (path.posix.basename(mapped.containerPath) || synthesizedId),
       description: active.description ?? null,
       containerPath: mapped.containerPath,
       hostPath: mapped.hostPath,
@@ -1258,7 +1310,7 @@ export async function listIngestedRepositories(
     repos,
     lock,
     lockedModelId: lock?.lockedModelId ?? null,
-    schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+    schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
   };
 }
 

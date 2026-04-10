@@ -325,6 +325,8 @@ test('active overlay keeps repo visible and preserves persisted metadata while u
   assert.equal(res.status, 200);
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
+  assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.runId, 'active-run-1');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'scanning');
   assert.deepEqual(repo.counts, { files: 11, chunks: 22, embedded: 33 });
@@ -368,7 +370,8 @@ test('active overlay normalizes source path before matching persisted metadata',
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
   assert.equal(repo.containerPath, '/data/repo-one');
-  assert.equal(repo.id, 'active-run-1-normalized');
+  assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.runId, 'active-run-1-normalized');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'embedding');
   assert.deepEqual(repo.counts, { files: 4, chunks: 8, embedded: 5 });
@@ -394,11 +397,97 @@ test('synthesizes active entry when persisted metadata is missing', async () => 
   assert.equal(res.status, 200);
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
-  assert.equal(repo.id, 'active-run-2');
+  assert.equal(repo.id, 'missing-repo');
+  assert.equal(repo.runId, 'active-run-2');
   assert.equal(repo.containerPath, '/container/missing/repo');
   assert.equal(repo.hostPath, '/container/missing/repo');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'queued');
+});
+
+test('waiting duplicate overlay prefers the latest queued provider and model metadata for an existing root', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000071'),
+              canonicalTargetPath: '/data/repo-one',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo-one',
+                name: 'repo-one',
+                description: 'fresh queued description',
+                model: 'text-embedding-3-small',
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-small',
+                embeddingDimensions: 1536,
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-09T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-09T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const res = await request(
+    buildApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            root: '/data/repo-one',
+            name: 'repo-one',
+            description: 'stale persisted description',
+            model: 'text-embed-old',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'text-embed-old',
+            embeddingDimensions: 768,
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+          },
+        ],
+      },
+      'text-embed-old',
+    ),
+  ).get('/tools/ingested-repos');
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.repos.length, 1);
+  const repo = res.body.repos[0];
+  assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.requestId, '000000000000000000000071');
+  assert.equal(repo.runId, null);
+  assert.equal(repo.queueState, 'waiting');
+  assert.equal(repo.queuePosition, 1);
+  assert.equal(repo.description, 'fresh queued description');
+  assert.equal(repo.embeddingProvider, 'openai');
+  assert.equal(repo.embeddingModel, 'text-embedding-3-small');
+  assert.equal(repo.model, 'text-embedding-3-small');
+  assert.equal(repo.modelId, 'text-embedding-3-small');
+  assert.equal(repo.lock.embeddingProvider, 'openai');
+  assert.equal(repo.lock.embeddingModel, 'text-embedding-3-small');
+  assert.equal(repo.lock.lockedModelId, 'text-embedding-3-small');
+  assert.deepEqual(repo.counts, { files: 1, chunks: 2, embedded: 3 });
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
 });
 
 test('suppresses DEV-0000038 T5 marker logs by default and emits them when the marker gate is enabled', async () => {

@@ -207,6 +207,55 @@ describe('useIngestRoots', () => {
     });
   });
 
+  it('keeps stable repo id and fresh waiting metadata for reused queued rows', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: 'stable-repo-id',
+          requestId: 'queue-request-2',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'repo-reused',
+          path: '/repo-reused',
+          status: 'ingesting',
+          phase: 'queued',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
+          model: 'text-embedding-3-small',
+          modelId: 'text-embedding-3-small',
+          lock: {
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'stale-lock-model',
+            embeddingDimensions: 768,
+            lockedModelId: 'stale-lock-model',
+            modelId: 'stale-lock-model',
+          },
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]).toMatchObject({
+      id: 'stable-repo-id',
+      requestId: 'queue-request-2',
+      queueState: 'waiting',
+      embeddingProvider: 'openai',
+      embeddingModel: 'text-embedding-3-small',
+      model: 'text-embedding-3-small',
+      modelId: 'text-embedding-3-small',
+      lock: {
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+        lockedModelId: 'text-embedding-3-small',
+        modelId: 'text-embedding-3-small',
+      },
+    });
+  });
+
   it('accepts and exposes schemaVersion 0000055-queued-repo-list-v1', async () => {
     mockRootsResponse({
       schemaVersion: '0000055-queued-repo-list-v1',

@@ -47,3 +47,18 @@ Feature: Ingest roots listing
     When I GET ingest manage roots
     Then ingest manage roots count is 1
     And ingest manage roots first queue state is "cleanup-blocked"
+
+  Scenario: existing roots prefer fresh waiting metadata when a duplicate queued request updates in place
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/queued-root" with legacy model "stale-model"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has waiting request for "/data/queued-root" named "legacy-repo" with provider "openai" model "fresh-model"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/queued-root" has name "legacy-repo"
+    And ingest manage roots entry for "/data/queued-root" has request id present
+    And ingest manage roots entry for "/data/queued-root" has run id null
+    And ingest manage roots entry for "/data/queued-root" has queue state "waiting"
+    And ingest manage roots entry for "/data/queued-root" has queue position 1
+    And ingest manage roots first embedding provider is "openai"
+    And ingest manage roots first model is "fresh-model"

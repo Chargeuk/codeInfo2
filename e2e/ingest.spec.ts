@@ -736,6 +736,61 @@ test.describe.serial('Ingest flows', () => {
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
+  test('reused queued rows show fresh waiting metadata in the row and details surface', async ({
+    page,
+  }) => {
+    const mockedRoots = {
+      roots: [
+        {
+          id: 'stable-repo-id',
+          requestId: 'queue-request-fresh',
+          runId: null,
+          name: 'stable-repo',
+          description: 'fresh waiting description',
+          path: '/data/stable-repo',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
+          model: 'stale-persisted-model',
+          modelId: 'text-embedding-3-small',
+          status: 'ingesting',
+          phase: 'queued',
+          queueState: 'waiting',
+          queuePosition: 1,
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '0000055-queued-repo-list-v1',
+      lockedModelId: 'text-embedding-3-small',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    const row = page.getByRole('row', { name: /stable-repo/i }).first();
+    await expect(row).toBeVisible();
+    await expect(row.getByText('openai / text-embedding-3-small')).toBeVisible();
+    await expect(row.getByText(/queued \(#1\)/i)).toBeVisible();
+    await expect(row.getByText('stale-persisted-model')).toHaveCount(0);
+
+    await row.getByRole('button', { name: /details/i }).click();
+    await expect(page.getByText(/Request ID/i)).toBeVisible();
+    await expect(page.getByText(/Pending queue start/i)).toBeVisible();
+    await expect(page.getByText('fresh waiting description')).toBeVisible();
+    await expect(
+      page.getByText('openai / text-embedding-3-small'),
+    ).toBeVisible();
+    await expect(page.getByText('stale-persisted-model')).toHaveCount(0);
+  });
+
   test('queued row picks up a run owner after the current queue head finishes', async ({
     page,
   }) => {

@@ -324,6 +324,19 @@ Then('ingest manage roots first model is {string}', (model: string) => {
   assert.equal((roots[0] as { model?: string }).model, model);
 });
 
+Then(
+  'ingest manage roots first embedding provider is {string}',
+  (provider: string) => {
+    assert(response, 'expected response');
+    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    assert(roots.length > 0, 'no roots returned');
+    assert.equal(
+      (roots[0] as { embeddingProvider?: string }).embeddingProvider,
+      provider,
+    );
+  },
+);
+
 Then('ingest manage roots first request id is present', () => {
   assert(response, 'expected response');
   const roots = (response.body as { roots?: unknown[] }).roots ?? [];
@@ -600,6 +613,31 @@ Given(
         path: rootPath,
         name,
         model: 'embed-1',
+      },
+      sourceSurface: 'cucumber',
+      runId: null,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has waiting request for {string} named {string} with provider {string} model {string}',
+  async (
+    rootPath: string,
+    name: string,
+    provider: string,
+    model: string,
+  ) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'waiting',
+      requestPayload: {
+        path: rootPath,
+        name,
+        model,
+        embeddingProvider: provider,
+        embeddingModel: model,
       },
       sourceSurface: 'cucumber',
       runId: null,

@@ -271,6 +271,13 @@ type RuntimeCleanupSnapshot = {
   pendingCancelInflightId: string | null;
 };
 
+type OwnershipReleaseCall = {
+  expectedRunToken?: string;
+  released: boolean;
+  beforeState: RuntimeCleanupSnapshot;
+  afterState: RuntimeCleanupSnapshot;
+};
+
 const snapshotRuntimeCleanupState = (
   conversationId: string,
 ): RuntimeCleanupSnapshot => {
@@ -1163,6 +1170,9 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 test('flow stop during a looped flow prevents later iterations from continuing', async () => {
   const cleanupEventLimit = 20;
   let cleanupEventCount = 0;
+  const ownershipReleaseCalls: OwnershipReleaseCall[] = [];
+  let ownershipReacquiredAfterRelease = false;
+  let ownershipReacquiredState: RuntimeCleanupSnapshot | null = null;
   const cleanupEvents: Array<
     {
       label: string;
@@ -1183,17 +1193,46 @@ test('flow stop during a looped flow prevents later iterations from continuing',
       released: boolean;
     }>,
   ) => {
+    const state = snapshotRuntimeCleanupState(conversationId);
     cleanupEventCount += 1;
+    if (
+      !ownershipReacquiredAfterRelease &&
+      ownershipReleaseCalls.some(
+        (call) => call.released && call.afterState.ownershipRunToken === null,
+      ) &&
+      state.ownershipRunToken !== null
+    ) {
+      ownershipReacquiredAfterRelease = true;
+      ownershipReacquiredState = state;
+    }
     cleanupEvents.push({
       label,
       conversationId,
-      state: snapshotRuntimeCleanupState(conversationId),
+      state,
       ...extra,
     });
     if (cleanupEvents.length > cleanupEventLimit) {
       cleanupEvents.shift();
     }
   };
+  const buildOwnershipReleaseSummary = () => ({
+    branch:
+      ownershipReleaseCalls.length === 0
+        ? 'never_reached'
+        : ownershipReleaseCalls.some((call) => !call.released)
+          ? 'returned_false'
+          : ownershipReacquiredAfterRelease
+            ? 'reacquired_after_release'
+            : 'released_without_reacquire_observed',
+    releaseCallCount: ownershipReleaseCalls.length,
+    releaseFalseCount: ownershipReleaseCalls.filter((call) => !call.released)
+      .length,
+    releaseTrueCount: ownershipReleaseCalls.filter((call) => call.released)
+      .length,
+    ownershipReacquiredAfterRelease,
+    ownershipReacquiredState,
+    recentReleaseCalls: ownershipReleaseCalls.slice(-5),
+  });
 
   await withFlowServer(
     (message) => {
@@ -1259,6 +1298,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         try {
           await cleanupConversationRuntime(conversationId);
         } catch (error) {
+          const ownershipReleaseSummary = buildOwnershipReleaseSummary();
           console.error(
             'FLOW_LOOP_CLEANUP_EVENTS',
             JSON.stringify({
@@ -1266,8 +1306,12 @@ test('flow stop during a looped flow prevents later iterations from continuing',
               recentEvents: cleanupEvents,
             }),
           );
+          console.error(
+            'FLOW_LOOP_OWNERSHIP_RELEASE',
+            JSON.stringify(ownershipReleaseSummary),
+          );
           if (error instanceof Error) {
-            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })}`;
+            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })} ownershipRelease=${JSON.stringify(ownershipReleaseSummary)}`;
           }
           throw error;
         }
@@ -1284,6 +1328,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         });
       },
       releaseConversationLockFn: (conversationId, expectedRunToken) => {
+        const beforeState = snapshotRuntimeCleanupState(conversationId);
         recordCleanupEvent('before releaseConversationLockFn', conversationId, {
           expectedRunToken,
         });
@@ -1291,6 +1336,13 @@ test('flow stop during a looped flow prevents later iterations from continuing',
           conversationId,
           expectedRunToken,
         );
+        const afterState = snapshotRuntimeCleanupState(conversationId);
+        ownershipReleaseCalls.push({
+          expectedRunToken,
+          released,
+          beforeState,
+          afterState,
+        });
         recordCleanupEvent('after releaseConversationLockFn', conversationId, {
           expectedRunToken,
           released,

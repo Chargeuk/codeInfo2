@@ -10,8 +10,15 @@ import supertest from 'supertest';
 import type WebSocket from 'ws';
 
 import { AbortError, delayWithAbort } from '../../agents/retry.js';
-import { getActiveRunOwnership } from '../../agents/runLock.js';
-import { getInflight } from '../../chat/inflightRegistry.js';
+import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+} from '../../agents/runLock.js';
+import {
+  cleanupInflight,
+  getInflight,
+  getPendingConversationCancel,
+} from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -255,6 +262,25 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   });
+};
+
+type RuntimeCleanupSnapshot = {
+  inflightId: string | null;
+  ownershipRunToken: string | null;
+  pendingCancelRunToken: string | null;
+  pendingCancelInflightId: string | null;
+};
+
+const snapshotRuntimeCleanupState = (
+  conversationId: string,
+): RuntimeCleanupSnapshot => {
+  const pendingCancel = getPendingConversationCancel(conversationId);
+  return {
+    inflightId: getInflight(conversationId)?.inflightId ?? null,
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    pendingCancelRunToken: pendingCancel?.runToken ?? null,
+    pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
+  };
 };
 
 const cleanupConversationRuntime = async (
@@ -1135,6 +1161,40 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 });
 
 test('flow stop during a looped flow prevents later iterations from continuing', async () => {
+  const cleanupEventLimit = 20;
+  let cleanupEventCount = 0;
+  const cleanupEvents: Array<
+    {
+      label: string;
+      state: RuntimeCleanupSnapshot;
+    } & Partial<{
+      conversationId: string;
+      inflightId: string;
+      expectedRunToken: string;
+      released: boolean;
+    }>
+  > = [];
+  const recordCleanupEvent = (
+    label: string,
+    conversationId: string,
+    extra?: Partial<{
+      inflightId: string;
+      expectedRunToken: string;
+      released: boolean;
+    }>,
+  ) => {
+    cleanupEventCount += 1;
+    cleanupEvents.push({
+      label,
+      conversationId,
+      state: snapshotRuntimeCleanupState(conversationId),
+      ...extra,
+    });
+    if (cleanupEvents.length > cleanupEventLimit) {
+      cleanupEvents.shift();
+    }
+  };
+
   await withFlowServer(
     (message) => {
       if (message.includes('Exit inner loop?')) {
@@ -1187,6 +1247,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         });
 
         await delay(250);
+        recordCleanupEvent('after stopped final observed', conversationId);
         const turns = memoryTurns.get(conversationId) ?? [];
         const outerBreakTurns = turns.filter(
           (turn) =>
@@ -1194,8 +1255,48 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         );
         assert.equal(outerBreakTurns.length, 1);
       } finally {
-        await cleanupConversationRuntime(conversationId);
+        recordCleanupEvent('before cleanupConversationRuntime', conversationId);
+        try {
+          await cleanupConversationRuntime(conversationId);
+        } catch (error) {
+          console.error(
+            'FLOW_LOOP_CLEANUP_EVENTS',
+            JSON.stringify({
+              totalEvents: cleanupEventCount,
+              recentEvents: cleanupEvents,
+            }),
+          );
+          if (error instanceof Error) {
+            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })}`;
+          }
+          throw error;
+        }
       }
+    },
+    {
+      cleanupInflightFn: (params) => {
+        recordCleanupEvent('before cleanupInflightFn', params.conversationId, {
+          inflightId: params.inflightId,
+        });
+        cleanupInflight(params);
+        recordCleanupEvent('after cleanupInflightFn', params.conversationId, {
+          inflightId: params.inflightId,
+        });
+      },
+      releaseConversationLockFn: (conversationId, expectedRunToken) => {
+        recordCleanupEvent('before releaseConversationLockFn', conversationId, {
+          expectedRunToken,
+        });
+        const released = releaseConversationLock(
+          conversationId,
+          expectedRunToken,
+        );
+        recordCleanupEvent('after releaseConversationLockFn', conversationId, {
+          expectedRunToken,
+          released,
+        });
+        return released;
+      },
     },
   );
 });

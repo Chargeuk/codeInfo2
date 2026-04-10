@@ -5349,7 +5349,7 @@ This prerequisite task owns only the new contradiction between Task 66's clean f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `67`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-10 by planner repair after Task 67's current `**BLOCKING ANSWER**` proved the reopened contradiction no longer belongs to the lower `runFlowInstruction(...)` cleanup helpers and must now be re-owned to the first missing caller frame above `runFlowInstruction.returnResult`.
 
 #### Overview
@@ -5394,6 +5394,7 @@ This prerequisite task owns only the immediate caller hand-off above `runFlowIns
 - Inserted on 2026-04-10 by planner repair because Task 67's exhausted branch proved the reopened contradiction is no longer inside the lower setup-vs-runtime-vs-teardown diagnostic class and instead belongs to the first missing caller checkpoint above `runFlowInstruction.returnResult`.
 - 2026-04-10 reread and inspection checkpoint: re-read Task 67's current `**RESOLVED ISSUE**` and `**BLOCKING ANSWER**` notes together with `test-results/server-unit-tests-2026-04-10T06-19-28-603Z.log`, then re-inspected the current caller checkpoints in `server/src/flows/service.ts` around `runInstruction`, `runBreakStep`, `runStartLoopStep`, `runSteps`, `runFlowUnlocked`, and `startFlowRun`. Current disk already contains the bounded caller-level discriminator this task asked for, and the retained failing log still proves the lower `runFlowInstruction.returnResult` seam is reached while none of the higher caller checkpoints fire.
 - 2026-04-10 bounded caller-hand-off close-out: the current caller checkpoints on disk are sufficient to treat `runInstruction` as the first missing higher boundary from the earlier failing proof, and no wider successor task was needed because the local caller seam is now repaired on current `HEAD` rather than still exhausted. I ran `npm run test:summary:server:unit` because Subtask 5 explicitly required the full wrapper after the bounded caller-level work, and the wrapper passed cleanly with `tests run: 1630`, `passed: 1630`, `agent_action: skip_log`, and `log: test-results/server-unit-tests-2026-04-10T07-07-44-115Z.log`. That makes Testing 1 honestly complete and leaves Task 69 free to resume from a trustworthy full-suite baseline again.
+- 2026-04-10 implementation-plus-automated-proof audit: re-read the current plan state and retained wrapper proof after commit `dad4ee7a`, confirmed Subtasks 1 through 5 plus Testing 1 still match disk with no live `**BLOCKER**`, and closed Task 68 as `__done__` so Task 69 is now the next owner.
 
 ### Task 69. Restore Stable Repository Identity And Waiting-Metadata Freshness In The Shared Repo List
 

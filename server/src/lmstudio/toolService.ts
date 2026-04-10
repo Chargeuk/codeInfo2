@@ -99,6 +99,8 @@ export type ListReposResult = {
   schemaVersion?: string;
 };
 
+export const INGEST_REPO_SCHEMA_VERSION = INGEST_ROOTS_SCHEMA_VERSION;
+
 function parseDev0000038MarkerGate(value: string | undefined): boolean {
   if (typeof value !== 'string') return false;
   const normalized = value.trim().toLowerCase();

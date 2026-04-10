@@ -291,6 +291,12 @@ type StopUnwindCheckpoint = {
   state: RuntimeCleanupSnapshot;
 };
 
+type CleanupPhaseCheckpoint = {
+  label: string;
+  conversationId: string;
+  state: RuntimeCleanupSnapshot;
+};
+
 const snapshotRuntimeCleanupState = (
   conversationId: string,
 ): RuntimeCleanupSnapshot => {
@@ -1188,6 +1194,8 @@ test('flow stop during a looped flow prevents later iterations from continuing',
   let ownershipReacquiredState: RuntimeCleanupSnapshot | null = null;
   const stopUnwindCheckpointLimit = 20;
   const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
+  const cleanupPhaseCheckpointLimit = 12;
+  const cleanupPhaseCheckpoints: CleanupPhaseCheckpoint[] = [];
   const cleanupEvents: Array<
     {
       label: string;
@@ -1261,6 +1269,36 @@ test('flow stop during a looped flow prevents later iterations from continuing',
       stopUnwindCheckpoints.shift();
     }
   };
+  const recordCleanupPhaseCheckpoint = (
+    label: string,
+    conversationId: string,
+  ) => {
+    cleanupPhaseCheckpoints.push({
+      label,
+      conversationId,
+      state: snapshotRuntimeCleanupState(conversationId),
+    });
+    if (cleanupPhaseCheckpoints.length > cleanupPhaseCheckpointLimit) {
+      cleanupPhaseCheckpoints.shift();
+    }
+  };
+  const buildCleanupPhaseSummary = () => {
+    const labels = new Set(cleanupPhaseCheckpoints.map((item) => item.label));
+    const branch = labels.has('before cleanupConversationRuntime')
+      ? labels.has('after cleanupConversationRuntime')
+        ? 'post_test_teardown_or_resource_cleanup'
+        : 'stop_runtime_cleanup_divergence'
+      : labels.has('after stop request sent') ||
+          labels.has('after first outer break observed') ||
+          labels.has('after stopped final observed')
+        ? 'setup_not_owner'
+        : 'setup_contamination_or_earlier';
+    return {
+      branch,
+      totalCheckpoints: cleanupPhaseCheckpoints.length,
+      recentCheckpoints: cleanupPhaseCheckpoints,
+    };
+  };
 
   await withFlowServer(
     (message) => {
@@ -1291,8 +1329,13 @@ test('flow stop during a looped flow prevents later iterations from continuing',
             ),
           4000,
         );
+        recordCleanupPhaseCheckpoint(
+          'after first outer break observed',
+          conversationId,
+        );
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+        recordCleanupPhaseCheckpoint('after stop request sent', conversationId);
 
         await waitForEvent({
           ws: wsUrl,
@@ -1314,6 +1357,10 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         });
 
         await delay(250);
+        recordCleanupPhaseCheckpoint(
+          'after stopped final observed',
+          conversationId,
+        );
         recordCleanupEvent('after stopped final observed', conversationId);
         const turns = memoryTurns.get(conversationId) ?? [];
         const outerBreakTurns = turns.filter(
@@ -1322,11 +1369,20 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         );
         assert.equal(outerBreakTurns.length, 1);
       } finally {
+        recordCleanupPhaseCheckpoint(
+          'before cleanupConversationRuntime',
+          conversationId,
+        );
         recordCleanupEvent('before cleanupConversationRuntime', conversationId);
         try {
           await cleanupConversationRuntime(conversationId);
+          recordCleanupPhaseCheckpoint(
+            'after cleanupConversationRuntime',
+            conversationId,
+          );
         } catch (error) {
           const ownershipReleaseSummary = buildOwnershipReleaseSummary();
+          const cleanupPhaseSummary = buildCleanupPhaseSummary();
           console.error(
             'FLOW_LOOP_CLEANUP_EVENTS',
             JSON.stringify({
@@ -1345,8 +1401,12 @@ test('flow stop during a looped flow prevents later iterations from continuing',
               recentCheckpoints: stopUnwindCheckpoints,
             }),
           );
+          console.error(
+            'FLOW_LOOP_CLEANUP_PHASE',
+            JSON.stringify(cleanupPhaseSummary),
+          );
           if (error instanceof Error) {
-            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })} ownershipRelease=${JSON.stringify(ownershipReleaseSummary)} stopUnwind=${JSON.stringify({ totalCheckpoints: stopUnwindCheckpoints.length, recentCheckpoints: stopUnwindCheckpoints })}`;
+            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })} ownershipRelease=${JSON.stringify(ownershipReleaseSummary)} stopUnwind=${JSON.stringify({ totalCheckpoints: stopUnwindCheckpoints.length, recentCheckpoints: stopUnwindCheckpoints })} cleanupPhase=${JSON.stringify(cleanupPhaseSummary)}`;
           }
           throw error;
         }

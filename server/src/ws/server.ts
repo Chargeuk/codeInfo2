@@ -674,20 +674,33 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
 
         const cancelled = abortInflightByConversation(message.conversationId);
         if (cancelled.ok) {
+          const ownership = getActiveRunOwnership(message.conversationId);
+          if (ownership) {
+            registerPendingConversationCancel({
+              conversationId: message.conversationId,
+              runToken: ownership.runToken,
+              boundInflightId: cancelled.inflightId,
+            });
+          }
           logPublish('DEV-0000049:T03:stop_path_registered', {
             requestId: message.requestId,
             connectionId,
             conversationId: message.conversationId,
             inflightId: cancelled.inflightId,
-            runToken: null,
-            stopPath: 'conversation_only_inflight',
+            runToken: ownership?.runToken ?? null,
+            stopPath: ownership
+              ? 'conversation_inflight_plus_pending_run'
+              : 'conversation_only_inflight',
           });
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,
             conversationId: message.conversationId,
             inflightId: cancelled.inflightId,
-            stopPath: 'conversation_only_inflight',
+            ...(ownership ? { runToken: ownership.runToken } : {}),
+            stopPath: ownership
+              ? 'conversation_inflight_plus_pending_run'
+              : 'conversation_only_inflight',
           });
           return;
         }

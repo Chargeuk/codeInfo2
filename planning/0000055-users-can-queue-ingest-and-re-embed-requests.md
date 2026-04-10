@@ -5818,7 +5818,7 @@ This task repairs two server runtime seams where deferred execution no longer re
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `73`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-09 from review pass `0000055-20260409T201302Z-13774922` after the findings artifact endorsed the tracked zero-byte root files as accidental committed artifacts.
 
 #### Overview
@@ -5879,6 +5879,7 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 - 2026-04-10 automated proof checkpoint: `git diff --name-status origin/main...HEAD` still shows the wider Story 55 branch diff, but none of the Task 74 artifact paths appear in that tracked diff anymore, so Testing 1 is honestly complete.
 - 2026-04-10 automated proof checkpoint: the direct shell absence loop for `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring` exited cleanly with no output, so Testing 2 is honestly complete and all named artifact paths are absent from disk.
 - 2026-04-10 prevention checkpoint: inspected the current root `.gitignore` and found no direct repo evidence that one narrow ignore rule is strictly required for this accidental-artifact pattern, so Task 74 stays bounded to file removal rather than widening into speculative ignore-file churn. Removed paths: `=`, `CACHED`, `[auth]`, `[client`, `[internal]`, `[server`, `[server]`, `bash`, `codeinfo2@1.0.0`, `npm`, `reading`, `resolve`, and `transferring`.
+- 2026-04-10 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 74 section from disk after commit `e883f603`, confirmed the retained proof state still matches current repo evidence, and verified that Subtasks 1 through 5 plus Testing 1 and 2 are honestly complete with no live `**BLOCKER**` note remaining. Closed Task 74 as `__done__` so Task 75 is now the next active owner.
 
 ### Task 75. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
 

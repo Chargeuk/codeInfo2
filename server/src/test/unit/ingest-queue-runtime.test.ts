@@ -376,6 +376,12 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
     );
 
     const afterTerminal = await pumpIngestQueue();
+    console.error('DEBUG_TASK73_PROMOTION', {
+      result,
+      terminal,
+      deletedRequestIds,
+      afterTerminal,
+    });
     assert.equal(afterTerminal.started, false);
     assert.equal(afterTerminal.blockedByCleanup, false);
     assert.equal(afterTerminal.runId, null);
@@ -441,6 +447,8 @@ test('queue promotion rejects malformed queued payloads at execution time and re
       deletedRequestIds.length >= 1,
       'malformed queued payloads should still finalize and release the queued request',
     );
+    await waitForNextTurn();
+    await waitForNextTurn();
 
     const afterTerminal = await pumpIngestQueue();
     assert.equal(afterTerminal.started, false);
@@ -792,7 +800,11 @@ test('startup recovery rejects malformed queued payloads before provider work an
     assert.equal(terminal.status?.state, 'error');
     assert.equal(terminal.status?.lastError, 'model is required');
     assert.equal(terminal.status?.error?.error, 'VALIDATION');
-    assert.deepEqual(deletedRequestIds, ['14']);
+    assert.deepEqual(deletedRequestIds, [
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+    ]);
+    await waitForNextTurn();
+    await waitForNextTurn();
 
     const afterRecovery = await pumpIngestQueue();
     assert.equal(afterRecovery.started, false);

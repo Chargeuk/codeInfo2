@@ -6519,7 +6519,7 @@ This fresh prerequisite task owns only the newly re-regressed earlier full-suite
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `83`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that `cleanup-blocked` queue rows are neither treated as live duplicates nor protected from being overwritten by a later waiting overlay for the same canonical target. Re-owned to `__to_do__` on 2026-04-11 by planner repair after this task's current `**BLOCKING ANSWER**` proved a fresh re-regressed `flows.run.loop` prerequisite must land before this task's remaining wrapper proof can continue honestly.
 
 #### Overview
@@ -6599,6 +6599,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 - 2026-04-11 planner repair: inserted new Task 82 ahead of this task because the current `**BLOCKING ANSWER**` proved the remaining full `server:unit` failure again belongs to the regressed earlier `flows.run.loop` cleanup lane before this queue-owner task's remaining proof gates can close honestly. This task returns to `__to_do__` with its completed implementation subtasks plus Testing 1 preserved; Testing 2 and 3 remain the next proof gates after Task 82 restores or cleanly re-hands off the full `server:unit` baseline.
 - 2026-04-11 implementation-only audit normalization: after Task 82 closed, this task became the next executable owner again. Its implementation subtasks remain honestly complete on current disk, Testing 1 remains complete from the earlier wrapper-backed build pass, and Testing 2 through 3 are still the only open proof gates before this task can close honestly.
 - **RESOLVED ISSUE** 2026-04-11 Testing 2 (`npm run test:summary:server:unit`) re-opened the earlier `flows.run.loop` contradiction again even after the first prerequisite pass closed, so this task still is not the active full-wrapper owner on current disk. I reran the exact full server-unit wrapper, waited through the healthy `agent_action: wait` heartbeats until it reached a terminal `agent_action: inspect_log` verdict, and confirmed from `test-results/server-unit-tests-2026-04-11T17-03-36-023Z.log` that it again stops earlier at `not ok 280 - flow stop during a looped flow prevents later iterations from continuing` with `# FLOW_LOOP_OWNERSHIP_RELEASE {"branch":"never_reached","releaseCallCount":0,...}` and wrapper reason `semantic_progress_stalled`. Planner repair now moves the next real work into new Task 83, so this task returns to `__to_do__` with its implementation subtasks and Testing 1 preserved while the fresh prerequisite re-owns the regressed earlier `flows.run.loop` failure.
+- 2026-04-11 implementation-only audit normalization: after Task 83 closed, this task again became the next executable owner. Its implementation subtasks remain honestly complete on current disk, Testing 1 remains complete from the earlier wrapper-backed build pass, and Testing 2 through 3 are still the only open proof gates before the later automated-proof audit can decide whether this task closes.
 
 ### Task 85. Harden The E2E Cleanup Route To Known-Root Ownership
 

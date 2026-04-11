@@ -6519,7 +6519,7 @@ This fresh prerequisite task owns only the newly re-regressed earlier full-suite
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `83`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-11 by planner repair after Task 85's current `**BLOCKING ANSWER**` plus live blocker state proved that the missing pending-cancel handoff now disappears before the bounded Task 85 cleanup files ever see it. The next real work therefore belongs to an earlier shared conversation-only cancel-registration prerequisite rather than to another local `flows.run.loop` cleanup retry.
 
 #### Overview
@@ -6579,6 +6579,7 @@ This fresh prerequisite task owns only the earlier shared conversation-only canc
 - 2026-04-11 Testing 1 rerun: after the `server/src/chat/inflightRegistry.ts` cleanup fix, reran `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` and restored the targeted checkpoint honestly. The rerun passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-11T20-08-29-548Z.log`.
 - 2026-04-11 exact owner repair: the targeted-versus-full comparison proved one exact local owner in the allowed shared ingress/bind seam. `server/src/ws/server.ts` now preserves the conversation-only stop as a run-level pending cancel during the ownership-plus-inflight path, and `server/src/chat/inflightRegistry.ts` now clears pending cancel state during inflight cleanup only when that pending stop was explicitly bound to the inflight being removed. That keeps the stop alive across the ownership-only/no-inflight handoff without widening into the later Task 85 cleanup lane.
 - 2026-04-11 Testing 2: reran the full `npm run test:summary:server:unit` wrapper after the bounded WS and inflight-registry repair, and the full server-unit baseline passed cleanly with `tests run: 1643`, `passed: 1643`, `failed: 0`, retained log `test-results/server-unit-tests-2026-04-11T20-09-05-976Z.log`. This closes the bounded Task 84 cancel-registration lane on current disk and hands execution back to Task 85 without needing a wider successor owner.
+- 2026-04-11 implementation-plus-automated-proof audit: re-read the stored handoff plus this exact Task 84 section from disk, checked commit `d30c15de`, and confirmed the retained targeted and full `server:unit` logs still exist. No testing steps were newly marked complete in this audit because Testing 1 and 2 were already honestly checked by the immediately preceding bounded repair pass. There is no live standalone `**BLOCKER**` note on Task 84, all subtasks and testing are complete, and the task now closes as `__done__`.
 
 ### Task 85. Re-Isolate The Re-Re-Regressed Earlier `flows.run.loop` Cleanup Boundary Before Cleanup-Blocked Queue Proof Resumes Once More
 

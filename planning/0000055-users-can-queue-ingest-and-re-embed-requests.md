@@ -6226,6 +6226,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 - Queue admission treats `cleanup-blocked` rows as live duplicate owners for the same canonical target instead of creating a second request that can hide the blocked row.
 - The live-target uniqueness rule or equivalent live-owner selector used by the queue model treats `waiting`, `running`, and `cleanup-blocked` as one canonical-target ownership set wherever the story contract requires a single visible owner for one root.
+- Cleanup-blocked rows remain visible to both queue writers and repo-list readers, and they continue to stall newer waiting work until the cleanup owner clears the blocker instead of being implicitly superseded by later submissions.
 - `/ingest/roots` and the shared repo-list builder preserve the blocked row's visible error state, request identity, and queue ownership instead of letting a later waiting overlay replace it.
 - Direct server tests prove that a cleanup-blocked row remains the visible owner and duplicate admission target until the cleanup blocker is cleared.
 
@@ -6239,6 +6240,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 - `server/src/mongo/ingestQueueRequest.ts`
 - `server/src/lmstudio/toolService.ts`
 - `server/src/test/unit/ingest-request-queue.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
 - `server/src/test/unit/tools-ingested-repos.test.ts`
 - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
@@ -6246,6 +6248,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 - Cleanup-blocked duplicate admission for one canonical target: owned by `server/src/ingest/requestQueue.ts`; prove in `server/src/test/unit/ingest-request-queue.test.ts`.
 - Persisted live-target ownership across `waiting`, `running`, and `cleanup-blocked`: owned by `server/src/mongo/ingestQueueRequest.ts`; prove through the same duplicate-owner regression in `server/src/test/unit/ingest-request-queue.test.ts`.
+- Cleanup ownership and blocked-row stall behavior stay consistent across writer and runtime-reader surfaces until the blocker is cleared: owned by `server/src/ingest/requestQueue.ts` plus queue runtime cleanup flow; prove in `server/src/test/unit/ingest-queue-runtime.test.ts`.
 - Repo-list overlay precedence for a blocked row versus a later waiting row on the same root: owned by `server/src/lmstudio/toolService.ts`; prove in `server/src/test/unit/tools-ingested-repos.test.ts`.
 - `/ingest/roots` blocked-owner visibility after the overlay repair: owned by the repo-list route surface and shared list builder; prove in `server/src/test/unit/ingest-roots-dedupe.test.ts`.
 
@@ -6261,15 +6264,16 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 8. [ ] Update `server/src/lmstudio/toolService.ts` so a later waiting request for the same canonical root cannot replace the blocked row's `requestId`, `queueState`, `status`, or `queuePosition` while the cleanup blocker is active. Purpose: preserve the visible blocked state promised by the story.
 9. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: prove duplicate admission for one canonical target reuses or blocks against an earlier `cleanup-blocked` row instead of creating a second live owner. Purpose: keep the queue-admission contract explicit at the in-memory owner seam.
 10. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: prove the persisted live-target selector still treats `waiting`, `running`, and `cleanup-blocked` as one ownership set for the same canonical target. Purpose: stop storage-level uniqueness from drifting away from the queue-admission rule.
-11. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove repo-list overlays preserve the blocked row's `requestId`, `queueState`, `status`, and `queuePosition` when a later waiting request targets the same root. Purpose: keep stale blocked metadata from being hidden by a fresher waiting overlay.
-12. [ ] Test maintenance. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: if the existing waiting-overlay proof is reused, split or rename it so blocked-row precedence is claimed by its own test title instead of borrowing a “latest waiting metadata wins” description. Purpose: prevent the repaired blocked-owner invariant from hiding behind an adjacent waiting-overlay test name.
-13. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: prove `/ingest/roots` still surfaces the blocked owner after the queue repair instead of the later waiting row. Purpose: verify the route-facing contract, not only the helper-layer precedence logic.
-14. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired owner files and proof files. Purpose: keep final close-out citations inspectable.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a `cleanup-blocked` row still stalls newer waiting work and remains the authoritative owner until the cleanup path resolves it. Purpose: make cleanup ownership and reader/writer compatibility explicit instead of assuming later waiting work will observe the same blocked state.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove repo-list overlays preserve the blocked row's `requestId`, `queueState`, `status`, and `queuePosition` when a later waiting request targets the same root. Purpose: keep stale blocked metadata from being hidden by a fresher waiting overlay.
+13. [ ] Test maintenance. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: if the existing waiting-overlay proof is reused, split or rename it so blocked-row precedence is claimed by its own test title instead of borrowing a “latest waiting metadata wins” description. Purpose: prevent the repaired blocked-owner invariant from hiding behind an adjacent waiting-overlay test name.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: prove `/ingest/roots` still surfaces the blocked owner after the queue repair instead of the later waiting row. Purpose: verify the route-facing contract, not only the helper-layer precedence logic.
+15. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired owner files and proof files. Purpose: keep final close-out citations inspectable.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the queue-ownership and overlay repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes named in Subtasks 9 through 12. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes named in Subtasks 9 through 14. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6350,6 +6354,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 - Re-embed selectors and route lookups reject temporary queued start rows that do not correspond to an already-ingested repository root.
 - A queued start row may remain visible in the repo list, but it is excluded from re-embed selection and from any legal re-embed submission payload until the root has actually been ingested.
 - Waiting duplicate updates cannot silently rewrite a queued `start` request into `reembed` for a never-ingested row.
+- Selector narrowing stays on the existing bounded ingested-listing path instead of adding per-row lookup or unbounded rescans just to exclude never-ingested queued rows.
 - Direct tests cover selector-list output, direct route targeting, and queued duplicate-rewrite protection for never-ingested roots.
 - The repo-list visibility contract for queued start rows remains intact while re-embed targeting is narrowed.
 
@@ -6369,6 +6374,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 
 - Re-embed selector lists exclude never-ingested queued start rows: owned by `server/src/ingest/reingestService.ts`; prove in `server/src/test/unit/reingestService.test.ts`.
 - Direct route targeting rejects a stale submitted `sourceId` copied from a still-visible never-ingested queued row instead of resolving it as a re-embed source: owned by `server/src/routes/ingestReembed.ts`; prove in `server/src/test/unit/reingestExecution.test.ts`.
+- Selector narrowing keeps using the existing bounded listing snapshot instead of issuing per-row re-query behavior for queued start rows: owned by `server/src/ingest/reingestService.ts` and request-scoped execution helpers; prove in `server/src/test/unit/reingestExecution.test.ts`.
 - Waiting duplicate updates cannot rewrite queued `start` work into `reembed` for a never-ingested root: owned by `server/src/ingest/requestQueue.ts`; prove in `server/src/test/unit/ingest-reembed.test.ts`.
 - Repo-list visibility for queued start rows remains intact while re-embed targeting narrows: owned by the shared repo-list builder surface; prove in `server/src/test/unit/tools-ingested-repos.test.ts`.
 
@@ -6378,15 +6384,17 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 2. [ ] Inspect `buildRetryLists(...)` in `server/src/ingest/reingestService.ts`. Purpose: identify where queued start rows are currently treated as reingestable.
 3. [ ] Inspect the direct route lookup in `server/src/routes/ingestReembed.ts`. Purpose: identify the route seam that must reject never-ingested queued rows.
 4. [ ] Inspect the waiting-duplicate update path in `server/src/ingest/requestQueue.ts`. Purpose: identify where queued `start` work can currently be rewritten into `reembed`.
-5. [ ] Update `server/src/ingest/reingestService.ts` so `buildRetryLists(...)` exposes only already-ingested roots as reembeddable. Purpose: keep queued start visibility without widening re-embed eligibility.
-6. [ ] Update `server/src/routes/ingestReembed.ts` so direct route targeting rejects never-ingested queued rows. Purpose: align the route contract with the selector contract.
-7. [ ] Update `server/src/ingest/requestQueue.ts` so a queued `start` request cannot be rewritten into `reembed` for a root that has never been ingested. Purpose: stop the duplicate-update seam from silently changing operation type.
-8. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove selector lists exclude a queued start row that has never produced an ingested root record even while that row is still present in the repo list. Purpose: make the visible-but-not-selectable state boundary explicit at the selector builder seam.
-9. [ ] Test type: server unit. Location: `server/src/test/unit/reingestExecution.test.ts`. Description: prove direct re-embed execution rejects a stale `sourceId` copied from a still-visible never-ingested queued row instead of resolving it as a legal source. Purpose: cover the contradictory visible-but-not-submittable state at the route boundary.
-10. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove a waiting duplicate update cannot rewrite queued `start` work into `reembed` for a root that has never been ingested. Purpose: keep the mixed-state queue transition guard explicit.
-11. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove queued start rows remain visible in the repo list even though they are no longer legal re-embed targets. Purpose: preserve the visibility contract while narrowing selection.
-12. [ ] Test maintenance. Location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/reingestExecution.test.ts`. Description: if an existing queued-row visibility or selector-validation test is reused, split or rename it so “still visible” and “not submittable for re-embed” remain separate claimed invariants. Purpose: stop a reused test title from claiming only visibility while its assertions also cover stale selector rejection.
-13. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired selector, visibility, and queue-owner proof files. Purpose: keep final close-out citations inspectable.
+5. [ ] Inspect the existing listing-snapshot or selector-fetch path used by `buildRetryLists(...)` and direct execution helpers. Purpose: confirm where bounded reuse of the ingested listing would drift if queued-start filtering added per-row lookups.
+6. [ ] Update `server/src/ingest/reingestService.ts` so `buildRetryLists(...)` exposes only already-ingested roots as reembeddable. Purpose: keep queued start visibility without widening re-embed eligibility.
+7. [ ] Update `server/src/routes/ingestReembed.ts` so direct route targeting rejects never-ingested queued rows. Purpose: align the route contract with the selector contract.
+8. [ ] Update `server/src/ingest/requestQueue.ts` so a queued `start` request cannot be rewritten into `reembed` for a root that has never been ingested. Purpose: stop the duplicate-update seam from silently changing operation type.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove selector lists exclude a queued start row that has never produced an ingested root record even while that row is still present in the repo list. Purpose: make the visible-but-not-selectable state boundary explicit at the selector builder seam.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/reingestExecution.test.ts`. Description: prove direct re-embed execution rejects a stale `sourceId` copied from a still-visible never-ingested queued row instead of resolving it as a legal source. Purpose: cover the contradictory visible-but-not-submittable state at the route boundary.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/reingestExecution.test.ts`. Description: prove selector narrowing still reuses one bounded ingested-listing snapshot instead of adding per-row lookup churn when queued start rows are filtered out. Purpose: make the scale-bounded strategy explicit instead of leaving it as an inferred implementation detail.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove a waiting duplicate update cannot rewrite queued `start` work into `reembed` for a root that has never been ingested. Purpose: keep the mixed-state queue transition guard explicit.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove queued start rows remain visible in the repo list even though they are no longer legal re-embed targets. Purpose: preserve the visibility contract while narrowing selection.
+14. [ ] Test maintenance. Location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/reingestExecution.test.ts`. Description: if an existing queued-row visibility or selector-validation test is reused, split or rename it so “still visible” and “not submittable for re-embed” remain separate claimed invariants. Purpose: stop a reused test title from claiming only visibility while its assertions also cover stale selector rejection.
+15. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired selector, visibility, and queue-owner proof files. Purpose: keep final close-out citations inspectable.
 
 #### Testing
 
@@ -6585,6 +6593,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 - The cancel e2e test no longer depends on `page.waitForTimeout(1_000)` before clicking the cancel button.
 - The replacement coordination step uses the existing deterministic UI or state boundaries already present in the scenario: `waitForInProgress(page)`, visible `Run ID`, non-empty `ingest-current-file`, and the enabled cancel button.
 - The proof does not reuse stale pre-terminal UI state: if the run leaves the in-progress state before cancel is clicked, the scenario must resynchronize or fail instead of treating an old enabled-button observation as current truth.
+- The browser proof stays self-isolated: it relies on wrapper-managed startup and teardown plus awaited terminal-state assertions instead of leaving shared queue state behind for later Playwright tests.
 - The browser proof still demonstrates that cancellation happens while the run is in progress, not after natural completion.
 - The maintained summary cites the strengthened proof owner and any retained screenshot or log paths used by the updated browser proof.
 
@@ -6600,6 +6609,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 - Deterministic pre-cancel readiness without `page.waitForTimeout(1_000)`: owned by `e2e/ingest.spec.ts`; prove with the targeted browser wrapper and retained output in `logs/test-summaries/e2e-tests-latest.log`.
 - Stale enabled-button or stale in-progress observations are not reused after the run transitions toward a terminal state: owned by `e2e/ingest.spec.ts`; prove with the same targeted browser scenario using current UI-state boundaries at click time.
+- Browser-proof teardown and shared-state isolation remain owned by the wrapper-managed e2e flow plus the scenario's awaited terminal assertions: prove with the full browser wrapper and retained output in `logs/test-summaries/e2e-tests-latest.log`.
 - Cancellation still happens while the run is observably in progress rather than after natural completion: owned by `e2e/ingest.spec.ts`; prove with the same targeted browser scenario plus any refreshed retained screenshot under `artifacts/story-0000055-screenshots`.
 
 #### Subtasks
@@ -6610,7 +6620,8 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 4. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: rewrite the pre-cancel readiness proof to wait on deterministic boundaries such as `waitForInProgress(page)`, visible `Run ID`, non-empty `ingest-current-file`, and the enabled cancel button before cancel is clicked. Purpose: prove the test is synchronized to observable in-progress state instead of a fixed sleep.
 5. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the scenario re-checks current in-progress boundaries immediately before the cancel click so a stale enabled-button or stale file-progress observation cannot drive the action after the run has already gone terminal. Purpose: cover the mixed-state stale-UI bug instead of only the happy-path readiness case.
 6. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove cancellation is triggered before natural completion by asserting the in-progress boundaries still hold at the click point and then observing the cancelled terminal state. Purpose: give the failure-ordering invariant its own proof home instead of folding it into the happy-path assertion.
-7. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: refresh the retained proof-home references if the deterministic cancel evidence produces new screenshot or log anchors. Purpose: keep the final proof narrative aligned to the repaired scenario.
+7. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: make awaited terminal-state completion and wrapper-owned teardown explicit so the cancel scenario does not leak shared queue state or stale browser observations into later tests. Purpose: pre-empt isolation and teardown review hotspots for a negative-assertion browser proof.
+8. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: refresh the retained proof-home references if the deterministic cancel evidence produces new screenshot or log anchors. Purpose: keep the final proof narrative aligned to the repaired scenario.
 
 #### Testing
 

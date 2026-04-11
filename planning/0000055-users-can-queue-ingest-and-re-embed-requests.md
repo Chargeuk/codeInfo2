@@ -6267,9 +6267,8 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` and confirm duplicate admission stays blocked when an earlier row is `cleanup-blocked`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm repo-list overlays keep the blocked row visible for the canonical target.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the `/ingest/roots` route still reports the same blocked-owner semantics after the queue repair.
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the queue-ownership and overlay repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes named in Subtasks 9 through 12. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6327,8 +6326,8 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts` and confirm approved fixture roots still clean up successfully.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts` and confirm the same file now also proves that an unknown root such as `/tmp/not-allowed` is rejected before destructive deletion runs.
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the cleanup-route guard changes.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated cleanup-route proof home in `server/src/test/integration/ingest-e2e-cleanup.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against that proof file before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6389,10 +6388,8 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` and confirm selector lists exclude never-ingested queued start rows.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts` and confirm direct re-embed execution still resolves only already-ingested roots.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm queued start requests cannot be silently rewritten into re-embed work for never-ingested roots.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm queued start rows remain visible in the repo list while re-embed targeting stays narrowed to already-ingested roots.
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the re-embed selector and queue-transition repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6445,8 +6442,8 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm malformed queued canonical fields are rejected during deferred execution.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` and confirm live admission still matches the same canonical-field validation contract.
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the deferred-validation repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6500,9 +6497,10 @@ This review-fix task restores one shared repo-list error contract across server 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the server still emits the normalized error shape the client consumes.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts` and confirm the shared repo-list payload remains stable across server surfaces.
-3. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the client now preserves the normalized error code from the real route payload.
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the shared repo-list error-contract repair.
+2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the `useIngestRoots()` normalization change.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+4. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the updated proof home in `client/src/test/useIngestRoots.test.tsx`. If the wrapper fails, diagnose with targeted wrapper reruns against that exact proof file before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6537,9 +6535,10 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Proof Mapping
 
-- `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` is restored as a symlink to `../recursive/test.bats`: prove with the exact symlink-and-target shell check in Testing 1.
-- `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` is restored as a symlink to `../recursive/subsuite/`: prove with the exact symlink-and-target shell check in Testing 2.
-- `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` is restored as a symlink to `./setup_file.bats`: prove with the exact symlink-and-target shell check in Testing 3.
+- The vendored Bats harness remains runnable after fixture restoration: prove with the shell summary wrapper in Testing 1.
+- `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` is restored as a symlink to `../recursive/test.bats`: prove with the exact symlink-and-target shell check in Testing 2.
+- `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` is restored as a symlink to `../recursive/subsuite/`: prove with the exact symlink-and-target shell check in Testing 3.
+- `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` is restored as a symlink to `./setup_file.bats`: prove with the exact symlink-and-target shell check in Testing 4.
 
 #### Subtasks
 
@@ -6557,9 +6556,10 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Testing
 
-1. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)\" = \"../recursive/test.bats\" ]` and confirm the path is restored as the correct symlink.
-2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)\" = \"../recursive/subsuite/\" ]` and confirm the path is restored as the correct symlink.
-3. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)\" = \"./setup_file.bats\" ]` and confirm the path is restored as the correct symlink.
+1. [ ] Run `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` and confirm the vendored Bats harness still passes after the fixture restoration. If the wrapper fails, inspect the emitted shell summary log before changing the fixture targets again.
+2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)\" = \"../recursive/test.bats\" ]` and confirm the path is restored as the correct symlink.
+3. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)\" = \"../recursive/subsuite/\" ]` and confirm the path is restored as the correct symlink.
+4. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)\" = \"./setup_file.bats\" ]` and confirm the path is restored as the correct symlink.
 
 #### Implementation notes
 
@@ -6610,7 +6610,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "cancel in-progress ingest shows cancelled"` and confirm the scenario passes without the fixed one-second delay.
+1. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes, including the updated cancel scenario and its refreshed retained proof artifacts. If the wrapper fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper reruns against `e2e/ingest.spec.ts` before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6646,10 +6646,10 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Proof Mapping
 
-- Shared schema-version consumption in `server/src/test/unit/tools-ingested-repos.test.ts`: owned by `common/src/lmstudio.ts`; prove with Testing 1.
-- Shared schema-version consumption in `server/src/test/unit/ingest-roots-dedupe.test.ts`: owned by `common/src/lmstudio.ts`; prove with Testing 2.
-- Shared schema-version consumption in `server/src/test/unit/mcp-ingested-repositories.test.ts`: owned by `common/src/lmstudio.ts`; prove with Testing 3.
-- Shared schema-version consumption in `client/src/test/useIngestRoots.test.tsx`: owned by `common/src/lmstudio.ts`; prove with Testing 4.
+- Shared schema-version consumption in `server/src/test/unit/tools-ingested-repos.test.ts`: owned by `common/src/lmstudio.ts`; prove through the full server unit wrapper in Testing 3.
+- Shared schema-version consumption in `server/src/test/unit/ingest-roots-dedupe.test.ts`: owned by `common/src/lmstudio.ts`; prove through the full server unit wrapper in Testing 3.
+- Shared schema-version consumption in `server/src/test/unit/mcp-ingested-repositories.test.ts`: owned by `common/src/lmstudio.ts`; prove through the full server unit wrapper in Testing 3.
+- Shared schema-version consumption in `client/src/test/useIngestRoots.test.tsx`: owned by `common/src/lmstudio.ts`; prove through the full client wrapper in Testing 4.
 
 #### Subtasks
 
@@ -6666,10 +6666,10 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm the shared schema-version contract still holds after the constant cleanup.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the route-facing proof now consumes the shared constant without losing schema-version coverage.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts` and confirm the same shared schema-version contract remains stable across the MCP-facing proof surface.
-4. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the client proof now consumes the shared constant without losing schema-version coverage.
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the shared schema-version cleanup.
+2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the shared schema-version cleanup.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+4. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the updated proof home in `client/src/test/useIngestRoots.test.tsx`. If the wrapper fails, diagnose with targeted wrapper reruns against that exact proof file before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -6712,10 +6712,10 @@ This final revalidation task closes the reopened review pass only after the revi
 
 - Server build, server unit, and server cucumber wrapper coverage for the reopened server seams from Tasks 79 through 84: prove with Testing 1, 3, and 4 plus retained logs in `logs/test-summaries`.
 - Client build and client test wrapper coverage for the shared repo-list and schema-version seams from Tasks 83 and 86: prove with Testing 2 and 5 plus retained logs in `logs/test-summaries`.
-- Main-stack compose startup, host-network smoke validation, and teardown after the review-created route and queue repairs: prove with Testing 6 through 9 plus retained logs in `logs/test-summaries`.
-- Full browser rerun for the deterministic cancel proof and broader Story 55 acceptance paths: prove with Testing 10 plus retained browser output in `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`.
-- Vendored fixture state remains correct at close-out: prove with Testing 11.
-- Review-artifact durability for this pass: owned by `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-*.md`; prove with Testing 12.
+- Full browser rerun for the deterministic cancel proof and broader Story 55 acceptance paths: prove with Testing 6 plus retained browser output in `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`.
+- Main-stack compose startup, host-network smoke validation, and teardown after the review-created route and queue repairs: prove with Testing 7 through 10 plus retained logs in `logs/test-summaries`.
+- Vendored Bats harness and restored fixture state remain correct at close-out: prove with Testing 11 and 12.
+- Review-artifact durability for this pass: owned by `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-*.md`; prove with Testing 13.
 
 #### Subtasks
 
@@ -6737,13 +6737,14 @@ This final revalidation task closes the reopened review pass only after the revi
 3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes cleanly after the review-created fixes from this pass.
 4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes cleanly after the review-created fixes from this pass.
 5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes cleanly after the review-created fixes from this pass.
-6. [ ] Run `npm run compose:build:summary` and confirm the normal main-stack compose build wrapper passes cleanly before runtime smoke validation.
-7. [ ] Run `npm run compose:up` and confirm the normal supported main stack starts through the repository's default compose path.
-8. [ ] Run `npm run test:summary:host-network:main` and confirm the live main-stack host-network probe passes against the started normal compose stack.
-9. [ ] Run `npm run compose:down` and confirm the normal supported main stack is shut down after smoke validation. If Testing 7 or 8 failed after the stack started, this shutdown step is still required before deeper diagnosis.
-10. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes from this pass.
-11. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` and confirm the restored vendor fixture paths are still symlinks at final close-out.
-12. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-evidence.md`, `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`, and `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md` still exist before final close-out.
+6. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes from this pass.
+7. [ ] Run `npm run compose:build:summary` and confirm the normal main-stack compose build wrapper passes cleanly before runtime smoke validation.
+8. [ ] Run `npm run compose:up` and confirm the normal supported main stack starts through the repository's default compose path.
+9. [ ] Run `npm run test:summary:host-network:main` and confirm the live main-stack host-network probe passes against the started normal compose stack.
+10. [ ] Run `npm run compose:down` and confirm the normal supported main stack is shut down after smoke validation. If Testing 8 or 9 failed after the stack started, this shutdown step is still required before deeper diagnosis.
+11. [ ] Run `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` and confirm the vendored Bats harness still passes with the restored fixture semantics at final close-out.
+12. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` and confirm the restored vendor fixture paths are still symlinks at final close-out.
+13. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-evidence.md`, `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`, and `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md` still exist before final close-out.
 
 #### Implementation notes
 

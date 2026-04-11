@@ -6160,17 +6160,17 @@ This task revalidates Story 55 after Tasks 63 through 77 land. It must prove the
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the review-created fixes from this pass.
-2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the review-created fixes from this pass.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes cleanly after the review-created fixes from this pass.
-4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes cleanly after the review-created fixes from this pass.
-5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes cleanly after the review-created fixes from this pass.
-6. [ ] Run `npm run compose:build:summary` and confirm the normal main-stack compose build wrapper passes cleanly before runtime smoke validation.
-7. [ ] Run `npm run compose:up` and confirm the normal supported main stack starts through the repository's default compose path.
-8. [ ] Run `npm run test:summary:host-network:main` and confirm the live main-stack host-network probe passes against the started normal compose stack.
-9. [ ] Run `npm run compose:down` and confirm the normal supported main stack is shut down after smoke validation. If Testing 7 or 8 failed after the stack started, this shutdown step is still required before deeper diagnosis.
-10. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes from this pass.
-11. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` still exist before final close-out.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the review-created fixes from this pass.
+2. [x] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the review-created fixes from this pass.
+3. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes cleanly after the review-created fixes from this pass.
+4. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes cleanly after the review-created fixes from this pass.
+5. [x] Run `npm run test:summary:client` and confirm the full client wrapper passes cleanly after the review-created fixes from this pass.
+6. [x] Run `npm run compose:build:summary` and confirm the normal main-stack compose build wrapper passes cleanly before runtime smoke validation.
+7. [x] Run `npm run compose:up` and confirm the normal supported main stack starts through the repository's default compose path.
+8. [x] Run `npm run test:summary:host-network:main` and confirm the live main-stack host-network probe passes against the started normal compose stack.
+9. [x] Run `npm run compose:down` and confirm the normal supported main stack is shut down after smoke validation. If Testing 7 or 8 failed after the stack started, this shutdown step is still required before deeper diagnosis.
+10. [x] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the review-created fixes from this pass.
+11. [x] Verify on disk that `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` still exist before final close-out.
 
 #### Implementation notes
 
@@ -6179,3 +6179,15 @@ This task revalidates Story 55 after Tasks 63 through 77 land. It must prove the
 - 2026-04-11 review-artifact checkpoint: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` from current disk before final validation. The findings still define the reopened owner block this task must cite, and the blind-spot challenge still records that no extra finding beyond that block was generated for this pass.
 - 2026-04-11 maintained-summary checkpoint: inspected `planning/0000055-pr-summary.md` and confirmed the current summary still has no section for review pass `0000055-20260409T201302Z-13774922`. The later summary update must therefore append a new `## Review follow-up after pass \`0000055-20260409T201302Z-13774922\`` section after the existing `## Review follow-up after pass \`0000055-20260408T005855Z-5f96266d\`` block and before `## Deliberate non-changes and remaining out-of-scope boundaries`.
 - 2026-04-11 proof-owner sweep: verified from current plan disk state that Tasks 63 through 77 are all `__done__`, that no standalone live `**BLOCKER**` note remains in those task sections, and that each task now names the proof-owner files or retained proof artifacts this final revalidation task will cite in `planning/0000055-pr-summary.md`. No wrapper-backed Testing steps were run in this implementation pass because Task 78's remaining wrapper chain belongs to the later automated-proof step.
+- 2026-04-11 Testing 1 passed: `npm run build:summary:server` finished cleanly with `warning_count: 0` and `agent_action: skip_log`; retained proof home `logs/test-summaries/build-server-latest.log`.
+- 2026-04-11 Testing 2 passed: `npm run build:summary:client` finished cleanly with `warning_count: 0` and `agent_action: skip_log`; retained proof home `logs/test-summaries/build-client-latest.log`.
+- 2026-04-11 Testing 3 repair: the first full `npm run test:summary:server:unit` run failed only at `flow stop during a looped flow prevents later iterations from continuing` because the test's teardown cleanup timeout was too tight under full-suite load. I updated `server/src/test/integration/flows.run.loop.test.ts` to wait up to 15 seconds for runtime cleanup before test-local memory cleanup, verified the seam with a targeted rerun of that single test, and then reran the full wrapper successfully.
+- 2026-04-11 Testing 3 passed: `npm run test:summary:server:unit` reran cleanly with `tests run: 1639`, `passed: 1639`, `failed: 0`, and `agent_action: skip_log`; retained proof home `test-results/server-unit-tests-2026-04-11T01-34-00-328Z.log`.
+- 2026-04-11 Testing 4 passed: `npm run test:summary:server:cucumber` finished cleanly with `tests run: 87`, `passed: 87`, `failed: 0`, and `agent_action: skip_log`; retained proof home `test-results/server-cucumber-tests-2026-04-11T01-52-48-523Z.log`.
+- 2026-04-11 Testing 5 passed: `npm run test:summary:client` finished cleanly with `tests run: 680`, `passed: 680`, `failed: 0`, and `agent_action: skip_log`; retained proof home `test-results/client-tests-2026-04-11T01-55-31-255Z.log`.
+- 2026-04-11 Testing 6 passed: `npm run compose:build:summary` finished cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`; retained proof home `logs/test-summaries/compose-build-latest.log`.
+- 2026-04-11 Testing 7 passed: `npm run compose:up` completed on the repository's default compose path with all eight stack services started, including `codeinfo2-server-1` reaching `Healthy` and `codeinfo2-client-1` reaching `Started`.
+- 2026-04-11 Testing 8 passed: `npm run test:summary:host-network:main` finished cleanly with all main-stack MCP endpoints reachable (`classicMcp`, `chatMcp`, `agentsMcp`, and `playwrightMcp` all HTTP 200); retained proof home `logs/test-summaries/host-network-main-latest.log`.
+- 2026-04-11 Testing 9 passed: `npm run compose:down` completed cleanly after the smoke probe, removing the started containers and the `codeinfo2_internal` network from the normal supported compose stack.
+- 2026-04-11 Testing 10 passed: `npm run test:summary:e2e` finished cleanly with `tests run: 49`, `passed: 49`, `failed: 0`, and `agent_action: skip_log`; retained proof home `logs/test-summaries/e2e-tests-latest.log`.
+- 2026-04-11 Testing 11 passed: direct on-disk existence checks confirmed `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-evidence.md`, `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md`, and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` are all still present for final close-out.

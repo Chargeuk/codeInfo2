@@ -1375,7 +1375,11 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         );
         recordCleanupEvent('before cleanupConversationRuntime', conversationId);
         try {
-          await cleanupConversationRuntime(conversationId);
+          try {
+            await waitForRuntimeCleanup(conversationId, 15000);
+          } finally {
+            cleanupMemory(conversationId);
+          }
           recordCleanupPhaseCheckpoint(
             'after cleanupConversationRuntime',
             conversationId,

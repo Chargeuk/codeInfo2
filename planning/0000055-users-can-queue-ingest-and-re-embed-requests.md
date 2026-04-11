@@ -6458,7 +6458,7 @@ This prerequisite task owns only the current regressed earlier full-suite `flows
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `82`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-11 by planner repair after Task 84's current `**BLOCKING ANSWER**` and live blocker state proved the fresh full `server:unit` failure again lives earlier in the re-regressed `flows.run.loop` cleanup lane before the cleanup-blocked queue proof can continue honestly.
 
 #### Overview
@@ -6512,6 +6512,7 @@ This fresh prerequisite task owns only the newly re-regressed earlier full-suite
 - 2026-04-11 subtask-required Testing 1: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-11T17-35-24-018Z.log`. This targeted wrapper was run during implementation because Subtask 3 explicitly requires the fresh targeted-versus-full comparison before any owner conclusion is honest.
 - 2026-04-11 subtask-required Testing 2: `npm run test:summary:server:unit` reached a terminal failure with `tests run: 1642`, `passed: 1641`, `failed: 1`, `agent_action: inspect_log`, and retained log `test-results/server-unit-tests-2026-04-11T17-35-51-868Z.log`. The full wrapper no longer fails in this bounded `flows.run.loop` lane; it advances to Task 84's named proof home, `cleanup-blocked duplicate reuse returns the blocked queue item instead of creating a later waiting owner`.
 - 2026-04-11 bounded comparison outcome: the exact targeted `flows.run.loop` rerun still passes cleanly on current `HEAD`, while the fresh full wrapper advances beyond this earlier lane and fails in Task 84's queue-owner proof home instead. That exhausts this re-regressed earlier `flows.run.loop` branch on current disk and closes Subtasks 3 and 4 on an honest handoff back to Task 84 rather than on another local cleanup-order repair.
+- 2026-04-11 implementation-plus-automated-proof audit: current disk evidence already shows all Task 83 subtasks and testing complete, no live standalone `**BLOCKER**` remains, and the bounded earlier-lane branch is honestly exhausted on the retained targeted and full wrapper results. The task is therefore closed as `__done__`, and Task 84 resumes as the next real owner.
 
 ### Task 84. Preserve Cleanup-Blocked Queue Ownership And Repo-List Overlay Integrity
 

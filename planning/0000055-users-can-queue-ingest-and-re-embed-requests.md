@@ -6249,10 +6249,18 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 #### Subtasks
 
-1. [ ] Re-read the current review findings and challenge notes, then inspect `findLiveQueueRequestForTarget(...)`, the live-target index/filter in `server/src/mongo/ingestQueueRequest.ts`, and the queue overlay ordering in `server/src/lmstudio/toolService.ts` before changing code.
-2. [ ] Update the queue admission and live-owner filtering so `cleanup-blocked` rows stay reusable duplicate owners for their canonical target until the blocker is cleared, including any persisted live-target uniqueness rule or selector that currently excludes that state.
-3. [ ] Update the repo-list overlay path so a later waiting request for the same canonical root cannot replace the blocked row's `requestId`, `queueState`, `status`, or `queuePosition` while the cleanup blocker is still active.
-4. [ ] Add or refresh direct proof in `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, and `server/src/test/unit/ingest-roots-dedupe.test.ts`, then record those exact proof owners in this plan and `planning/0000055-pr-summary.md`.
+1. [ ] Re-read the current cleanup-blocked finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: anchor the repair to the endorsed defect instead of the broader queue surface.
+2. [ ] Re-read the related blind-spot challenge notes in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md`. Purpose: keep the task aligned to the already-rejected sibling risks.
+3. [ ] Inspect `findLiveQueueRequestForTarget(...)` in `server/src/ingest/requestQueue.ts`. Purpose: confirm where live duplicate ownership currently excludes `cleanup-blocked`.
+4. [ ] Inspect the live-target index or equivalent live-owner filter in `server/src/mongo/ingestQueueRequest.ts`. Purpose: identify the persisted uniqueness seam that must match the in-memory duplicate-owner rule.
+5. [ ] Update `server/src/ingest/requestQueue.ts` so `cleanup-blocked` rows remain reusable duplicate owners for their canonical target until the blocker is cleared. Purpose: stop admission from creating a second queue row that hides the blocked owner.
+6. [ ] Update `server/src/mongo/ingestQueueRequest.ts` so the persisted live-target selector treats `waiting`, `running`, and `cleanup-blocked` as one ownership set where Story 55 requires a single visible owner. Purpose: keep storage-level ownership consistent with queue admission.
+7. [ ] Inspect the queue overlay ordering in `server/src/lmstudio/toolService.ts`. Purpose: confirm where a later waiting row currently replaces blocked-row metadata.
+8. [ ] Update `server/src/lmstudio/toolService.ts` so a later waiting request for the same canonical root cannot replace the blocked row's `requestId`, `queueState`, `status`, or `queuePosition` while the cleanup blocker is active. Purpose: preserve the visible blocked state promised by the story.
+9. [ ] Extend `server/src/test/unit/ingest-request-queue.test.ts` with direct proof that duplicate admission reuses or blocks against an earlier `cleanup-blocked` row. Purpose: give the queue-owner rule one focused regression seam.
+10. [ ] Extend `server/src/test/unit/tools-ingested-repos.test.ts` with direct proof that repo-list overlays keep the blocked row visible when a later waiting request targets the same root. Purpose: prove the overlay precedence repair at the server list-builder seam.
+11. [ ] Extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with direct proof that `/ingest/roots` still surfaces the blocked owner after the queue repair. Purpose: prove the route-facing contract, not just helper behavior.
+12. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired owner files and proof files. Purpose: keep final close-out citations inspectable.
 
 #### Testing
 
@@ -6299,10 +6307,16 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 #### Subtasks
 
-1. [ ] Re-read the current cleanup-route finding, inspect `server/src/routes/ingestE2eCleanup.ts`, and inspect the current e2e caller path in `e2e/ingest.spec.ts` before changing the route so the fix stays inside the intended e2e-only authority boundary.
-2. [ ] Add an explicit `/fixtures/repo` prefix or equivalent approved-root validation step ahead of queue/root deletion and make the route return a rejected response before any destructive helper runs for unknown roots.
-3. [ ] Update or add direct cleanup-route proof in `server/src/test/integration/ingest-e2e-cleanup.test.ts` for both the allowed fixture-root path and an explicit rejected unknown-root path without widening the task into unrelated server cleanup behavior.
-4. [ ] Refresh the maintained summary to name the approved cleanup-route ownership seam and the retained proof file(s).
+1. [ ] Re-read the cleanup-route finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task scoped to the endorsed authority-boundary defect.
+2. [ ] Inspect `server/src/routes/ingestE2eCleanup.ts`. Purpose: identify the exact point where the caller-controlled `:root` crosses into destructive helpers.
+3. [ ] Inspect the current e2e caller path in `e2e/ingest.spec.ts`. Purpose: confirm the supported mounted fixture root the route must continue to allow.
+4. [ ] Add an approved-root validation helper or equivalent guard in `server/src/routes/ingestE2eCleanup.ts` that accepts only `/fixtures/repo` and descendants. Purpose: make the route's allowed-root contract explicit in code.
+5. [ ] Gate `deleteWaitingQueueRequestsByTargetPath()` behind that approved-root validation. Purpose: prevent queue deletion for unknown roots.
+6. [ ] Gate `removeRoot()` behind that approved-root validation. Purpose: prevent destructive root deletion for unknown roots.
+7. [ ] Add the explicit rejected-route response shape for unknown roots in `server/src/routes/ingestE2eCleanup.ts`. Purpose: make the rejection path inspectable and testable.
+8. [ ] Extend `server/src/test/integration/ingest-e2e-cleanup.test.ts` with direct proof that the allowed fixture-root path still succeeds. Purpose: preserve the intended e2e cleanup capability.
+9. [ ] Extend `server/src/test/integration/ingest-e2e-cleanup.test.ts` with direct proof that an unknown root such as `/tmp/not-allowed` is rejected before either destructive helper runs. Purpose: prove the new authority boundary directly.
+10. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the approved-root contract and exact proof file. Purpose: keep final validation citations honest.
 
 #### Testing
 
@@ -6349,10 +6363,17 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 
 #### Subtasks
 
-1. [ ] Re-read the re-embed selector finding, then inspect `buildRetryLists(...)`, the direct route lookup in `server/src/routes/ingestReembed.ts`, and the waiting-duplicate update path in `server/src/ingest/requestQueue.ts` before changing selector or route logic.
-2. [ ] Narrow `buildRetryLists(...)` and the route lookup so only rows backed by an already-ingested repository root remain reembeddable, while queued start rows without persisted ingest ownership stay visible but non-reingestable.
-3. [ ] Guard the waiting-duplicate update path so a queued `start` request cannot be rewritten into `reembed` for a root that has never been ingested.
-4. [ ] Add or refresh direct proof in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`, then record those exact proof owners in this plan and `planning/0000055-pr-summary.md`.
+1. [ ] Re-read the re-embed selector finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task anchored to the never-ingested queued-row defect.
+2. [ ] Inspect `buildRetryLists(...)` in `server/src/ingest/reingestService.ts`. Purpose: identify where queued start rows are currently treated as reingestable.
+3. [ ] Inspect the direct route lookup in `server/src/routes/ingestReembed.ts`. Purpose: identify the route seam that must reject never-ingested queued rows.
+4. [ ] Inspect the waiting-duplicate update path in `server/src/ingest/requestQueue.ts`. Purpose: identify where queued `start` work can currently be rewritten into `reembed`.
+5. [ ] Update `server/src/ingest/reingestService.ts` so `buildRetryLists(...)` exposes only already-ingested roots as reembeddable. Purpose: keep queued start visibility without widening re-embed eligibility.
+6. [ ] Update `server/src/routes/ingestReembed.ts` so direct route targeting rejects never-ingested queued rows. Purpose: align the route contract with the selector contract.
+7. [ ] Update `server/src/ingest/requestQueue.ts` so a queued `start` request cannot be rewritten into `reembed` for a root that has never been ingested. Purpose: stop the duplicate-update seam from silently changing operation type.
+8. [ ] Extend `server/src/test/unit/reingestService.test.ts` with direct proof that selector lists exclude never-ingested queued start rows. Purpose: prove the list/selection seam directly.
+9. [ ] Extend `server/src/test/unit/reingestExecution.test.ts` with direct proof that direct re-embed execution still resolves only already-ingested roots. Purpose: prove the route-facing execution contract.
+10. [ ] Extend `server/src/test/unit/ingest-reembed.test.ts` with direct proof that queued start requests cannot be rewritten into re-embed work for never-ingested roots. Purpose: prove the duplicate-update guard directly.
+11. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired selector and queue-owner proof files. Purpose: keep final close-out citations inspectable.
 
 #### Testing
 
@@ -6398,10 +6419,14 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Subtasks
 
-1. [ ] Re-read the validation-drift finding and inspect the current `toQueueManagedInput()` normalization path plus the shared canonical-field validator before changing runtime validation code.
-2. [ ] Update deferred queue execution so malformed canonical embedding fields such as `embeddingProvider: "bogus"` or `embeddingModel: ""` stay visible to the shared validator instead of being stripped first.
-3. [ ] Add or refresh direct proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for mixed canonical-plus-legacy queued payloads and startup-recovered queued requests so the deferred path now fails where live admission would fail.
-4. [ ] Refresh the maintained summary with the repaired validation owner and exact proof homes.
+1. [ ] Re-read the deferred-validation finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task scoped to admission-vs-execution drift.
+2. [ ] Inspect `toQueueManagedInput()` in `server/src/ingest/ingestJob.ts`. Purpose: identify exactly where malformed canonical fields are dropped before shared validation.
+3. [ ] Inspect the shared canonical-field validator in `server/src/ingest/requestContracts.ts`. Purpose: keep the deferred path aligned to the same live-admission rule.
+4. [ ] Update `server/src/ingest/ingestJob.ts` so malformed canonical fields such as `embeddingProvider: "bogus"` remain visible to the shared validator. Purpose: stop the deferred path from silently falling back to the legacy `model`.
+5. [ ] Update `server/src/ingest/ingestJob.ts` so malformed canonical fields such as `embeddingModel: ""` remain visible to the shared validator. Purpose: preserve the same rejection boundary for blank canonical model input.
+6. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` with direct proof for a queued mixed-shape payload that uses a bogus canonical provider plus a legacy `model`. Purpose: prove the deferred path no longer downgrades that malformed shape.
+7. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` with direct proof for a queued mixed-shape payload that uses a blank canonical `embeddingModel` plus a legacy `model`. Purpose: prove the second mixed-shape rejection branch directly.
+8. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the repaired validation owner and exact proof homes. Purpose: keep the final validation narrative inspectable.
 
 #### Testing
 
@@ -6447,10 +6472,14 @@ This review-fix task restores one shared repo-list error contract across server 
 
 #### Subtasks
 
-1. [ ] Re-read the server/client contract-drift finding and inspect both the current producer and consumer before editing the contract consumers.
-2. [ ] Keep the server's flat normalized error payload and update `client/src/hooks/useIngestRoots.ts` so the client reads the route payload's `error` field into `NormalizedIngestError.code`.
-3. [ ] Replace any client-only mock payloads in `client/src/test/useIngestRoots.test.tsx` with the real flat normalized route payload shape emitted by the server proof.
-4. [ ] Refresh the maintained summary so it cites the final shared error contract owner and the retained proof homes.
+1. [ ] Re-read the repo-list error-contract finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task scoped to the endorsed producer-consumer drift.
+2. [ ] Inspect the server-side normalized error producer in `server/src/lmstudio/toolService.ts`. Purpose: confirm the flat `{ error, message, retryable, provider, details?, status? }` shape that the client must consume.
+3. [ ] Inspect `normalizeError(...)` in `client/src/hooks/useIngestRoots.ts`. Purpose: identify where the client currently drops the route payload's `error` field.
+4. [ ] Update `client/src/hooks/useIngestRoots.ts` so `normalizeError(...)` maps the route payload's `error` field into `NormalizedIngestError.code`. Purpose: realign the consumer with the shared server payload.
+5. [ ] Adjust any related client-side typing or normalization helpers in `client/src/hooks/useIngestRoots.ts` that still assume `error.code`. Purpose: keep the client contract internally consistent after the field mapping change.
+6. [ ] Extend or refresh `server/src/test/unit/ingest-roots-dedupe.test.ts` with direct proof for the flat normalized error payload shape. Purpose: retain one server-side proof of the producer contract.
+7. [ ] Replace any client-only mock payloads in `client/src/test/useIngestRoots.test.tsx` with the real flat normalized route payload shape emitted by the server proof. Purpose: prove the client against the actual shared contract.
+8. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the final shared error-contract owner and proof files. Purpose: keep final close-out citations honest.
 
 #### Testing
 
@@ -6495,9 +6524,14 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Subtasks
 
-1. [ ] Re-read the vendored-fixture finding and inspect the current fixture types before changing the vendor paths so this repair stays limited to the unrelated artifact drift.
-2. [ ] Restore the affected vendored fixture paths to their intended symlink targets `../recursive/test.bats`, `../recursive/subsuite/`, and `./setup_file.bats` without widening the task into broader vendor updates.
-3. [ ] Record the exact restored fixture paths and proof commands in this plan and `planning/0000055-pr-summary.md`.
+1. [ ] Re-read the vendored-fixture finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep this task limited to the unrelated artifact drift.
+2. [ ] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`. Purpose: confirm the exact drift before restoring it.
+3. [ ] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`. Purpose: confirm the exact drift before restoring it.
+4. [ ] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`. Purpose: confirm the exact drift before restoring it.
+5. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` to the symlink target `../recursive/test.bats`. Purpose: repair the first broken vendor fixture seam.
+6. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` to the symlink target `../recursive/subsuite/`. Purpose: repair the second broken vendor fixture seam.
+7. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` to the symlink target `./setup_file.bats`. Purpose: repair the third broken vendor fixture seam.
+8. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact restored fixture paths and proof commands. Purpose: keep the artifact cleanup traceable at close-out.
 
 #### Testing
 
@@ -6540,9 +6574,11 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 #### Subtasks
 
-1. [ ] Re-read the cancel-proof finding and inspect the current browser scenario for the strongest existing deterministic boundary that proves the run is still active before cancellation.
-2. [ ] Remove `page.waitForTimeout(1_000)` from the cancel scenario and replace it with the already-available deterministic readiness checks in that same test without broadening the task into unrelated browser-flow changes.
-3. [ ] Refresh any retained screenshot or proof-home notes in this plan and `planning/0000055-pr-summary.md` if the browser proof surface changes.
+1. [ ] Re-read the cancel-proof finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task focused on proof quality rather than product behavior.
+2. [ ] Inspect the `cancel in-progress ingest shows cancelled` scenario in `e2e/ingest.spec.ts`. Purpose: identify the exact fixed-delay seam and the deterministic boundaries already present in the test.
+3. [ ] Remove `page.waitForTimeout(1_000)` from that cancel scenario. Purpose: eliminate the arbitrary timing gate the review flagged.
+4. [ ] Strengthen the same scenario's pre-cancel readiness checks in `e2e/ingest.spec.ts` using the existing deterministic boundaries already present there. Purpose: keep the proof tied to observable in-progress state.
+5. [ ] Refresh any retained screenshot or proof-home notes in this plan and `planning/0000055-pr-summary.md` if the browser proof surface changes. Purpose: keep the final proof narrative aligned to the repaired scenario.
 
 #### Testing
 
@@ -6586,9 +6622,16 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Subtasks
 
-1. [ ] Re-read the optional-simplification finding and inspect the remaining literal schema-version copies in `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `client/src/test/useIngestRoots.test.tsx`.
-2. [ ] Replace the remaining proof-surface literals in those files with `INGEST_ROOTS_SCHEMA_VERSION` wherever the shared constant is already available without widening into unrelated schema or API work.
-3. [ ] Refresh the maintained summary to cite the shared constant owner and the updated proof files.
+1. [ ] Re-read the schema-version simplification finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the cleanup localized to the endorsed shared-contract proof surface.
+2. [ ] Inspect the remaining literal schema-version copies in `server/src/test/unit/tools-ingested-repos.test.ts`. Purpose: isolate the first server proof seam to update.
+3. [ ] Replace the remaining literal schema-version copies in `server/src/test/unit/tools-ingested-repos.test.ts` with `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: move that proof file back to the shared constant owner.
+4. [ ] Inspect the remaining literal schema-version copies in `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: isolate the route-facing proof seam to update.
+5. [ ] Replace the remaining literal schema-version copies in `server/src/test/unit/ingest-roots-dedupe.test.ts` with `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: move that proof file back to the shared constant owner.
+6. [ ] Inspect the remaining literal schema-version copies in `server/src/test/unit/mcp-ingested-repositories.test.ts`. Purpose: isolate the MCP-facing proof seam to update.
+7. [ ] Replace the remaining literal schema-version copies in `server/src/test/unit/mcp-ingested-repositories.test.ts` with `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: move that proof file back to the shared constant owner.
+8. [ ] Inspect the remaining literal schema-version copies in `client/src/test/useIngestRoots.test.tsx`. Purpose: isolate the client proof seam to update.
+9. [ ] Replace the remaining literal schema-version copies in `client/src/test/useIngestRoots.test.tsx` with `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: move that proof file back to the shared constant owner.
+10. [ ] Refresh the maintained summary to cite the shared constant owner and the updated proof files. Purpose: keep final validation citations aligned to the simplified contract.
 
 #### Testing
 
@@ -6641,9 +6684,13 @@ This final revalidation task closes the reopened review pass only after the revi
 
 #### Subtasks
 
-1. [ ] Re-read Tasks 79 through 86 from the canonical plan before any final wrapper work so this close-out stays anchored to the exact review-created owners and retained proof files.
-2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md` and `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md` before final validation so the close-out carries forward the endorsed findings and residual-risk notes honestly.
-3. [ ] Before any wrapper reruns, inspect `planning/0000055-pr-summary.md` and confirm the insertion point for the required `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section so the final close-out stays ready to record the retained proof homes from this pass.
+1. [ ] Re-read Tasks 79 and 80 from the canonical plan before any final wrapper work. Purpose: anchor the close-out to the queue-ownership and cleanup-route repairs first.
+2. [ ] Re-read Tasks 81 and 82 from the canonical plan before any final wrapper work. Purpose: anchor the close-out to the re-embed-selector and deferred-validation repairs next.
+3. [ ] Re-read Tasks 83 and 84 from the canonical plan before any final wrapper work. Purpose: anchor the close-out to the shared-error-contract and vendored-fixture repairs next.
+4. [ ] Re-read Tasks 85 and 86 from the canonical plan before any final wrapper work. Purpose: anchor the close-out to the browser-proof and shared-schema-constant repairs next.
+5. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md` before final validation. Purpose: carry the endorsed findings into the final close-out honestly.
+6. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md` before final validation. Purpose: carry the residual-risk notes into the final close-out honestly.
+7. [ ] Inspect `planning/0000055-pr-summary.md` and confirm the insertion point for the required `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section before any wrapper reruns. Purpose: keep the final summary update ready to record current proof homes from this pass.
 
 #### Testing
 

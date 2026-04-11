@@ -6655,7 +6655,7 @@ This fresh prerequisite task owns only the newly re-re-regressed earlier full-su
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `85`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-11 by planner repair after Task 87's current `**RESOLVED ISSUE**` plus current `**BLOCKING ANSWER**` proved the newest full `server:unit` rerun still fails in the earlier `flows.run.loop` cleanup lane before any remaining cleanup-blocked queue proof home is reached.
 
 #### Overview
@@ -6708,6 +6708,7 @@ This fresh prerequisite task owns only the newest earlier `flows.run.loop` contr
 - 2026-04-11 Testing 1: ran `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` because Subtask 3 explicitly requires the targeted-versus-full wrapper comparison. The targeted wrapper passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-11T22-08-09-451Z.log`.
 - 2026-04-11 Testing 2: ran `npm run test:summary:server:unit` to complete Subtask 3's bounded targeted-versus-full comparison, and the full wrapper passed cleanly with `tests run: 1643`, `passed: 1643`, `failed: 0`, retained log `test-results/server-unit-tests-2026-04-11T22-08-35-168Z.log`.
 - 2026-04-11 bounded owner conclusion: the fresh targeted-versus-full comparison from current `HEAD` no longer reproduces any Task 86-local cleanup owner at all. The targeted `flows.run.loop` proof stayed green and the full `server:unit` wrapper baseline is clean on current disk again, so this newest earlier cleanup lane is exhausted cleanly without any further Task 86 code change. Subtasks 3 and 4 therefore close as an exhausted-branch resolution, and execution can hand forward to Task 87's remaining wrapper proof gates.
+- 2026-04-11 implementation-plus-automated-proof audit: current disk already shows all Task 86 subtasks and both testing steps complete, no live standalone `**BLOCKER**` note remains, and the retained targeted plus full wrapper logs already prove the exhausted-branch conclusion. Task 86 therefore closes as `__done__`, and execution can move forward to Task 87's remaining wrapper proof gates.
 
 ### Task 87. Preserve Cleanup-Blocked Queue Ownership And Repo-List Overlay Integrity
 

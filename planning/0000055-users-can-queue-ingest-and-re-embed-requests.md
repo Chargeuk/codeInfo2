@@ -6334,7 +6334,7 @@ This prerequisite task owned only the full `server:unit` non-terminal boundary t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `80`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-11 by planner repair after Task 80's current `**BLOCKING ANSWER**` proved the fresh full `server:unit` failure now lives earlier in the reopened `flows.run.loop` cleanup lane before the cleanup-blocked queue proof can continue honestly.
 
 #### Overview
@@ -6390,6 +6390,7 @@ This prerequisite task owns only the current earlier full-suite `flows.run.loop`
 - 2026-04-11 implementation: `server/src/flows/service.ts` now preserves a pending stop request that arrives after an `ok` instruction finishes instead of clearing it during `runFlowInstruction` cleanup. The earlier Task 81 wrapper evidence is no longer current after this bounded cleanup-order repair, so Testing 1 and Testing 2 were unchecked before fresh reruns.
 - 2026-04-11 Testing 1 rerun after cleanup-order repair: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-11T15-28-14-017Z.log`.
 - 2026-04-11 Testing 2 rerun after cleanup-order repair: `npm run test:summary:server:unit` reached a terminal failure with `agent_action: inspect_log`, retained log `test-results/server-unit-tests-2026-04-11T15-28-37-958Z.log`, and no longer failed in this task's bounded owner lane. The same full wrapper now records `ok 280 - flow stop during a looped flow prevents later iterations from continuing` and first fails later at `not ok 896 - cleanup-blocked duplicate reuse returns the blocked queue item instead of creating a later waiting owner`, so this task closes Subtask 4 on an exhausted-branch handoff to Task 82 instead of widening the `flows.run.loop` lane again.
+- 2026-04-11 automated-proof audit normalization: Task 81 now closes as `__done__` because Subtasks 1 through 4 and Testing 1 through 2 are all checked, no live standalone `**BLOCKER**` remains, and the retained full-wrapper proof explicitly hands execution forward to Task 82's cleanup-blocked queue-owner lane.
 
 ### Task 82. Preserve Cleanup-Blocked Queue Ownership And Repo-List Overlay Integrity
 

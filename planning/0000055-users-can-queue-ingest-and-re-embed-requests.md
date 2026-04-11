@@ -5951,7 +5951,7 @@ This prerequisite owns only the Docker environment surfaces needed before the re
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `75`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Re-owned to `__to_do__` on 2026-04-11 by planner repair after the active blocker answer proved the next missing capability is Docker registry reachability outside the repo-owned client-install seam. The earlier repo-owned npm retry and timeout repair remains on disk; this task now waits to resume only after Task 75 clears the external prerequisite.
 
 #### Overview
@@ -6006,6 +6006,7 @@ This follow-up task no longer owns Docker daemon/Desktop DNS, proxy, auth, or mi
 - **BLOCKING ANSWER** Chosen fix and why it fits current local repo state: do not add more repo code changes under Task 76 unless a later rerun proves the failure has moved back into the bounded client-image install seam. The honest next action is to rerun `npm run compose:e2e:build` or the targeted `npm run test:summary:e2e` unchanged when external connectivity is healthy; if the same `auth.docker.io` / Docker Hub metadata timeout recurs, repair the Docker environment outside this repo-owned seam by configuring supported daemon or Desktop DNS/proxy settings, authenticating to Docker Hub with `docker login`, or using a Docker/BuildKit registry mirror. That fits current local state because the allowed repo files can influence npm install reliability inside the client build layer, but they do not control Docker daemon or Desktop registry-auth metadata resolution for `node:22-slim` or `docker/dockerfile:1.7`.
 - **BLOCKING ANSWER** Rejected alternatives are not suitable: more npm fetch-tuning in `client/Dockerfile` does not fix a failure that happens before the relevant Dockerfile layer executes; more `RootsTable`, Jest, Playwright, or screenshot work would be dishonest because the wrapper never reaches browser execution; ad hoc sleeps or unsupported retry loops in repo code would hide an environment-level owner instead of using Docker's supported DNS/proxy/login/mirror surfaces; and marking Testing 1 or Testing 2 complete would be false while the wrapper is still blocked before Task 77's proof seam.
 - Planner repair on 2026-04-11 narrowed this task to the repo-owned compose-build handoff that resumes after Task 75 proves Docker registry reachability. This task now waits as `__to_do__` instead of remaining the highest active blocked owner.
+- 2026-04-11 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 76 section from disk after commit `e9142b25`, confirmed Subtasks 1 through 4 plus Testing 1 and 2 already honestly match current repo evidence, and verified that no live `**BLOCKER**` note remains on this task. Closed Task 76 as `__done__`; Task 77 is now the next owner for the remaining browser-proof close-out.
 
 ### Task 77. Align `RootsTable` Bulk Re-Embed Affordances And Batch Refresh Behavior
 

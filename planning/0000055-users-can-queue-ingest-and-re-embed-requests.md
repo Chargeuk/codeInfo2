@@ -5888,7 +5888,7 @@ This task removes the accidental zero-byte root artifacts that are currently tra
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `74`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-11 by planner repair after Task 76's blocker answer proved the next missing capability is Docker registry auth and metadata reachability outside the repo-owned client-install seam.
 
 #### Overview
@@ -5944,6 +5944,7 @@ This prerequisite owns only the Docker environment surfaces needed before the re
 - 2026-04-11 mitigation checkpoint: no daemon/Desktop DNS, proxy, login, or mirror change was needed because the bounded direct Docker probes already succeeded from the current machine, so Subtask 3 closes without widening into environment churn.
 - 2026-04-11 compose-handoff checkpoint: `npm run compose:e2e:build` completed successfully after the direct Docker probes, building both `codeinfo2-client-e2e` and `codeinfo2-server-e2e` without stopping in Docker Hub auth or metadata resolution. Testing 2 is honestly complete, and the red path has now moved past the external registry prerequisite.
 - 2026-04-11 handoff conclusion: Task 75 no longer owns the active blocker on current machine because direct Docker registry reachability and the resumed compose-build handoff are both green. The next honest owner is Task 76, which now resumes the repo-owned compose-build follow-up from current disk.
+- 2026-04-11 implementation-plus-automated-proof audit: re-read `codeInfoStatus/flow-state/current-plan.json` and this exact Task 75 section from disk after commit `c859ec8a`, confirmed Subtasks 1 through 5 plus Testing 1 and 2 already honestly match current repo evidence, and verified that no live `**BLOCKER**` note remains on this task. Closed Task 75 as `__done__`; Task 76 is now the next owner for the resumed repo-owned compose-build follow-up.
 
 ### Task 76. Resume E2E Compose-Build Client Install Handoff After Docker Registry Access Is Healthy
 

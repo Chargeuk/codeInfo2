@@ -6615,10 +6615,10 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 #### Proof Mapping
 
-- Deterministic pre-cancel readiness without `page.waitForTimeout(1_000)`: owned by `e2e/ingest.spec.ts`; prove with the targeted browser wrapper and retained output in `logs/test-summaries/e2e-tests-latest.log`.
-- Stale enabled-button or stale in-progress observations are not reused after the run transitions toward a terminal state: owned by `e2e/ingest.spec.ts`; prove with the same targeted browser scenario using current UI-state boundaries at click time.
+- Deterministic pre-cancel readiness without `page.waitForTimeout(1_000)`: owned by `e2e/ingest.spec.ts`; prove with the full browser wrapper in Testing 1 and retained output in `logs/test-summaries/e2e-tests-latest.log`.
+- Stale enabled-button or stale in-progress observations are not reused after the run transitions toward a terminal state: owned by `e2e/ingest.spec.ts`; prove with the same full browser wrapper using current UI-state boundaries at click time.
 - Browser-proof teardown and shared-state isolation remain owned by the wrapper-managed e2e flow plus the scenario's awaited terminal assertions: prove with the full browser wrapper and retained output in `logs/test-summaries/e2e-tests-latest.log`.
-- Cancellation still happens while the run is observably in progress rather than after natural completion: owned by `e2e/ingest.spec.ts`; prove with the same targeted browser scenario plus any refreshed retained screenshot under `artifacts/story-0000055-screenshots`.
+- Cancellation still happens while the run is observably in progress rather than after natural completion: owned by `e2e/ingest.spec.ts`; prove with the same full browser wrapper plus any refreshed retained screenshot under `artifacts/story-0000055-screenshots`.
 
 #### Subtasks
 

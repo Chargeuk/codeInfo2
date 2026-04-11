@@ -676,10 +676,12 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
         if (cancelled.ok) {
           const ownership = getActiveRunOwnership(message.conversationId);
           if (ownership) {
+            // Preserve the stop across the ownership-only handoff after the
+            // current inflight is cleaned up so the next bound inflight can
+            // still consume it.
             registerPendingConversationCancel({
               conversationId: message.conversationId,
               runToken: ownership.runToken,
-              boundInflightId: cancelled.inflightId,
             });
           }
           logPublish('DEV-0000049:T03:stop_path_registered', {

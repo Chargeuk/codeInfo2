@@ -11,6 +11,7 @@ import WebSocket, { type RawData } from 'ws';
 
 import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
 import {
+  getPendingConversationCancel,
   cleanupInflight,
   createInflight,
 } from '../../chat/inflightRegistry.js';
@@ -18,6 +19,11 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
 import {
   __resetIngestJobsForTest,
   __setStatusAndPublishForTest,
@@ -927,6 +933,59 @@ test('WS explicit cancel for an active command-step inflight stops the command r
     await closeWs(ws);
     await stopServer(server);
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('WS conversation-only cancel keeps pending stop across aborted inflight cleanup while ownership remains', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-conversation-pending-handoff';
+  const inflightId = 'inflight-pending-handoff';
+
+  try {
+    assert.equal(tryAcquireConversationLock(conversationId), true);
+    const ownership = getActiveRunOwnership(conversationId);
+    assert.ok(ownership);
+
+    const inflight = createInflight({
+      conversationId,
+      inflightId,
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      source: 'REST',
+    });
+
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+
+    const deadline = Date.now() + 1000;
+    while (
+      !inflight.abortController.signal.aborted &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(inflight.abortController.signal.aborted, true);
+
+    const pendingBeforeCleanup = getPendingConversationCancel(conversationId);
+    assert.ok(pendingBeforeCleanup);
+    assert.equal(pendingBeforeCleanup.runToken, ownership.runToken);
+    assert.equal(pendingBeforeCleanup.boundInflightId, undefined);
+
+    cleanupInflight({ conversationId, inflightId });
+
+    const pendingAfterCleanup = getPendingConversationCancel(conversationId);
+    assert.ok(pendingAfterCleanup);
+    assert.equal(pendingAfterCleanup.runToken, ownership.runToken);
+    assert.equal(pendingAfterCleanup.boundInflightId, undefined);
+  } finally {
+    cleanupInflight({ conversationId });
+    releaseConversationLock(conversationId);
+    await closeWs(ws);
+    await stopServer(server);
   }
 });
 

@@ -395,6 +395,102 @@ test('GET /ingest/roots keeps queue document fields authoritative when persisted
   });
 });
 
+test('GET /ingest/roots keeps the blocked owner when a later waiting request targets the same root', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000079'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'start',
+              queueState: 'cleanup-blocked',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                description: 'blocked owner',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: 'run-blocked-later-waiting',
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000080'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                description: 'later waiting row',
+                model: 'waiting-model',
+                embeddingProvider: 'openai',
+                embeddingModel: 'waiting-model',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:01:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:01:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('run-blocked-later-waiting', {
+    runId: 'run-blocked-later-waiting',
+    state: 'cleanup-blocked',
+    counts: { files: 11, chunks: 22, embedded: 33 },
+    lastError: 'Queue cleanup blocked',
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'embed-model',
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+          },
+        ],
+      },
+      'embed-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots.length, 1);
+  const root = response.body.roots[0];
+  assert.equal(root.requestId, '000000000000000000000079');
+  assert.equal(root.runId, 'run-blocked-later-waiting');
+  assert.equal(root.queueState, 'cleanup-blocked');
+  assert.equal(root.queuePosition, null);
+  assert.equal(root.status, 'error');
+  assert.equal(root.lastError, 'Queue cleanup blocked');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('GET /ingest/roots serializes one authoritative row when duplicate metadata and queue overlay target the same path', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

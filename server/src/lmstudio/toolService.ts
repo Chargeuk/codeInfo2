@@ -734,6 +734,39 @@ function applyWaitingQueueRequestMetadata(
   };
 }
 
+function getQueueOverlayPrecedence(
+  queueState: IngestQueueState | null | undefined,
+) {
+  switch (queueState) {
+    case 'cleanup-blocked':
+      return 3;
+    case 'running':
+      return 2;
+    case 'waiting':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function shouldApplyQueueOverlay(
+  repo: RepoEntry,
+  queueRequest: IngestQueueRequest,
+) {
+  if (!repo.requestId || !repo.queueState) {
+    return true;
+  }
+
+  if (repo.requestId === queueRequest._id.toString()) {
+    return true;
+  }
+
+  return (
+    getQueueOverlayPrecedence(queueRequest.queueState) >=
+    getQueueOverlayPrecedence(repo.queueState)
+  );
+}
+
 function applyQueueOverlay(params: {
   repo: RepoEntry;
   queueRequest: IngestQueueRequest;
@@ -1180,6 +1213,10 @@ export async function listIngestedRepositories(
       queueRequest.canonicalTargetPath,
       payloadPath,
     ]);
+
+    if (!shouldApplyQueueOverlay(repo, queueRequest)) {
+      continue;
+    }
 
     applyQueueOverlay({
       repo,

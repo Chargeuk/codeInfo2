@@ -22,7 +22,7 @@ export type EnqueueIngestRequestInput = {
 export type EnqueueIngestRequestResult = {
   requestId: string;
   canonicalTargetPath: string;
-  queueState: 'waiting' | 'running';
+  queueState: IngestQueueState;
   queuePosition: number | null;
   runId: string | null;
   reusedExisting: boolean;
@@ -38,6 +38,12 @@ export type QueueRequestDocumentFilter = {
 
 export const QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE =
   'QUEUE_REQUEST_UPDATED_IN_PLACE';
+
+const liveQueueStatesForTarget = [
+  'waiting',
+  'running',
+  'cleanup-blocked',
+] as const satisfies IngestQueueState[];
 
 function createQueueUnavailableError(): EnqueueQueueUnavailableError {
   const error = new Error(
@@ -92,14 +98,24 @@ function buildQueueResult(params: {
   return {
     requestId: toRequestId(params.queueRequest._id),
     canonicalTargetPath: params.queueRequest.canonicalTargetPath,
-    queueState:
-      params.queueRequest.queueState === 'running' ? 'running' : 'waiting',
+    queueState: params.queueRequest.queueState,
     queuePosition: params.queuePosition,
     runId: params.queueRequest.runId ?? null,
     reusedExisting: params.reusedExisting,
     updatedExisting: params.updatedExisting,
     queueRequest: params.queueRequest,
   };
+}
+
+async function findLiveQueueRequestForTarget(
+  canonicalTargetPath: string,
+): Promise<IngestQueueRequest | null> {
+  return IngestQueueRequestModel.findOne({
+    canonicalTargetPath,
+    queueState: { $in: liveQueueStatesForTarget },
+  })
+    .sort({ queueState: 1, createdAt: 1, _id: 1 })
+    .exec();
 }
 
 export async function enqueueOrReuseIngestRequest(
@@ -134,15 +150,17 @@ export async function enqueueOrReuseIngestRequest(
     });
   }
 
-  const runningRequest = await IngestQueueRequestModel.findOne({
-    canonicalTargetPath: input.canonicalTargetPath,
-    queueState: 'running',
-  }).exec();
+  const liveRequest = await findLiveQueueRequestForTarget(
+    input.canonicalTargetPath,
+  );
 
-  if (runningRequest) {
+  if (liveRequest) {
     return buildQueueResult({
-      queueRequest: runningRequest,
-      queuePosition: null,
+      queueRequest: liveRequest,
+      queuePosition:
+        liveRequest.queueState === 'waiting'
+          ? await countOlderWaitingRequests(liveRequest)
+          : null,
       reusedExisting: true,
       updatedExisting: false,
     });
@@ -188,15 +206,17 @@ export async function enqueueOrReuseIngestRequest(
       });
     }
 
-    const racedRunningRequest = await IngestQueueRequestModel.findOne({
-      canonicalTargetPath: input.canonicalTargetPath,
-      queueState: 'running',
-    }).exec();
+    const racedLiveRequest = await findLiveQueueRequestForTarget(
+      input.canonicalTargetPath,
+    );
 
-    if (racedRunningRequest) {
+    if (racedLiveRequest) {
       return buildQueueResult({
-        queueRequest: racedRunningRequest,
-        queuePosition: null,
+        queueRequest: racedLiveRequest,
+        queuePosition:
+          racedLiveRequest.queueState === 'waiting'
+            ? await countOlderWaitingRequests(racedLiveRequest)
+            : null,
         reusedExisting: true,
         updatedExisting: false,
       });

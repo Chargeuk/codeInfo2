@@ -87,7 +87,17 @@ test('ingest queue model uses timestamps and explicit target plus FIFO indexes',
       ([fields, options]: [QueueIndexFields, Record<string, unknown>]) =>
         fields.canonicalTargetPath === 1 &&
         options.unique === true &&
-        options.name === 'ingest_queue_live_target_unique_idx',
+        options.name === 'ingest_queue_live_target_unique_idx' &&
+        Array.isArray(
+          (
+            options.partialFilterExpression as
+              | { queueState?: { $in?: unknown[] } }
+              | undefined
+          )?.queueState?.$in,
+        ) &&
+        (
+          options.partialFilterExpression as { queueState?: { $in?: unknown[] } }
+        ).queueState?.$in?.includes('cleanup-blocked'),
     ),
   );
   assert.ok(
@@ -116,7 +126,9 @@ test('fresh insert creates a waiting queue record and surfaces the Mongo _id as 
     exec: async () => null,
   }));
   mock.method(IngestQueueRequestModel, 'findOne', () => ({
-    exec: async () => null,
+    sort: () => ({
+      exec: async () => null,
+    }),
   }));
 
   const result = await enqueueOrReuseIngestRequest(buildInput());
@@ -317,7 +329,9 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
     },
   );
   mock.method(IngestQueueRequestModel, 'findOne', () => ({
-    exec: async () => null,
+    sort: () => ({
+      exec: async () => null,
+    }),
   }));
   mock.method(
     IngestQueueRequestModel,
@@ -403,7 +417,9 @@ test('running duplicate reuse returns the existing running queue item without mu
     IngestQueueRequestModel,
     'findOne',
     () => ({
-      exec: async () => running,
+      sort: () => ({
+        exec: async () => running,
+      }),
     }),
   );
 
@@ -429,6 +445,54 @@ test('running duplicate reuse returns the existing running queue item without mu
     embeddingModel: 'text-embedding-3-small',
   });
   assert.equal(runningLookupMock.mock.calls.length, 1);
+});
+
+test('cleanup-blocked duplicate reuse returns the blocked queue item instead of creating a later waiting owner', async () => {
+  const blocked = createQueueRequest({
+    queueState: 'cleanup-blocked',
+    operation: 'start',
+    runId: '00000000-0000-0000-0000-000000000654',
+  });
+
+  mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
+    exec: async () => null,
+  }));
+  const liveLookupMock = mock.method(IngestQueueRequestModel, 'findOne', () => ({
+    sort: () => ({
+      exec: async () => blocked,
+    }),
+  }));
+  const createMock = mock.method(
+    IngestQueueRequestModel,
+    'create',
+    async () => {
+      throw new Error('cleanup-blocked duplicate should not create a new row');
+    },
+  );
+
+  const result = await enqueueOrReuseIngestRequest(
+    buildInput({
+      operation: 'reembed',
+      requestPayload: {
+        model: 'nomic-embed',
+        embeddingProvider: 'lmstudio',
+        embeddingModel: 'nomic-embed',
+      },
+    }),
+  );
+
+  assert.equal(result.requestId, blocked._id.toString());
+  assert.equal(result.queueState, 'cleanup-blocked');
+  assert.equal(result.queuePosition, null);
+  assert.equal(result.runId, '00000000-0000-0000-0000-000000000654');
+  assert.equal(result.updatedExisting, false);
+  assert.deepEqual(result.queueRequest.requestPayload, {
+    model: 'openai/text-embedding-3-small',
+    embeddingProvider: 'openai',
+    embeddingModel: 'text-embedding-3-small',
+  });
+  assert.equal(liveLookupMock.mock.calls.length, 1);
+  assert.equal(createMock.mock.calls.length, 0);
 });
 
 test('waiting queue position counts only older waiting items and uses countDocuments instead of loading the full queue', async () => {

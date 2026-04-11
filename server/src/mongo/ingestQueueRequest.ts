@@ -50,7 +50,7 @@ ingestQueueRequestSchema.index(
     name: 'ingest_queue_live_target_unique_idx',
     unique: true,
     partialFilterExpression: {
-      queueState: { $in: ['waiting', 'running'] },
+      queueState: { $in: ['waiting', 'running', 'cleanup-blocked'] },
     },
   },
 );

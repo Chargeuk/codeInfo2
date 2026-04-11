@@ -490,6 +490,108 @@ test('waiting duplicate overlay prefers the latest queued provider and model met
   });
 });
 
+test('cleanup-blocked overlay stays authoritative when a later waiting request targets the same root', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000079'),
+              canonicalTargetPath: '/data/repo-one',
+              operation: 'start',
+              queueState: 'cleanup-blocked',
+              requestPayload: {
+                path: '/data/repo-one',
+                name: 'repo-one',
+                description: 'blocked description',
+                model: 'blocked-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'blocked-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: 'blocked-run-79',
+              createdAt: new Date('2026-04-09T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-09T00:00:00.000Z'),
+            },
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000080'),
+              canonicalTargetPath: '/data/repo-one',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo-one',
+                name: 'repo-one',
+                description: 'later waiting description',
+                model: 'waiting-model',
+                embeddingProvider: 'openai',
+                embeddingModel: 'waiting-model',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-09T00:01:00.000Z'),
+              updatedAt: new Date('2026-04-09T00:01:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('blocked-run-79', {
+    runId: 'blocked-run-79',
+    state: 'cleanup-blocked',
+    counts: { files: 11, chunks: 22, embedded: 33 },
+    lastError: 'Queue cleanup blocked',
+  });
+
+  const res = await request(
+    buildApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            root: '/data/repo-one',
+            name: 'repo-one',
+            description: 'stale persisted description',
+            model: 'text-embed-old',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'text-embed-old',
+            embeddingDimensions: 768,
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+          },
+        ],
+      },
+      'text-embed-old',
+    ),
+  ).get('/tools/ingested-repos');
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.repos.length, 1);
+  const repo = res.body.repos[0];
+  assert.equal(repo.requestId, '000000000000000000000079');
+  assert.equal(repo.runId, 'blocked-run-79');
+  assert.equal(repo.queueState, 'cleanup-blocked');
+  assert.equal(repo.queuePosition, null);
+  assert.equal(repo.status, 'error');
+  assert.equal(repo.lastError, 'Queue cleanup blocked');
+  assert.equal(repo.description, 'stale persisted description');
+  assert.equal(repo.embeddingModel, 'text-embed-old');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('suppresses DEV-0000038 T5 marker logs by default and emits them when the marker gate is enabled', async () => {
   const originalInfo = baseLogger.info;
   const loggedMessages: string[] = [];

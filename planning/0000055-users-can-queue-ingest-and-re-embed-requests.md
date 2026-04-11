@@ -6715,7 +6715,7 @@ This fresh prerequisite task owns only the newest earlier `flows.run.loop` contr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `86`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that `cleanup-blocked` queue rows are neither treated as live duplicates nor protected from being overwritten by a later waiting overlay for the same canonical target. Re-owned to `__to_do__` on 2026-04-11 by planner repair after the current earlier-lane prerequisite again proved a fresh `flows.run.loop` owner must land before this task's remaining wrapper proof can continue honestly. Re-owned to `__to_do__` again on 2026-04-11 after the newest full-wrapper rerun proved the remaining red path still belongs to a fresh earlier `flows.run.loop` prerequisite rather than to another local queue-owner change.
 
 #### Overview
@@ -6811,6 +6811,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
   Chosen fix: keep Task 87's automated proof as the honest proof owner and treat the current manual proof blocker as a plan-shape issue, not as missing queue implementation. This fits the current local repo state because current `HEAD` already has the task-owned code repaired and both wrapper proofs green, while the remaining manual-proof ask depends on a state that the supported product/runtime surfaces cannot create without test-only seeding or admin-only fault injection. Rejected alternatives are not suitable: do not seed Mongo directly during “manual” proof, do not add an undocumented route just to manufacture `cleanup-blocked`, do not rely on screenshots of unrelated waiting rows, and do not use ad hoc failpoint or shell commands outside a repo-owned seam. Those options would invent unsupported setup instead of proving the story through the surfaces this repository actually supports.
 - 2026-04-11 planner repair after the current manual blocker answer: the live blocker is retired because the current `**BLOCKING ANSWER**` proves this is a manual-testing limitation, not remaining Task 87 implementation work. Current `HEAD` already has all Task 87 subtasks plus build, full server-unit, and full server-cucumber proof complete, and there is no supported runtime path to materialize `cleanup-blocked` manually without test-only seeding or admin-only fault injection. Task 87 therefore remains `__in_progress__` only so the normal final audit path can close it honestly without reintroducing an unsupported manual-proof gate.
+- 2026-04-11 implementation-plus-automated-proof audit after the manual-proof-boundary repair: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 87 section, the latest current-repo commits, and the retained wrapper logs from disk, then confirmed there is no honest remaining checklist or blocker gate. Task 87 already has all subtasks complete, Testing 1 through Testing 3 are already green on current `HEAD`, the manual blocker is retired into `**RESOLVED ISSUE**`, and the remaining prose-only note about a “final audit path” is not an honest open owner. Task 87 therefore closes as `__done__`.
 
 ### Task 88. Harden The E2E Cleanup Route To Known-Root Ownership
 

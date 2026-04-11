@@ -6244,8 +6244,10 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 #### Proof Mapping
 
-- Cleanup-blocked duplicate admission and live-target ownership: owned by `server/src/ingest/requestQueue.ts` and `server/src/mongo/ingestQueueRequest.ts`; prove with targeted server unit coverage.
-- Repo-list overlay precedence for blocked rows: owned by `server/src/lmstudio/toolService.ts`; prove with targeted repo-list and `/ingest/roots` tests.
+- Cleanup-blocked duplicate admission for one canonical target: owned by `server/src/ingest/requestQueue.ts`; prove in `server/src/test/unit/ingest-request-queue.test.ts`.
+- Persisted live-target ownership across `waiting`, `running`, and `cleanup-blocked`: owned by `server/src/mongo/ingestQueueRequest.ts`; prove through the same duplicate-owner regression in `server/src/test/unit/ingest-request-queue.test.ts`.
+- Repo-list overlay precedence for a blocked row versus a later waiting row on the same root: owned by `server/src/lmstudio/toolService.ts`; prove in `server/src/test/unit/tools-ingested-repos.test.ts`.
+- `/ingest/roots` blocked-owner visibility after the overlay repair: owned by the repo-list route surface and shared list builder; prove in `server/src/test/unit/ingest-roots-dedupe.test.ts`.
 
 #### Subtasks
 
@@ -6302,8 +6304,10 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 #### Proof Mapping
 
-- Known-root validation for the cleanup route: owned by `server/src/routes/ingestE2eCleanup.ts`; prove with focused cleanup-route integration coverage.
-- Downstream destructive deletion remains bounded to approved roots: owned by the same route plus the retained cleanup helpers; prove with rejection-path tests.
+- Allowed cleanup for `/fixtures/repo` and its descendants: owned by `server/src/routes/ingestE2eCleanup.ts`; prove in `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
+- Unknown-root rejection before `deleteWaitingQueueRequestsByTargetPath()` runs: owned by `server/src/routes/ingestE2eCleanup.ts`; prove in `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
+- Unknown-root rejection before `removeRoot()` runs: owned by `server/src/routes/ingestE2eCleanup.ts`; prove in `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
+- Route rejection contract for normalized-but-outside paths such as `/fixtures/repo/../outside` or `/tmp/not-allowed`: owned by `server/src/routes/ingestE2eCleanup.ts`; prove in `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
 
 #### Subtasks
 
@@ -6355,11 +6359,14 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 - `server/src/test/unit/reingestService.test.ts`
 - `server/src/test/unit/reingestExecution.test.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/tools-ingested-repos.test.ts`
 
 #### Proof Mapping
 
-- Re-embed selector filtering and route lookup: owned by `server/src/ingest/reingestService.ts` and `server/src/routes/ingestReembed.ts`; prove with focused reingest tests.
-- Queue duplicate updates remain operation-safe for never-ingested rows: owned by `server/src/ingest/requestQueue.ts`; prove with queue/request tests.
+- Re-embed selector lists exclude never-ingested queued start rows: owned by `server/src/ingest/reingestService.ts`; prove in `server/src/test/unit/reingestService.test.ts`.
+- Direct route targeting rejects never-ingested queued rows instead of resolving them as re-embed sources: owned by `server/src/routes/ingestReembed.ts`; prove in `server/src/test/unit/reingestExecution.test.ts`.
+- Waiting duplicate updates cannot rewrite queued `start` work into `reembed` for a never-ingested root: owned by `server/src/ingest/requestQueue.ts`; prove in `server/src/test/unit/ingest-reembed.test.ts`.
+- Repo-list visibility for queued start rows remains intact while re-embed targeting narrows: owned by the shared repo-list builder surface; prove in `server/src/test/unit/tools-ingested-repos.test.ts`.
 
 #### Subtasks
 
@@ -6373,13 +6380,15 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 8. [ ] Extend `server/src/test/unit/reingestService.test.ts` with direct proof that selector lists exclude never-ingested queued start rows. Purpose: prove the list/selection seam directly.
 9. [ ] Extend `server/src/test/unit/reingestExecution.test.ts` with direct proof that direct re-embed execution still resolves only already-ingested roots. Purpose: prove the route-facing execution contract.
 10. [ ] Extend `server/src/test/unit/ingest-reembed.test.ts` with direct proof that queued start requests cannot be rewritten into re-embed work for never-ingested roots. Purpose: prove the duplicate-update guard directly.
-11. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired selector and queue-owner proof files. Purpose: keep final close-out citations inspectable.
+11. [ ] Extend `server/src/test/unit/tools-ingested-repos.test.ts` with direct proof that queued start rows remain visible in the repo list even though they are no longer legal re-embed targets. Purpose: keep the visibility contract explicit instead of implied.
+12. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired selector, visibility, and queue-owner proof files. Purpose: keep final close-out citations inspectable.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` and confirm selector lists exclude never-ingested queued start rows.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts` and confirm direct re-embed execution still resolves only already-ingested roots.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` and confirm queued start requests cannot be silently rewritten into re-embed work for never-ingested roots.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm queued start rows remain visible in the repo list while re-embed targeting stays narrowed to already-ingested roots.
 
 #### Implementation notes
 
@@ -6414,8 +6423,9 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Proof Mapping
 
-- Deferred queue execution and startup recovery validation: owned by `server/src/ingest/ingestJob.ts`; prove with queue-runtime tests.
-- Live admission parity for canonical field validation: owned by `server/src/ingest/requestContracts.ts`; prove with admission-focused server tests.
+- Deferred execution rejects `embeddingProvider: "bogus"` plus legacy `model` instead of falling back: owned by `server/src/ingest/ingestJob.ts`; prove in `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- Deferred execution rejects blank canonical `embeddingModel` plus legacy `model` instead of falling back: owned by `server/src/ingest/ingestJob.ts`; prove in `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- Shared canonical-field validation remains owned by `server/src/ingest/requestContracts.ts` for both live admission and deferred execution: prove live-admission parity in `server/src/test/unit/ingest-start.test.ts`.
 
 #### Subtasks
 
@@ -6467,8 +6477,9 @@ This review-fix task restores one shared repo-list error contract across server 
 
 #### Proof Mapping
 
-- Normalized error production for the repo list: owned by `server/src/lmstudio/toolService.ts`; prove with server route/unit tests.
-- Normalized error consumption in the client hook: owned by `client/src/hooks/useIngestRoots.ts`; prove with client hook tests using the actual route payload shape.
+- Flat normalized repo-list error production on `/ingest/roots`: owned by `server/src/lmstudio/toolService.ts`; prove in `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+- MCP-facing repo-list payload stability for the same normalized error fields: owned by the shared server list surface; prove in `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- Client consumption of the flat `error` field into `NormalizedIngestError.code`: owned by `client/src/hooks/useIngestRoots.ts`; prove in `client/src/test/useIngestRoots.test.tsx` using the server-shaped payload.
 
 #### Subtasks
 
@@ -6520,7 +6531,9 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Proof Mapping
 
-- Vendored fixture type restoration: owned by the checked-in fixture paths under `scripts/test/bats/vendor/bats-core/test/fixtures`; prove with direct on-disk symlink checks.
+- `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` is restored as a symlink to `../recursive/test.bats`: prove with the exact symlink-and-target shell check in Testing 1.
+- `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` is restored as a symlink to `../recursive/subsuite/`: prove with the exact symlink-and-target shell check in Testing 2.
+- `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` is restored as a symlink to `./setup_file.bats`: prove with the exact symlink-and-target shell check in Testing 3.
 
 #### Subtasks
 
@@ -6567,10 +6580,12 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 - `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`
 - `e2e/ingest.spec.ts`
 - `artifacts/story-0000055-screenshots`
+- `logs/test-summaries/e2e-tests-latest.log`
 
 #### Proof Mapping
 
-- Deterministic cancel-proof coordination: owned by `e2e/ingest.spec.ts`; prove with the targeted browser wrapper for the cancel scenario.
+- Deterministic pre-cancel readiness without `page.waitForTimeout(1_000)`: owned by `e2e/ingest.spec.ts`; prove with the targeted browser wrapper and retained output in `logs/test-summaries/e2e-tests-latest.log`.
+- Cancellation still happens while the run is observably in progress rather than after natural completion: owned by `e2e/ingest.spec.ts`; prove with the same targeted browser scenario plus any refreshed retained screenshot under `artifacts/story-0000055-screenshots`.
 
 #### Subtasks
 
@@ -6618,7 +6633,10 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Proof Mapping
 
-- Shared schema-version proof contract: owned by `common/src/lmstudio.ts`; prove with the refreshed server and client tests that now consume the shared constant.
+- Shared schema-version consumption in `server/src/test/unit/tools-ingested-repos.test.ts`: owned by `common/src/lmstudio.ts`; prove with Testing 1.
+- Shared schema-version consumption in `server/src/test/unit/ingest-roots-dedupe.test.ts`: owned by `common/src/lmstudio.ts`; prove with Testing 2.
+- Shared schema-version consumption in `server/src/test/unit/mcp-ingested-repositories.test.ts`: owned by `common/src/lmstudio.ts`; prove with Testing 3.
+- Shared schema-version consumption in `client/src/test/useIngestRoots.test.tsx`: owned by `common/src/lmstudio.ts`; prove with Testing 4.
 
 #### Subtasks
 
@@ -6679,8 +6697,12 @@ This final revalidation task closes the reopened review pass only after the revi
 
 #### Proof Mapping
 
-- Full wrapper proof chain after the review-created fixes: owned by the reopened task proof files plus the repository wrapper scripts; prove with the Testing section below.
-- Review-artifact durability for this pass: owned by `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-*.md`; prove with direct on-disk checks.
+- Server build, server unit, and server cucumber wrapper coverage for the reopened server seams from Tasks 79 through 84: prove with Testing 1, 3, and 4 plus retained logs in `logs/test-summaries`.
+- Client build and client test wrapper coverage for the shared repo-list and schema-version seams from Tasks 83 and 86: prove with Testing 2 and 5 plus retained logs in `logs/test-summaries`.
+- Main-stack compose startup, host-network smoke validation, and teardown after the review-created route and queue repairs: prove with Testing 6 through 9 plus retained logs in `logs/test-summaries`.
+- Full browser rerun for the deterministic cancel proof and broader Story 55 acceptance paths: prove with Testing 10 plus retained browser output in `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`.
+- Vendored fixture state remains correct at close-out: prove with Testing 11.
+- Review-artifact durability for this pass: owned by `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-*.md`; prove with Testing 12.
 
 #### Subtasks
 

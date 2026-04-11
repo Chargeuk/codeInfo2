@@ -6225,7 +6225,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 #### Task Exit Criteria
 
 - Queue admission treats `cleanup-blocked` rows as live duplicate owners for the same canonical target instead of creating a second request that can hide the blocked row.
-- The live-target uniqueness rule used by the queue model includes the blocked state wherever the story contract requires a single visible owner for one canonical root.
+- The live-target uniqueness rule or equivalent live-owner selector used by the queue model treats `waiting`, `running`, and `cleanup-blocked` as one canonical-target ownership set wherever the story contract requires a single visible owner for one root.
 - `/ingest/roots` and the shared repo-list builder preserve the blocked row's visible error state, request identity, and queue ownership instead of letting a later waiting overlay replace it.
 - Direct server tests prove that a cleanup-blocked row remains the visible owner and duplicate admission target until the cleanup blocker is cleared.
 
@@ -6249,10 +6249,10 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 #### Subtasks
 
-1. [ ] Re-read the current review findings and challenge notes for the cleanup-blocked duplicate/overlay seam before editing queue or repo-list code so the repair stays anchored to the endorsed defect.
-2. [ ] Update the queue admission and live-target ownership logic so `cleanup-blocked` rows remain duplicate owners for their canonical target until the blocker is cleared.
-3. [ ] Update the repo-list overlay path so a later waiting request cannot overwrite the visible blocked row state for the same canonical root.
-4. [ ] Add or refresh direct server proof for blocked-row duplicate admission and blocked-row overlay precedence, then record the exact proof owners in this plan and `planning/0000055-pr-summary.md`.
+1. [ ] Re-read the current review findings and challenge notes, then inspect `findLiveQueueRequestForTarget(...)`, the live-target index/filter in `server/src/mongo/ingestQueueRequest.ts`, and the queue overlay ordering in `server/src/lmstudio/toolService.ts` before changing code.
+2. [ ] Update the queue admission and live-owner filtering so `cleanup-blocked` rows stay reusable duplicate owners for their canonical target until the blocker is cleared, including any persisted live-target uniqueness rule or selector that currently excludes that state.
+3. [ ] Update the repo-list overlay path so a later waiting request for the same canonical root cannot replace the blocked row's `requestId`, `queueState`, `status`, or `queuePosition` while the cleanup blocker is still active.
+4. [ ] Add or refresh direct proof in `server/src/test/unit/ingest-request-queue.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, and `server/src/test/unit/ingest-roots-dedupe.test.ts`, then record those exact proof owners in this plan and `planning/0000055-pr-summary.md`.
 
 #### Testing
 
@@ -6273,13 +6273,13 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 #### Overview
 
-This review-fix task narrows the e2e cleanup route back to its intended authority boundary. The route may stay available for the shared e2e stack, but it must only delete queue/root state for approved known roots instead of blindly trusting any normalized path string a caller provides.
+This review-fix task narrows the e2e cleanup route back to its intended authority boundary. The route may stay available for the shared e2e stack, but it must only delete queue/root state for the mounted e2e fixture root `/fixtures/repo` and descendants under that root instead of blindly trusting any normalized path string a caller provides.
 
 #### Task Exit Criteria
 
-- The e2e cleanup route rejects caller-supplied roots that are not explicitly allowed by the supported fixture/known-root contract.
-- Destructive queue deletion and `removeRoot()` are only reached for approved known roots.
-- Direct tests cover both allowed known-root cleanup and rejected unknown-root cleanup requests.
+- The e2e cleanup route rejects caller-supplied roots that are not under the approved mounted e2e fixture root `/fixtures/repo`.
+- `deleteWaitingQueueRequestsByTargetPath()` and `removeRoot()` are only reached for approved known roots.
+- Direct tests cover both allowed fixture-root cleanup and rejected unknown-root cleanup requests in the same route test file.
 - The route contract and any supporting env/config seam remain explicit and documented in code, tests, and the maintained summary.
 
 #### Documentation Locations
@@ -6299,15 +6299,15 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 #### Subtasks
 
-1. [ ] Re-read the current cleanup-route finding and inspect the current known-root sources before changing the route so the fix stays inside the intended e2e-only authority boundary.
-2. [ ] Add an explicit known-root or approved-fixture validation step ahead of queue/root deletion and keep the rejection path honest for unknown roots.
-3. [ ] Update or add direct cleanup-route proof for both allowed and rejected roots without widening the task into unrelated server cleanup behavior.
+1. [ ] Re-read the current cleanup-route finding, inspect `server/src/routes/ingestE2eCleanup.ts`, and inspect the current e2e caller path in `e2e/ingest.spec.ts` before changing the route so the fix stays inside the intended e2e-only authority boundary.
+2. [ ] Add an explicit `/fixtures/repo` prefix or equivalent approved-root validation step ahead of queue/root deletion and make the route return a rejected response before any destructive helper runs for unknown roots.
+3. [ ] Update or add direct cleanup-route proof in `server/src/test/integration/ingest-e2e-cleanup.test.ts` for both the allowed fixture-root path and an explicit rejected unknown-root path without widening the task into unrelated server cleanup behavior.
 4. [ ] Refresh the maintained summary to name the approved cleanup-route ownership seam and the retained proof file(s).
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts` and confirm approved fixture roots still clean up successfully.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts --test-name unknown` if a named rejection case is added, or rerun the same file wrapper after adding the rejection proof, and confirm unknown roots are rejected before destructive deletion runs.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts` and confirm the same file now also proves that an unknown root such as `/tmp/not-allowed` is rejected before destructive deletion runs.
 
 #### Implementation notes
 
@@ -6349,10 +6349,10 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 
 #### Subtasks
 
-1. [ ] Re-read the re-embed selector finding and inspect the current queue-aware repo-list path before changing selector or route logic.
-2. [ ] Narrow the selector and route lookup so only already-ingested roots are reembeddable, even when queued start rows remain visible in the repo list.
-3. [ ] Guard the waiting-duplicate update path so queued `start` work cannot be rewritten into `reembed` for a never-ingested row.
-4. [ ] Add or refresh direct proof for selector filtering, direct route rejection, and duplicate-operation safety, then record the exact proof owners in this plan and `planning/0000055-pr-summary.md`.
+1. [ ] Re-read the re-embed selector finding, then inspect `buildRetryLists(...)`, the direct route lookup in `server/src/routes/ingestReembed.ts`, and the waiting-duplicate update path in `server/src/ingest/requestQueue.ts` before changing selector or route logic.
+2. [ ] Narrow `buildRetryLists(...)` and the route lookup so only rows backed by an already-ingested repository root remain reembeddable, while queued start rows without persisted ingest ownership stay visible but non-reingestable.
+3. [ ] Guard the waiting-duplicate update path so a queued `start` request cannot be rewritten into `reembed` for a root that has never been ingested.
+4. [ ] Add or refresh direct proof in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`, then record those exact proof owners in this plan and `planning/0000055-pr-summary.md`.
 
 #### Testing
 
@@ -6377,9 +6377,9 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Task Exit Criteria
 
-- Deferred queue execution rejects malformed canonical `embeddingProvider` and `embeddingModel` combinations the same way live admission does.
-- `toQueueManagedInput()` or its successor no longer drops malformed canonical fields before shared validation can see them.
-- Direct tests cover startup recovery or promoted queued records that contain mixed canonical-plus-legacy fields and confirm they fail instead of silently falling back.
+- Deferred queue execution rejects malformed canonical `embeddingProvider` and `embeddingModel` combinations the same way live admission does, including mixed-shape queued payloads such as `embeddingProvider: "bogus"` or `embeddingModel: ""` paired with a legacy `model`.
+- `toQueueManagedInput()` no longer drops malformed canonical fields before shared validation can see them.
+- Direct tests cover startup recovery or promoted queued records that contain those mixed canonical-plus-legacy fields and confirm they fail instead of silently falling back.
 - The resulting validation ownership is documented in code and the maintained summary so later queue/runtime work does not reintroduce this admission-vs-execution drift.
 
 #### Documentation Locations
@@ -6398,9 +6398,9 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Subtasks
 
-1. [ ] Re-read the validation-drift finding and inspect the current `toQueueManagedInput()` normalization path before changing runtime validation code.
-2. [ ] Update deferred queue execution so malformed canonical embedding fields stay visible to the shared validator instead of being stripped first.
-3. [ ] Add or refresh direct proof for mixed canonical-plus-legacy queued payloads and startup-recovered queued requests so the deferred path now fails where live admission would fail.
+1. [ ] Re-read the validation-drift finding and inspect the current `toQueueManagedInput()` normalization path plus the shared canonical-field validator before changing runtime validation code.
+2. [ ] Update deferred queue execution so malformed canonical embedding fields such as `embeddingProvider: "bogus"` or `embeddingModel: ""` stay visible to the shared validator instead of being stripped first.
+3. [ ] Add or refresh direct proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for mixed canonical-plus-legacy queued payloads and startup-recovered queued requests so the deferred path now fails where live admission would fail.
 4. [ ] Refresh the maintained summary with the repaired validation owner and exact proof homes.
 
 #### Testing
@@ -6421,12 +6421,12 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Overview
 
-This review-fix task restores one shared repo-list error contract across server and client. The repair can land on either side of the boundary, but the final contract must be explicit, consistently emitted, consistently consumed, and directly proved by tests that use the real route payload shape instead of a client-only mock variant.
+This review-fix task restores one shared repo-list error contract across server and client. The server already emits the flat normalized shape `{ error, message, retryable, provider, details?, status? }`; this task keeps that producer contract and updates the client normalization plus its proof so the consumer reads the same flat shape instead of a client-only `error.code` variant.
 
 #### Task Exit Criteria
 
-- The server and client agree on one normalized repo-list error shape for `/ingest/roots`.
-- `useIngestRoots()` or the shared producer no longer drops the normalized error code when handling real route payloads.
+- The server and client agree on the flat normalized repo-list error shape `{ error, message, retryable, provider, details?, status? }` for `/ingest/roots`.
+- `useIngestRoots()` reads the route payload's `error` field into the normalized client error code instead of dropping it.
 - Direct tests prove both the server emission shape and the client normalization path against the same contract.
 - The maintained summary cites the shared contract owner and the refreshed proof files.
 
@@ -6447,9 +6447,9 @@ This review-fix task restores one shared repo-list error contract across server 
 
 #### Subtasks
 
-1. [ ] Re-read the server/client contract-drift finding and inspect both the current producer and consumer before choosing the final shared error shape.
-2. [ ] Update the server emission, the client normalization, or both so the repo-list error contract is once again shared and explicit.
-3. [ ] Replace any client-only mock payloads in the direct proof with the real normalized route payload shape.
+1. [ ] Re-read the server/client contract-drift finding and inspect both the current producer and consumer before editing the contract consumers.
+2. [ ] Keep the server's flat normalized error payload and update `client/src/hooks/useIngestRoots.ts` so the client reads the route payload's `error` field into `NormalizedIngestError.code`.
+3. [ ] Replace any client-only mock payloads in `client/src/test/useIngestRoots.test.tsx` with the real flat normalized route payload shape emitted by the server proof.
 4. [ ] Refresh the maintained summary so it cites the final shared error contract owner and the retained proof homes.
 
 #### Testing
@@ -6475,9 +6475,9 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Task Exit Criteria
 
-- The affected vendored Bats fixture paths are restored to their intended symlink semantics.
+- The affected vendored Bats fixture paths are restored to their intended symlink semantics with the exact targets `../recursive/test.bats`, `../recursive/subsuite/`, and `./setup_file.bats`.
 - Story 55 no longer carries the unrelated `120000 => 100644` vendor-fixture drift identified by the review pass.
-- On-disk proof explicitly checks the restored symlink state for each affected fixture path.
+- On-disk proof explicitly checks both the restored symlink state and the restored symlink target for each affected fixture path.
 - The maintained summary records the retained proof paths used to show the artifact cleanup landed.
 
 #### Documentation Locations
@@ -6496,14 +6496,14 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 #### Subtasks
 
 1. [ ] Re-read the vendored-fixture finding and inspect the current fixture types before changing the vendor paths so this repair stays limited to the unrelated artifact drift.
-2. [ ] Restore the affected vendored fixture paths to their intended symlink semantics without widening the task into broader vendor updates.
+2. [ ] Restore the affected vendored fixture paths to their intended symlink targets `../recursive/test.bats`, `../recursive/subsuite/`, and `./setup_file.bats` without widening the task into broader vendor updates.
 3. [ ] Record the exact restored fixture paths and proof commands in this plan and `planning/0000055-pr-summary.md`.
 
 #### Testing
 
-1. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` and confirm the path is a symlink again.
-2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` and confirm the path is a symlink again.
-3. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` and confirm the path is a symlink again.
+1. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)\" = \"../recursive/test.bats\" ]` and confirm the path is restored as the correct symlink.
+2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)\" = \"../recursive/subsuite/\" ]` and confirm the path is restored as the correct symlink.
+3. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)\" = \"./setup_file.bats\" ]` and confirm the path is restored as the correct symlink.
 
 #### Implementation notes
 
@@ -6522,8 +6522,8 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 #### Task Exit Criteria
 
-- The cancel e2e test no longer depends on the fixed one-second delay before clicking the cancel button.
-- The replacement coordination step uses an existing deterministic UI or state boundary already owned by the current story surface.
+- The cancel e2e test no longer depends on `page.waitForTimeout(1_000)` before clicking the cancel button.
+- The replacement coordination step uses the existing deterministic UI or state boundaries already present in the scenario: `waitForInProgress(page)`, visible `Run ID`, non-empty `ingest-current-file`, and the enabled cancel button.
 - The browser proof still demonstrates that cancellation happens while the run is in progress, not after natural completion.
 - The maintained summary cites the strengthened proof owner and any retained screenshot or log paths used by the updated browser proof.
 
@@ -6541,7 +6541,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 #### Subtasks
 
 1. [ ] Re-read the cancel-proof finding and inspect the current browser scenario for the strongest existing deterministic boundary that proves the run is still active before cancellation.
-2. [ ] Replace the fixed sleep with the chosen deterministic readiness boundary without broadening the task into unrelated browser-flow changes.
+2. [ ] Remove `page.waitForTimeout(1_000)` from the cancel scenario and replace it with the already-available deterministic readiness checks in that same test without broadening the task into unrelated browser-flow changes.
 3. [ ] Refresh any retained screenshot or proof-home notes in this plan and `planning/0000055-pr-summary.md` if the browser proof surface changes.
 
 #### Testing
@@ -6565,7 +6565,7 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Task Exit Criteria
 
-- The changed Story 55 proof files stop duplicating the literal schema-version string where they can use `INGEST_ROOTS_SCHEMA_VERSION` instead.
+- The Story 55 proof files `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `client/src/test/useIngestRoots.test.tsx` stop duplicating the literal schema-version string where they can use `INGEST_ROOTS_SCHEMA_VERSION` instead.
 - The cleanup stays localized to the shared-contract proof files already touched by this story.
 - Direct tests still prove the schema version contract without relying on stale literals.
 - The maintained summary cites the shared schema-version owner and the refreshed proof files.
@@ -6586,15 +6586,16 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Subtasks
 
-1. [ ] Re-read the optional-simplification finding and inspect the remaining literal schema-version copies in the changed Story 55 proof files.
-2. [ ] Replace the remaining proof-surface literals with `INGEST_ROOTS_SCHEMA_VERSION` wherever the shared constant is already available without widening into unrelated schema or API work.
+1. [ ] Re-read the optional-simplification finding and inspect the remaining literal schema-version copies in `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `client/src/test/useIngestRoots.test.tsx`.
+2. [ ] Replace the remaining proof-surface literals in those files with `INGEST_ROOTS_SCHEMA_VERSION` wherever the shared constant is already available without widening into unrelated schema or API work.
 3. [ ] Refresh the maintained summary to cite the shared constant owner and the updated proof files.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm the shared schema-version contract still holds after the constant cleanup.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts` and confirm the same shared schema-version contract remains stable across the MCP-facing proof surface.
-3. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the client proof now consumes the shared constant without losing schema-version coverage.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the route-facing proof now consumes the shared constant without losing schema-version coverage.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts` and confirm the same shared schema-version contract remains stable across the MCP-facing proof surface.
+4. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the client proof now consumes the shared constant without losing schema-version coverage.
 
 #### Implementation notes
 
@@ -6642,8 +6643,7 @@ This final revalidation task closes the reopened review pass only after the revi
 
 1. [ ] Re-read Tasks 79 through 86 from the canonical plan before any final wrapper work so this close-out stays anchored to the exact review-created owners and retained proof files.
 2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md` and `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md` before final validation so the close-out carries forward the endorsed findings and residual-risk notes honestly.
-3. [ ] Update `planning/0000055-pr-summary.md` with a new `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section that names the reopened findings, the review-created tasks, the retained proof homes, and any residual risk after the reruns finish.
-4. [ ] After Testing 1 through 10, verify that the restored vendor Bats fixture paths and the current review artifacts still exist on disk, then refresh this plan and `planning/0000055-pr-summary.md` if any cited proof path would otherwise be stale.
+3. [ ] Before any wrapper reruns, inspect `planning/0000055-pr-summary.md` and confirm the insertion point for the required `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section so the final close-out stays ready to record the retained proof homes from this pass.
 
 #### Testing
 

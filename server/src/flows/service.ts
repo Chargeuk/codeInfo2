@@ -1461,15 +1461,22 @@ const runFlowInstruction = async (params: {
       inflightId: params.inflightId,
     });
   } finally {
-    const pendingCancelCleared = cleanupPendingConversationCancel({
-      conversationId: params.flowConversationId,
-      runToken: params.runToken,
-      inflightId: params.inflightId,
-    });
+    // Preserve a stop request that arrives after an `ok` step finishes so the
+    // next loop boundary can still observe it. This cleanup path should only
+    // clear pending cancellation when the current instruction actually stopped
+    // or failed and is now unwinding the run.
+    const shouldClearPendingCancel = result.status !== 'ok';
+    const pendingCancelCleared = shouldClearPendingCancel
+      ? cleanupPendingConversationCancel({
+          conversationId: params.flowConversationId,
+          runToken: params.runToken,
+          inflightId: params.inflightId,
+        })
+      : false;
     params.onStopUnwindCheckpoint?.({
       checkpoint: 'runFlowInstruction.afterCleanupPendingConversationCancel',
       conversationId: params.flowConversationId,
-      detail: `cleared=${String(pendingCancelCleared)}`,
+      detail: `cleared=${String(pendingCancelCleared)} shouldClear=${String(shouldClearPendingCancel)}`,
     });
   }
 

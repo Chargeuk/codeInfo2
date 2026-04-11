@@ -6703,6 +6703,7 @@ This fresh prerequisite task owns only the newest earlier `flows.run.loop` contr
 #### Implementation notes
 
 - Inserted on 2026-04-11 by planner repair because Task 87's current `**RESOLVED ISSUE**` plus current `**BLOCKING ANSWER**` proved the latest full `server:unit` rerun from current `HEAD` still fails in the earlier `flows.run.loop` cleanup lane before any remaining queue-owner proof home is reached. This fresh successor task exists because Task 87's current implementation is already on disk, while the remaining red path again belongs to a different earlier owner.
+- 2026-04-11 manual-testing skip: skipped manual testing because Task 86 is the highest-numbered `__done__` or `__in_progress__` task on current disk and it is still `__in_progress__`, so the latest earlier `flows.run.loop` prerequisite is not honestly complete enough for manual proof yet.
 
 ### Task 87. Preserve Cleanup-Blocked Queue Ownership And Repo-List Overlay Integrity
 

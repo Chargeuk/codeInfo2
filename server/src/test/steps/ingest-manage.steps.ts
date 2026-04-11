@@ -89,6 +89,7 @@ function findRootByPath(rootPath: string) {
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.NODE_ENV = 'test';
+  release();
   __resetIngestJobsForTest();
   if (mongoose.connection.readyState === 1) {
     await IngestQueueRequestModel.deleteMany({}).exec();
@@ -145,6 +146,7 @@ Before(async () => {
 });
 
 After(async () => {
+  release();
   stopMock();
   if (server) {
     await new Promise<void>((resolve) => server?.close(() => resolve()));

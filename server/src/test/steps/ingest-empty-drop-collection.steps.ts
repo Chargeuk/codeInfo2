@@ -22,7 +22,8 @@ import {
   clearRootsCollection,
   clearVectorsCollection,
 } from '../../ingest/chromaClient.js';
-import { setIngestDeps } from '../../ingest/ingestJob.js';
+import { __resetIngestJobsForTest, setIngestDeps } from '../../ingest/ingestJob.js';
+import { release } from '../../ingest/lock.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
@@ -59,6 +60,8 @@ async function vectorsState() {
 }
 
 Before(async () => {
+  release();
+  __resetIngestJobsForTest();
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   const app = express();
   app.use(cors());
@@ -94,6 +97,7 @@ Before(async () => {
 });
 
 After(async () => {
+  release();
   stopMock();
   if (server) {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
@@ -108,6 +112,7 @@ After(async () => {
   await deleteVectorsCollection();
   lastRunId = null;
   lastResponse = null;
+  __resetIngestJobsForTest();
 });
 
 Given(

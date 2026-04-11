@@ -6348,6 +6348,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 #### Task Exit Criteria
 
 - Re-embed selectors and route lookups reject temporary queued start rows that do not correspond to an already-ingested repository root.
+- A queued start row may remain visible in the repo list, but it is excluded from re-embed selection and from any legal re-embed submission payload until the root has actually been ingested.
 - Waiting duplicate updates cannot silently rewrite a queued `start` request into `reembed` for a never-ingested row.
 - Direct tests cover selector-list output, direct route targeting, and queued duplicate-rewrite protection for never-ingested roots.
 - The repo-list visibility contract for queued start rows remains intact while re-embed targeting is narrowed.
@@ -6367,7 +6368,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 #### Proof Mapping
 
 - Re-embed selector lists exclude never-ingested queued start rows: owned by `server/src/ingest/reingestService.ts`; prove in `server/src/test/unit/reingestService.test.ts`.
-- Direct route targeting rejects never-ingested queued rows instead of resolving them as re-embed sources: owned by `server/src/routes/ingestReembed.ts`; prove in `server/src/test/unit/reingestExecution.test.ts`.
+- Direct route targeting rejects a stale submitted `sourceId` copied from a still-visible never-ingested queued row instead of resolving it as a re-embed source: owned by `server/src/routes/ingestReembed.ts`; prove in `server/src/test/unit/reingestExecution.test.ts`.
 - Waiting duplicate updates cannot rewrite queued `start` work into `reembed` for a never-ingested root: owned by `server/src/ingest/requestQueue.ts`; prove in `server/src/test/unit/ingest-reembed.test.ts`.
 - Repo-list visibility for queued start rows remains intact while re-embed targeting narrows: owned by the shared repo-list builder surface; prove in `server/src/test/unit/tools-ingested-repos.test.ts`.
 
@@ -6380,8 +6381,8 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 5. [ ] Update `server/src/ingest/reingestService.ts` so `buildRetryLists(...)` exposes only already-ingested roots as reembeddable. Purpose: keep queued start visibility without widening re-embed eligibility.
 6. [ ] Update `server/src/routes/ingestReembed.ts` so direct route targeting rejects never-ingested queued rows. Purpose: align the route contract with the selector contract.
 7. [ ] Update `server/src/ingest/requestQueue.ts` so a queued `start` request cannot be rewritten into `reembed` for a root that has never been ingested. Purpose: stop the duplicate-update seam from silently changing operation type.
-8. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove selector lists exclude a queued start row that has never produced an ingested root record. Purpose: make the list-filter boundary explicit at the selector builder seam.
-9. [ ] Test type: server unit. Location: `server/src/test/unit/reingestExecution.test.ts`. Description: prove direct re-embed execution rejects a never-ingested queued row instead of resolving it as a legal source. Purpose: cover the route-facing rejection path, not only the selector-list path.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: prove selector lists exclude a queued start row that has never produced an ingested root record even while that row is still present in the repo list. Purpose: make the visible-but-not-selectable state boundary explicit at the selector builder seam.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/reingestExecution.test.ts`. Description: prove direct re-embed execution rejects a stale `sourceId` copied from a still-visible never-ingested queued row instead of resolving it as a legal source. Purpose: cover the contradictory visible-but-not-submittable state at the route boundary.
 10. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove a waiting duplicate update cannot rewrite queued `start` work into `reembed` for a root that has never been ingested. Purpose: keep the mixed-state queue transition guard explicit.
 11. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove queued start rows remain visible in the repo list even though they are no longer legal re-embed targets. Purpose: preserve the visibility contract while narrowing selection.
 12. [ ] Update `planning/0000055-pr-summary.md` and this task's retained proof notes with the exact repaired selector, visibility, and queue-owner proof files. Purpose: keep final close-out citations inspectable.
@@ -6579,6 +6580,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 - The cancel e2e test no longer depends on `page.waitForTimeout(1_000)` before clicking the cancel button.
 - The replacement coordination step uses the existing deterministic UI or state boundaries already present in the scenario: `waitForInProgress(page)`, visible `Run ID`, non-empty `ingest-current-file`, and the enabled cancel button.
+- The proof does not reuse stale pre-terminal UI state: if the run leaves the in-progress state before cancel is clicked, the scenario must resynchronize or fail instead of treating an old enabled-button observation as current truth.
 - The browser proof still demonstrates that cancellation happens while the run is in progress, not after natural completion.
 - The maintained summary cites the strengthened proof owner and any retained screenshot or log paths used by the updated browser proof.
 
@@ -6593,6 +6595,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 #### Proof Mapping
 
 - Deterministic pre-cancel readiness without `page.waitForTimeout(1_000)`: owned by `e2e/ingest.spec.ts`; prove with the targeted browser wrapper and retained output in `logs/test-summaries/e2e-tests-latest.log`.
+- Stale enabled-button or stale in-progress observations are not reused after the run transitions toward a terminal state: owned by `e2e/ingest.spec.ts`; prove with the same targeted browser scenario using current UI-state boundaries at click time.
 - Cancellation still happens while the run is observably in progress rather than after natural completion: owned by `e2e/ingest.spec.ts`; prove with the same targeted browser scenario plus any refreshed retained screenshot under `artifacts/story-0000055-screenshots`.
 
 #### Subtasks
@@ -6601,8 +6604,9 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 2. [ ] Inspect the `cancel in-progress ingest shows cancelled` scenario in `e2e/ingest.spec.ts`. Purpose: identify the exact fixed-delay seam and the deterministic boundaries already present in the test.
 3. [ ] Remove `page.waitForTimeout(1_000)` from that cancel scenario. Purpose: eliminate the arbitrary timing gate the review flagged.
 4. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: rewrite the pre-cancel readiness proof to wait on deterministic boundaries such as `waitForInProgress(page)`, visible `Run ID`, non-empty `ingest-current-file`, and the enabled cancel button before cancel is clicked. Purpose: prove the test is synchronized to observable in-progress state instead of a fixed sleep.
-5. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove cancellation is triggered before natural completion by asserting the in-progress boundaries still hold at the click point and then observing the cancelled terminal state. Purpose: give the failure-ordering invariant its own proof home instead of folding it into the happy-path assertion.
-6. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: refresh the retained proof-home references if the deterministic cancel evidence produces new screenshot or log anchors. Purpose: keep the final proof narrative aligned to the repaired scenario.
+5. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the scenario re-checks current in-progress boundaries immediately before the cancel click so a stale enabled-button or stale file-progress observation cannot drive the action after the run has already gone terminal. Purpose: cover the mixed-state stale-UI bug instead of only the happy-path readiness case.
+6. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove cancellation is triggered before natural completion by asserting the in-progress boundaries still hold at the click point and then observing the cancelled terminal state. Purpose: give the failure-ordering invariant its own proof home instead of folding it into the happy-path assertion.
+7. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: refresh the retained proof-home references if the deterministic cancel evidence produces new screenshot or log anchors. Purpose: keep the final proof narrative aligned to the repaired scenario.
 
 #### Testing
 

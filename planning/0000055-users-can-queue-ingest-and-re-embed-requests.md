@@ -6274,6 +6274,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the queue-ownership and overlay repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes named in Subtasks 9 through 14. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the cleanup-blocked ownership repair so the broader backend queue and repo-list feature path stays honest beyond the direct unit proof homes.
 
 #### Implementation notes
 
@@ -6333,6 +6334,7 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the cleanup-route guard changes.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated cleanup-route proof home in `server/src/test/integration/ingest-e2e-cleanup.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against that proof file before rerunning the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the cleanup-route authority repair so the broader backend ingest feature path remains honest, even though the task-owned rejection proof lives in `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
 
 #### Implementation notes
 
@@ -6400,6 +6402,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the re-embed selector and queue-transition repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the re-embed selector repair so the broader backend ingest and re-embed feature path remains honest beyond the task-owned unit proof homes.
 
 #### Implementation notes
 
@@ -6455,6 +6458,7 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the deferred-validation repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the deferred canonical-field validation repair so the broader backend ingest feature path remains honest beyond the task-owned unit parity proofs.
 
 #### Implementation notes
 
@@ -6493,6 +6497,7 @@ This review-fix task restores one shared repo-list error contract across server 
 - Flat normalized repo-list error production on `/ingest/roots`: owned by `server/src/lmstudio/toolService.ts`; prove in `server/src/test/unit/ingest-roots-dedupe.test.ts`.
 - MCP-facing repo-list payload stability for the same normalized error fields: owned by the shared server list surface; prove in `server/src/test/unit/mcp-ingested-repositories.test.ts`.
 - Client consumption of the flat `error` field into `NormalizedIngestError.code`: owned by `client/src/hooks/useIngestRoots.ts`; prove in `client/src/test/useIngestRoots.test.tsx` using the server-shaped payload.
+- Broader browser-facing ingest-roots flow remains compatible with the repaired shared error contract even though this task does not add a dedicated browser-only error scenario: prove with the full browser wrapper in Testing 6 and retain the resulting wrapper log in `logs/test-summaries/e2e-tests-latest.log`.
 
 #### Subtasks
 
@@ -6505,14 +6510,17 @@ This review-fix task restores one shared repo-list error contract across server 
 7. [ ] Test type: server unit. Location: `server/src/test/unit/mcp-ingested-repositories.test.ts`. Description: prove the MCP-facing repo-list surface preserves the same normalized error fields when the shared list builder reports a failure. Purpose: cover the wrapped server surface separately from the direct route proof.
 8. [ ] Test maintenance. Location: `client/src/test/useIngestRoots.test.tsx`. Description: rename or split any reused normalized-error test so it explicitly claims flat route-payload `error` mapping instead of a generic “normalized error object” title if its assertions now depend on the new shape. Purpose: keep the client proof title aligned to the actual producer-consumer contract being repaired.
 9. [ ] Test type: client test. Location: `client/src/test/useIngestRoots.test.tsx`. Description: replace client-only mock payloads with the real flat route payload shape and prove `useIngestRoots()` maps the payload's `error` field into `NormalizedIngestError.code`. Purpose: verify the consumer against the actual shared contract instead of a local variant.
-10. [ ] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the shared error-contract owner files `server/src/lmstudio/toolService.ts` and `client/src/hooks/useIngestRoots.ts`, then list the proof files `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, and `client/src/test/useIngestRoots.test.tsx` in both the summary and this task's retained proof notes. Purpose: keep final close-out citations honest without leaving the cross-surface proof list implicit.
+10. [ ] Proof type: browser regression boundary. Location: `logs/test-summaries/e2e-tests-latest.log`. Description: retain the full browser-wrapper proof home that confirms the broader ingest-roots UI path still runs after the shared error-contract repair, even though this task's direct behavior proof lives in server and client unit suites. Purpose: keep the browser regression boundary explicit instead of deferring it entirely to Task 87.
+11. [ ] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the shared error-contract owner files `server/src/lmstudio/toolService.ts` and `client/src/hooks/useIngestRoots.ts`, then list the proof files `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `client/src/test/useIngestRoots.test.tsx`, and the retained browser log `logs/test-summaries/e2e-tests-latest.log` in both the summary and this task's retained proof notes. Purpose: keep final close-out citations honest without leaving the cross-surface proof list implicit.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the shared repo-list error-contract repair.
 2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the `useIngestRoots()` normalization change.
 3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
-4. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the updated proof home in `client/src/test/useIngestRoots.test.tsx`. If the wrapper fails, diagnose with targeted wrapper reruns against that exact proof file before rerunning the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the shared repo-list error-contract repair so the broader backend ingest feature path remains honest beyond the direct unit proof homes.
+5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the updated proof home in `client/src/test/useIngestRoots.test.tsx`. If the wrapper fails, diagnose with targeted wrapper reruns against that exact proof file before rerunning the full wrapper.
+6. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper still passes after the shared repo-list error-contract repair so the broader ingest-roots UI path remains honest, even though this task does not add a new browser-only error scenario.
 
 #### Implementation notes
 

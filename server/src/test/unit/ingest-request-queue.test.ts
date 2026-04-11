@@ -452,6 +452,11 @@ test('cleanup-blocked duplicate reuse returns the blocked queue item instead of 
     queueState: 'cleanup-blocked',
     operation: 'start',
     runId: '00000000-0000-0000-0000-000000000654',
+    requestPayload: {
+      model: 'openai/text-embedding-3-small',
+      embeddingProvider: 'openai',
+      embeddingModel: 'text-embedding-3-small',
+    },
   });
 
   mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({

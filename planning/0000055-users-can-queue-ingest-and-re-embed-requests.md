@@ -6097,7 +6097,7 @@ This task repairs the changed client bulk flow so shared selection, row-level re
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `77`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added on 2026-04-09 as the required final revalidation task after review pass `0000055-20260409T201302Z-13774922` reopened Story 55 for one must-fix, eight should-fix, and one reopened optional simplification.
 
 #### Overview
@@ -6138,25 +6138,25 @@ This task revalidates Story 55 after Tasks 63 through 77 land. It must prove the
 
 #### Subtasks
 
-1. [ ] Requirement: re-read Task 63 from the canonical plan before final validation. Purpose: keep the close-out aligned with the blocker-prerequisite work and its proof owners.
-2. [ ] Requirement: re-read Task 64 from the canonical plan before final validation. Purpose: keep the close-out aligned with the broader stop-unwind prerequisite and its proof owners.
-3. [ ] Requirement: re-read Task 65 from the canonical plan before final validation. Purpose: keep the close-out aligned with the caller-hand-off prerequisite and its proof owners.
-4. [ ] Requirement: re-read Task 66 from the canonical plan before final validation. Purpose: keep the close-out aligned with the ownership-release prerequisite and its proof owners.
-5. [ ] Requirement: re-read Task 67 from the canonical plan before final validation. Purpose: keep the close-out aligned with the exhausted full-suite-only contradiction branch and its proof owners.
-6. [ ] Requirement: re-read Task 68 from the canonical plan before final validation. Purpose: keep the close-out aligned with the tighter immediate caller hand-off prerequisite and its proof owners.
-7. [ ] Requirement: re-read Task 69 from the canonical plan before final validation. Purpose: keep the close-out aligned with the unrelated client-chat timeout prerequisite and its proof owners.
-8. [ ] Requirement: re-read Task 70 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened shared repo-list contract work and its proof owners.
-9. [ ] Requirement: re-read Task 71 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened queue-diagnostic and waiter-error work and its proof owners.
-10. [ ] Requirement: re-read Task 72 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `flows.run.loop` prerequisite and its proof owners.
-11. [ ] Requirement: re-read Task 73 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened deferred-validation and deletions-only fast-path work and its proof owners.
-12. [ ] Requirement: re-read Task 74 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened artifact-hygiene work and its proof owners.
-13. [ ] Requirement: re-read Task 75 from the canonical plan before final validation. Purpose: keep the close-out aligned with the Docker registry reachability prerequisite and its proof owners.
-14. [ ] Requirement: re-read Task 76 from the canonical plan before final validation. Purpose: keep the close-out aligned with the resumed compose-build handoff and its proof owners.
-15. [ ] Requirement: re-read Task 77 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
-16. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
-17. [ ] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
-18. [ ] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 63 through 77, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
-19. [ ] Requirement: before marking this task `__done__`, verify that Tasks 63 through 77 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
+1. [x] Requirement: re-read Task 63 from the canonical plan before final validation. Purpose: keep the close-out aligned with the blocker-prerequisite work and its proof owners.
+2. [x] Requirement: re-read Task 64 from the canonical plan before final validation. Purpose: keep the close-out aligned with the broader stop-unwind prerequisite and its proof owners.
+3. [x] Requirement: re-read Task 65 from the canonical plan before final validation. Purpose: keep the close-out aligned with the caller-hand-off prerequisite and its proof owners.
+4. [x] Requirement: re-read Task 66 from the canonical plan before final validation. Purpose: keep the close-out aligned with the ownership-release prerequisite and its proof owners.
+5. [x] Requirement: re-read Task 67 from the canonical plan before final validation. Purpose: keep the close-out aligned with the exhausted full-suite-only contradiction branch and its proof owners.
+6. [x] Requirement: re-read Task 68 from the canonical plan before final validation. Purpose: keep the close-out aligned with the tighter immediate caller hand-off prerequisite and its proof owners.
+7. [x] Requirement: re-read Task 69 from the canonical plan before final validation. Purpose: keep the close-out aligned with the unrelated client-chat timeout prerequisite and its proof owners.
+8. [x] Requirement: re-read Task 70 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened shared repo-list contract work and its proof owners.
+9. [x] Requirement: re-read Task 71 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened queue-diagnostic and waiter-error work and its proof owners.
+10. [x] Requirement: re-read Task 72 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `flows.run.loop` prerequisite and its proof owners.
+11. [x] Requirement: re-read Task 73 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened deferred-validation and deletions-only fast-path work and its proof owners.
+12. [x] Requirement: re-read Task 74 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened artifact-hygiene work and its proof owners.
+13. [x] Requirement: re-read Task 75 from the canonical plan before final validation. Purpose: keep the close-out aligned with the Docker registry reachability prerequisite and its proof owners.
+14. [x] Requirement: re-read Task 76 from the canonical plan before final validation. Purpose: keep the close-out aligned with the resumed compose-build handoff and its proof owners.
+15. [x] Requirement: re-read Task 77 from the canonical plan before final validation. Purpose: keep the close-out aligned with the reopened `RootsTable` behavior work and its proof owners.
+16. [x] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` before final validation. Purpose: keep the close-out aligned with the endorsed findings for this pass.
+17. [x] Requirement: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` before final validation. Purpose: keep the close-out aligned with the carry-forward challenge reasoning for this pass.
+18. [x] Requirement: inspect `planning/0000055-pr-summary.md` before final validation and identify the exact reopened-pass section that must be updated for review pass `0000055-20260409T201302Z-13774922`. The section must end up naming the current review pass id, the closure notes for Tasks 63 through 77, the deferred optional simplification note, and the final retained proof homes from this task's Testing section. Purpose: keep the maintained-summary update concrete before wrapper reruns begin.
+19. [x] Requirement: before marking this task `__done__`, verify that Tasks 63 through 77 are each `__done__`, that no live `**BLOCKER**` note remains in those task sections, and that each task names the exact proof-owner files or artifacts this final validation task will cite in `planning/0000055-pr-summary.md`. Purpose: keep final story close-out traceable without forcing a junior developer to rediscover proof ownership across the reopened task block.
 
 #### Testing
 
@@ -6175,3 +6175,7 @@ This task revalidates Story 55 after Tasks 63 through 77 land. It must prove the
 #### Implementation notes
 
 - Inserted on 2026-04-09 as the required final revalidation task after review pass `0000055-20260409T201302Z-13774922` reopened Story 55 for the shared repo-list, queue-diagnostic, deferred-validation, hygiene, and `RootsTable` regressions captured in the stored review artifacts.
+- 2026-04-11 reread checkpoint: re-read Tasks 63 through 77 from the canonical plan before any final wrapper work, so the close-out now has fresh proof-owner context for the stop-path prerequisites, queue-diagnostic repairs, deferred-validation repairs, artifact cleanup, Docker reachability handoff, resumed compose-build handoff, and final `RootsTable` browser close-out.
+- 2026-04-11 review-artifact checkpoint: re-read `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-findings.md` and `codeInfoStatus/reviews/0000055-20260409T201302Z-13774922-blind-spot-challenge.md` from current disk before final validation. The findings still define the reopened owner block this task must cite, and the blind-spot challenge still records that no extra finding beyond that block was generated for this pass.
+- 2026-04-11 maintained-summary checkpoint: inspected `planning/0000055-pr-summary.md` and confirmed the current summary still has no section for review pass `0000055-20260409T201302Z-13774922`. The later summary update must therefore append a new `## Review follow-up after pass \`0000055-20260409T201302Z-13774922\`` section after the existing `## Review follow-up after pass \`0000055-20260408T005855Z-5f96266d\`` block and before `## Deliberate non-changes and remaining out-of-scope boundaries`.
+- 2026-04-11 proof-owner sweep: verified from current plan disk state that Tasks 63 through 77 are all `__done__`, that no standalone live `**BLOCKER**` note remains in those task sections, and that each task now names the proof-owner files or retained proof artifacts this final revalidation task will cite in `planning/0000055-pr-summary.md`. No wrapper-backed Testing steps were run in this implementation pass because Task 78's remaining wrapper chain belongs to the later automated-proof step.

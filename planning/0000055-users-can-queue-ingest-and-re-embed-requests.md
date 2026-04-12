@@ -7887,27 +7887,32 @@ This task repairs the queue-row identity contract on the standard REST `/ingest/
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `planning/0000055-pr-summary.md`
+- `common/src/lmstudio.ts`
 - `server/src/lmstudio/toolService.ts`
 - `server/src/routes/ingestRoots.ts`
 - `client/src/hooks/useIngestRoots.ts`
 - `client/src/test/useIngestRoots.test.tsx`
 - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 - `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/unit/mcp-ingested-repositories.test.ts`
 
 #### Subtasks
 
-1. [ ] Re-read the stored review finding, the shared repo-list builder in `server/src/lmstudio/toolService.ts`, the standard `/ingest/roots` route mapping in `server/src/routes/ingestRoots.ts`, the client normalization path in `client/src/hooks/useIngestRoots.ts`, and the affected plan contract text so the route-level identity loss is bounded to one concrete producer-consumer seam.
-2. [ ] Update the standard `/ingest/roots` route contract so its mapped REST rows preserve the shared repo-list `id` field instead of narrowing it away, keeping the route shape aligned with the canonical queue-aware row builder already used elsewhere.
-3. [ ] Refresh any local route or shared-contract typings that still imply `/ingest/roots` rows have no `id`, so the server and client compile against the same stable queue-row identity contract.
-4. [ ] Update `client/src/hooks/useIngestRoots.ts` and its changed proof so the hook's primary identity path and the mocked payload both match the actual REST contract on disk, with no stronger mocked `id` expectation than the route really serves.
-5. [ ] Update `planning/0000055-pr-summary.md` with the retained proof homes for this restored REST identity contract so the later final revalidation task can cite the exact owner files and wrapper logs.
+1. [ ] Re-read the stored review finding and write down the exact contradiction this task is fixing: `buildRepoFromQueueRequest()` and the shared repo-list builder still emit queue-aware rows with `id`, `server/src/routes/ingestRoots.ts` narrows that field away on the standard REST mirror, and `client/src/hooks/useIngestRoots.ts` plus `client/src/test/useIngestRoots.test.tsx` currently assume the stronger route shape. Purpose: keep the repair bounded to one producer-consumer seam instead of re-tasking the whole repo-list contract.
+2. [ ] Update `server/src/routes/ingestRoots.ts` and any route-local row type it owns so the standard `/ingest/roots` response preserves the shared `id` field when it mirrors `payload.repos`, while keeping the existing queue-aware `requestId`, `runId`, and waiting-only queue metadata aligned with the canonical shared row shape. Purpose: remove the route-only contract drift instead of compensating with another client-side fallback.
+3. [ ] Refresh the directly affected server-side proofs in `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, and any still-relevant shared-contract proof so they explicitly cover the restored REST mirror identity and no longer leave the route or shared builder on different queued-row `id` rules. Purpose: make the server-side proof path match the repaired route contract on current disk.
+4. [ ] Update `client/src/hooks/useIngestRoots.ts` and `client/src/test/useIngestRoots.test.tsx` so normalization prefers the restored route-level `id`, the mocked `/ingest/roots` payload matches what the route now actually serves, and weaker `name` or `path` fallbacks stay reserved for genuinely missing legacy rows instead of the normal queue contract. Purpose: keep the client proof honest about the route shape it consumes.
+5. [ ] Update `planning/0000055-pr-summary.md` with the retained proof homes for the restored REST identity contract, naming the exact route, shared builder, hook, and proof files that now agree on current disk. Purpose: give the later final revalidation task one explicit proof-owner set for this review fix.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the `/ingest/roots` contract repair.
 2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes after the `/ingest/roots` contract repair.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the refreshed `/ingest/roots` and shared repo-list proofs.
-4. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the refreshed `useIngestRoots` identity proof.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the targeted `/ingest/roots` route proof passes after the identity-contract repair.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` and confirm the targeted shared repo-list builder proof still passes with the restored route contract.
+5. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the targeted client normalization proof passes against the restored REST shape.
+6. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the refreshed `/ingest/roots` and shared repo-list proofs.
+7. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the refreshed `useIngestRoots` identity proof.
 
 #### Implementation notes
 
@@ -7946,9 +7951,10 @@ This task restores the upstream vendored Bats fixture layout so the embedded ven
 
 #### Subtasks
 
-1. [ ] Re-read the stored review finding and the affected vendored Bats fixture consumers so the repair stays bounded to the exact symlink-vs-plain-file regression named by the review artifacts.
-2. [ ] Restore the review-named vendored Bats fixture paths to the symlink semantics that the embedded upstream suite expects, without widening the task into unrelated vendor subtree churn.
-3. [ ] Refresh any retained proof notes or summary references needed to show exactly which vendored fixture paths were repaired and which bundled tests now prove their behavior on current disk.
+1. [ ] Re-read the stored review finding plus the exact fixture consumers in `scripts/test/bats/vendor/bats-core/test/file_setup_teardown.bats` and `scripts/test/bats/vendor/bats-core/test/suite_setup_teardown.bats`, then write down which review-named fixture paths each suite expects to traverse as symlinks. Purpose: keep the repair bounded to the endorsed symlink-vs-plain-file regression and avoid widening into unrelated vendor churn.
+2. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file2.bats`, `setup_file3.bats`, `parallel2.bats`, `parallel3.bats`, and `parallel4.bats` to the symlink semantics the vendored upstream suite expects, and verify that git now records them as symlink entries rather than plain text files. Purpose: repair the exact parallel-fixture regression named by the review.
+3. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/suite_setup_teardown/pick_up_toplevel/folder1/setup_suite.bash` and `folder2/setup_suite.bash` to the upstream symlink form so the vendored suite-setup traversal path is back to the layout the bundled tests actually exercise. Purpose: repair the exact suite-setup fixture regression named by the review.
+4. [ ] Update `planning/0000055-pr-summary.md` with the repaired vendored fixture paths and the retained proof homes for the targeted suites, the full vendored harness rerun, and the direct symlink sweep. Purpose: give the later final revalidation task one explicit proof-owner set for this vendor repair.
 
 #### Testing
 
@@ -7974,6 +7980,7 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 #### Task Exit Criteria
 
+- Story 55 acceptance criteria with direct shared-repo-list and queued-visibility proof are re-read before the reruns begin, so the final close-out stays anchored to the reopened contract rather than only to the review summary.
 - Tasks 103 and 104 are `__done__`, and their exact proof-owner files plus retained proof homes are re-read from current disk before final validation starts.
 - The full server, client, vendored-shell, compose, host-network, and browser proof chain still passes on current disk after the review-created fixes from this pass.
 - The maintained summary contains a new review-follow-up note for pass `0000055-20260412T200035Z-2407aa9b` that cites the retained proof homes for both review fixes and the final revalidation chain.
@@ -7997,10 +8004,11 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 #### Subtasks
 
-1. [ ] Re-read the stored evidence, findings, and blind-spot challenge artifacts for review pass `0000055-20260412T200035Z-2407aa9b`, plus Tasks 103 and 104 after they are complete, so the final close-out carries the exact current review conclusions and residual risk forward honestly.
-2. [ ] Re-open `planning/0000055-pr-summary.md` and mark the insertion point for a new follow-up note for review pass `0000055-20260412T200035Z-2407aa9b` before any final wrapper reruns start.
-3. [ ] Update `planning/0000055-pr-summary.md` with the retained proof homes for the restored REST `/ingest/roots` identity contract, the restored vendored Bats fixture semantics, and the final wrapper or runtime validation chain from this pass.
-4. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md`, `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md`, and `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md` still exist before final close-out.
+1. [ ] Re-read the stored evidence, findings, and blind-spot challenge artifacts for review pass `0000055-20260412T200035Z-2407aa9b`, plus the Story 55 acceptance-criteria lines that cover the shared repo-list payload, stable queued visibility, and the retained proof chain from Task 102. Purpose: anchor the final rerun to the reopened review findings and the story contract they affect.
+2. [ ] Re-read completed Tasks 103 and 104 once they are `__done__`, and write down their exact owner files, wrapper logs, and direct proof homes before any final reruns begin. Purpose: keep the final validation task from hand-waving over the two review-created repairs.
+3. [ ] Re-open `planning/0000055-pr-summary.md` and mark the insertion point for a new follow-up note for review pass `0000055-20260412T200035Z-2407aa9b` before any final wrapper reruns start. Purpose: ensure the summary refresh has a bounded landing spot before the rerun evidence exists.
+4. [ ] Update `planning/0000055-pr-summary.md` with the retained proof homes for the restored REST `/ingest/roots` identity contract, the restored vendored Bats fixture semantics, the full wrapper or runtime validation chain from this pass, and any residual weak-proof notes from the blind-spot challenge that still remain honest after reruns. Purpose: keep the final adjudication record explicit instead of implied.
+5. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md`, `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md`, and `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md` still exist before final close-out. Purpose: preserve the durable review record alongside the refreshed proof chain.
 
 #### Testing
 

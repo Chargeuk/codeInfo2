@@ -7547,7 +7547,7 @@ This prerequisite task restores one honest execution contract for the vendored B
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `97, 98`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found unrelated vendor-fixture churn that changed checked-in Bats symlink fixtures into regular files.
 
 #### Overview
@@ -7614,6 +7614,7 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 - Automated proof on 2026-04-12: Testing 2 passed with the exact symlink-and-target check for `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`, confirming the restored path still points to `../recursive/test.bats`.
 - Automated proof on 2026-04-12: Testing 3 passed with the exact symlink-and-target check for `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`, confirming the restored path still points to `../recursive/subsuite/`.
 - Automated proof on 2026-04-12: Testing 4 passed with the exact symlink-and-target check for `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`, confirming the restored path still points to `./setup_file.bats`.
+- Automated-proof audit on 2026-04-12: marked Task 99 `__done__` because all 12 subtasks and all 4 Testing items are honestly complete on current disk, `python3 scripts/plan_status.py --selector active_or_done` reports no live blocker, and the remaining prose now only records retained proof homes plus the earlier prerequisite history.
 
 ### Task 100. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
 

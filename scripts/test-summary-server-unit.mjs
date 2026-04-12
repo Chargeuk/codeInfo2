@@ -14,6 +14,7 @@ import {
   createSummaryLogStream,
   createSummaryWrapperProtocol,
   runLoggedCommand,
+  SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV,
 } from './summary-wrapper-protocol.mjs';
 
 const rootDir = path.resolve(
@@ -78,6 +79,13 @@ const normalizeServerPath = (value) => {
   return withoutDotPrefix;
 };
 
+const buildCleanWrapperEnv = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) => !key.startsWith('CODEINFO_') && !key.startsWith('CODEX_'),
+    ),
+  );
+
 const sumFromMatches = (output, pattern) =>
   [...output.matchAll(pattern)].reduce(
     (sum, match) => sum + Number(match[1]),
@@ -134,12 +142,13 @@ if (options.testName) {
 testArgs.push(...unitFiles);
 
 const unitEnv = {
-  ...process.env,
+  ...buildCleanWrapperEnv(),
   CODEINFO_LOG_FILE_PATH: '../logs/server-test.log',
   CODEINFO_CHROMA_URL: '',
   CODEINFO_MONGO_URI: '',
-  CODEINFO_PLAYWRIGHT_MCP_URL:
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL ?? 'http://localhost:8932/mcp',
+  CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8932/mcp',
+  [SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV]:
+    process.env[SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV],
   TS_NODE_DEBUG: 'false',
   TS_NODE_LOG_ERROR: 'true',
   TS_NODE_FILES: 'true',
@@ -150,6 +159,8 @@ const unitEnv = {
 
 let exitCode = buildResult.code;
 let output = buildResult.output;
+let testForcedReason = '';
+let testLastProgressLine = '';
 if (buildResult.code === 0) {
   const testResult = await runLoggedCommand({
     cmd: 'node',
@@ -159,9 +170,13 @@ if (buildResult.code === 0) {
     logStream,
     protocol,
     phase: 'test',
+    semanticProgressPatterns: [/^# Subtest: /, /^ok \d+ - /, /^not ok \d+ - /],
+    terminalSummaryPatterns: [/^1\.\./, /^# tests /, /^# pass /, /^# fail /],
   });
   output += testResult.output;
   exitCode = testResult.code;
+  testForcedReason = testResult.forcedReason ?? '';
+  testLastProgressLine = testResult.lastProgressLine ?? '';
 }
 
 await new Promise((resolve) => logStream.end(resolve));
@@ -185,6 +200,16 @@ const failed = sumFromMatches(output, /^# fail (\d+)$/gim);
 const failingNames = parseFailureNames(output);
 const status = exitCode === 0 ? 'passed' : 'failed';
 const ambiguousCounts = status === 'passed' && total === 0;
+const finalReason =
+  testForcedReason === 'terminal_summary_without_close'
+    ? 'terminal_summary_without_close'
+    : testForcedReason === 'semantic_progress_stalled'
+      ? 'semantic_progress_stalled'
+      : status === 'passed'
+        ? ambiguousCounts
+          ? 'ambiguous_counts'
+          : 'clean_success'
+        : 'test_failed';
 
 console.log(`[server:unit] tests run: ${total}`);
 console.log(`[server:unit] passed: ${passed}`);
@@ -199,12 +224,10 @@ if (failingNames.length > 0) {
 protocol.emitFinal({
   status,
   ambiguousCounts,
-  reason:
-    status === 'passed'
-      ? ambiguousCounts
-        ? 'ambiguous_counts'
-        : 'clean_success'
-      : 'test_failed',
+  reason: finalReason,
+  extraFields: testForcedReason
+    ? { last_progress: testLastProgressLine || undefined }
+    : {},
 });
 
 process.exit(exitCode);

@@ -3,6 +3,7 @@
 // summary-wrapper protocol so shell proofs behave like the other repo wrappers.
 
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,6 +30,7 @@ const logPath = path.join(resultsDir, `shell-tests-${timestamp}.log`);
 const batsDir = path.join(rootDir, 'scripts', 'test', 'bats');
 const vendorDir = path.join(batsDir, 'vendor');
 const batsExecutable = path.join(vendorDir, 'bats-core', 'bin', 'bats');
+const batsCoreDir = path.join(vendorDir, 'bats-core');
 
 const args = process.argv.slice(2);
 const options = {
@@ -85,6 +87,36 @@ const listBatsFiles = async (dirPath) => {
 const ensureFileExists = async (filePath) => {
   const stats = await fs.stat(filePath).catch(() => null);
   return stats?.isFile() ?? false;
+};
+
+const chmodTree = async (dirPath, mode) => {
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        await chmodTree(entryPath, mode);
+        return;
+      }
+      if (entry.isFile()) {
+        await fs.chmod(entryPath, mode);
+      }
+    }),
+  );
+};
+
+const prepareVendoredBatsRuntime = async () => {
+  const runtimeRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-bats-runtime-'),
+  );
+  const runtimeBatsCoreDir = path.join(runtimeRoot, 'bats-core');
+  await fs.cp(batsCoreDir, runtimeBatsCoreDir, { recursive: true });
+  await chmodTree(path.join(runtimeBatsCoreDir, 'bin'), 0o755);
+  await chmodTree(path.join(runtimeBatsCoreDir, 'libexec', 'bats-core'), 0o755);
+  return {
+    runtimeRoot,
+    batsExecutable: path.join(runtimeBatsCoreDir, 'bin', 'bats'),
+  };
 };
 
 const parseFailureNames = (output) => {
@@ -166,15 +198,21 @@ const batsEnv = {
     .join(path.delimiter),
 };
 
-const batsResult = await runLoggedCommand({
-  cmd: batsExecutable,
-  args: suiteFiles,
-  cwd: rootDir,
-  env: batsEnv,
-  logStream,
-  protocol,
-  phase: 'test',
-});
+const runtime = await prepareVendoredBatsRuntime();
+let batsResult;
+try {
+  batsResult = await runLoggedCommand({
+    cmd: 'bash',
+    args: [runtime.batsExecutable, ...suiteFiles],
+    cwd: rootDir,
+    env: batsEnv,
+    logStream,
+    protocol,
+    phase: 'test',
+  });
+} finally {
+  await fs.rm(runtime.runtimeRoot, { recursive: true, force: true });
+}
 
 await new Promise((resolve) => logStream.end(resolve));
 

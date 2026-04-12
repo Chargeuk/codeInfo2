@@ -4,6 +4,10 @@ import path from 'node:path';
 
 export const SUMMARY_WRAPPER_HEARTBEAT_ENV = 'SUMMARY_WRAPPER_HEARTBEAT_MS';
 export const DEFAULT_SUMMARY_WRAPPER_HEARTBEAT_MS = 60_000;
+export const DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS = 5 * 60_000;
+export const DEFAULT_SUMMARY_WRAPPER_TERMINAL_GRACE_MS = 30_000;
+export const SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV =
+  'CODEINFO_DEBUG_WRAPPER_LIFECYCLE';
 
 const formatBoolean = (value) => (value ? 'true' : 'false');
 
@@ -189,6 +193,10 @@ export const runLoggedCommand = ({
   phase,
   collectStdout = false,
   bannerPrefix = '\n',
+  semanticProgressPatterns = [],
+  terminalSummaryPatterns = [],
+  semanticProgressStallMs = DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS,
+  terminalSummaryGraceMs = DEFAULT_SUMMARY_WRAPPER_TERMINAL_GRACE_MS,
 }) =>
   new Promise((resolve) => {
     if (phase) {
@@ -196,6 +204,10 @@ export const runLoggedCommand = ({
     }
 
     writeLogLine(logStream, `${bannerPrefix}$ ${cmd} ${args.join(' ')}`.trim());
+
+    const debugLifecycle =
+      env?.[SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV] === '1' ||
+      env?.[SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV] === 'true';
 
     const child = spawn(cmd, args, {
       cwd,
@@ -206,32 +218,207 @@ export const runLoggedCommand = ({
     let output = '';
     let stdout = '';
     let settled = false;
+    let lastProgressLine = '';
+    let lastProgressAt = 0;
+    let terminalSummaryLine = '';
+    let terminalSummaryAt = 0;
+    let stdoutEnded = false;
+    let stdoutClosed = false;
+    let stderrEnded = false;
+    let stderrClosed = false;
+    let forcedReason;
+    let watchdogTriggered = false;
+    let progressWatchdog;
+    let killTimer;
+
+    const logLifecycle = (event, fields = {}) => {
+      if (!debugLifecycle) return;
+      writeLogLine(
+        logStream,
+        `[wrapper-debug] ${JSON.stringify({
+          timestamp: new Date().toISOString(),
+          phase: phase ?? protocol?.getPhase?.(),
+          cmd,
+          event,
+          ...fields,
+        })}`,
+      );
+    };
+
+    const noteProgress = (line, kind) => {
+      lastProgressLine = line;
+      lastProgressAt = Date.now();
+      if (kind === 'terminal_summary') {
+        terminalSummaryLine = line;
+        terminalSummaryAt = lastProgressAt;
+      }
+    };
+
+    const trackProgress = (text) => {
+      for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trimEnd();
+        if (!line) continue;
+        if (terminalSummaryPatterns.some((pattern) => pattern.test(line))) {
+          noteProgress(line, 'terminal_summary');
+          continue;
+        }
+        if (semanticProgressPatterns.some((pattern) => pattern.test(line))) {
+          noteProgress(line, 'semantic_progress');
+        }
+      }
+    };
 
     const finish = (code) => {
       if (settled) return;
       settled = true;
-      resolve({ code: code ?? 1, output, stdout });
+      if (progressWatchdog) clearInterval(progressWatchdog);
+      if (killTimer) clearTimeout(killTimer);
+      logLifecycle('resolve', {
+        code: code ?? 1,
+        stdoutEnded,
+        stdoutClosed,
+        stderrEnded,
+        stderrClosed,
+        lastProgressLine: lastProgressLine || undefined,
+        forcedReason,
+      });
+      resolve({
+        code: code ?? 1,
+        output,
+        stdout,
+        lastProgressLine,
+        terminalSummaryLine,
+        forcedReason,
+      });
     };
+
+    logLifecycle('spawn', { pid: child.pid });
+
+    const triggerWatchdog = (reason, progressLine) => {
+      if (watchdogTriggered || settled) return;
+      watchdogTriggered = true;
+      forcedReason = reason;
+      writeLogLine(
+        logStream,
+        `[wrapper-watchdog] ${reason}${progressLine ? ` last_progress=${progressLine}` : ''}`,
+      );
+      logLifecycle('watchdog_triggered', {
+        reason,
+        lastProgressLine: progressLine || undefined,
+      });
+      child.kill('SIGTERM');
+      killTimer = setTimeout(() => {
+        if (!settled) {
+          child.kill('SIGKILL');
+        }
+      }, 5_000);
+      killTimer.unref?.();
+    };
+
+    if (
+      semanticProgressPatterns.length > 0 ||
+      terminalSummaryPatterns.length > 0
+    ) {
+      progressWatchdog = setInterval(() => {
+        if (settled || watchdogTriggered) return;
+        const now = Date.now();
+        if (
+          terminalSummaryAt > 0 &&
+          now - terminalSummaryAt >= terminalSummaryGraceMs
+        ) {
+          triggerWatchdog(
+            'terminal_summary_without_close',
+            terminalSummaryLine || lastProgressLine,
+          );
+          return;
+        }
+        if (
+          terminalSummaryAt === 0 &&
+          lastProgressAt > 0 &&
+          now - lastProgressAt >= semanticProgressStallMs
+        ) {
+          triggerWatchdog('semantic_progress_stalled', lastProgressLine);
+        }
+      }, 15_000);
+      progressWatchdog.unref?.();
+    }
 
     child.stdout.on('data', (chunk) => {
       const text = chunk.toString();
       output += text;
       if (collectStdout) stdout += text;
       logStream.write(text);
+      trackProgress(text);
     });
 
     child.stderr.on('data', (chunk) => {
       const text = chunk.toString();
       output += text;
       logStream.write(text);
+      trackProgress(text);
+    });
+
+    child.stdout.on('end', () => {
+      stdoutEnded = true;
+      logLifecycle('stdout_end', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.stdout.on('close', () => {
+      stdoutClosed = true;
+      logLifecycle('stdout_close', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.stderr.on('end', () => {
+      stderrEnded = true;
+      logLifecycle('stderr_end', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.stderr.on('close', () => {
+      stderrClosed = true;
+      logLifecycle('stderr_close', {
+        lastProgressLine: lastProgressLine || undefined,
+      });
     });
 
     child.on('error', (err) => {
       const message = `Spawn error: ${err?.message ?? String(err)}`;
       writeLogLine(logStream, message);
       output += `\n${message}\n`;
+      logLifecycle('error', {
+        message: err?.message ?? String(err),
+        lastProgressLine: lastProgressLine || undefined,
+      });
       finish(1);
     });
 
-    child.on('close', (code) => finish(code));
+    child.on('exit', (code, signal) => {
+      logLifecycle('exit', {
+        code,
+        signal: signal ?? undefined,
+        stdoutEnded,
+        stdoutClosed,
+        stderrEnded,
+        stderrClosed,
+        lastProgressLine: lastProgressLine || undefined,
+      });
+    });
+
+    child.on('close', (code, signal) => {
+      logLifecycle('close', {
+        code,
+        signal: signal ?? undefined,
+        stdoutEnded,
+        stdoutClosed,
+        stderrEnded,
+        stderrClosed,
+        lastProgressLine: lastProgressLine || undefined,
+      });
+      finish(code);
+    });
   });

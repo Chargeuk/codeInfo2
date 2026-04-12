@@ -6951,7 +6951,7 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `89`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-12 by planner repair after Task 91's current `**RESOLVED ISSUE**` plus current `**BLOCKING ANSWER**` proved the newest full `server:unit` rerun still fails in the earlier `flows.run.loop` cleanup lane before any remaining re-embed-selector proof home is reached.
 
 #### Overview
@@ -7006,6 +7006,7 @@ This fresh prerequisite task owns only the newest earlier `flows.run.loop` contr
 - Subtask 4 prep: after comparing the targeted pass against the failing file-level and full-wrapper evidence, updated `server/src/flows/service.ts` so a pending flow stop consumed at instruction startup short-circuits the instruction as `stopped` instead of falling through into another normal `ok` turn. That code change invalidated the earlier targeted proof checkpoint, so Testing 1 is reopened until the same named wrapper reruns on current `HEAD`.
 - Testing 1 rerun: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` passed cleanly on the repaired flow-service handoff in `test-results/server-unit-tests-2026-04-12T03-04-35-566Z.log`, so the exact named Task 90 proof home is again honest on current `HEAD`.
 - Subtask 4 and Testing 2: reran the full `npm run test:summary:server:unit` wrapper on the repaired flow-service handoff. The wrapper no longer fails in `server/src/test/integration/flows.run.loop.test.ts`; instead it now advances into later red paths including `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/test/unit/agent-commands-runner.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, and `server/src/test/unit/reingestService.test.ts`, retained in `test-results/server-unit-tests-2026-04-12T03-05-00-669Z.log`. That is the named exhausted-branch handoff this task was allowed to produce, so Task 90 ends by handing execution forward to Task 91's re-embed-selector proof lane instead of widening the earlier cleanup diagnostic any further.
+- Implementation-plus-automated-proof audit on 2026-04-12: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 90 section, and the retained targeted/full wrapper proof from current disk before normalizing status. No testing steps needed to be newly checked because Testing 1 and Testing 2 were already honestly complete, there is no live standalone `**BLOCKER**` note on this task, and the remaining prose-only handoff is already satisfied by the exhausted-branch conclusion recorded above. Task 90 therefore closes as `__done__`, leaving Task 91 as the next real owner.
 
 ### Task 91. Restrict Re-Embed Selectors To Already-Ingested Roots
 

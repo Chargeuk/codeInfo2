@@ -7547,7 +7547,7 @@ This prerequisite task restores one honest execution contract for the vendored B
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `97, 98`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found unrelated vendor-fixture churn that changed checked-in Bats symlink fixtures into regular files.
 
 #### Overview
@@ -7609,6 +7609,7 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 - Repaired `scripts/test-summary-shell.mjs` so the shell summary wrapper now launches the vendored `bin/bats` script through `bash`; this keeps vendored mode compatible with the checked-in non-executable launcher and narrowed the remaining failure to the deeper launcher chain without changing the restored fixture targets again.
 - **RESOLVED ISSUE** Testing 1 (`npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats`) still could not close honestly after the first wrapper repair. I first hit `spawn .../vendor/bats-core/bin/bats EACCES`, then patched `scripts/test-summary-shell.mjs` to launch `bin/bats` through `bash`, but the rerun failed one layer deeper with `env: ‘.../vendor/bats-core/libexec/bats-core/bats’: Permission denied` because the checked-in vendored launcher stack (`bin/bats`, `libexec/bats-core/bats`, and `libexec/bats-core/bats-exec-suite`) is stored as non-executable `100644` files on current disk. Planner repair moved that broader launcher-contract work into Task 98 before this fixture-restoration task resumes.
 - Planner repair on 2026-04-12 moved the vendored launcher execution-model work into new Task 98, set this task back to `__to_do__`, and left its remaining owner as Testing 1 through 4 once that prerequisite is complete.
+- 2026-04-12 activation pass: promoted Task 99 to `__in_progress__` because it is now the earliest executable `__to_do__` task after Task 98 closed. No implementation subtasks remained to run on current disk, so this pass left the task ready for its later automated-proof work on Testing 1 through 4 without reopening the restored fixture or launcher owners.
 
 ### Task 100. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
 

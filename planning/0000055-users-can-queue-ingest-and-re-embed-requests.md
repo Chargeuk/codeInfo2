@@ -7485,7 +7485,7 @@ This review-fix task restores one shared repo-list error contract across server 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `97`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found unrelated vendor-fixture churn that changed checked-in Bats symlink fixtures into regular files.
 
 #### Overview
@@ -7517,17 +7517,17 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Subtasks
 
-1. [ ] Re-read the vendored-fixture finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep this task limited to the unrelated artifact drift.
-2. [ ] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`. Purpose: confirm the exact drift before restoring it.
-3. [ ] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`. Purpose: confirm the exact drift before restoring it.
-4. [ ] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`. Purpose: confirm the exact drift before restoring it.
-5. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` to the symlink target `../recursive/test.bats`. Purpose: repair the first broken vendor fixture seam.
-6. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` to the symlink target `../recursive/subsuite/`. Purpose: repair the second broken vendor fixture seam.
-7. [ ] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` to the symlink target `./setup_file.bats`. Purpose: repair the third broken vendor fixture seam.
-8. [ ] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`. Description: retain the exact symlink-target proof home for `../recursive/test.bats`. Purpose: make the first fixture restoration auditable during final review.
-9. [ ] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`. Description: retain the exact symlink-target proof home for `../recursive/subsuite/`. Purpose: make the second fixture restoration auditable during final review.
-10. [ ] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`. Description: retain the exact symlink-target proof home for `./setup_file.bats`. Purpose: make the third fixture restoration auditable during final review.
-11. [ ] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the three restored fixture paths plus the exact shell-wrapper and symlink-check commands from Testing 1 through 4, then mirror the same artifact list and commands in this task's retained proof notes. Purpose: keep the artifact cleanup traceable at close-out without hidden summary work.
+1. [x] Re-read the vendored-fixture finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep this task limited to the unrelated artifact drift.
+2. [x] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`. Purpose: confirm the exact drift before restoring it.
+3. [x] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`. Purpose: confirm the exact drift before restoring it.
+4. [x] Inspect the current on-disk type and contents of `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`. Purpose: confirm the exact drift before restoring it.
+5. [x] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` to the symlink target `../recursive/test.bats`. Purpose: repair the first broken vendor fixture seam.
+6. [x] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` to the symlink target `../recursive/subsuite/`. Purpose: repair the second broken vendor fixture seam.
+7. [x] Restore `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` to the symlink target `./setup_file.bats`. Purpose: repair the third broken vendor fixture seam.
+8. [x] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`. Description: retain the exact symlink-target proof home for `../recursive/test.bats`. Purpose: make the first fixture restoration auditable during final review.
+9. [x] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`. Description: retain the exact symlink-target proof home for `../recursive/subsuite/`. Purpose: make the second fixture restoration auditable during final review.
+10. [x] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`. Description: retain the exact symlink-target proof home for `./setup_file.bats`. Purpose: make the third fixture restoration auditable during final review.
+11. [x] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the three restored fixture paths plus the exact shell-wrapper and symlink-check commands from Testing 1 through 4, then mirror the same artifact list and commands in this task's retained proof notes. Purpose: keep the artifact cleanup traceable at close-out without hidden summary work.
 
 #### Testing
 
@@ -7539,6 +7539,9 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 #### Implementation notes
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because Story 55 should not close while carrying unrelated vendored Bats fixture semantic churn.
+- Re-read the review finding first, then inspected all three vendored fixture paths on current disk; each one had drifted from a checked-in symlink to a regular file whose contents were only the former link target text (`../recursive/test.bats`, `../recursive/subsuite/`, and `./setup_file.bats`), which matches the review's `120000 => 100644` warning exactly.
+- Restored the three vendored Bats fixture paths back to symbolic links and verified each exact target immediately on disk with `stat -c '%F %N'` plus `readlink`, retaining the artifact proof homes at `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`, `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`, and `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`.
+- Updated `planning/0000055-pr-summary.md` with the three restored fixture paths and the exact later-proof commands `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats`, `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)" = "../recursive/test.bats" ]`, `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)" = "../recursive/subsuite/" ]`, and `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)" = "./setup_file.bats" ]` so the retained artifact list and proof commands now match in both summary and task notes.
 
 ### Task 99. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
 

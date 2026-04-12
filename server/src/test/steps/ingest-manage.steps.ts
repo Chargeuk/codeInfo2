@@ -349,12 +349,27 @@ Then('ingest manage roots first request id is present', () => {
   );
 });
 
+Then('ingest manage roots first id is {string}', (expectedId: string) => {
+  assert(response, 'expected response');
+  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  assert(roots.length > 0, 'no roots returned');
+  assert.equal((roots[0] as { id?: string }).id, expectedId);
+});
+
 Then('ingest manage roots first run id is null', () => {
   assert(response, 'expected response');
   const roots = (response.body as { roots?: unknown[] }).roots ?? [];
   assert(roots.length > 0, 'no roots returned');
   assert.equal((roots[0] as { runId?: string | null }).runId, null);
 });
+
+Then(
+  'ingest manage roots entry for {string} has id {string}',
+  (rootPath: string, expectedId: string) => {
+    const root = findRootByPath(rootPath) as { id?: string };
+    assert.equal(root.id, expectedId);
+  },
+);
 
 Then(
   'ingest manage roots entry for {string} has name {string}',

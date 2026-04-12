@@ -24,6 +24,7 @@ type LockEnvelope = {
 };
 
 type RootEntry = {
+  id: string;
   requestId?: string | null;
   runId?: string | null;
   queuePosition?: number | null;
@@ -199,6 +200,7 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
           modelId: embeddingModel,
         };
         return {
+          id: repo.id,
           requestId: repo.requestId ?? null,
           runId: repo.runId ?? null,
           queuePosition: repo.queuePosition ?? null,

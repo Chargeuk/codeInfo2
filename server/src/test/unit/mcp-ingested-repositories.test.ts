@@ -226,7 +226,7 @@ test('ListIngestedRepositories preserves the flat normalized error fields from t
   assert.equal(parsed.repos[0]?.error?.retryAfterMs, 1000);
 });
 
-test('ListIngestedRepositories emits queued requestId with null runId before execution starts', async () => {
+test('ListIngestedRepositories preserves the canonical queued row id alongside request metadata before execution starts', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -298,7 +298,7 @@ test('ListIngestedRepositories emits queued requestId with null runId before exe
   });
 });
 
-test('ListIngestedRepositories returns one canonical row for duplicate metadata and preserves waiting queue overlay', async () => {
+test('ListIngestedRepositories returns one canonical queued row id for duplicate metadata before applying the waiting overlay', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -374,6 +374,7 @@ test('ListIngestedRepositories returns one canonical row for duplicate metadata 
     response.body?.result?.content?.[0]?.text ?? '{}',
   ) as {
     repos: Array<{
+      id?: string;
       containerPath: string;
       requestId?: string | null;
       runId?: string | null;
@@ -388,6 +389,7 @@ test('ListIngestedRepositories returns one canonical row for duplicate metadata 
     parsed.repos.filter((repo) => repo.containerPath === '/data/repo').length,
     1,
   );
+  assert.equal(parsed.repos[0]?.id, 'repo');
   assert.equal(parsed.repos[0]?.requestId, '000000000000000000000059');
   assert.equal(parsed.repos[0]?.runId, null);
   assert.equal(parsed.repos[0]?.queueState, 'waiting');

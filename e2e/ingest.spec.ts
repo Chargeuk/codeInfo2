@@ -765,55 +765,74 @@ test.describe.serial('Ingest flows', () => {
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
-  test('reused queued rows show fresh waiting metadata in the row and details surface', async ({
+  test('queued row stays singular when refresh restores the canonical route-level id', async ({
     page,
   }) => {
-    const mockedRoots = {
-      roots: [
-        {
-          id: 'stable-repo-id',
-          requestId: 'queue-request-fresh',
-          runId: null,
-          name: 'stable-repo',
-          description: 'fresh waiting description',
-          path: '/data/stable-repo',
-          embeddingProvider: 'openai',
-          embeddingModel: 'text-embedding-3-small',
-          model: 'stale-persisted-model',
-          modelId: 'text-embedding-3-small',
-          status: 'ingesting',
-          phase: 'queued',
-          queueState: 'waiting',
-          queuePosition: 1,
-          lastIngestAt: '2025-01-01T00:00:00.000Z',
-          counts: { files: 2, chunks: 4, embedded: 4 },
-          lastError: null,
-        },
-      ],
-      schemaVersion: '0000055-queued-repo-list-v1',
-      lockedModelId: 'text-embedding-3-small',
-    };
+    let rootsRequestCount = 0;
 
     await page.route('**/ingest/roots*', async (route) => {
+      rootsRequestCount += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(mockedRoots),
+        body: JSON.stringify({
+          roots: [
+            {
+              ...(rootsRequestCount > 1 ? { id: 'stable-repo-id' } : {}),
+              requestId: 'queue-request-fresh',
+              runId: null,
+              name: 'stable-repo',
+              description:
+                rootsRequestCount > 1
+                  ? 'canonical id restored'
+                  : 'fallback identity only',
+              path: '/data/stable-repo',
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-3-small',
+              model: 'stale-persisted-model',
+              modelId: 'text-embedding-3-small',
+              status: 'ingesting',
+              phase: 'queued',
+              queueState: 'waiting',
+              queuePosition: 1,
+              lastIngestAt: '2025-01-01T00:00:00.000Z',
+              counts: { files: 2, chunks: 4, embedded: 4 },
+              lastError: null,
+            },
+          ],
+          schemaVersion: '0000055-queued-repo-list-v1',
+          lockedModelId: 'text-embedding-3-small',
+        }),
       });
     });
 
     await page.goto(`${baseUrl}/ingest`);
 
-    const row = page.getByRole('row', { name: /stable-repo/i }).first();
+    const rows = page.getByRole('row', { name: /stable-repo/i });
+    const row = rows.first();
     await expect(row).toBeVisible();
+    await expect(rows).toHaveCount(1);
     await expect(row.getByText('openai / text-embedding-3-small')).toBeVisible();
     await expect(row.getByText(/queued \(#1\)/i)).toBeVisible();
     await expect(row.getByText('stale-persisted-model')).toHaveCount(0);
+    await expect(page.getByText('fallback identity only')).toBeVisible();
+
+    await page.getByRole('button', { name: /^refresh$/i }).click();
+
+    await expect
+      .poll(() => rootsRequestCount, {
+        timeout: 10_000,
+        message: 'waiting for the refresh to re-fetch /ingest/roots',
+      })
+      .toBeGreaterThan(1);
+
+    await expect(rows).toHaveCount(1);
+    await expect(page.getByText('canonical id restored')).toBeVisible();
 
     await row.getByRole('button', { name: /details/i }).click();
     await expect(page.getByText(/Request ID/i)).toBeVisible();
     await expect(page.getByText(/Pending queue start/i)).toBeVisible();
-    await expect(page.getByText('fresh waiting description')).toBeVisible();
+    await expect(page.getByText('canonical id restored')).toBeVisible();
     await expect(
       page.getByText('openai / text-embedding-3-small'),
     ).toBeVisible();

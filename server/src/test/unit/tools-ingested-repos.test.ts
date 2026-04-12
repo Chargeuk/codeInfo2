@@ -133,7 +133,7 @@ test('maps repo metadata and host path with locked model id', async () => {
   assert.equal(repo.phase, undefined);
 });
 
-test('queued start rows remain visible in the repo list with request metadata even before first ingest completes', async () => {
+test('queued start rows keep stable queued row ids alongside request metadata before first ingest completes', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -174,6 +174,7 @@ test('queued start rows remain visible in the repo list with request metadata ev
 
   assert.equal(res.status, 200);
   assert.equal(res.body.repos.length, 1);
+  assert.equal(res.body.repos[0].id, 'queued-repo');
   assert.equal(res.body.repos[0].requestId, '000000000000000000000057');
   assert.equal(res.body.repos[0].runId, null);
   assert.equal(res.body.repos[0].queueState, 'waiting');
@@ -407,7 +408,7 @@ test('synthesizes active entry when persisted metadata is missing', async () => 
   assert.equal(repo.phase, 'queued');
 });
 
-test('waiting duplicate overlay prefers the latest queued provider and model metadata for an existing root', async () => {
+test('waiting duplicate overlay preserves the canonical queued row id while preferring the latest queued provider and model metadata', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,

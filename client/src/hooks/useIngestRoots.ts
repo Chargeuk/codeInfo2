@@ -128,6 +128,22 @@ function normalizeLastError(
   return null;
 }
 
+function normalizeIdentityCandidate(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function resolveRootIdentity(entry: Record<string, unknown>): string {
+  return (
+    normalizeIdentityCandidate(entry.id) ??
+    normalizeIdentityCandidate(entry.name) ??
+    normalizeIdentityCandidate(entry.path) ??
+    normalizeIdentityCandidate(entry.containerPath) ??
+    ''
+  );
+}
+
 function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
   const status =
     entry.status === 'ingesting' ||
@@ -187,16 +203,7 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
         : undefined;
 
   return {
-    id:
-      typeof entry.id === 'string'
-        ? entry.id
-        : typeof entry.name === 'string'
-          ? entry.name
-          : typeof entry.path === 'string'
-            ? entry.path
-            : typeof entry.containerPath === 'string'
-              ? entry.containerPath
-              : '',
+    id: resolveRootIdentity(entry),
     requestId: typeof entry.requestId === 'string' ? entry.requestId : null,
     runId: typeof entry.runId === 'string' ? entry.runId : null,
     queuePosition:

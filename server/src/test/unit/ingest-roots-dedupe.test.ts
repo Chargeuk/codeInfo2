@@ -266,7 +266,7 @@ test('GET /ingest/roots keeps provider-qualified identity when model ids collide
   assert.equal(lmstudioRoot?.modelId, 'shared-id');
 });
 
-test('GET /ingest/roots emits queued rows with requestId and a null runId before execution starts', async () => {
+test('GET /ingest/roots preserves queued row id alongside waiting queue metadata on the standard REST mirror', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -309,6 +309,7 @@ test('GET /ingest/roots emits queued rows with requestId and a null runId before
   assert.equal(response.status, 200);
   assert.equal(response.body.roots.length, 1);
   const root = response.body.roots[0];
+  assert.equal(root.id, 'queued-repo');
   assert.equal(root.requestId, '000000000000000000000055');
   assert.equal(root.runId, null);
   assert.equal(root.queueState, 'waiting');
@@ -495,7 +496,7 @@ test('GET /ingest/roots keeps the blocked owner when a later waiting request tar
   });
 });
 
-test('GET /ingest/roots serializes one authoritative row when duplicate metadata and queue overlay target the same path', async () => {
+test('GET /ingest/roots serializes one authoritative queued row id when duplicate metadata and queue overlay target the same path', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -567,6 +568,7 @@ test('GET /ingest/roots serializes one authoritative row when duplicate metadata
     (root: { path: string }) => root.path === '/data/repo',
   );
   assert.equal(matches.length, 1);
+  assert.equal(matches[0]?.id, 'repo');
   assert.equal(matches[0]?.requestId, '000000000000000000000061');
   assert.equal(matches[0]?.queueState, 'waiting');
   assert.equal(matches[0]?.queuePosition, 1);

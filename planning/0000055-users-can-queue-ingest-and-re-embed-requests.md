@@ -8047,7 +8047,7 @@ This task restores the upstream vendored Bats fixture layout so the embedded ven
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `103, 104`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260412T200035Z-2407aa9b` as the required final revalidation task once the REST repo-list identity repair and vendored Bats fixture repair are back under the full proof chain.
 
 #### Overview
@@ -8151,3 +8151,4 @@ This final review-follow-up task revalidates Story 55 after the current review f
 - Subtask 10: refreshed `planning/0000055-pr-summary.md` with the full Task 105 wrapper and runtime chain from current `HEAD`, including the refreshed server build, client build, server-unit, server-cucumber, client, browser, compose-build, host-network, vendored-shell, and final symlink-sweep proof homes.
 - Subtask 11: carried the blind-spot residual risk forward explicitly in `planning/0000055-pr-summary.md`: no new late defect surfaced in this pass, but `waitForQueueRequestTerminalStatus()` still lacks a retained direct proof that green completions never depend on the timeout-fallback branch.
 - Subtask 12: confirmed the final browser rerun still leaves inspectable proof homes on current disk at `logs/test-summaries/e2e-tests-latest.log` plus the retained screenshot set under `artifacts/story-0000055-screenshots`, including `0000055-queued-row-state.png`, `0000055-bulk-selection-state.png`, `0000055-bulk-partial-failure-state.png`, `0000055-task102-queue-visible.png`, `0000055-task102-queued-details.png`, and `0000055-task102-queue-after-reload.png`.
+- Automated-proof audit on 2026-04-12: marked Task 105 `__done__` because all 15 subtasks and all 12 Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose is retained proof context rather than an open completion gate.

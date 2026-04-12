@@ -21,6 +21,16 @@ If the blocker proves the plan is wrong or incomplete, repair the story before w
 
 </scope_rules>
 
+<blocker_detection_rules>
+
+- Before deciding whether the current blocker changes the plan, read `codeinfo_markdown/shared/blocker-detection.md`.
+- Run `python3 scripts/plan_blocker_status.py --selector active_or_done`.
+- Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
+- Treat only lines reported by the parser under `selected_task.live_blockers` as the current live blocker state for this step.
+- If you retire, preserve, or rewrite a live blocker during this step, rerun the parser before finalizing your answer so blocker state and task status match current disk state.
+
+</blocker_detection_rules>
+
 <decision_rules>
 
 If there is or was a blocker, decide whether it reveals any of the following:

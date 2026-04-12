@@ -58,6 +58,16 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 </runtime_freshness_rules>
 
+<blocker_detection_rules>
+
+- Before deciding whether the candidate task is blocked, read `codeinfo_markdown/shared/blocker-detection.md`.
+- Run `python3 scripts/plan_blocker_status.py --selector active_or_done`.
+- Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
+- Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for candidate selection.
+- If the parser-selected task does not match the candidate task you intend to test, stop and re-check the task-selection reasoning before continuing.
+
+</blocker_detection_rules>
+
 <candidate_selection_rules>
 
 - Identify the candidate task for this loop iteration by scanning the plan from bottom to top and selecting the highest-numbered task whose `Task Status` is either `__done__` or `__in_progress__`.

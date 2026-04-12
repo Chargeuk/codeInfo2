@@ -22,6 +22,16 @@ Write the proven blocker answer into the implementation notes marked as `**BLOCK
 
 </scope_rules>
 
+<blocker_detection_rules>
+
+- Before deciding whether the current implementation contains a blocker, read `codeinfo_markdown/shared/blocker-detection.md`.
+- Run `python3 scripts/plan_blocker_status.py --selector active_or_done`.
+- Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
+- Treat only lines reported by the parser under `selected_task.live_blockers` as the current live blocker state for this step.
+- If the parser reports no live blocker lines for the selected task, state that no current blocker is present and stop.
+
+</blocker_detection_rules>
+
 <research_rules>
 
 If the implementation notes contain a blocker, your research must cover all of the following:

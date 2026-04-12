@@ -22,6 +22,16 @@ If that task is still `__in_progress__` even though all subtasks are checked, al
 
 </scope_rules>
 
+<blocker_detection_rules>
+
+- Before deciding whether the highest active task has a live blocker, read `codeinfo_markdown/shared/blocker-detection.md`.
+- Run `python3 scripts/plan_blocker_status.py --selector active`.
+- Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
+- Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for this normalization step.
+- If you add or retire a live blocker during this step, rerun the parser before finalizing your answer so blocker state and task status match current disk state.
+
+</blocker_detection_rules>
+
 <normalization_rules>
 
 - Treat a highest active task with all subtasks checked, all testing checked, and no live standalone `**BLOCKER**` as an invalid plan state that must not be left unchanged.

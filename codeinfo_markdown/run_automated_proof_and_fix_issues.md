@@ -32,6 +32,16 @@ Do not perform manual testing in this step.
 
 </task_selection_rules>
 
+<blocker_detection_rules>
+
+- Before deciding whether automated proof must skip because of a live blocker, read `codeinfo_markdown/shared/blocker-detection.md`.
+- Run `python3 scripts/plan_blocker_status.py --selector active`.
+- Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
+- Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for automated-proof skip decisions.
+- If you add or retire a live blocker during this step, rerun the parser before finalizing your answer so blocker state and task status match current disk state.
+
+</blocker_detection_rules>
+
 <skip_rules>
 
 - If the candidate task contains a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, do not run automated proof. Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`.

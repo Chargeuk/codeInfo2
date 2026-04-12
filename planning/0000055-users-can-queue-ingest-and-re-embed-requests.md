@@ -7936,12 +7936,12 @@ This task repairs the queue-row identity contract on the standard REST `/ingest/
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the `/ingest/roots` contract repair.
-2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes after the `/ingest/roots` contract repair.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the refreshed `/ingest/roots`, shared repo-list builder, and MCP repo-list proofs named in this task's subtasks.
-4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes, including the refreshed `server/src/test/features/ingest-roots.feature` coverage for the repaired queued-row identity contract.
-5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the refreshed `client/src/test/useIngestRoots.test.tsx` identity proofs for canonical `id`, legacy fallback, and fallback-to-canonical transition behavior.
-6. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes the restored row-identity flow, retaining `logs/test-summaries/e2e-tests-latest.log` and any updated screenshot evidence under `artifacts/story-0000055-screenshots` when the visual proof changes.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the `/ingest/roots` contract repair.
+2. [x] Run `npm run build:summary:client` and confirm the client build wrapper passes after the `/ingest/roots` contract repair.
+3. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the refreshed `/ingest/roots`, shared repo-list builder, and MCP repo-list proofs named in this task's subtasks.
+4. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes, including the refreshed `server/src/test/features/ingest-roots.feature` coverage for the repaired queued-row identity contract.
+5. [x] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the refreshed `client/src/test/useIngestRoots.test.tsx` identity proofs for canonical `id`, legacy fallback, and fallback-to-canonical transition behavior.
+6. [x] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes the restored row-identity flow, retaining `logs/test-summaries/e2e-tests-latest.log` and any updated screenshot evidence under `artifacts/story-0000055-screenshots` when the visual proof changes.
 
 #### Implementation notes
 
@@ -7951,6 +7951,12 @@ This task repairs the queue-row identity contract on the standard REST `/ingest/
 - Refined `useIngestRoots()` identity normalization to prefer restored route-level `id`, added client proof for canonical-id precedence, legacy fallback-only rows, and fallback-to-canonical refresh, and kept the fallback path reserved for genuinely legacy rows.
 - Refreshed the cucumber and browser proof text for the same contract: the `/ingest/roots` feature now asserts queued-row `id` through the existing ingest-manage step seam, and the mocked browser refresh proof now waits for a re-fetch and confirms one visible queued row remains when canonical `id` arrives later.
 - Updated `planning/0000055-pr-summary.md` with the retained proof-owner set for this review fix and intentionally left all Task 103 testing wrappers unchecked for the later automated-proof step.
+- Testing 1: `npm run build:summary:server` now passes cleanly with `agent_action: skip_log`. The first rerun surfaced two stale `dedupeRootsByPath()` fixtures that still used the pre-`id` `RootEntry` shape, so those route-level unit fixtures were updated before the passing rebuild.
+- Testing 2: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, so the refreshed hook tests, browser proof text, and summary updates still typecheck and build from the client side.
+- Testing 3: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1652`, `passed: 1652`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-12T21-22-18-066Z.log`, so the refreshed REST, shared-builder, and MCP identity proofs all hold under the full server-unit wrapper.
+- Testing 4: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 87`, `passed: 87`, `failed: 0`, and retained log `test-results/server-cucumber-tests-2026-04-12T21-43-21-437Z.log`, so the queued-row `id` cucumber path stays green under the normal server feature wrapper.
+- Testing 5: full `npm run test:summary:client` passed cleanly with `tests run: 683`, `passed: 683`, `failed: 0`, and retained log `test-results/client-tests-2026-04-12T21-46-37-710Z.log`, so the refreshed canonical-id, legacy-fallback, and fallback-to-canonical hook proofs hold under the full client wrapper.
+- Testing 6: full `npm run test:summary:e2e` passed cleanly with `tests run: 49`, `passed: 49`, `failed: 0`, and retained log `logs/test-summaries/e2e-tests-latest.log`. The wrapper also re-confirmed the host-network proof environment before the restored queued-row identity scenario completed under the full browser chain.
 
 ### Task 104. Restore Vendored Bats Fixture Symlink Semantics
 

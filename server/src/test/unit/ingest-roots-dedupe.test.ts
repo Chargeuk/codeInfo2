@@ -66,6 +66,7 @@ test('dedupeRootsByPath: keeps newest by lastIngestAt when path duplicates', () 
   };
   const roots = [
     {
+      id: 'old',
       runId: 'r1',
       name: 'old',
       description: null,
@@ -82,6 +83,7 @@ test('dedupeRootsByPath: keeps newest by lastIngestAt when path duplicates', () 
       lastError: null,
     },
     {
+      id: 'new',
       runId: 'r2',
       name: 'new',
       description: null,
@@ -115,6 +117,7 @@ test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () =
   };
   const roots = [
     {
+      id: 'old',
       runId: 'r1',
       name: 'old',
       description: null,
@@ -131,6 +134,7 @@ test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () =
       lastError: null,
     },
     {
+      id: 'newer',
       runId: 'r9',
       name: 'newer',
       description: null,

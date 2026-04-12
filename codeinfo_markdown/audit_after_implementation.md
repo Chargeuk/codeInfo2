@@ -36,6 +36,7 @@ Do not treat this step as automated-proof completion.
 
 - Audit the coding agent's implementation-only work on the current task honestly.
 - Check whether completed subtasks were implemented but left unmarked, and correct subtask status if the evidence supports it.
+- A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Do not mark any `Testing` section items complete in this audit unless either:
   - the plan already honestly shows they were completed earlier; or
   - the immediately preceding implementation pass honestly completed them because an unchecked subtask explicitly required those testing-wrapper outputs.

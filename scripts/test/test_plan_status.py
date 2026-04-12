@@ -144,6 +144,36 @@ class PlanStatusTests(unittest.TestCase):
         self.assertTrue(status["selected_task"]["has_unchecked_subtasks"])
         self.assertTrue(status["selected_task"]["has_unchecked_testing"])
 
+    def test_reports_done_tasks_with_incomplete_checklists_as_inconsistent(self) -> None:
+        plan_path = self.write_plan(
+            """
+            ### Task 1. First
+
+            - Task Status: `__done__`
+
+            #### Subtasks
+
+            1. [x] Done
+            2. [ ] Pending
+
+            #### Testing
+
+            1. [x] Done
+
+            #### Implementation notes
+
+            - Note.
+            """
+        )
+
+        status = plan_status.get_plan_status(plan=plan_path)
+
+        self.assertTrue(status["all_tasks_done"])
+        self.assertFalse(status["story_complete"])
+        self.assertEqual(len(status["inconsistent_done_tasks"]), 1)
+        self.assertEqual(status["inconsistent_done_tasks"][0]["number"], 1)
+        self.assertTrue(status["inconsistent_done_tasks"][0]["has_unchecked_subtasks"])
+
 
 if __name__ == "__main__":
     unittest.main()

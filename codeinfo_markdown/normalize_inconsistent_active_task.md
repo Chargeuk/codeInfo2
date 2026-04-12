@@ -1,14 +1,16 @@
 # Goal
 
-Normalize a structurally inconsistent active task so the overnight implementation loop can continue honestly instead of repeating a no-progress cycle.
+Normalize structurally inconsistent task state so the overnight implementation loop can continue honestly instead of repeating a no-progress cycle.
 
 <task>
 
 Read the stored current-plan handoff and use only that scope for this step.
 Re-open the exact plan file from disk before normalizing anything.
 Identify the highest-numbered task whose `Task Status` is `__in_progress__`.
-If there is no such task, or if that task still has unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`, state that no normalization was needed and stop.
-If that task is still `__in_progress__` even though all subtasks are checked, all testing steps are checked, and no live standalone `**BLOCKER**` exists, you MUST normalize the task into an honest state before work continues.
+If there is no such task, identify the highest-numbered task whose `Task Status` is `__done__` but whose parser state still reports unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`.
+If no such inconsistent task exists, state that no normalization was needed and stop.
+If the inconsistent task is `__in_progress__` even though all subtasks are checked, all testing steps are checked, and no live standalone `**BLOCKER**` exists, you MUST normalize that task into an honest state before work continues.
+If the inconsistent task is `__done__` even though unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**` still remain, you MUST repair that invalid `__done__` state before work continues.
 
 </task>
 
@@ -28,6 +30,7 @@ If that task is still `__in_progress__` even though all subtasks are checked, al
 - Run `python3 scripts/plan_status.py --selector active`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for this normalization step.
+- Also use the parser output's `inconsistent_done_tasks` list as the source of truth for any `__done__` task that still carries unchecked subtasks, unchecked testing, or a live blocker.
 - If you add or retire a live blocker during this step, rerun the parser before finalizing your answer so blocker state and task status match current disk state.
 
 </blocker_detection_rules>
@@ -35,10 +38,13 @@ If that task is still `__in_progress__` even though all subtasks are checked, al
 <normalization_rules>
 
 - Treat a highest active task with all subtasks checked, all testing checked, and no live standalone `**BLOCKER**` as an invalid plan state that must not be left unchanged.
+- Treat any `__done__` task still reported by the parser under `inconsistent_done_tasks` as an invalid plan state that must not be left unchanged.
 - Re-read the task's full section, including `Task Exit Criteria`, `Subtasks`, `Testing`, and `Implementation notes`, before deciding what to change.
 - Then do exactly one of the following:
   - mark the task `__done__` if current repository evidence shows the remaining prose-only note is already satisfied or is not an honest remaining gate; or
   - convert the real remaining work into one or more unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**` note, and leave the task `__in_progress__`.
+- If the inconsistent task is currently `__done__` and the remaining unchecked checklist state is still honest unfinished work, reopen that task to `__in_progress__` before returning it to the loop.
+- A task must not remain `__done__` while the parser still reports unchecked subtasks, unchecked testing, or a live blocker for that task.
 - Do not leave prose-only “still incomplete” notes as the sole reason a task remains `__in_progress__`.
 - Keep the fix minimal and local to the inconsistent task unless a tiny cross-reference update is required for honesty.
 - Before appending a new implementation note, re-read the latest existing implementation or audit note and avoid duplicating the same outcome.
@@ -72,6 +78,7 @@ Before finishing:
 - confirm you re-read the plan from disk;
 - confirm you judged the inconsistent state from current plan state rather than memory;
 - confirm you did not leave a fully checked, unblocked task as `__in_progress__`;
+- confirm you did not leave any parser-reported `inconsistent_done_tasks` entry in an invalid `__done__` state;
 - confirm any remaining work was represented as unchecked checklist state or a live standalone `**BLOCKER**`, not only in prose;
 - confirm tracked changes were committed if any were made.
 

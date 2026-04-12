@@ -231,6 +231,16 @@ def build_output(
     highest_in_progress = select_task(tasks, "active", None)
     highest_done_or_in_progress = select_task(tasks, "active_or_done", None)
     todo_tasks = [task for task in tasks if task["status"] == "__to_do__"]
+    inconsistent_done_tasks = [
+        task
+        for task in tasks
+        if task["status"] == "__done__"
+        and (
+            task["has_unchecked_subtasks"]
+            or task["has_unchecked_testing"]
+            or task["has_live_blocker"]
+        )
+    ]
     earliest_todo = min(todo_tasks, key=lambda task: task["number"]) if todo_tasks else None
     final_task = max(tasks, key=lambda task: task["number"]) if tasks else None
     all_tasks_done = bool(tasks) and all(task["status"] == "__done__" for task in tasks)
@@ -260,6 +270,7 @@ def build_output(
         "tasks_with_live_blockers": [
             summarise_task(task) for task in tasks if task["has_live_blocker"]
         ],
+        "inconsistent_done_tasks": [summarise_task(task) for task in inconsistent_done_tasks],
         "tasks_with_unchecked_subtasks": [
             summarise_task(task) for task in tasks if task["has_unchecked_subtasks"]
         ],

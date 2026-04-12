@@ -36,6 +36,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 - Audit the coding agent's implementation and automated-proof work on the current task honestly.
 - Check whether completed work was implemented or proved but left unmarked, and correct task, subtask, and testing statuses if the evidence supports it.
+- A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
 - Treat unchecked subtasks, unchecked testing steps, and a live standalone `**BLOCKER**` note as the only valid reasons for the just-worked task to remain `__in_progress__` after this automated-proof audit.

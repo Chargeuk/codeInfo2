@@ -7594,10 +7594,10 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` and confirm the vendored Bats harness still passes after the fixture restoration. If the wrapper fails, inspect the emitted shell summary log before changing the fixture targets again.
-2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)" = "../recursive/test.bats" ]` and confirm the path is restored as the correct symlink.
-3. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)" = "../recursive/subsuite/" ]` and confirm the path is restored as the correct symlink.
-4. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)" = "./setup_file.bats" ]` and confirm the path is restored as the correct symlink.
+1. [x] Run `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` and confirm the vendored Bats harness still passes after the fixture restoration. If the wrapper fails, inspect the emitted shell summary log before changing the fixture targets again.
+2. [x] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)" = "../recursive/test.bats" ]` and confirm the path is restored as the correct symlink.
+3. [x] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)" = "../recursive/subsuite/" ]` and confirm the path is restored as the correct symlink.
+4. [x] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)" = "./setup_file.bats" ]` and confirm the path is restored as the correct symlink.
 
 #### Implementation notes
 
@@ -7610,6 +7610,10 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 - **RESOLVED ISSUE** Testing 1 (`npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats`) still could not close honestly after the first wrapper repair. I first hit `spawn .../vendor/bats-core/bin/bats EACCES`, then patched `scripts/test-summary-shell.mjs` to launch `bin/bats` through `bash`, but the rerun failed one layer deeper with `env: ‘.../vendor/bats-core/libexec/bats-core/bats’: Permission denied` because the checked-in vendored launcher stack (`bin/bats`, `libexec/bats-core/bats`, and `libexec/bats-core/bats-exec-suite`) is stored as non-executable `100644` files on current disk. Planner repair moved that broader launcher-contract work into Task 98 before this fixture-restoration task resumes.
 - Planner repair on 2026-04-12 moved the vendored launcher execution-model work into new Task 98, set this task back to `__to_do__`, and left its remaining owner as Testing 1 through 4 once that prerequisite is complete.
 - 2026-04-12 activation pass: promoted Task 99 to `__in_progress__` because it is now the earliest executable `__to_do__` task after Task 98 closed. No implementation subtasks remained to run on current disk, so this pass left the task ready for its later automated-proof work on Testing 1 through 4 without reopening the restored fixture or launcher owners.
+- Automated proof on 2026-04-12: Testing 1 passed cleanly with `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats`, finishing `24/24` green and retaining the shell proof home at `logs/test-summaries/shell-tests-2026-04-12T16-41-11-325Z.log`.
+- Automated proof on 2026-04-12: Testing 2 passed with the exact symlink-and-target check for `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`, confirming the restored path still points to `../recursive/test.bats`.
+- Automated proof on 2026-04-12: Testing 3 passed with the exact symlink-and-target check for `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`, confirming the restored path still points to `../recursive/subsuite/`.
+- Automated proof on 2026-04-12: Testing 4 passed with the exact symlink-and-target check for `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`, confirming the restored path still points to `./setup_file.bats`.
 
 ### Task 100. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
 

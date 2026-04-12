@@ -7411,7 +7411,7 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `96`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the server now emits a normalized error shape with `error`, while the changed client hook still reads `error.code` and its proof mocks the wrong payload shape.
 
 #### Overview
@@ -7478,6 +7478,7 @@ This review-fix task restores one shared repo-list error contract across server 
 - Testing 4 passed cleanly on the first wrapper attempt: `npm run test:summary:server:cucumber` finished with `87/87` scenarios green and wrapper `agent_action: skip_log`, retaining the full server-cucumber proof home at `test-results/server-cucumber-tests-2026-04-12T14-50-44-265Z.log`.
 - Testing 5 passed cleanly on the first wrapper attempt: `npm run test:summary:client` finished with `680/680` tests green and wrapper `agent_action: skip_log`, retaining the full client proof home at `test-results/client-tests-2026-04-12T14-54-00-076Z.log`.
 - Testing 6 passed cleanly on the first wrapper attempt: `npm run test:summary:e2e` finished with `49/49` browser tests green and wrapper `agent_action: skip_log`, retaining the browser regression boundary at `logs/test-summaries/e2e-tests-latest.log`.
+- Automated-proof audit on 2026-04-12: marked Task 97 `__done__` because all implementation subtasks and all six Testing items are honestly complete on current disk, `python3 scripts/plan_status.py --selector active_or_done` reports no live blocker, and no prose-only remaining gate survives beyond the retained wrapper proof logs.
 
 ### Task 98. Restore Vendored Bats Fixture Semantics
 

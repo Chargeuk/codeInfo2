@@ -7249,7 +7249,7 @@ This fresh prerequisite task owns only the newly reopened `flows.run.loop` contr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `94`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that queued start-ingest rows temporarily synthesized into the repo list can be selected for re-embed even though they were never ingested. Re-owned to `__to_do__` again on 2026-04-12 by planner repair after this task's renewed live blocker proved a fresh earlier `flows.run.loop` prerequisite must land before its remaining full-wrapper proof can continue honestly.
 
 #### Overview
@@ -7339,6 +7339,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 - Implementation-only audit on 2026-04-12 after Task 94 closed: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 95 section, the current selector-owner files, and the retained proof notes from disk before normalizing status again. Current repo evidence still matches the checked implementation subtasks and already-complete Testing 1, there is still no live standalone `**BLOCKER**` note on this task, and the remaining honest work before automated-proof closeout is still Testing 2 and Testing 3. Task 95 is therefore restored to `__in_progress__` so the implementation loop no longer leaves the landed selector owner hidden as `__to_do__`.
 - Testing 2 on 2026-04-12: reran full `npm run test:summary:server:unit` from current `HEAD`, and the wrapper passed cleanly with `tests run: 1649`, `passed: 1649`, `failed: 0`, `agent_action: skip_log`, retaining `test-results/server-unit-tests-2026-04-12T12-37-11-738Z.log`. That restores the full server-unit baseline for this selector owner without reopening any earlier prerequisite lane.
 - Testing 3 on 2026-04-12: reran full `npm run test:summary:server:cucumber` from current `HEAD`, and the wrapper passed cleanly with `tests run: 87`, `passed: 87`, `failed: 0`, `agent_action: skip_log`, retaining `test-results/server-cucumber-tests-2026-04-12T12-56-34-914Z.log`. That keeps the broader backend ingest and re-embed feature baseline honest after the selector repair without introducing any new blocker lane.
+- Automated-proof audit on 2026-04-12: marked Task 95 `__done__` because its implementation subtasks and all three Testing items are now honestly complete on current disk, `python3 scripts/plan_status.py --selector active_or_done` reports no live blocker, and no prose-only gate remains beyond the passing full server-unit and server-cucumber wrapper proofs.
 
 ### Task 96. Preserve Canonical Field Validation During Deferred Queue Execution
 

@@ -167,8 +167,8 @@ const batsEnv = {
 };
 
 const batsResult = await runLoggedCommand({
-  cmd: batsExecutable,
-  args: suiteFiles,
+  cmd: 'bash',
+  args: [batsExecutable, ...suiteFiles],
   cwd: rootDir,
   env: batsEnv,
   logStream,

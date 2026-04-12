@@ -7125,12 +7125,64 @@ This fresh prerequisite task owns only the newly reopened dedicated flow-reinges
 - Implementation-plus-automated-proof audit on 2026-04-12: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 92 section, and the retained targeted/full wrapper proof from current disk before normalizing status. No testing steps needed to be newly checked because Testing 1 and Testing 2 were already honestly complete from the immediately preceding implementation pass, there is no live standalone `**BLOCKER**` note on this task, and the only remaining prose is the already-satisfied exhausted-branch handoff recorded above. Task 92 therefore closes as `__done__`.
 - Manual testing assessment on 2026-04-12: task-scoped manual proof is not applicable because Task 92 only re-isolates an automated `server:unit` prerequisite boundary in `server/src/test/integration/flows.run.errors.test.ts` and its bounded runtime-owner files, without introducing a separate runnable, browser-visible, or HTTP-owned surface that can be honestly proved through the supported manual runtime paths.
 
-### Task 93. Restrict Re-Embed Selectors To Already-Ingested Roots
+### Task 93. Re-Isolate The Reopened Earlier `flows.run.loop` Cleanup Boundary Before Re-Embed Selector Proof Resumes Again
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `92`
 - Task Status: `__in_progress__`
-- Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that queued start-ingest rows temporarily synthesized into the repo list can be selected for re-embed even though they were never ingested. Re-owned to `__to_do__` again on 2026-04-12 by planner repair after this task's live blocker proved a fresh earlier `flows.run.errors` prerequisite must land before its remaining full-wrapper proof can continue honestly.
+- Notes: Added on 2026-04-12 by planner repair after Task 94's renewed live `**BLOCKER**` plus current `**BLOCKING ANSWER**` proved the latest full `server:unit` rerun regressed earlier again to the shared `flows.run.loop` cleanup lane before any remaining Task 94 proof home is reached.
+
+#### Overview
+
+This fresh prerequisite task owns only the newly reopened `flows.run.loop` cleanup contradiction surfaced after Task 92 closed. Keep the work bounded to `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`, and at most one directly shared helper if fresh reruns still prove that same local owner. The goal is to restore a trustworthy full `npm run test:summary:server:unit` baseline, or to name one new exhausted-branch successor owner explicitly before Task 94 resumes.
+
+#### Task Exit Criteria
+
+- The reopened `flows.run.loop` cleanup owner is named explicitly from current disk state, either as a repaired local owner or as one new exhausted-branch successor owner.
+- Any implementation work stays bounded to `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`, and one directly shared helper only if fresh reruns prove that tighter local owner.
+- Direct proof exists for the exact targeted `flows.run.loop` failure file and a fresh full `npm run test:summary:server:unit` pass, or one named exhausted-branch owner conclusion, before Task 94 resumes.
+- If this bounded loop-cleanup class exhausts cleanly and the blocker still belongs elsewhere, this task ends by naming that successor owner explicitly instead of remaining investigative.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `test-results/server-unit-tests-2026-04-12T06-30-21-434Z.log`
+- `server/src/test/integration/flows.run.loop.test.ts`
+- `server/src/flows/service.ts`
+- `server/src/ws/server.ts`
+- `server/src/chat/inflightRegistry.ts`
+- `server/src/agents/runLock.ts`
+- `scripts/test-summary-server-unit.mjs`
+- `scripts/summary-wrapper-protocol.mjs`
+
+#### Proof Mapping
+
+- The reopened loop-cleanup owner is isolated without widening back into the Task 94 re-embed-selector lane: owned by `server/src/test/integration/flows.run.loop.test.ts` plus the bounded runtime-owner files; prove with the targeted server-unit wrapper in Testing 1 and the exact owner conclusion recorded in `Implementation notes`.
+- The full `server:unit` wrapper baseline is restored or exhaustively re-handed off before Task 94 resumes: owned by the same bounded runtime lane; prove with the full server-unit wrapper in Testing 2 and the repaired or successor-owner conclusion recorded in `Implementation notes`.
+
+#### Subtasks
+
+1. [ ] Re-read Task 94's current `**RESOLVED ISSUE**`, current `**BLOCKING ANSWER**`, and retained full-wrapper log `test-results/server-unit-tests-2026-04-12T06-30-21-434Z.log` before editing. Purpose: keep this prerequisite anchored to the current earlier full-wrapper contradiction instead of reopening the re-embed-selector scope.
+2. [ ] Inspect `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, and `server/src/agents/runLock.ts` before changing behavior. Purpose: identify the exact bounded loop-cleanup seam that the current full wrapper now exercises first again.
+3. [ ] Reproduce the current bounded owner from `HEAD` by comparing the exact targeted `flows.run.loop` rerun against the full `server:unit` wrapper. Use one temporary trace or helper-level log only if the fresh reruns still show this same lane as the first failing owner, and stop as soon as one exact local owner or one exhausted-branch handoff is proved. Purpose: give the next implementation loop one concrete owner instead of another broad full-suite search.
+4. [ ] If Subtask 3 proves one exact local loop-cleanup owner, repair only that owner and the exact `flows.run.loop` proof text or assertions it affects, then restore the full `server:unit` baseline. If it instead proves this loop-cleanup lane is exhausted because the full wrapper now advances into a different task's named proof homes, record that exhausted branch in `Implementation notes` and hand execution forward to that owner instead of widening this task. Purpose: keep the repair exact, bounded, and honest.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` after the bounded diagnostic or repair, and confirm the targeted wrapper passes cleanly or yields one named exhausted-branch owner conclusion.
+2. [ ] Run `npm run test:summary:server:unit` after the bounded diagnostic or repair, and confirm the full server-unit wrapper passes cleanly or yields one named exhausted-branch owner conclusion before Task 94 resumes.
+
+#### Implementation notes
+
+- Inserted on 2026-04-12 by planner repair because Task 94's renewed live `**BLOCKER**` plus current `**BLOCKING ANSWER**` proved the latest full `server:unit` rerun from current `HEAD` regressed earlier again to the shared `flows.run.loop` cleanup lane before any remaining Task 94 proof home is reached. This fresh successor task exists because Task 94's current implementation is already on disk, while the remaining red path again belongs to a different earlier owner.
+
+### Task 94. Restrict Re-Embed Selectors To Already-Ingested Roots
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `93`
+- Task Status: `__to_do__`
+- Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that queued start-ingest rows temporarily synthesized into the repo list can be selected for re-embed even though they were never ingested. Re-owned to `__to_do__` again on 2026-04-12 by planner repair after this task's renewed live blocker proved a fresh earlier `flows.run.loop` prerequisite must land before its remaining full-wrapper proof can continue honestly.
 
 #### Overview
 
@@ -7208,13 +7260,14 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 - **RESOLVED ISSUE** Testing 2 stopped at `npm run test:summary:server:unit`. I reran the full wrapper from current `HEAD` and then the exact Task 93 proof homes required by the task (`server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`), and those targeted wrappers all passed cleanly while the full wrapper still failed in the later dedicated flow-reingest error lane and queue-request reuse lane. The contradiction is that Task 93 has no remaining local failing proof home to repair, but the full wrapper is not yet green; continuing to edit Task 93-owned selector files would widen the task dishonestly. This blocker is now retired because planner repair moved the next real work into fresh Task 92, so the dedicated `flows.run.errors` failure cluster is explicitly owned before this task resumes.
 - Implementation-only audit on 2026-04-12 after Task 91 closed: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 93 section, commits `d1a79c71` and `90d70e2b`, plus the current owner files and retained proof notes from disk before normalizing status. Current repo evidence still matches the checked implementation subtasks and Testing 1, there is no live standalone `**BLOCKER**` note on this task now, and the remaining honest work before automated-proof closeout is still Testing 2 and Testing 3. Task 93 is therefore restored to `__in_progress__` so the implementation loop no longer skips a task whose code is already landed while its remaining full-wrapper proof is still pending.
 - Testing 2 diagnosis on 2026-04-12 after Task 92 closed: reran the full `npm run test:summary:server:unit` wrapper from current `HEAD`, and it regressed earlier again with `agent_action: inspect_log`, `tests run: 0`, and `last_progress: not ok 280 - flow stop during a looped flow prevents later iterations from continuing` in `test-results/server-unit-tests-2026-04-12T06-30-21-434Z.log`. Per this task's Testing 2 instructions, I then reran the exact proof homes `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`; all four targeted wrappers passed cleanly in `test-results/server-unit-tests-2026-04-12T06-40-48-393Z.log`, `test-results/server-unit-tests-2026-04-12T06-40-48-382Z.log`, `test-results/server-unit-tests-2026-04-12T06-40-48-401Z.log`, and `test-results/server-unit-tests-2026-04-12T06-40-48-413Z.log` with `agent_action: skip_log`, so the current red path still does not belong to a Task 93 proof home.
-- **BLOCKER** Testing 2 stopped at `npm run test:summary:server:unit`. I reran the full wrapper from current `HEAD` and then the exact Task 93 proof homes required by the task (`server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`), and those targeted wrappers all passed cleanly while the full wrapper regressed back to the earlier `server/src/test/integration/flows.run.loop.test.ts` lane with `last_progress: not ok 280 - flow stop during a looped flow prevents later iterations from continuing`. The contradiction is that Task 93 again has no remaining local failing proof home to repair, but the full wrapper is not yet green; continuing to edit Task 93-owned selector files would widen the task dishonestly. This task should be split or reordered again so one fresh earlier prerequisite re-owns the reopened `flows.run.loop` cleanup boundary before Task 93 resumes.
+- **RESOLVED ISSUE** Testing 2 stopped at `npm run test:summary:server:unit`. I reran the full wrapper from current `HEAD` and then the exact Task 94 proof homes required by the task (`server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`), and those targeted wrappers all passed cleanly while the full wrapper regressed back to the earlier `server/src/test/integration/flows.run.loop.test.ts` lane with `last_progress: not ok 280 - flow stop during a looped flow prevents later iterations from continuing`. The contradiction is that Task 94 again has no remaining local failing proof home to repair, but the full wrapper is not yet green; continuing to edit Task 94-owned selector files would widen the task dishonestly. This blocker is now retired because planner repair moved the next real work into fresh Task 93, so the reopened `flows.run.loop` cleanup boundary is explicitly owned before this task resumes.
 - Implementation-only audit on 2026-04-12 after Task 92 closed: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 93 section, commits `d1a79c71` and `90d70e2b`, and the current owner files plus retained proof notes from disk before normalizing status again. Current repo evidence still matches the checked implementation subtasks and Testing 1, there is still no live standalone `**BLOCKER**` note on this task, and the remaining honest work before automated-proof closeout is still Testing 2 and Testing 3. Task 93 is therefore restored to `__in_progress__` so the implementation loop resumes with the already-landed selector owner instead of skipping directly to later review work.
+- 2026-04-12 planner repair: because this task has now re-exhausted the earlier `flows.run.loop` lane after Task 92 closed, that reopened cleanup contradiction is re-owned into fresh Task 93 instead of narrowing this same task again. This task returns to `__to_do__` with its implementation subtasks and Testing 1 preserved; Testing 2 and Testing 3 remain the next proof gates after Task 93 restores or cleanly re-hands off the full `server:unit` baseline again.
 
-### Task 94. Preserve Canonical Field Validation During Deferred Queue Execution
+### Task 95. Preserve Canonical Field Validation During Deferred Queue Execution
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `93`
+- Task Dependencies: `94`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that deferred queue execution can strip malformed canonical embedding fields and fall back to the legacy `model` field instead of failing with the same validation contract as live admission.
 
@@ -7267,10 +7320,10 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because the deferred queue path currently weakens canonical-field validation instead of matching live admission behavior.
 
-### Task 95. Realign The Shared Repo-List Error Contract Between Server And Client
+### Task 96. Realign The Shared Repo-List Error Contract Between Server And Client
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `94`
+- Task Dependencies: `95`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the server now emits a normalized error shape with `error`, while the changed client hook still reads `error.code` and its proof mocks the wrong payload shape.
 
@@ -7329,10 +7382,10 @@ This review-fix task restores one shared repo-list error contract across server 
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` to restore one shared repo-list error contract instead of drifting server and client proof onto different payload shapes.
 
-### Task 96. Restore Vendored Bats Fixture Semantics
+### Task 97. Restore Vendored Bats Fixture Semantics
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `95`
+- Task Dependencies: `96`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found unrelated vendor-fixture churn that changed checked-in Bats symlink fixtures into regular files.
 
@@ -7388,10 +7441,10 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because Story 55 should not close while carrying unrelated vendored Bats fixture semantic churn.
 
-### Task 97. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
+### Task 98. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `96`
+- Task Dependencies: `97`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the e2e cancel acceptance proof still depends on a fixed one-second sleep even though the UI already exposes stronger deterministic readiness boundaries.
 
@@ -7442,10 +7495,10 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because the story's retained cancellation acceptance proof should use deterministic product boundaries instead of an arbitrary sleep.
 
-### Task 98. Deduplicate Story 55 Schema-Version Proof Constants
+### Task 99. Deduplicate Story 55 Schema-Version Proof Constants
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `97`
+- Task Dependencies: `98`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` because the localized schema-version constant cleanup is low-risk, shared-contract work in files already touched by Story 55 proof updates.
 
@@ -7501,10 +7554,10 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because this localized shared-contract cleanup is objectively testable and worth landing while the review-created repair block is already open.
 
-### Task 99. Re-Validate Story 55 After Review Pass 0000055-20260411T104227Z-756a77d1
+### Task 100. Re-Validate Story 55 After Review Pass 0000055-20260411T104227Z-756a77d1
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `98`
+- Task Dependencies: `99`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` as the required final revalidation task once the review-created server, client, browser, fixture, and shared-contract repairs land.
 
@@ -7514,7 +7567,7 @@ This final revalidation task closes the reopened review pass only after the revi
 
 #### Task Exit Criteria
 
-- Tasks 79 through 98 are `__done__`, and their exact proof-owner files or retained artifact homes are re-read from current disk before final validation starts.
+- Tasks 79 through 99 are `__done__`, and their exact proof-owner files or retained artifact homes are re-read from current disk before final validation starts.
 - The full server, client, compose, host-network, browser, and review-artifact proof chain passes on current disk after the review-created fixes from this pass.
 - The maintained summary contains a new `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section that cites the reopened findings, the retained proof homes, and any residual risk honestly.
 - The current review artifacts for this pass still exist on disk and remain the durable adjudication record cited by the final close-out.
@@ -7536,8 +7589,8 @@ This final revalidation task closes the reopened review pass only after the revi
 
 #### Proof Mapping
 
-- Server build, server unit, and server cucumber wrapper coverage for the reopened server seams from Tasks 79 through 93: prove with Testing 1, 3, and 4 plus retained logs in `logs/test-summaries`.
-- Client build and client test wrapper coverage for the shared repo-list and schema-version seams from Tasks 95 and 98: prove with Testing 2 and 5 plus retained logs in `logs/test-summaries`.
+- Server build, server unit, and server cucumber wrapper coverage for the reopened server seams from Tasks 79 through 94: prove with Testing 1, 3, and 4 plus retained logs in `logs/test-summaries`.
+- Client build and client test wrapper coverage for the shared repo-list and schema-version seams from Tasks 96 and 99: prove with Testing 2 and 5 plus retained logs in `logs/test-summaries`.
 - Full browser rerun for the deterministic cancel proof and broader Story 55 acceptance paths: prove with Testing 6 plus retained browser output in `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`.
 - Main-stack compose startup, host-network smoke validation, and teardown after the review-created route and queue repairs: prove with Testing 7 through 10 plus retained logs in `logs/test-summaries`.
 - Vendored Bats harness and restored fixture state remain correct at close-out: prove with Testing 11 and 12.
@@ -7547,8 +7600,8 @@ This final revalidation task closes the reopened review pass only after the revi
 
 1. [ ] Re-read Tasks 79, 80, 81, and 82 from the canonical plan, confirm all four tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the exhausted `flows.run.loop` lane, the exhausted post-`flows.flags` lane, the closed earlier prerequisite, and the first regressed prerequisite first.
 2. [ ] Re-read Tasks 83, 84, 85, and 86 from the canonical plan, confirm all four tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the fresh re-regressed prerequisite, the fresh shared cancel-registration prerequisite, the fresh re-re-regressed prerequisite, and the latest earlier cleanup prerequisite next.
-3. [ ] Re-read Tasks 87, 88, 89, 90, 91, 92, and 93 from the canonical plan, confirm all seven tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the cleanup-blocked queue repair, the cleanup-route prerequisite, the cleanup-route repair, the first re-embed prerequisite, the renewed earlier cleanup prerequisite, the dedicated flow-reingest prerequisite, and the re-embed-selector repair next.
-4. [ ] Re-read Tasks 94, 95, 96, 97, and 98 from the canonical plan, confirm all five tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the deferred-validation, shared-error-contract, vendored-fixture, browser-proof, and shared-schema-constant repairs next.
+3. [ ] Re-read Tasks 87, 88, 89, 90, 91, 92, and 93 from the canonical plan, confirm all seven tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the cleanup-blocked queue repair, the cleanup-route prerequisite, the cleanup-route repair, the first re-embed prerequisite, the renewed earlier cleanup prerequisite, the dedicated flow-reingest prerequisite, and the reopened earlier cleanup prerequisite next.
+4. [ ] Re-read Tasks 94, 95, 96, 97, 98, and 99 from the canonical plan, confirm all six tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the re-embed-selector repair, deferred-validation, shared-error-contract, vendored-fixture, browser-proof, and shared-schema-constant repairs next.
 5. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md` before final validation. Purpose: carry the endorsed findings into the final close-out honestly.
 6. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md` before final validation. Purpose: carry the residual-risk notes into the final close-out honestly.
 7. [ ] Inspect `planning/0000055-pr-summary.md` and mark the exact insertion point for the required `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section before any wrapper reruns. Purpose: keep the final summary update ready to record current proof homes from this pass.

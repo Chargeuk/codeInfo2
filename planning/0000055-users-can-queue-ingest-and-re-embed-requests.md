@@ -7190,7 +7190,7 @@ This fresh prerequisite task owns only the newly reopened `flows.run.loop` clean
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `93`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-12 by planner repair because Task 95's renewed blocker plus current `**BLOCKING ANSWER**` proves the latest full `server:unit` rerun from current `HEAD` regressed earlier again to the shared `flows.run.loop` lane after the local `ingest-request-queue.test.ts` repair. This fresh prerequisite exists because Task 95's selector and queue proof homes are already green, so the next honest owner is the earlier loop-cleanup boundary, not more selector-file editing.
 
 #### Overview
@@ -7242,6 +7242,7 @@ This fresh prerequisite task owns only the newly reopened `flows.run.loop` contr
 - Subtask 2: inspected the bounded loop-owner files from current disk before changing behavior: `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`, and `server/src/test/support/wsClient.ts`. Current code still centers this lane on stop-registration, pending-cancel consumption, inflight cleanup, WebSocket shutdown, and conversation-lock release, so the next pass stays inside that exact cleanup boundary instead of reopening Task 95's selector files.
 - Subtask 3: ran the subtask-required targeted wrapper `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` from current `HEAD`, and it passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0` in `test-results/server-unit-tests-2026-04-12T11-58-12-114Z.log`. That satisfied Testing 1 through the explicit subtask-owned comparison path, so the task could compare a fresh bounded rerun before any broader handoff claim.
 - Subtask 4: ran the subtask-required full wrapper `npm run test:summary:server:unit` from the same `HEAD`, and it also passed cleanly with `tests run: 1649`, `passed: 1649`, `failed: 0` in `test-results/server-unit-tests-2026-04-12T11-58-34-373Z.log`. This fresh comparison proves the reopened `flows.run.loop` lane is exhausted on current disk rather than needing a bounded local repair, so Task 95 can resume as the next downstream owner without widening this prerequisite.
+- Planner normalization: marked Task 94 `__done__` because its subtasks and testing are fully checked on current disk, `python3 scripts/plan_status.py --selector active_or_done` reports no live blocker, and the passing targeted plus full wrapper reruns satisfy the only remaining prose gate. This keeps the active owner honest so Task 95 can resume in the normal implementation loop.
 
 ### Task 95. Restrict Re-Embed Selectors To Already-Ingested Roots
 

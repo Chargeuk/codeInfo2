@@ -81,6 +81,7 @@ If any of those are true, you MUST repair the story before continuing:
 - make the new subtasks detailed enough for a junior engineer to follow without asking for help;
 - ensure each testing section is runnable at the point that task completes and actually proves the intended work;
 - write what changed and why inside the task and implementation notes.
+- If this step adds any new unchecked subtask or testing step to a task that is currently `__done__`, you MUST reopen that task to `__in_progress__` unless a different prerequisite owner now takes the active slot and the repaired task should honestly return to `__to_do__`.
 - If the blocker exists because repeated implementation passes did not close the remaining subtasks, you MUST repair the task shape before work continues.
 - Rewrite, split, or re-own the task so the next implementation pass has a concrete stopping point and does not depend on indefinite narrowing.
 - Replace open-ended `keep narrowing until you find the owner` style subtasks with bounded subtasks that have a clear success or blocker threshold.
@@ -109,6 +110,7 @@ If this step rewrites, narrows, or re-owns a task in a way that makes all of tha
 - If no story repair is needed, state explicitly why not.
 - If the blocker is now answered well enough that coding, automated proof, or manual testing can continue, retire the live `**BLOCKER**` note in this step before the flow returns to the current-task rework loop.
 - Do not bypass the normal audit and manual-testing completion path by setting a planner-repaired task directly to `__done__`.
+- Do not leave any task `__done__` after this step if you added unchecked subtasks, unchecked testing, or a live `**BLOCKER**` to that task during the repair.
 - Do not leave a known plan defect in place once the blocker has proved it.
 - Do not leave an old active blocker marker in place when the task is no longer actively blocked after this step.
 - Do not encode a prerequisite handoff only in prose or blocker notes; the task-status state must hand execution to the prerequisite task as well.

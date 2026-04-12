@@ -177,6 +177,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - if extra manual validation will still be needed after the fix, mention that only in implementation notes and not as a task testing step;
   - when the repository workflow expects lint, format, or static-analysis checks as subtasks, add separate final unchecked subtasks for those code-hygiene commands;
   - set that candidate task's `Task Status` back to `__in_progress__`;
+  - do not leave the candidate task `__done__` once any new unchecked subtask or testing step has been added;
   - uncheck any existing checked testing steps whose proof is no longer honestly current because the newly added work will require them to be rerun;
   - add an implementation note stating that manual testing was run, the key issues found, that new subtasks or testing steps were added, and that the affected testing steps were unchecked because they must be rerun after the fixes.
 

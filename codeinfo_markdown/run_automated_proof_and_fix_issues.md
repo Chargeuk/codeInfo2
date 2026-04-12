@@ -71,6 +71,7 @@ Do not perform manual testing in this step.
 
 - You may fix code, tests, config, wrappers, or task-owned proof files as needed to make the candidate task's automated proof pass honestly.
 - If automated proof reveals additional in-scope work that should be tracked explicitly, you may add concise new unchecked subtasks or testing steps to the same task before continuing.
+- If you add new unchecked subtasks or testing steps to a task that was somehow already marked `__done__`, reopen that task to `__in_progress__` immediately before continuing. A task must not remain `__done__` while new unchecked work has been added to it.
 - Do not invent fake proof, fake passing output, fake runtime seams, fake containers, or fake harnesses.
 
 </fix_rules>

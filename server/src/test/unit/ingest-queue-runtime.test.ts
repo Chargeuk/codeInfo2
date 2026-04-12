@@ -390,7 +390,7 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
   }
 });
 
-test('queue promotion rejects malformed queued payloads at execution time and releases queue ownership cleanly', async () => {
+test('queue promotion rejects bogus canonical provider even when a legacy model is also present and releases queue ownership cleanly', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
     'src/index.ts': 'export const value = 1;\n',
@@ -424,7 +424,9 @@ test('queue promotion rejects malformed queued payloads at execution time and re
             path: root,
             canonicalTargetPath: root,
             operation: 'reembed',
-            model: '',
+            model: 'embed-1',
+            embeddingProvider: 'bogus',
+            embeddingModel: 'embed-1',
           },
         };
       },
@@ -441,11 +443,14 @@ test('queue promotion rejects malformed queued payloads at execution time and re
 
     assert.equal(terminal.reason, 'terminal');
     assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.lastError, 'model is required');
+    assert.equal(
+      terminal.status?.lastError,
+      'embeddingProvider and embeddingModel are required when canonical fields are present',
+    );
     assert.equal(terminal.status?.error?.error, 'VALIDATION');
     assert.ok(
       deletedRequestIds.length >= 1,
-      'malformed queued payloads should still finalize and release the queued request',
+      'invalid canonical provider payloads should still finalize and release the queued request',
     );
     await waitForNextTurn();
     await waitForNextTurn();
@@ -755,7 +760,7 @@ test('startup recovery fallback uses canonicalTargetPath when persisted requestP
   ]);
 });
 
-test('startup recovery rejects malformed queued payloads before provider work and does not leave partial running state behind', async () => {
+test('startup recovery rejects blank canonical model even when a legacy model is also present and does not leave partial running state behind', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
     'src/recover.ts': 'export const recover = true;\n',
@@ -770,7 +775,9 @@ test('startup recovery rejects malformed queued payloads before provider work an
   recoveryQueueRequest.requestPayload = {
     ...recoveryQueueRequest.requestPayload,
     path: root,
-    model: '',
+    model: 'embed-1',
+    embeddingProvider: 'lmstudio',
+    embeddingModel: '',
     operation: 'reembed',
   };
 
@@ -798,7 +805,10 @@ test('startup recovery rejects malformed queued payloads before provider work an
 
     assert.equal(terminal.reason, 'terminal');
     assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.lastError, 'model is required');
+    assert.equal(
+      terminal.status?.lastError,
+      'embeddingProvider and embeddingModel are required when canonical fields are present',
+    );
     assert.equal(terminal.status?.error?.error, 'VALIDATION');
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),

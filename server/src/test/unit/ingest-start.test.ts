@@ -275,6 +275,62 @@ test('ingest-start request contracts keep canonical embedding fields authoritati
   );
 });
 
+test('ingest-start rejects bogus canonical provider even when legacy model is also present', async () => {
+  let enqueueCalled = false;
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'legacy-model',
+      embeddingProvider: 'bogus',
+      embeddingModel: 'text-embedding-3-small',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'VALIDATION');
+  assert.equal(
+    response.body.message,
+    'embeddingProvider and embeddingModel are required when canonical fields are present',
+  );
+  assert.equal(enqueueCalled, false);
+});
+
+test('ingest-start rejects blank canonical model even when legacy model is also present', async () => {
+  let enqueueCalled = false;
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'legacy-model',
+      embeddingProvider: 'openai',
+      embeddingModel: '',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'VALIDATION');
+  assert.equal(
+    response.body.message,
+    'embeddingProvider and embeddingModel are required when canonical fields are present',
+  );
+  assert.equal(enqueueCalled, false);
+});
+
 test('ingest-start legacy model maps to lmstudio compatibility input', async () => {
   let capturedModel = '';
   let capturedProvider: 'lmstudio' | 'openai' | undefined;

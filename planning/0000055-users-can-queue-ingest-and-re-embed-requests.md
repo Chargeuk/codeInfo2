@@ -7346,7 +7346,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `95`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that deferred queue execution can strip malformed canonical embedding fields and fall back to the legacy `model` field instead of failing with the same validation contract as live admission.
 
 #### Overview
@@ -7377,16 +7377,16 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Subtasks
 
-1. [ ] Re-read the deferred-validation finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task scoped to admission-vs-execution drift.
-2. [ ] Inspect `toQueueManagedInput()` in `server/src/ingest/ingestJob.ts`. Purpose: identify exactly where malformed canonical fields are dropped before shared validation.
-3. [ ] Inspect the shared canonical-field validator in `server/src/ingest/requestContracts.ts`. Purpose: keep the deferred path aligned to the same live-admission rule.
-4. [ ] Update `server/src/ingest/ingestJob.ts` so malformed canonical fields such as `embeddingProvider: "bogus"` remain visible to the shared validator. Purpose: stop the deferred path from silently falling back to the legacy `model`.
-5. [ ] Update `server/src/ingest/ingestJob.ts` so malformed canonical fields such as `embeddingModel: ""` remain visible to the shared validator. Purpose: preserve the same rejection boundary for blank canonical model input.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a queued mixed-shape payload with `embeddingProvider: \"bogus\"` plus a legacy `model` fails during deferred execution instead of silently falling back. Purpose: cover the raw invalid-provider branch explicitly.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a queued mixed-shape payload with `embeddingModel: \"\"` plus a legacy `model` fails during deferred execution instead of silently falling back. Purpose: cover the blank canonical-model branch separately from the invalid-provider branch.
-8. [ ] Test maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts`. Description: split or rename any reused generic “malformed queued payload” or “canonical fields authoritative” proof so the bogus-provider branch and blank-canonical-model branch each have titles that match their assertions. Purpose: prevent parity coverage from hiding behind older generic malformed-payload names.
-9. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove live admission still rejects the same malformed canonical-plus-legacy payload shapes so deferred execution and live admission remain aligned. Purpose: prevent the repair from fixing only the delayed path while leaving parity implicit.
-10. [ ] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the repaired validation owners `server/src/ingest/ingestJob.ts` and `server/src/ingest/requestContracts.ts`, then list the proof homes `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts` in both the summary and this task's retained proof notes. Purpose: keep the final validation narrative inspectable without hidden summary decomposition.
+1. [x] Re-read the deferred-validation finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task scoped to admission-vs-execution drift.
+2. [x] Inspect `toQueueManagedInput()` in `server/src/ingest/ingestJob.ts`. Purpose: identify exactly where malformed canonical fields are dropped before shared validation.
+3. [x] Inspect the shared canonical-field validator in `server/src/ingest/requestContracts.ts`. Purpose: keep the deferred path aligned to the same live-admission rule.
+4. [x] Update `server/src/ingest/ingestJob.ts` so malformed canonical fields such as `embeddingProvider: "bogus"` remain visible to the shared validator. Purpose: stop the deferred path from silently falling back to the legacy `model`.
+5. [x] Update `server/src/ingest/ingestJob.ts` so malformed canonical fields such as `embeddingModel: ""` remain visible to the shared validator. Purpose: preserve the same rejection boundary for blank canonical model input.
+6. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a queued mixed-shape payload with `embeddingProvider: \"bogus\"` plus a legacy `model` fails during deferred execution instead of silently falling back. Purpose: cover the raw invalid-provider branch explicitly.
+7. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a queued mixed-shape payload with `embeddingModel: \"\"` plus a legacy `model` fails during deferred execution instead of silently falling back. Purpose: cover the blank canonical-model branch separately from the invalid-provider branch.
+8. [x] Test maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts`. Description: split or rename any reused generic “malformed queued payload” or “canonical fields authoritative” proof so the bogus-provider branch and blank-canonical-model branch each have titles that match their assertions. Purpose: prevent parity coverage from hiding behind older generic malformed-payload names.
+9. [x] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove live admission still rejects the same malformed canonical-plus-legacy payload shapes so deferred execution and live admission remain aligned. Purpose: prevent the repair from fixing only the delayed path while leaving parity implicit.
+10. [x] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the repaired validation owners `server/src/ingest/ingestJob.ts` and `server/src/ingest/requestContracts.ts`, then list the proof homes `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts` in both the summary and this task's retained proof notes. Purpose: keep the final validation narrative inspectable without hidden summary decomposition.
 
 #### Testing
 
@@ -7397,6 +7397,10 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 #### Implementation notes
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because the deferred queue path currently weakens canonical-field validation instead of matching live admission behavior.
+- Re-read the deferred-validation finding, `toQueueManagedInput()`, and the shared request-contract validator before implementation; the current seam is that queue-managed execution keeps only enum-shaped `embeddingProvider` values and non-empty `embeddingModel` strings, so malformed canonical fields disappear before `resolveRequestEmbeddingSelection()` can reject them.
+- Updated `server/src/ingest/ingestJob.ts` so queue-managed execution preserves raw string canonical fields, including invalid providers and blank canonical model strings, before `resolveRequestEmbeddingSelection()` runs; `resolveInputSelection()` now also routes through the shared contract helper so error logging no longer assumes queued canonical fields were pre-sanitized.
+- Reworked `server/src/test/unit/ingest-queue-runtime.test.ts` into two explicit deferred-execution branches: queue promotion now proves `embeddingProvider: "bogus"` plus legacy `model` fails with the shared canonical-field validation message, and startup recovery now proves blank canonical `embeddingModel` plus legacy `model` fails the same way without leaving queue ownership behind.
+- Added matching live-admission route proofs in `server/src/test/unit/ingest-start.test.ts` so malformed canonical-plus-legacy payloads are rejected before enqueue, then refreshed `planning/0000055-pr-summary.md` to retain `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, and `server/src/test/unit/ingest-start.test.ts` as the repaired owner and proof-home set for this review follow-up.
 
 ### Task 97. Realign The Shared Repo-List Error Contract Between Server And Client
 

@@ -82,7 +82,7 @@ export type IngestJobInput = {
   name: string;
   description?: string;
   model: string;
-  embeddingProvider?: 'lmstudio' | 'openai';
+  embeddingProvider?: string;
   embeddingModel?: string;
   dryRun?: boolean;
   operation?: 'start' | 'reembed';
@@ -422,12 +422,12 @@ function toQueueManagedInput(queueRequest: {
       typeof payload.model === 'string' && payload.model.length > 0
         ? payload.model
         : '',
-    ...(payload.embeddingProvider === 'lmstudio' ||
-    payload.embeddingProvider === 'openai'
+    // Preserve raw canonical strings so shared validation can reject malformed
+    // queued payloads instead of silently falling back to the legacy model.
+    ...(typeof payload.embeddingProvider === 'string'
       ? { embeddingProvider: payload.embeddingProvider }
       : {}),
-    ...(typeof payload.embeddingModel === 'string' &&
-    payload.embeddingModel.length > 0
+    ...(typeof payload.embeddingModel === 'string'
       ? { embeddingModel: payload.embeddingModel }
       : {}),
     ...(typeof payload.dryRun === 'boolean' ? { dryRun: payload.dryRun } : {}),
@@ -598,11 +598,13 @@ async function embedText(modelKey: string, text: string): Promise<number[]> {
 function resolveInputSelection(
   input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
 ): ResolvedEmbeddingModelSelection {
-  if (input.embeddingProvider && input.embeddingModel) {
-    return {
-      providerId: input.embeddingProvider,
-      modelKey: input.embeddingModel,
-    };
+  const resolved = resolveRequestEmbeddingSelection({
+    model: input.model,
+    embeddingProvider: input.embeddingProvider,
+    embeddingModel: input.embeddingModel,
+  });
+  if (!('status' in resolved)) {
+    return resolved.selection;
   }
   return resolveEmbeddingModelSelection(input.model);
 }

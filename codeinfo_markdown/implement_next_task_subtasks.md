@@ -28,8 +28,11 @@ Leave the task ready for the later automated-proof step.
 
 - If any task is currently `__in_progress__`, select the highest-numbered `__in_progress__` task as the active task for this step.
 - Only if no task is `__in_progress__` may you select the next executable `__to_do__` task from the current plan as it exists on disk now.
+- Treat "next executable" as the earliest `__to_do__` task whose current plan dependencies are already satisfied and that does not already carry a live standalone `**BLOCKER**`.
 - Re-read the selected task's full text before changing code so you are working from the latest text.
 - Re-read the end of the plan and confirm the highest task heading currently present so you do not miss newly added or renumbered tasks.
+- If the selected task came from `__to_do__`, change that task's `Task Status` to `__in_progress__` immediately after re-reading it and before touching code, subtasks, or implementation notes.
+- Record that task-status change even when the task later turns out to have no unchecked subtasks left; do not rely on some other plan edit to imply activation.
 - Treat the selected task as `__in_progress__` while you are working on its subtasks, unless it becomes blocked.
 - If the selected `__in_progress__` task has no unchecked subtasks, do not advance to a later task. Keep that task as the active task, make no implementation changes in this step, and leave it ready for the later automated-proof step.
 - Do not mark the task `__done__` in this step. The later audit step decides whether the task is truly complete after automated proof.
@@ -105,6 +108,7 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you kept the highest-numbered `__in_progress__` task active when one existed;
+- confirm that if no task was already `__in_progress__`, you explicitly promoted the next executable `__to_do__` task to `__in_progress__` before doing any other work;
 - confirm you worked only on the selected task's `Subtasks`;
 - confirm you did not advance to a later task when the active task was still `__in_progress__`;
 - confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;

@@ -206,12 +206,13 @@ const buildReingestError = (params: {
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
+  lastIngestAt?: string | null;
 }): RepoEntry => ({
   id: params.id,
   description: null,
   containerPath: params.containerPath,
   hostPath: `/host${params.containerPath}`,
-  lastIngestAt: null,
+  lastIngestAt: params.lastIngestAt ?? null,
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,
@@ -229,7 +230,13 @@ const buildRepoEntry = (params: {
 });
 
 const listDefaultReingestRepos = async (): Promise<ListReposResult> => ({
-  repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' })],
+  repos: [
+    buildRepoEntry({
+      id: 'repo-a',
+      containerPath: '/repo/source-a',
+      lastIngestAt: '2026-04-10T00:00:00.000Z',
+    }),
+  ],
   lockedModelId: null,
 });
 

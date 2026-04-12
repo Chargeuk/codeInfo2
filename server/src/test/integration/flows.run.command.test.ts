@@ -171,6 +171,7 @@ const fixturesDir = path.resolve(
 const buildRepoEntry = (params: {
   containerPath: string;
   id?: string;
+  lastIngestAt?: string | null;
 }): RepoEntry => ({
   id:
     params.id ??
@@ -179,7 +180,7 @@ const buildRepoEntry = (params: {
   description: null,
   containerPath: params.containerPath,
   hostPath: params.containerPath,
-  lastIngestAt: null,
+  lastIngestAt: params.lastIngestAt ?? '2026-01-01T00:00:00.000Z',
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,

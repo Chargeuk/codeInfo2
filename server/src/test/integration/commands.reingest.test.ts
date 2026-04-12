@@ -120,7 +120,7 @@ const buildRepoEntry = (params: {
   description: null,
   containerPath: params.containerPath,
   hostPath: `/host${params.containerPath}`,
-  lastIngestAt: params.lastIngestAt ?? null,
+  lastIngestAt: params.lastIngestAt ?? '2026-01-01T00:00:00.000Z',
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,

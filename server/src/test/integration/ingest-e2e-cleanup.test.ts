@@ -89,3 +89,75 @@ test('POST /ingest/e2e/cleanup falls back to the normal root removal path once t
   assert.equal(res.body.unlocked, true);
   assert.equal(removedRoot, '/fixtures/repo/docs');
 });
+
+test('POST /ingest/e2e/cleanup rejects an unknown root before queue deletion runs', async () => {
+  let queueDeleteCalled = false;
+  const app = buildApp({
+    enabled: true,
+    isBusy: () => false,
+    removeRoot: async () => ({ unlocked: true }),
+    deleteWaitingQueueRequestsByTargetPath: async () => {
+      queueDeleteCalled = true;
+      return 1;
+    },
+  });
+
+  const res = await request(app).post(
+    '/ingest/e2e/cleanup/%2Ftmp%2Fnot-allowed',
+  );
+
+  assert.equal(res.status, 403);
+  assert.equal(res.body.status, 'error');
+  assert.equal(res.body.code, 'ROOT_NOT_ALLOWED');
+  assert.equal(res.body.requestedRoot, '/tmp/not-allowed');
+  assert.equal(res.body.approvedRoot, '/fixtures/repo');
+  assert.equal(queueDeleteCalled, false);
+});
+
+test('POST /ingest/e2e/cleanup rejects an unknown root before removeRoot runs', async () => {
+  let removeCalled = false;
+  const app = buildApp({
+    enabled: true,
+    isBusy: () => false,
+    removeRoot: async () => {
+      removeCalled = true;
+      return { unlocked: true };
+    },
+    deleteWaitingQueueRequestsByTargetPath: async () => 0,
+  });
+
+  const res = await request(app).post(
+    '/ingest/e2e/cleanup/%2Ftmp%2Fnot-allowed',
+  );
+
+  assert.equal(res.status, 403);
+  assert.equal(res.body.code, 'ROOT_NOT_ALLOWED');
+  assert.equal(removeCalled, false);
+});
+
+test('POST /ingest/e2e/cleanup rejects a normalized path that escapes the fixture root', async () => {
+  let queueDeleteCalled = false;
+  let removeCalled = false;
+  const app = buildApp({
+    enabled: true,
+    isBusy: () => false,
+    removeRoot: async () => {
+      removeCalled = true;
+      return { unlocked: true };
+    },
+    deleteWaitingQueueRequestsByTargetPath: async () => {
+      queueDeleteCalled = true;
+      return 1;
+    },
+  });
+
+  const res = await request(app).post(
+    '/ingest/e2e/cleanup/%2Ffixtures%2Frepo%2F..%2Foutside',
+  );
+
+  assert.equal(res.status, 403);
+  assert.equal(res.body.code, 'ROOT_NOT_ALLOWED');
+  assert.equal(res.body.requestedRoot, '/fixtures/outside');
+  assert.equal(queueDeleteCalled, false);
+  assert.equal(removeCalled, false);
+});

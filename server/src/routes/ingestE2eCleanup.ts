@@ -4,6 +4,27 @@ import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js
 import { deleteWaitingQueueRequestsByTargetPath } from '../ingest/requestQueue.js';
 import { baseLogger } from '../logger.js';
 
+const APPROVED_E2E_FIXTURE_ROOT = '/fixtures/repo';
+
+function resolveApprovedCleanupRoot(rawRoot: string) {
+  const canonicalRoot = normalizeCanonicalQueueTargetPath(rawRoot);
+  const allowed =
+    canonicalRoot === APPROVED_E2E_FIXTURE_ROOT ||
+    canonicalRoot.startsWith(`${APPROVED_E2E_FIXTURE_ROOT}/`);
+  if (allowed) {
+    return { ok: true as const, canonicalRoot };
+  }
+  return {
+    ok: false as const,
+    canonicalRoot,
+    status: 'error' as const,
+    code: 'ROOT_NOT_ALLOWED' as const,
+    message:
+      'The e2e cleanup route only accepts /fixtures/repo and its descendants',
+    approvedRoot: APPROVED_E2E_FIXTURE_ROOT,
+  };
+}
+
 export function createIngestE2eCleanupRouter({
   enabled = process.env.CODEINFO_E2E_CLEANUP_ROUTE === 'true',
   isBusy: isBusyOverride = isBusy,
@@ -22,7 +43,21 @@ export function createIngestE2eCleanupRouter({
   }
 
   router.post('/ingest/e2e/cleanup/:root', async (req, res) => {
-    const canonicalRoot = normalizeCanonicalQueueTargetPath(req.params.root);
+    const rootCheck = resolveApprovedCleanupRoot(req.params.root);
+    const canonicalRoot = rootCheck.canonicalRoot;
+    if (!rootCheck.ok) {
+      baseLogger.warn(
+        { requestedRoot: req.params.root, canonicalRoot },
+        'ingest e2e cleanup rejected unknown root',
+      );
+      return res.status(403).json({
+        status: rootCheck.status,
+        code: rootCheck.code,
+        message: rootCheck.message,
+        requestedRoot: canonicalRoot,
+        approvedRoot: rootCheck.approvedRoot,
+      });
+    }
     try {
       const waitingRemoved =
         await deleteWaitingQueueRequestsByTargetPathOverride(canonicalRoot);

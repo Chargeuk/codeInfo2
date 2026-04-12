@@ -6818,7 +6818,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `87`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the e2e cleanup route forwards a caller-controlled `:root` selector into destructive queue and root deletion without a known-root ownership check.
 
 #### Overview
@@ -6851,18 +6851,18 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 #### Subtasks
 
-1. [ ] Re-read the cleanup-route finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task scoped to the endorsed authority-boundary defect.
-2. [ ] Inspect `server/src/routes/ingestE2eCleanup.ts`. Purpose: identify the exact point where the caller-controlled `:root` crosses into destructive helpers.
-3. [ ] Inspect the current e2e caller path in `e2e/ingest.spec.ts`. Purpose: confirm the supported mounted fixture root the route must continue to allow.
-4. [ ] Add an approved-root validation helper or equivalent guard in `server/src/routes/ingestE2eCleanup.ts` that accepts only `/fixtures/repo` and descendants. Purpose: make the route's allowed-root contract explicit in code.
-5. [ ] Gate `deleteWaitingQueueRequestsByTargetPath()` behind that approved-root validation. Purpose: prevent queue deletion for unknown roots.
-6. [ ] Gate `removeRoot()` behind that approved-root validation. Purpose: prevent destructive root deletion for unknown roots.
-7. [ ] Add the explicit rejected-route response shape for unknown roots in `server/src/routes/ingestE2eCleanup.ts`. Purpose: make the rejection path inspectable and testable.
-8. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove the allowed fixture-root path under `/fixtures/repo` still succeeds through the cleanup route. Purpose: preserve the intended e2e cleanup capability while the guard tightens.
-9. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove an unknown root such as `/tmp/not-allowed` is rejected before `deleteWaitingQueueRequestsByTargetPath()` runs. Purpose: make the first destructive-boundary guard explicit instead of implied.
-10. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove the same unknown-root request is rejected before `removeRoot()` runs. Purpose: give the second destructive-boundary guard its own proof home.
-11. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove a normalized-but-outside path such as `/fixtures/repo/../outside` is rejected by the approved-root guard. Purpose: cover the mixed normalized-path escape case rather than only a plainly unrelated path.
-12. [ ] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the approved-root contract in `server/src/routes/ingestE2eCleanup.ts` and the proof file `server/src/test/integration/ingest-e2e-cleanup.test.ts`, then mirror the same contract and proof file in this task's retained proof notes. Purpose: keep final validation citations honest without leaving the summary update implicit.
+1. [x] Re-read the cleanup-route finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task scoped to the endorsed authority-boundary defect.
+2. [x] Inspect `server/src/routes/ingestE2eCleanup.ts`. Purpose: identify the exact point where the caller-controlled `:root` crosses into destructive helpers.
+3. [x] Inspect the current e2e caller path in `e2e/ingest.spec.ts`. Purpose: confirm the supported mounted fixture root the route must continue to allow.
+4. [x] Add an approved-root validation helper or equivalent guard in `server/src/routes/ingestE2eCleanup.ts` that accepts only `/fixtures/repo` and descendants. Purpose: make the route's allowed-root contract explicit in code.
+5. [x] Gate `deleteWaitingQueueRequestsByTargetPath()` behind that approved-root validation. Purpose: prevent queue deletion for unknown roots.
+6. [x] Gate `removeRoot()` behind that approved-root validation. Purpose: prevent destructive root deletion for unknown roots.
+7. [x] Add the explicit rejected-route response shape for unknown roots in `server/src/routes/ingestE2eCleanup.ts`. Purpose: make the rejection path inspectable and testable.
+8. [x] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove the allowed fixture-root path under `/fixtures/repo` still succeeds through the cleanup route. Purpose: preserve the intended e2e cleanup capability while the guard tightens.
+9. [x] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove an unknown root such as `/tmp/not-allowed` is rejected before `deleteWaitingQueueRequestsByTargetPath()` runs. Purpose: make the first destructive-boundary guard explicit instead of implied.
+10. [x] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove the same unknown-root request is rejected before `removeRoot()` runs. Purpose: give the second destructive-boundary guard its own proof home.
+11. [x] Test type: server integration. Location: `server/src/test/integration/ingest-e2e-cleanup.test.ts`. Description: prove a normalized-but-outside path such as `/fixtures/repo/../outside` is rejected by the approved-root guard. Purpose: cover the mixed normalized-path escape case rather than only a plainly unrelated path.
+12. [x] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the approved-root contract in `server/src/routes/ingestE2eCleanup.ts` and the proof file `server/src/test/integration/ingest-e2e-cleanup.test.ts`, then mirror the same contract and proof file in this task's retained proof notes. Purpose: keep final validation citations honest without leaving the summary update implicit.
 
 #### Testing
 
@@ -6873,6 +6873,10 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 #### Implementation notes
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because the shared e2e cleanup route currently trusts a caller-controlled root string across a destructive boundary.
+- Subtasks 1-3: re-read the cleanup-route finding, the current cleanup router, and the e2e caller path before editing. The current shared route still normalized the caller-controlled `:root` and forwarded it directly into both destructive helpers, while the supported e2e caller contract stayed anchored to `/fixtures/repo` and descendants.
+- Subtasks 4-7: added an approved-root guard in `server/src/routes/ingestE2eCleanup.ts` that only allows `/fixtures/repo` and descendants, and returns an explicit `ROOT_NOT_ALLOWED` response before queue deletion or root removal can run for unknown or normalized-outside paths.
+- Subtasks 8-11: expanded `server/src/test/integration/ingest-e2e-cleanup.test.ts` so the route still proves the allowed fixture-root cleanup path while separately proving rejection before queue deletion, rejection before `removeRoot()`, and normalized-outside rejection.
+- Subtask 12: updated `planning/0000055-pr-summary.md` to retain the approved-root cleanup-route contract and its direct proof file alongside this task's own notes.
 
 ### Task 89. Restrict Re-Embed Selectors To Already-Ingested Roots
 

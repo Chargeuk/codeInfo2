@@ -6818,7 +6818,7 @@ This review-fix task repairs the queue admission and repo-list overlay contract 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `87`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-12 by planner repair after Task 89's current `**RESOLVED ISSUE**` plus current `**BLOCKING ANSWER**` proved the newest full `server:unit` rerun still fails in the earlier `flows.run.loop` cleanup lane before any remaining cleanup-route proof home is reached.
 
 #### Overview
@@ -6871,6 +6871,7 @@ This fresh prerequisite task owns only the newest earlier `flows.run.loop` contr
 - Testing 1: ran `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` because Subtask 3 explicitly requires the targeted-versus-full comparison. The targeted wrapper passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-12T00-39-23-246Z.log`.
 - Subtasks 3-4: completed the fresh targeted-versus-full comparison from current `HEAD` without needing any new runtime edit. The targeted `flows.run.loop` proof stayed green, and the fresh full `npm run test:summary:server:unit` wrapper also passed cleanly with `tests run: 1646`, `passed: 1646`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-12T00-39-47-428Z.log`, so this reopened earlier cleanup lane is exhausted cleanly again rather than owning another local repair.
 - Testing 2: `npm run test:summary:server:unit` passed cleanly with `agent_action: skip_log`, restoring the shared server-unit baseline that Task 89 needs before its remaining proof gates resume.
+- Implementation-plus-automated-proof audit on 2026-04-12: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 88 section, and the retained targeted/full wrapper proof from current disk before normalizing status. No testing steps needed to be newly checked because Testing 1 and Testing 2 were already honestly complete, there is no live standalone `**BLOCKER**` note on this task, and the remaining prose-only handoff is already satisfied by the exhausted-branch conclusion recorded above. Task 88 therefore closes as `__done__`, leaving Task 89 as the next real owner.
 
 ### Task 89. Harden The E2E Cleanup Route To Known-Root Ownership
 

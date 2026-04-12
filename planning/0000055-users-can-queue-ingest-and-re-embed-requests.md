@@ -7485,7 +7485,7 @@ This review-fix task restores one shared repo-list error contract across server 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `97`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added during planner repair on 2026-04-12 after Task 99's automated proof showed the vendored Bats launcher chain still assumes executable vendor files that current disk and git do not provide.
 
 #### Overview
@@ -7540,6 +7540,7 @@ This prerequisite task restores one honest execution contract for the vendored B
 - Testing 1 passed after the localized launcher repair: `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` finished `24/24` green with wrapper `agent_action: skip_log`, retaining the repaired launcher proof home at `logs/test-summaries/shell-tests-2026-04-12T15-37-04-866Z.log`.
 - Testing 2 then reconfirmed the checked-in launcher files still report `100644` modes via `git ls-files --stage scripts/test/bats/vendor/bats-core/bin/bats scripts/test/bats/vendor/bats-core/libexec/bats-core/bats scripts/test/bats/vendor/bats-core/libexec/bats-core/bats-exec-suite`, so the repair stayed out of tracked vendor file modes.
 - Task 99 can now resume at its existing Testing 1 through 4 without reopening launcher diagnosis: the active owner files for this prerequisite are `scripts/test-summary-shell.mjs` plus the disposable temp-runtime strategy it now uses, the retained shell proof home is `logs/test-summaries/shell-tests-2026-04-12T15-37-04-866Z.log`, and no deeper unsupported launcher seam remained after the first localized repair.
+- Automated-proof audit on 2026-04-12: marked Task 98 `__done__` because all six subtasks and both Testing items are honestly complete on current disk, `python3 scripts/plan_status.py --selector active_or_done` reports no live blocker, and the remaining prose now only records the retained proof homes and the Task 99 handoff.
 
 ### Task 99. Restore Vendored Bats Fixture Semantics
 

@@ -187,6 +187,30 @@ function workingTargetNotIngestedError(params: {
   };
 }
 
+function sourceIdTargetNotIngestedError(params: {
+  repos: RepoEntry[];
+}): ReingestError {
+  return {
+    code: 404,
+    message: 'NOT_FOUND',
+    data: {
+      tool: TOOL_NAME,
+      code: 'NOT_FOUND',
+      retryable: true,
+      retryMessage: RETRY_MESSAGE,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'unknown_root',
+          message:
+            'sourceId selected a repository that is visible but not currently ingested',
+        },
+      ],
+      ...buildRetryLists(params.repos),
+    },
+  };
+}
+
 function buildBatchSummary(
   repositories: ReingestRepositoryExecutionOutcome[],
 ): ReingestExecutionBatchResult['summary'] {
@@ -376,11 +400,17 @@ export async function executeReingestRequest(params: {
     params.deps?.resolvePlanScopeRepositories ?? resolvePlanScopeRepositories;
 
   if ('sourceId' in params.request) {
-    const { cachedReingestableListRepos } = await listReposSnapshot(listRepos);
+    const { listed } = await listReposSnapshot(listRepos);
     const resolved = await canonicalizeSelector({
       sourceId: params.request.sourceId,
-      listRepos: cachedReingestableListRepos,
+      listRepos: async () => listed,
     });
+    if (resolved.repo && !isRepoReingestable(resolved.repo)) {
+      return {
+        ok: false,
+        error: sourceIdTargetNotIngestedError({ repos: listed.repos }),
+      };
+    }
 
     appendResolutionLog({
       appendLog,

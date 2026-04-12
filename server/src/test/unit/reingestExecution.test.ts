@@ -21,7 +21,10 @@ function buildRepoEntry(params: {
     description: null,
     containerPath: params.containerPath,
     hostPath: params.hostPath ?? `/host${params.containerPath}`,
-    lastIngestAt: params.lastIngestAt ?? '2025-01-01T00:00:00.000Z',
+    lastIngestAt:
+      params.lastIngestAt === undefined
+        ? '2025-01-01T00:00:00.000Z'
+        : params.lastIngestAt,
     embeddingProvider: 'lmstudio',
     embeddingModel: 'model',
     embeddingDimensions: 768,

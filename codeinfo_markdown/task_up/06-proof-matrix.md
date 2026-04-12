@@ -12,6 +12,8 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 
 <proof_matrix_rules>
 
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each task, identify every acceptance path, important edge case, and meaningful failure mode that task is responsible for.
 - Treat invalid env/config inputs, blank or whitespace-only inputs, out-of-range numeric values, and large-input scale behavior as proof obligations whenever the task changes constrained config parsing or large-repository query/filter logic.
 - Treat partial or in-progress state, cleanup ownership, reader/writer compatibility, and stale-vs-live state handling as proof obligations whenever the task changes persisted artifacts, caches, locks, files, or collections.

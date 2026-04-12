@@ -1,6 +1,6 @@
-Read and follow `codeinfo_markdown/review_evidence_gate.md` first as the base evidence-gate contract for this step.
+The base `review_evidence_gate` command sequence has already been applied for this external-review variant.
 
-Then apply these external-review-specific additions:
+Apply these external-review-specific additions after that shared base sequence:
 
 1. Before doing evidence work, derive and read the sole external review input file at `codeInfoStatus/reviews/<story-number>-external-review-input.md` using the canonical plan story number from `codeInfoStatus/flow-state/current-plan.json`.
 2. If that file is missing, stop and say the external review input file is missing and must be created before this flow can continue.
@@ -13,5 +13,5 @@ Then apply these external-review-specific additions:
 6. Keep the base prompt's `Risk-Invariant Matrix` requirement for the top risky helpers/functions. External review comments can influence which helpers are highest-risk, but they do not replace the need to record invariants, contradictory inputs, and proof strength.
 7. When writing or overwriting `codeInfoStatus/reviews/<story-number>-current-review.json`, extend the base handoff with:
    - `external_review_input_file`
-8. Keep the rest of the handoff contract aligned with `review_evidence_gate.md`, including stable repo aliases, ancestry-aware resolved base branches, current HEAD commits for every repository in scope, and the risk-invariant matrix for the top risky helpers/functions.
+8. Keep the rest of the handoff contract aligned with the shared `review_evidence_gate` base sequence, including stable repo aliases, ancestry-aware resolved base branches, current HEAD commits for every repository in scope, and the risk-invariant matrix for the top risky helpers/functions.
 9. Report the evidence summary and the exact handoff file path when done.

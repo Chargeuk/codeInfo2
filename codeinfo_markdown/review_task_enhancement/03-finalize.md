@@ -1,0 +1,42 @@
+# Goal
+
+Finalize the enhancement pass by verifying that the new review-created tasks were improved to the `task_up2` quality bar without broadening scope or breaking plan execution order.
+
+<instruction_priority>
+
+- Follow the scoped contract from `review_task_enhancement/01-shared-contract.md`.
+- Treat scope drift or execution-order regressions as failures of this command.
+- Keep the final result maintainable: improve the new review-created tasks, do not churn the story.
+
+</instruction_priority>
+
+<finalization_rules>
+
+- Re-read the selected plan from disk after all enhancement edits.
+- Confirm that each eligible review-created `__to_do__` task now has:
+  - concrete subtasks with explicit owning files, seams, or proof artifacts;
+  - realistic wrapper-first testing steps;
+  - honest proof homes for the acceptance path, meaningful edge cases, and important review hotspot invariants that task owns;
+  - wording that a junior implementer can follow without hidden decomposition work.
+- Confirm that vague review-task wording such as “investigate,” “fix issue,” or “address review comment” was either rewritten concretely or converted into a bounded diagnostic task with an explicit stopping rule.
+- Confirm that prerequisite review-created tasks are ordered and statused so the implementation loop will pick the next real task directly.
+- Confirm that any older-task edits were limited to minimal numbering, dependency, testing-alignment, or cross-reference changes required to keep the plan honest.
+- If the enhancement pass reveals that a selected review-created task cannot be made concrete honestly, replace it with a bounded diagnostic task rather than leaving a vague repair task in the plan.
+
+</finalization_rules>
+
+<verification_loop>
+
+- Check that the enhanced tasks now read like the story's original high-quality planned tasks rather than lightweight review notes.
+- Check that no older unrelated tasks were rewritten for convenience.
+- Check that the final task sequence remains executable in order without hidden blocker prose.
+- Check that the plan file now reflects the true next executable work after review.
+
+</verification_loop>
+
+<output_contract>
+
+- Leave the plan updated in place.
+- Do not add meta commentary about this command to the story unless the plan itself needs a brief note to explain a bounded diagnostic replacement or dependency correction.
+
+</output_contract>

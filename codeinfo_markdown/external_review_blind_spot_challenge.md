@@ -1,6 +1,6 @@
-Read and follow `codeinfo_markdown/review_blind_spot_challenge.md` first as the base blind-spot challenge contract for this step.
+The base `review_blind_spot_challenge` command sequence has already been applied for this external-review variant.
 
-Then apply these external-review-specific additions:
+Apply these external-review-specific additions after that shared base sequence:
 
 1. Preserve the external review input context already captured in the evidence and findings artifacts. Do not rediscover external comments from anywhere else.
 2. When an external comment overlaps a top-risk helper/function, make that overlap explicit in the challenge artifact so the disposition step can see whether the external comment exposed a real blind spot or was ultimately rejected.

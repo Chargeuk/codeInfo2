@@ -1,0 +1,60 @@
+{
+  "Description": "Run the external blind-spot challenge for the active story using the shared blind-spot sequence plus external-review-specific additions.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/02-risk-matrix-reopen.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/03-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/04-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/05-bulk-side-effect-cardinality.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/01-portability-and-artifacts.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/02-failure-ordering-fast-paths.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/03-admission-vs-execution.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/04-wrapped-error-mismatch.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/07-test-and-state-challenges.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "external_review_blind_spot_challenge.md"
+    }
+  ]
+}

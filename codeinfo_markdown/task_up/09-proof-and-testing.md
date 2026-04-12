@@ -21,16 +21,23 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 <proof_and_testing_rules>
 
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each affected repository or project, define proof in this order when applicable:
   1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
   2. run the relevant automated tests;
-  3. start the runnable system or required services if proof needs them;
-  4. perform manual Playwright or browser automation only if the change has a user-visible or browser-accessible surface and the tooling exists;
-  5. stop the system or services that were started for validation.
+  3. if the automated proof path itself requires a running system or services, start only the runnable system or required services needed for that automated proof path;
+  4. stop the system or services that were started for automated validation;
+  5. when the task affects a runnable system, add an explicit smoke-proof step to start and then shut down the normal supported system path for that repository, using the non-agent-adjusted, non-e2e-adjusted runtime path unless repository evidence explicitly says a different normal path applies.
+- Read `AGENTS.md` first for repository-specific wrapper, build, compose, startup, and shutdown guidance.
+- Use `README.md` and `codeinfo_markdown/repository_information.md` as supporting evidence for the normal supported runtime path when they exist.
 - Prefer wrapper scripts and wrapper-first workflows over low-level direct commands.
+- If Docker or Compose wrapper paths are supported for the normal system, prefer those over local startup paths.
 - If `AGENTS.md` defines wrapper-first workflows, use those.
 - If no wrapper guidance exists, use the highest-level safe commands discoverable from the repository itself.
 - If the repository already has a more specific testing-policy helper or documented proof order, generate the task testing steps to match that order rather than inventing a new one.
+- If automated proof depends on starting a specific version, variant, mode, seeded environment, or test-support build of the system, state that explicitly and use the repository-supported path for doing so.
+- Keep the normal-system smoke proof separate from any special runtime variant that may later be used for manual testing.
 - If a proof step is not applicable, state why instead of inventing it.
 - If a new harness is required, create an earlier task for that harness and include at least one proof step that demonstrates the harness itself is runnable.
 - If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add those proof expectations.
@@ -40,7 +47,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 - For back-end systems, plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
 - For front-end systems, plan unit tests plus Playwright end-to-end tests, and include screenshot evidence where the UI can be checked visually.
-- For systems where a back end is paired with a front end, include the Playwright end-to-end path plus manual Playwright MCP validation when the tooling exists.
+- For systems where a back end is paired with a front end, include the Playwright end-to-end path plus any automated browser-proof artifacts, such as screenshots, that are needed to show the changed behaviour clearly.
 - If any of those expected harnesses are missing for the system being changed, add the harness work early in the story before later tasks rely on them.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.
@@ -51,9 +58,16 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - When a task changes async coordination helpers or test-support utilities that register shared waiters, listeners, callbacks, subscriptions, or queue entries, ensure the proof covers timeout, rejection, cancellation, or early-return cleanup rather than only the successful resolution path.
 - When a task changes fallback or precedence helpers that may compare stale persisted hints against fresh observed values, ensure the proof covers both the degraded-history path and the later successful path.
 - Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
+- Explicit proof-authoring subtasks should describe creation or update of proof-owning files, screenshots, logs, or artifacts that are part of the implementation work.
+- Do not turn routine `Implementation notes` refreshes into standalone subtasks.
+- When a testing step produces a result that must be preserved in `Implementation notes`, express that as:
+  - a requirement in the relevant `Testing` bullet; or
+  - a task exit criterion that the note must be refreshed after the step completes.
+- Do not create subtasks that are gated on "after Testing N finishes" unless the task is explicitly about authoring or repairing a harness or reporting workflow itself.
 - When proof depends on renamed or repurposed tests, add an explicit subtask to rename or rewrite the proof so the test title and assertions still describe the same invariant.
 - When UI state can become disabled, hidden, mode-gated, or resettable, require proof for stale-state behavior: whether the stale value must be cleared, retained locally, or merely excluded from submission.
 - When caller behavior depends on the difference between raw SDK errors and wrapped or normalized errors, require proof for both paths and do not treat raw `AbortError` coverage as sufficient when production code may emit provider-specific wrapped abort codes instead.
+- When automated proof relies on a repository-specific startup mode, seeded environment, test login helper, alternate config, or other test-support runtime path, ensure the task makes that setup explicit and routes proof through the repository's supported automated workflow rather than a one-off manual shortcut.
 - Ensure each relevant external library referenced by the tasking has an appropriate `Documentation Locations` entry, such as Context7, DeepWiki, or an official URL.
 - Ensure cleanup, migration, compatibility, env/config, deployment, and observability work is covered when the story needs it.
 - Ensure no task relies on a missing prerequisite capability; if one is missing, create or move the prerequisite task earlier.

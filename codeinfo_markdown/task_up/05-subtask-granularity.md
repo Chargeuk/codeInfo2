@@ -12,6 +12,8 @@ Split bundled subtasks into smaller, more detailed units so each subtask express
 <subtask_granularity_rules>
 
 - Re-read the active plan from disk before editing.
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - Keep each task focused on one primary seam, but split subtasks until each one usually performs one implementation action or one proof-authoring action.
 - Split any subtask that changes multiple unrelated files, multiple distinct invariants, or multiple separate acceptance paths unless those changes are inseparable.
 - If a subtask says “A and B and C,” split it unless all three changes are required to express one inseparable behavior.

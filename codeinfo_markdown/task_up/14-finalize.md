@@ -26,6 +26,8 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 
 <final_edit_rules>
 
+- When the active plan already contains tasks, keep substantive finalization edits focused on tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks during finalization except for minimal numbering, dependency, cross-reference, repository-ownership, or testing-honesty fixes required to keep the plan truthful.
 - Preserve the standard named planning sections used by this planning system when they are relevant, such as `Feasibility Proof Pass`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, and `Log Or Proof Markers`.
 - Add further relevant sections only when they are genuinely helpful for the selected plan.
 - If the plan needs a `Task Exit Criteria`, `Task Dependencies`, or similar task-structure sections to support the final task list truthfully, add or update them.

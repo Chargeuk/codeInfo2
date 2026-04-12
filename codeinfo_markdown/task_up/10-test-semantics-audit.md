@@ -12,6 +12,8 @@ Audit the planned proof files so changed or reused tests still claim and prove t
 
 <test_semantics_rules>
 
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For every changed or newly referenced proof file, check whether the test title, inline description, and assertions still describe the same invariant after the planned implementation changes.
 - If an existing test would become misleading, add an explicit subtask to rename it, split it, or rewrite it.
 - Do not allow a task to rely on a proof file whose title claims one behavior while its assertions only verify adjacent behavior.

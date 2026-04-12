@@ -54,7 +54,7 @@ function createQueueRequest(params: {
       name: params.root.split('/').filter(Boolean).at(-1) ?? 'repo',
       model: 'embed-1',
       operation: 'reembed',
-    },
+    } as Record<string, unknown>,
     sourceSurface: 'test',
     runId: params.runId ?? null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),

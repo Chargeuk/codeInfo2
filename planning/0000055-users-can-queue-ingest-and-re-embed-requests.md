@@ -7390,9 +7390,9 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the deferred-validation repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the deferred canonical-field validation repair so the broader backend ingest feature path remains honest beyond the task-owned unit parity proofs.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the deferred-validation repair.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the deferred canonical-field validation repair so the broader backend ingest feature path remains honest beyond the task-owned unit parity proofs.
 
 #### Implementation notes
 
@@ -7401,6 +7401,9 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 - Updated `server/src/ingest/ingestJob.ts` so queue-managed execution preserves raw string canonical fields, including invalid providers and blank canonical model strings, before `resolveRequestEmbeddingSelection()` runs; `resolveInputSelection()` now also routes through the shared contract helper so error logging no longer assumes queued canonical fields were pre-sanitized.
 - Reworked `server/src/test/unit/ingest-queue-runtime.test.ts` into two explicit deferred-execution branches: queue promotion now proves `embeddingProvider: "bogus"` plus legacy `model` fails with the shared canonical-field validation message, and startup recovery now proves blank canonical `embeddingModel` plus legacy `model` fails the same way without leaving queue ownership behind.
 - Added matching live-admission route proofs in `server/src/test/unit/ingest-start.test.ts` so malformed canonical-plus-legacy payloads are rejected before enqueue, then refreshed `planning/0000055-pr-summary.md` to retain `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, and `server/src/test/unit/ingest-start.test.ts` as the repaired owner and proof-home set for this review follow-up.
+- Testing 1 initially failed because the queue-runtime test fixture still inferred a narrow `requestPayload` object type; widening that helper back to `Record<string, unknown>` kept the malformed canonical proof payload legal for TypeScript, and the rerun `npm run build:summary:server` then passed cleanly with wrapper `agent_action: skip_log`.
+- Testing 2 first stalled the full `npm run test:summary:server:unit` wrapper on the old `flows.run.loop` lane even though Task 96 was the active proof owner, so I followed the task contract by rerunning `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts` directly; both targeted reruns passed, and the immediate full-wrapper rerun then passed cleanly with `1651/1651` tests green in `test-results/server-unit-tests-2026-04-12T13-51-09-567Z.log`.
+- Testing 3 passed cleanly on the first wrapper attempt: `npm run test:summary:server:cucumber` finished with `87/87` scenarios green and wrapper `agent_action: skip_log`, retaining proof at `test-results/server-cucumber-tests-2026-04-12T14-10-23-215Z.log`.
 
 ### Task 97. Realign The Shared Repo-List Error Contract Between Server And Client
 

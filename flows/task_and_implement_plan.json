@@ -116,7 +116,7 @@
                   "label": "Check for blocker before automated proof",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a standalone Implementation Notes entry whose first token is exactly `**BLOCKER**`? Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`. Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first, then run `python3 scripts/plan_status.py --selector active_or_done`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -138,7 +138,7 @@
                   "label": "Check for blocker before manual testing",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a standalone Implementation Notes entry whose first token is exactly `**BLOCKER**`? Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`. Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first, then run `python3 scripts/plan_status.py --selector active_or_done`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -160,7 +160,7 @@
                   "label": "Check for blocker after manual testing",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Scan the plan from bottom to top and identify the highest-numbered task whose `Task Status` is either `__in_progress__` or `__done__`. Does that task currently contain a standalone Implementation Notes entry whose first token is exactly `**BLOCKER**`? Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`. Answer only yes or no as JSON: {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` first, then run `python3 scripts/plan_status.py --selector active_or_done`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -210,7 +210,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` first and open only the relative `plan_path` stored there in the current repository. Do not rediscover the story independently. Before answering completion, list each task's Task Status (including the final task). Explicitly state whether the final task is __done__ or not, cite the relative plan file path you read, and state whether every repository in scope is still on a branch whose story number matches the selected plan filename or whether repository branch scope has drifted."
+                    "Read `codeInfoStatus/flow-state/current-plan.json` first. Verify that every repository in scope is still on a branch whose story number matches the selected plan filename or report drift if it does not. Then run `python3 scripts/plan_status.py --include-tasks` and use that JSON output as the source of truth for task state. Before answering completion, list each task's Task Status from the parser output, explicitly state whether the final task is __done__ or not using `final_task_status`, cite the relative `plan_path`, and state whether repository branch scope still matches the selected story."
                   ]
                 }
               ]
@@ -220,7 +220,7 @@
               "label": "Check for completion",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then re-read that plan and check the last 3 git commits in the current repository and in every additional repository. You MUST confirm the final task's Task Status from the plan file and only answer yes if every task is marked __done__ and every repository in scope is still on a branch whose story number matches the selected plan filename. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last 3 git commits in the current repository and in every additional repository, and run `python3 scripts/plan_status.py`. Answer yes only if the parser reports `all_tasks_done: true` and `story_complete: true` and every repository in scope is still on a branch whose story number matches the selected plan filename. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]

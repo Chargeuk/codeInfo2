@@ -40,16 +40,17 @@ Do not rely on visual scanning.
 Run the canonical parser:
 
 ```bash
-python3 scripts/plan_blocker_status.py
+python3 scripts/plan_status.py
 ```
 
 Use flags when needed:
 
 ```bash
-python3 scripts/plan_blocker_status.py --selector active
-python3 scripts/plan_blocker_status.py --selector active_or_done
-python3 scripts/plan_blocker_status.py --task-number 94
-python3 scripts/plan_blocker_status.py --plan planning/0000055-users-can-queue-ingest-and-re-embed-requests.md --selector active_or_done
+python3 scripts/plan_status.py --selector active
+python3 scripts/plan_status.py --selector active_or_done
+python3 scripts/plan_status.py --task-number 94
+python3 scripts/plan_status.py --plan planning/0000055-users-can-queue-ingest-and-re-embed-requests.md --selector active_or_done
+python3 scripts/plan_status.py --include-tasks
 ```
 
 ## Decision Rules
@@ -75,4 +76,5 @@ This prevents silent false negatives.
 
 - The parser scopes blocker matches to a task section bounded by `### Task <n>. ...`.
 - The parser matches only exact live-blocker bullets at line start.
-- The parser is the source of truth for blocker presence; prose in the task history is not.
+- The parser also reports task-status and checklist state; use `--include-tasks` only when a prompt genuinely needs the full task list.
+- `scripts/plan_blocker_status.py` remains a compatibility wrapper, but `scripts/plan_status.py` is the canonical source of truth.

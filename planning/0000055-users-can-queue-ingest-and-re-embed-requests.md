@@ -7621,7 +7621,7 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `99`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the e2e cancel acceptance proof still depends on a fixed one-second sleep even though the UI already exposes stronger deterministic readiness boundaries.
 
 #### Overview
@@ -7675,6 +7675,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 - Updated `e2e/ingest.spec.ts` to remove the fixed one-second sleep and replace it with a dedicated `waitForCancelableInProgress(page)` helper. The cancel scenario now waits on current non-terminal in-progress status, visible `Run ID`, non-empty `ingest-current-file`, and an enabled cancel button, then re-runs that same readiness check immediately before the cancel click so stale pre-terminal observations are not reused.
 - Kept the negative-path proof and isolation explicit by requiring the readiness helper to see only non-terminal in-progress statuses (`queued|scanning|embedding`) at click time and by wrapping the post-click terminal assertions in an awaited `await cancelled terminal state` step. The remaining open subtask is the retained browser-artifact refresh, which depends on the later wrapper-backed proof output from Testing 1.
 - Automated proof on 2026-04-12: `npm run test:summary:e2e` passed `49/49` with wrapper `agent_action: skip_log`, retaining the repaired browser proof home at `logs/test-summaries/e2e-tests-latest.log`. No new deterministic-cancel-specific screenshot anchor was required beyond the existing retained artifact directory `artifacts/story-0000055-screenshots`.
+- Automated-proof audit on 2026-04-12: marked Task 100 `__done__` because all eight subtasks and Testing 1 were already honestly complete on disk, no live blocker remained, and the retained-proof prose was descriptive context rather than an open completion gate.
 
 ### Task 101. Deduplicate Story 55 Schema-Version Proof Constants
 

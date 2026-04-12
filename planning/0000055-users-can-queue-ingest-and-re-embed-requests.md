@@ -7346,7 +7346,7 @@ This review-fix task restores the re-embed contract that `sourceId` must identif
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `95`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that deferred queue execution can strip malformed canonical embedding fields and fall back to the legacy `model` field instead of failing with the same validation contract as live admission.
 
 #### Overview
@@ -7404,6 +7404,7 @@ This review-fix task realigns deferred queue execution with the same canonical-f
 - Testing 1 initially failed because the queue-runtime test fixture still inferred a narrow `requestPayload` object type; widening that helper back to `Record<string, unknown>` kept the malformed canonical proof payload legal for TypeScript, and the rerun `npm run build:summary:server` then passed cleanly with wrapper `agent_action: skip_log`.
 - Testing 2 first stalled the full `npm run test:summary:server:unit` wrapper on the old `flows.run.loop` lane even though Task 96 was the active proof owner, so I followed the task contract by rerunning `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-start.test.ts` directly; both targeted reruns passed, and the immediate full-wrapper rerun then passed cleanly with `1651/1651` tests green in `test-results/server-unit-tests-2026-04-12T13-51-09-567Z.log`.
 - Testing 3 passed cleanly on the first wrapper attempt: `npm run test:summary:server:cucumber` finished with `87/87` scenarios green and wrapper `agent_action: skip_log`, retaining proof at `test-results/server-cucumber-tests-2026-04-12T14-10-23-215Z.log`.
+- Automated-proof audit on 2026-04-12: marked Task 96 `__done__` because all implementation subtasks and all three Testing items are honestly complete on current disk, `python3 scripts/plan_status.py --selector active_or_done` reports no live blocker, and no prose-only remaining gate survives beyond the retained full-wrapper proof logs.
 
 ### Task 97. Realign The Shared Repo-List Error Contract Between Server And Client
 

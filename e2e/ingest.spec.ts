@@ -286,6 +286,38 @@ const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
     .toMatch(/(queued|scanning|embedding|completed)/);
 };
 
+const waitForCancelableInProgress = async (
+  page: Parameters<typeof test>[0]['page'],
+) => {
+  const activeHeading = page.getByRole('heading', { name: /Active ingest/i });
+  const runIdLabel = page.getByText(/^Run ID:/i);
+  const currentFile = page.getByTestId('ingest-current-file').first();
+  const cancelButton = page.getByRole('button', { name: /cancel ingest/i });
+
+  await waitForInProgress(page);
+  await expect(activeHeading).toBeVisible({ timeout: 30_000 });
+  await expect(runIdLabel).toBeVisible({ timeout: 30_000 });
+  await expect(currentFile).toHaveText(/\S+/, {
+    timeout: 60_000,
+  });
+  await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
+  await expect
+    .poll(
+      async () => {
+        const label = await page
+          .getByTestId('ingest-status-chip')
+          .textContent()
+          .catch(() => '');
+        return label?.toLowerCase().trim() ?? '';
+      },
+      {
+        timeout: 30_000,
+        message: 'waiting for a non-terminal in-progress status before cancel',
+      },
+    )
+    .toMatch(/(queued|scanning|embedding)/);
+};
+
 const startIngestAndCaptureOutcome = async (
   page: Parameters<typeof test>[0]['page'],
 ) => {
@@ -612,33 +644,30 @@ test.describe.serial('Ingest flows', () => {
     await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
 
-    await waitForInProgress(page);
-    await expect(page.getByText(/^Run ID:/i)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('ingest-current-file').first()).toHaveText(
-      /\S+/,
-      {
-        timeout: 60_000,
-      },
-    );
-    await page.waitForTimeout(1_000);
-
     const cancelButton = page.getByRole('button', { name: /cancel ingest/i });
-    await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
+    await test.step('wait for deterministic cancel readiness', async () => {
+      await waitForCancelableInProgress(page);
+    });
+    await test.step('re-check current in-progress readiness before cancel', async () => {
+      await waitForCancelableInProgress(page);
+    });
     await cancelButton.click();
 
-    await expect(
-      page.getByRole('heading', { name: /Active ingest/i }),
-    ).toBeHidden({
-      timeout: 180_000,
-    });
-    const cancelRow = page
-      .getByRole('row', { name: new RegExp(fixtureName, 'i') })
-      .first();
-    await expect(cancelRow).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
-      timeout: 120_000,
+    await test.step('await cancelled terminal state', async () => {
+      await expect(
+        page.getByRole('heading', { name: /Active ingest/i }),
+      ).toBeHidden({
+        timeout: 180_000,
+      });
+      const cancelRow = page
+        .getByRole('row', { name: new RegExp(fixtureName, 'i') })
+        .first();
+      await expect(cancelRow).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
+        timeout: 120_000,
+      });
     });
   });
 

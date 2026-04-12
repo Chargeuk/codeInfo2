@@ -7621,7 +7621,7 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `99`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the e2e cancel acceptance proof still depends on a fixed one-second sleep even though the UI already exposes stronger deterministic readiness boundaries.
 
 #### Overview
@@ -7654,22 +7654,27 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 #### Subtasks
 
-1. [ ] Re-read the cancel-proof finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task focused on proof quality rather than product behavior.
-2. [ ] Inspect the `cancel in-progress ingest shows cancelled` scenario in `e2e/ingest.spec.ts`. Purpose: identify the exact fixed-delay seam and the deterministic boundaries already present in the test.
-3. [ ] Remove `page.waitForTimeout(1_000)` from that cancel scenario. Purpose: eliminate the arbitrary timing gate the review flagged.
-4. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: rewrite the pre-cancel readiness proof to wait on deterministic boundaries such as `waitForInProgress(page)`, visible `Run ID`, non-empty `ingest-current-file`, and the enabled cancel button before cancel is clicked. Purpose: prove the test is synchronized to observable in-progress state instead of a fixed sleep.
-5. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the scenario re-checks current in-progress boundaries immediately before the cancel click so a stale enabled-button or stale file-progress observation cannot drive the action after the run has already gone terminal. Purpose: cover the mixed-state stale-UI bug instead of only the happy-path readiness case.
-6. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove cancellation is triggered before natural completion by asserting the in-progress boundaries still hold at the click point and then observing the cancelled terminal state. Purpose: give the failure-ordering invariant its own proof home instead of folding it into the happy-path assertion.
-7. [ ] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: make awaited terminal-state completion and wrapper-owned teardown explicit so the cancel scenario does not leak shared queue state or stale browser observations into later tests. Purpose: pre-empt isolation and teardown review hotspots for a negative-assertion browser proof.
-8. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: refresh the retained proof-home references if the deterministic cancel evidence produces new screenshot or log anchors. Purpose: keep the final proof narrative aligned to the repaired scenario.
+1. [x] Re-read the cancel-proof finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the task focused on proof quality rather than product behavior.
+2. [x] Inspect the `cancel in-progress ingest shows cancelled` scenario in `e2e/ingest.spec.ts`. Purpose: identify the exact fixed-delay seam and the deterministic boundaries already present in the test.
+3. [x] Remove `page.waitForTimeout(1_000)` from that cancel scenario. Purpose: eliminate the arbitrary timing gate the review flagged.
+4. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: rewrite the pre-cancel readiness proof to wait on deterministic boundaries such as `waitForInProgress(page)`, visible `Run ID`, non-empty `ingest-current-file`, and the enabled cancel button before cancel is clicked. Purpose: prove the test is synchronized to observable in-progress state instead of a fixed sleep.
+5. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the scenario re-checks current in-progress boundaries immediately before the cancel click so a stale enabled-button or stale file-progress observation cannot drive the action after the run has already gone terminal. Purpose: cover the mixed-state stale-UI bug instead of only the happy-path readiness case.
+6. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove cancellation is triggered before natural completion by asserting the in-progress boundaries still hold at the click point and then observing the cancelled terminal state. Purpose: give the failure-ordering invariant its own proof home instead of folding it into the happy-path assertion.
+7. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: make awaited terminal-state completion and wrapper-owned teardown explicit so the cancel scenario does not leak shared queue state or stale browser observations into later tests. Purpose: pre-empt isolation and teardown review hotspots for a negative-assertion browser proof.
+8. [x] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: refresh the retained proof-home references if the deterministic cancel evidence produces new screenshot or log anchors. Purpose: keep the final proof narrative aligned to the repaired scenario.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes, including the updated cancel scenario and its refreshed retained proof artifacts. If the wrapper fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper reruns against `e2e/ingest.spec.ts` before rerunning the full wrapper.
+1. [x] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes, including the updated cancel scenario and its refreshed retained proof artifacts. If the wrapper fails, inspect `logs/test-summaries/e2e-tests-latest.log`, then diagnose with targeted wrapper reruns against `e2e/ingest.spec.ts` before rerunning the full wrapper.
 
 #### Implementation notes
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because the story's retained cancellation acceptance proof should use deterministic product boundaries instead of an arbitrary sleep.
+- 2026-04-12 activation pass: promoted Task 100 to `__in_progress__` because Task 99 is now `__done__` and this is the earliest executable `__to_do__` task in the current plan.
+- Re-read the cancellation-proof finding and the `cancel in-progress ingest shows cancelled` scenario before editing. The current seam is explicit: the scenario already waits for `waitForInProgress(page)`, visible `Run ID`, and non-empty `ingest-current-file`, but still uses `page.waitForTimeout(1_000)` before checking the enabled cancel button and clicking it.
+- Updated `e2e/ingest.spec.ts` to remove the fixed one-second sleep and replace it with a dedicated `waitForCancelableInProgress(page)` helper. The cancel scenario now waits on current non-terminal in-progress status, visible `Run ID`, non-empty `ingest-current-file`, and an enabled cancel button, then re-runs that same readiness check immediately before the cancel click so stale pre-terminal observations are not reused.
+- Kept the negative-path proof and isolation explicit by requiring the readiness helper to see only non-terminal in-progress statuses (`queued|scanning|embedding`) at click time and by wrapping the post-click terminal assertions in an awaited `await cancelled terminal state` step. The remaining open subtask is the retained browser-artifact refresh, which depends on the later wrapper-backed proof output from Testing 1.
+- Automated proof on 2026-04-12: `npm run test:summary:e2e` passed `49/49` with wrapper `agent_action: skip_log`, retaining the repaired browser proof home at `logs/test-summaries/e2e-tests-latest.log`. No new deterministic-cancel-specific screenshot anchor was required beyond the existing retained artifact directory `artifacts/story-0000055-screenshots`.
 
 ### Task 101. Deduplicate Story 55 Schema-Version Proof Constants
 

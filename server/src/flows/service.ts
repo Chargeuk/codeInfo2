@@ -1218,29 +1218,33 @@ const runFlowInstruction = async (params: {
   };
 
   try {
-    consumePendingFlowStop();
-
-    await chat.run(
-      params.instruction,
-      {
-        provider: 'codex',
-        inflightId: params.inflightId,
-        threadId: params.threadId,
-        useConfigDefaults: true,
-        runtimeConfig: params.runtimeConfig,
-        ...(params.workingDirectoryOverride !== undefined
-          ? { workingDirectoryOverride: params.workingDirectoryOverride }
-          : {}),
-        disableSystemContext: true,
-        systemPrompt: params.systemPrompt,
-        deferInflightCleanup: true,
-        signal: inflightSignal,
-        source: params.source,
-        skipPersistence: true,
-      },
-      params.agentConversationId,
-      params.modelId,
-    );
+    const pendingStopConsumed = consumePendingFlowStop();
+    if (pendingStopConsumed) {
+      status = 'stopped';
+      lastErrorMessage = 'aborted';
+    } else {
+      await chat.run(
+        params.instruction,
+        {
+          provider: 'codex',
+          inflightId: params.inflightId,
+          threadId: params.threadId,
+          useConfigDefaults: true,
+          runtimeConfig: params.runtimeConfig,
+          ...(params.workingDirectoryOverride !== undefined
+            ? { workingDirectoryOverride: params.workingDirectoryOverride }
+            : {}),
+          disableSystemContext: true,
+          systemPrompt: params.systemPrompt,
+          deferInflightCleanup: true,
+          signal: inflightSignal,
+          source: params.source,
+          skipPersistence: true,
+        },
+        params.agentConversationId,
+        params.modelId,
+      );
+    }
   } catch (err) {
     const errorMessage =
       err && typeof err === 'object'

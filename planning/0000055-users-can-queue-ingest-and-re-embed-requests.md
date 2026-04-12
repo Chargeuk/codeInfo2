@@ -7728,10 +7728,10 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the shared schema-version cleanup.
-2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the shared schema-version cleanup.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
-4. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the updated proof home in `client/src/test/useIngestRoots.test.tsx`. If the wrapper fails, diagnose with targeted wrapper reruns against that exact proof file before rerunning the full wrapper.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the shared schema-version cleanup.
+2. [x] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the shared schema-version cleanup.
+3. [x] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated proof homes in `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against those exact proof files before rerunning the full wrapper.
+4. [x] Run `npm run test:summary:client` and confirm the full client wrapper passes, including the updated proof home in `client/src/test/useIngestRoots.test.tsx`. If the wrapper fails, diagnose with targeted wrapper reruns against that exact proof file before rerunning the full wrapper.
 
 #### Implementation notes
 
@@ -7744,6 +7744,10 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 - Subtask 7: updated `server/src/test/unit/mcp-ingested-repositories.test.ts` to reuse `INGEST_ROOTS_SCHEMA_VERSION` for both parsed and mocked schema-version values while preserving the MCP-facing proof wording.
 - Subtask 9: updated `client/src/test/useIngestRoots.test.tsx` so the mocked payload uses `INGEST_ROOTS_SCHEMA_VERSION` and the test title now describes the shared schema-version contract instead of embedding the literal value.
 - Subtask 10: updated `planning/0000055-pr-summary.md` to cite `common/src/lmstudio.ts` plus the four refreshed proof files as the retained owner set for this shared schema-version simplification.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`; retained proof log is `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`; retained proof log is `logs/test-summaries/build-client-latest.log`.
+- Testing 3: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1652`, `passed: 1652`, `failed: 0`, and `agent_action: skip_log`; retained proof log is `test-results/server-unit-tests-2026-04-12T17-16-30-180Z.log`.
+- Testing 4: full `npm run test:summary:client` passed cleanly with `tests run: 680`, `passed: 680`, `failed: 0`, and `agent_action: skip_log`; retained proof log is `test-results/client-tests-2026-04-12T17-38-29-771Z.log`.
 
 ### Task 102. Re-Validate Story 55 After Review Pass 0000055-20260411T104227Z-756a77d1
 

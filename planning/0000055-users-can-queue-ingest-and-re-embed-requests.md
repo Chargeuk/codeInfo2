@@ -6866,7 +6866,7 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the cleanup-route guard changes.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the cleanup-route guard changes.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes, including the updated cleanup-route proof home in `server/src/test/integration/ingest-e2e-cleanup.test.ts`. If the wrapper fails, diagnose with targeted wrapper reruns against that proof file before rerunning the full wrapper.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the cleanup-route authority repair so the broader backend ingest feature path remains honest, even though the task-owned rejection proof lives in `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
 
@@ -6877,6 +6877,8 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 - Subtasks 4-7: added an approved-root guard in `server/src/routes/ingestE2eCleanup.ts` that only allows `/fixtures/repo` and descendants, and returns an explicit `ROOT_NOT_ALLOWED` response before queue deletion or root removal can run for unknown or normalized-outside paths.
 - Subtasks 8-11: expanded `server/src/test/integration/ingest-e2e-cleanup.test.ts` so the route still proves the allowed fixture-root cleanup path while separately proving rejection before queue deletion, rejection before `removeRoot()`, and normalized-outside rejection.
 - Subtask 12: updated `planning/0000055-pr-summary.md` to retain the approved-root cleanup-route contract and its direct proof file alongside this task's own notes.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the approved-root cleanup-route guard still builds on current `HEAD` without additional server-type drift.
+- **BLOCKER** Testing 2 (`npm run test:summary:server:unit`) failed on the unrelated `flow stop during a looped flow prevents later iterations from continuing` baseline in `test-results/server-unit-tests-2026-04-12T00-15-33-561Z.log` before any Task 88 proof home failed. I inspected the saved log, confirmed the red path is still the earlier `flows.run.loop` cleanup lane, then ran the task-owned targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`, which passed cleanly with `tests run: 6`, `passed: 6`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-12T00-26-09-717Z.log`. The missing capability is a clean shared `server:unit` baseline from the earlier flow-loop owner, not another Task 88 code change, so this task should stay `__in_progress__` and wait for planner repair or prerequisite reordering before the full-wrapper proof chain continues.
 
 ### Task 89. Restrict Re-Embed Selectors To Already-Ingested Roots
 

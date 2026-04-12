@@ -6878,7 +6878,7 @@ This fresh prerequisite task owns only the newest earlier `flows.run.loop` contr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `88`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the e2e cleanup route forwards a caller-controlled `:root` selector into destructive queue and root deletion without a known-root ownership check. Re-owned to `__to_do__` on 2026-04-12 by planner repair after the current earlier-lane prerequisite again proved a fresh `flows.run.loop` owner must land before this task's remaining full-wrapper proof can continue honestly.
 
 #### Overview
@@ -6944,6 +6944,7 @@ This review-fix task narrows the e2e cleanup route back to its intended authorit
 - Implementation-only audit on 2026-04-12: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 89 section, `server/src/routes/ingestE2eCleanup.ts`, `server/src/test/integration/ingest-e2e-cleanup.test.ts`, and the retained summary note in `planning/0000055-pr-summary.md` from current disk. Current repo evidence still matches the checked implementation subtasks and Testing 1, there is no live standalone `**BLOCKER**` note on this task now, and the remaining honest work before automated-proof closeout is still Testing 2 and Testing 3. Task 89 is therefore restored to `__in_progress__` so the implementation loop no longer skips a task whose code is already landed while its remaining wrapper proof is still pending.
 - Testing 2: `npm run test:summary:server:unit` passed cleanly on current `HEAD` with `tests run: 1646`, `passed: 1646`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-12T01-15-09-941Z.log`, so the earlier `flows.run.loop` prerequisite is no longer blocking this task's full server-unit proof gate.
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly on current `HEAD` with `tests run: 87`, `passed: 87`, `failed: 0`, and retained log `test-results/server-cucumber-tests-2026-04-12T01-34-14-520Z.log`, so the broader backend ingest path still stays green after the cleanup-route ownership guard.
+- Implementation-plus-automated-proof audit on 2026-04-12: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 89 section, and the retained build/server-unit/server-cucumber proof from current disk before normalizing status. No testing steps needed to be newly checked in this audit because Testing 1 through Testing 3 were already honestly complete, there is no live standalone `**BLOCKER**` note on this task, and no prose-only remainder remains as an honest gate. Task 89 therefore closes as `__done__`.
 
 ### Task 90. Restrict Re-Embed Selectors To Already-Ingested Roots
 

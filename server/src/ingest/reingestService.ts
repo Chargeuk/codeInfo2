@@ -124,11 +124,20 @@ export type ReingestServiceDeps = {
   waitOptions?: Partial<WaitForQueueRequestTerminalStatusOptions>;
 };
 
+export function isRepoReingestable(repo: RepoEntry): boolean {
+  return (
+    typeof repo.lastIngestAt === 'string' && repo.lastIngestAt.trim().length > 0
+  );
+}
+
 function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
   const repositoryIds = new Set<string>();
   const sourceIds = new Set<string>();
 
   repos.repos.forEach((repo) => {
+    if (!isRepoReingestable(repo)) {
+      return;
+    }
     if (repo.id) repositoryIds.add(repo.id);
     if (repo.containerPath) {
       sourceIds.add(normalizeCanonicalQueueTargetPath(repo.containerPath));
@@ -485,6 +494,7 @@ export async function runReingestRepository(
 
   const selectedRepo = repos.repos.find(
     (repo) =>
+      isRepoReingestable(repo) &&
       normalizeCanonicalQueueTargetPath(repo.containerPath) ===
       normalizedSourceId,
   );

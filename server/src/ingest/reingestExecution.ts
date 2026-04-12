@@ -19,7 +19,10 @@ import type {
   ReingestResult,
   ReingestSuccess,
 } from './reingestService.js';
-import { runReingestRepository } from './reingestService.js';
+import {
+  isRepoReingestable,
+  runReingestRepository,
+} from './reingestService.js';
 
 const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
@@ -89,12 +92,18 @@ async function listReposSnapshot(
   listRepos: () => Promise<ListReposResult>,
 ): Promise<{
   listed: ListReposResult;
-  cachedListRepos: () => Promise<ListReposResult>;
+  reingestableListed: ListReposResult;
+  cachedReingestableListRepos: () => Promise<ListReposResult>;
 }> {
   const listed = await listRepos();
+  const reingestableListed = {
+    ...listed,
+    repos: listed.repos.filter((repo) => isRepoReingestable(repo)),
+  };
   return {
     listed,
-    cachedListRepos: async () => listed,
+    reingestableListed,
+    cachedReingestableListRepos: async () => reingestableListed,
   };
 }
 
@@ -111,6 +120,9 @@ function buildRetryLists(repos: RepoEntry[]) {
   const sourceIds = new Set<string>();
 
   repos.forEach((repo) => {
+    if (!isRepoReingestable(repo)) {
+      return;
+    }
     if (repo.id) repositoryIds.add(repo.id);
     if (repo.containerPath) {
       sourceIds.add(normalizeContainerPath(repo.containerPath));
@@ -364,9 +376,10 @@ export async function executeReingestRequest(params: {
     params.deps?.resolvePlanScopeRepositories ?? resolvePlanScopeRepositories;
 
   if ('sourceId' in params.request) {
+    const { cachedReingestableListRepos } = await listReposSnapshot(listRepos);
     const resolved = await canonicalizeSelector({
       sourceId: params.request.sourceId,
-      listRepos,
+      listRepos: cachedReingestableListRepos,
     });
 
     appendResolutionLog({
@@ -395,26 +408,27 @@ export async function executeReingestRequest(params: {
   }
 
   if (params.request.target === 'working') {
-    const { listed, cachedListRepos } = await listReposSnapshot(listRepos);
+    const { reingestableListed, cachedReingestableListRepos } =
+      await listReposSnapshot(listRepos);
     const runtimeWorkingRepositoryPath = params.workingRepositoryPath?.trim();
     if (!runtimeWorkingRepositoryPath) {
       return {
         ok: false,
         error: invalidWorkingTargetError({
-          repos: listed.repos,
+          repos: reingestableListed.repos,
           target: 'working',
         }),
       };
     }
 
     const repo = await resolveRepositorySelector(runtimeWorkingRepositoryPath, {
-      listIngestedRepositories: cachedListRepos,
+      listIngestedRepositories: cachedReingestableListRepos,
     });
     if (!repo) {
       return {
         ok: false,
         error: workingTargetNotIngestedError({
-          repos: listed.repos,
+          repos: reingestableListed.repos,
           target: 'working',
         }),
       };
@@ -455,13 +469,14 @@ export async function executeReingestRequest(params: {
     };
   }
 
-  const { listed, cachedListRepos } = await listReposSnapshot(listRepos);
+  const { reingestableListed, cachedReingestableListRepos } =
+    await listReposSnapshot(listRepos);
   const workingRepositoryPath = params.workingRepositoryPath?.trim();
   if (!workingRepositoryPath) {
     return {
       ok: false,
       error: invalidWorkingTargetError({
-        repos: listed.repos,
+        repos: reingestableListed.repos,
         target: 'plan_scope',
       }),
     };
@@ -469,14 +484,14 @@ export async function executeReingestRequest(params: {
   const workingRepository = await resolveRepositorySelector(
     workingRepositoryPath,
     {
-      listIngestedRepositories: cachedListRepos,
+      listIngestedRepositories: cachedReingestableListRepos,
     },
   );
   if (!workingRepository) {
     return {
       ok: false,
       error: workingTargetNotIngestedError({
-        repos: listed.repos,
+        repos: reingestableListed.repos,
         target: 'plan_scope',
       }),
     };
@@ -487,7 +502,7 @@ export async function executeReingestRequest(params: {
       workingRepository.containerPath,
     ),
     deps: {
-      listIngestedRepositories: cachedListRepos,
+      listIngestedRepositories: cachedReingestableListRepos,
       appendLog,
     },
   });

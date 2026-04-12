@@ -5,7 +5,10 @@ import {
   appendIngestFailureLog,
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
-import { buildQueuedReingestRequest } from '../ingest/reingestService.js';
+import {
+  buildQueuedReingestRequest,
+  isRepoReingestable,
+} from '../ingest/reingestService.js';
 import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
 import {
   enqueueOrReuseIngestRequest,
@@ -36,6 +39,7 @@ export function createIngestReembedRouter({
       const repos = await listIngestedRepositoriesOverride();
       const selectedRepo = repos.repos.find(
         (repo) =>
+          isRepoReingestable(repo) &&
           normalizeCanonicalQueueTargetPath(repo.containerPath) ===
           normalizedRoot,
       );

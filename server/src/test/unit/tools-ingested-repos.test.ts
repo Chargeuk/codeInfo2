@@ -132,7 +132,7 @@ test('maps repo metadata and host path with locked model id', async () => {
   assert.equal(repo.phase, undefined);
 });
 
-test('emits queued rows with requestId, null runId, and waiting-only queuePosition', async () => {
+test('queued start rows remain visible in the repo list with request metadata even before first ingest completes', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -177,6 +177,7 @@ test('emits queued rows with requestId, null runId, and waiting-only queuePositi
   assert.equal(res.body.repos[0].runId, null);
   assert.equal(res.body.repos[0].queueState, 'waiting');
   assert.equal(res.body.repos[0].queuePosition, 1);
+  assert.equal(res.body.repos[0].lastIngestAt, null);
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
     value: originalReadyState,

@@ -33,13 +33,14 @@ const buildRepoEntry = (params: {
   name?: string;
   description?: string | null;
   containerPath: string;
+  lastIngestAt?: string | null;
 }): RepoEntry => ({
   id: params.id ?? 'repo-a',
   name: params.name,
   description: params.description ?? null,
   containerPath: params.containerPath,
   hostPath: `/host${params.containerPath}`,
-  lastIngestAt: null,
+  lastIngestAt: params.lastIngestAt ?? '2026-01-01T00:00:00.000Z',
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,
@@ -984,6 +985,43 @@ test('unknown_root validation failure preserves the strict NOT_FOUND contract', 
     result.error.data.fieldErrors[0]?.message,
     'sourceId must match an existing ingested repository root exactly',
   );
+});
+
+test('retry lists exclude queued start rows that have never produced an ingested root record', async () => {
+  let enqueueCalls = 0;
+  const result = await runReingestRepository(
+    { sourceId: '/data/queued-only' },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({
+            id: 'queued-only',
+            containerPath: '/data/queued-only',
+            lastIngestAt: null,
+          }),
+          buildRepoEntry({
+            id: 'repo-a',
+            containerPath: '/data/repo-a',
+          }),
+        ],
+        lockedModelId: 'model',
+      }),
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalls += 1;
+        return buildQueueResult({});
+      },
+      appendLog: noopLog,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(enqueueCalls, 0);
+  if (result.ok) return;
+  assert.equal(result.error.code, 404);
+  assert.equal(result.error.message, 'NOT_FOUND');
+  assert.deepEqual(result.error.data.reingestableRepositoryIds, ['repo-a']);
+  assert.deepEqual(result.error.data.reingestableSourceIds, ['/data/repo-a']);
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
 });
 
 test('invalid_state validation failure preserves the strict INVALID_PARAMS contract', async () => {

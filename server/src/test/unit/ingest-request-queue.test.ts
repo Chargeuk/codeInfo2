@@ -176,7 +176,7 @@ test('queue admission rejects when Mongo is unavailable before any write starts'
   assert.equal(createMock.mock.calls.length, 0);
 });
 
-test('canonical queue-target normalization collapses start-ingest and re-embed aliases onto one queue identity', async () => {
+test('canonical queue-target normalization collapses start-ingest and re-embed aliases onto one queue identity without rewriting a waiting start row', async () => {
   const canonicalStartTarget =
     normalizeCanonicalQueueTargetPath('/data/example/');
   const canonicalReembedTarget =
@@ -187,13 +187,34 @@ test('canonical queue-target normalization collapses start-ingest and re-embed a
     updatedAt: new Date('2026-01-01T00:05:00.000Z'),
   });
 
+  const waitingLookupMock = mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: { canonicalTargetPath?: string; queueState?: string }) => {
+      if (filter.queueState === 'waiting') {
+        assert.equal(filter.canonicalTargetPath, canonicalStartTarget);
+        return {
+          sort: () => ({
+            exec: async () => existing,
+          }),
+        };
+      }
+
+      return {
+        sort: () => ({
+          exec: async () => null,
+        }),
+      };
+    },
+  );
   const waitingUpdateMock = mock.method(
     IngestQueueRequestModel,
     'findOneAndUpdate',
-    (filter: { canonicalTargetPath: string }) => {
-      assert.equal(filter.canonicalTargetPath, canonicalStartTarget);
-      return { exec: async () => existing };
-    },
+    () => ({
+      exec: async () => {
+        throw new Error('waiting start row should not be rewritten to reembed');
+      },
+    }),
   );
   mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
     exec: async () => 0,
@@ -215,15 +236,19 @@ test('canonical queue-target normalization collapses start-ingest and re-embed a
   assert.equal(canonicalStartTarget, canonicalReembedTarget);
   assert.equal(result.requestId, existing._id.toString());
   assert.equal(result.queuePosition, 1);
-  assert.equal(waitingUpdateMock.mock.calls.length, 1);
+  assert.equal(result.updatedExisting, false);
+  assert.equal(result.queueRequest.operation, 'start');
+  assert.equal(waitingLookupMock.mock.calls.length, 1);
+  assert.equal(waitingUpdateMock.mock.calls.length, 0);
 });
 
-test('waiting duplicate reuse preserves queue identity and provenance while replacing the normalized payload', async () => {
+test('waiting duplicate reembed reuse preserves queue identity and provenance while replacing the normalized payload', async () => {
   const createdAt = new Date('2026-01-01T00:00:00.000Z');
   const updatedAt = new Date('2026-01-01T00:10:00.000Z');
   const existing = createQueueRequest({
     createdAt,
     updatedAt,
+    operation: 'reembed',
     requestPayload: {
       model: 'openai/text-embedding-3-small',
       embeddingProvider: 'openai',
@@ -265,6 +290,24 @@ test('waiting duplicate reuse preserves queue identity and provenance while repl
       };
     },
   );
+  mock.method(IngestQueueRequestModel, 'findOne', (filter: {
+    canonicalTargetPath?: string;
+    queueState?: string;
+  }) => {
+    if (filter.queueState === 'waiting') {
+      return {
+        sort: () => ({
+          exec: async () => existing,
+        }),
+      };
+    }
+
+    return {
+      sort: () => ({
+        exec: async () => null,
+      }),
+    };
+  });
   mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
     exec: async () => 2,
   }));
@@ -328,11 +371,23 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
       return { exec: async () => waitingRequest };
     },
   );
-  mock.method(IngestQueueRequestModel, 'findOne', () => ({
-    sort: () => ({
-      exec: async () => null,
-    }),
-  }));
+  mock.method(IngestQueueRequestModel, 'findOne', (filter: {
+    canonicalTargetPath?: string;
+    queueState?: string;
+  }) => {
+    if (filter.queueState === 'waiting') {
+      return {
+        sort: () => ({
+          exec: async () => null,
+        }),
+      };
+    }
+    return {
+      sort: () => ({
+        exec: async () => null,
+      }),
+    };
+  });
   mock.method(
     IngestQueueRequestModel,
     'create',
@@ -388,13 +443,13 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
   assert.equal(firstResult.requestId, created._id.toString());
   assert.equal(secondResult.requestId, created._id.toString());
   assert.equal(firstResult.updatedExisting, false);
-  assert.equal(secondResult.updatedExisting, true);
+  assert.equal(secondResult.updatedExisting, false);
   assert.equal(secondResult.queuePosition, 1);
   assert.equal(secondResult.queueRequest.sourceSurface, 'rest/ingest/start');
   assert.deepEqual(secondResult.queueRequest.requestPayload, {
-    model: 'embed-second',
-    embeddingProvider: 'openai',
-    embeddingModel: 'embed-second',
+    model: 'embed-first',
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'embed-first',
   });
 });
 

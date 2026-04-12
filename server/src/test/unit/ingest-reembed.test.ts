@@ -369,6 +369,37 @@ test('ingest-reembed waiting duplicate updates emit an updated-in-place diagnost
   assert.ok(updateEntry, 'expected updated-in-place queue diagnostic');
 });
 
+test('ingest-reembed rejects a still-visible queued start row before queue admission starts', async () => {
+  let enqueueCalls = 0;
+  const response = await request(
+    buildApp({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            ...buildRepoEntry(),
+            id: 'queued-only',
+            containerPath: '/tmp/repo',
+            lastIngestAt: null,
+            requestId: 'queue-request-queued-only',
+            runId: null,
+            queueState: 'waiting',
+            queuePosition: 1,
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalls += 1;
+        return buildQueueResult();
+      },
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(response.body, { status: 'error', code: 'NOT_FOUND' });
+  assert.equal(enqueueCalls, 0);
+});
+
 test('ingest-reembed queue admission persists the stable repo name instead of an overlay run id', async () => {
   let queuedPayload:
     | {

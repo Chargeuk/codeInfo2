@@ -118,11 +118,51 @@ async function findLiveQueueRequestForTarget(
     .exec();
 }
 
+async function findWaitingQueueRequestForTarget(
+  canonicalTargetPath: string,
+): Promise<IngestQueueRequest | null> {
+  return IngestQueueRequestModel.findOne({
+    canonicalTargetPath,
+    queueState: 'waiting',
+  })
+    .sort({ createdAt: 1, _id: 1 })
+    .exec();
+}
+
+function shouldRewriteWaitingRequest(
+  waitingRequest: IngestQueueRequest,
+  input: EnqueueIngestRequestInput,
+): boolean {
+  if (
+    waitingRequest.operation === 'start' &&
+    input.operation === 'reembed'
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export async function enqueueOrReuseIngestRequest(
   input: EnqueueIngestRequestInput,
 ): Promise<EnqueueIngestRequestResult> {
   if (mongoose.connection.readyState !== 1) {
     throw createQueueUnavailableError();
+  }
+
+  const existingWaitingRequest = await findWaitingQueueRequestForTarget(
+    input.canonicalTargetPath,
+  );
+
+  if (
+    existingWaitingRequest &&
+    !shouldRewriteWaitingRequest(existingWaitingRequest, input)
+  ) {
+    return buildQueueResult({
+      queueRequest: existingWaitingRequest,
+      queuePosition: await countOlderWaitingRequests(existingWaitingRequest),
+      reusedExisting: true,
+      updatedExisting: false,
+    });
   }
 
   const waitingRequest = await IngestQueueRequestModel.findOneAndUpdate(
@@ -142,6 +182,14 @@ export async function enqueueOrReuseIngestRequest(
   ).exec();
 
   if (waitingRequest) {
+    if (!shouldRewriteWaitingRequest(waitingRequest, input)) {
+      return buildQueueResult({
+        queueRequest: waitingRequest,
+        queuePosition: await countOlderWaitingRequests(waitingRequest),
+        reusedExisting: true,
+        updatedExisting: false,
+      });
+    }
     return buildQueueResult({
       queueRequest: waitingRequest,
       queuePosition: await countOlderWaitingRequests(waitingRequest),
@@ -179,6 +227,22 @@ export async function enqueueOrReuseIngestRequest(
   } catch (error) {
     if (!isDuplicateLiveQueueTargetError(error)) {
       throw error;
+    }
+
+    const racedExistingWaitingRequest = await findWaitingQueueRequestForTarget(
+      input.canonicalTargetPath,
+    );
+
+    if (
+      racedExistingWaitingRequest &&
+      !shouldRewriteWaitingRequest(racedExistingWaitingRequest, input)
+    ) {
+      return buildQueueResult({
+        queueRequest: racedExistingWaitingRequest,
+        queuePosition: await countOlderWaitingRequests(racedExistingWaitingRequest),
+        reusedExisting: true,
+        updatedExisting: false,
+      });
     }
 
     const racedWaitingRequest = await IngestQueueRequestModel.findOneAndUpdate(

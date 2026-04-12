@@ -21,7 +21,7 @@ function buildRepoEntry(params: {
     description: null,
     containerPath: params.containerPath,
     hostPath: params.hostPath ?? `/host${params.containerPath}`,
-    lastIngestAt: params.lastIngestAt ?? null,
+    lastIngestAt: params.lastIngestAt ?? '2025-01-01T00:00:00.000Z',
     embeddingProvider: 'lmstudio',
     embeddingModel: 'model',
     embeddingDimensions: 768,
@@ -129,6 +129,54 @@ describe('executeReingestRequest', () => {
     assert.equal(result.ok, false);
     if (result.ok) return;
     assert.equal(result.error.data.code, 'NOT_FOUND');
+    assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
+  });
+
+  test('queued-only repo-list rows stay visible but are rejected as stale sourceId selectors from one bounded ingested snapshot', async () => {
+    let listCalls = 0;
+    let runCalls = 0;
+    const result = await executeReingestRequest({
+      request: { sourceId: '/data/queued-only' },
+      surface: 'command',
+      deps: {
+        listIngestedRepositories: async () => {
+          listCalls += 1;
+          return {
+            repos: [
+              buildRepoEntry({
+                id: 'queued-only',
+                containerPath: '/data/queued-only',
+                lastIngestAt: null,
+              }),
+              buildRepoEntry({
+                id: 'repo-a',
+                containerPath: '/data/repo-a',
+              }),
+            ],
+            lockedModelId: 'model',
+          };
+        },
+        runReingestRepository: async () => {
+          runCalls += 1;
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: '/data/queued-only',
+              resolvedRepositoryId: 'queued-only',
+            }),
+          };
+        },
+        appendLog: noopLog,
+      },
+    });
+
+    assert.equal(listCalls, 1);
+    assert.equal(runCalls, 0);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.error.data.code, 'NOT_FOUND');
+    assert.deepEqual(result.error.data.reingestableRepositoryIds, ['repo-a']);
+    assert.deepEqual(result.error.data.reingestableSourceIds, ['/data/repo-a']);
     assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
   });
 

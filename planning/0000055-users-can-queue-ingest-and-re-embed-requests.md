@@ -7963,7 +7963,7 @@ This task repairs the queue-row identity contract on the standard REST `/ingest/
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `102`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260412T200035Z-2407aa9b` because the stored findings show several vendored Bats fixture paths were converted from symlinks into plain files, changing bundled vendor test behavior rather than only support-file wording.
 
 #### Overview
@@ -8041,6 +8041,7 @@ This task restores the upstream vendored Bats fixture layout so the embedded ven
 - Testing 1 first failed before the vendored suite assertions ran because the checked-in shell-harness helper fixtures at `scripts/test/bats/fixtures/bin/docker-fixture`, `fixture-success`, and `fixture-fail` were missing execute bits on current disk, producing `Permission denied` in both `docker-compose-with-env.bats` and `shell-harness.bats`. Restored those executable bits so the required `npm run test:summary:shell` wrapper can reach the Task 104 vendored proofs honestly on rerun.
 - Testing 1: `npm run test:summary:shell` passed on rerun with `tests run: 16`, `passed: 16`, `failed: 0`, and wrapper `agent_action: skip_log`, retaining the clean shell proof log at `logs/test-summaries/shell-tests-2026-04-12T22-12-44-489Z.log`.
 - Testing 2: the direct `test -L ...` sweep passed across all seven repaired vendor fixture paths, so the final filesystem proof now confirms the `setup_file2/setup_file3`, `parallel2/parallel3/parallel4`, and `folder1/folder2 setup_suite.bash` entries are all symlinks again on current disk.
+- Automated-proof audit on 2026-04-12: marked Task 104 `__done__` because all 15 subtasks and both Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose is retained proof context rather than an open completion gate.
 
 ### Task 105. Re-Validate Story 55 After Review Pass `0000055-20260412T200035Z-2407aa9b`
 

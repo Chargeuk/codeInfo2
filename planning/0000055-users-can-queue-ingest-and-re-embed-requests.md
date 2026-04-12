@@ -7481,16 +7481,71 @@ This review-fix task restores one shared repo-list error contract across server 
 - Automated-proof audit on 2026-04-12: marked Task 97 `__done__` because all implementation subtasks and all six Testing items are honestly complete on current disk, `python3 scripts/plan_status.py --selector active_or_done` reports no live blocker, and no prose-only remaining gate survives beyond the retained wrapper proof logs.
 - 2026-04-12 manual testing assessment: this pass stayed task-scoped and re-read `codeInfoStatus/flow-state/current-plan.json`, `codeInfoStatus/flow-state/manual-testing-runtime.json`, `AGENTS.md`, `README.md`, and this exact Task 97 section from current disk before selecting proof scope. Manual testing is not applicable because the completed change repairs the shared flat repo-list error contract between `server/src/lmstudio/toolService.ts` and `client/src/hooks/useIngestRoots.ts`, but the supported manual runtime surfaces do not provide a dedicated honest way to force that exact `/ingest/roots` error-row payload through the real stack without test-only fixtures, seeded failure state, or mocked inputs; the retained full wrapper proofs already cover the owned contract and broader browser regression boundary. No new subtasks or Testing-step changes were needed, and Task 97 remains `__done__`.
 
-### Task 98. Restore Vendored Bats Fixture Semantics
+### Task 98. Repair Vendored Bats Launcher Execution Contract
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `97`
 - Task Status: `__in_progress__`
+- Notes: Added during planner repair on 2026-04-12 after Task 99's automated proof showed the vendored Bats launcher chain still assumes executable vendor files that current disk and git do not provide.
+
+#### Overview
+
+This prerequisite task restores one honest execution contract for the vendored Bats summary-wrapper lane before the fixture-restoration task resumes. The fix must stay localized to the launcher seam: keep the restored fixture symlinks untouched, keep the checked-in vendor file modes unchanged, and hand Task 99 a runnable shell proof path instead of another open-ended harness investigation.
+
+#### Task Exit Criteria
+
+- `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` passes on current disk without relying on chmod changes to checked-in vendored Bats files.
+- The chosen repair lives in the wrapper-owned launcher seam or a dedicated helper seam, not in the restored fixture targets themselves.
+- The checked-in vendored launcher stack `scripts/test/bats/vendor/bats-core/bin/bats`, `scripts/test/bats/vendor/bats-core/libexec/bats-core/bats`, and `scripts/test/bats/vendor/bats-core/libexec/bats-core/bats-exec-suite` remains recorded in git with non-executable `100644` modes after the repair.
+- Task 99 can resume at its existing Testing 1 through 4 without reopening launcher diagnosis inside the fixture-restoration owner.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`
+- `scripts/test-summary-shell.mjs`
+- `scripts/test/bats/vendor/bats-core/bin/bats`
+- `scripts/test/bats/vendor/bats-core/libexec/bats-core/bats`
+- `scripts/test/bats/vendor/bats-core/libexec/bats-core/bats-exec-suite`
+- `scripts/test/bats/vendor/bats-core/test/suite.bats`
+- `logs/test-summaries`
+
+#### Proof Mapping
+
+- The vendored Bats summary wrapper can traverse the launcher chain end-to-end on current disk without chmodding checked-in vendor files: prove with Testing 1 and the retained shell summary log.
+- The checked-in vendored launcher files remain non-executable `100644` files after the repair: prove with Testing 2.
+- Task 99's remaining fixture proof stays limited to fixture semantics rather than deeper launcher diagnosis: prove by handing the repaired wrapper path forward in this task's implementation notes and leaving Task 99's fixture targets unchanged.
+
+#### Subtasks
+
+1. [ ] Re-read the current live blocker text plus the exact mode evidence for `scripts/test/bats/vendor/bats-core/bin/bats`, `scripts/test/bats/vendor/bats-core/libexec/bats-core/bats`, and `scripts/test/bats/vendor/bats-core/libexec/bats-core/bats-exec-suite`. Purpose: anchor the prerequisite to the exact launcher chain that failed instead of rediscovering the fixture drift.
+2. [ ] Inspect `scripts/test-summary-shell.mjs`, `scripts/test/bats/vendor/bats-core/bin/bats`, and `scripts/test/bats/vendor/bats-core/libexec/bats-core/bats` together to map the nested execution path that still assumes executable vendored files. Purpose: keep the repair localized to the true runtime seam.
+3. [ ] Implement one wrapper-owned or helper-owned launcher strategy that can execute the vendored Bats chain on current disk without changing the checked-in vendor file modes. Purpose: restore a supported summary-wrapper contract for the vendored suite.
+4. [ ] Keep the repair scoped away from the restored fixture paths and do not chmod or otherwise mutate the checked-in vendored launcher files. Purpose: separate the launcher prerequisite from Task 99's artifact-restoration owner.
+5. [ ] Record the exact owner files, retained shell log path, and handoff expectations for Task 99 in this task's implementation notes once the launcher seam is repaired. Purpose: make the prerequisite handoff explicit and bounded for the next implementation loop.
+6. [ ] If the full shell wrapper still fails after the localized launcher repair, stop at the first deeper unsupported execution seam and record that remaining owner as a fresh blocker on this task instead of retrying Task 99. Purpose: keep the prerequisite bounded and honest if the current strategy exhausts cleanly.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` and confirm the vendored Bats harness passes through the repaired launcher chain. If the wrapper fails, inspect the emitted shell summary log and keep the blocker on this prerequisite owner.
+2. [ ] Run `git ls-files --stage scripts/test/bats/vendor/bats-core/bin/bats scripts/test/bats/vendor/bats-core/libexec/bats-core/bats scripts/test/bats/vendor/bats-core/libexec/bats-core/bats-exec-suite` and confirm the checked-in launcher files still report `100644` modes after the repair.
+
+#### Implementation notes
+
+- Inserted on 2026-04-12 during planner repair because Task 99's shell proof exposed a missing vendored-launcher runtime seam, not additional fixture-restoration work.
+- Task 99 already restored the three symlink fixtures and repaired the outer wrapper handoff into `bash`, but the deeper `libexec/bats-core/bats` stage still failed with `Permission denied` on current disk because the checked-in launcher stack is stored as non-executable `100644` files.
+- Planner repair moved the launcher-contract owner here so the overnight loop can make bounded progress in one place and return Task 99 to its original fixture proof once this prerequisite closes.
+
+### Task 99. Restore Vendored Bats Fixture Semantics
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `97, 98`
+- Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found unrelated vendor-fixture churn that changed checked-in Bats symlink fixtures into regular files.
 
 #### Overview
 
-This review-fix task removes the unrelated vendored-fixture semantic drift that widened the Story 55 branch diff. The repair should stay minimal: restore the intended vendored fixture types and keep this story from carrying unrelated checked-in Bats portability noise forward.
+This review-fix task removes the unrelated vendored-fixture semantic drift that widened the Story 55 branch diff. The repair stays minimal: the fixture targets are already restored, and once Task 98 re-establishes a runnable vendored launcher contract, this task resumes at the existing shell and symlink proof steps so Story 55 does not carry unrelated checked-in Bats portability noise forward.
 
 #### Task Exit Criteria
 
@@ -7510,7 +7565,7 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 
 #### Proof Mapping
 
-- The vendored Bats harness remains runnable after fixture restoration: prove with the shell summary wrapper in Testing 1.
+- After Task 98 restores the vendored Bats launcher contract, the vendored Bats harness remains runnable after fixture restoration: prove with the shell summary wrapper in Testing 1.
 - `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats` is restored as a symlink to `../recursive/test.bats`: prove with the exact symlink-and-target shell check in Testing 2.
 - `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite` is restored as a symlink to `../recursive/subsuite/`: prove with the exact symlink-and-target shell check in Testing 3.
 - `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats` is restored as a symlink to `./setup_file.bats`: prove with the exact symlink-and-target shell check in Testing 4.
@@ -7527,15 +7582,15 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 8. [x] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`. Description: retain the exact symlink-target proof home for `../recursive/test.bats`. Purpose: make the first fixture restoration auditable during final review.
 9. [x] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`. Description: retain the exact symlink-target proof home for `../recursive/subsuite/`. Purpose: make the second fixture restoration auditable during final review.
 10. [x] Proof type: on-disk artifact check. Location: `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`. Description: retain the exact symlink-target proof home for `./setup_file.bats`. Purpose: make the third fixture restoration auditable during final review.
-11. [x] Repair `scripts/test-summary-shell.mjs` so the vendored `scripts/test/bats/vendor/bats-core/bin/bats` launcher runs through `bash` instead of requiring an execute bit the checked-in vendor file does not carry. Purpose: keep Testing 1 honest on current disk without widening Task 98 beyond the shell proof owner it already cites.
+11. [x] Repair `scripts/test-summary-shell.mjs` so the vendored `scripts/test/bats/vendor/bats-core/bin/bats` launcher runs through `bash` instead of requiring an execute bit the checked-in vendor file does not carry. Purpose: keep Testing 1 honest on current disk without widening Task 99 beyond the shell proof owner it already cites.
 12. [x] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` with the three restored fixture paths plus the exact shell-wrapper and symlink-check commands from Testing 1 through 4, then mirror the same artifact list and commands in this task's retained proof notes. Purpose: keep the artifact cleanup traceable at close-out without hidden summary work.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` and confirm the vendored Bats harness still passes after the fixture restoration. If the wrapper fails, inspect the emitted shell summary log before changing the fixture targets again.
-2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)\" = \"../recursive/test.bats\" ]` and confirm the path is restored as the correct symlink.
-3. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)\" = \"../recursive/subsuite/\" ]` and confirm the path is restored as the correct symlink.
-4. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ \"$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)\" = \"./setup_file.bats\" ]` and confirm the path is restored as the correct symlink.
+2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)" = "../recursive/test.bats" ]` and confirm the path is restored as the correct symlink.
+3. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)" = "../recursive/subsuite/" ]` and confirm the path is restored as the correct symlink.
+4. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)" = "./setup_file.bats" ]` and confirm the path is restored as the correct symlink.
 
 #### Implementation notes
 
@@ -7543,14 +7598,15 @@ This review-fix task removes the unrelated vendored-fixture semantic drift that 
 - Re-read the review finding first, then inspected all three vendored fixture paths on current disk; each one had drifted from a checked-in symlink to a regular file whose contents were only the former link target text (`../recursive/test.bats`, `../recursive/subsuite/`, and `./setup_file.bats`), which matches the review's `120000 => 100644` warning exactly.
 - Restored the three vendored Bats fixture paths back to symbolic links and verified each exact target immediately on disk with `stat -c '%F %N'` plus `readlink`, retaining the artifact proof homes at `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats`, `scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite`, and `scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats`.
 - Updated `planning/0000055-pr-summary.md` with the three restored fixture paths and the exact later-proof commands `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats`, `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/test.bats)" = "../recursive/test.bats" ]`, `test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/suite/recursive_with_symlinks/subsuite)" = "../recursive/subsuite/" ]`, and `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats && [ "$(readlink scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file1.bats)" = "./setup_file.bats" ]` so the retained artifact list and proof commands now match in both summary and task notes.
-- Automated proof surfaced an adjacent shell-harness seam before the restored fixtures were exercised: `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` failed with `spawn .../vendor/bats-core/bin/bats EACCES` because the checked-in vendored launcher is a non-executable `100644` file on current disk, so Task 98 now owns a narrow wrapper repair in `scripts/test-summary-shell.mjs` before Testing 1 can close honestly.
-- Repaired `scripts/test-summary-shell.mjs` so the shell summary wrapper now launches the vendored `bin/bats` script through `bash`; this keeps vendored mode compatible with the checked-in non-executable launcher and unblocks the Task 98 shell-wrapper proof without changing the restored fixture targets again.
-- **BLOCKER** Testing 1 (`npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats`) still cannot close honestly after the wrapper repair. I first hit `spawn .../vendor/bats-core/bin/bats EACCES`, then patched `scripts/test-summary-shell.mjs` to launch `bin/bats` through `bash`, but the rerun failed one layer deeper with `env: ‘.../vendor/bats-core/libexec/bats-core/bats’: Permission denied` because the checked-in vendored launcher stack (`bin/bats`, `libexec/bats-core/bats`, and `libexec/bats-core/bats-exec-suite`) is stored as non-executable `100644` files on current disk. Continuing would require either a broader vendored Bats execution-model repair or a dedicated wrapper strategy for the whole launcher chain, so this task should be split or reordered before more automated-proof work continues.
+- Automated proof surfaced an adjacent shell-harness seam before the restored fixtures were exercised: `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` failed with `spawn .../vendor/bats-core/bin/bats EACCES` because the checked-in vendored launcher is a non-executable `100644` file on current disk, so Task 99 briefly owned a narrow wrapper repair in `scripts/test-summary-shell.mjs` before the deeper launcher seam was isolated as its own prerequisite.
+- Repaired `scripts/test-summary-shell.mjs` so the shell summary wrapper now launches the vendored `bin/bats` script through `bash`; this keeps vendored mode compatible with the checked-in non-executable launcher and narrowed the remaining failure to the deeper launcher chain without changing the restored fixture targets again.
+- **RESOLVED ISSUE** Testing 1 (`npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats`) still could not close honestly after the first wrapper repair. I first hit `spawn .../vendor/bats-core/bin/bats EACCES`, then patched `scripts/test-summary-shell.mjs` to launch `bin/bats` through `bash`, but the rerun failed one layer deeper with `env: ‘.../vendor/bats-core/libexec/bats-core/bats’: Permission denied` because the checked-in vendored launcher stack (`bin/bats`, `libexec/bats-core/bats`, and `libexec/bats-core/bats-exec-suite`) is stored as non-executable `100644` files on current disk. Planner repair moved that broader launcher-contract work into Task 98 before this fixture-restoration task resumes.
+- Planner repair on 2026-04-12 moved the vendored launcher execution-model work into new Task 98, set this task back to `__to_do__`, and left its remaining owner as Testing 1 through 4 once that prerequisite is complete.
 
-### Task 99. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
+### Task 100. Replace Fixed-Delay Cancel Proof With Deterministic Boundaries
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `98`
+- Task Dependencies: `99`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` found that the e2e cancel acceptance proof still depends on a fixed one-second sleep even though the UI already exposes stronger deterministic readiness boundaries.
 
@@ -7601,10 +7657,10 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because the story's retained cancellation acceptance proof should use deterministic product boundaries instead of an arbitrary sleep.
 
-### Task 100. Deduplicate Story 55 Schema-Version Proof Constants
+### Task 101. Deduplicate Story 55 Schema-Version Proof Constants
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `99`
+- Task Dependencies: `100`
 - Task Status: `__to_do__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` because the localized schema-version constant cleanup is low-risk, shared-contract work in files already touched by Story 55 proof updates.
 
@@ -7660,20 +7716,20 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because this localized shared-contract cleanup is objectively testable and worth landing while the review-created repair block is already open.
 
-### Task 101. Re-Validate Story 55 After Review Pass 0000055-20260411T104227Z-756a77d1
+### Task 102. Re-Validate Story 55 After Review Pass 0000055-20260411T104227Z-756a77d1
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `100`
+- Task Dependencies: `101`
 - Task Status: `__to_do__`
-- Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` as the required final revalidation task once the review-created server, client, browser, fixture, and shared-contract repairs land.
+- Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` as the required final revalidation task once the review-created server, client, browser, vendored-launcher, fixture, and shared-contract repairs land.
 
 #### Overview
 
-This final revalidation task closes the reopened review pass only after the review-created fixes are back under the full wrapper and runtime proof chain. It must prove the reopened queue, repo-list, cleanup-route, browser-proof, vendored-fixture, and shared-contract seams together on current disk and then refresh the maintained summary with the retained proof homes for this pass.
+This final revalidation task closes the reopened review pass only after the review-created fixes are back under the full wrapper and runtime proof chain. It must prove the reopened queue, repo-list, cleanup-route, browser-proof, vendored-launcher, vendored-fixture, and shared-contract seams together on current disk and then refresh the maintained summary with the retained proof homes for this pass.
 
 #### Task Exit Criteria
 
-- Tasks 79 through 100 are `__done__`, and their exact proof-owner files or retained artifact homes are re-read from current disk before final validation starts.
+- Tasks 79 through 101 are `__done__`, and their exact proof-owner files or retained artifact homes are re-read from current disk before final validation starts.
 - The full server, client, compose, host-network, browser, and review-artifact proof chain passes on current disk after the review-created fixes from this pass.
 - The maintained summary contains a new `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section that cites the reopened findings, the retained proof homes, and any residual risk honestly.
 - The current review artifacts for this pass still exist on disk and remain the durable adjudication record cited by the final close-out.
@@ -7696,10 +7752,10 @@ This final revalidation task closes the reopened review pass only after the revi
 #### Proof Mapping
 
 - Server build, server unit, and server cucumber wrapper coverage for the reopened server seams from Tasks 79 through 95: prove with Testing 1, 3, and 4 plus retained logs in `logs/test-summaries`.
-- Client build and client test wrapper coverage for the shared repo-list and schema-version seams from Tasks 97 and 100: prove with Testing 2 and 5 plus retained logs in `logs/test-summaries`.
+- Client build and client test wrapper coverage for the shared repo-list and schema-version seams from Tasks 97 and 101: prove with Testing 2 and 5 plus retained logs in `logs/test-summaries`.
 - Full browser rerun for the deterministic cancel proof and broader Story 55 acceptance paths: prove with Testing 6 plus retained browser output in `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`.
 - Main-stack compose startup, host-network smoke validation, and teardown after the review-created route and queue repairs: prove with Testing 7 through 10 plus retained logs in `logs/test-summaries`.
-- Vendored Bats harness and restored fixture state remain correct at close-out: prove with Testing 11 and 12.
+- Vendored Bats launcher repair, vendored Bats harness execution, and restored fixture state remain correct at close-out: prove with Testing 11 and 12.
 - Review-artifact durability for this pass: owned by `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-*.md`; prove with Testing 13.
 
 #### Subtasks
@@ -7707,7 +7763,7 @@ This final revalidation task closes the reopened review pass only after the revi
 1. [ ] Re-read Tasks 79, 80, 81, and 82 from the canonical plan, confirm all four tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the exhausted `flows.run.loop` lane, the exhausted post-`flows.flags` lane, the closed earlier prerequisite, and the first regressed prerequisite first.
 2. [ ] Re-read Tasks 83, 84, 85, and 86 from the canonical plan, confirm all four tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the fresh re-regressed prerequisite, the fresh shared cancel-registration prerequisite, the fresh re-re-regressed prerequisite, and the latest earlier cleanup prerequisite next.
 3. [ ] Re-read Tasks 87, 88, 89, 90, 91, 92, and 93 from the canonical plan, confirm all seven tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the cleanup-blocked queue repair, the cleanup-route prerequisite, the cleanup-route repair, the first re-embed prerequisite, the renewed earlier cleanup prerequisite, the dedicated flow-reingest prerequisite, and the reopened earlier cleanup prerequisite next.
-4. [ ] Re-read Tasks 94, 95, 96, 97, 98, 99, and 100 from the canonical plan, confirm all seven tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the reopened earlier loop prerequisite, the re-embed-selector repair, deferred-validation, shared-error-contract, vendored-fixture, browser-proof, and shared-schema-constant repairs next.
+4. [ ] Re-read Tasks 94, 95, 96, 97, 98, 99, 100, and 101 from the canonical plan, confirm all eight tasks are `__done__`, and note their exact owner files and proof homes before any final wrapper work. Purpose: anchor the close-out to the reopened earlier loop prerequisite, the re-embed-selector repair, deferred-validation, shared-error-contract, vendored-launcher prerequisite, vendored-fixture repair, browser-proof, and shared-schema-constant repairs next.
 5. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md` before final validation. Purpose: carry the endorsed findings into the final close-out honestly.
 6. [ ] Re-read `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-blind-spot-challenge.md` before final validation. Purpose: carry the residual-risk notes into the final close-out honestly.
 7. [ ] Inspect `planning/0000055-pr-summary.md` and mark the exact insertion point for the required `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section before any wrapper reruns. Purpose: keep the final summary update ready to record current proof homes from this pass.
@@ -7733,4 +7789,4 @@ This final revalidation task closes the reopened review pass only after the revi
 
 #### Implementation notes
 
-- Inserted on 2026-04-11 as the required final revalidation task after review pass `0000055-20260411T104227Z-756a77d1` reopened Story 55 for the queue-ownership, fresh re-regressed prerequisite, cleanup-route, dedicated flow-reingest prerequisite, re-embed-selector, deferred-validation, shared-error-contract, vendored-fixture, browser-proof, and shared-schema-contract findings captured in the stored review artifacts.
+- Inserted on 2026-04-11 as the required final revalidation task after review pass `0000055-20260411T104227Z-756a77d1` reopened Story 55 for the queue-ownership, fresh re-regressed prerequisite, cleanup-route, dedicated flow-reingest prerequisite, re-embed-selector, deferred-validation, shared-error-contract, vendored-launcher prerequisite, vendored-fixture, browser-proof, and shared-schema-contract findings captured in the stored review artifacts.

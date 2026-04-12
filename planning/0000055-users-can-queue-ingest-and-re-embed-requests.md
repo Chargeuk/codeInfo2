@@ -7682,7 +7682,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `100`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` because the localized schema-version constant cleanup is low-risk, shared-contract work in files already touched by Story 55 proof updates.
 
 #### Overview
@@ -7748,6 +7748,7 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 - Testing 2: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`; retained proof log is `logs/test-summaries/build-client-latest.log`.
 - Testing 3: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1652`, `passed: 1652`, `failed: 0`, and `agent_action: skip_log`; retained proof log is `test-results/server-unit-tests-2026-04-12T17-16-30-180Z.log`.
 - Testing 4: full `npm run test:summary:client` passed cleanly with `tests run: 680`, `passed: 680`, `failed: 0`, and `agent_action: skip_log`; retained proof log is `test-results/client-tests-2026-04-12T17-38-29-771Z.log`.
+- Automated-proof audit on 2026-04-12: marked Task 101 `__done__` because all ten subtasks and all four wrapper-backed Testing items were already honestly complete on disk, no live blocker remained, and the retained-proof notes were descriptive evidence rather than an open completion gate.
 
 ### Task 102. Re-Validate Story 55 After Review Pass 0000055-20260411T104227Z-756a77d1
 

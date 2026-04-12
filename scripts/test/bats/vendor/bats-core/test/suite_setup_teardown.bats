@@ -14,12 +14,28 @@ setup() {
   [ "${lines[1]}" = "$FIXTURE_ROOT/pick_up_toplevel/setup_suite.bash teardown_suite" ]
 }
 
-@test "setup_suite.bash is picked up in folder of first test file" {
+@test "top-level setup_suite symlink fixture is picked up from folder1" {
   reentrant_run -0 bats "$FIXTURE_ROOT/pick_up_toplevel/folder1/test.bats" "$FIXTURE_ROOT/pick_up_toplevel/folder2/test.bats"
   run cat "$LOGFILE"
 
   [ "${lines[0]}" = "$FIXTURE_ROOT/pick_up_toplevel/folder1/setup_suite.bash setup_suite" ]
   [ "${lines[1]}" = "$FIXTURE_ROOT/pick_up_toplevel/folder1/setup_suite.bash teardown_suite" ]
+}
+
+@test "top-level setup_suite symlink fixture is picked up from folder2" {
+  reentrant_run -0 bats "$FIXTURE_ROOT/pick_up_toplevel/folder2/test.bats"
+  run cat "$LOGFILE"
+
+  [ "${lines[0]}" = "$FIXTURE_ROOT/pick_up_toplevel/folder2/setup_suite.bash setup_suite" ]
+  [ "${lines[1]}" = "$FIXTURE_ROOT/pick_up_toplevel/folder2/setup_suite.bash teardown_suite" ]
+  run test -L "$FIXTURE_ROOT/pick_up_toplevel/folder1/setup_suite.bash"
+  [ "$status" -eq 0 ]
+  run readlink "$FIXTURE_ROOT/pick_up_toplevel/folder1/setup_suite.bash"
+  [ "$output" = "../setup_suite.bash" ]
+  run test -L "$FIXTURE_ROOT/pick_up_toplevel/folder2/setup_suite.bash"
+  [ "$status" -eq 0 ]
+  run readlink "$FIXTURE_ROOT/pick_up_toplevel/folder2/setup_suite.bash"
+  [ "$output" = "../setup_suite.bash" ]
 }
 
 @test "setup_suite is not picked up from wrongly named file" {

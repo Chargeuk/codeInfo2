@@ -27,16 +27,56 @@ setup_file() {
   [[ $output -eq 1 ]]
 }
 
-@test "setup_file is called correctly in multi file suite" {
+@test "setup_file symlink fixtures keep their own entry names in a multi file suite" {
   # shellcheck disable=SC2031,SC2030
   export LOG="$BATS_TEST_TMPDIR/setup_file_multi_file_suite.log"
-  reentrant_run bats "$FIXTURE_ROOT/setup_file.bats" "$FIXTURE_ROOT/no_setup_file.bats" "$FIXTURE_ROOT/setup_file2.bats"
+  reentrant_run bats "$FIXTURE_ROOT/setup_file.bats" \
+    "$FIXTURE_ROOT/no_setup_file.bats" \
+    "$FIXTURE_ROOT/setup_file2.bats" \
+    "$FIXTURE_ROOT/setup_file3.bats"
   [[ $status -eq 0 ]]
   run wc -l <"$LOG"
-  # each setup_file[2].bats is in the log exactly once!
-  [[ $output -eq 2 ]]
+  # each symlinked setup_file entry stays distinct in the log.
+  [[ $output -eq 3 ]]
   grep setup_file.bats "$LOG"
   grep setup_file2.bats "$LOG"
+  grep setup_file3.bats "$LOG"
+  run test -L "$FIXTURE_ROOT/setup_file2.bats"
+  [[ $status -eq 0 ]]
+  run readlink "$FIXTURE_ROOT/setup_file2.bats"
+  [[ "$output" == "./setup_file.bats" ]]
+  run test -L "$FIXTURE_ROOT/setup_file3.bats"
+  [[ $status -eq 0 ]]
+  run readlink "$FIXTURE_ROOT/setup_file3.bats"
+  [[ "$output" == "./setup_file.bats" ]]
+}
+
+@test "parallel suite symlink fixtures still execute through each vendored entry name" {
+  # shellcheck disable=SC2031,SC2030
+  export FILE_MARKER="$BATS_TEST_TMPDIR/parallel_suite_symlink_fixture.log"
+  # shellcheck disable=SC2031,SC2030
+  export PARALLELITY=12
+
+  reentrant_run bash -c "bats --jobs $PARALLELITY \"$BATS_TEST_DIRNAME/fixtures/parallel/suite/\" 2> >(grep -v '^parallel: Warning: ')"
+  [[ $status -eq 0 ]]
+  [[ "${lines[0]}" == "1..12" ]]
+
+  grep "parallel2.bats" "$FILE_MARKER"
+  grep "parallel3.bats" "$FILE_MARKER"
+  grep "parallel4.bats" "$FILE_MARKER"
+
+  run test -L "$BATS_TEST_DIRNAME/fixtures/parallel/suite/parallel2.bats"
+  [[ $status -eq 0 ]]
+  run readlink "$BATS_TEST_DIRNAME/fixtures/parallel/suite/parallel2.bats"
+  [[ "$output" == "parallel1.bats" ]]
+  run test -L "$BATS_TEST_DIRNAME/fixtures/parallel/suite/parallel3.bats"
+  [[ $status -eq 0 ]]
+  run readlink "$BATS_TEST_DIRNAME/fixtures/parallel/suite/parallel3.bats"
+  [[ "$output" == "parallel1.bats" ]]
+  run test -L "$BATS_TEST_DIRNAME/fixtures/parallel/suite/parallel4.bats"
+  [[ $status -eq 0 ]]
+  run readlink "$BATS_TEST_DIRNAME/fixtures/parallel/suite/parallel4.bats"
+  [[ "$output" == "parallel1.bats" ]]
 }
 
 @test "teardown_file is called correctly in multi file suite" {

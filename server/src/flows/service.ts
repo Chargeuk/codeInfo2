@@ -1204,17 +1204,18 @@ const runFlowInstruction = async (params: {
       return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
     }
 
-    const pendingCancel = consumePendingConversationCancel({
+    const aborted = abortInflight({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    });
+    if (!aborted.ok) return false;
+
+    cleanupPendingConversationCancel({
       conversationId: params.flowConversationId,
       runToken: params.runToken,
       inflightId: params.inflightId,
     });
-    if (!pendingCancel) return false;
-
-    return abortInflight({
-      conversationId: params.flowConversationId,
-      inflightId: params.inflightId,
-    }).ok;
+    return true;
   };
 
   try {
@@ -1279,6 +1280,23 @@ const runFlowInstruction = async (params: {
   }
   if (status === 'ok' && !sawComplete && lastErrorMessage) {
     status = deriveStatusFromError(lastErrorMessage);
+  }
+  if (status === 'ok' && params.runToken) {
+    const pendingStopAfterStep = consumePendingConversationCancel({
+      conversationId: params.flowConversationId,
+      runToken: params.runToken,
+      inflightId: params.inflightId,
+    });
+    if (pendingStopAfterStep) {
+      status = 'stopped';
+      finalContent = '';
+      tokenBuffer.length = 0;
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowInstruction.postStepPendingStopConsumed',
+        conversationId: params.flowConversationId,
+        detail: `inflightId=${params.inflightId}`,
+      });
+    }
   }
 
   let content = finalContent || tokenBuffer.join('');

@@ -99,6 +99,23 @@ const parsePlaywrightJson = (stdout) => {
   }
 };
 
+const parsePlaywrightStatsFallback = (text) => {
+  if (!text) return null;
+  const expected = text.match(/"expected"\s*:\s*(\d+)/);
+  const unexpected = text.match(/"unexpected"\s*:\s*(\d+)/);
+  const flaky = text.match(/"flaky"\s*:\s*(\d+)/);
+  if (!expected || !unexpected || !flaky) return null;
+
+  const passed = Number(expected[1]);
+  const failed = Number(unexpected[1]) + Number(flaky[1]);
+  return {
+    total: passed + failed,
+    passed,
+    failed,
+    failingNames: [],
+  };
+};
+
 const classifyTest = (test) => {
   if (typeof test?.outcome === 'string') {
     if (test.outcome === 'expected') return 'passed';
@@ -205,6 +222,8 @@ let setupFailed = false;
 let teardownFailed = false;
 let parseFailed = false;
 let task13MarkerLine = '';
+let testResultReason = '';
+let testResultProgressLine = '';
 
 try {
   const buildResult = await runLoggedCommand({
@@ -248,11 +267,23 @@ try {
         collectStdout: true,
       });
       testExitCode = testResult.code;
+      testResultReason = testResult.forcedReason ?? '';
+      testResultProgressLine = testResult.lastProgressLine ?? '';
       try {
-        const report = parsePlaywrightJson(testResult.stdout);
-        if (!report)
-          throw new Error('Playwright JSON report not found in stdout');
-        summary = collectSummary(report);
+        const report =
+          parsePlaywrightJson(testResult.stdout) ??
+          parsePlaywrightJson(testResult.output);
+        if (report) {
+          summary = collectSummary(report);
+        } else {
+          const fallbackSummary = parsePlaywrightStatsFallback(
+            testResult.output,
+          );
+          if (!fallbackSummary) {
+            throw new Error('Playwright JSON report not found in stdout');
+          }
+          summary = fallbackSummary;
+        }
       } catch {
         parseFailed = true;
         summary = {
@@ -321,18 +352,26 @@ if (summary.failingNames.length > 0) {
 const status = exitCode === 0 ? 'passed' : 'failed';
 const ambiguousCounts =
   parseFailed || (status === 'passed' && summary.total === 0);
+const finalReason =
+  testResultReason === 'terminal_summary_without_close'
+    ? 'terminal_summary_without_close'
+    : testResultReason === 'semantic_progress_stalled'
+      ? 'semantic_progress_stalled'
+      : setupFailed || teardownFailed
+        ? 'setup_or_teardown_failed'
+        : status === 'passed'
+          ? ambiguousCounts
+            ? 'ambiguous_counts'
+            : 'clean_success'
+          : 'test_failed';
 
 protocol.emitFinal({
   status,
   ambiguousCounts,
-  reason:
-    setupFailed || teardownFailed
-      ? 'setup_or_teardown_failed'
-      : status === 'passed'
-        ? ambiguousCounts
-          ? 'ambiguous_counts'
-          : 'clean_success'
-        : 'test_failed',
+  reason: finalReason,
+  extraFields: testResultReason
+    ? { last_progress: testResultProgressLine || undefined }
+    : {},
 });
 
 process.exit(exitCode);

@@ -1,0 +1,80 @@
+# Blocker Detection Contract
+
+Use this file whenever an agent must decide whether a task has a live blocker.
+
+This contract is intentionally procedural. The goal is to remove guesswork and make blocker checks depend on one repeatable parse path instead of visual scanning.
+
+## Critical Rule
+
+A task has a live blocker only when that task's section contains a markdown list item whose line begins exactly with:
+
+```md
+- **BLOCKER**
+```
+
+Nothing else counts as a live blocker.
+
+These do not count:
+
+- inline mentions of `**BLOCKER**` inside prose
+- `**BLOCKING ANSWER**`
+- `**RESOLVED ISSUE**`
+- blocker text that belongs to a different task section
+
+## Required Inputs
+
+Before checking for blockers, the agent must:
+
+1. Read `codeInfoStatus/flow-state/current-plan.json`.
+2. Resolve the stored `plan_path`.
+3. Re-open that exact plan file from disk.
+4. Select the relevant task exactly as the calling prompt defines it:
+   - highest `__in_progress__` task
+   - highest `__in_progress__` or `__done__` task
+   - or a specific task number
+
+## Required Procedure
+
+Do not rely on visual scanning.
+
+Run the canonical parser:
+
+```bash
+python3 scripts/plan_status.py
+```
+
+Use flags when needed:
+
+```bash
+python3 scripts/plan_status.py --selector active
+python3 scripts/plan_status.py --selector active_or_done
+python3 scripts/plan_status.py --task-number 94
+python3 scripts/plan_status.py --plan planning/0000055-users-can-queue-ingest-and-re-embed-requests.md --selector active_or_done
+python3 scripts/plan_status.py --include-tasks
+```
+
+## Decision Rules
+
+Use the parser output, not narrative judgment.
+
+- If the selected task reports one or more `live_blockers`, the blocker answer is `yes`.
+- If the selected task reports zero `live_blockers`, the blocker answer is `no`.
+- If no task matches the requested selector, answer according to the calling prompt's fallback rule.
+- If the parser fails, do not answer the blocker question until the failure is resolved.
+
+## Output Requirements For Prompt Authors
+
+When a prompt asks an agent to check for blockers, it should require the agent to report or internally verify:
+
+- the selected task number
+- the selected task status
+- the matching blocker line numbers, if any
+
+This prevents silent false negatives.
+
+## Notes
+
+- The parser scopes blocker matches to a task section bounded by `### Task <n>. ...`.
+- The parser matches only exact live-blocker bullets at line start.
+- The parser also reports task-status and checklist state; use `--include-tasks` only when a prompt genuinely needs the full task list.
+- `scripts/plan_blocker_status.py` remains a compatibility wrapper, but `scripts/plan_status.py` is the canonical source of truth.

@@ -176,8 +176,15 @@ const cucumberEnv = {
     '--import ./scripts/register-ts-node-esm-loader.mjs --disable-warning=DEP0180',
 };
 
+// Cucumber's imported testcontainer teardown can outlive the terminal summary
+// even after the scenarios themselves have finished cleanly, so give this
+// wrapper a longer post-summary grace before treating the child as stuck.
+const CUCUMBER_TERMINAL_SUMMARY_GRACE_MS = 90_000;
+
 let exitCode = buildResult.code;
 let output = buildResult.output;
+let cucumberForcedReason = '';
+let cucumberLastProgressLine = '';
 if (buildResult.code === 0) {
   const cucumberResult = await runLoggedCommand({
     cmd: 'cucumber-js',
@@ -187,9 +194,18 @@ if (buildResult.code === 0) {
     logStream,
     protocol,
     phase: 'test',
+    semanticProgressPatterns: [
+      /^[ \t]*[✖✔][ \t]+/,
+      /^\d+\s+scenarios?\s+\(/i,
+      /^\d+\s+steps?\s+\(/i,
+    ],
+    terminalSummaryPatterns: [/^\d+\s+scenarios?\s+\(/i, /^\d+\s+steps?\s+\(/i],
+    terminalSummaryGraceMs: CUCUMBER_TERMINAL_SUMMARY_GRACE_MS,
   });
   output += cucumberResult.output;
   exitCode = cucumberResult.code;
+  cucumberForcedReason = cucumberResult.forcedReason ?? '';
+  cucumberLastProgressLine = cucumberResult.lastProgressLine ?? '';
 }
 
 await new Promise((resolve) => logStream.end(resolve));
@@ -212,6 +228,16 @@ const { scenariosTotal, scenariosPassed, scenariosFailed } =
 const failingNames = parseFailureNames(output);
 const status = exitCode === 0 ? 'passed' : 'failed';
 const ambiguousCounts = status === 'passed' && scenariosTotal === 0;
+const finalReason =
+  cucumberForcedReason === 'terminal_summary_without_close'
+    ? 'terminal_summary_without_close'
+    : cucumberForcedReason === 'semantic_progress_stalled'
+      ? 'semantic_progress_stalled'
+      : status === 'passed'
+        ? ambiguousCounts
+          ? 'ambiguous_counts'
+          : 'clean_success'
+        : 'test_failed';
 
 console.log(`[server:cucumber] tests run: ${scenariosTotal}`);
 console.log(`[server:cucumber] passed: ${scenariosPassed}`);
@@ -226,12 +252,12 @@ if (failingNames.length > 0) {
 protocol.emitFinal({
   status,
   ambiguousCounts,
-  reason:
-    status === 'passed'
-      ? ambiguousCounts
-        ? 'ambiguous_counts'
-        : 'clean_success'
-      : 'test_failed',
+  reason: finalReason,
+  extraFields:
+    finalReason === 'semantic_progress_stalled' ||
+    finalReason === 'terminal_summary_without_close'
+      ? { last_progress: cucumberLastProgressLine || undefined }
+      : {},
 });
 
 process.exit(exitCode);

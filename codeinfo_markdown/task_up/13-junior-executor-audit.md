@@ -12,6 +12,8 @@ Perform a final readability and execution audit so the resulting task list can b
 <junior_executor_rules>
 
 - Re-read the active plan from disk before editing.
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each task and subtask, check whether it clearly says:
   - what file, seam, or runtime surface to touch;
   - what output to produce;

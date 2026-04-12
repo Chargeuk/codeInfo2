@@ -13,6 +13,8 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 <review_preemption_audit_rules>
 
 - Re-read the active plan from disk before editing tasks.
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each applicable checklist category, check whether the current tasks already include:
   - concrete implementation work;
   - concrete proof-authoring work;

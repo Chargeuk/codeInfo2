@@ -12,6 +12,8 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 
 <stateful_ui_rules>
 
+- When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
+- Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each affected task, check whether a user can move between contradictory states such as:
   - create vs reuse;
   - run vs resume;

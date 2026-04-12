@@ -1,8 +1,8 @@
-## Task
+# Goal
 
-Finish the current story review using ONLY the handoff file and findings file referenced by that handoff. Decide what the canonical plan must do with the findings.
+Finish the current story review using ONLY the stored review handoff and the artifacts it references, then decide how the canonical plan must respond to the findings.
 
-## Critical Rules
+<critical_rules>
 
 - Do NOT rediscover review artifacts by timestamp.
 - First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path`, then extract repository paths from `additional_repositories`.
@@ -14,36 +14,37 @@ Finish the current story review using ONLY the handoff file and findings file re
 - Only reopen if the review shows those `flows/**` changes introduced incorrect workflow behavior, broke repository contracts, or require explicit follow-up validation work.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
 - Do not reopen the story, request reverts, or record scope-creep findings solely because those allowed support files changed without being named in the active plan.
-- For those allowed support files, only spelling, grammar, and obvious wording findings are actionable.
-- Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files.
+- For those allowed support files, spelling, grammar, and obvious wording findings remain actionable, and explicit hygiene/security findings are also actionable when they involve:
+  - hard-coded secrets, tokens, credentials, or API keys;
+  - tracked files under ignored paths;
+  - checked-in local config that should remain template-only;
+  - tracked temp, generated, or runtime artifact directories.
+- Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
 - This is the only review step allowed to mutate plans.
+- This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
 
-## Scope And Inputs
+</critical_rules>
 
-### Current-Plan Scope Resolution
+<scope_rules>
 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
+- Read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number, and verify that its:
+  - `story_id`
+  - `plan_path`
+  - `review_pass_id`
+  - `evidence_file`
+  - `findings_file`
+  - `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, and `head_commit`
+    still match the normalized review scope and current repository state for every selected repository.
+- Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
+- If the review handoff includes `challenge_file`, treat it as optional additive context for this pass. Read it when present.
+- If `challenge_file` is absent, derive the same reasoning directly from the evidence and findings artifacts instead of failing or asking for a rerun.
 
-### Review Handoff Requirements
+</scope_rules>
 
-Read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number, and verify that its:
-
-- `story_id`
-- `plan_path`
-- `review_pass_id`
-- `evidence_file`
-- `findings_file`
-- `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, and `head_commit`
-
-still match the normalized review scope and current repository state for every selected repository.
-
-Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
-
-If the review handoff includes `challenge_file`, treat it as an optional additive artifact for this pass. Read it when present. If it is absent, derive the same reasoning directly from the evidence and findings artifacts instead of failing or asking for a rerun.
-
-## Validation And Stop Conditions
+<validation_rules>
 
 Before deciding disposition, validate all of the following:
 
@@ -56,7 +57,9 @@ If the current-plan checks fail, stop and say the current-plan handoff is stale 
 
 If the review handoff is stale or incomplete, stop and say the review must be rerun.
 
-## Disposition Rules
+</validation_rules>
+
+<disposition_rules>
 
 1. If any `must_fix` or `should_fix` findings exist, reopen the story in the canonical plan.
 2. Add a `Code Review Findings` summary section to the END of the canonical plan file.
@@ -65,7 +68,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 5. Update numbering and cross-references if needed.
 6. Every new review-fix task MUST name exactly one repository using `Repository Name`.
 7. For cross-repository findings, keep the work in the one canonical plan but split it into repository-specific tasks and make sequencing explicit.
-8. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, or wording corrections.
+8. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, wording, or the explicit hygiene/security cleanup needed to remove the secret or artifact problem.
 9. If only `optional_simplification` findings exist, reopen the canonical plan when the simplification is localized to files already changed by the story, low-risk, objectively testable, and improves a shared contract such as logging vocabulary, marker schema, configuration consistency, or cross-repository compatibility.
 10. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
 11. If an `optional_simplification` is deferred, record it in a short review note instead of reopening.
@@ -75,7 +78,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - the acceptance-evidence checks performed;
     - the files inspected;
     - why each repository in scope remains complete;
-    - why the story remains complete.
+    - why the story remains complete;
     - the rejected-risk notes carried forward from the findings artifact, plus any blind-spot challenge follow-up when that extra artifact exists.
 14. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
 15. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
@@ -90,26 +93,48 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 17. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
 18. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
 19. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
+20. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
+    - a new `Code Review Findings` section for the current `review_pass_id`;
+    - at least one new review-created `Task Status: __to_do__` task that responds to the endorsed findings;
+    - a fresh final re-test or revalidation task after those new review-fix tasks.
+21. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
+22. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
+23. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 
-## Output Contract
+</disposition_rules>
 
-Produce the correct plan mutations for the findings outcome:
+<review_task_shape_rules>
 
-- reopen the canonical plan and add review-fix tasks when `must_fix` or `should_fix` findings exist;
-- reopen or defer localized `optional_simplification` findings according to the rules above;
-- append `Post-Implementation Code Review` when there are no findings.
+- Apply these rules whenever this step adds or rewrites review-created follow-up tasks because findings are present.
+- Keep runnable build, test, compose, browser, and wrapper commands in each task's `Testing` section.
+- Keep each task's `Subtasks` section for implementation work, proof-authoring work, note refreshes, exact proof-file citations, screenshot updates, retained proof-home paths, and other post-run artifacts.
+- Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
+- When one wrapper run produces outputs consumed by multiple follow-up subtasks, keep the execution command once in `Testing` and split the dependent proof-authoring or note-refresh work into separate subtasks.
+- Do not create hybrid subtasks such as `run wrapper X and update note Y` when the execution step can live in `Testing` and the resulting proof work can be expressed separately in `Subtasks`.
 
-If this review mutates plans, include the durable review artifacts in the resulting commit history alongside those plan changes.
+</review_task_shape_rules>
 
-## Verification Before Finalizing
+<output_contract>
 
-Before you finish this step, verify all of the following:
+- Produce the correct plan mutations for the findings outcome:
+  - reopen the canonical plan and add review-fix tasks when `must_fix` or `should_fix` findings exist;
+  - reopen or defer localized `optional_simplification` findings according to the rules above;
+  - append `Post-Implementation Code Review` when there are no findings.
+- If this review mutates plans, include the durable review artifacts in the resulting commit history alongside those plan changes.
+- Do not finish this step while the stored review handoff and the canonical plan disagree about whether actionable findings exist.
 
-- the current-plan handoff and review handoff still match the current repository state;
-- every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership;
-- cross-repository findings produced explicit sequencing in the canonical plan and final validation;
-- no allowed support file was reopened for anything other than spelling, grammar, or wording corrections;
-- the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope;
-- the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope;
-- the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present;
-- durable artifacts are treated as commit-worthy, the current-plan handoff is not mistaken for the durable review artifact, and the review handoff remains transient workflow state rather than the durable artifact.
+</output_contract>
+
+<verification_loop>
+
+- Confirm the current-plan handoff and review handoff still match the current repository state.
+- Confirm every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership.
+- Confirm cross-repository findings produced explicit sequencing in the canonical plan and final validation.
+- Confirm no allowed support file was reopened for anything other than spelling, grammar, wording, or an explicit secret/artifact-hygiene correction.
+- Confirm the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope.
+- Confirm the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope.
+- Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.
+- Confirm durable artifacts are treated as commit-worthy, the current-plan handoff is not mistaken for the durable review artifact, and the review handoff remains transient workflow state rather than the durable artifact.
+- Confirm that a findings-present pass left new review-created `__to_do__` tasks plus a final revalidation task in the plan, or that a no-findings pass left the required `Post-Implementation Code Review` section for the current `review_pass_id`.
+
+</verification_loop>

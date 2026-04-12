@@ -183,7 +183,7 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.schemaVersion, '0000055-queued-repo-list-v1');
 });
 
-test('GET /ingest/roots preserves legacy lastError string and normalized error payload', async () => {
+test('GET /ingest/roots emits the flat normalized error payload shape and preserves legacy lastError string', async () => {
   const response = await request(
     createRootsApp(
       {
@@ -212,8 +212,11 @@ test('GET /ingest/roots preserves legacy lastError string and normalized error p
   assert.equal(response.status, 200);
   assert.equal(response.body.roots[0].lastError, 'rate limited');
   assert.equal(response.body.roots[0].error.error, 'OPENAI_RATE_LIMITED');
+  assert.equal(response.body.roots[0].error.message, 'rate limited');
   assert.equal(response.body.roots[0].error.retryable, true);
   assert.equal(response.body.roots[0].error.provider, 'openai');
+  assert.equal(response.body.roots[0].error.upstreamStatus, 429);
+  assert.equal(response.body.roots[0].error.retryAfterMs, 1000);
 });
 
 test('GET /ingest/roots keeps provider-qualified identity when model ids collide across providers', async () => {

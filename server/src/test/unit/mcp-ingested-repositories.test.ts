@@ -141,6 +141,90 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   assert.equal(parsed.repos[0].phase, undefined);
 });
 
+test('ListIngestedRepositories preserves the flat normalized error fields from the shared repo-list payload', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    createMcpRouter({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            {
+              id: 'repo-error',
+              name: 'repo-error',
+              description: null,
+              containerPath: '/data/repo-error',
+              hostPath: '/home/d_a_s/code/data/repo-error',
+              lastIngestAt: '2026-01-01T00:00:00.000Z',
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-3-small',
+              embeddingDimensions: 1536,
+              model: 'text-embedding-3-small',
+              modelId: 'openai/text-embedding-3-small',
+              lock: {
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-small',
+                embeddingDimensions: 1536,
+                lockedModelId: 'text-embedding-3-small',
+                modelId: 'openai/text-embedding-3-small',
+              },
+              counts: { files: 0, chunks: 0, embedded: 0 },
+              lastError: 'rate limited',
+              error: {
+                error: 'OPENAI_RATE_LIMITED',
+                message: 'rate limited',
+                retryable: true,
+                provider: 'openai',
+                upstreamStatus: 429,
+                retryAfterMs: 1000,
+              },
+              status: 'error',
+            },
+          ],
+          lock: null,
+          lockedModelId: null,
+          schemaVersion: '0000055-queued-repo-list-v1',
+        }) as never,
+    }),
+  );
+
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'normalized-error-shape',
+      method: 'tools/call',
+      params: {
+        name: 'ListIngestedRepositories',
+        arguments: {},
+      },
+    });
+
+  assert.equal(response.status, 200);
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<{
+      error?: {
+        error?: string;
+        message?: string;
+        retryable?: boolean;
+        provider?: string;
+        upstreamStatus?: number;
+        retryAfterMs?: number;
+      } | null;
+      lastError?: string | null;
+    }>;
+  };
+  assert.equal(parsed.repos[0]?.lastError, 'rate limited');
+  assert.equal(parsed.repos[0]?.error?.error, 'OPENAI_RATE_LIMITED');
+  assert.equal(parsed.repos[0]?.error?.message, 'rate limited');
+  assert.equal(parsed.repos[0]?.error?.retryable, true);
+  assert.equal(parsed.repos[0]?.error?.provider, 'openai');
+  assert.equal(parsed.repos[0]?.error?.upstreamStatus, 429);
+  assert.equal(parsed.repos[0]?.error?.retryAfterMs, 1000);
+});
+
 test('ListIngestedRepositories emits queued requestId with null runId before execution starts', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

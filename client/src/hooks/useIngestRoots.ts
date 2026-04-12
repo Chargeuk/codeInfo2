@@ -73,6 +73,15 @@ type RootsResponse = {
   };
 };
 
+type IngestRootsErrorPayload = {
+  error?: unknown;
+  provider?: unknown;
+  message?: unknown;
+  retryable?: unknown;
+  details?: unknown;
+  status?: unknown;
+};
+
 type State = {
   roots: IngestRoot[];
   schemaVersion?: string;
@@ -89,9 +98,9 @@ function normalizeProvider(value: unknown): IngestProviderId | undefined {
 
 function normalizeError(value: unknown): NormalizedIngestError | null {
   if (!value || typeof value !== 'object') return null;
-  const source = value as Record<string, unknown>;
+  const source = value as IngestRootsErrorPayload;
   return {
-    code: typeof source.code === 'string' ? source.code : undefined,
+    code: typeof source.error === 'string' ? source.error : undefined,
     provider: typeof source.provider === 'string' ? source.provider : undefined,
     message: typeof source.message === 'string' ? source.message : undefined,
     retryable:

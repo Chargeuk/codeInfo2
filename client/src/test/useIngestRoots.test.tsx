@@ -74,7 +74,7 @@ describe('useIngestRoots', () => {
     );
   });
 
-  it('parses normalized error object and legacy string lastError safely', async () => {
+  it('maps the flat route-payload error field into NormalizedIngestError.code and keeps legacy lastError safe', async () => {
     mockRootsResponse({
       roots: [
         {
@@ -84,7 +84,7 @@ describe('useIngestRoots', () => {
           status: 'error',
           model: 'embed-a',
           error: {
-            code: 'OPENAI_TIMEOUT',
+            error: 'OPENAI_TIMEOUT',
             provider: 'openai',
             message: 'Timed out',
             retryable: true,

@@ -44,12 +44,12 @@ Do not perform manual testing in this step.
 
 <skip_rules>
 
-- If the candidate task contains a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, do not run automated proof. Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**`.
+- If `selected_task.live_blockers` is non-empty, do not run automated proof.
 - If the candidate task still has unchecked subtasks that require additional non-proof implementation work, do not run automated proof.
 - If every remaining unchecked subtask explicitly depends on testing-wrapper outputs, retained proof-home paths, or rerun-generated artifacts from the task's `Testing` section, you may continue with automated proof and close those proof-owned subtasks as the corresponding testing work completes.
 - If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.
 - If the candidate task has no unchecked `Testing` items left because the testing section is already honestly complete, skip automated proof and leave final completion to the later audit step.
-- If you skip automated proof for either reason, return a concise explanation and leave the task `__in_progress__`.
+- If you skip automated proof for any of these reasons, return a concise explanation and leave the task `__in_progress__`.
 
 </skip_rules>
 

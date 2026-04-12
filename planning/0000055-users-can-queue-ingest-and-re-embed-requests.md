@@ -8017,8 +8017,8 @@ This task restores the upstream vendored Bats fixture layout so the embedded ven
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:shell` and confirm the full vendored shell wrapper passes, including the refreshed `file_setup_teardown.bats`, `suite_setup_teardown.bats`, and full `suite.bats` fixture proofs named in this task's subtasks.
-2. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file2.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file3.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel2.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel3.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel4.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite_setup_teardown/pick_up_toplevel/folder1/setup_suite.bash && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite_setup_teardown/pick_up_toplevel/folder2/setup_suite.bash` and confirm all repaired vendor fixture paths are symlinks again.
+1. [x] Run `npm run test:summary:shell` and confirm the full vendored shell wrapper passes, including the refreshed `file_setup_teardown.bats`, `suite_setup_teardown.bats`, and full `suite.bats` fixture proofs named in this task's subtasks.
+2. [x] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file2.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file3.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel2.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel3.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel4.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite_setup_teardown/pick_up_toplevel/folder1/setup_suite.bash && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite_setup_teardown/pick_up_toplevel/folder2/setup_suite.bash` and confirm all repaired vendor fixture paths are symlinks again.
 
 #### Implementation notes
 
@@ -8038,6 +8038,9 @@ This task restores the upstream vendored Bats fixture layout so the embedded ven
 - Subtask 13: re-opened the repaired `parallel/setup_file` and `parallel/suite` fixture entries on current disk and confirmed the retained proof narrative can now cite them as symlink-owned paths rather than plain files.
 - Subtask 14: re-opened the repaired `pick_up_toplevel/folder1/setup_suite.bash` and `folder2/setup_suite.bash` fixture entries on current disk and confirmed the retained proof narrative can now cite them as symlink-owned paths rather than plain files.
 - Subtask 15: updated `planning/0000055-pr-summary.md` with the repaired fixture paths plus the retained targeted-suite, full vendored harness, and direct symlink-sweep proof homes so Task 105 has one explicit vendor-repair handoff.
+- Testing 1 first failed before the vendored suite assertions ran because the checked-in shell-harness helper fixtures at `scripts/test/bats/fixtures/bin/docker-fixture`, `fixture-success`, and `fixture-fail` were missing execute bits on current disk, producing `Permission denied` in both `docker-compose-with-env.bats` and `shell-harness.bats`. Restored those executable bits so the required `npm run test:summary:shell` wrapper can reach the Task 104 vendored proofs honestly on rerun.
+- Testing 1: `npm run test:summary:shell` passed on rerun with `tests run: 16`, `passed: 16`, `failed: 0`, and wrapper `agent_action: skip_log`, retaining the clean shell proof log at `logs/test-summaries/shell-tests-2026-04-12T22-12-44-489Z.log`.
+- Testing 2: the direct `test -L ...` sweep passed across all seven repaired vendor fixture paths, so the final filesystem proof now confirms the `setup_file2/setup_file3`, `parallel2/parallel3/parallel4`, and `folder1/folder2 setup_suite.bash` entries are all symlinks again on current disk.
 
 ### Task 105. Re-Validate Story 55 After Review Pass `0000055-20260412T200035Z-2407aa9b`
 

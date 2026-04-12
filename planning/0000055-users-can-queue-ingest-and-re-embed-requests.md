@@ -7870,7 +7870,7 @@ This final revalidation task closes the reopened review pass only after the revi
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `102`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260412T200035Z-2407aa9b` because the stored findings show the standard REST `/ingest/roots` path strips the shared repo-list `id` field, breaking the story requirement that REST, MCP, and the UI consume the same canonical queued row shape.
 
 #### Overview
@@ -7953,6 +7953,7 @@ This task repairs the queue-row identity contract on the standard REST `/ingest/
 - Updated `planning/0000055-pr-summary.md` with the retained proof-owner set for this review fix and intentionally left all Task 103 testing wrappers unchecked for the later automated-proof step.
 - Testing 1: `npm run build:summary:server` now passes cleanly with `agent_action: skip_log`. The first rerun surfaced two stale `dedupeRootsByPath()` fixtures that still used the pre-`id` `RootEntry` shape, so those route-level unit fixtures were updated before the passing rebuild.
 - Testing 2: `npm run build:summary:client` passed cleanly with `agent_action: skip_log`, so the refreshed hook tests, browser proof text, and summary updates still typecheck and build from the client side.
+- Automated-proof audit on 2026-04-12: marked Task 103 `__done__` because all 20 subtasks and all 6 Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose is retained proof context rather than an open completion gate.
 - Testing 3: full `npm run test:summary:server:unit` passed cleanly with `tests run: 1652`, `passed: 1652`, `failed: 0`, and retained log `test-results/server-unit-tests-2026-04-12T21-22-18-066Z.log`, so the refreshed REST, shared-builder, and MCP identity proofs all hold under the full server-unit wrapper.
 - Testing 4: full `npm run test:summary:server:cucumber` passed cleanly with `tests run: 87`, `passed: 87`, `failed: 0`, and retained log `test-results/server-cucumber-tests-2026-04-12T21-43-21-437Z.log`, so the queued-row `id` cucumber path stays green under the normal server feature wrapper.
 - Testing 5: full `npm run test:summary:client` passed cleanly with `tests run: 683`, `passed: 683`, `failed: 0`, and retained log `test-results/client-tests-2026-04-12T21-46-37-710Z.log`, so the refreshed canonical-id, legacy-fallback, and fallback-to-canonical hook proofs hold under the full client wrapper.

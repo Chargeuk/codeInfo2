@@ -7013,7 +7013,7 @@ This fresh prerequisite task owns only the newest earlier `flows.run.loop` contr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `90`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added on 2026-04-12 by planner repair after Task 92's now-retired live `**BLOCKER**` plus current `**BLOCKING ANSWER**` proved the latest full `server:unit` rerun still fails in the earlier shared `flows.run.loop` cleanup lane before any remaining re-embed-selector proof home is reached.
 
 #### Overview
@@ -7065,6 +7065,7 @@ This fresh prerequisite task owns only the renewed earlier `flows.run.loop` cont
 - Subtask 2: re-opened `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, and `server/src/agents/runLock.ts` from current disk before changing behavior. The current bounded seam is still the stop-runtime cleanup path around pending-stop consumption, final stopped emission, inflight cleanup, and ownership release instead of the downstream re-embed-selector files.
 - Testing 1: Subtask 3 explicitly required the exact targeted wrapper rerun, so `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` was run from current `HEAD` and passed cleanly in `test-results/server-unit-tests-2026-04-12T04-36-09-901Z.log` with `agent_action: skip_log`. The bounded local proof home is green again before the fresh full-wrapper comparison finishes.
 - Subtasks 3-4 and Testing 2: the fresh full `npm run test:summary:server:unit` rerun from current `HEAD` no longer fails in `server/src/test/integration/flows.run.loop.test.ts`. Instead it advances into a later failure cluster led by the dedicated flow-reingest error path in `server/src/test/integration/flows.run.errors.test.ts` (`dedicated flow reingest terminal error remains non-fatal to later steps` through `multiple dedicated reingest steps targeting the same sourceId keep distinct callIds`) before later queue-request reuse failures in `server/src/test/unit/ingest-request-queue.test.ts`, retained in `test-results/server-unit-tests-2026-04-12T04-36-09-889Z.log`. That is the named exhausted-branch handoff this bounded prerequisite was allowed to produce, so Task 91 closes its own search by handing execution forward to the dedicated flow-reingest error lane instead of widening the `flows.run.loop` cleanup seam again.
+- Implementation-plus-automated-proof audit on 2026-04-12: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 91 section, and the retained targeted/full wrapper proof from current disk before normalizing status. No testing steps needed to be newly checked because Testing 1 and Testing 2 were already honestly complete from the immediately preceding implementation pass, there is no live standalone `**BLOCKER**` note on this task, and the only remaining prose is the already-satisfied exhausted-branch conclusion recorded above. Task 91 therefore closes as `__done__`.
 
 ### Task 92. Restrict Re-Embed Selectors To Already-Ingested Roots
 

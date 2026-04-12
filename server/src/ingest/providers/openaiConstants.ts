@@ -3,9 +3,6 @@ export const OPENAI_PROVIDER_ID = 'openai' as const;
 export const OPENAI_EMBEDDING_MODEL_ALLOWLIST = [
   'text-embedding-3-small',
   'text-embedding-3-large',
-  'text-embedding-qwen3-embedding-4b',
-  'MiniMax-M2.5-UNCENSORED-JANG_2L',
-  'arthurcollet/qwen3-embedding-4b-mlx-nvfp4',
 ] as const;
 
 export const OPENAI_MAX_INPUTS_PER_REQUEST = 2048;
@@ -24,9 +21,6 @@ export const OPENAI_REQUEST_TIMEOUT_MS = 30_000;
 const OPENAI_MODEL_TOKEN_LIMITS: Record<string, number> = {
   'text-embedding-3-small': 8192,
   'text-embedding-3-large': 8192,
-  'text-embedding-qwen3-embedding-4b': 8192,
-  'MiniMax-M2.5-UNCENSORED-JANG_2L': 8192,
-  'arthurcollet/qwen3-embedding-4b-mlx-nvfp4': 8192,
 };
 
 export function resolveOpenAiModelTokenLimit(model: string): number {
@@ -35,11 +29,7 @@ export function resolveOpenAiModelTokenLimit(model: string): number {
 }
 
 export function isOpenAiAllowlistedEmbeddingModel(model: string): boolean {
-  // return OPENAI_EMBEDDING_MODEL_ALLOWLIST.includes(
-  //   model as (typeof OPENAI_EMBEDDING_MODEL_ALLOWLIST)[number],
-  // );
-  if (model) {
-    return true;
-  }
-  return false;
+  return OPENAI_EMBEDDING_MODEL_ALLOWLIST.includes(
+    model as (typeof OPENAI_EMBEDDING_MODEL_ALLOWLIST)[number],
+  );
 }

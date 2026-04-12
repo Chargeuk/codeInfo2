@@ -299,8 +299,8 @@ export function createIngestModelsRouter({
               .map((entry) => entry.id)
               .filter((id): id is string => typeof id === 'string'),
           );
-          openAiModels = OPENAI_EMBEDDING_MODEL_ALLOWLIST.filter(
-            (id) => available.has(id) || true,
+          openAiModels = OPENAI_EMBEDDING_MODEL_ALLOWLIST.filter((id) =>
+            available.has(id),
           ).map((id) => ({
             id,
             displayName: id,

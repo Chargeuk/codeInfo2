@@ -373,12 +373,12 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
   );
   mock.method(IngestQueueRequestModel, 'findOne', (filter: {
     canonicalTargetPath?: string;
-    queueState?: string;
+    queueState?: string | { $in?: string[] };
   }) => {
     if (filter.queueState === 'waiting') {
       return {
         sort: () => ({
-          exec: async () => null,
+          exec: async () => waitingRequest,
         }),
       };
     }
@@ -439,7 +439,7 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
     enqueueOrReuseIngestRequest(secondInput),
   ]);
 
-  assert.equal(waitingLookupCount, 3);
+  assert.equal(waitingLookupCount, 2);
   assert.equal(firstResult.requestId, created._id.toString());
   assert.equal(secondResult.requestId, created._id.toString());
   assert.equal(firstResult.updatedExisting, false);
@@ -471,11 +471,21 @@ test('running duplicate reuse returns the existing running queue item without mu
   const runningLookupMock = mock.method(
     IngestQueueRequestModel,
     'findOne',
-    () => ({
-      sort: () => ({
-        exec: async () => running,
-      }),
-    }),
+    (filter: { queueState?: string | { $in?: string[] } }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => null,
+          }),
+        };
+      }
+
+      return {
+        sort: () => ({
+          exec: async () => running,
+        }),
+      };
+    },
   );
 
   const result = await enqueueOrReuseIngestRequest(
@@ -499,7 +509,7 @@ test('running duplicate reuse returns the existing running queue item without mu
     embeddingProvider: 'openai',
     embeddingModel: 'text-embedding-3-small',
   });
-  assert.equal(runningLookupMock.mock.calls.length, 1);
+  assert.equal(runningLookupMock.mock.calls.length, 2);
 });
 
 test('cleanup-blocked duplicate reuse returns the blocked queue item instead of creating a later waiting owner', async () => {
@@ -517,11 +527,25 @@ test('cleanup-blocked duplicate reuse returns the blocked queue item instead of 
   mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
     exec: async () => null,
   }));
-  const liveLookupMock = mock.method(IngestQueueRequestModel, 'findOne', () => ({
-    sort: () => ({
-      exec: async () => blocked,
-    }),
-  }));
+  const liveLookupMock = mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: { queueState?: string | { $in?: string[] } }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => null,
+          }),
+        };
+      }
+
+      return {
+        sort: () => ({
+          exec: async () => blocked,
+        }),
+      };
+    },
+  );
   const createMock = mock.method(
     IngestQueueRequestModel,
     'create',
@@ -551,7 +575,7 @@ test('cleanup-blocked duplicate reuse returns the blocked queue item instead of 
     embeddingProvider: 'openai',
     embeddingModel: 'text-embedding-3-small',
   });
-  assert.equal(liveLookupMock.mock.calls.length, 1);
+  assert.equal(liveLookupMock.mock.calls.length, 2);
   assert.equal(createMock.mock.calls.length, 0);
 });
 
@@ -562,6 +586,15 @@ test('waiting queue position counts only older waiting items and uses countDocum
   mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
     exec: async () => waiting,
   }));
+  const findOneMock = mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    () => ({
+      sort: () => ({
+        exec: async () => null,
+      }),
+    }),
+  );
   const countMock = mock.method(
     IngestQueueRequestModel,
     'countDocuments',
@@ -587,6 +620,7 @@ test('waiting queue position counts only older waiting items and uses countDocum
   const result = await enqueueOrReuseIngestRequest(buildInput());
 
   assert.equal(result.queuePosition, 5);
+  assert.equal(findOneMock.mock.calls.length, 1);
   assert.equal(countMock.mock.calls.length, 1);
   assert.equal(findMock.mock.calls.length, 0);
 });

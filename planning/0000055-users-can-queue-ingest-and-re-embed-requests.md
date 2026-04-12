@@ -8152,3 +8152,206 @@ This final review-follow-up task revalidates Story 55 after the current review f
 - Subtask 11: carried the blind-spot residual risk forward explicitly in `planning/0000055-pr-summary.md`: no new late defect surfaced in this pass, but `waitForQueueRequestTerminalStatus()` still lacks a retained direct proof that green completions never depend on the timeout-fallback branch.
 - Subtask 12: confirmed the final browser rerun still leaves inspectable proof homes on current disk at `logs/test-summaries/e2e-tests-latest.log` plus the retained screenshot set under `artifacts/story-0000055-screenshots`, including `0000055-queued-row-state.png`, `0000055-bulk-selection-state.png`, `0000055-bulk-partial-failure-state.png`, `0000055-task102-queue-visible.png`, `0000055-task102-queued-details.png`, and `0000055-task102-queue-after-reload.png`.
 - Automated-proof audit on 2026-04-12: marked Task 105 `__done__` because all 15 subtasks and all 12 Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose is retained proof context rather than an open completion gate.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260412T231111Z-04540d3d`
+
+- Disposition: reopen the story because this pass endorsed 1 `should_fix` finding and 1 localized `optional_simplification`.
+- `should_fix` on `Current Repository`: the shared repository-list `id` is still derived from mutable display or runtime-only values in `server/src/lmstudio/toolService.ts`, and `server/src/mcpCommon/repositorySelector.ts` still consumes that unstable `id` ahead of canonical paths. This conflicts with the story contract that queued rows keep stable identity through overlays, retries, and resumed execution.
+- Accepted `optional_simplification` on `Current Repository`: the remaining changed proof files in `client/src/test/ingestStatus.test.tsx` and `server/src/test/integration/mcp-ingested-repositories.test.ts` still duplicate the schema-version literal `0000055-queued-repo-list-v1` instead of reusing `INGEST_ROOTS_SCHEMA_VERSION`. This cleanup is localized to already changed files, low risk, objectively testable, and improves the shared contract owner.
+- Durable review artifacts for this pass:
+  - `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`
+  - `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`
+
+### Task 106. Replace Display-Derived Repo Identity With Canonical Selector Identity
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `105`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` to repair the remaining stable-identity contract defect in the shared repository-list and selector seams.
+
+#### Overview
+
+This task makes the shared repository-list `id` a stable repository identity instead of a mutable display or runtime-only fallback. It must remove `name`, path-basename, and `runId` as first-class identity sources for queued and active rows, then align repository selection so canonical path identity wins ahead of any display-facing field.
+
+#### Task Exit Criteria
+
+- `server/src/lmstudio/toolService.ts` emits a stable repository identity for persisted, waiting-only, and active-only rows without deriving `id` from display `name`, path basename, or `runId`.
+- `server/src/mcpCommon/repositorySelector.ts` resolves repository rows by canonical identity ahead of any display-facing field, so selectors no longer depend on mutable row labels.
+- Shared repo-list REST, MCP, and client normalization proof shows that queued-row identity stays stable through overlays, retries, and resumed execution.
+- The retained proof homes for this repair are added to `planning/0000055-pr-summary.md` before the final revalidation task begins.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`
+- `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/mcpCommon/repositorySelector.ts`
+- `server/src/routes/ingestRoots.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `common/src/lmstudio.ts`
+- `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/integration/mcp-ingested-repositories.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+- `planning/0000055-pr-summary.md`
+
+#### Proof Mapping
+
+- Stable repo-list `id` remains canonical across persisted, waiting-only, and active-only rows. Owners: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `common/src/lmstudio.ts`. Proof homes: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`, `client/src/test/useIngestRoots.test.tsx`.
+- Repository selector resolution no longer lets a display-derived or runtime-only `id` win ahead of canonical repository identity. Owners: `server/src/mcpCommon/repositorySelector.ts`, `server/src/lmstudio/toolService.ts`. Proof homes: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`.
+- The repaired proof homes are retained in the maintained summary before final revalidation resumes. Owners: `planning/0000055-pr-summary.md`. Proof home: Task 106 summary-refresh subtasks.
+
+#### Subtasks
+
+1. [ ] Update `server/src/lmstudio/toolService.ts` so the shared repo-list identity helper derives `id` from stable canonical repository identity rather than display `name`, path basename, or `runId`. Purpose: stop mutable or runtime-only values from becoming row identity.
+2. [ ] Update the queued synthetic-row builders in `server/src/lmstudio/toolService.ts` so waiting-only rows reuse the same stable canonical `id` contract as persisted rows. Purpose: keep overlays and synthesized queue rows aligned on one identity seam.
+3. [ ] Update the active-only row synthesis in `server/src/lmstudio/toolService.ts` so `runId` remains runtime metadata and is no longer allowed to stand in as repository identity. Purpose: prevent resumed or active-only rows from leaking runtime ownership into selector identity.
+4. [ ] Update `server/src/mcpCommon/repositorySelector.ts` so canonical repository identity wins before any display-facing `repo.id` fallback. Purpose: keep selector resolution aligned with the repaired shared contract.
+5. [ ] Refresh any adjacent shared-contract comments or helper typing in `common/src/lmstudio.ts` and `server/src/routes/ingestRoots.ts` if they still describe `id` as a display-derived field. Purpose: keep the repaired contract explicit for future maintainers.
+6. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove queued, persisted, and active-only rows all keep stable canonical `id` values even when display names or `runId` differ. Purpose: make the field-role repair direct instead of relying on code inspection.
+7. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-ingested-repositories.test.ts`. Description: prove the MCP-facing repository-list contract and selector behavior still resolve the repaired stable identity seam instead of a display-derived fallback. Purpose: keep server emitters and selector consumers aligned.
+8. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the client normalization path keeps using the repaired route-level stable `id` for queued rows and resumed rows. Purpose: keep the repaired backend contract visible on the client boundary.
+9. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the owner files and retained proof homes for the repaired stable-identity contract from this task. Purpose: hand clean proof ownership into the final revalidation task.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the stable-identity repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes with the repaired repository-list identity contract.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the selector-identity repair.
+4. [ ] Run `npm run test:summary:client` and confirm the full client wrapper still passes with the repaired route-level `id` contract.
+
+#### Implementation notes
+
+- Added by review pass `0000055-20260412T231111Z-04540d3d` to repair the remaining plan-contract issue after Task 105 closed.
+
+### Task 107. Deduplicate The Remaining Schema-Version Proof Literals
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `106`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` to accept the localized optional simplification while the changed proof files are already open.
+
+#### Overview
+
+This task removes the remaining duplicated `0000055-queued-repo-list-v1` literals from the changed proof files and reuses `INGEST_ROOTS_SCHEMA_VERSION` instead. It is a low-risk cleanup, but it keeps the remaining changed proof files aligned to the same shared contract owner as the rest of the Story 55 proof surface.
+
+#### Task Exit Criteria
+
+- `client/src/test/ingestStatus.test.tsx` no longer duplicates the schema-version literal and instead reuses `INGEST_ROOTS_SCHEMA_VERSION`.
+- `server/src/test/integration/mcp-ingested-repositories.test.ts` no longer duplicates the schema-version literal and instead reuses the same shared constant.
+- The maintained summary notes that the remaining schema-version proof drift was removed as part of this review pass.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`
+- `common/src/lmstudio.ts`
+- `client/src/test/ingestStatus.test.tsx`
+- `server/src/test/integration/mcp-ingested-repositories.test.ts`
+
+#### Proof Mapping
+
+- The remaining changed proof files reuse `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating the schema-version literal. Owners: `common/src/lmstudio.ts`, `client/src/test/ingestStatus.test.tsx`, `server/src/test/integration/mcp-ingested-repositories.test.ts`. Proof homes: those two proof files plus Task 107 summary refresh.
+- The cleanup is retained in the maintained summary before final revalidation begins. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 107 summary-refresh subtask.
+
+#### Subtasks
+
+1. [ ] Update `client/src/test/ingestStatus.test.tsx` to import and use `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: keep the client proof file aligned to the shared contract owner.
+2. [ ] Update `server/src/test/integration/mcp-ingested-repositories.test.ts` to import and use `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: keep the server proof file aligned to the same shared contract owner.
+3. [ ] Refresh any nearby helper wording or test titles in those files if they still imply a file-local schema literal owner. Purpose: keep the changed tests semantically aligned with the shared contract.
+4. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record that the remaining schema-version proof drift was removed by reusing `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: keep the optional simplification visible in the final review handoff.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit` and confirm the server-side proof suite still passes after the constant cleanup.
+2. [ ] Run `npm run test:summary:client` and confirm the client proof suite still passes after the constant cleanup.
+
+#### Implementation notes
+
+- Added by review pass `0000055-20260412T231111Z-04540d3d` because the remaining literal drift is localized, low risk, and objectively testable in already changed proof files.
+
+### Task 108. Re-Validate Story 55 After Review Pass `0000055-20260412T231111Z-04540d3d`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `106, 107`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` as the required final revalidation task once the stable-identity repair and schema-version cleanup land.
+
+#### Overview
+
+This final review-follow-up task revalidates Story 55 after the current review fixes land. It must confirm the repaired stable repository identity seam, the accepted schema-version cleanup, and the retained queue/runtime/browser proof chain together on current disk, then refresh the maintained summary with the retained proof homes and any residual weak-proof notes that still remain honest after this pass.
+
+#### Task Exit Criteria
+
+- The review evidence, findings, and blind-spot challenge for pass `0000055-20260412T231111Z-04540d3d` are re-read before reruns begin, so final close-out stays anchored to the stored review outcome.
+- Tasks 106 and 107 are `__done__`, and their exact owner files plus retained proof homes are re-read from current disk before final validation starts.
+- The full server, client, vendored-shell, compose, host-network, and browser proof chain still passes on current disk after the current review-created fixes.
+- The maintained summary contains a new follow-up note for pass `0000055-20260412T231111Z-04540d3d` that cites the retained proof homes for both follow-up tasks and the final revalidation chain.
+- The durable review artifacts for this pass still exist on disk and remain cited as the adjudication record for the reopened work.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `README.md`
+- `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`
+- `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`
+- `logs/test-summaries/build-server-latest.log`
+- `logs/test-summaries/build-client-latest.log`
+- `logs/test-summaries/compose-build-latest.log`
+- `logs/test-summaries/host-network-main-latest.log`
+- `logs/test-summaries/e2e-tests-latest.log`
+- `logs/test-summaries/shell-tests-*.log`
+- `test-results`
+- `artifacts/story-0000055-screenshots`
+
+#### Proof Mapping
+
+- The current review pass remains anchored to its stored evidence, findings, and challenge outcome before final reruns begin. Owners: the three review artifacts plus this plan. Proof homes: reread subtasks and refreshed summary note.
+- Task 106's stable-identity repair remains complete and still points at honest proof homes before final wrappers run. Owners: Task 106 owner files and retained proof homes. Proof home: Task 106 summary refresh plus the final maintained summary note.
+- Task 107's schema-version cleanup remains complete and still points at honest proof homes before final wrappers run. Owners: Task 107 owner files and retained proof homes. Proof home: Task 107 summary refresh plus the final maintained summary note.
+- The full regression chain still passes after the current review-created fixes, including server build, client build, server unit, server cucumber, client, browser, compose build, compose startup, host-network smoke, compose teardown, vendored shell harness, and final symlink sweep. Owners: wrapper scripts and current runtime surfaces named in Testing. Proof homes: the wrapper logs and retained artifacts named above plus the Testing section below.
+- The durable review artifacts for pass `0000055-20260412T231111Z-04540d3d` still exist on disk and remain the adjudication record for the reopened work. Owners: `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-*.md`. Proof homes: the on-disk existence subtasks.
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`. Purpose: anchor the final rerun to the stored review evidence for this pass.
+2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`. Purpose: keep final validation anchored to the exact reopened findings rather than a looser summary.
+3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`. Purpose: carry forward the residual weak-proof notes honestly into final close-out.
+4. [ ] Re-read completed Task 106 and write down its exact owner files, wrapper logs, and direct proof homes before any final reruns begin. Purpose: keep the stable-identity repair explicit in final validation.
+5. [ ] Re-read completed Task 107 and write down its exact owner files and direct proof homes before any final reruns begin. Purpose: keep the schema-version cleanup explicit in final validation.
+6. [ ] Re-open `planning/0000055-pr-summary.md` and mark the insertion point for a new follow-up note for review pass `0000055-20260412T231111Z-04540d3d` before any final wrapper reruns start. Purpose: ensure the summary refresh has a bounded landing spot before the rerun evidence exists.
+7. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the stable repository-identity repair from Task 106. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
+8. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the schema-version constant cleanup from Task 107. Purpose: keep that localized cleanup visible in the final adjudication record.
+9. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the full wrapper and runtime validation chain from this pass, including build, unit, cucumber, client, browser, compose, host-network, vendored shell, and symlink-sweep proof homes. Purpose: keep the final close-out narrative explicit instead of implied.
+10. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: carry forward any residual weak-proof notes from the blind-spot challenge that still remain honest after reruns. Purpose: preserve the final risk narrative instead of letting weakly proved seams disappear behind the wrapper pass.
+11. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: confirm the final browser rerun still leaves an inspectable proof home for the paired frontend behavior touched by the shared repo-list seam, and refresh retained screenshot citations when that evidence changes. Purpose: keep the final UI-facing proof observable instead of reducing it to a wrapper pass or fail line.
+12. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md` still exists before final close-out. Purpose: preserve the durable evidence artifact alongside the refreshed proof chain.
+13. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md` still exists before final close-out. Purpose: preserve the durable findings artifact alongside the refreshed proof chain.
+14. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md` still exists before final close-out. Purpose: preserve the durable blind-spot challenge artifact alongside the refreshed proof chain.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes cleanly after the current review-created fixes.
+2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes cleanly after the current review-created fixes.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes cleanly after the current review-created fixes.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes cleanly after the current review-created fixes.
+5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper passes cleanly after the current review-created fixes.
+6. [ ] Run `npm run test:summary:e2e` and confirm the full browser wrapper passes cleanly after the current review-created fixes.
+7. [ ] Run `npm run compose:build:summary` and confirm the normal main-stack compose build wrapper passes cleanly before runtime smoke validation.
+8. [ ] Run `npm run compose:up` and confirm the normal supported main stack starts through the repository's default compose path.
+9. [ ] Run `npm run test:summary:host-network:main` and confirm the live main-stack host-network probe passes against the started normal compose stack.
+10. [ ] Run `npm run compose:down` and confirm the normal supported main stack is shut down after smoke validation.
+11. [ ] Run `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` and confirm the full vendored Bats harness still passes after the current review-created fixes.
+12. [ ] Run `test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file2.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/setup_file/setup_file3.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel2.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel3.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/parallel/suite/parallel4.bats && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite_setup_teardown/pick_up_toplevel/folder1/setup_suite.bash && test -L scripts/test/bats/vendor/bats-core/test/fixtures/suite_setup_teardown/pick_up_toplevel/folder2/setup_suite.bash` and confirm the restored vendor fixture paths are still symlinks at final close-out.
+
+#### Implementation notes
+
+- Added by review pass `0000055-20260412T231111Z-04540d3d` so the story cannot close again until the stable-identity repair, the accepted schema-version cleanup, and the full retained proof chain are back under one final validation pass.

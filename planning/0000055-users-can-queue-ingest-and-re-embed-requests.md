@@ -8047,7 +8047,7 @@ This task restores the upstream vendored Bats fixture layout so the embedded ven
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `103, 104`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260412T200035Z-2407aa9b` as the required final revalidation task once the REST repo-list identity repair and vendored Bats fixture repair are back under the full proof chain.
 
 #### Overview
@@ -8090,21 +8090,21 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md`. Purpose: anchor the final rerun to the stored review evidence for this pass.
-2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md`. Purpose: keep the final validation anchored to the exact reopened findings rather than a looser summary.
-3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md`. Purpose: carry the residual weak-proof notes forward honestly into final close-out.
-4. [ ] Re-read the Story 55 acceptance-criteria lines in this plan that cover the shared repo-list payload, stable queued visibility, and the retained proof chain from Task 102. Purpose: anchor the final rerun to the story contract these review-created fixes must still satisfy.
-5. [ ] Re-read completed Task 103 once it is `__done__`, and write down its exact owner files, wrapper logs, and direct proof homes before any final reruns begin. Purpose: keep the final validation task explicit about the REST identity repair it is carrying forward.
-6. [ ] Re-read completed Task 104 once it is `__done__`, and write down its exact owner files, wrapper logs, and direct proof homes before any final reruns begin. Purpose: keep the final validation task explicit about the vendored-fixture repair it is carrying forward.
-7. [ ] Re-open `planning/0000055-pr-summary.md` and mark the insertion point for a new follow-up note for review pass `0000055-20260412T200035Z-2407aa9b` before any final wrapper reruns start. Purpose: ensure the summary refresh has a bounded landing spot before the rerun evidence exists.
-8. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the restored REST `/ingest/roots` identity contract carried forward from Task 103. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
-9. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the restored vendored Bats fixture semantics carried forward from Task 104. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
+1. [x] Re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md`. Purpose: anchor the final rerun to the stored review evidence for this pass.
+2. [x] Re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md`. Purpose: keep the final validation anchored to the exact reopened findings rather than a looser summary.
+3. [x] Re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md`. Purpose: carry the residual weak-proof notes forward honestly into final close-out.
+4. [x] Re-read the Story 55 acceptance-criteria lines in this plan that cover the shared repo-list payload, stable queued visibility, and the retained proof chain from Task 102. Purpose: anchor the final rerun to the story contract these review-created fixes must still satisfy.
+5. [x] Re-read completed Task 103 once it is `__done__`, and write down its exact owner files, wrapper logs, and direct proof homes before any final reruns begin. Purpose: keep the final validation task explicit about the REST identity repair it is carrying forward.
+6. [x] Re-read completed Task 104 once it is `__done__`, and write down its exact owner files, wrapper logs, and direct proof homes before any final reruns begin. Purpose: keep the final validation task explicit about the vendored-fixture repair it is carrying forward.
+7. [x] Re-open `planning/0000055-pr-summary.md` and mark the insertion point for a new follow-up note for review pass `0000055-20260412T200035Z-2407aa9b` before any final wrapper reruns start. Purpose: ensure the summary refresh has a bounded landing spot before the rerun evidence exists.
+8. [x] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the restored REST `/ingest/roots` identity contract carried forward from Task 103. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
+9. [x] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the restored vendored Bats fixture semantics carried forward from Task 104. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
 10. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the full wrapper and runtime validation chain from this pass, including build, unit, cucumber, client, browser, compose, host-network, vendored shell, and symlink-sweep proof homes. Purpose: keep the final close-out narrative explicit instead of implied.
 11. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: carry forward any residual weak-proof notes from the blind-spot challenge that still remain honest after reruns. Purpose: preserve the final risk narrative instead of letting weakly proved seams disappear behind the wrapper pass.
 12. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: confirm the final browser rerun still leaves an inspectable proof home for the paired frontend behavior touched by Task 103, and refresh retained screenshot citations when that evidence changes. Purpose: keep the final UI-facing proof observable instead of reducing it to a wrapper pass or fail line.
-13. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md` still exists before final close-out. Purpose: preserve the durable evidence artifact alongside the refreshed proof chain.
-14. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md` still exists before final close-out. Purpose: preserve the durable findings artifact alongside the refreshed proof chain.
-15. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md` still exists before final close-out. Purpose: preserve the durable blind-spot challenge artifact alongside the refreshed proof chain.
+13. [x] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md` still exists before final close-out. Purpose: preserve the durable evidence artifact alongside the refreshed proof chain.
+14. [x] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md` still exists before final close-out. Purpose: preserve the durable findings artifact alongside the refreshed proof chain.
+15. [x] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md` still exists before final close-out. Purpose: preserve the durable blind-spot challenge artifact alongside the refreshed proof chain.
 
 #### Testing
 
@@ -8124,3 +8124,15 @@ This final review-follow-up task revalidates Story 55 after the current review f
 #### Implementation notes
 
 - Added by review pass `0000055-20260412T200035Z-2407aa9b` so the story cannot close again until both review-created repairs are back under the full wrapper and runtime validation chain with updated retained proof homes.
+- Subtask 1: re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md` and re-anchored the final pass to the stored review scope, review base, and current repository proof buckets before any new wrapper reruns begin.
+- Subtask 2: re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md` and confirmed the final close-out is still about the two reopened findings only: the standard REST `/ingest/roots` queued-row `id` drift repaired in Task 103 and the vendored Bats symlink regression repaired in Task 104.
+- Subtask 3: re-read `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md` and carried forward the remaining weak-proof note honestly: no new late defect was found, but the final pass still needs to preserve the residual proof-strength caveats instead of letting them disappear behind green wrappers.
+- Subtask 4: re-read the Story 55 acceptance-criteria lines that define the `requestId` versus `runId` split, waiting-only `queuePosition`, shared repository-list queued visibility, and the Task 102 retained proof-chain expectations so the final rerun stays tied to the reopened contract rather than a looser review summary.
+- Subtask 5: re-read completed Task 103 and wrote down its carried-forward owner files and proof homes before final reruns: `toolService.ts`, `ingestRoots.ts`, `ingest-roots.feature`, `ingest-manage.steps.ts`, `useIngestRoots.ts`, `ingest.spec.ts`, plus retained proof in `ingest-roots-dedupe.test.ts`, `tools-ingested-repos.test.ts`, `mcp-ingested-repositories.test.ts`, `useIngestRoots.test.tsx`, the cucumber pair, and the browser proof.
+- Subtask 6: re-read completed Task 104 and wrote down its carried-forward owner files and proof homes before final reruns: the seven repaired vendored fixture paths, `file_setup_teardown.bats`, `suite_setup_teardown.bats`, vendored `suite.bats`, the retained shell wrapper log `logs/test-summaries/shell-tests-2026-04-12T22-12-44-489Z.log`, and the direct symlink-sweep proof.
+- Subtask 7: re-opened `planning/0000055-pr-summary.md` and marked the Task 105 insertion point explicitly by placing the future final wrapper/runtime close-out note immediately below the carried-forward Task 103 and Task 104 bullets in the current review-follow-up section.
+- Subtask 8: refreshed `planning/0000055-pr-summary.md` so the Task 103 bullets now explicitly read as carry-forward proof homes for Task 105 final revalidation instead of only as isolated repair notes.
+- Subtask 9: refreshed `planning/0000055-pr-summary.md` so the Task 104 bullets now explicitly read as carry-forward proof homes for Task 105 final revalidation, including the repaired vendored owners, vendored proof files, and later shell/symlink rerun obligations.
+- Subtask 13: verified on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-evidence.md` still exists before final close-out.
+- Subtask 14: verified on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-findings.md` still exists before final close-out.
+- Subtask 15: verified on disk that `codeInfoStatus/reviews/0000055-20260412T200035Z-2407aa9b-blind-spot-challenge.md` still exists before final close-out.

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach, mock } from 'node:test';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import express from 'express';
 import mongoose from 'mongoose';
 import request from 'supertest';
@@ -180,7 +181,7 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.roots[0].model, 'embed-model');
   assert.equal(response.body.roots[0].modelId, 'embed-model');
   assert.equal(response.body.roots[0].lock.embeddingModel, 'embed-model');
-  assert.equal(response.body.schemaVersion, '0000055-queued-repo-list-v1');
+  assert.equal(response.body.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
 });
 
 test('GET /ingest/roots emits the flat normalized error payload shape and preserves legacy lastError string', async () => {

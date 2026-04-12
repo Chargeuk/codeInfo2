@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach, mock } from 'node:test';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import express from 'express';
 import mongoose from 'mongoose';
 import request from 'supertest';
@@ -79,7 +80,7 @@ test('returns empty repos list with null lock when no roots exist', async () => 
     repos: [],
     lock: null,
     lockedModelId: null,
-    schemaVersion: '0000055-queued-repo-list-v1',
+    schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
   });
 });
 
@@ -112,7 +113,7 @@ test('maps repo metadata and host path with locked model id', async () => {
   assert.equal(res.body.lockedModelId, 'text-embed');
   assert.equal(res.body.lock.embeddingModel, 'text-embed');
   assert.equal(res.body.lock.modelId, 'text-embed');
-  assert.equal(res.body.schemaVersion, '0000055-queued-repo-list-v1');
+  assert.equal(res.body.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
   assert.equal(repo.id, 'repo-one');

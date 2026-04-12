@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach, mock } from 'node:test';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import express from 'express';
 import mongoose from 'mongoose';
 import request from 'supertest';
@@ -127,7 +128,7 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
   assert.equal(parsed.lock?.embeddingModel, 'text-embedding-openai');
   assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
-  assert.equal(parsed.schemaVersion, '0000055-queued-repo-list-v1');
+  assert.equal(parsed.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
   assert.equal(parsed.repos.length, 1);
   assert.equal(parsed.repos[0].id, 'repo');
   assert.equal(parsed.repos[0].name, 'repo');
@@ -183,7 +184,7 @@ test('ListIngestedRepositories preserves the flat normalized error fields from t
           ],
           lock: null,
           lockedModelId: null,
-          schemaVersion: '0000055-queued-repo-list-v1',
+          schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
         }) as never,
     }),
   );

@@ -7682,7 +7682,7 @@ This review-fix task strengthens the browser proof for in-progress cancellation 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `100`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added after review pass `0000055-20260411T104227Z-756a77d1` because the localized schema-version constant cleanup is low-risk, shared-contract work in files already touched by Story 55 proof updates.
 
 #### Overview
@@ -7715,16 +7715,16 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 
 #### Subtasks
 
-1. [ ] Re-read the schema-version simplification finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the cleanup localized to the endorsed shared-contract proof surface.
-2. [ ] Inspect the remaining literal schema-version copies in `server/src/test/unit/tools-ingested-repos.test.ts`. Purpose: isolate the first server proof seam to update.
-3. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` and keep the existing assertions readable after the source-of-truth swap. Purpose: move the first proof file back to the shared constant owner without leaving a misleading test description behind.
-4. [ ] Inspect the remaining literal schema-version copies in `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: isolate the route-facing proof seam to update.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` while keeping the route-facing schema assertions accurate. Purpose: move the second proof file back to the shared constant owner.
-6. [ ] Inspect the remaining literal schema-version copies in `server/src/test/unit/mcp-ingested-repositories.test.ts`. Purpose: isolate the MCP-facing proof seam to update.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/mcp-ingested-repositories.test.ts`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` and preserve the MCP-facing schema assertion wording. Purpose: move the third proof file back to the shared constant owner.
-8. [ ] Inspect the remaining literal schema-version copies in `client/src/test/useIngestRoots.test.tsx`. Purpose: isolate the client proof seam to update.
-9. [ ] Test type: client test. Location: `client/src/test/useIngestRoots.test.tsx`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` and keep the client-facing schema assertions truthful. Purpose: move the fourth proof file back to the shared constant owner.
-10. [ ] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` so it cites the shared constant owner `common/src/lmstudio.ts` and the four updated proof files from this task, then mirror that same file list in this task's retained proof notes. Purpose: keep final validation citations aligned to the simplified contract without leaving the summary update underspecified.
+1. [x] Re-read the schema-version simplification finding in `codeInfoStatus/reviews/0000055-20260411T104227Z-756a77d1-findings.md`. Purpose: keep the cleanup localized to the endorsed shared-contract proof surface.
+2. [x] Inspect the remaining literal schema-version copies in `server/src/test/unit/tools-ingested-repos.test.ts`. Purpose: isolate the first server proof seam to update.
+3. [x] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` and keep the existing assertions readable after the source-of-truth swap. Purpose: move the first proof file back to the shared constant owner without leaving a misleading test description behind.
+4. [x] Inspect the remaining literal schema-version copies in `server/src/test/unit/ingest-roots-dedupe.test.ts`. Purpose: isolate the route-facing proof seam to update.
+5. [x] Test type: server unit. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` while keeping the route-facing schema assertions accurate. Purpose: move the second proof file back to the shared constant owner.
+6. [x] Inspect the remaining literal schema-version copies in `server/src/test/unit/mcp-ingested-repositories.test.ts`. Purpose: isolate the MCP-facing proof seam to update.
+7. [x] Test type: server unit. Location: `server/src/test/unit/mcp-ingested-repositories.test.ts`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` and preserve the MCP-facing schema assertion wording. Purpose: move the third proof file back to the shared constant owner.
+8. [x] Inspect the remaining literal schema-version copies in `client/src/test/useIngestRoots.test.tsx`. Purpose: isolate the client proof seam to update.
+9. [x] Test type: client test. Location: `client/src/test/useIngestRoots.test.tsx`. Description: replace the remaining literal schema-version copies with `INGEST_ROOTS_SCHEMA_VERSION` and keep the client-facing schema assertions truthful. Purpose: move the fourth proof file back to the shared constant owner.
+10. [x] Update the `## Review follow-up after pass \`0000055-20260411T104227Z-756a77d1\`` section in `planning/0000055-pr-summary.md` so it cites the shared constant owner `common/src/lmstudio.ts` and the four updated proof files from this task, then mirror that same file list in this task's retained proof notes. Purpose: keep final validation citations aligned to the simplified contract without leaving the summary update underspecified.
 
 #### Testing
 
@@ -7736,6 +7736,14 @@ This optional-simplification follow-up keeps the Story 55 proof surface aligned 
 #### Implementation notes
 
 - Inserted on 2026-04-11 from review pass `0000055-20260411T104227Z-756a77d1` because this localized shared-contract cleanup is objectively testable and worth landing while the review-created repair block is already open.
+- Task activation on 2026-04-12: promoted Task 101 from `__to_do__` to `__in_progress__` before editing so the shared schema-version cleanup is the explicit active owner for this pass.
+- Subtask 1: re-read the review finding and confirmed this cleanup stays bounded to the optional simplification of replacing duplicated `0000055-queued-repo-list-v1` literals in Story 55 proof files with the shared `INGEST_ROOTS_SCHEMA_VERSION` owner.
+- Subtasks 2, 4, 6, and 8: re-inspected the four proof files and confirmed the remaining literal copies are localized to one server tools proof, one route proof, one MCP proof, and one client hook proof plus a stale literal in the client test title.
+- Subtask 3: updated `server/src/test/unit/tools-ingested-repos.test.ts` to import `INGEST_ROOTS_SCHEMA_VERSION` from `@codeinfo2/common` and reuse it in both schema-version assertions so the server tools proof no longer carries a separate literal copy.
+- Subtask 5: updated `server/src/test/unit/ingest-roots-dedupe.test.ts` to assert the shared `INGEST_ROOTS_SCHEMA_VERSION` owner directly instead of restating the literal queue-era schema string in the route proof.
+- Subtask 7: updated `server/src/test/unit/mcp-ingested-repositories.test.ts` to reuse `INGEST_ROOTS_SCHEMA_VERSION` for both parsed and mocked schema-version values while preserving the MCP-facing proof wording.
+- Subtask 9: updated `client/src/test/useIngestRoots.test.tsx` so the mocked payload uses `INGEST_ROOTS_SCHEMA_VERSION` and the test title now describes the shared schema-version contract instead of embedding the literal value.
+- Subtask 10: updated `planning/0000055-pr-summary.md` to cite `common/src/lmstudio.ts` plus the four refreshed proof files as the retained owner set for this shared schema-version simplification.
 
 ### Task 102. Re-Validate Story 55 After Review Pass 0000055-20260411T104227Z-756a77d1
 

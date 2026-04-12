@@ -256,9 +256,9 @@ describe('useIngestRoots', () => {
     });
   });
 
-  it('accepts and exposes schemaVersion 0000055-queued-repo-list-v1', async () => {
+  it('accepts and exposes the shared ingest roots schemaVersion constant', async () => {
     mockRootsResponse({
-      schemaVersion: '0000055-queued-repo-list-v1',
+      schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
       roots: [],
     });
 

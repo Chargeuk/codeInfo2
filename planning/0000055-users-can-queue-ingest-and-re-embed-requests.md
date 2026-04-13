@@ -8559,7 +8559,7 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `108`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 1, which was also strengthened by the endorsed external review comment without changing the finding scope.
 
 #### Overview
@@ -8593,15 +8593,15 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 
 #### Subtasks
 
-1. [ ] Refactor the main waiting-row update path in `server/src/ingest/requestQueue.ts` so `shouldRewriteWaitingRequest(...)` is evaluated before any update document is built or sent to `findOneAndUpdate(...)`. Purpose: remove the mutation-before-check race in the ordinary matched-waiting-row path.
-2. [ ] Apply the same guard ordering to the duplicate-key retry path in `server/src/ingest/requestQueue.ts` after a raced insert fails. Purpose: keep the insert-race fallback from reintroducing the same mutation-before-check bug.
-3. [ ] Preserve the current no-rewrite behavior for waiting `start` rows reused by later `reembed` submits, including preserved `requestId`, `createdAt`, `sourceSurface`, queue position, and `updatedExisting: false`. Purpose: keep the repaired no-rewrite contract explicit instead of relying on incidental field preservation.
-4. [ ] Preserve the existing latest-settings-wins behavior for actually allowed waiting-row rewrites, including preserved queue identity plus `updatedExisting: true`. Purpose: repair the race without regressing the valid waiting-row rewrite contract.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add a race-shaped proof where a waiting `start` row exists by the time a later `reembed` update executes in the main update path, and confirm the row remains `start` with `updatedExisting: false`. Purpose: make the exact ordinary-path finding direct.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add the duplicate-key retry interleaving proof and confirm that path also preserves the waiting `start` row with `updatedExisting: false`. Purpose: close the second mutation-before-check seam named in Finding 1.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add or split a no-rewrite metadata proof so the preserved `requestId`, `createdAt`, `sourceSurface`, and waiting queue position remain attached to the original `start` row after the guarded ordinary-path race. Purpose: keep the no-rewrite identity contract explicit instead of hiding it inside the operation assertion.
-8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: refresh the existing allowed waiting-row rewrite proof so it still asserts preserved queue identity metadata plus `updatedExisting: true` after the guard-ordering change. Purpose: keep the permitted rewrite contract honest while the race fix lands.
-9. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: split or rename any reused canonical-target-normalization or waiting-duplicate test whose current title only claims non-racy normalization or generic reuse behavior, so the new race-shaped assertions have a title that explicitly names the interleaving or preserved waiting-row invariant they prove. Purpose: prevent reused queue-admission proofs from silently drifting away from their stated semantics.
+1. [x] Refactor the main waiting-row update path in `server/src/ingest/requestQueue.ts` so `shouldRewriteWaitingRequest(...)` is evaluated before any update document is built or sent to `findOneAndUpdate(...)`. Purpose: remove the mutation-before-check race in the ordinary matched-waiting-row path.
+2. [x] Apply the same guard ordering to the duplicate-key retry path in `server/src/ingest/requestQueue.ts` after a raced insert fails. Purpose: keep the insert-race fallback from reintroducing the same mutation-before-check bug.
+3. [x] Preserve the current no-rewrite behavior for waiting `start` rows reused by later `reembed` submits, including preserved `requestId`, `createdAt`, `sourceSurface`, queue position, and `updatedExisting: false`. Purpose: keep the repaired no-rewrite contract explicit instead of relying on incidental field preservation.
+4. [x] Preserve the existing latest-settings-wins behavior for actually allowed waiting-row rewrites, including preserved queue identity plus `updatedExisting: true`. Purpose: repair the race without regressing the valid waiting-row rewrite contract.
+5. [x] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add a race-shaped proof where a waiting `start` row exists by the time a later `reembed` update executes in the main update path, and confirm the row remains `start` with `updatedExisting: false`. Purpose: make the exact ordinary-path finding direct.
+6. [x] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add the duplicate-key retry interleaving proof and confirm that path also preserves the waiting `start` row with `updatedExisting: false`. Purpose: close the second mutation-before-check seam named in Finding 1.
+7. [x] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add or split a no-rewrite metadata proof so the preserved `requestId`, `createdAt`, `sourceSurface`, and waiting queue position remain attached to the original `start` row after the guarded ordinary-path race. Purpose: keep the no-rewrite identity contract explicit instead of hiding it inside the operation assertion.
+8. [x] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: refresh the existing allowed waiting-row rewrite proof so it still asserts preserved queue identity metadata plus `updatedExisting: true` after the guard-ordering change. Purpose: keep the permitted rewrite contract honest while the race fix lands.
+9. [x] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: split or rename any reused canonical-target-normalization or waiting-duplicate test whose current title only claims non-racy normalization or generic reuse behavior, so the new race-shaped assertions have a title that explicitly names the interleaving or preserved waiting-row invariant they prove. Purpose: prevent reused queue-admission proofs from silently drifting away from their stated semantics.
 
 #### Testing
 
@@ -8614,6 +8614,15 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the endorsed queue-admission race finding recorded in the durable findings artifact.
+- Subtask 1: added a guarded waiting-row rewrite helper in `server/src/ingest/requestQueue.ts` so the ordinary matched-row update path now chooses the rewriteable filter before building and sending the update document, which keeps a raced-in waiting `start` row out of the rewrite path instead of mutating it first.
+- Subtask 2: switched the duplicate-key retry branch onto the same guarded rewrite helper, so a raced insert that falls back to waiting-row reuse now shares the same no-rewrite protection as the ordinary matched-row path.
+- Subtask 3: made the reused waiting-row result path explicit in `server/src/ingest/requestQueue.ts` with a dedicated helper that always returns `updatedExisting: false` and preserves the original waiting-row metadata instead of relying on incidental branching.
+- Subtask 4: made the allowed waiting-row rewrite result path explicit with a dedicated helper that still reports `updatedExisting: true`, so the guarded ordering change does not collapse valid latest-settings-wins updates into plain reuse.
+- Subtask 5: added a dedicated ordinary-path race proof in `server/src/test/unit/ingest-request-queue.test.ts` that starts with no matched waiting row, exercises the guarded `findOneAndUpdate(...)` path for a later `reembed`, and proves the raced-in waiting `start` row still comes back unchanged with `updatedExisting: false`.
+- Subtask 6: strengthened the existing concurrent-first-submit proof into an explicit duplicate-key retry interleaving, including a guard assertion that the retry update path sees a waiting `start` row and returns `null` instead of rewriting it to `reembed`.
+- Subtask 7: split out a dedicated ordinary-path metadata proof so the preserved `requestId`, `createdAt`, `sourceSurface`, and waiting queue position stay attached to the original waiting `start` row after the guarded no-rewrite path wins the race.
+- Subtask 8: refreshed the allowed waiting-row rewrite proof title and assertions so it still claims preserved queue identity metadata together with `updatedExisting: true` after the guard-ordering refactor.
+- Subtask 9: renamed the reused normalization and duplicate tests so their titles now distinguish the non-racy existing-row case, the ordinary matched-row race, and the duplicate-key retry interleaving instead of hiding the new race-shaped assertions behind generic reuse wording.
 
 ### Task 110. Re-Validate Deferred And Recovered Re-Embed Input Before Execution
 

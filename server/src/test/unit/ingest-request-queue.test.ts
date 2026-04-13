@@ -178,7 +178,7 @@ test('queue admission rejects when Mongo is unavailable before any write starts'
   assert.equal(createMock.mock.calls.length, 0);
 });
 
-test('canonical queue-target normalization collapses start-ingest and re-embed aliases onto one queue identity without rewriting a waiting start row', async () => {
+test('canonical queue-target normalization collapses start-ingest and re-embed aliases onto one queue identity for an existing waiting start row without rewriting it', async () => {
   const canonicalStartTarget =
     normalizeCanonicalQueueTargetPath('/data/example/');
   const canonicalReembedTarget =
@@ -244,7 +244,140 @@ test('canonical queue-target normalization collapses start-ingest and re-embed a
   assert.equal(waitingUpdateMock.mock.calls.length, 0);
 });
 
-test('waiting duplicate reembed reuse preserves queue identity and provenance while replacing the normalized payload', async () => {
+test('ordinary matched-row update race keeps a raced-in waiting start row as start with updatedExisting false', async () => {
+  const existing = createQueueRequest({
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:05:00.000Z'),
+  });
+
+  const waitingLookupMock = mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: { queueState?: string | { $in?: string[] } }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => null,
+          }),
+        };
+      }
+
+      return {
+        sort: () => ({
+          exec: async () => existing,
+        }),
+      };
+    },
+  );
+  const waitingUpdateMock = mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    (
+      filter: Record<string, unknown>,
+      update: { $set: Record<string, unknown> },
+    ) => {
+      assert.deepEqual(filter, {
+        canonicalTargetPath: '/data/example',
+        queueState: 'waiting',
+        operation: 'reembed',
+      });
+      assert.deepEqual(update, {
+        $set: {
+          operation: 'reembed',
+          requestPayload: {
+            model: 'embed-race',
+            embeddingProvider: 'openai',
+            embeddingModel: 'embed-race',
+          },
+        },
+      });
+
+      return {
+        exec: async () => null,
+      };
+    },
+  );
+  mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
+    exec: async () => 0,
+  }));
+
+  const result = await enqueueOrReuseIngestRequest(
+    buildInput({
+      operation: 'reembed',
+      sourceSurface: 'rest/ingest/reembed',
+      requestPayload: {
+        model: 'embed-race',
+        embeddingProvider: 'openai',
+        embeddingModel: 'embed-race',
+      },
+    }),
+  );
+
+  assert.equal(result.requestId, existing._id.toString());
+  assert.equal(result.queueRequest.operation, 'start');
+  assert.equal(result.updatedExisting, false);
+  assert.equal(waitingLookupMock.mock.calls.length, 2);
+  assert.equal(waitingUpdateMock.mock.calls.length, 1);
+});
+
+test('ordinary matched-row update race preserves queue identity metadata on the original waiting start row', async () => {
+  const createdAt = new Date('2026-01-01T00:00:00.000Z');
+  const existing = createQueueRequest({
+    createdAt,
+    updatedAt: new Date('2026-01-01T00:05:00.000Z'),
+    sourceSurface: 'rest/ingest/start',
+  });
+
+  mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: { queueState?: string | { $in?: string[] } }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => null,
+          }),
+        };
+      }
+
+      return {
+        sort: () => ({
+          exec: async () => existing,
+        }),
+      };
+    },
+  );
+  mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
+    exec: async () => null,
+  }));
+  mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
+    exec: async () => 2,
+  }));
+
+  const result = await enqueueOrReuseIngestRequest(
+    buildInput({
+      operation: 'reembed',
+      sourceSurface: 'rest/ingest/reembed',
+      requestPayload: {
+        model: 'embed-race',
+        embeddingProvider: 'openai',
+        embeddingModel: 'embed-race',
+      },
+    }),
+  );
+
+  assert.equal(result.requestId, existing._id.toString());
+  assert.equal(result.queuePosition, 3);
+  assert.equal(result.updatedExisting, false);
+  assert.equal(
+    result.queueRequest.createdAt.toISOString(),
+    createdAt.toISOString(),
+  );
+  assert.equal(result.queueRequest.sourceSurface, 'rest/ingest/start');
+  assert.deepEqual(result.queueRequest.requestPayload, existing.requestPayload);
+});
+
+test('allowed waiting-row rewrite preserves queue identity metadata and reports updatedExisting true', async () => {
   const createdAt = new Date('2026-01-01T00:00:00.000Z');
   const updatedAt = new Date('2026-01-01T00:10:00.000Z');
   const existing = createQueueRequest({
@@ -339,11 +472,12 @@ test('waiting duplicate reembed reuse preserves queue identity and provenance wh
   assert.equal(waitingUpdateMock.mock.calls.length, 1);
 });
 
-test('concurrent first-submit requests collapse onto one waiting queue row', async () => {
+test('duplicate-key retry interleaving preserves a waiting start row and returns updatedExisting false for a later reembed submit', async () => {
   const created = createQueueRequest();
   let waitingRequest: IngestQueueRequest | null = null;
   let waitingLookupCount = 0;
   let createCallCount = 0;
+  let guardedRetryUpdateCount = 0;
   let releaseFirstCreate: (() => void) | null = null;
   const firstCreateGate = new Promise<void>((resolve) => {
     releaseFirstCreate = resolve;
@@ -362,6 +496,11 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
 
       waitingLookupCount += 1;
       if (!waitingRequest) {
+        return { exec: async () => null };
+      }
+
+      if (filter.operation === 'reembed' && waitingRequest.operation === 'start') {
+        guardedRetryUpdateCount += 1;
         return { exec: async () => null };
       }
 
@@ -452,6 +591,8 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
   assert.equal(firstResult.updatedExisting, false);
   assert.equal(secondResult.updatedExisting, false);
   assert.equal(secondResult.queuePosition, 1);
+  assert.equal(guardedRetryUpdateCount, 1);
+  assert.equal(secondResult.queueRequest.operation, 'start');
   assert.equal(secondResult.queueRequest.sourceSurface, 'rest/ingest/start');
   assert.deepEqual(secondResult.queueRequest.requestPayload, {
     model: 'embed-first',

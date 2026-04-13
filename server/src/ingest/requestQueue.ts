@@ -107,6 +107,28 @@ function buildQueueResult(params: {
   };
 }
 
+async function buildReusedWaitingQueueResult(
+  queueRequest: IngestQueueRequest,
+): Promise<EnqueueIngestRequestResult> {
+  return buildQueueResult({
+    queueRequest,
+    queuePosition: await countOlderWaitingRequests(queueRequest),
+    reusedExisting: true,
+    updatedExisting: false,
+  });
+}
+
+async function buildUpdatedWaitingQueueResult(
+  queueRequest: IngestQueueRequest,
+): Promise<EnqueueIngestRequestResult> {
+  return buildQueueResult({
+    queueRequest,
+    queuePosition: await countOlderWaitingRequests(queueRequest),
+    reusedExisting: true,
+    updatedExisting: true,
+  });
+}
+
 async function findLiveQueueRequestForTarget(
   canonicalTargetPath: string,
 ): Promise<IngestQueueRequest | null> {
@@ -139,6 +161,42 @@ function shouldRewriteWaitingRequest(
   return true;
 }
 
+function buildRewriteableWaitingRequestFilter(
+  input: EnqueueIngestRequestInput,
+): Record<string, unknown> {
+  if (input.operation === 'reembed') {
+    return {
+      canonicalTargetPath: input.canonicalTargetPath,
+      queueState: 'waiting',
+      operation: 'reembed',
+    };
+  }
+
+  return {
+    canonicalTargetPath: input.canonicalTargetPath,
+    queueState: 'waiting',
+  };
+}
+
+function buildWaitingRequestUpdate(input: EnqueueIngestRequestInput) {
+  return {
+    $set: {
+      operation: input.operation,
+      requestPayload: input.requestPayload,
+    },
+  };
+}
+
+async function rewriteWaitingQueueRequestIfAllowed(
+  input: EnqueueIngestRequestInput,
+): Promise<IngestQueueRequest | null> {
+  const filter = buildRewriteableWaitingRequestFilter(input);
+  const update = buildWaitingRequestUpdate(input);
+  return IngestQueueRequestModel.findOneAndUpdate(filter, update, {
+    new: true,
+  }).exec();
+}
+
 export async function enqueueOrReuseIngestRequest(
   input: EnqueueIngestRequestInput,
 ): Promise<EnqueueIngestRequestResult> {
@@ -154,45 +212,13 @@ export async function enqueueOrReuseIngestRequest(
     existingWaitingRequest &&
     !shouldRewriteWaitingRequest(existingWaitingRequest, input)
   ) {
-    return buildQueueResult({
-      queueRequest: existingWaitingRequest,
-      queuePosition: await countOlderWaitingRequests(existingWaitingRequest),
-      reusedExisting: true,
-      updatedExisting: false,
-    });
+    return buildReusedWaitingQueueResult(existingWaitingRequest);
   }
 
-  const waitingRequest = await IngestQueueRequestModel.findOneAndUpdate(
-    {
-      canonicalTargetPath: input.canonicalTargetPath,
-      queueState: 'waiting',
-    },
-    {
-      $set: {
-        operation: input.operation,
-        requestPayload: input.requestPayload,
-      },
-    },
-    {
-      new: true,
-    },
-  ).exec();
+  const waitingRequest = await rewriteWaitingQueueRequestIfAllowed(input);
 
   if (waitingRequest) {
-    if (!shouldRewriteWaitingRequest(waitingRequest, input)) {
-      return buildQueueResult({
-        queueRequest: waitingRequest,
-        queuePosition: await countOlderWaitingRequests(waitingRequest),
-        reusedExisting: true,
-        updatedExisting: false,
-      });
-    }
-    return buildQueueResult({
-      queueRequest: waitingRequest,
-      queuePosition: await countOlderWaitingRequests(waitingRequest),
-      reusedExisting: true,
-      updatedExisting: true,
-    });
+    return buildUpdatedWaitingQueueResult(waitingRequest);
   }
 
   const liveRequest = await findLiveQueueRequestForTarget(
@@ -234,39 +260,13 @@ export async function enqueueOrReuseIngestRequest(
       racedExistingWaitingRequest &&
       !shouldRewriteWaitingRequest(racedExistingWaitingRequest, input)
     ) {
-      return buildQueueResult({
-        queueRequest: racedExistingWaitingRequest,
-        queuePosition: await countOlderWaitingRequests(
-          racedExistingWaitingRequest,
-        ),
-        reusedExisting: true,
-        updatedExisting: false,
-      });
+      return buildReusedWaitingQueueResult(racedExistingWaitingRequest);
     }
 
-    const racedWaitingRequest = await IngestQueueRequestModel.findOneAndUpdate(
-      {
-        canonicalTargetPath: input.canonicalTargetPath,
-        queueState: 'waiting',
-      },
-      {
-        $set: {
-          operation: input.operation,
-          requestPayload: input.requestPayload,
-        },
-      },
-      {
-        new: true,
-      },
-    ).exec();
+    const racedWaitingRequest = await rewriteWaitingQueueRequestIfAllowed(input);
 
     if (racedWaitingRequest) {
-      return buildQueueResult({
-        queueRequest: racedWaitingRequest,
-        queuePosition: await countOlderWaitingRequests(racedWaitingRequest),
-        reusedExisting: true,
-        updatedExisting: true,
-      });
+      return buildUpdatedWaitingQueueResult(racedWaitingRequest);
     }
 
     const racedLiveRequest = await findLiveQueueRequestForTarget(

@@ -8966,9 +8966,9 @@ This task restores the current pass durable review artifacts that Task 115 expec
 
 #### Testing
 
-1. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md && test -f codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md` and confirm both durable review artifacts now exist on disk.
-2. [ ] Run `rg -n '0000055-20260413T080058Z-1eb771da|0000055' codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md` and confirm both files identify the current story and review pass.
-3. [ ] Separate git-ignore, git-status visibility, build, automated test, compose-build, and supported-runtime smoke proof is not applicable here because this task only restores the missing durable review artifacts; Task 115 owns the follow-on git-visibility proof and Task 117 owns the broader wrapper and runtime rerun after the review-fix set lands.
+1. [x] Run `test -f codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md && test -f codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md` and confirm both durable review artifacts now exist on disk.
+2. [x] Run `rg -n '0000055-20260413T080058Z-1eb771da|0000055' codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md` and confirm both files identify the current story and review pass.
+3. [x] Separate git-ignore, git-status visibility, build, automated test, compose-build, and supported-runtime smoke proof is not applicable here because this task only restores the missing durable review artifacts; Task 115 owns the follow-on git-visibility proof and Task 117 owns the broader wrapper and runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
@@ -8977,6 +8977,9 @@ This task restores the current pass durable review artifacts that Task 115 expec
 - Regenerated `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md` from the canonical plan's recorded `Review Pass 0000055-20260413T080058Z-1eb771da` section plus fresh branch and scope reads after confirming no recoverable copy of this exact pass-id artifact remained on current disk or in reachable history.
 - Regenerated `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md` from the same current-pass review summary and task chain so the durable findings artifact again exists at the exact path Task 115 and Task 117 expect to consume.
 - Verified by direct content read plus `rg` that both regenerated files now identify Story `0000055` and review pass `0000055-20260413T080058Z-1eb771da`; no recoverable source copy existed, so both artifacts were regenerated from the current on-disk review record rather than restored from prior files.
+- Testing 1 passed via `test -f codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md && test -f codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`; both durable review artifacts now exist at the exact Task 114 paths on current disk.
+- Testing 2 passed via `rg -n '0000055-20260413T080058Z-1eb771da|0000055' codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`; both files expose the required story and review-pass identifiers directly in their metadata and durable-artifact notes.
+- Testing 3 is now marked complete as not applicable because Task 114 only restores the missing durable review artifacts; Task 115 owns the follow-on git-ignore and `git status` visibility proof, and Task 117 owns the broader wrapper and runtime reruns.
 
 ### Task 115. Make Current Review Artifacts Naturally Commit-Visible
 

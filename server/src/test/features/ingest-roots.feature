@@ -28,13 +28,13 @@ Feature: Ingest roots listing
     Then ingest manage roots count is 1
     And ingest manage roots first entry has canonical and alias lock parity
 
-  Scenario: synthesizes a queued row with a stable canonical id immediately for a brand-new queued root
+  Scenario: brand-new queued roots expose canonical repository identity immediately
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has waiting request for "/data/queued-root"
     When I GET ingest manage roots
     Then ingest manage roots count is 1
-    And ingest manage roots first id is "queued-root"
+    And ingest manage roots first id is "/data/queued-root"
     And ingest manage roots first status is "ingesting"
     And ingest manage roots first request id is present
     And ingest manage roots first run id is null
@@ -49,14 +49,14 @@ Feature: Ingest roots listing
     Then ingest manage roots count is 1
     And ingest manage roots first queue state is "cleanup-blocked"
 
-  Scenario: existing roots keep one canonical queued row id while fresh waiting metadata updates in place
+  Scenario: queued roots keep canonical repository identity while fresh waiting metadata updates in place
     Given ingest manage chroma stub is empty
     And ingest manage root metadata exists for "/data/queued-root" with legacy model "stale-model"
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has waiting request for "/data/queued-root" named "legacy-repo" with provider "openai" model "fresh-model"
     When I GET ingest manage roots
     Then ingest manage roots count is 1
-    And ingest manage roots entry for "/data/queued-root" has id "legacy-repo"
+    And ingest manage roots entry for "/data/queued-root" has canonical id "/data/queued-root"
     And ingest manage roots entry for "/data/queued-root" has name "legacy-repo"
     And ingest manage roots entry for "/data/queued-root" has request id present
     And ingest manage roots entry for "/data/queued-root" has run id null
@@ -64,3 +64,14 @@ Feature: Ingest roots listing
     And ingest manage roots entry for "/data/queued-root" has queue position 1
     And ingest manage roots first embedding provider is "openai"
     And ingest manage roots first model is "fresh-model"
+
+  Scenario: resumed roots keep canonical repository identity instead of display-derived fallback
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/queued-root" with legacy model "stale-model"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has running request for "/data/queued-root" with run id "resumed-run-1"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/queued-root" keeps canonical id "/data/queued-root" when resumed
+    And ingest manage roots entry for "/data/queued-root" has run id "resumed-run-1"
+    And ingest manage roots entry for "/data/queued-root" has queue state "running"

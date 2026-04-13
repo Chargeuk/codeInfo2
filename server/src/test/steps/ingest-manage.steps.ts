@@ -372,6 +372,22 @@ Then(
 );
 
 Then(
+  'ingest manage roots entry for {string} has canonical id {string}',
+  (rootPath: string, expectedId: string) => {
+    const root = findRootByPath(rootPath) as { id?: string };
+    assert.equal(root.id, expectedId);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} keeps canonical id {string} when resumed',
+  (rootPath: string, expectedId: string) => {
+    const root = findRootByPath(rootPath) as { id?: string };
+    assert.equal(root.id, expectedId);
+  },
+);
+
+Then(
   'ingest manage roots entry for {string} has name {string}',
   (rootPath: string, expectedName: string) => {
     const root = findRootByPath(rootPath);
@@ -392,6 +408,14 @@ Then(
   (rootPath: string) => {
     const root = findRootByPath(rootPath);
     assert.equal(root.runId, null);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has run id {string}',
+  (rootPath: string, expectedRunId: string) => {
+    const root = findRootByPath(rootPath);
+    assert.equal(root.runId, expectedRunId);
   },
 );
 

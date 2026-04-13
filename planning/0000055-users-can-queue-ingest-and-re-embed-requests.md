@@ -8169,7 +8169,7 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `105`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` to repair the remaining stable-identity contract defect in the shared repository-list and selector seams.
 
 #### Overview
@@ -8180,7 +8180,8 @@ This task makes the shared repository-list `id` a stable repository identity ins
 
 - `server/src/lmstudio/toolService.ts` emits a stable repository identity for persisted, waiting-only, and active-only rows without deriving `id` from display `name`, path basename, or `runId`.
 - `server/src/mcpCommon/repositorySelector.ts` resolves repository rows by canonical identity ahead of any display-facing field, so selectors no longer depend on mutable row labels.
-- Shared repo-list REST, MCP, and client normalization proof shows that queued-row identity stays stable through overlays, retries, and resumed execution.
+- Shared repo-list REST, MCP, client normalization, and browser-facing repo-row proof shows that queued-row identity stays stable through overlays, retries, resumed execution, and page refresh.
+- The client-facing repo row keeps the same canonical identity when UI state transitions from queued to resumed or retried execution, and stale display-derived row identity is excluded from ongoing selection or row tracking.
 - The retained proof homes for this repair are added to `planning/0000055-pr-summary.md` before the final revalidation task begins.
 
 #### Documentation Locations
@@ -8195,39 +8196,87 @@ This task makes the shared repository-list `id` a stable repository identity ins
 - `server/src/routes/ingestRoots.ts`
 - `client/src/hooks/useIngestRoots.ts`
 - `common/src/lmstudio.ts`
+- `server/src/test/features/ingest-roots.feature`
+- `server/src/test/steps/ingest-roots.steps.ts`
 - `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
 - `server/src/test/integration/mcp-ingested-repositories.test.ts`
 - `client/src/test/useIngestRoots.test.tsx`
+- `e2e/ingest.spec.ts`
 - `planning/0000055-pr-summary.md`
 
 #### Proof Mapping
 
-- Stable repo-list `id` remains canonical across persisted, waiting-only, and active-only rows. Owners: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `common/src/lmstudio.ts`. Proof homes: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`, `client/src/test/useIngestRoots.test.tsx`.
-- Repository selector resolution no longer lets a display-derived or runtime-only `id` win ahead of canonical repository identity. Owners: `server/src/mcpCommon/repositorySelector.ts`, `server/src/lmstudio/toolService.ts`. Proof homes: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`.
-- The repaired proof homes are retained in the maintained summary before final revalidation resumes. Owners: `planning/0000055-pr-summary.md`. Proof home: Task 106 summary-refresh subtasks.
+- Persisted and waiting-only repository rows keep one canonical `id` even when display names differ. Owners: `server/src/lmstudio/toolService.ts`. Proof home: `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Active-only repository rows keep canonical repository identity and do not reuse `runId` as `id`. Owners: `server/src/lmstudio/toolService.ts`. Proof home: `server/src/test/unit/tools-ingested-repos.test.ts`.
+- Repository selector resolution chooses canonical repository identity ahead of any display-facing `repo.id` or label-based fallback. Owners: `server/src/mcpCommon/repositorySelector.ts`, `server/src/lmstudio/toolService.ts`. Proof home: `server/src/test/integration/mcp-ingested-repositories.test.ts`.
+- The standard REST `/ingest/roots` mirror preserves the repaired stable `id` when queued metadata overlays are present. Owners: `server/src/routes/ingestRoots.ts`, `common/src/lmstudio.ts`. Proof home: `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+- The standard REST `/ingest/roots` mirror preserves the repaired stable `id` when active-only synthesis is present. Owners: `server/src/routes/ingestRoots.ts`, `common/src/lmstudio.ts`. Proof home: `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+- The supported `/ingest/roots` cucumber path keeps canonical repository identity visible through queued-versus-resumed row transitions instead of reusing a display-derived fallback. Owners: `server/src/routes/ingestRoots.ts`, `server/src/test/features/ingest-roots.feature`, `server/src/test/steps/ingest-roots.steps.ts`. Proof homes: those cucumber files.
+- The MCP-facing repository list still emits the repaired stable identity seam instead of a display-derived fallback. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`. Proof home: `server/src/test/integration/mcp-ingested-repositories.test.ts`.
+- Selector resolution still prefers canonical repository identity when stale display-facing `repo.id` data and fresh canonical path data are both present on the same row. Owners: `server/src/mcpCommon/repositorySelector.ts`, `server/src/lmstudio/toolService.ts`. Proof home: `server/src/test/integration/mcp-ingested-repositories.test.ts`.
+- Client normalization keeps the repaired stable `id` for queued rows. Owners: `client/src/hooks/useIngestRoots.ts`, `common/src/lmstudio.ts`. Proof home: `client/src/test/useIngestRoots.test.tsx`.
+- Client normalization keeps the repaired stable `id` for resumed rows instead of falling back to runtime-only metadata. Owners: `client/src/hooks/useIngestRoots.ts`, `common/src/lmstudio.ts`. Proof home: `client/src/test/useIngestRoots.test.tsx`.
+- Client normalization keeps the repaired stable `id` for retried rows instead of reviving a stale display-derived fallback. Owners: `client/src/hooks/useIngestRoots.ts`, `common/src/lmstudio.ts`. Proof home: `client/src/test/useIngestRoots.test.tsx`.
+- The client-visible repo-row state machine excludes stale display-derived identity when queued state transitions into resumed or retried execution. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`. Proof homes: `client/src/test/useIngestRoots.test.tsx`, `e2e/ingest.spec.ts`.
+- The mixed-state hook and browser proofs use deterministic refetch, queue-head completion, or refresh boundaries instead of elapsed-time sleeps, and they preserve per-test cleanup isolation for queued rows. Owners: `client/src/test/useIngestRoots.test.tsx`, `e2e/ingest.spec.ts`. Proof homes: those two proof files.
+- Browser-facing repo rows keep one stable identity through queued ingest progression. Owners: `e2e/ingest.spec.ts`, `client/src/components/ingest/RootsTable.tsx`. Proof home: `e2e/ingest.spec.ts`.
+- Browser-facing repo rows keep one stable identity through re-embed or retry progression. Owners: `e2e/ingest.spec.ts`, `client/src/components/ingest/RootsTable.tsx`. Proof home: `e2e/ingest.spec.ts`.
+- Browser-facing repo rows keep that stable identity after page refresh. Owners: `e2e/ingest.spec.ts`, `client/src/components/ingest/RootsTable.tsx`. Proof home: `e2e/ingest.spec.ts`.
+- The repaired proof homes are retained in the maintained summary before final revalidation resumes. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 106 summary-refresh subtask.
 
 #### Subtasks
 
-1. [ ] Update `server/src/lmstudio/toolService.ts` so the shared repo-list identity helper derives `id` from stable canonical repository identity rather than display `name`, path basename, or `runId`. Purpose: stop mutable or runtime-only values from becoming row identity.
-2. [ ] Update the queued synthetic-row builders in `server/src/lmstudio/toolService.ts` so waiting-only rows reuse the same stable canonical `id` contract as persisted rows. Purpose: keep overlays and synthesized queue rows aligned on one identity seam.
-3. [ ] Update the active-only row synthesis in `server/src/lmstudio/toolService.ts` so `runId` remains runtime metadata and is no longer allowed to stand in as repository identity. Purpose: prevent resumed or active-only rows from leaking runtime ownership into selector identity.
-4. [ ] Update `server/src/mcpCommon/repositorySelector.ts` so canonical repository identity wins before any display-facing `repo.id` fallback. Purpose: keep selector resolution aligned with the repaired shared contract.
-5. [ ] Refresh any adjacent shared-contract comments or helper typing in `common/src/lmstudio.ts` and `server/src/routes/ingestRoots.ts` if they still describe `id` as a display-derived field. Purpose: keep the repaired contract explicit for future maintainers.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove queued, persisted, and active-only rows all keep stable canonical `id` values even when display names or `runId` differ. Purpose: make the field-role repair direct instead of relying on code inspection.
-7. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-ingested-repositories.test.ts`. Description: prove the MCP-facing repository-list contract and selector behavior still resolve the repaired stable identity seam instead of a display-derived fallback. Purpose: keep server emitters and selector consumers aligned.
-8. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the client normalization path keeps using the repaired route-level stable `id` for queued rows and resumed rows. Purpose: keep the repaired backend contract visible on the client boundary.
-9. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the owner files and retained proof homes for the repaired stable-identity contract from this task. Purpose: hand clean proof ownership into the final revalidation task.
+1. [x] Update the persisted-row identity helper in `server/src/lmstudio/toolService.ts` so saved repository rows derive `id` from stable canonical repository identity rather than display `name`, path basename, or `runId`. Purpose: stop mutable or runtime-only values from becoming row identity.
+2. [x] Update the waiting-row synthetic builders in `server/src/lmstudio/toolService.ts` so queued rows reuse the same stable canonical `id` contract as persisted rows. Purpose: keep overlays and synthesized queue rows aligned on one identity seam.
+3. [x] Update the active-only row synthesis in `server/src/lmstudio/toolService.ts` so `runId` remains runtime metadata and cannot stand in as repository identity when no persisted row exists yet. Purpose: prevent resumed or active-only rows from leaking runtime ownership into selector identity.
+4. [x] Update the `/ingest/roots` response shaping in `server/src/routes/ingestRoots.ts` if it still treats `id` as display-derived or fallback-shaped after the server identity repair. Purpose: keep the route contract explicit once the server identity seam changes.
+5. [x] Update the shared repo-list typing or comments in `common/src/lmstudio.ts` if they still describe `id` as a display-facing fallback instead of canonical repository identity. Purpose: keep the repaired cross-layer contract explicit for future maintainers.
+6. [x] Update `server/src/mcpCommon/repositorySelector.ts` so canonical repository identity wins before any display-facing `repo.id` or label-based fallback. Purpose: keep selector resolution aligned with the repaired shared contract.
+7. [x] Update the `selected` state and `TableRow key={root.path}` seam in `client/src/components/ingest/RootsTable.tsx` so queued, resumed, and retried repo rows stay keyed by canonical repository path and never revive a stale display-derived row identity. Purpose: keep the client-visible state machine aligned with the repaired shared contract without changing the existing path-owned selection model.
+8. [x] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove persisted and waiting-only rows keep the same canonical `id` even when display names differ. Purpose: make the base queued-row identity repair direct instead of relying on code inspection.
+9. [x] Test type: server unit. Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: prove active-only rows keep canonical repository identity and do not reuse `runId` as `id`. Purpose: make the runtime-only fallback removal explicit in proof.
+10. [x] Test type: server unit. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: prove the standard REST `/ingest/roots` mirror preserves the repaired stable `id` when queued overlays are present. Purpose: keep the route-level queued contract aligned with the repaired server identity seam.
+11. [x] Test type: server unit. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: prove the standard REST `/ingest/roots` mirror preserves the repaired stable `id` when active-only synthesis is present. Purpose: keep the route-level active-row contract aligned with the repaired server identity seam.
+12. [x] Test type: server cucumber. Location: `server/src/test/features/ingest-roots.feature`. Description: add or update the `/ingest/roots` scenario that proves queued-versus-resumed rows keep canonical repository identity instead of reusing a display-derived fallback. Purpose: route the backend proof through the repository’s supported cucumber path.
+13. [x] Proof type: test-maintenance. Location: `server/src/test/features/ingest-roots.feature`. Description: rename or split the affected `/ingest/roots` scenario so its title explicitly claims queued-versus-resumed canonical identity instead of a looser metadata-update invariant. Purpose: keep the cucumber scenario title aligned with its repaired assertions.
+14. [x] Test type: server cucumber. Location: `server/src/test/steps/ingest-roots.steps.ts`. Description: update the `/ingest/roots` step assertions so mixed queued and resumed rows compare canonical identity rather than display-facing fallback data. Purpose: keep the cucumber assertions honest about the repaired state transition.
+15. [x] Test type: server integration. Location: `server/src/test/integration/mcp-ingested-repositories.test.ts`. Description: prove the MCP-facing repository-list contract still emits the repaired stable identity seam instead of a display-derived fallback. Purpose: keep server emitters aligned with the shared contract.
+16. [x] Test type: server integration. Location: `server/src/test/integration/mcp-ingested-repositories.test.ts`. Description: prove selector resolution still chooses canonical repository identity ahead of any display-facing `repo.id` fallback. Purpose: keep server consumers aligned with the repaired shared contract.
+17. [x] Test type: server integration. Location: `server/src/test/integration/mcp-ingested-repositories.test.ts`. Description: prove selector resolution still prefers canonical repository identity when a stale display-facing `repo.id` and a fresh canonical path are both present on the same row. Purpose: make the stale-versus-fresh precedence rule explicit in proof.
+18. [x] Proof type: test-maintenance. Location: `server/src/test/integration/mcp-ingested-repositories.test.ts`. Description: add or retitle explicit tests so the file separately claims MCP stable-identity emission, selector precedence over display-facing `repo.id`, and stale-versus-fresh identity precedence on the same row. Purpose: keep the integration proof semantics aligned with the new invariant.
+19. [x] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the client normalization path keeps using the repaired route-level stable `id` for queued rows. Purpose: keep the repaired backend contract visible on the client boundary.
+20. [x] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the client normalization path keeps using the repaired route-level stable `id` for resumed rows instead of falling back to runtime-only metadata. Purpose: keep the resumed-row proof distinct from the queued-row proof.
+21. [x] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the client normalization path keeps using the repaired route-level stable `id` for retried rows instead of reviving a stale display-derived fallback. Purpose: keep the retry-facing proof distinct from the resumed-row proof.
+22. [x] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove queued-to-resumed UI state changes exclude stale display-derived identity from the row-tracking state used by the client hook. Purpose: make the mixed-state exclusion rule explicit in proof.
+23. [x] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove queued-to-retried UI state changes exclude stale display-derived identity from the row-tracking state used by the client hook. Purpose: make the retry-facing mixed-state exclusion rule explicit in proof.
+24. [x] Proof type: test-maintenance. Location: `client/src/test/useIngestRoots.test.tsx`. Description: add or retitle explicit tests so queued identity, resumed identity, retried identity, and stale-exclusion after refetch each have their own named invariant in the file. Purpose: keep the client proof titles aligned with the stronger mixed-state assertions.
+25. [x] Proof type: test-maintenance. Location: `client/src/test/useIngestRoots.test.tsx`. Description: update the stale-exclusion proofs to use explicit refetch or hook-update boundaries instead of arbitrary elapsed time when asserting that stale display-derived identity is no longer active. Purpose: keep the mixed-state client proofs deterministic and reviewable.
+26. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the repo-list row touched by queued ingest keeps one stable identity through queue progression instead of switching to a display-derived or runtime-only fallback. Purpose: keep the queued-ingest browser proof explicit.
+27. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the repo-list row touched by re-embed or retry keeps one stable identity through queue progression instead of switching to a display-derived or runtime-only fallback. Purpose: keep the retry-facing browser proof explicit.
+28. [x] Test type: browser e2e. Location: `e2e/ingest.spec.ts`. Description: prove the same repo-list row keeps that stable identity after page refresh. Purpose: keep the refresh-facing browser proof distinct from the queue-progression proofs.
+29. [x] Proof type: test-maintenance. Location: `e2e/ingest.spec.ts`. Description: add or retitle explicit tests so queued progression identity, retry progression identity, and refresh identity each have their own named browser invariant in the file. Purpose: keep the browser proof semantics aligned with the repaired UI invariant.
+30. [x] Proof type: test-maintenance. Location: `e2e/ingest.spec.ts`. Description: keep the queued and retry identity proofs pinned to deterministic row-state boundaries and the existing per-test cleanup path instead of arbitrary sleeps or leaked queued state. Purpose: keep the browser proof worker-safe and reviewable.
+31. [x] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the owner files and retained proof homes for the repaired stable-identity contract from this task. Purpose: hand clean proof ownership into the final revalidation task.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the stable-identity repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes with the repaired repository-list identity contract.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the selector-identity repair.
-4. [ ] Run `npm run test:summary:client` and confirm the full client wrapper still passes with the repaired route-level `id` contract.
+2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper still passes with the repaired route-level `id` contract.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes with the repaired repository-list identity contract.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the selector-identity repair.
+5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper still passes with the repaired route-level `id` contract.
+6. [ ] Run `npm run test:summary:e2e` and confirm the browser proof still shows stable queued-row identity through refresh after the repair.
+7. [ ] Normal compose smoke proof is owned by Task 108 because this task already proves the repaired seam through the repository’s server, client, cucumber, and e2e wrappers, and the reopened story-level compose chain should only be rerun once.
 
 #### Implementation notes
 
 - Added by review pass `0000055-20260412T231111Z-04540d3d` to repair the remaining plan-contract issue after Task 105 closed.
+- Subtasks 1-7: rewired the shared repo-list identity seam onto canonical repository paths in `server/src/lmstudio/toolService.ts`, left `/ingest/roots` route shaping unchanged because it already forwards `repo.id` directly once the server repair landed, documented the canonical `id` contract in `common/src/lmstudio.ts`, moved selector precedence in `server/src/mcpCommon/repositorySelector.ts` to canonical paths ahead of display-facing ids, and made the `RootsTable` path-owned selection key explicit with a helper.
+- Subtasks 8-18: rewrote the server-side proof homes so unit, route, cucumber, and MCP integration coverage now claim canonical repository identity explicitly for persisted rows, waiting overlays, active-only synthesis, and stale-versus-fresh selector precedence on the same row.
+- Subtasks 19-25: updated `client/src/hooks/useIngestRoots.ts` to prefer route `id`, then canonical path fallback ahead of display name, and refreshed `client/src/test/useIngestRoots.test.tsx` so queued, resumed, retried, and stale-exclusion proofs each use explicit refetch boundaries instead of elapsed time.
+- Subtasks 26-30: retitled the browser proofs in `e2e/ingest.spec.ts` so queued progression, retry progression, and refresh each claim one stable identity, while keeping those checks pinned to existing deterministic queue and refresh boundaries rather than sleeps.
+- Subtask 31: refreshed `planning/0000055-pr-summary.md` with the Task 106 owner files and retained proof homes so Task 108 can carry the stable-identity repair forward without rebuilding the proof inventory from scratch.
 
 ### Task 107. Deduplicate The Remaining Schema-Version Proof Literals
 
@@ -8257,20 +8306,23 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 
 #### Proof Mapping
 
-- The remaining changed proof files reuse `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating the schema-version literal. Owners: `common/src/lmstudio.ts`, `client/src/test/ingestStatus.test.tsx`, `server/src/test/integration/mcp-ingested-repositories.test.ts`. Proof homes: those two proof files plus Task 107 summary refresh.
+- `client/src/test/ingestStatus.test.tsx` reuses `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating the schema-version literal. Owners: `common/src/lmstudio.ts`, `client/src/test/ingestStatus.test.tsx`. Proof home: `client/src/test/ingestStatus.test.tsx`.
+- `server/src/test/integration/mcp-ingested-repositories.test.ts` reuses `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating the schema-version literal. Owners: `common/src/lmstudio.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`. Proof home: `server/src/test/integration/mcp-ingested-repositories.test.ts`.
 - The cleanup is retained in the maintained summary before final revalidation begins. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 107 summary-refresh subtask.
 
 #### Subtasks
 
-1. [ ] Update `client/src/test/ingestStatus.test.tsx` to import and use `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: keep the client proof file aligned to the shared contract owner.
-2. [ ] Update `server/src/test/integration/mcp-ingested-repositories.test.ts` to import and use `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: keep the server proof file aligned to the same shared contract owner.
-3. [ ] Refresh any nearby helper wording or test titles in those files if they still imply a file-local schema literal owner. Purpose: keep the changed tests semantically aligned with the shared contract.
-4. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record that the remaining schema-version proof drift was removed by reusing `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: keep the optional simplification visible in the final review handoff.
+1. [ ] Update `client/src/test/ingestStatus.test.tsx` to import `INGEST_ROOTS_SCHEMA_VERSION` from `common/src/lmstudio.ts` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: move the client proof file back onto the shared contract owner.
+2. [ ] Update the changed schema-version assertions in `client/src/test/ingestStatus.test.tsx` so they read from `INGEST_ROOTS_SCHEMA_VERSION` and no longer imply a file-local schema owner. Purpose: keep the client-side proof semantics aligned with the shared contract.
+3. [ ] Update `server/src/test/integration/mcp-ingested-repositories.test.ts` to import `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: move the server proof file back onto the same shared contract owner.
+4. [ ] Refresh the changed schema-version assertions or nearby wording in `server/src/test/integration/mcp-ingested-repositories.test.ts` so the test still claims the shared contract owner rather than a copied literal. Purpose: keep the server-side proof semantics aligned with the shared contract.
+5. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record that the remaining schema-version proof drift was removed by reusing `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: keep the optional simplification visible in the final review handoff.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit` and confirm the server-side proof suite still passes after the constant cleanup.
 2. [ ] Run `npm run test:summary:client` and confirm the client proof suite still passes after the constant cleanup.
+3. [ ] Separate build, compose, and browser smoke proof is not applicable here because this task only rewrites proof files to reuse `INGEST_ROOTS_SCHEMA_VERSION`; Task 108 owns the reopened story-level runtime validation chain.
 
 #### Implementation notes
 
@@ -8289,8 +8341,9 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 #### Task Exit Criteria
 
+- The acceptance-criteria lines for the shared repo-list identity seam and shared schema-version contract are re-read before reruns begin, so final close-out stays anchored to the reopened contract instead of only to the review summary.
 - The review evidence, findings, and blind-spot challenge for pass `0000055-20260412T231111Z-04540d3d` are re-read before reruns begin, so final close-out stays anchored to the stored review outcome.
-- Tasks 106 and 107 are `__done__`, and their exact owner files plus retained proof homes are re-read from current disk before final validation starts.
+- Tasks 106 and 107 are `__done__`, and their exact owner files plus retained proof homes are staged into the new review-pass follow-up note in `planning/0000055-pr-summary.md` before final validation starts.
 - The full server, client, vendored-shell, compose, host-network, and browser proof chain still passes on current disk after the current review-created fixes.
 - The maintained summary contains a new follow-up note for pass `0000055-20260412T231111Z-04540d3d` that cites the retained proof homes for both follow-up tasks and the final revalidation chain.
 - The durable review artifacts for this pass still exist on disk and remain cited as the adjudication record for the reopened work.
@@ -8303,6 +8356,12 @@ This final review-follow-up task revalidates Story 55 after the current review f
 - `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`
 - `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`
+- `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `server/src/test/integration/mcp-ingested-repositories.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+- `client/src/test/ingestStatus.test.tsx`
+- `common/src/lmstudio.ts`
 - `logs/test-summaries/build-server-latest.log`
 - `logs/test-summaries/build-client-latest.log`
 - `logs/test-summaries/compose-build-latest.log`
@@ -8314,28 +8373,39 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 #### Proof Mapping
 
-- The current review pass remains anchored to its stored evidence, findings, and challenge outcome before final reruns begin. Owners: the three review artifacts plus this plan. Proof homes: reread subtasks and refreshed summary note.
-- Task 106's stable-identity repair remains complete and still points at honest proof homes before final wrappers run. Owners: Task 106 owner files and retained proof homes. Proof home: Task 106 summary refresh plus the final maintained summary note.
-- Task 107's schema-version cleanup remains complete and still points at honest proof homes before final wrappers run. Owners: Task 107 owner files and retained proof homes. Proof home: Task 107 summary refresh plus the final maintained summary note.
-- The full regression chain still passes after the current review-created fixes, including server build, client build, server unit, server cucumber, client, browser, compose build, compose startup, host-network smoke, compose teardown, vendored shell harness, and final symlink sweep. Owners: wrapper scripts and current runtime surfaces named in Testing. Proof homes: the wrapper logs and retained artifacts named above plus the Testing section below.
-- The durable review artifacts for pass `0000055-20260412T231111Z-04540d3d` still exist on disk and remain the adjudication record for the reopened work. Owners: `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-*.md`. Proof homes: the on-disk existence subtasks.
+- The reopened acceptance criteria for shared repo-list identity, shared schema-version alignment, and retained browser proof are re-read before reruns begin. Owner: this plan. Proof homes: subtasks 1-3.
+- The current review pass remains anchored to its stored evidence, findings, and blind-spot challenge before final reruns begin. Owners: `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-*.md`. Proof homes: subtasks 4-6.
+- Task 106's stable-identity repair remains complete and still points at exact direct proof files plus retained runtime and browser proof homes before final wrappers run. Owners: Task 106 owner files and retained proof homes. Proof homes: subtasks 8-9 plus the refreshed summary note.
+- Task 107's schema-version cleanup remains complete and still points at exact direct proof homes before final wrappers run. Owners: Task 107 owner files and retained proof homes. Proof homes: subtask 10 plus the refreshed summary note.
+- The maintained summary contains the retained proof homes for the Task 106 stable-identity repair. Owner: `planning/0000055-pr-summary.md`. Proof home: subtask 11.
+- The maintained summary contains the retained proof homes for the Task 107 schema-version cleanup. Owner: `planning/0000055-pr-summary.md`. Proof home: subtask 12.
+- The maintained summary records the automated wrapper validation chain for server build, client build, server unit, server cucumber, client, and browser proof. Owners: wrapper scripts and current runtime surfaces named in Testing. Proof homes: subtask 13 plus Testing items 1-6.
+- The maintained summary records the normal runtime smoke chain for compose build, compose startup, host-network validation, compose teardown, vendored shell validation, and final symlink verification. Owners: wrapper scripts, compose runtime, and vendored Bats fixture paths named in Testing. Proof homes: subtask 14 plus Testing items 7-12.
+- The final browser rerun leaves retained log and screenshot proof homes that remain inspectable after the wrapper pass. Owners: `logs/test-summaries/e2e-tests-latest.log`, `artifacts/story-0000055-screenshots`. Proof homes: subtasks 15-16.
+- The durable review artifacts for pass `0000055-20260412T231111Z-04540d3d` still exist on disk and remain the adjudication record for the reopened work. Owners: `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-*.md`. Proof homes: subtasks 17-19.
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`. Purpose: anchor the final rerun to the stored review evidence for this pass.
-2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`. Purpose: keep final validation anchored to the exact reopened findings rather than a looser summary.
-3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`. Purpose: carry forward the residual weak-proof notes honestly into final close-out.
-4. [ ] Re-read completed Task 106 and write down its exact owner files, wrapper logs, and direct proof homes before any final reruns begin. Purpose: keep the stable-identity repair explicit in final validation.
-5. [ ] Re-read completed Task 107 and write down its exact owner files and direct proof homes before any final reruns begin. Purpose: keep the schema-version cleanup explicit in final validation.
-6. [ ] Re-open `planning/0000055-pr-summary.md` and mark the insertion point for a new follow-up note for review pass `0000055-20260412T231111Z-04540d3d` before any final wrapper reruns start. Purpose: ensure the summary refresh has a bounded landing spot before the rerun evidence exists.
-7. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the stable repository-identity repair from Task 106. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
-8. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the schema-version constant cleanup from Task 107. Purpose: keep that localized cleanup visible in the final adjudication record.
-9. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the full wrapper and runtime validation chain from this pass, including build, unit, cucumber, client, browser, compose, host-network, vendored shell, and symlink-sweep proof homes. Purpose: keep the final close-out narrative explicit instead of implied.
-10. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: carry forward any residual weak-proof notes from the blind-spot challenge that still remain honest after reruns. Purpose: preserve the final risk narrative instead of letting weakly proved seams disappear behind the wrapper pass.
-11. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log` and `artifacts/story-0000055-screenshots`. Description: confirm the final browser rerun still leaves an inspectable proof home for the paired frontend behavior touched by the shared repo-list seam, and refresh retained screenshot citations when that evidence changes. Purpose: keep the final UI-facing proof observable instead of reducing it to a wrapper pass or fail line.
-12. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md` still exists before final close-out. Purpose: preserve the durable evidence artifact alongside the refreshed proof chain.
-13. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md` still exists before final close-out. Purpose: preserve the durable findings artifact alongside the refreshed proof chain.
-14. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md` still exists before final close-out. Purpose: preserve the durable blind-spot challenge artifact alongside the refreshed proof chain.
+1. [ ] Re-read the Story 55 acceptance-criteria line for shared repo-list identity stability before reruns begin. Purpose: anchor final close-out to the reopened stable-identity contract.
+2. [ ] Re-read the Story 55 acceptance-criteria line for shared schema-version alignment before reruns begin. Purpose: anchor final close-out to the accepted schema-version cleanup.
+3. [ ] Re-read the Story 55 acceptance-criteria line for retained browser proof before reruns begin. Purpose: anchor final close-out to the UI-facing proof requirement instead of only to the review summary.
+4. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`. Purpose: anchor the final rerun to the stored review evidence for this pass.
+5. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`. Purpose: keep final validation anchored to the exact reopened findings rather than a looser summary.
+6. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`. Purpose: carry forward the residual weak-proof notes honestly into final close-out.
+7. [ ] Re-open `planning/0000055-pr-summary.md` and create the heading or insertion point for the new follow-up note for review pass `0000055-20260412T231111Z-04540d3d` before any final wrapper reruns start. Purpose: give the carried-forward proof inventory one explicit landing spot before new rerun evidence exists.
+8. [ ] Re-read completed Task 106 and record its exact owner files plus direct proof files inside that new follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the stable-identity repair explicit in final validation without relying on a private scratch list.
+9. [ ] Re-read completed Task 106 and record its wrapper-log and browser-artifact proof homes inside that same follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the retained runtime and browser evidence for that repair explicit in final validation.
+10. [ ] Re-read completed Task 107 and record its exact owner files and direct proof homes inside that same follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the schema-version cleanup explicit in final validation without relying on an implied side note.
+11. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the stable repository-identity repair from Task 106. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
+12. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the schema-version constant cleanup from Task 107. Purpose: keep that localized cleanup visible in the final adjudication record.
+13. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the automated wrapper validation chain from this pass, including server build, client build, server unit, server cucumber, client, and browser proof homes. Purpose: keep the automated rerun chain explicit instead of implied.
+14. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the normal runtime smoke and harness validation chain from this pass, including compose build, compose startup, host-network validation, compose teardown, vendored shell proof, and final symlink verification proof homes. Purpose: keep the runtime-facing rerun chain explicit instead of implied.
+15. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: carry forward any residual weak-proof notes from the blind-spot challenge that still remain honest after reruns. Purpose: preserve the final risk narrative instead of letting weakly proved seams disappear behind the wrapper pass.
+16. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log`. Description: confirm the final browser rerun still leaves an inspectable log proof home for the paired frontend behavior touched by the shared repo-list seam. Purpose: keep the retained browser-run evidence explicit instead of reducing it to a wrapper pass or fail line.
+17. [ ] Proof type: retained browser artifact. Location: `artifacts/story-0000055-screenshots`. Description: refresh retained screenshot citations when the final browser evidence changes. Purpose: keep the inspectable screenshot proof explicit alongside the browser log.
+18. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md` still exists before final close-out. Purpose: preserve the durable evidence artifact alongside the refreshed proof chain.
+19. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md` still exists before final close-out. Purpose: preserve the durable findings artifact alongside the refreshed proof chain.
+20. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md` still exists before final close-out. Purpose: preserve the durable blind-spot challenge artifact alongside the refreshed proof chain.
 
 #### Testing
 

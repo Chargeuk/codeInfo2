@@ -49,15 +49,6 @@ export async function resolveRepositorySelector(
   const listRepos = deps.listIngestedRepositories ?? listIngestedRepositories;
   const { repos } = await listRepos();
 
-  const normalizedId = normalizeRepositoryId(input);
-  const byId = selectLatestRepo(
-    repos,
-    (repo) => normalizeRepositoryId(repo.id) === normalizedId,
-  );
-  if (byId) {
-    return byId;
-  }
-
   const normalizedPath = normalizeCanonicalQueueTargetPath(input);
   const byContainerPath = selectLatestRepo(
     repos,
@@ -68,9 +59,18 @@ export async function resolveRepositorySelector(
     return byContainerPath;
   }
 
-  return selectLatestRepo(
+  const byHostPath = selectLatestRepo(
     repos,
     (repo) =>
       normalizeCanonicalQueueTargetPath(repo.hostPath) === normalizedPath,
+  );
+  if (byHostPath) {
+    return byHostPath;
+  }
+
+  const normalizedId = normalizeRepositoryId(input);
+  return selectLatestRepo(
+    repos,
+    (repo) => normalizeRepositoryId(repo.id) === normalizedId,
   );
 }

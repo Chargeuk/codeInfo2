@@ -671,7 +671,7 @@ test.describe.serial('Ingest flows', () => {
     });
   });
 
-  test('re-embed updates row and stays locked', async ({ page }) => {
+  test('re-embed rows keep one stable identity through retry progression and stay locked', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
@@ -765,7 +765,7 @@ test.describe.serial('Ingest flows', () => {
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
-  test('queued row stays singular when refresh restores the canonical route-level id', async ({
+  test('queued ingest rows keep one stable canonical identity through refresh', async ({
     page,
   }) => {
     let rootsRequestCount = 0;
@@ -778,7 +778,9 @@ test.describe.serial('Ingest flows', () => {
         body: JSON.stringify({
           roots: [
             {
-              ...(rootsRequestCount > 1 ? { id: 'stable-repo-id' } : {}),
+              ...(rootsRequestCount > 1
+                ? { id: '/data/stable-repo' }
+                : { id: 'display-derived-stale-id' }),
               requestId: 'queue-request-fresh',
               runId: null,
               name: 'stable-repo',
@@ -839,7 +841,7 @@ test.describe.serial('Ingest flows', () => {
     await expect(page.getByText('stale-persisted-model')).toHaveCount(0);
   });
 
-  test('queued row picks up a run owner after the current queue head finishes', async ({
+  test('queued ingest rows keep one stable identity while queue ownership resumes after the current head finishes', async ({
     page,
   }) => {
     const activeName = `${fixtureName}-startup-head`;

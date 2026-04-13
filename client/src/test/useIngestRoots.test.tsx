@@ -285,7 +285,7 @@ describe('useIngestRoots', () => {
     });
   });
 
-  it('keeps legacy fallback identity for rows that still do not provide id', async () => {
+  it('keeps canonical path fallback identity for legacy rows that still do not provide id', async () => {
     mockRootsResponse({
       roots: [
         {
@@ -302,13 +302,13 @@ describe('useIngestRoots', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.roots[0]).toMatchObject({
-      id: 'legacy-name',
+      id: '/legacy-path',
       name: 'legacy-name',
       path: '/legacy-path',
     });
   });
 
-  it('replaces stale fallback identity with the restored route-level id after a refetch', async () => {
+  it('queued rows keep canonical path identity even before the repaired route-level id is restored on refetch', async () => {
     mockRootsResponse({
       roots: [
         {
@@ -329,7 +329,7 @@ describe('useIngestRoots', () => {
     const { result } = renderHook(() => useIngestRoots());
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.roots).toHaveLength(1);
-    expect(result.current.roots[0]?.id).toBe('stable-repo');
+    expect(result.current.roots[0]?.id).toBe('/stable-repo');
 
     mockRootsResponse({
       roots: [
@@ -360,6 +360,218 @@ describe('useIngestRoots', () => {
       name: 'stable-repo',
       path: '/stable-repo',
     });
+  });
+
+  it('resumed rows keep canonical route-level identity instead of reusing runtime-only runId metadata', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-5',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.roots[0]?.id).toBe('/stable-repo');
+
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-5',
+          runId: 'run-queued-5',
+          queueState: 'running',
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'scanning',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    await result.current.refetch();
+
+    await waitFor(() =>
+      expect(result.current.roots[0]).toMatchObject({
+        id: '/stable-repo',
+        runId: 'run-queued-5',
+        queueState: 'running',
+        phase: 'scanning',
+      }),
+    );
+  });
+
+  it('retried rows keep canonical route-level identity instead of reviving stale display-derived fallback data', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-6',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-7',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'stale-display-name',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    await result.current.refetch();
+
+    await waitFor(() =>
+      expect(result.current.roots[0]).toMatchObject({
+        id: '/stable-repo',
+        requestId: 'queue-request-7',
+        name: 'stale-display-name',
+        path: '/stable-repo',
+      }),
+    );
+  });
+
+  it('queued-to-resumed refetches exclude stale display-derived identity from client row tracking', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: 'display-derived-stale-id',
+          requestId: 'queue-request-8',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.roots[0]?.id).toBe('display-derived-stale-id');
+
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-8',
+          runId: 'run-queued-8',
+          queueState: 'running',
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'scanning',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    await result.current.refetch();
+
+    await waitFor(() =>
+      expect(result.current.roots).toMatchObject([
+        {
+          id: '/stable-repo',
+          runId: 'run-queued-8',
+          path: '/stable-repo',
+        },
+      ]),
+    );
+    expect(result.current.roots).toHaveLength(1);
+  });
+
+  it('queued-to-retried refetches exclude stale display-derived identity from client row tracking', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: 'display-derived-retry-id',
+          requestId: 'queue-request-9',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-10',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    await result.current.refetch();
+
+    await waitFor(() =>
+      expect(result.current.roots).toMatchObject([
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-10',
+          path: '/stable-repo',
+        },
+      ]),
+    );
+    expect(result.current.roots).toHaveLength(1);
   });
 
   it('accepts and exposes the shared ingest roots schemaVersion constant', async () => {

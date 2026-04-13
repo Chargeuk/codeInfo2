@@ -137,9 +137,9 @@ function normalizeIdentityCandidate(value: unknown): string | undefined {
 function resolveRootIdentity(entry: Record<string, unknown>): string {
   return (
     normalizeIdentityCandidate(entry.id) ??
-    normalizeIdentityCandidate(entry.name) ??
     normalizeIdentityCandidate(entry.path) ??
     normalizeIdentityCandidate(entry.containerPath) ??
+    normalizeIdentityCandidate(entry.name) ??
     ''
   );
 }

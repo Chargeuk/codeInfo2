@@ -78,6 +78,9 @@ export type ChatModelsResponse = {
 export const INGEST_ROOTS_SCHEMA_VERSION =
   '0000055-queued-repo-list-v1' as const;
 
+// Shared repo-list rows use canonical repository identity in `id`.
+// Display-facing labels stay in `name` so row identity remains stable.
+
 export type ExternalIngestStatus =
   | 'ingesting'
   | 'completed'

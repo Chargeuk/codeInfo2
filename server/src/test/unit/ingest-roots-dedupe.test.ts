@@ -270,7 +270,7 @@ test('GET /ingest/roots keeps provider-qualified identity when model ids collide
   assert.equal(lmstudioRoot?.modelId, 'shared-id');
 });
 
-test('GET /ingest/roots preserves queued row id alongside waiting queue metadata on the standard REST mirror', async () => {
+test('GET /ingest/roots preserves canonical queued repository identity alongside waiting queue metadata on the standard REST mirror', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -313,7 +313,7 @@ test('GET /ingest/roots preserves queued row id alongside waiting queue metadata
   assert.equal(response.status, 200);
   assert.equal(response.body.roots.length, 1);
   const root = response.body.roots[0];
-  assert.equal(root.id, 'queued-repo');
+  assert.equal(root.id, '/data/queued-repo');
   assert.equal(root.requestId, '000000000000000000000055');
   assert.equal(root.runId, null);
   assert.equal(root.queueState, 'waiting');
@@ -903,7 +903,7 @@ test('GET /ingest/roots keeps one authoritative row for mixed-path recovered ree
   });
 });
 
-test('GET /ingest/roots synthesizes active root when persisted metadata is missing', async () => {
+test('GET /ingest/roots synthesizes active root with canonical repository identity when persisted metadata is missing', async () => {
   __setStatusForTest('active-synth-run', {
     runId: 'active-synth-run',
     state: 'scanning',
@@ -930,6 +930,7 @@ test('GET /ingest/roots synthesizes active root when persisted metadata is missi
   assert.equal(response.body.roots[0].status, 'ingesting');
   assert.equal(response.body.roots[0].phase, 'scanning');
   assert.equal(response.body.roots[0].runId, 'active-synth-run');
+  assert.equal(response.body.roots[0].id, '/data/only-active');
   assert.equal(response.body.roots[0].path, '/data/only-active');
 });
 

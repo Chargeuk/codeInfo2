@@ -99,6 +99,10 @@ function getRootEmbeddingDisplay(root: IngestRoot) {
   return model ?? '—';
 }
 
+function getRootSelectionKey(root: IngestRoot) {
+  return root.path;
+}
+
 export default function RootsTable({
   roots,
   activeRunId,
@@ -137,7 +141,7 @@ export default function RootsTable({
       new Set(
         roots
           .filter((root) => !blocksSharedSelection(root, activeRunId))
-          .map((root) => root.path),
+          .map((root) => getRootSelectionKey(root)),
       ),
     [activeRunId, roots],
   );
@@ -475,7 +479,8 @@ export default function RootsTable({
                 rowDisabled || blocksSharedSelection(root, activeRunId);
               const removeDisabled =
                 rowDisabled || hasActiveRun || blocksUserRemove(root);
-              const isSelected = selected.has(root.path);
+              const rowKey = getRootSelectionKey(root);
+              const isSelected = selected.has(rowKey);
               const chipColor = statusColor[root.status] ?? 'default';
               const phase =
                 root.status === 'ingesting' ? root.phase : undefined;
@@ -492,14 +497,14 @@ export default function RootsTable({
                 root.lastError ?? root.error?.message ?? root.error?.details;
               const astCounts = root.ast;
               return (
-                <TableRow key={root.path} hover selected={isSelected}>
+                <TableRow key={rowKey} hover selected={isSelected}>
                   <TableCell padding="checkbox">
                     <Checkbox
                       checked={isSelected}
                       disabled={
                         busy || blocksSharedSelection(root, activeRunId)
                       }
-                      onChange={() => toggle(root.path)}
+                      onChange={() => toggle(rowKey)}
                       inputProps={{ 'aria-label': `Select ${root.name}` }}
                     />
                   </TableCell>

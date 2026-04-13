@@ -237,13 +237,17 @@ export function validateVectorSearch(body: {
   return { query, repository, limit };
 }
 
-function buildRepoId(
+function buildCanonicalRepoId(repoPath: string): string {
+  return buildRepoKey(mapIngestPath(repoPath).containerPath);
+}
+
+function buildRepoDisplayName(
   name: string | null,
-  containerPath: string,
+  repoPath: string,
   fallback: string,
 ): string {
   if (name?.trim()) return name.trim();
-  const normalized = containerPath.replace(/\\/g, '/');
+  const normalized = mapIngestPath(repoPath).containerPath.replace(/\\/g, '/');
   const base = path.posix.basename(normalized);
   return base || fallback;
 }
@@ -665,7 +669,7 @@ function buildRepoFromQueueRequest(params: {
   };
 
   return {
-    id: buildRepoId(name, mapped.containerPath, name),
+    id: buildCanonicalRepoId(mapped.containerPath),
     name,
     description:
       typeof payload.description === 'string' ? payload.description : null,
@@ -1104,16 +1108,12 @@ export async function listIngestedRepositories(
       const name =
         typeof m.name === 'string' && m.name.trim().length > 0
           ? m.name.trim()
-          : buildRepoId(
+          : buildRepoDisplayName(
               typeof m.name === 'string' ? m.name : null,
               rawPath,
-              candidate.id,
+              candidate.canonicalPath,
             );
-      const repoId = buildRepoId(
-        typeof m.name === 'string' ? m.name : null,
-        rawPath,
-        candidate.id,
-      );
+      const repoId = candidate.canonicalPath;
       const repoLock = resolveRepoLock(
         m,
         lock
@@ -1278,16 +1278,12 @@ export async function listIngestedRepositories(
           },
         )
       : resolveRepoLock({}, null);
-    const synthesizedId = buildRepoId(
-      active.name ?? null,
-      mapped.containerPath,
-      active.runId,
-    );
+    const synthesizedId = buildCanonicalRepoId(mapped.containerPath);
     const synthesized: RepoEntry = {
       id: synthesizedId,
       name:
         active.name ??
-        (path.posix.basename(mapped.containerPath) || synthesizedId),
+        buildRepoDisplayName(null, mapped.containerPath, synthesizedId),
       description: active.description ?? null,
       containerPath: mapped.containerPath,
       hostPath: mapped.hostPath,
@@ -1405,11 +1401,7 @@ export async function vectorSearch(
   const repoMeta = metadatas.map((meta, idx) => {
     const m = (meta ?? {}) as Record<string, unknown>;
     const rootPath = typeof m.root === 'string' ? m.root : '';
-    const repoId = buildRepoId(
-      typeof m.name === 'string' ? m.name : null,
-      rootPath,
-      typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
-    );
+    const repoId = buildCanonicalRepoId(rootPath);
     return {
       id: repoId,
       root: rootPath,

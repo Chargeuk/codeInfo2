@@ -116,7 +116,7 @@ test('maps repo metadata and host path with locked model id', async () => {
   assert.equal(res.body.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
-  assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.id, '/data/repo-one');
   assert.equal(repo.name, 'repo-one');
   assert.equal(repo.containerPath, '/data/repo-one');
   assert.equal(repo.hostPath, '/host/base/repo-one');
@@ -133,7 +133,7 @@ test('maps repo metadata and host path with locked model id', async () => {
   assert.equal(repo.phase, undefined);
 });
 
-test('queued start rows keep stable queued row ids alongside request metadata before first ingest completes', async () => {
+test('queued start rows keep canonical repository identity alongside request metadata before first ingest completes', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -174,7 +174,7 @@ test('queued start rows keep stable queued row ids alongside request metadata be
 
   assert.equal(res.status, 200);
   assert.equal(res.body.repos.length, 1);
-  assert.equal(res.body.repos[0].id, 'queued-repo');
+  assert.equal(res.body.repos[0].id, '/data/queued-repo');
   assert.equal(res.body.repos[0].requestId, '000000000000000000000057');
   assert.equal(res.body.repos[0].runId, null);
   assert.equal(res.body.repos[0].queueState, 'waiting');
@@ -222,10 +222,11 @@ test('preserves provider-qualified identity when providers share model ids', asy
 
   assert.equal(res.status, 200);
   const openaiRepo = res.body.repos.find(
-    (repo: { id: string }) => repo.id === 'openai-repo',
+    (repo: { containerPath: string }) => repo.containerPath === '/data/openai-repo',
   );
   const lmstudioRepo = res.body.repos.find(
-    (repo: { id: string }) => repo.id === 'lmstudio-repo',
+    (repo: { containerPath: string }) =>
+      repo.containerPath === '/data/lmstudio-repo',
   );
   assert.equal(openaiRepo.embeddingProvider, 'openai');
   assert.equal(openaiRepo.embeddingModel, 'shared-id');
@@ -252,13 +253,15 @@ test('maps queued/scanning/embedding states to ingesting with matching phase', a
 
   assert.equal(res.status, 200);
   const queued = res.body.repos.find(
-    (repo: { id: string }) => repo.id === 'queued',
+    (repo: { containerPath: string }) => repo.containerPath === '/data/queued',
   );
   const scanning = res.body.repos.find(
-    (repo: { id: string }) => repo.id === 'scanning',
+    (repo: { containerPath: string }) =>
+      repo.containerPath === '/data/scanning',
   );
   const embedding = res.body.repos.find(
-    (repo: { id: string }) => repo.id === 'embedding',
+    (repo: { containerPath: string }) =>
+      repo.containerPath === '/data/embedding',
   );
   assert.deepEqual(
     { status: queued.status, phase: queued.phase },
@@ -328,7 +331,7 @@ test('active overlay keeps repo visible and preserves persisted metadata while u
   assert.equal(res.status, 200);
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
-  assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.id, '/data/repo-one');
   assert.equal(repo.runId, 'active-run-1');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'scanning');
@@ -373,14 +376,14 @@ test('active overlay normalizes source path before matching persisted metadata',
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
   assert.equal(repo.containerPath, '/data/repo-one');
-  assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.id, '/data/repo-one');
   assert.equal(repo.runId, 'active-run-1-normalized');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'embedding');
   assert.deepEqual(repo.counts, { files: 4, chunks: 8, embedded: 5 });
 });
 
-test('synthesizes active entry when persisted metadata is missing', async () => {
+test('synthesizes active entry with canonical repository identity when persisted metadata is missing', async () => {
   process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
   __setStatusForTest('active-run-2', {
     runId: 'active-run-2',
@@ -400,7 +403,7 @@ test('synthesizes active entry when persisted metadata is missing', async () => 
   assert.equal(res.status, 200);
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
-  assert.equal(repo.id, 'missing-repo');
+  assert.equal(repo.id, '/container/missing/repo');
   assert.equal(repo.runId, 'active-run-2');
   assert.equal(repo.containerPath, '/container/missing/repo');
   assert.equal(repo.hostPath, '/container/missing/repo');
@@ -408,7 +411,7 @@ test('synthesizes active entry when persisted metadata is missing', async () => 
   assert.equal(repo.phase, 'queued');
 });
 
-test('waiting duplicate overlay preserves the canonical queued row id while preferring the latest queued provider and model metadata', async () => {
+test('waiting duplicate overlay preserves canonical repository identity while preferring the latest queued provider and model metadata', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -473,7 +476,7 @@ test('waiting duplicate overlay preserves the canonical queued row id while pref
   assert.equal(res.status, 200);
   assert.equal(res.body.repos.length, 1);
   const repo = res.body.repos[0];
-  assert.equal(repo.id, 'repo-one');
+  assert.equal(repo.id, '/data/repo-one');
   assert.equal(repo.requestId, '000000000000000000000071');
   assert.equal(repo.runId, null);
   assert.equal(repo.queueState, 'waiting');

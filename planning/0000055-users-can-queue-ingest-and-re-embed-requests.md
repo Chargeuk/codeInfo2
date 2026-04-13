@@ -8927,12 +8927,12 @@ This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step n
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `113`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 5 as an allowed support-file hygiene fix.
 
 #### Overview
 
-This task narrows the ignore policy so the current review pass evidence and findings artifacts are not hidden behind `codeInfoStatus/reviews/`. The workflow may still treat handoff state as transient, but the durable evidence and findings files for the active pass must be naturally visible to `git status` and normal add flows.
+This task narrows the ignore policy so the current review pass evidence and findings artifacts are not hidden behind `codeInfoStatus/reviews/`. The workflow may still treat handoff state and additive review inputs as transient, but the durable evidence and findings files for the active pass must be naturally visible to `git status` and normal add flows.
 
 #### Task Exit Criteria
 
@@ -8943,6 +8943,7 @@ This task narrows the ignore policy so the current review pass evidence and find
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
 - `codeInfoStatus/reviews/0000055-current-review.json`
 - `codeInfoStatus/reviews/0000055-external-review-input.md`
@@ -8961,14 +8962,14 @@ This task narrows the ignore policy so the current review pass evidence and find
 
 #### Subtasks
 
-1. [ ] Narrow the `.gitignore` behavior so the evidence file and findings file for review pass `0000055-20260413T080058Z-1eb771da` are not hidden behind the broad `codeInfoStatus/reviews/` ignore rule. Purpose: make the required durable artifacts naturally visible to normal git workflows without opening the entire review-artifact directory.
-2. [ ] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-current-review.json` ignored as transient review handoff state while the durable evidence and findings files become visible. Purpose: preserve the handoff-versus-artifact boundary without reopening the whole review directory.
-3. [ ] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-external-review-input.md` ignored as transient flow input while the durable evidence and findings files become visible. Purpose: preserve the external-review-specific transient-input contract.
-4. [ ] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` ignored as transient additive context while the durable evidence and findings files become visible. Purpose: keep the optional challenge file out of the durable-artifact set for this flow.
-5. [ ] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the evidence and findings files are the durable artifacts while the current-review handoff JSON remains transient. Purpose: give the current-review visibility rule an explicit workflow home.
-6. [ ] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the external-review input markdown remains transient input rather than becoming part of the durable artifact set. Purpose: keep the external-review-specific contract explicit in the base workflow file.
-7. [ ] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the optional blind-spot challenge file remains additive context rather than a required durable artifact. Purpose: keep the challenge-file boundary explicit for later review passes.
-8. [ ] Proof type: plan wording proof maintenance. Location: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Description: refresh this review-pass section so its durable-versus-transient artifact wording stays aligned with the repaired ignore policy and workflow wording. Purpose: keep the active plan honest after the visibility repair lands.
+1. [x] Narrow the `.gitignore` behavior so the evidence file and findings file for review pass `0000055-20260413T080058Z-1eb771da` are not hidden behind the broad `codeInfoStatus/reviews/` ignore rule. Purpose: make the required durable artifacts naturally visible to normal git workflows without opening the entire review-artifact directory.
+2. [x] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-current-review.json` ignored as transient review handoff state while the durable evidence and findings files become visible. Purpose: preserve the handoff-versus-artifact boundary without reopening the whole review directory.
+3. [x] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-external-review-input.md` ignored as transient flow input while the durable evidence and findings files become visible. Purpose: preserve the external-review-specific transient-input contract.
+4. [x] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` ignored as transient additive context while the durable evidence and findings files become visible. Purpose: keep the optional challenge file out of the durable-artifact set for this flow.
+5. [x] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the evidence and findings files are the durable artifacts while the current-review handoff JSON remains transient. Purpose: give the current-review visibility rule an explicit workflow home.
+6. [x] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the external-review input markdown remains transient input rather than becoming part of the durable artifact set. Purpose: keep the external-review-specific contract explicit in the base workflow file.
+7. [x] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the optional blind-spot challenge file remains additive context rather than a required durable artifact. Purpose: keep the challenge-file boundary explicit for later review passes.
+8. [x] Proof type: plan wording proof maintenance. Location: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Description: refresh this review-pass section so its durable-versus-transient artifact wording stays aligned with the repaired ignore policy and workflow wording. Purpose: keep the active plan honest after the visibility repair lands.
 
 #### Testing
 
@@ -8980,6 +8981,10 @@ This task narrows the ignore policy so the current review pass evidence and find
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the review-artifact visibility hygiene finding.
+- Activation on 2026-04-13: promoted Task 114 to `__in_progress__` as the earliest executable owner after Task 113 closed on current disk.
+- Updated `.gitignore` to replace the broad `codeInfoStatus/reviews/` ignore with a narrow review-pass-specific split: the current pass evidence and findings files are now the only durable review artifacts reopened, while the current-review handoff JSON, external-review input markdown, and blind-spot challenge file remain ignored.
+- Refreshed `codeinfo_markdown/review_disposition.md` so the workflow explicitly calls evidence and findings durable artifacts and keeps the current-review JSON, external-review input markdown, and optional challenge file transient or additive support files.
+- Refreshed this Task 114 section so its documentation list and overview match the repaired durable-versus-transient artifact wording before the later git-visibility proof step runs.
 
 ### Task 115. Honor Pre-Aborted Signals In The LM Studio Mock Stream Helper
 
@@ -9065,7 +9070,7 @@ This final review-follow-up task revalidates Story 55 after the current findings
 - `R1.` Final revalidation does not start until Tasks 109 through 115 have been completed and re-opened for proof-home retention. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 116 subtasks 2 through 8.
 - `R2.` The current review pass remains anchored to its durable evidence and findings artifacts before final reruns begin. Owners: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`, `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Proof homes: Task 116 subtasks 1 and 12.
 - `R3.` Each endorsed finding from the current review pass has a retained proof home recorded in `planning/0000055-pr-summary.md` before final close-out. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 116 subtasks 2 through 10.
-- `R4.` The final build wrappers, automated test wrappers, supported compose smoke path, and direct git checks confirm the repaired server implementation, proof harnesses, and artifact-visibility behavior remain green together on current disk. Owners: wrapper scripts, `docker-compose.yml`, `.gitignore`, `codeinfo_markdown/review_disposition.md`, and the task owner files above. Proof homes: Task 116 Testing items 1 through 8.
+- `R4.` The final build wrappers, automated test wrappers, supported compose smoke path, and direct git checks confirm the repaired server implementation, proof harnesses, and artifact-visibility behavior remain green together on current disk. Owners: wrapper scripts, `docker-compose.yml`, `.gitignore`, `codeinfo_markdown/review_disposition.md`, and the task owner files above. Proof homes: Task 116 Testing items 1 through 8, including the direct visibility checks introduced by Task 114.
 - `R5.` Any residual weak-proof notes still carried forward after the reruns and compose smoke proof are explicitly retained in `planning/0000055-pr-summary.md` instead of being hidden by green wrappers. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 116 subtask 11.
 
 #### Subtasks
@@ -9078,7 +9083,7 @@ This final review-follow-up task revalidates Story 55 after the current findings
 6. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 113’s repaired owner files and retained proof homes for the no-Mongo disconnect setup, pure assertion, and fail-fast cucumber proof maintenance. Purpose: keep the cucumber proof-honesty repair explicit for later reviewers.
 7. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 114’s repaired owner files and retained proof homes for durable artifact visibility plus transient current-review, external-input, and challenge-file boundaries. Purpose: keep the non-wrapper artifact-visibility proof chain explicit for later reviewers.
 8. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 115’s repaired owner files and retained proof homes for pre-aborted cancellation ordering, deterministic no-callback proof, and early-return cleanup coverage. Purpose: keep the helper-lifecycle proof chain explicit for later reviewers.
-8. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final server-wrapper and compose-smoke proof chain from this pass. Purpose: preserve the supported runtime rerun trail instead of collapsing it into a generic close-out line.
+9. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final server-wrapper and compose-smoke proof chain from this pass. Purpose: preserve the supported runtime rerun trail instead of collapsing it into a generic close-out line.
 10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the retained Task 114 visibility-check proof homes from this pass beside the wrapper and compose-smoke reruns. Purpose: keep the direct git visibility proof explicit in final close-out.
 11. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest residual weak-proof notes that still remain after this pass. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
 12. [ ] Proof type: durable artifact existence check. Location: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md` and `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Description: verify both durable review artifacts still exist on disk before final close-out. Purpose: keep the adjudication record explicit in the final review-fix pass.

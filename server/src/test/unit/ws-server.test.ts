@@ -16,6 +16,7 @@ import {
   tryAcquireConversationLock,
 } from '../../agents/runLock.js';
 import {
+  cleanupPendingConversationCancel,
   getPendingConversationCancel,
   cleanupInflight,
   createInflight,
@@ -736,6 +737,45 @@ test('WS conversation-only cancel_ack requestId matches the initiating request',
     assert.equal(ack.requestId, requestId);
     assert.equal(ack.result, 'noop');
   } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS conversation-only cancel preserves pending stop when only run ownership remains', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-pending-run-stop';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+
+    const deadline = Date.now() + 1000;
+    while (Date.now() < deadline) {
+      const pending = getPendingConversationCancel(conversationId);
+      if (pending) {
+        assert.equal(pending.runToken, ownership.runToken);
+        assert.equal(pending.boundInflightId, undefined);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    assert.fail('Expected conversation-only cancel to preserve a pending stop');
+  } finally {
+    cleanupPendingConversationCancel({
+      conversationId,
+      runToken: ownership.runToken,
+    });
+    releaseConversationLock(conversationId, ownership.runToken);
     await closeWs(ws);
     await stopServer(server);
   }

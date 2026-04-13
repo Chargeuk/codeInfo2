@@ -662,11 +662,20 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
 
         logAbortRequested();
 
+        const ownership = getActiveRunOwnership(message.conversationId);
+        if (ownership) {
+          registerPendingConversationCancel({
+            conversationId: message.conversationId,
+            runToken: ownership.runToken,
+          });
+        }
+
         if (abortAgentCommandRun(message.conversationId)) {
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,
             conversationId: message.conversationId,
+            ...(ownership ? { runToken: ownership.runToken } : {}),
             stopPath: 'conversation_only_agent_run',
           });
           return;
@@ -674,16 +683,6 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
 
         const cancelled = abortInflightByConversation(message.conversationId);
         if (cancelled.ok) {
-          const ownership = getActiveRunOwnership(message.conversationId);
-          if (ownership) {
-            // Preserve the stop across the ownership-only handoff after the
-            // current inflight is cleaned up so the next bound inflight can
-            // still consume it.
-            registerPendingConversationCancel({
-              conversationId: message.conversationId,
-              runToken: ownership.runToken,
-            });
-          }
           logPublish('DEV-0000049:T03:stop_path_registered', {
             requestId: message.requestId,
             connectionId,
@@ -707,12 +706,7 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           return;
         }
 
-        const ownership = getActiveRunOwnership(message.conversationId);
         if (ownership) {
-          registerPendingConversationCancel({
-            conversationId: message.conversationId,
-            runToken: ownership.runToken,
-          });
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,

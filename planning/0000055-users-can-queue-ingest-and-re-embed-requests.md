@@ -8559,7 +8559,7 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `108, 110`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 1, which was also strengthened by the endorsed external review comment without changing the finding scope. Re-owned to `__to_do__` on 2026-04-13 by planner repair after the current `**BLOCKING ANSWER**` proved the next honest owner is a fresh earlier `flows.run.loop` prerequisite rather than more queue-admission work in this task.
 
 #### Overview
@@ -8632,6 +8632,7 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 - **BLOCKING ANSWER** Why this fits the current repo state, and why alternatives were rejected: it fits because the active Task 109 owner file is green in isolation, the wrapper and Node runtime both point to a still-open child-side resource rather than a wrapper bug, and Story 55 already has direct precedent for re-owning this same earlier `flows.run.loop` lane when a later task's local proofs are complete. Rejected alternatives are not suitable: do not mark Testing 2 complete from the targeted rerun alone; do not keep widening `server/src/ingest/requestQueue.ts` or `server/src/test/unit/ingest-request-queue.test.ts` without a local failure; do not alter `scripts/summary-wrapper-protocol.mjs` or `scripts/test-summary-server-unit.mjs` to hide the stall; and do not use `--test-force-exit`, `process.exit()`, or longer sleeps, because both repo precedent and official Node guidance treat those as leak-masking workarounds rather than the correct owner-level repair.
 - **RESOLVED ISSUE** Historical blocker summary on 2026-04-13: after Task 109's targeted proof owner reran green, the full `npm run test:summary:server:unit` wrapper still failed first in the earlier `flows.run.loop` lane with `semantic_progress_stalled`. That blocker is now retired here because planner repair re-owned the next real work into fresh Task 110, so this task returns to `__to_do__` until that earlier prerequisite restores or cleanly re-hands off the shared `server:unit` baseline again.
 - Planner repair on 2026-04-13: returned Task 109 to `__to_do__` and inserted fresh Task 110 because the current `**BLOCKING ANSWER**` proves the next honest owner is the earlier `flows.run.loop` baseline, not additional queue-request edits in this task.
+- Activation on 2026-04-13: Task 110 is now `__done__`, so this task was promoted back to `__in_progress__` as the next executable owner. No code or proof files changed in this subtask-only pass because all Task 109 subtasks were already complete on disk; the remaining work is its later automated-proof gate for Testing 2, 3, and 5.
 
 ### Task 110. Re-Isolate The Reopened `flows.run.loop` Baseline Before Task 109 Resumes
 

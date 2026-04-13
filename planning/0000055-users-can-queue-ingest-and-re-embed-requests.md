@@ -8789,7 +8789,7 @@ This task restores the invalid-root-state guard for queued and startup-recovered
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `111`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 3.
 
 #### Overview
@@ -8863,6 +8863,7 @@ This task hardens startup recovery so a post-connect queue read or write failure
 - Testing 6 passed via `npm run compose:down`; the supported compose stack removed all eight services and the `codeinfo2_internal` network in the direct compose shutdown output.
 - Added shared queue-availability state in `server/src/ingest/requestQueue.ts` so degraded startup can preserve the retryable `QUEUE_UNAVAILABLE` contract even while Mongo remains connected.
 - Added dedicated degraded-startup unit proofs in `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`; this step only authored proof owners and did not run Task 112 Testing wrappers yet.
+- Automated-proof audit on 2026-04-13: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 112 section, the latest Task 112 proof notes, and the current parser output before normalizing status. All subtasks and Testing 1-7 are now honestly complete on current disk, `selected_task.live_blockers` is empty, and the earlier proof-authoring-only note is only historical context rather than a remaining gate. Task 112 is therefore normalized from `__in_progress__` to `__done__`.
 
 ### Task 113. Repair The No-Mongo Re-Embed Cucumber Proof
 

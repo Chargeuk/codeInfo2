@@ -8870,7 +8870,7 @@ This task hardens startup recovery so a post-connect queue read or write failure
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `112`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 4 and to keep the cucumber proof honest.
 
 #### Overview
@@ -8900,10 +8900,10 @@ This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step n
 
 #### Subtasks
 
-1. [ ] Update `server/src/test/steps/ingest-delta-reembed.steps.ts` so the disconnected-state `Then` step fails if Mongo is still connected instead of disconnecting it first. Purpose: make the proof assertion honest.
-2. [ ] Proof type: cucumber step proof maintenance. Location: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Description: move the Mongo disconnect action for this scenario into one explicit `Given` or `When` step in that file, reusing an existing setup step only if its current title and body already describe disconnecting Mongo before the assertion. Purpose: keep the disconnect action in setup rather than hiding it inside the assertion.
-3. [ ] Proof type: cucumber step proof. Location: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Description: make the repaired `Then` step fail fast when the scenario forgot to establish the disconnected-state precondition earlier. Purpose: keep the proof honest by surfacing missing setup immediately.
-4. [ ] Proof type: cucumber feature proof maintenance. Location: `server/src/test/features/ingest-delta-reembed.feature`. Description: refresh the matching scenario wording so the disconnect setup and disconnected-state assertion are separate and reviewable. Purpose: keep the feature text aligned with the repaired proof shape.
+1. [x] Update `server/src/test/steps/ingest-delta-reembed.steps.ts` so the disconnected-state `Then` step fails if Mongo is still connected instead of disconnecting it first. Purpose: make the proof assertion honest.
+2. [x] Proof type: cucumber step proof maintenance. Location: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Description: move the Mongo disconnect action for this scenario into one explicit `Given` or `When` step in that file, reusing an existing setup step only if its current title and body already describe disconnecting Mongo before the assertion. Purpose: keep the disconnect action in setup rather than hiding it inside the assertion.
+3. [x] Proof type: cucumber step proof. Location: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Description: make the repaired `Then` step fail fast when the scenario forgot to establish the disconnected-state precondition earlier. Purpose: keep the proof honest by surfacing missing setup immediately.
+4. [x] Proof type: cucumber feature proof maintenance. Location: `server/src/test/features/ingest-delta-reembed.feature`. Description: refresh the matching scenario wording so the disconnect setup and disconnected-state assertion are separate and reviewable. Purpose: keep the feature text aligned with the repaired proof shape.
 
 #### Testing
 
@@ -8914,6 +8914,9 @@ This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step n
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the endorsed no-Mongo cucumber proof-honesty finding.
+- Activation on 2026-04-13: promoted Task 113 to `__in_progress__` as the earliest executable owner after Task 112 closed on current disk.
+- Repaired `server/src/test/steps/ingest-delta-reembed.steps.ts` so the disconnect side effect now lives in `When I disconnect ingest delta mongo before reembed`, while the disconnected-state `Then` steps are pure assertions.
+- Updated the no-Mongo scenario in `server/src/test/features/ingest-delta-reembed.feature` so disconnect setup and disconnected-state assertion are separate, reviewable steps before the retryable `QUEUE_UNAVAILABLE` request proof.
 
 ### Task 114. Make Current Review Artifacts Naturally Commit-Visible
 

@@ -142,7 +142,8 @@ Feature: Ingest delta re-embed
     Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
-    And ingest delta mongo should be disconnected
+    When I disconnect ingest delta mongo before reembed
+    Then ingest delta mongo should already be disconnected
     When I change ingest delta temp file "a.ts" to "export const a=2;"
     And I POST ingest reembed for the delta repo
     Then ingest delta response status is 503 with code "QUEUE_UNAVAILABLE"

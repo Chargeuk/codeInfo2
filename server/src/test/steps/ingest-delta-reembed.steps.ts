@@ -466,10 +466,19 @@ Then(
   },
 );
 
-Then('ingest delta mongo should be disconnected', async () => {
-  if (isMongoConnected()) {
-    await disconnectMongo();
-  }
+When('I disconnect ingest delta mongo before reembed', async () => {
+  await disconnectMongo();
+});
+
+Then('ingest delta mongo should already be disconnected', () => {
+  assert.equal(
+    isMongoConnected(),
+    false,
+    'expected ingest delta mongo to already be disconnected before this assertion step',
+  );
+});
+
+Then('ingest delta mongo should be disconnected', () => {
   assert.equal(isMongoConnected(), false);
 });
 

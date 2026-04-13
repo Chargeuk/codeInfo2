@@ -76,6 +76,36 @@ test('classic MCP VectorSearch returns stable payload wrapped as tool text JSON'
   assert.equal(parsed.files.length, 1);
 });
 
+test('classic MCP VectorSearch coerces string limit values', async () => {
+  let capturedLimit: number | undefined;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      vectorSearch: async (params) => {
+        capturedLimit = params.limit;
+        return payload;
+      },
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 11,
+      method: 'tools/call',
+      params: {
+        name: 'VectorSearch',
+        arguments: { query: 'hello world', limit: '5' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(capturedLimit, 5);
+});
+
 test('classic MCP VectorSearch validation error uses JSON-RPC error envelope', async () => {
   const app = express();
   app.use(express.json());

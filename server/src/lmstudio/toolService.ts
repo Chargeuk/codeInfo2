@@ -222,11 +222,23 @@ export function validateVectorSearch(body: {
   }
 
   let limit = 5;
-  if (body.limit) {
-    if (typeof body.limit === 'number' && Number.isInteger(body.limit)) {
-      limit = Math.min(Math.max(body.limit, 1), 20);
-    } else {
-      errors.push('limit must be an integer');
+  if (body.limit !== undefined) {
+    const normalizedLimit =
+      typeof body.limit === 'string' ? body.limit.trim() : body.limit;
+    if (
+      normalizedLimit !== '' &&
+      normalizedLimit !== 0 &&
+      normalizedLimit !== '0'
+    ) {
+      const parsedLimit =
+        typeof normalizedLimit === 'string'
+          ? Number(normalizedLimit)
+          : normalizedLimit;
+      if (typeof parsedLimit === 'number' && Number.isInteger(parsedLimit)) {
+        limit = Math.min(Math.max(parsedLimit, 1), 20);
+      } else {
+        errors.push('limit must be an integer');
+      }
     }
   }
 

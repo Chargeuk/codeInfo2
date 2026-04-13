@@ -1100,6 +1100,29 @@ test('caps limit to 20 and applies repository filter when provided', async () =>
   assert.deepEqual(capturedWhere, { root: '/data/repo-one' });
 });
 
+test('treats a zero limit as missing and falls back to the default limit', async () => {
+  let capturedLimit = 0;
+
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async (opts: {
+        nResults?: number;
+        where?: Record<string, unknown>;
+      }) => {
+        capturedLimit = opts.nResults ?? 0;
+        return { ids: [[]], documents: [[]], metadatas: [[]], distances: [[]] };
+      },
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'test', limit: '0' });
+
+  assert.equal(res.status, 200);
+  assert.equal(capturedLimit, 5);
+});
+
 test('returns 409 when no locked model is present', async () => {
   const res = await request(
     buildApp({

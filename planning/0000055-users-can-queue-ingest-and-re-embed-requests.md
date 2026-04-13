@@ -8261,13 +8261,13 @@ This task makes the shared repository-list `id` a stable repository identity ins
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the stable-identity repair.
-2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper still passes with the repaired route-level `id` contract.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes with the repaired repository-list identity contract.
-4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the selector-identity repair.
-5. [ ] Run `npm run test:summary:client` and confirm the full client wrapper still passes with the repaired route-level `id` contract.
-6. [ ] Run `npm run test:summary:e2e` and confirm the browser proof still shows stable queued-row identity through refresh after the repair.
-7. [ ] Normal compose smoke proof is owned by Task 108 because this task already proves the repaired seam through the repository’s server, client, cucumber, and e2e wrappers, and the reopened story-level compose chain should only be rerun once.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the stable-identity repair.
+2. [x] Run `npm run build:summary:client` and confirm the client build wrapper still passes with the repaired route-level `id` contract.
+3. [x] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes with the repaired repository-list identity contract.
+4. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the selector-identity repair.
+5. [x] Run `npm run test:summary:client` and confirm the full client wrapper still passes with the repaired route-level `id` contract.
+6. [x] Run `npm run test:summary:e2e` and confirm the browser proof still shows stable queued-row identity through refresh after the repair.
+7. [x] Normal compose smoke proof is owned by Task 108 because this task already proves the repaired seam through the repository’s server, client, cucumber, and e2e wrappers, and the reopened story-level compose chain should only be rerun once.
 
 #### Implementation notes
 
@@ -8277,6 +8277,13 @@ This task makes the shared repository-list `id` a stable repository identity ins
 - Subtasks 19-25: updated `client/src/hooks/useIngestRoots.ts` to prefer route `id`, then canonical path fallback ahead of display name, and refreshed `client/src/test/useIngestRoots.test.tsx` so queued, resumed, retried, and stale-exclusion proofs each use explicit refetch boundaries instead of elapsed time.
 - Subtasks 26-30: retitled the browser proofs in `e2e/ingest.spec.ts` so queued progression, retry progression, and refresh each claim one stable identity, while keeping those checks pinned to existing deterministic queue and refresh boundaries rather than sleeps.
 - Subtask 31: refreshed `planning/0000055-pr-summary.md` with the Task 106 owner files and retained proof homes so Task 108 can carry the stable-identity repair forward without rebuilding the proof inventory from scratch.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log` and retained `logs/test-summaries/build-server-latest.log`. The first rerun failed because the new MCP selector tests returned a narrowed `runReingestRepository` stub shape; matching the real `ReingestResult` contract in `server/src/test/integration/mcp-ingested-repositories.test.ts` fixed the build honestly before the passing rerun.
+- Testing 2: `npm run build:summary:client` passed cleanly with `agent_action: skip_log` and retained `logs/test-summaries/build-client-latest.log`.
+- Testing 3: the first `npm run test:summary:server:unit` rerun failed because several server proof files still asserted display-derived ids (`repo-name`, `repo`, `queued-repo`, `only-active`) after Task 106 moved stable identity to canonical repository paths; updating those stale expectations in the affected unit and integration tests fixed the proof drift, and the full rerun then passed with `tests run: 1654`, `passed: 1654`, `failed: 0`, and retained `test-results/server-unit-tests-2026-04-13T00-44-42-763Z.log`.
+- Testing 4: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 88`, `passed: 88`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-cucumber-tests-2026-04-13T01-03-25-977Z.log`.
+- Testing 5: `npm run test:summary:client` passed cleanly with `tests run: 687`, `passed: 687`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/client-tests-2026-04-13T01-06-06-274Z.log`.
+- Testing 6: `npm run test:summary:e2e` passed cleanly with `tests run: 48`, `passed: 48`, `failed: 0`, `agent_action: skip_log`, retained `logs/test-summaries/e2e-tests-latest.log`, and re-confirmed the host-network browser wiring with `DEV-0000050:T13:e2e_host_network_config_verified`.
+- Testing 7: compose smoke remains intentionally deferred to Task 108, which owns the reopened story-level compose and host-network validation chain once Task 106 and Task 107 are both ready for final revalidation.
 
 ### Task 107. Deduplicate The Remaining Schema-Version Proof Literals
 

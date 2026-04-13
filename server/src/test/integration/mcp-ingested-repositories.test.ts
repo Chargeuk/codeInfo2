@@ -179,18 +179,24 @@ test('reingest_repository canonicalizes selectors to canonical repository identi
         lockedModelId: null,
         schemaVersion: '0000055-queued-repo-list-v1',
       }),
-      runReingestRepository: async ({ sourceId }) => {
+      runReingestRepository: async (args) => {
+        const { sourceId } = args as { sourceId: string };
         capturedSourceId = sourceId;
         return {
-          status: 'completed',
-          operation: 'reembed',
-          runId: 'run-1',
-          sourceId,
-          durationMs: 1,
-          files: 1,
-          chunks: 1,
-          embedded: 1,
-          errorCode: null,
+          ok: true,
+          value: {
+            status: 'completed',
+            operation: 'reembed',
+            runId: 'run-1',
+            sourceId,
+            resolvedRepositoryId: sourceId,
+            completionMode: 'reingested',
+            durationMs: 1,
+            files: 1,
+            chunks: 1,
+            embedded: 1,
+            errorCode: null,
+          },
         };
       },
     }),
@@ -238,18 +244,24 @@ test('reingest_repository still prefers canonical repository identity when stale
         lockedModelId: null,
         schemaVersion: '0000055-queued-repo-list-v1',
       }),
-      runReingestRepository: async ({ sourceId }) => {
+      runReingestRepository: async (args) => {
+        const { sourceId } = args as { sourceId: string };
         capturedSourceId = sourceId;
         return {
-          status: 'completed',
-          operation: 'reembed',
-          runId: 'run-2',
-          sourceId,
-          durationMs: 1,
-          files: 1,
-          chunks: 1,
-          embedded: 1,
-          errorCode: null,
+          ok: true,
+          value: {
+            status: 'completed',
+            operation: 'reembed',
+            runId: 'run-2',
+            sourceId,
+            resolvedRepositoryId: sourceId,
+            completionMode: 'reingested',
+            durationMs: 1,
+            files: 1,
+            chunks: 1,
+            embedded: 1,
+            errorCode: null,
+          },
         };
       },
     }),

@@ -424,7 +424,7 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
       toolResult.results[0].hostPath,
       '/host/base/repo-id/docs/readme.md',
     );
-    assert.equal(toolResult.results[0].repo, 'repo-name');
+    assert.equal(toolResult.results[0].repo, '/data/repo-id');
     assert.equal(
       toolResult.files[0].hostPath,
       '/host/base/repo-id/docs/readme.md',

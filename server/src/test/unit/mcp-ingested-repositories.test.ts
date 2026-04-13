@@ -130,7 +130,7 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
   assert.equal(parsed.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
   assert.equal(parsed.repos.length, 1);
-  assert.equal(parsed.repos[0].id, 'repo');
+  assert.equal(parsed.repos[0].id, '/data/repo');
   assert.equal(parsed.repos[0].name, 'repo');
   assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
   assert.equal(parsed.repos[0].embeddingModel, 'embed-model');
@@ -285,7 +285,7 @@ test('ListIngestedRepositories preserves the canonical queued row id alongside r
     }>;
   };
   assert.equal(response.status, 200);
-  assert.equal(parsed.repos[0]?.id, 'queued-repo');
+  assert.equal(parsed.repos[0]?.id, '/data/queued-repo');
   assert.equal(parsed.repos[0]?.requestId, '000000000000000000000058');
   assert.equal(parsed.repos[0]?.runId, null);
   assert.equal(parsed.repos[0]?.queueState, 'waiting');
@@ -389,7 +389,7 @@ test('ListIngestedRepositories returns one canonical queued row id for duplicate
     parsed.repos.filter((repo) => repo.containerPath === '/data/repo').length,
     1,
   );
-  assert.equal(parsed.repos[0]?.id, 'repo');
+  assert.equal(parsed.repos[0]?.id, '/data/repo');
   assert.equal(parsed.repos[0]?.requestId, '000000000000000000000059');
   assert.equal(parsed.repos[0]?.runId, null);
   assert.equal(parsed.repos[0]?.queueState, 'waiting');
@@ -546,14 +546,14 @@ test('ListIngestedRepositories omits phase for terminal statuses and maps skippe
     response.body?.result?.content?.[0]?.text ?? '{}',
   ) as { repos: Array<{ id: string; status: string; phase?: string }> };
   const byId = new Map(parsed.repos.map((repo) => [repo.id, repo]));
-  assert.equal(byId.get('done')?.status, 'completed');
-  assert.equal(byId.get('done')?.phase, undefined);
-  assert.equal(byId.get('cancelled')?.status, 'cancelled');
-  assert.equal(byId.get('cancelled')?.phase, undefined);
-  assert.equal(byId.get('errored')?.status, 'error');
-  assert.equal(byId.get('errored')?.phase, undefined);
-  assert.equal(byId.get('skipped')?.status, 'completed');
-  assert.equal(byId.get('skipped')?.phase, undefined);
+  assert.equal(byId.get('/data/done')?.status, 'completed');
+  assert.equal(byId.get('/data/done')?.phase, undefined);
+  assert.equal(byId.get('/data/cancelled')?.status, 'cancelled');
+  assert.equal(byId.get('/data/cancelled')?.phase, undefined);
+  assert.equal(byId.get('/data/errored')?.status, 'error');
+  assert.equal(byId.get('/data/errored')?.phase, undefined);
+  assert.equal(byId.get('/data/skipped')?.status, 'completed');
+  assert.equal(byId.get('/data/skipped')?.phase, undefined);
 });
 
 test('ListIngestedRepositories shows active overlay and keeps stable repository ids', async () => {
@@ -612,7 +612,7 @@ test('ListIngestedRepositories shows active overlay and keeps stable repository 
   const overlaid = parsed.repos.find(
     (repo) => repo.containerPath === '/data/repo',
   );
-  assert.equal(overlaid?.id, 'repo');
+  assert.equal(overlaid?.id, '/data/repo');
   assert.equal(overlaid?.runId, 'active-run');
   assert.equal(overlaid?.status, 'ingesting');
   assert.equal(overlaid?.phase, 'queued');
@@ -781,7 +781,7 @@ test('ListIngestedRepositories synthesizes active-only entries with stable repos
   const synthesized = parsed.repos.find(
     (repo) => repo.containerPath === '/data/only-active',
   );
-  assert.equal(synthesized?.id, 'only-active');
+  assert.equal(synthesized?.id, '/data/only-active');
   assert.equal(synthesized?.runId, 'active-only-run');
   assert.equal(synthesized?.status, 'ingesting');
   assert.equal(synthesized?.phase, 'scanning');

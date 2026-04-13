@@ -572,7 +572,7 @@ test('GET /ingest/roots serializes one authoritative queued row id when duplicat
     (root: { path: string }) => root.path === '/data/repo',
   );
   assert.equal(matches.length, 1);
-  assert.equal(matches[0]?.id, 'repo');
+  assert.equal(matches[0]?.id, '/data/repo');
   assert.equal(matches[0]?.requestId, '000000000000000000000061');
   assert.equal(matches[0]?.queueState, 'waiting');
   assert.equal(matches[0]?.queuePosition, 1);

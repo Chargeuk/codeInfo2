@@ -105,7 +105,7 @@ test('classic MCP VectorSearch accepts host-path repository selectors', async ()
         listIngestedRepositories: async () => ({
           repos: [
             {
-              id: 'Repo-One',
+              id: '/data/repo-one',
               description: null,
               containerPath: '/data/repo-one',
               hostPath: '/Users/example/dev/repo-one',

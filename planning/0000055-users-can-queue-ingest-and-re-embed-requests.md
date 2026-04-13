@@ -8559,7 +8559,7 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `108, 110`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 1, which was also strengthened by the endorsed external review comment without changing the finding scope. Re-owned to `__to_do__` on 2026-04-13 by planner repair after the current `**BLOCKING ANSWER**` proved the next honest owner is a fresh earlier `flows.run.loop` prerequisite rather than more queue-admission work in this task.
 
 #### Overview
@@ -8636,6 +8636,7 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 - **RESOLVED ISSUE** Testing 2 recurrence on 2026-04-13: after the earlier-owner blocker resurfaced in `test-results/server-unit-tests-2026-04-13T17-05-43-871Z.log`, I repaired the bounded `flows.run.loop` stop path in `server/src/ws/server.ts` so conversation-only `cancel_inflight` now preserves a pending stop as soon as run ownership exists instead of relying on the narrower command/inflight abort branches to hold that state first. Added the focused regression in `server/src/test/unit/ws-server.test.ts`, reran `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` cleanly in `test-results/server-unit-tests-2026-04-13T17-19-08-795Z.log`, reran `npm run test:summary:server:unit` cleanly in `test-results/server-unit-tests-2026-04-13T17-19-30-068Z.log`, and reran `npm run build:summary:server` cleanly, so the stale earlier-owner blocker is retired and Testing 2 is honestly complete again on current disk.
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 88`, `passed: 88`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-13T18-40-19-165Z.log`, so the broader backend cucumber proof stayed green after the queue-admission race repair.
 - Testing 5: confirmed this compose-build and supported-runtime smoke item remains not applicable to Task 109 because this task only repairs the queue-admission document update seam; Task 116 still owns the combined compose-backed runtime rerun for the review-fix set.
+- Planner normalization on 2026-04-13: closed Task 109 to `__done__` because current disk state now shows all subtasks and testing items checked, no live standalone `**BLOCKER**`, and no remaining prose-only gate that still owns unfinished work in this task.
 
 ### Task 110. Re-Isolate The Reopened `flows.run.loop` Baseline Before Task 109 Resumes
 

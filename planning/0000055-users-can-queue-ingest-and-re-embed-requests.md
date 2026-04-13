@@ -8348,7 +8348,7 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `106, 107`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` as the required final revalidation task once the stable-identity repair and schema-version cleanup land.
 
 #### Overview
@@ -8402,26 +8402,26 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 #### Subtasks
 
-1. [ ] Re-read the Story 55 acceptance-criteria line for shared repo-list identity stability before reruns begin. Purpose: anchor final close-out to the reopened stable-identity contract.
-2. [ ] Re-read the Story 55 acceptance-criteria line for shared schema-version alignment before reruns begin. Purpose: anchor final close-out to the accepted schema-version cleanup.
-3. [ ] Re-read the Story 55 acceptance-criteria line for retained browser proof before reruns begin. Purpose: anchor final close-out to the UI-facing proof requirement instead of only to the review summary.
-4. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`. Purpose: anchor the final rerun to the stored review evidence for this pass.
-5. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`. Purpose: keep final validation anchored to the exact reopened findings rather than a looser summary.
-6. [ ] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`. Purpose: carry forward the residual weak-proof notes honestly into final close-out.
-7. [ ] Re-open `planning/0000055-pr-summary.md` and create the heading or insertion point for the new follow-up note for review pass `0000055-20260412T231111Z-04540d3d` before any final wrapper reruns start. Purpose: give the carried-forward proof inventory one explicit landing spot before new rerun evidence exists.
-8. [ ] Re-read completed Task 106 and record its exact owner files plus direct proof files inside that new follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the stable-identity repair explicit in final validation without relying on a private scratch list.
-9. [ ] Re-read completed Task 106 and record its wrapper-log and browser-artifact proof homes inside that same follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the retained runtime and browser evidence for that repair explicit in final validation.
-10. [ ] Re-read completed Task 107 and record its exact owner files and direct proof homes inside that same follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the schema-version cleanup explicit in final validation without relying on an implied side note.
-11. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the stable repository-identity repair from Task 106. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
-12. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the schema-version constant cleanup from Task 107. Purpose: keep that localized cleanup visible in the final adjudication record.
+1. [x] Re-read the Story 55 acceptance-criteria line for shared repo-list identity stability before reruns begin. Purpose: anchor final close-out to the reopened stable-identity contract.
+2. [x] Re-read the Story 55 acceptance-criteria line for shared schema-version alignment before reruns begin. Purpose: anchor final close-out to the accepted schema-version cleanup.
+3. [x] Re-read the Story 55 acceptance-criteria line for retained browser proof before reruns begin. Purpose: anchor final close-out to the UI-facing proof requirement instead of only to the review summary.
+4. [x] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md`. Purpose: anchor the final rerun to the stored review evidence for this pass.
+5. [x] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md`. Purpose: keep final validation anchored to the exact reopened findings rather than a looser summary.
+6. [x] Re-read `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md`. Purpose: carry forward the residual weak-proof notes honestly into final close-out.
+7. [x] Re-open `planning/0000055-pr-summary.md` and create the heading or insertion point for the new follow-up note for review pass `0000055-20260412T231111Z-04540d3d` before any final wrapper reruns start. Purpose: give the carried-forward proof inventory one explicit landing spot before new rerun evidence exists.
+8. [x] Re-read completed Task 106 and record its exact owner files plus direct proof files inside that new follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the stable-identity repair explicit in final validation without relying on a private scratch list.
+9. [x] Re-read completed Task 106 and record its wrapper-log and browser-artifact proof homes inside that same follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the retained runtime and browser evidence for that repair explicit in final validation.
+10. [x] Re-read completed Task 107 and record its exact owner files and direct proof homes inside that same follow-up note in `planning/0000055-pr-summary.md` before any final reruns begin. Purpose: keep the schema-version cleanup explicit in final validation without relying on an implied side note.
+11. [x] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the stable repository-identity repair from Task 106. Purpose: keep that review-fix proof chain explicit in the final adjudication record.
+12. [x] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes for the schema-version constant cleanup from Task 107. Purpose: keep that localized cleanup visible in the final adjudication record.
 13. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the automated wrapper validation chain from this pass, including server build, client build, server unit, server cucumber, client, and browser proof homes. Purpose: keep the automated rerun chain explicit instead of implied.
 14. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record the normal runtime smoke and harness validation chain from this pass, including compose build, compose startup, host-network validation, compose teardown, vendored shell proof, and final symlink verification proof homes. Purpose: keep the runtime-facing rerun chain explicit instead of implied.
-15. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: carry forward any residual weak-proof notes from the blind-spot challenge that still remain honest after reruns. Purpose: preserve the final risk narrative instead of letting weakly proved seams disappear behind the wrapper pass.
+15. [x] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: carry forward any residual weak-proof notes from the blind-spot challenge that still remain honest after reruns. Purpose: preserve the final risk narrative instead of letting weakly proved seams disappear behind the wrapper pass.
 16. [ ] Proof type: retained browser artifact. Location: `logs/test-summaries/e2e-tests-latest.log`. Description: confirm the final browser rerun still leaves an inspectable log proof home for the paired frontend behavior touched by the shared repo-list seam. Purpose: keep the retained browser-run evidence explicit instead of reducing it to a wrapper pass or fail line.
 17. [ ] Proof type: retained browser artifact. Location: `artifacts/story-0000055-screenshots`. Description: refresh retained screenshot citations when the final browser evidence changes. Purpose: keep the inspectable screenshot proof explicit alongside the browser log.
-18. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md` still exists before final close-out. Purpose: preserve the durable evidence artifact alongside the refreshed proof chain.
-19. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md` still exists before final close-out. Purpose: preserve the durable findings artifact alongside the refreshed proof chain.
-20. [ ] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md` still exists before final close-out. Purpose: preserve the durable blind-spot challenge artifact alongside the refreshed proof chain.
+18. [x] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-evidence.md` still exists before final close-out. Purpose: preserve the durable evidence artifact alongside the refreshed proof chain.
+19. [x] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-findings.md` still exists before final close-out. Purpose: preserve the durable findings artifact alongside the refreshed proof chain.
+20. [x] Verify on disk that `codeInfoStatus/reviews/0000055-20260412T231111Z-04540d3d-blind-spot-challenge.md` still exists before final close-out. Purpose: preserve the durable blind-spot challenge artifact alongside the refreshed proof chain.
 
 #### Testing
 
@@ -8441,3 +8441,10 @@ This final review-follow-up task revalidates Story 55 after the current review f
 #### Implementation notes
 
 - Added by review pass `0000055-20260412T231111Z-04540d3d` so the story cannot close again until the stable-identity repair, the accepted schema-version cleanup, and the full retained proof chain are back under one final validation pass.
+- Subtasks 1-3: re-read the Story 55 acceptance-criteria lines that bind this close-out to the shared repo-list identity seam, shared schema-version contract, and retained browser proof, so Task 108 stays anchored to the reopened contract instead of only to the review summary.
+- Subtasks 4-6: re-read the current review evidence, findings, and blind-spot challenge for pass `0000055-20260412T231111Z-04540d3d` and confirmed the final pass still needs to carry forward both the stable-identity repair and the schema-version cleanup plus the residual proof-strength caveats.
+- Subtask 7: re-opened `planning/0000055-pr-summary.md` and created the Task 108 follow-up insertion point under the current review-pass section before any new wrapper evidence exists.
+- Subtasks 8-9: re-read completed Task 106 and staged its exact owner files, direct proof homes, retained wrapper logs, and retained browser artifact homes into the new Task 108 summary note so the stable-identity repair is explicit before reruns begin.
+- Subtasks 10-12: re-read completed Task 107 and staged its exact owner files plus direct proof homes into the same Task 108 summary note, keeping the schema-version cleanup visible as a separate carried-forward repair rather than folding it into a generic rerun summary.
+- Subtask 15: carried forward the current residual weak-proof note from the blind-spot challenge into the Task 108 summary note so later green wrappers do not erase the remaining timeout-fallback and negative-proof caveats.
+- Subtasks 18-20: verified on disk that the current review evidence, findings, and blind-spot challenge artifacts for pass `0000055-20260412T231111Z-04540d3d` still exist before final close-out.

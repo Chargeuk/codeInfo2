@@ -8704,7 +8704,7 @@ This prerequisite task owns only the currently reopened `flows.run.loop` contrad
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `109`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 2.
 
 #### Overview
@@ -8782,6 +8782,7 @@ This task restores the invalid-root-state guard for queued and startup-recovered
 - Testing 3 rerun on 2026-04-13: the required fresh `npm run test:summary:server:cucumber` rerun passed cleanly with `tests run: 88`, `passed: 88`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-13T22-05-49-315Z.log`, so Testing 3 is honest again after the targeted proof pass mandated by Testing 4 and 5.
 - Testing 4 close-out on 2026-04-13: the targeted `ingest-queue-runtime` wrapper pass plus the fresh full `server:unit` and `server:cucumber` reruns are now all green on current disk, so this formerly conditional proof item is honestly complete with retained logs `test-results/server-unit-tests-2026-04-13T21-45-41-182Z.log`, `test-results/server-unit-tests-2026-04-13T21-46-16-304Z.log`, and `test-results/server-cucumber-tests-2026-04-13T22-05-49-315Z.log`.
 - Testing 5 close-out on 2026-04-13: the targeted `ingest-reembed-invalid-state` wrapper pass plus the same fresh full `server:unit` and `server:cucumber` reruns are now all green on current disk, so this formerly conditional proof item is honestly complete with retained logs `test-results/server-unit-tests-2026-04-13T21-46-00-582Z.log`, `test-results/server-unit-tests-2026-04-13T21-46-16-304Z.log`, and `test-results/server-cucumber-tests-2026-04-13T22-05-49-315Z.log`.
+- Automated-proof audit on 2026-04-13: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 111 section, the latest Task 111 proof notes, and the current parser output before normalizing status. All subtasks and Testing 1-6 are now honestly complete on current disk, `selected_task.live_blockers` is empty, and the older manual-testing-skip note is only historical context rather than a remaining gate. Task 111 is therefore normalized from `__in_progress__` to `__done__`.
 
 ### Task 112. Keep Startup Reachable When Queue Recovery Degrades
 

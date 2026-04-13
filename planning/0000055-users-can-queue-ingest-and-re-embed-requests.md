@@ -8841,19 +8841,26 @@ This task hardens startup recovery so a post-connect queue read or write failure
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` and confirm the compose build wrapper passes for the normal supported runtime path after the startup-ordering repair.
-2. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the startup-ordering repair.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the degraded-startup repair.
-4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the degraded-startup repair so the broader backend startup and queue-outage feature path stays honest beyond the direct unit proof homes.
-5. [ ] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the degraded-startup repair.
-6. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the startup smoke proof.
-7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` only if targeted diagnosis is needed while proving the startup seam, then finish by rerunning Testing items 1 through 6 as applicable.
+1. [x] Run `npm run compose:build:summary` and confirm the compose build wrapper passes for the normal supported runtime path after the startup-ordering repair.
+2. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the startup-ordering repair.
+3. [x] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the degraded-startup repair.
+4. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the degraded-startup repair so the broader backend startup and queue-outage feature path stays honest beyond the direct unit proof homes.
+5. [x] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the degraded-startup repair.
+6. [x] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the startup smoke proof.
+7. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` only if targeted diagnosis is needed while proving the startup seam, then finish by rerunning Testing items 1 through 6 as applicable.
 
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the degraded-startup reachability finding.
 - Activation on 2026-04-13: promoted Task 112 to `__in_progress__` as the earliest executable owner after Task 111 closed on current disk.
 - Added `server/src/startup/ingestQueueStartup.ts` as the direct post-connect recovery seam, updated `server/src/index.ts` to use it before `server.listen(...)`, and made degraded startup return a reachable result instead of failing closed.
+- Testing 7 passed via `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` with `22/22` passing in `test-results/server-unit-tests-2026-04-13T22-27-39-012Z.log`; this targeted rerun was executed because the plan still carried the diagnostic wrapper as an unchecked mandatory proof item.
+- Testing 1 passed via `npm run compose:build:summary`; the compose build wrapper reported `items passed: 2`, `items failed: 0`, and finished cleanly in `logs/test-summaries/compose-build-latest.log`.
+- Testing 2 passed via `npm run build:summary:server`; the server build wrapper finished with `warning_count: 0` and a clean success in `logs/test-summaries/build-server-latest.log`.
+- Testing 3 passed via `npm run test:summary:server:unit`; the full server-unit wrapper finished with `1667/1667` passing in `test-results/server-unit-tests-2026-04-13T22-31-08-632Z.log`.
+- Testing 4 passed via `npm run test:summary:server:cucumber`; the full server-cucumber wrapper finished with `88/88` passing in `test-results/server-cucumber-tests-2026-04-13T22-52-28-713Z.log`.
+- Testing 5 passed via `npm run compose:up`; the supported compose stack reached `8/8` started, with `codeinfo2-server-1` healthy and `codeinfo2-client-1` started in the direct compose output.
+- Testing 6 passed via `npm run compose:down`; the supported compose stack removed all eight services and the `codeinfo2_internal` network in the direct compose shutdown output.
 - Added shared queue-availability state in `server/src/ingest/requestQueue.ts` so degraded startup can preserve the retryable `QUEUE_UNAVAILABLE` contract even while Mongo remains connected.
 - Added dedicated degraded-startup unit proofs in `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`; this step only authored proof owners and did not run Task 112 Testing wrappers yet.
 

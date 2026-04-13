@@ -8348,7 +8348,7 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `106, 107`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` as the required final revalidation task once the stable-identity repair and schema-version cleanup land.
 
 #### Overview
@@ -8463,3 +8463,4 @@ This final review-follow-up task revalidates Story 55 after the current review f
 - Testing 11: `npm run test:summary:shell -- --file scripts/test/bats/vendor/bats-core/test/suite.bats` passed cleanly with `tests run: 24`, `passed: 24`, `failed: 0`, `agent_action: skip_log`, and retained the current vendored-shell proof at `logs/test-summaries/shell-tests-2026-04-13T02-47-32-532Z.log`.
 - Testing 12: the direct `test -L ...` sweep passed across all seven restored vendored fixture paths, so the final close-out still confirms the repaired fixture entries remain symlinks on current disk.
 - Subtask 14: refreshed `planning/0000055-pr-summary.md` with the current Task 108 runtime-smoke chain so compose build, supported startup, host-network validation, supported teardown, vendored shell proof, and final symlink verification are explicit retained proof homes.
+- Automated-proof audit on 2026-04-13: marked Task 108 `__done__` because all 20 subtasks and all 12 Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose only preserves retained proof context rather than an open completion gate.

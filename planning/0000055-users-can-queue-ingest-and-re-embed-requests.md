@@ -8534,3 +8534,438 @@ This final review-follow-up task revalidates Story 55 after the current review f
    - The queue now keeps one durable owner per canonical target, promotes waiting work to running only when the runtime lock is free, blocks newer work behind `cleanup-blocked` deletion failures, recovers unfinished work on startup, and overlays waiting plus active state into one shared repo list so the UI and non-UI callers see the same identity and queue metadata.
 4. What a reviewer should take particular interest in.
    - Review `server/src/ingest/requestQueue.ts`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcpCommon/repositorySelector.ts`, `client/src/hooks/useIngestRoots.ts`, and `client/src/components/ingest/RootsTable.tsx`, then compare them against the retained proof homes in Task 108 and the no-findings review artifacts, with extra attention on the remaining indirect seams around timeout-fallback independence, repo-list-only negative proof, cleanup-blocked UI parity, and stale `name` or `description` overlay freshness.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260413T080058Z-1eb771da`
+
+- Disposition: reopen the story because this pass endorsed 1 `must_fix` finding and 5 `should_fix` findings on `Current Repository`.
+- This newer findings-present review pass supersedes the earlier no-findings close-out for further implementation planning. The earlier review record remains historical context, but the canonical plan is reopened until the tasks below and the new final revalidation task are complete.
+- Durable review artifacts for this pass:
+  - `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- Optional additive blind-spot artifact used for this pass:
+  - `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md`
+- External-review input for this flow remains `codeInfoStatus/reviews/0000055-external-review-input.md`, but it is not a durable review artifact. The durable adjudication trail for endorsed, partially valid, and non-adopted external comments remains in the current findings artifact above.
+- Endorsed findings that require plan follow-up:
+  - Finding 1 `must_fix`: prevent waiting `start` queue rows from being rewritten into `reembed` during the queue-admission race in `server/src/ingest/requestQueue.ts`.
+  - Finding 2 `should_fix`: revalidate queued and startup-recovered `reembed` work against the current invalid-root-state contract before execution starts.
+  - Finding 3 `should_fix`: keep the default startup path reachable even when queue recovery encounters a post-connect Mongo or queue-runtime failure, so callers can still reach the retryable `QUEUE_UNAVAILABLE` contract.
+  - Finding 4 `should_fix`: make the no-Mongo cucumber proof honest by asserting the disconnected state instead of manufacturing it inside a `Then` step.
+  - Finding 5 `should_fix`: stop hiding durable review artifacts behind the broad `codeInfoStatus/reviews/` ignore rule so the required evidence and findings files are naturally commit-visible.
+  - Finding 6 `should_fix`: make the LM Studio mock stream helper honor already-aborted signals so cancellation and cleanup proof does not miss the pre-aborted case.
+
+### Task 109. Close The Waiting Start-To-Reembed Queue Admission Race
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `108`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 1, which was also strengthened by the endorsed external review comment without changing the finding scope.
+
+#### Overview
+
+This task hardens queue admission so a waiting `start` request can never be rewritten into `reembed` by a later interleaving. The fix must preserve the story contract that waiting duplicates reuse the existing queue identity and ordering metadata, but only mutate fields when that rewrite is actually allowed for the matched waiting item.
+
+#### Task Exit Criteria
+
+- `R1.` `server/src/ingest/requestQueue.ts` no longer mutates `operation` or `requestPayload` before it has established that the matched waiting item is allowed to be rewritten.
+- `R2.` The main waiting-row update path and the duplicate-key retry path both preserve a waiting `start` row as `start` when a later `reembed` submit races with it.
+- `R3.` Allowed waiting-item rewrites still keep the existing queue identity, `createdAt`, and FIFO ordering metadata.
+- `R4.` The guarded no-rewrite path continues to return the existing queue row with `updatedExisting: false`, while an actually allowed waiting-row rewrite still reports `updatedExisting: true`.
+- `R5.` Direct proof covers the specific race-shaped interleaving called out in Finding 1, not only the non-racy existing-row path.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/test/unit/ingest-request-queue.test.ts`
+
+#### Proof Mapping
+
+- `R1.` The waiting-row admission helper evaluates rewrite eligibility before building or sending the update document in the main matched-row path. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof home: `server/src/test/unit/ingest-request-queue.test.ts`.
+- `R2.` The main waiting-row update path and the duplicate-key retry path both preserve a queued `start` item as `start` during the race-shaped interleavings named in Finding 1. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof home: `server/src/test/unit/ingest-request-queue.test.ts`.
+- `R3.` Allowed waiting-row rewrites still preserve queue identity and FIFO metadata when the matched row is actually rewriteable. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof home: `server/src/test/unit/ingest-request-queue.test.ts`.
+- `R4.` The guarded no-rewrite path still returns `updatedExisting: false`, while an actually allowed waiting-row rewrite still returns `updatedExisting: true`. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof home: `server/src/test/unit/ingest-request-queue.test.ts`.
+- `R5.` The direct proof set explicitly covers the race-shaped main update path and duplicate-key retry path instead of only the existing non-racy queue-row path. Owners: `server/src/test/unit/ingest-request-queue.test.ts`. Proof home: `server/src/test/unit/ingest-request-queue.test.ts`.
+
+#### Subtasks
+
+1. [ ] Refactor the main waiting-row update path in `server/src/ingest/requestQueue.ts` so `shouldRewriteWaitingRequest(...)` is evaluated before any update document is built or sent to `findOneAndUpdate(...)`. Purpose: remove the mutation-before-check race in the ordinary matched-waiting-row path.
+2. [ ] Apply the same guard ordering to the duplicate-key retry path in `server/src/ingest/requestQueue.ts` after a raced insert fails. Purpose: keep the insert-race fallback from reintroducing the same mutation-before-check bug.
+3. [ ] Preserve the current no-rewrite behavior for waiting `start` rows reused by later `reembed` submits, including preserved `requestId`, `createdAt`, `sourceSurface`, queue position, and `updatedExisting: false`. Purpose: keep the repaired no-rewrite contract explicit instead of relying on incidental field preservation.
+4. [ ] Preserve the existing latest-settings-wins behavior for actually allowed waiting-row rewrites, including preserved queue identity plus `updatedExisting: true`. Purpose: repair the race without regressing the valid waiting-row rewrite contract.
+5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add a race-shaped proof where a waiting `start` row exists by the time a later `reembed` update executes in the main update path, and confirm the row remains `start` with `updatedExisting: false`. Purpose: make the exact ordinary-path finding direct.
+6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add the duplicate-key retry interleaving proof and confirm that path also preserves the waiting `start` row with `updatedExisting: false`. Purpose: close the second mutation-before-check seam named in Finding 1.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: add or split a no-rewrite metadata proof so the preserved `requestId`, `createdAt`, `sourceSurface`, and waiting queue position remain attached to the original `start` row after the guarded ordinary-path race. Purpose: keep the no-rewrite identity contract explicit instead of hiding it inside the operation assertion.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: refresh the existing allowed waiting-row rewrite proof so it still asserts preserved queue identity metadata plus `updatedExisting: true` after the guard-ordering change. Purpose: keep the permitted rewrite contract honest while the race fix lands.
+9. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: split or rename any reused canonical-target-normalization or waiting-duplicate test whose current title only claims non-racy normalization or generic reuse behavior, so the new race-shaped assertions have a title that explicitly names the interleaving or preserved waiting-row invariant they prove. Purpose: prevent reused queue-admission proofs from silently drifting away from their stated semantics.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the queue-admission race repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the queue-admission race repair.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the queue-admission race repair so the broader backend queued-admission and re-embed feature path stays honest beyond the direct unit proof home.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` only if targeted diagnosis is needed while repairing the guarded update ordering, then finish by rerunning Testing items 2 and 3.
+5. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs the queue-admission document update seam rather than the default startup path; Task 115 owns the combined compose-backed runtime rerun after the review-fix set lands.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the endorsed queue-admission race finding recorded in the durable findings artifact.
+
+### Task 110. Re-Validate Deferred And Recovered Re-Embed Input Before Execution
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `109`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 2.
+
+#### Overview
+
+This task restores the invalid-root-state guard for queued and startup-recovered `reembed` work. A `reembed` request that was valid when admitted must still be rejected before execution if the root has drifted into a disallowed persisted state such as `cancelled` or `error`.
+
+#### Task Exit Criteria
+
+- `R1.` The queue-managed `reembed` execution path re-checks the persisted root invalid-state contract before a deferred or startup-recovered `reembed` run starts, rather than relying only on `validateExecutableIngestInput(...)`.
+- `R2.` The restored execution-time validation matches the immediate-path contract for `INVALID_REEMBED_STATE` instead of allowing queued work to bypass it.
+- `R3.` The same persisted-state rule is shared with or clearly aligned to `assertRepoCanQueueReingest(...)` in `server/src/ingest/reingestService.ts` rather than becoming a second queue-only vocabulary.
+- `R4.` Proof covers both deferred queued execution and startup-recovery execution, and it proves the run is rejected before work proceeds into normal re-embed processing.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/requestContracts.ts`
+- `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+
+#### Proof Mapping
+
+- `R1.` Deferred queued `reembed` execution revalidates the persisted root state before normal work starts. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof home: `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- `R2.` Queue-managed rejection still surfaces `INVALID_REEMBED_STATE` instead of a queue-only error vocabulary when the execution-time state check fails. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof home: `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- `R3.` The immediate-path and queue-managed persisted-state rules stay aligned through one shared or clearly matched assertion seam. Owners: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Proof homes: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- `R4.` Startup-recovered `reembed` execution revalidates the persisted root state and rejects the run before retrying normal work. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof home: `server/src/test/unit/ingest-queue-runtime.test.ts`.
+
+#### Subtasks
+
+1. [ ] Extract or reuse one small persisted-root-state assertion seam shared between immediate `reembed` admission and queue-managed `reembed` execution, instead of copying the same `cancelled` or `error` rule into a second queue-only branch. Purpose: keep the invalid-state contract aligned in one place.
+2. [ ] Invoke that persisted-root-state assertion immediately before queued waiting `reembed` execution begins in `server/src/ingest/ingestJob.ts`. Purpose: stop the normal deferred queue path from bypassing the current invalid-root-state guard.
+3. [ ] Invoke that same persisted-root-state assertion in the startup-recovery `reembed` path that rebuilds work from the saved queue row. Purpose: stop recovered queue rows from bypassing the same invalid-root-state guard.
+4. [ ] Keep the repaired execution-time failure mapped to the existing `INVALID_REEMBED_STATE` contract instead of inventing a new queue-runtime error code. Purpose: preserve the story’s current user-facing error vocabulary.
+5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a deferred queued `reembed` proof where the root drifts to `cancelled` after admission and the execution seam rejects before any normal re-embed work marker or processing callback fires. Purpose: make the deferred execution rejection direct and prove the failure happens before work starts.
+6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a deferred queued `reembed` proof that the same execution-time failure still surfaces `INVALID_REEMBED_STATE` rather than a queue-only wrapper code. Purpose: keep the deferred error vocabulary aligned with the immediate path.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a startup-recovery proof where the persisted queue row survives admission but the root drifts to `error`, and confirm recovery rejects the run before retrying normal work. Purpose: make the persisted recovery path direct instead of implied by the deferred path.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a startup-recovery proof that the repaired recovery-time failure also surfaces `INVALID_REEMBED_STATE` instead of a recovery-only wrapper code. Purpose: keep recovery-time caller behavior aligned with both deferred and immediate rejection.
+9. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Description: refresh the route-level cancelled-root proof so immediate `POST /ingest/reembed` rejection still stays aligned with the repaired execution-time contract. Purpose: keep the cancelled immediate-path invariant explicit beside the new deferred proof.
+10. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Description: refresh the route-level error-root proof so immediate `POST /ingest/reembed` rejection still stays aligned with the repaired recovery-time contract. Purpose: keep the error-state immediate-path invariant explicit beside the new recovery proof.
+11. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add new invalid-root-state execution tests, or rename or split any reused lock-drift, zero-work, or startup-recovery tests whose current titles claim a different failure mode. Purpose: keep invalid persisted-root-state proof semantically separate from adjacent queue-runtime failures.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the deferred and recovered `reembed` validation repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the deferred `reembed` validation repair.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the deferred and recovered `reembed` validation repair so the broader backend re-embed feature path stays honest beyond the direct unit and route-integration proof homes.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` only if targeted diagnosis is needed while repairing the deferred and recovered execution seam, then finish by rerunning Testing items 2 and 3.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts` only if targeted diagnosis is needed while aligning the route-level proof with the repaired execution contract, then finish by rerunning Testing items 2 and 3.
+6. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs deferred and recovered `reembed` guard logic inside the running server rather than the startup launcher path; Task 115 owns the combined compose-backed runtime rerun after the review-fix set lands.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the deferred and recovered `reembed` invalid-state drift finding.
+
+### Task 111. Keep Startup Reachable When Queue Recovery Degrades
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `110`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 3.
+
+#### Overview
+
+This task hardens startup recovery so a post-connect queue read or write failure does not prevent the standard server path from becoming reachable. The runtime should still surface degraded queue behavior honestly, but callers must be able to reach the normal retryable `QUEUE_UNAVAILABLE` contract instead of losing the server completely.
+
+#### Task Exit Criteria
+
+- `R1.` `server/src/index.ts` and the queue-recovery startup path no longer fail closed on post-connect queue-runtime errors before `server.listen(...)` is reachable.
+- `R2.` Queue recovery still logs and surfaces the degraded startup state clearly enough for later diagnosis.
+- `R3.` Queue-backed start request paths still return the intended retryable `QUEUE_UNAVAILABLE` contract once the server is up.
+- `R4.` Queue-backed `reembed` request paths still return the intended retryable `QUEUE_UNAVAILABLE` contract once the server is up.
+- `R5.` There is one direct, testable seam for the post-connect recovery failure handling in current unit coverage, and proof covers the degraded startup ordering rather than only by inspection.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- `README.md`
+- `docker-compose.yml`
+- `server/src/index.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+
+#### Proof Mapping
+
+- `R1.` Post-connect queue-recovery failure no longer prevents the default server startup path from becoming reachable. Owners: `server/src/index.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof home: `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- `R2.` The degraded startup branch leaves one observable diagnostic boundary such as a returned degraded result or explicit log event instead of silently swallowing the failure. Owners: `server/src/index.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof home: `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- `R3.` Queue-backed start requests still return retryable `QUEUE_UNAVAILABLE` after degraded startup keeps the server reachable. Owners: `server/src/routes/ingestStart.ts`, `server/src/test/unit/ingest-start.test.ts`. Proof home: `server/src/test/unit/ingest-start.test.ts`.
+- `R4.` Queue-backed `reembed` requests still return retryable `QUEUE_UNAVAILABLE` after degraded startup keeps the server reachable. Owners: `server/src/routes/ingestReembed.ts`, `server/src/test/unit/ingest-reembed.test.ts`. Proof home: `server/src/test/unit/ingest-reembed.test.ts`.
+- `R5.` The post-connect recovery failure handling remains isolated behind one direct unit-test seam instead of requiring whole-process boot inspection, and the supported compose runtime path still starts and stops cleanly after the repair. Owners: `server/src/index.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `docker-compose.yml`. Proof homes: `server/src/test/unit/ingest-queue-runtime.test.ts`, Task 111 Testing items 1 through 5.
+
+#### Subtasks
+
+1. [ ] Extract the post-connect queue-recovery call in `server/src/index.ts` into one small helper that runs after `connectMongo(...)` and before `server.listen(...)`, and have that helper return a degraded-startup result the unit tests can call directly. Purpose: give the startup-ordering repair one direct proof seam without turning this task into a broad bootstrap rewrite.
+2. [ ] Update that startup seam so queue recovery failures after a successful `connectMongo(...)` do not abort the default startup path before `server.listen(...)` is reached. Purpose: preserve the story’s steady-state retryable outage contract.
+3. [ ] Keep degraded startup behavior explicit through existing logging or other current status surfaces rather than silently swallowing the failure. Purpose: make the runtime diagnosable while avoiding fail-closed startup.
+4. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a post-connect recovery failure leaves the standard startup path reachable by asserting the startup seam returns or resolves its reachable-state boundary instead of failing closed. Purpose: make the launcher-reachability fix direct through the existing startup-recovery proof seam.
+5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the same degraded startup branch emits an observable degraded result or diagnostic signal instead of silently swallowing the failure. Purpose: keep degraded startup diagnosable through the same direct unit seam.
+6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the degraded startup branch does not leave a partial promotion side effect behind by asserting the recorded queue-runtime calls or captured promoted request ids in that test file stay unchanged after the recovery failure, instead of using a delay-based assertion. Purpose: keep mixed startup-failure state honest while the launcher stays reachable.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove queue-backed start requests still return retryable `QUEUE_UNAVAILABLE` after that degraded startup state. Purpose: keep the start-route contract explicit once startup stays reachable.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove queue-backed `reembed` requests still return retryable `QUEUE_UNAVAILABLE` after that degraded startup state. Purpose: keep the `reembed` route contract explicit once startup stays reachable.
+9. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a new degraded-startup reachability proof or rename or split any reused startup-recovery test whose current title only claims cleanup-blocked ordering, malformed payload rejection, or canonical-path fallback behavior. Purpose: keep the post-connect recovery-failure invariant explicit instead of hiding it behind adjacent startup-recovery semantics.
+10. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-start.test.ts`. Description: add a dedicated degraded-startup queue-outage proof, or rename or split any reused generic queue-outage mapping test so its title and assertions explicitly name degraded startup as the source of the `QUEUE_UNAVAILABLE` response. Purpose: prevent the start-route proof from claiming a narrower generic outage than it actually proves.
+11. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: add a dedicated degraded-startup queue-outage proof, or rename or split any reused generic queue-outage mapping test so its title and assertions explicitly name degraded startup as the source of the `QUEUE_UNAVAILABLE` response. Purpose: prevent the `reembed` route proof from claiming a narrower generic outage than it actually proves.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` and confirm the compose build wrapper passes for the normal supported runtime path after the startup-ordering repair.
+2. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the startup-ordering repair.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the degraded-startup repair.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the degraded-startup repair so the broader backend startup and queue-outage feature path stays honest beyond the direct unit proof homes.
+5. [ ] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the degraded-startup repair.
+6. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the startup smoke proof.
+7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` only if targeted diagnosis is needed while proving the startup seam, then finish by rerunning Testing items 1 through 6 as applicable.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the degraded-startup reachability finding.
+
+### Task 112. Repair The No-Mongo Re-Embed Cucumber Proof
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `111`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 4 and to keep the cucumber proof honest.
+
+#### Overview
+
+This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step no longer manufactures the disconnected state it claims to verify. The scenario must assert the precondition honestly and keep any intentional disconnect work in setup steps.
+
+#### Task Exit Criteria
+
+- `R1.` The `Then` step in `server/src/test/steps/ingest-delta-reembed.steps.ts` is a pure assertion of disconnected state.
+- `R2.` Any intentional disconnect action lives in a `Given` or `When` step in `server/src/test/steps/ingest-delta-reembed.steps.ts` instead of the final assertion step.
+- `R3.` The affected cucumber scenario text in `server/src/test/features/ingest-delta-reembed.feature` still describes the same no-Mongo product contract without relying on self-fulfilling proof.
+- `R4.` The repaired proof fails fast if the expected disconnected-state precondition was not set up earlier in the scenario.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- `server/src/test/features/ingest-delta-reembed.feature`
+- `server/src/test/steps/ingest-delta-reembed.steps.ts`
+
+#### Proof Mapping
+
+- `R1.` The no-Mongo cucumber precondition is asserted honestly instead of being manufactured inside the `Then` step. Owners: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof home: `server/src/test/steps/ingest-delta-reembed.steps.ts`.
+- `R2.` Any intentional disconnect action for this scenario lives in a `Given` or `When` step inside `server/src/test/steps/ingest-delta-reembed.steps.ts`, not inside the final assertion. Owners: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof home: `server/src/test/steps/ingest-delta-reembed.steps.ts`.
+- `R3.` The no-Mongo feature text keeps disconnect setup separate from disconnected-state assertion so reviewers can see the proof boundary directly in the scenario. Owners: `server/src/test/features/ingest-delta-reembed.feature`. Proof home: `server/src/test/features/ingest-delta-reembed.feature`.
+- `R4.` The repaired `Then` step fails fast when the scenario forgot to establish the disconnected-state precondition earlier. Owners: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof home: `server/src/test/steps/ingest-delta-reembed.steps.ts`.
+
+#### Subtasks
+
+1. [ ] Update `server/src/test/steps/ingest-delta-reembed.steps.ts` so the disconnected-state `Then` step fails if Mongo is still connected instead of disconnecting it first. Purpose: make the proof assertion honest.
+2. [ ] Proof type: cucumber step proof maintenance. Location: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Description: move the Mongo disconnect action for this scenario into one explicit `Given` or `When` step in that file, reusing an existing setup step only if its current title and body already describe disconnecting Mongo before the assertion. Purpose: keep the disconnect action in setup rather than hiding it inside the assertion.
+3. [ ] Proof type: cucumber step proof. Location: `server/src/test/steps/ingest-delta-reembed.steps.ts`. Description: make the repaired `Then` step fail fast when the scenario forgot to establish the disconnected-state precondition earlier. Purpose: keep the proof honest by surfacing missing setup immediately.
+4. [ ] Proof type: cucumber feature proof maintenance. Location: `server/src/test/features/ingest-delta-reembed.feature`. Description: refresh the matching scenario wording so the disconnect setup and disconnected-state assertion are separate and reviewable. Purpose: keep the feature text aligned with the repaired proof shape.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the proof repair.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` only if targeted diagnosis is needed while repairing the no-Mongo scenario, then finish by rerunning Testing item 1.
+3. [ ] Separate server build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber feature and step-definition proof owners; Task 115 owns the broader backend wrapper and runtime rerun after the review-fix set lands.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the endorsed no-Mongo cucumber proof-honesty finding.
+
+### Task 113. Make Current Review Artifacts Naturally Commit-Visible
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `112`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 5 as an allowed support-file hygiene fix.
+
+#### Overview
+
+This task narrows the ignore policy so the current review pass evidence and findings artifacts are not hidden behind `codeInfoStatus/reviews/`. The workflow may still treat handoff state as transient, but the durable evidence and findings files for the active pass must be naturally visible to `git status` and normal add flows.
+
+#### Task Exit Criteria
+
+- `R1.` `.gitignore` no longer hides the current-pass durable review artifacts that this flow requires to be committed: the evidence file and the findings file for review pass `0000055-20260413T080058Z-1eb771da`.
+- `R2.` The ignore behavior still keeps transient or intentionally non-durable review workflow state out of scope where appropriate, including the current-review handoff JSON, the external-review input markdown, and the optional blind-spot challenge file for this pass.
+- `R3.` The plan and any supporting workflow wording clearly distinguish durable evidence and findings artifacts from transient handoff or input files.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- `codeInfoStatus/reviews/0000055-current-review.json`
+- `codeInfoStatus/reviews/0000055-external-review-input.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md`
+- `codeinfo_markdown/review_disposition.md`
+- `.gitignore`
+
+#### Proof Mapping
+
+- `R1.` The current-pass evidence artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof home: Task 113 Testing item 1.
+- `R1.` The current-pass findings artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof home: Task 113 Testing item 1.
+- `R2.` The current-review handoff JSON remains treated as transient input rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`. Proof homes: Task 113 Testing items 2 and 3.
+- `R2.` The external-review input markdown remains treated as transient input rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`, this plan. Proof homes: Task 113 Testing items 2 and 3.
+- `R2.` The optional blind-spot challenge file remains treated as transient additive context rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`. Proof homes: Task 113 Testing items 2 and 3.
+- `R3.` The touched workflow wording and plan wording stay aligned with the same durable-versus-transient artifact split. Owners: `codeinfo_markdown/review_disposition.md`, this plan. Proof homes: direct file inspection plus Task 113 Testing item 3.
+
+#### Subtasks
+
+1. [ ] Narrow the `.gitignore` behavior so the evidence file and findings file for review pass `0000055-20260413T080058Z-1eb771da` are not hidden behind the broad `codeInfoStatus/reviews/` ignore rule. Purpose: make the required durable artifacts naturally visible to normal git workflows without opening the entire review-artifact directory.
+2. [ ] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-current-review.json` ignored as transient review handoff state while the durable evidence and findings files become visible. Purpose: preserve the handoff-versus-artifact boundary without reopening the whole review directory.
+3. [ ] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-external-review-input.md` ignored as transient flow input while the durable evidence and findings files become visible. Purpose: preserve the external-review-specific transient-input contract.
+4. [ ] Proof type: git-visibility proof maintenance. Location: `.gitignore`. Description: keep `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` ignored as transient additive context while the durable evidence and findings files become visible. Purpose: keep the optional challenge file out of the durable-artifact set for this flow.
+5. [ ] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the evidence and findings files are the durable artifacts while the current-review handoff JSON remains transient. Purpose: give the current-review visibility rule an explicit workflow home.
+6. [ ] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the external-review input markdown remains transient input rather than becoming part of the durable artifact set. Purpose: keep the external-review-specific contract explicit in the base workflow file.
+7. [ ] Proof type: workflow wording proof maintenance. Location: `codeinfo_markdown/review_disposition.md`. Description: update the review-disposition wording so the optional blind-spot challenge file remains additive context rather than a required durable artifact. Purpose: keep the challenge-file boundary explicit for later review passes.
+8. [ ] Proof type: plan wording proof maintenance. Location: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Description: refresh this review-pass section so its durable-versus-transient artifact wording stays aligned with the repaired ignore policy and workflow wording. Purpose: keep the active plan honest after the visibility repair lands.
+
+#### Testing
+
+1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md` and confirm those durable review artifacts are no longer ignored.
+2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` and confirm those transient inputs remain ignored.
+3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore codeinfo_markdown/review_disposition.md` and confirm the durable artifacts are naturally visible without relying on force-add while the transient inputs stay out of the normal commit set.
+4. [ ] Separate server build, automated test, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes ignore rules and workflow wording files; Task 115 owns the broader wrapper and runtime rerun after the visibility fix lands.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the review-artifact visibility hygiene finding.
+
+### Task 114. Honor Pre-Aborted Signals In The LM Studio Mock Stream Helper
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `113`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 6.
+
+#### Overview
+
+This task repairs the shared LM Studio mock stream helper so it behaves correctly when the caller passes an already-aborted signal. The helper must stop immediately in that case instead of continuing to emit events and accidentally weakening cancellation proof.
+
+#### Task Exit Criteria
+
+- `R1.` `server/src/test/support/mockLmStudioSdk.ts` treats an already-aborted signal as cancelled immediately, not only after a future `abort` event.
+- `R2.` Direct proof covers the pre-aborted case in `server/src/test/unit/mockLmStudioSdk.test.ts` instead of only through an incidental downstream caller.
+- `R3.` The helper remains compatible with its existing non-aborted behavior after the pre-aborted repair lands.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- `server/src/test/support/mockLmStudioSdk.ts`
+- `server/src/test/unit/mockLmStudioSdk.test.ts`
+
+#### Proof Mapping
+
+- `R1.` The shared mock helper stops immediately when it receives an already-aborted signal. Owners: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`. Proof home: `server/src/test/unit/mockLmStudioSdk.test.ts`.
+- `R2.` The dedicated helper proof shows that a pre-aborted signal does not emit delayed stream callbacks after construction. Owners: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`. Proof home: `server/src/test/unit/mockLmStudioSdk.test.ts`.
+- `R3.` The same dedicated helper test file still covers the non-aborted control behavior after the pre-aborted repair, and the full server-unit wrapper stays green afterward. Owners: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`. Proof homes: `server/src/test/unit/mockLmStudioSdk.test.ts`, `npm run test:summary:server:unit`.
+
+#### Subtasks
+
+1. [ ] Update `server/src/test/support/mockLmStudioSdk.ts` so it checks `signal.aborted` before registering the later abort listener and before entering the event-emission loop. Purpose: make pre-aborted signals behave like real cancelled streams from the first turn.
+2. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted proof that the helper marks the call as cancelled immediately on construction before any later abort event could fire. Purpose: make the cancellation-ordering invariant explicit at the helper seam.
+3. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted proof that no delayed stream callbacks or yielded chunks appear after construction, using the helper’s captured call state or collected output boundary instead of a fixed sleep. Purpose: keep the “nothing happened yet” invariant deterministic and reviewable.
+4. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted early-return cleanup proof that the helper terminates cleanly and awaits its cleanup boundary without leaving listener-driven work active after the first cancelled turn. Purpose: cover the listener and awaited early-return cleanup path that this helper owns.
+5. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add one dedicated non-aborted control proof that the helper still emits the expected controlled stream output and clears its waiter bookkeeping on a normal non-aborted run. Purpose: keep the normal helper contract covered alongside the new pre-aborted and early-return cases.
+6. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: keep the existing timeout-cleanup test focused on timeout cleanup, and add separate pre-aborted tests with titles that explicitly name pre-aborted cancellation instead of silently broadening the timeout case. Purpose: keep timeout and pre-aborted semantics distinct in the shared helper proof file.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the mock-stream repair.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mockLmStudioSdk.test.ts` only if targeted diagnosis is needed while repairing the helper, then finish by rerunning Testing item 1.
+3. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes the unit-test support helper `server/src/test/support/mockLmStudioSdk.ts` and its direct unit proof owner; Task 115 owns the broader backend cucumber and runtime rerun after the review-fix set lands.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the pre-aborted signal mock-helper finding.
+
+### Task 115. Re-Validate Story 55 After Review Pass `0000055-20260413T080058Z-1eb771da`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `109, 110, 111, 112, 113, 114`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` as the required final revalidation task after the new review-fix tasks land.
+
+#### Overview
+
+This final review-follow-up task revalidates Story 55 after the current findings-driven fixes land. It must confirm that the queue-admission race repair, deferred `reembed` validation repair, degraded-startup reachability repair, cucumber proof fix, durable review-artifact visibility fix, and LM Studio mock cancellation repair all hold together on current disk, then refresh the maintained summary with the retained proof homes and honest residual-risk notes for this pass. Because these review-created tasks only touch server and workflow-support seams, the required final rerun set here is the server build, server unit, server cucumber, and the direct review-artifact visibility checks unless a later implementation diff broadens scope.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks 109 through 114 are `__done__` before final reruns begin.
+- `R2.` The current durable evidence and findings artifacts for review pass `0000055-20260413T080058Z-1eb771da` still exist on disk and remain cited as the adjudication record for the reopened work.
+- `R3.` The maintained summary records the exact owner files and retained proof homes for each review-fix task before or during final close-out.
+- `R4.` The relevant wrapper and non-wrapper proof chain for this scoped review-fix set passes on current disk after the current review-fix tasks land, including the direct `git check-ignore` and `git status` visibility checks owned by Task 113.
+- `R5.` Final close-out records any remaining rejected-risk or residual weak-proof notes from the current findings and blind-spot artifacts honestly instead of silently dropping them behind green wrappers.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`
+- `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md`
+- `README.md`
+- `docker-compose.yml`
+- the owner files and proof files named in Tasks 109 through 114
+
+#### Proof Mapping
+
+- `R1.` Final revalidation does not start until Tasks 109 through 114 have been completed and re-opened for proof-home retention. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 115 subtasks 2 through 7.
+- `R2.` The current review pass remains anchored to its durable evidence and findings artifacts before final reruns begin. Owners: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`, `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Proof homes: Task 115 subtasks 1 and 11.
+- `R3.` Each endorsed finding from the current review pass has a retained proof home recorded in `planning/0000055-pr-summary.md` before final close-out. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 115 subtasks 2 through 9.
+- `R4.` The final build wrappers, automated test wrappers, supported compose smoke path, and direct git checks confirm the repaired server implementation, proof harnesses, and artifact-visibility behavior remain green together on current disk. Owners: wrapper scripts, `docker-compose.yml`, `.gitignore`, `codeinfo_markdown/review_disposition.md`, and the task owner files above. Proof homes: Task 115 Testing items 1 through 8.
+- `R5.` Any residual weak-proof notes still carried forward after the reruns and compose smoke proof are explicitly retained in `planning/0000055-pr-summary.md` instead of being hidden by green wrappers. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 115 subtask 10.
+
+#### Subtasks
+
+1. [ ] Re-read the current review evidence, findings, and optional blind-spot challenge artifacts before final reruns begin. Purpose: anchor final close-out to the current findings-present pass instead of the older no-findings close-out.
+2. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 109’s repaired owner file and retained proof homes for the guarded queue-admission race and the preserved waiting-row metadata proofs. Purpose: keep the race-fix proof chain explicit for later reviewers.
+3. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 110’s repaired owner files and retained proof homes for deferred cancelled-state rejection, recovery-time error-state rejection, and shared `INVALID_REEMBED_STATE` vocabulary proofs. Purpose: keep the execution-time invalid-state proof chain explicit for later reviewers.
+4. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 111’s repaired owner files and retained proof homes for degraded startup reachability, diagnostic visibility, and retryable `QUEUE_UNAVAILABLE` route proofs. Purpose: keep the startup-degradation proof chain explicit for later reviewers.
+5. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 112’s repaired owner files and retained proof homes for the no-Mongo disconnect setup, pure assertion, and fail-fast cucumber proof maintenance. Purpose: keep the cucumber proof-honesty repair explicit for later reviewers.
+6. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 113’s repaired owner files and retained proof homes for durable artifact visibility plus transient current-review, external-input, and challenge-file boundaries. Purpose: keep the non-wrapper artifact-visibility proof chain explicit for later reviewers.
+7. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 114’s repaired owner files and retained proof homes for pre-aborted cancellation ordering, deterministic no-callback proof, and early-return cleanup coverage. Purpose: keep the helper-lifecycle proof chain explicit for later reviewers.
+8. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final server-wrapper and compose-smoke proof chain from this pass. Purpose: preserve the supported runtime rerun trail instead of collapsing it into a generic close-out line.
+9. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the retained Task 113 visibility-check proof homes from this pass beside the wrapper and compose-smoke reruns. Purpose: keep the direct git visibility proof explicit in final close-out.
+10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest residual weak-proof notes that still remain after this pass. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
+11. [ ] Proof type: durable artifact existence check. Location: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md` and `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Description: verify both durable review artifacts still exist on disk before final close-out. Purpose: keep the adjudication record explicit in the final review-fix pass.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` and confirm the compose build wrapper passes for the normal supported runtime path after the current review-fix tasks land.
+2. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the current review-fix tasks land.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the current review-fix tasks land.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the current review-fix tasks land.
+5. [ ] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the current review-fix tasks land.
+6. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the runtime smoke proof.
+7. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient files remain ignored after Task 113 lands.
+8. [ ] Run `git status --short codeInfoStatus/reviews .gitignore codeinfo_markdown/review_disposition.md planning/0000055-pr-summary.md` and confirm the final review-fix pass leaves the durable artifacts and required plan or wording updates naturally visible.
+9. [ ] Run additional targeted proof commands only if one of Tasks 109 through 114 needed narrower diagnosis during implementation, then finish by rerunning the full relevant wrapper or compose steps above.
+10. [ ] Separate client-wrapper and browser-wrapper proof is not applicable here because Tasks 109 through 114 only change server and workflow-support seams; if a later implementation diff broadens into client-visible code, update this task before closing it.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260413T080058Z-1eb771da` as the required final revalidation task after the endorsed findings-driven follow-up work.

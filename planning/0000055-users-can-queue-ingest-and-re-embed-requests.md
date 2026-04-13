@@ -8169,7 +8169,7 @@ This final review-follow-up task revalidates Story 55 after the current review f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `105`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` to repair the remaining stable-identity contract defect in the shared repository-list and selector seams.
 
 #### Overview
@@ -8284,6 +8284,7 @@ This task makes the shared repository-list `id` a stable repository identity ins
 - Testing 5: `npm run test:summary:client` passed cleanly with `tests run: 687`, `passed: 687`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/client-tests-2026-04-13T01-06-06-274Z.log`.
 - Testing 6: `npm run test:summary:e2e` passed cleanly with `tests run: 48`, `passed: 48`, `failed: 0`, `agent_action: skip_log`, retained `logs/test-summaries/e2e-tests-latest.log`, and re-confirmed the host-network browser wiring with `DEV-0000050:T13:e2e_host_network_config_verified`.
 - Testing 7: compose smoke remains intentionally deferred to Task 108, which owns the reopened story-level compose and host-network validation chain once Task 106 and Task 107 are both ready for final revalidation.
+- Automated-proof audit on 2026-04-13: marked Task 106 `__done__` because all 31 subtasks and all 7 Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose is retained proof context rather than an open completion gate.
 
 ### Task 107. Deduplicate The Remaining Schema-Version Proof Literals
 

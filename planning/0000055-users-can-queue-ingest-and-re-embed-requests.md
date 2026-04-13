@@ -8328,9 +8328,9 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit` and confirm the server-side proof suite still passes after the constant cleanup.
-2. [ ] Run `npm run test:summary:client` and confirm the client proof suite still passes after the constant cleanup.
-3. [ ] Separate build, compose, and browser smoke proof is not applicable here because this task only rewrites proof files to reuse `INGEST_ROOTS_SCHEMA_VERSION`; Task 108 owns the reopened story-level runtime validation chain.
+1. [x] Run `npm run test:summary:server:unit` and confirm the server-side proof suite still passes after the constant cleanup.
+2. [x] Run `npm run test:summary:client` and confirm the client proof suite still passes after the constant cleanup.
+3. [x] Separate build, compose, and browser smoke proof is not applicable here because this task only rewrites proof files to reuse `INGEST_ROOTS_SCHEMA_VERSION`; Task 108 owns the reopened story-level runtime validation chain.
 
 #### Implementation notes
 
@@ -8338,6 +8338,9 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 - Subtasks 1-2: updated `client/src/test/ingestStatus.test.tsx` to import and assert `INGEST_ROOTS_SCHEMA_VERSION` directly so the remaining client proof no longer carries a file-local copy of the Story 55 schema literal.
 - Subtasks 3-4: updated `server/src/test/integration/mcp-ingested-repositories.test.ts` to import and assert `INGEST_ROOTS_SCHEMA_VERSION` directly so the remaining server integration proof now points back at the shared schema owner instead of a duplicated literal.
 - Subtask 5: refreshed `planning/0000055-pr-summary.md` so the latest review-follow-up section explicitly records that the remaining schema-version proof drift was removed by reusing `INGEST_ROOTS_SCHEMA_VERSION` in the client and server proof files.
+- Testing 1: the first `npm run test:summary:server:unit` attempt failed in the unrelated flow-loop cleanup proof at `server/src/test/integration/flows.run.loop.test.ts`; an immediate full-wrapper retry passed cleanly with `tests run: 1654`, `passed: 1654`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-unit-tests-2026-04-13T01-39-26-821Z.log`, so no Task 107 blocker remains.
+- Testing 2: `npm run test:summary:client` passed cleanly with `tests run: 687`, `passed: 687`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/client-tests-2026-04-13T01-58-18-935Z.log`.
+- Testing 3: build, compose, host-network, shell, and browser smoke remain intentionally deferred to Task 108 because Task 107 only rewrites proof files to reuse `INGEST_ROOTS_SCHEMA_VERSION`.
 
 ### Task 108. Re-Validate Story 55 After Review Pass `0000055-20260412T231111Z-04540d3d`
 

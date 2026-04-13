@@ -8605,10 +8605,10 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the queue-admission race repair.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the queue-admission race repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the queue-admission race repair.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the queue-admission race repair so the broader backend queued-admission and re-embed feature path stays honest beyond the direct unit proof home.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` only if targeted diagnosis is needed while repairing the guarded update ordering, then finish by rerunning Testing items 2 and 3.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` only if targeted diagnosis is needed while repairing the guarded update ordering, then finish by rerunning Testing items 2 and 3.
 5. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs the queue-admission document update seam rather than the default startup path; Task 115 owns the combined compose-backed runtime rerun after the review-fix set lands.
 
 #### Implementation notes
@@ -8623,6 +8623,9 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 - Subtask 7: split out a dedicated ordinary-path metadata proof so the preserved `requestId`, `createdAt`, `sourceSurface`, and waiting queue position stay attached to the original waiting `start` row after the guarded no-rewrite path wins the race.
 - Subtask 8: refreshed the allowed waiting-row rewrite proof title and assertions so it still claims preserved queue identity metadata together with `updatedExisting: true` after the guard-ordering refactor.
 - Subtask 9: renamed the reused normalization and duplicate tests so their titles now distinguish the non-racy existing-row case, the ordinary matched-row race, and the duplicate-key retry interleaving instead of hiding the new race-shaped assertions behind generic reuse wording.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, `warning_count: 0`, and retained log `logs/test-summaries/build-server-latest.log`, so the guarded waiting-row rewrite change still builds on the supported server wrapper path.
+- Testing 4 diagnosis: the first full server-unit rerun failed in the new duplicate-key retry proof because the concurrency-heavy fixture was still proving the earlier no-rewrite reuse path instead of the retry-update seam itself. Rewrote that proof as a deterministic duplicate-key interleaving in `server/src/test/unit/ingest-request-queue.test.ts`, then reran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` to a clean `tests run: 11`, `passed: 11`, `failed: 0` result in `test-results/server-unit-tests-2026-04-13T13-48-22-094Z.log`.
+- **BLOCKER** Testing 2: reran `npm run test:summary:server:unit` after the Task 109 proof repair, and the full wrapper no longer stopped in any Task 109-owned test. Instead it failed earlier in the unrelated full-suite lane `not ok 280 - flow stop during a looped flow prevents later iterations from continuing`, with wrapper reason `semantic_progress_stalled` in `test-results/server-unit-tests-2026-04-13T13-48-46-354Z.log`. I also confirmed the retained log only reports that earlier `flows.run.loop` owner and not the Task 109 proof titles, so the missing capability here is a trustworthy upstream full `server:unit` baseline rather than more queue-admission work. This task should be reordered behind a fresh prerequisite or planner repair that re-isolates that earlier full-suite contradiction before Task 109 can finish Testing 2 and Testing 3 honestly.
 
 ### Task 110. Re-Validate Deferred And Recovered Re-Embed Input Before Execution
 

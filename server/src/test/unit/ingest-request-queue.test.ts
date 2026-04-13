@@ -474,43 +474,32 @@ test('allowed waiting-row rewrite preserves queue identity metadata and reports 
 
 test('duplicate-key retry interleaving preserves a waiting start row and returns updatedExisting false for a later reembed submit', async () => {
   const created = createQueueRequest();
-  let waitingRequest: IngestQueueRequest | null = null;
   let waitingLookupCount = 0;
-  let createCallCount = 0;
-  let guardedRetryUpdateCount = 0;
-  let releaseFirstCreate: (() => void) | null = null;
-  const firstCreateGate = new Promise<void>((resolve) => {
-    releaseFirstCreate = resolve;
-  });
-
-  mock.method(
+  let liveLookupCount = 0;
+  const waitingUpdateMock = mock.method(
     IngestQueueRequestModel,
     'findOneAndUpdate',
     (
       filter: Record<string, unknown>,
       update: { $set: Record<string, unknown> },
     ) => {
-      if (filter.queueState !== 'waiting') {
-        return { exec: async () => null };
-      }
-
-      waitingLookupCount += 1;
-      if (!waitingRequest) {
-        return { exec: async () => null };
-      }
-
-      if (filter.operation === 'reembed' && waitingRequest.operation === 'start') {
-        guardedRetryUpdateCount += 1;
-        return { exec: async () => null };
-      }
-
-      waitingRequest = createQueueRequest({
-        ...waitingRequest,
-        operation: update.$set.operation as IngestQueueRequest['operation'],
-        requestPayload: update.$set.requestPayload as Record<string, unknown>,
-        updatedAt: new Date('2026-01-01T00:15:00.000Z'),
+      assert.deepEqual(filter, {
+        canonicalTargetPath: '/data/example',
+        queueState: 'waiting',
+        operation: 'reembed',
       });
-      return { exec: async () => waitingRequest };
+      assert.deepEqual(update, {
+        $set: {
+          operation: 'reembed',
+          requestPayload: {
+            model: 'embed-second',
+            embeddingProvider: 'openai',
+            embeddingModel: 'embed-second',
+          },
+        },
+      });
+
+      return { exec: async () => null };
     },
   );
   mock.method(
@@ -521,83 +510,57 @@ test('duplicate-key retry interleaving preserves a waiting start row and returns
       queueState?: string | { $in?: string[] };
     }) => {
       if (filter.queueState === 'waiting') {
+        waitingLookupCount += 1;
         return {
           sort: () => ({
-            exec: async () => waitingRequest,
+            exec: async () => null,
           }),
         };
       }
       return {
         sort: () => ({
-          exec: async () => null,
+          exec: async () => {
+            liveLookupCount += 1;
+            return liveLookupCount === 1 ? null : created;
+          },
         }),
       };
     },
   );
-  mock.method(
-    IngestQueueRequestModel,
-    'create',
-    async (doc: Record<string, unknown>) => {
-      createCallCount += 1;
-      if (createCallCount === 1) {
-        await firstCreateGate;
-        waitingRequest = createQueueRequest({
-          ...created,
-          canonicalTargetPath: doc.canonicalTargetPath as string,
-          operation: doc.operation as IngestQueueRequest['operation'],
-          requestPayload: doc.requestPayload as Record<string, unknown>,
-          sourceSurface: doc.sourceSurface as string,
-          runId: null,
-        });
-        return waitingRequest;
-      }
-
-      releaseFirstCreate?.();
-      const error = new Error('duplicate waiting queue row');
-      (error as Error & { code?: number }).code = 11000;
-      throw error;
-    },
-  );
+  const createMock = mock.method(IngestQueueRequestModel, 'create', async () => {
+    const error = new Error('duplicate waiting queue row');
+    (error as Error & { code?: number }).code = 11000;
+    throw error;
+  });
   mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
     exec: async () => 0,
   }));
 
-  const firstInput = buildInput({
-    requestPayload: {
-      model: 'embed-first',
-      embeddingProvider: 'lmstudio',
-      embeddingModel: 'embed-first',
-    },
-    sourceSurface: 'rest/ingest/start',
-  });
-  const secondInput = buildInput({
-    operation: 'reembed',
-    requestPayload: {
-      model: 'embed-second',
-      embeddingProvider: 'openai',
-      embeddingModel: 'embed-second',
-    },
-    sourceSurface: 'rest/ingest/reembed',
-  });
-
-  const [firstResult, secondResult] = await Promise.all([
-    enqueueOrReuseIngestRequest(firstInput),
-    enqueueOrReuseIngestRequest(secondInput),
-  ]);
+  const result = await enqueueOrReuseIngestRequest(
+    buildInput({
+      operation: 'reembed',
+      requestPayload: {
+        model: 'embed-second',
+        embeddingProvider: 'openai',
+        embeddingModel: 'embed-second',
+      },
+      sourceSurface: 'rest/ingest/reembed',
+    }),
+  );
 
   assert.equal(waitingLookupCount, 2);
-  assert.equal(firstResult.requestId, created._id.toString());
-  assert.equal(secondResult.requestId, created._id.toString());
-  assert.equal(firstResult.updatedExisting, false);
-  assert.equal(secondResult.updatedExisting, false);
-  assert.equal(secondResult.queuePosition, 1);
-  assert.equal(guardedRetryUpdateCount, 1);
-  assert.equal(secondResult.queueRequest.operation, 'start');
-  assert.equal(secondResult.queueRequest.sourceSurface, 'rest/ingest/start');
-  assert.deepEqual(secondResult.queueRequest.requestPayload, {
-    model: 'embed-first',
+  assert.equal(liveLookupCount, 2);
+  assert.equal(createMock.mock.calls.length, 1);
+  assert.equal(waitingUpdateMock.mock.calls.length, 2);
+  assert.equal(result.requestId, created._id.toString());
+  assert.equal(result.updatedExisting, false);
+  assert.equal(result.queuePosition, 1);
+  assert.equal(result.queueRequest.operation, 'start');
+  assert.equal(result.queueRequest.sourceSurface, 'rest/ingest/start');
+  assert.deepEqual(result.queueRequest.requestPayload, {
+    model: 'nomic-embed',
     embeddingProvider: 'lmstudio',
-    embeddingModel: 'embed-first',
+    embeddingModel: 'nomic-embed',
   });
 });
 

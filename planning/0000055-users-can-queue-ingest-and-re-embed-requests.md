@@ -8521,3 +8521,14 @@ This final review-follow-up task revalidates Story 55 after the current review f
   - `AC43` remains indirect because queued-but-not-started user removal is still proved mainly by absence-by-contract rather than a dedicated negative test
   - `cleanup-blocked` UI affordance parity remains weaker than the waiting-row proof because current changed tests prove render visibility and shared-helper reuse more directly than exact checkbox and bulk-button disable assertions for that row state
   - `name` and `description` freshness through `applyQueueOverlay()` remains an indirect stale-hint seam rather than a confirmed defect
+
+## Final Summary
+
+1. What has been changed.
+   - Story 55 added the durable Mongo-backed ingest and re-embed queue, repaired canonical repository identity across the shared repo-list seam, deduplicated the shared schema-version proof constant, restored the retained wrapper and runtime proof chain, and finished with a no-findings post-implementation review.
+2. Why it changed.
+   - The story needed queueable ingest behavior that survives restart, keeps `requestId` separate from `runId`, exposes queued state consistently across REST, MCP, server, client, and browser surfaces, and then had to absorb review-driven repairs so the final proof matched the intended contract instead of older display-derived or duplicated seams.
+3. A simple explanation of any complex logic that needed to be added.
+   - The queue now keeps one durable owner per canonical target, promotes waiting work to running only when the runtime lock is free, blocks newer work behind `cleanup-blocked` deletion failures, recovers unfinished work on startup, and overlays waiting plus active state into one shared repo list so the UI and non-UI callers see the same identity and queue metadata.
+4. What a reviewer should take particular interest in.
+   - Review `server/src/ingest/requestQueue.ts`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcpCommon/repositorySelector.ts`, `client/src/hooks/useIngestRoots.ts`, and `client/src/components/ingest/RootsTable.tsx`, then compare them against the retained proof homes in Task 108 and the no-findings review artifacts, with extra attention on the remaining indirect seams around timeout-fallback independence, repo-list-only negative proof, cleanup-blocked UI parity, and stale `name` or `description` overlay freshness.

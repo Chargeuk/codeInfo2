@@ -8637,7 +8637,7 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `108`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Inserted on 2026-04-13 by planner repair because Task 109's blocker answer proved the latest full `server:unit` rerun from current `HEAD` now fails first in the earlier `flows.run.loop` lane after the local queue-race proof reran green. This fresh prerequisite exists so the overnight loop repairs the earliest failing shared baseline instead of repeating blocked Task 109 passes.
 
 #### Overview
@@ -8691,6 +8691,7 @@ This prerequisite task owns only the currently reopened `flows.run.loop` contrad
 - Testing 1 / Subtask 3 checkpoint: `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` passed cleanly from current `HEAD` with `tests run: 1`, `passed: 1`, `failed: 0` in `test-results/server-unit-tests-2026-04-13T14-38-14-714Z.log`, so the reopened contradiction remains the targeted-green vs full-wrapper-red split that planner repair described.
 - Testing 2 / Subtask 3 checkpoint: fresh `npm run test:summary:server:unit` from current `HEAD` also passed cleanly with `tests run: 1658`, `passed: 1658`, `failed: 0` in `test-results/server-unit-tests-2026-04-13T14-38-48-283Z.log`, so the earlier `flows.run.loop` blocker no longer reproduces on current disk and no temporary tracing or bounded runtime-owner repair was needed.
 - Subtask 4: the bounded loop-cleanup branch exhausted cleanly because both the targeted `flows.run.loop` wrapper and the fresh full `server:unit` wrapper are now green on current `HEAD`. No code change inside the Task 110 file set was required, and the honest handoff is to resume the downstream queue-admission work in Task 109 rather than widening this prerequisite.
+- Automated-proof audit on 2026-04-13: normalized Task 110 to `__done__` because all subtasks and testing steps were already honestly complete on disk, the parser reported no live blocker, and the remaining prose described only a completed handoff rather than an open gate.
 
 ### Task 111. Re-Validate Deferred And Recovered Re-Embed Input Before Execution
 

@@ -8607,9 +8607,9 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 
 1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the queue-admission race repair.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the queue-admission race repair.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the queue-admission race repair so the broader backend queued-admission and re-embed feature path stays honest beyond the direct unit proof home.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the queue-admission race repair so the broader backend queued-admission and re-embed feature path stays honest beyond the direct unit proof home.
 4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` only if targeted diagnosis is needed while repairing the guarded update ordering, then finish by rerunning Testing items 2 and 3.
-5. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs the queue-admission document update seam rather than the default startup path; Task 116 owns the combined compose-backed runtime rerun after the review-fix set lands.
+5. [x] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs the queue-admission document update seam rather than the default startup path; Task 116 owns the combined compose-backed runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
@@ -8634,6 +8634,8 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 - Planner repair on 2026-04-13: returned Task 109 to `__to_do__` and inserted fresh Task 110 because the current `**BLOCKING ANSWER**` proves the next honest owner is the earlier `flows.run.loop` baseline, not additional queue-request edits in this task.
 - Activation on 2026-04-13: Task 110 is now `__done__`, so this task was promoted back to `__in_progress__` as the next executable owner. No code or proof files changed in this subtask-only pass because all Task 109 subtasks were already complete on disk; the remaining work is its later automated-proof gate for Testing 2, 3, and 5.
 - **RESOLVED ISSUE** Testing 2 recurrence on 2026-04-13: after the earlier-owner blocker resurfaced in `test-results/server-unit-tests-2026-04-13T17-05-43-871Z.log`, I repaired the bounded `flows.run.loop` stop path in `server/src/ws/server.ts` so conversation-only `cancel_inflight` now preserves a pending stop as soon as run ownership exists instead of relying on the narrower command/inflight abort branches to hold that state first. Added the focused regression in `server/src/test/unit/ws-server.test.ts`, reran `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` cleanly in `test-results/server-unit-tests-2026-04-13T17-19-08-795Z.log`, reran `npm run test:summary:server:unit` cleanly in `test-results/server-unit-tests-2026-04-13T17-19-30-068Z.log`, and reran `npm run build:summary:server` cleanly, so the stale earlier-owner blocker is retired and Testing 2 is honestly complete again on current disk.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 88`, `passed: 88`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-13T18-40-19-165Z.log`, so the broader backend cucumber proof stayed green after the queue-admission race repair.
+- Testing 5: confirmed this compose-build and supported-runtime smoke item remains not applicable to Task 109 because this task only repairs the queue-admission document update seam; Task 116 still owns the combined compose-backed runtime rerun for the review-fix set.
 
 ### Task 110. Re-Isolate The Reopened `flows.run.loop` Baseline Before Task 109 Resumes
 

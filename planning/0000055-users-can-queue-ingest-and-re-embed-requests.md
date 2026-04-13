@@ -8290,7 +8290,7 @@ This task makes the shared repository-list `id` a stable repository identity ins
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `106`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` to accept the localized optional simplification while the changed proof files are already open.
 
 #### Overview
@@ -8341,6 +8341,7 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 - Testing 1: the first `npm run test:summary:server:unit` attempt failed in the unrelated flow-loop cleanup proof at `server/src/test/integration/flows.run.loop.test.ts`; an immediate full-wrapper retry passed cleanly with `tests run: 1654`, `passed: 1654`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-unit-tests-2026-04-13T01-39-26-821Z.log`, so no Task 107 blocker remains.
 - Testing 2: `npm run test:summary:client` passed cleanly with `tests run: 687`, `passed: 687`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/client-tests-2026-04-13T01-58-18-935Z.log`.
 - Testing 3: build, compose, host-network, shell, and browser smoke remain intentionally deferred to Task 108 because Task 107 only rewrites proof files to reuse `INGEST_ROOTS_SCHEMA_VERSION`.
+- Automated-proof audit on 2026-04-13: marked Task 107 `__done__` because all 5 subtasks and all 3 Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose only records why broader runtime validation stays owned by Task 108.
 
 ### Task 108. Re-Validate Story 55 After Review Pass `0000055-20260412T231111Z-04540d3d`
 

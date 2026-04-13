@@ -8907,9 +8907,9 @@ This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step n
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the proof repair.
-2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` only if targeted diagnosis is needed while repairing the no-Mongo scenario, then finish by rerunning Testing item 1.
-3. [ ] Separate server build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber feature and step-definition proof owners; Task 116 owns the broader backend wrapper and runtime rerun after the review-fix set lands.
+1. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the proof repair.
+2. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` only if targeted diagnosis is needed while repairing the no-Mongo scenario, then finish by rerunning Testing item 1.
+3. [x] Separate server build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber feature and step-definition proof owners; Task 116 owns the broader backend wrapper and runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
@@ -8917,6 +8917,9 @@ This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step n
 - Activation on 2026-04-13: promoted Task 113 to `__in_progress__` as the earliest executable owner after Task 112 closed on current disk.
 - Repaired `server/src/test/steps/ingest-delta-reembed.steps.ts` so the disconnect side effect now lives in `When I disconnect ingest delta mongo before reembed`, while the disconnected-state `Then` steps are pure assertions.
 - Updated the no-Mongo scenario in `server/src/test/features/ingest-delta-reembed.feature` so disconnect setup and disconnected-state assertion are separate, reviewable steps before the retryable `QUEUE_UNAVAILABLE` request proof.
+- Testing 2 passed via `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` with `14/14` passing in `test-results/server-cucumber-tests-2026-04-13T23-09-50-351Z.log`; this targeted rerun was executed because the plan still carried the diagnosis wrapper as an unchecked mandatory proof item.
+- Testing 1 passed via `npm run test:summary:server:cucumber`; the full server-cucumber wrapper finished with `88/88` passing in `test-results/server-cucumber-tests-2026-04-13T23-11-10-941Z.log`.
+- Testing 3 is now marked complete as not applicable because Task 113 only changes cucumber feature and step-definition proof owners; the broader server build, unit, compose-build, and supported-runtime reruns remain owned by Task 116.
 
 ### Task 114. Make Current Review Artifacts Naturally Commit-Visible
 

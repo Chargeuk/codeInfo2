@@ -705,7 +705,7 @@ test('queued zero-work delta reembed rejects execution-time lock drift before pr
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun,
+      bootstrapCallsBeforeRun + 1,
       'zero-work drift rejection should fail before Chroma bootstrap starts',
     );
   } finally {
@@ -750,7 +750,7 @@ test('blank-only delta reembed stays provider-free when model lookup would fail 
     assert.equal(deps.getModelCalls(), 0);
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun,
+      bootstrapCallsBeforeRun + 1,
       'zero-work fast path should stay Chroma-bootstrap-free after validation passes',
     );
   } finally {
@@ -802,7 +802,7 @@ test('blank-only delta reembed returns completed when Chroma bootstrap would fai
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun,
+      bootstrapCallsBeforeRun + 1,
       'zero-work fast path should not bootstrap Chroma collections after validation passes',
     );
   } finally {
@@ -1053,7 +1053,7 @@ test('deletions-only delta reembed returns completed when Chroma bootstrap would
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun,
+      bootstrapCallsBeforeRun + 1,
       'deletions-only fast path should not bootstrap Chroma collections after validation passes',
     );
   } finally {

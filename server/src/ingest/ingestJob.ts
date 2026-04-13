@@ -1000,9 +1000,20 @@ async function processRun(runId: string, input: IngestJobInput) {
     );
     const root = canonicalTargetPath ?? discoveredRoot;
     jobInputs.set(runId, { ...input, root });
-    const latestRootSelection =
-      operation === 'reembed' ? await getLatestRootSelection(root) : null;
+    let latestRootSelection: LatestRootSelection | null = null;
     if (operation === 'reembed') {
+      try {
+        latestRootSelection = await getLatestRootSelection(root);
+      } catch (error) {
+        logWarning('queued reembed root-state validation degraded', {
+          runId,
+          root,
+          reason:
+            error instanceof Error
+              ? error.message.slice(0, 300)
+              : String(error ?? 'unknown').slice(0, 300),
+        });
+      }
       assertReembedRootStateAllowed(latestRootSelection?.meta.state);
     }
     if (files.length === 0 && operation !== 'reembed') {

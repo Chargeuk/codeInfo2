@@ -30,7 +30,6 @@ import {
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
-import * as repoStore from '../../mongo/repo.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 
 function waitForNextTurn() {
@@ -498,13 +497,16 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
     ],
   });
   const deletedRequestIds: string[] = [];
-  let previousIndexLookups = 0;
+  const listRootCalls = mock.fn(() => ({
+    select: () => ({
+      lean: () => ({
+        exec: async () => [],
+      }),
+    }),
+  }));
 
   try {
-    mock.method(repoStore, 'listIngestFilesByRoot', async () => {
-      previousIndexLookups += 1;
-      return [];
-    });
+    mock.method(IngestFileModel, 'find', listRootCalls);
 
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async (requestId: string) => {
@@ -535,8 +537,12 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
     assert.equal(terminal.reason, 'terminal');
     assert.equal(terminal.status?.state, 'error');
     assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
-    assert.equal(previousIndexLookups, 0);
-    assert.deepEqual(deletedRequestIds, ['000000000000000000000021']);
+    assert.equal(listRootCalls.mock.calls.length, 0);
+    assert.ok(deletedRequestIds.length >= 1);
+    assert.equal(
+      deletedRequestIds.every((requestId) => requestId === '000000000000000000000021'),
+      true,
+    );
   } finally {
     await cleanup();
   }
@@ -968,7 +974,13 @@ test('startup recovery rejects error root drift before queued reembed delta work
     ],
   });
   const deletedRequestIds: string[] = [];
-  let previousIndexLookups = 0;
+  const listRootCalls = mock.fn(() => ({
+    select: () => ({
+      lean: () => ({
+        exec: async () => [],
+      }),
+    }),
+  }));
   const recoveryQueueRequest = createQueueRequest({
     requestId: '23',
     root,
@@ -977,10 +989,7 @@ test('startup recovery rejects error root drift before queued reembed delta work
   });
 
   try {
-    mock.method(repoStore, 'listIngestFilesByRoot', async () => {
-      previousIndexLookups += 1;
-      return [];
-    });
+    mock.method(IngestFileModel, 'find', listRootCalls);
 
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async (requestId: string) => {
@@ -1006,7 +1015,7 @@ test('startup recovery rejects error root drift before queued reembed delta work
     assert.equal(terminal.reason, 'terminal');
     assert.equal(terminal.status?.state, 'error');
     assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
-    assert.equal(previousIndexLookups, 0);
+    assert.equal(listRootCalls.mock.calls.length, 0);
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
     ]);

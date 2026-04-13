@@ -1,5 +1,7 @@
 Please ensure the testing steps for each task are derived from the task's `Repository Name`.
 
+Every unchecked `Testing` checkbox must represent mandatory blocking proof for task completion. Do not write testing checklist items as `optional`, `if needed`, `only if targeted diagnosis is needed`, or other diagnosis-only wording. If a narrow command is only for failure triage or optional investigation, keep it in prose or in the after-failure guidance of a mandatory testing step instead of modeling it as its own unchecked checkbox.
+
 If the task belongs to `Current Repository`, use this repository's wrapper-first build and test workflow from `AGENTS.md`, and include all or a subset of the following items based on what is being implemented. Do not add testing-step execution commands for specific tests by default; prefer the full app-level summary wrappers unless the repository guidance explicitly says otherwise. This rule applies to the `Testing` section only and must NOT remove explicit subtask references to the exact test files or proof artifacts that need to be created or edited. Ensure the testing instructions state to not attempt to run tests without using the wrapper.
 
 1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` or warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
@@ -21,5 +23,6 @@ Rules:
 4. If the external repository has no wrapper guidance, state the exact commands to run, explain why they are the correct equivalents, and keep the proof steps realistic for that repository.
 5. Do not add testing-step execution commands for individual narrow tests by default when the repository has wrapper guidance that says to use broader summary wrappers, but still keep exact test-file references in subtasks when they define what proof must be authored.
 6. The testing step numbers should be updated based on the steps actually used within the task.
+7. Do not leave conditional or optional diagnostics as unchecked testing items on an active task; either make the proof mandatory or move the diagnostic guidance out of the checklist.
 
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available.

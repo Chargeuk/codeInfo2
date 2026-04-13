@@ -74,6 +74,8 @@ When working from a file in `./planning` that is NOT a pr-summary file, update t
    - any issue that had to be overcome;
    - or why the step is blocked.
 7. This `Implementation Notes` update is plan-maintenance, not a separate subtask or testing item, and should not be pre-modeled as a future-dependent checklist entry.
+8. Every unchecked testing checkbox is mandatory blocking work, even if its wording says `optional`, `if needed`, `if targeted diagnosis is needed`, or similar.
+9. Do not model optional or failure-only diagnostic commands as unchecked testing checkboxes. Keep them in prose or inside the failure-diagnosis text of a mandatory testing step instead.
 
 ## Branching And Phase Flow
 

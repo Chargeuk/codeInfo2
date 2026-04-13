@@ -49,6 +49,7 @@ Do not perform manual testing in this step.
 - If every remaining unchecked subtask explicitly depends on testing-wrapper outputs, retained proof-home paths, or rerun-generated artifacts from the task's `Testing` section, you may continue with automated proof and close those proof-owned subtasks as the corresponding testing work completes.
 - If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.
 - If the candidate task has no unchecked `Testing` items left because the testing section is already honestly complete, skip automated proof and leave final completion to the later audit step.
+- Do not skip an unchecked `Testing` item merely because its text says `optional`, `if needed`, `diagnostic`, or similar. If it is still an unchecked checklist item, it is mandatory blocking proof for this step.
 - If you skip automated proof for any of these reasons, return a concise explanation and leave the task `__in_progress__`.
 
 </skip_rules>
@@ -56,6 +57,7 @@ Do not perform manual testing in this step.
 <proof_rules>
 
 - Run only the unchecked items in the candidate task's `Testing` section in this step.
+- Treat every unchecked `Testing` checklist item as mandatory blocking proof in this step, even when the line text describes it as optional, conditional, or diagnosis-only.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
 - Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.

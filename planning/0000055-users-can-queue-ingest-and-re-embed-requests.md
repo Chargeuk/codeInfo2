@@ -8704,7 +8704,7 @@ This prerequisite task owns only the currently reopened `flows.run.loop` contrad
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `109`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 2.
 
 #### Overview
@@ -8737,17 +8737,17 @@ This task restores the invalid-root-state guard for queued and startup-recovered
 
 #### Subtasks
 
-1. [ ] Extract or reuse one small persisted-root-state assertion seam shared between immediate `reembed` admission and queue-managed `reembed` execution, instead of copying the same `cancelled` or `error` rule into a second queue-only branch. Purpose: keep the invalid-state contract aligned in one place.
-2. [ ] Invoke that persisted-root-state assertion immediately before queued waiting `reembed` execution begins in `server/src/ingest/ingestJob.ts`. Purpose: stop the normal deferred queue path from bypassing the current invalid-root-state guard.
-3. [ ] Invoke that same persisted-root-state assertion in the startup-recovery `reembed` path that rebuilds work from the saved queue row. Purpose: stop recovered queue rows from bypassing the same invalid-root-state guard.
-4. [ ] Keep the repaired execution-time failure mapped to the existing `INVALID_REEMBED_STATE` contract instead of inventing a new queue-runtime error code. Purpose: preserve the story’s current user-facing error vocabulary.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a deferred queued `reembed` proof where the root drifts to `cancelled` after admission and the execution seam rejects before any normal re-embed work marker or processing callback fires. Purpose: make the deferred execution rejection direct and prove the failure happens before work starts.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a deferred queued `reembed` proof that the same execution-time failure still surfaces `INVALID_REEMBED_STATE` rather than a queue-only wrapper code. Purpose: keep the deferred error vocabulary aligned with the immediate path.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a startup-recovery proof where the persisted queue row survives admission but the root drifts to `error`, and confirm recovery rejects the run before retrying normal work. Purpose: make the persisted recovery path direct instead of implied by the deferred path.
-8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a startup-recovery proof that the repaired recovery-time failure also surfaces `INVALID_REEMBED_STATE` instead of a recovery-only wrapper code. Purpose: keep recovery-time caller behavior aligned with both deferred and immediate rejection.
-9. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Description: refresh the route-level cancelled-root proof so immediate `POST /ingest/reembed` rejection still stays aligned with the repaired execution-time contract. Purpose: keep the cancelled immediate-path invariant explicit beside the new deferred proof.
-10. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Description: refresh the route-level error-root proof so immediate `POST /ingest/reembed` rejection still stays aligned with the repaired recovery-time contract. Purpose: keep the error-state immediate-path invariant explicit beside the new recovery proof.
-11. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add new invalid-root-state execution tests, or rename or split any reused lock-drift, zero-work, or startup-recovery tests whose current titles claim a different failure mode. Purpose: keep invalid persisted-root-state proof semantically separate from adjacent queue-runtime failures.
+1. [x] Extract or reuse one small persisted-root-state assertion seam shared between immediate `reembed` admission and queue-managed `reembed` execution, instead of copying the same `cancelled` or `error` rule into a second queue-only branch. Purpose: keep the invalid-state contract aligned in one place.
+2. [x] Invoke that persisted-root-state assertion immediately before queued waiting `reembed` execution begins in `server/src/ingest/ingestJob.ts`. Purpose: stop the normal deferred queue path from bypassing the current invalid-root-state guard.
+3. [x] Invoke that same persisted-root-state assertion in the startup-recovery `reembed` path that rebuilds work from the saved queue row. Purpose: stop recovered queue rows from bypassing the same invalid-root-state guard.
+4. [x] Keep the repaired execution-time failure mapped to the existing `INVALID_REEMBED_STATE` contract instead of inventing a new queue-runtime error code. Purpose: preserve the story’s current user-facing error vocabulary.
+5. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a deferred queued `reembed` proof where the root drifts to `cancelled` after admission and the execution seam rejects before any normal re-embed work marker or processing callback fires. Purpose: make the deferred execution rejection direct and prove the failure happens before work starts.
+6. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a deferred queued `reembed` proof that the same execution-time failure still surfaces `INVALID_REEMBED_STATE` rather than a queue-only wrapper code. Purpose: keep the deferred error vocabulary aligned with the immediate path.
+7. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a startup-recovery proof where the persisted queue row survives admission but the root drifts to `error`, and confirm recovery rejects the run before retrying normal work. Purpose: make the persisted recovery path direct instead of implied by the deferred path.
+8. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a startup-recovery proof that the repaired recovery-time failure also surfaces `INVALID_REEMBED_STATE` instead of a recovery-only wrapper code. Purpose: keep recovery-time caller behavior aligned with both deferred and immediate rejection.
+9. [x] Test type: server integration. Location: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Description: refresh the route-level cancelled-root proof so immediate `POST /ingest/reembed` rejection still stays aligned with the repaired execution-time contract. Purpose: keep the cancelled immediate-path invariant explicit beside the new deferred proof.
+10. [x] Test type: server integration. Location: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Description: refresh the route-level error-root proof so immediate `POST /ingest/reembed` rejection still stays aligned with the repaired recovery-time contract. Purpose: keep the error-state immediate-path invariant explicit beside the new recovery proof.
+11. [x] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add new invalid-root-state execution tests, or rename or split any reused lock-drift, zero-work, or startup-recovery tests whose current titles claim a different failure mode. Purpose: keep invalid persisted-root-state proof semantically separate from adjacent queue-runtime failures.
 
 #### Testing
 
@@ -8761,6 +8761,11 @@ This task restores the invalid-root-state guard for queued and startup-recovered
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the deferred and recovered `reembed` invalid-state drift finding.
+- Activation on 2026-04-13: promoted Task 111 to `__in_progress__` as the earliest executable owner after Task 109 and Task 110 closed on current disk.
+- Subtasks 1-4: extracted the shared persisted-root-state rejection seam into `server/src/ingest/requestContracts.ts`, reused it from `server/src/ingest/reingestService.ts`, applied it to the queued `reembed` execution path in `server/src/ingest/ingestJob.ts`, and kept queue-managed terminal errors mapped to `INVALID_REEMBED_STATE` instead of falling back to the generic LM Studio classifier.
+- Subtasks 5-8: added four direct queue-runtime proofs in `server/src/test/unit/ingest-queue-runtime.test.ts` covering deferred cancelled-root drift and startup-recovery error-root drift, with paired assertions that rejection happens before delta work begins and that the terminal contract remains `INVALID_REEMBED_STATE`.
+- Subtasks 9-10: refreshed the route-level invalid-state titles in `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so the immediate cancelled-root and error-root proofs explicitly claim alignment with the repaired deferred and startup-recovery execution contract.
+- Subtask 11: kept the new queue-runtime invalid-state proofs semantically separate from the adjacent zero-work, malformed canonical payload, and generic recovery tests by giving them dedicated titles instead of broadening older coverage claims.
 
 ### Task 112. Keep Startup Reachable When Queue Recovery Degrades
 

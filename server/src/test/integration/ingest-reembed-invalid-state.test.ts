@@ -64,7 +64,7 @@ function createAppForInvalidReembedState(status: 'cancelled' | 'error') {
   return { app, getEnqueueCalls: () => enqueueCalls };
 }
 
-test('POST /ingest/reembed rejects cancelled root state deterministically before queue admission starts a run', async () => {
+test('POST /ingest/reembed keeps the immediate cancelled-root INVALID_REEMBED_STATE contract aligned with deferred execution rejection', async () => {
   const { app, getEnqueueCalls } = createAppForInvalidReembedState('cancelled');
 
   const res = await request(app).post('/ingest/reembed/%2Fdata%2Frepo-invalid');
@@ -73,7 +73,7 @@ test('POST /ingest/reembed rejects cancelled root state deterministically before
   assert.equal(getEnqueueCalls(), 0);
 });
 
-test('POST /ingest/reembed rejects error root state deterministically before queue admission starts a run', async () => {
+test('POST /ingest/reembed keeps the immediate error-root INVALID_REEMBED_STATE contract aligned with startup-recovery rejection', async () => {
   const { app, getEnqueueCalls } = createAppForInvalidReembedState('error');
 
   const res = await request(app).post('/ingest/reembed/%2Fdata%2Frepo-invalid');

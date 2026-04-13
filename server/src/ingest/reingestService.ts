@@ -14,6 +14,7 @@ import {
 } from './ingestJob.js';
 import { resolveMountedIngestPath } from './pathMap.js';
 import {
+  assertReembedRootStateAllowed,
   normalizeCanonicalQueueTargetPath,
   splitQueuedIngestExecutionPath,
 } from './requestContracts.js';
@@ -249,16 +250,8 @@ function invalidStateError(
   };
 }
 
-function createInvalidReembedStateError() {
-  const error = new Error('INVALID_REEMBED_STATE');
-  (error as { code?: string }).code = 'INVALID_REEMBED_STATE';
-  return error;
-}
-
 export function assertRepoCanQueueReingest(repo: RepoEntry) {
-  if (repo.status === 'cancelled' || repo.status === 'error') {
-    throw createInvalidReembedStateError();
-  }
+  assertReembedRootStateAllowed(repo.status);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

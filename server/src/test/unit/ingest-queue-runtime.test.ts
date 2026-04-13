@@ -30,6 +30,7 @@ import {
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
+import * as repoStore from '../../mongo/repo.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 
 function waitForNextTurn() {
@@ -81,7 +82,10 @@ async function createTempRepo(files: Record<string, string>) {
   };
 }
 
-function setupIngestChromaMocks() {
+function setupIngestChromaMocks(options?: {
+  rootIds?: string[];
+  rootMetadatas?: Record<string, unknown>[];
+}) {
   const vectors = {
     metadata: {
       lockedModelId: 'embed-1' as string | null,
@@ -106,7 +110,22 @@ function setupIngestChromaMocks() {
     count: async () => 0,
   };
   const roots = {
-    get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
+    get: async (opts?: { include?: string[] }) => {
+      const include = opts?.include ?? [];
+      const result: {
+        embeddings?: number[][];
+        ids?: string[];
+        metadatas?: Record<string, unknown>[];
+      } = {};
+      if (include.includes('embeddings')) {
+        result.embeddings = [[0.1, 0.2, 0.3]];
+      }
+      if (include.includes('metadatas')) {
+        result.ids = options?.rootIds ?? [];
+        result.metadatas = options?.rootMetadatas ?? [];
+      }
+      return result;
+    },
     add: mock.fn(async () => {}),
     delete: mock.fn(async () => {}),
   };
@@ -459,6 +478,115 @@ test('queue promotion rejects bogus canonical provider even when a legacy model 
     assert.equal(afterTerminal.started, false);
     assert.equal(afterTerminal.blockedByCleanup, false);
     assert.equal(afterTerminal.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue-managed deferred reembed rejects cancelled root drift before delta work begins', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/deferred-cancelled.ts': 'export const deferredCancelled = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootIds: ['root-deferred-cancelled'],
+    rootMetadatas: [
+      {
+        root,
+        state: 'cancelled',
+        lastIngestAt: '2026-01-02T00:00:00.000Z',
+      },
+    ],
+  });
+  const deletedRequestIds: string[] = [];
+  let previousIndexLookups = 0;
+
+  try {
+    mock.method(repoStore, 'listIngestFilesByRoot', async () => {
+      previousIndexLookups += 1;
+      return [];
+    });
+
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (requestId: string) => {
+        deletedRequestIds.push(requestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => ({
+        ...createQueueRequest({
+          requestId: '21',
+          root,
+          queueState: 'running',
+          runId,
+        }),
+        runId,
+      }),
+    });
+
+    const started = await pumpIngestQueue();
+    assert.equal(started.started, true);
+    assert.ok(started.runId);
+
+    const terminal = await waitForTerminalIngestStatus(started.runId!, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(previousIndexLookups, 0);
+    assert.deepEqual(deletedRequestIds, ['000000000000000000000021']);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue-managed deferred reembed preserves INVALID_REEMBED_STATE when cancelled root drift is detected at execution time', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/deferred-cancelled-code.ts':
+      'export const deferredCancelledCode = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootIds: ['root-deferred-cancelled-code'],
+    rootMetadatas: [
+      {
+        root,
+        state: 'cancelled',
+        lastIngestAt: '2026-01-03T00:00:00.000Z',
+      },
+    ],
+  });
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => ({
+        ...createQueueRequest({
+          requestId: '22',
+          root,
+          queueState: 'running',
+          runId,
+        }),
+        runId,
+      }),
+    });
+
+    const started = await pumpIngestQueue();
+    assert.equal(started.started, true);
+    assert.ok(started.runId);
+
+    const terminal = await waitForTerminalIngestStatus(started.runId!, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.provider, 'ingest');
+    assert.equal(terminal.status?.error?.retryable, false);
   } finally {
     await cleanup();
   }
@@ -820,6 +948,118 @@ test('startup recovery rejects blank canonical model even when a legacy model is
     assert.equal(afterRecovery.started, false);
     assert.equal(afterRecovery.blockedByCleanup, false);
     assert.equal(afterRecovery.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('startup recovery rejects error root drift before queued reembed delta work resumes', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/recovery-error.ts': 'export const recoveryError = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootIds: ['root-recovery-error'],
+    rootMetadatas: [
+      {
+        root,
+        state: 'error',
+        lastIngestAt: '2026-01-04T00:00:00.000Z',
+      },
+    ],
+  });
+  const deletedRequestIds: string[] = [];
+  let previousIndexLookups = 0;
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '23',
+    root,
+    queueState: 'running',
+    runId: 'run-recovered-invalid-state',
+  });
+
+  try {
+    mock.method(repoStore, 'listIngestFilesByRoot', async () => {
+      previousIndexLookups += 1;
+      return [];
+    });
+
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (requestId: string) => {
+        deletedRequestIds.push(requestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+
+    const result = await recoverIngestQueueOnStartup();
+    assert.equal(result.recovered, true);
+
+    const terminal = await waitForTerminalIngestStatus(
+      recoveryQueueRequest.runId!,
+      {
+        timeoutMs: 1_000,
+        pollMs: 10,
+      },
+    );
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(previousIndexLookups, 0);
+    assert.deepEqual(deletedRequestIds, [
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('startup recovery preserves INVALID_REEMBED_STATE when persisted error root drift is detected before reembed resumes', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/recovery-error-code.ts': 'export const recoveryErrorCode = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootIds: ['root-recovery-error-code'],
+    rootMetadatas: [
+      {
+        root,
+        state: 'error',
+        lastIngestAt: '2026-01-05T00:00:00.000Z',
+      },
+    ],
+  });
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '24',
+    root,
+    queueState: 'running',
+    runId: 'run-recovered-invalid-state-code',
+  });
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+
+    const result = await recoverIngestQueueOnStartup();
+    assert.equal(result.recovered, true);
+
+    const terminal = await waitForTerminalIngestStatus(
+      recoveryQueueRequest.runId!,
+      {
+        timeoutMs: 1_000,
+        pollMs: 10,
+      },
+    );
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.provider, 'ingest');
+    assert.equal(terminal.status?.error?.retryable, false);
   } finally {
     await cleanup();
   }

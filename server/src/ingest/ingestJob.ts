@@ -65,7 +65,11 @@ import {
   resolveEmbeddingModelSelection,
 } from './providers/index.js';
 import type { ProviderEmbeddingModel } from './providers/types.js';
-import { resolveRequestEmbeddingSelection } from './requestContracts.js';
+import {
+  assertReembedRootStateAllowed,
+  createInvalidReembedStateError,
+  resolveRequestEmbeddingSelection,
+} from './requestContracts.js';
 import * as requestQueue from './requestQueue.js';
 import type { IngestRunState } from './types.js';
 import {
@@ -695,6 +699,23 @@ function mapIngestError(err: unknown): {
       },
     };
   }
+  if ((err as { code?: unknown })?.code === 'INVALID_REEMBED_STATE') {
+    return {
+      message:
+        err instanceof Error
+          ? err.message
+          : String(err ?? 'INVALID_REEMBED_STATE'),
+      normalized: {
+        error: 'INVALID_REEMBED_STATE',
+        message:
+          err instanceof Error
+            ? err.message
+            : String(err ?? 'INVALID_REEMBED_STATE'),
+        retryable: false,
+        provider: 'ingest',
+      },
+    };
+  }
   const lmstudio = mapLmStudioIngestError(err);
   return {
     message: lmstudio.message,
@@ -868,6 +889,72 @@ function resolveKnownRootEmbeddingDimOrNull(params: {
   return null;
 }
 
+type LatestRootSelection = {
+  meta: Record<string, unknown>;
+  runId: string;
+  lastIngestAt: string | null;
+};
+
+async function getLatestRootSelection(
+  rootPath: string,
+): Promise<LatestRootSelection | null> {
+  const roots = await getRootsCollection();
+  const raw = await (
+    roots as unknown as {
+      get: (opts: { include?: string[] }) => Promise<{
+        ids?: string[];
+        metadatas?: Record<string, unknown>[];
+      }>;
+    }
+  ).get({ include: ['metadatas'] });
+  const metas = raw.metadatas ?? [];
+  const ids = raw.ids ?? [];
+  const matches = metas
+    .map((meta, idx) => ({ meta, id: ids[idx] }))
+    .filter(
+      (entry) => (entry.meta as Record<string, unknown>).root === rootPath,
+    );
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return matches.reduce(
+    (acc, entry) => {
+      const meta = (entry.meta ?? {}) as Record<string, unknown>;
+      const tsRaw =
+        typeof meta.lastIngestAt === 'string'
+          ? Date.parse(meta.lastIngestAt)
+          : NaN;
+      const ts = Number.isFinite(tsRaw) ? tsRaw : 0;
+      const accTsRaw = acc.lastIngestAt ? Date.parse(acc.lastIngestAt) : NaN;
+      const accTs = Number.isFinite(accTsRaw) ? accTsRaw : 0;
+      const entryRunId = typeof entry.id === 'string' ? entry.id : '';
+
+      if (ts > accTs || (ts === accTs && entryRunId > acc.runId)) {
+        return {
+          meta,
+          runId: entryRunId,
+          lastIngestAt:
+            typeof meta.lastIngestAt === 'string' ? meta.lastIngestAt : null,
+        };
+      }
+
+      return acc;
+    },
+    {
+      meta: (matches[0]?.meta ?? {}) as Record<string, unknown>,
+      runId:
+        typeof matches[0]?.id === 'string' ? (matches[0]?.id as string) : '',
+      lastIngestAt:
+        typeof (matches[0]?.meta as Record<string, unknown>)?.lastIngestAt ===
+        'string'
+          ? ((matches[0]?.meta as Record<string, unknown>)
+              .lastIngestAt as string)
+          : null,
+    },
+  );
+}
+
 async function processRun(runId: string, input: IngestJobInput) {
   const status = jobs.get(runId);
   if (!status) return;
@@ -913,6 +1000,11 @@ async function processRun(runId: string, input: IngestJobInput) {
     );
     const root = canonicalTargetPath ?? discoveredRoot;
     jobInputs.set(runId, { ...input, root });
+    const latestRootSelection =
+      operation === 'reembed' ? await getLatestRootSelection(root) : null;
+    if (operation === 'reembed') {
+      assertReembedRootStateAllowed(latestRootSelection?.meta.state);
+    }
     if (files.length === 0 && operation !== 'reembed') {
       const errorStatus = buildNoEligibleFilesErrorStatus({
         runId,
@@ -3148,69 +3240,12 @@ export async function reembed(rootPath: string, d: Deps) {
     throw error;
   }
   deps = d;
-  const roots = await getRootsCollection();
-  const raw = await (
-    roots as unknown as {
-      get: (opts: { include?: string[] }) => Promise<{
-        ids?: string[];
-        metadatas?: Record<string, unknown>[];
-      }>;
-    }
-  ).get({ include: ['metadatas'] });
-  const metas = raw.metadatas ?? [];
-  const ids = raw.ids ?? [];
-  const matches = metas
-    .map((meta, idx) => ({ meta, id: ids[idx] }))
-    .filter(
-      (entry) => (entry.meta as Record<string, unknown>).root === rootPath,
-    );
-  if (matches.length === 0) {
+  const best = await getLatestRootSelection(rootPath);
+  if (!best) {
     const err = new Error('NOT_FOUND');
     (err as { code?: string }).code = 'NOT_FOUND';
     throw err;
   }
-
-  const best = matches.reduce(
-    (acc, entry) => {
-      const m = (entry.meta ?? {}) as Record<string, unknown>;
-      const tsRaw =
-        typeof m.lastIngestAt === 'string' ? Date.parse(m.lastIngestAt) : NaN;
-      const ts = Number.isFinite(tsRaw) ? tsRaw : 0;
-      const accTsRaw = acc.lastIngestAt ? Date.parse(acc.lastIngestAt) : NaN;
-      const accTs = Number.isFinite(accTsRaw) ? accTsRaw : 0;
-      const entryRunId = typeof entry.id === 'string' ? entry.id : '';
-      const accRunId = acc.runId;
-
-      if (ts > accTs) {
-        return {
-          meta: m,
-          runId: entryRunId,
-          lastIngestAt:
-            typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null,
-        };
-      }
-      if (ts === accTs && entryRunId > accRunId) {
-        return {
-          meta: m,
-          runId: entryRunId,
-          lastIngestAt:
-            typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null,
-        };
-      }
-      return acc;
-    },
-    {
-      meta: (matches[0]?.meta ?? {}) as Record<string, unknown>,
-      runId:
-        typeof matches[0]?.id === 'string' ? (matches[0]?.id as string) : '',
-      lastIngestAt:
-        typeof (matches[0]?.meta as Record<string, unknown>)?.lastIngestAt ===
-        'string'
-          ? ((matches[0]?.meta as Record<string, unknown>)
-              ?.lastIngestAt as string)
-          : null,
-    },
-  );
 
   logLifecycle('info', '0000020 ingest reembed metadata selected', {
     root: rootPath,
@@ -3238,12 +3273,7 @@ export async function reembed(rootPath: string, d: Deps) {
   ) {
     throw new InvalidLockMetadataError();
   }
-  const rootState = typeof meta.state === 'string' ? meta.state : null;
-  if (rootState === 'cancelled' || rootState === 'error') {
-    const err = new Error('INVALID_REEMBED_STATE');
-    (err as { code?: string }).code = 'INVALID_REEMBED_STATE';
-    throw err;
-  }
+  assertReembedRootStateAllowed(meta.state);
   const selectedProvider = hasAnyCanonical
     ? (canonicalProvider as 'lmstudio' | 'openai')
     : 'lmstudio';
@@ -3253,9 +3283,7 @@ export async function reembed(rootPath: string, d: Deps) {
       ? meta.model
       : '';
   if (!selectedModel) {
-    const err = new Error('INVALID_REEMBED_STATE');
-    (err as { code?: string }).code = 'INVALID_REEMBED_STATE';
-    throw err;
+    throw createInvalidReembedStateError();
   }
   if (
     selectedProvider === 'openai' &&

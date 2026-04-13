@@ -46,6 +46,20 @@ export type RequestContractValidationError = {
   message: string;
 };
 
+export function createInvalidReembedStateError() {
+  const error = new Error('INVALID_REEMBED_STATE');
+  (error as { code?: string }).code = 'INVALID_REEMBED_STATE';
+  return error;
+}
+
+export function assertReembedRootStateAllowed(rootState: unknown) {
+  const normalized =
+    typeof rootState === 'string' ? rootState.trim().toLowerCase() : null;
+  if (normalized === 'cancelled' || normalized === 'error') {
+    throw createInvalidReembedStateError();
+  }
+}
+
 export function normalizeCanonicalQueueTargetPath(rawPath: string): string {
   const normalized = path.posix.normalize(rawPath.replace(/\\/g, '/').trim());
   if (normalized.length > 1 && normalized.endsWith('/')) {

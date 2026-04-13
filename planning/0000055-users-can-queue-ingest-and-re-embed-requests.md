@@ -8465,3 +8465,59 @@ This final review-follow-up task revalidates Story 55 after the current review f
 - Subtask 14: refreshed `planning/0000055-pr-summary.md` with the current Task 108 runtime-smoke chain so compose build, supported startup, host-network validation, supported teardown, vendored shell proof, and final symlink verification are explicit retained proof homes.
 - Automated-proof audit on 2026-04-13: marked Task 108 `__done__` because all 20 subtasks and all 12 Testing items are honestly complete on current disk, `selected_task.live_blockers` is empty, and the remaining prose only preserves retained proof context rather than an open completion gate.
 - Manual testing on 2026-04-13 expanded to full-story proof because Task 108 is the final story task: I treated the prior runtime as stale per `codeInfoStatus/flow-state/manual-testing-runtime.json`, reran `npm run compose:down`, retried `npm run compose:build` once after a transient Docker registry timeout, then ran `npm run compose:up` plus `npm run test:summary:host-network:main` before proving on `http://localhost:5001/ingest` that the active ingest stays separate from queued rows shown as `queued (#1)` and `queued (#2)`, that the queued-row details drawer exposes the durable `Request ID`, pending `Run ID`, and `Queue state` `waiting (#1)`, that `curl http://localhost:5010/ingest/roots` still returns schema version `0000055-queued-repo-list-v1` with waiting items carrying `requestId` plus waiting-only `queuePosition` while the active item carries its `runId`, and that a full page reload preserves the queued rows. Browser console error output stayed empty, browser network requests showed no failed responses, screenshots were captured at `artifacts/story-0000055-screenshots/0000055-task108-queue-visible.png`, `artifacts/story-0000055-screenshots/0000055-task108-queued-details.png`, and `artifacts/story-0000055-screenshots/0000055-task108-queue-after-reload.png`, the final `npm run compose:down` returned the stack to its prior stopped state cleanly, and no new subtasks or Testing-step changes were needed.
+
+## Post-Implementation Code Review
+
+### Review Pass `0000055-20260413T030748Z-4ae078df`
+
+- Review scope stayed on the current repository only because `codeInfoStatus/flow-state/current-plan.json` still points at `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and names no additional repositories.
+- Branch-vs-base checks performed:
+  - current repository branch: `feature/0000055-users-can-queue-ingest-and-re-embed-requests`
+  - canonical plan story number: `0000055`
+  - resolved review base carried forward from the stored review handoff: `main`
+  - current repository head commit matched the stored review handoff head: `4ae078df`
+- Acceptance-evidence checks performed:
+  - verified the stored durable review artifacts for this pass at `codeInfoStatus/reviews/0000055-20260413T030748Z-4ae078df-evidence.md`, `codeInfoStatus/reviews/0000055-20260413T030748Z-4ae078df-findings.md`, and `codeInfoStatus/reviews/0000055-20260413T030748Z-4ae078df-blind-spot-challenge.md`
+  - verified the story close-out remains backed by current wrapper, runtime, browser, shell, screenshot, and manual-proof homes already retained in Task 108
+- Files and surfaces inspected for this pass, as recorded in the evidence artifact:
+  - queue admission and runtime: `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/requestQueue.ts`, `server/src/ingest/ingestJob.ts`
+  - transport and blocking seams: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`
+  - shared repo-list contract and consumers: `common/src/lmstudio.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`
+  - proof owners: `server/src/test/**`, `client/src/test/**`, `e2e/ingest.spec.ts`, retained wrapper logs, retained screenshot artifacts, and Task 108 manual-proof notes
+- Acceptance-criteria proof classification:
+  - `AC1-29`, `AC31`, `AC33-42`, and `AC44`: `direct` proof
+  - `AC30`, `AC32`, and `AC43`: `indirect` proof
+  - no acceptance criterion remains `missing` proof
+- Generic adversarial checklist proof classification:
+  - execution-routing or harness dependence: `direct`
+  - default launcher, wrapper, dispatcher, CI, or startup-path inclusion: `direct`
+  - shared-state or concurrency safety: `direct`
+  - reader and writer atomicity or partial-write tolerance: `direct`
+  - cleanup ownership or stale-state safety: `direct` with residual `indirect` UI-parity and stale-display-hint edges noted below
+  - lifecycle ordering: `direct`
+  - test isolation: `direct` with one weaker `indirect` cleanup-timing seam in `e2e/ingest.spec.ts`
+  - no adversarial checklist area remains `missing` proof
+- Implementation succinctness and simplification conclusion:
+  - the implemented queue, contract, and UI behavior is appropriately succinct for the required story surface
+  - no `must_fix`, `should_fix`, or localized `optional_simplification` finding was endorsed in this pass
+- Why the repository remains complete:
+  - the canonical queue identity seam, schema-version cleanup, wrapper-first validation chain, runtime smoke, vendored-shell validation, browser proof, and final manual proof are all present on current disk and tied back to the canonical plan
+  - no repository in scope remains open because this pass covers only the current repository and all story tasks remain `__done__`
+- Why the story remains complete:
+  - `requestId` versus `runId` ownership remains split correctly across durable queue and runtime execution seams
+  - shared repo-list identity remains canonical-path based rather than display-derived
+  - queue admission, recovery, cleanup ordering, shared contract emission, client normalization, and browser-visible queued behavior all retain direct proof
+  - the final story revalidation task already reran the full repository-supported wrapper, runtime, shell, browser, and manual proof chain
+- Rejected-risk notes carried forward from the findings artifact:
+  - duplicate submit and startup-recovery ownership in `server/src/ingest/requestQueue.ts` remained a rejected risk with `direct` proof
+  - deferred re-embed validation drift in `server/src/ingest/reingestService.ts` remained a rejected risk with `direct` proof plus one broader timeout-fallback caveat
+  - repaired canonical repo-list identity in `server/src/lmstudio/toolService.ts` remained a rejected risk for the identity seam, while some freshness negatives remain weaker
+- Blind-spot challenge carry-forward:
+  - no new finding was generated by the stored blind-spot challenge for review pass `0000055-20260413T030748Z-4ae078df`
+  - the challenge strengthened rejected-risk conclusions around duplicate queue ownership, deferred validation, bulk side effects, mocked cleanup-route validation, config-domain clamping, scale shape, listener cleanup, and wrapped-error producer or consumer alignment
+- Residual risks that remain honest after the no-findings review:
+  - `AC30` remains the strongest indirect seam because ordinary green blocking completion is still less directly proved as timeout-independent than the explicit timeout-path tests
+  - `AC32` remains partly indirect because queue-state and queue-position absence from unrelated payloads is still more code-inspection driven than directly asserted
+  - `AC43` remains indirect because queued-but-not-started user removal is still proved mainly by absence-by-contract rather than a dedicated negative test
+  - `cleanup-blocked` UI affordance parity remains weaker than the waiting-row proof because current changed tests prove render visibility and shared-helper reuse more directly than exact checkbox and bulk-button disable assertions for that row state
+  - `name` and `description` freshness through `applyQueueOverlay()` remains an indirect stale-hint seam rather than a confirmed defect

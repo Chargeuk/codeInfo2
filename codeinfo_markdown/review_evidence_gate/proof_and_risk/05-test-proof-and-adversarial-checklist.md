@@ -14,6 +14,7 @@ Capture the changed-test proof hotspots and the generic adversarial checklist th
 
 - For each changed file or helper outside the allowed spelling/grammar-only support-file set, record any review hotspot involving:
   - changed test titles or descriptions whose assertions may no longer match the invariant they claim to prove;
+  - changed BDD, step-definition, or equivalent proof files whose wording may not match whether the step performs setup, action, or assertion work;
   - changed tests that prove "something did not happen yet" using fixed delays instead of a deterministic scheduler, resource, or state boundary.
 - Record a generic adversarial review checklist for the findings pass. For every non-support-file change, note whether the findings pass MUST inspect:
   - execution-routing or harness-selection rules that may live in unchanged files, including `testMatch`/`testIgnore`, filename or suffix conventions, tags, worker-count or project assignment, startup registration, feature flags, and env wiring;
@@ -29,6 +30,7 @@ Capture the changed-test proof hotspots and the generic adversarial checklist th
 - If a changed helper wraps, normalizes, or classifies errors, record the consumer branch that interprets those errors and note whether cancellation, retry, ignore, and terminal-failure semantics still depend on the old raw error shape.
 - If a changed test file is being used as acceptance proof, also record whether that test itself introduces review risk through shared paths, shared fixtures, cleanup side effects, runner-project selection, worker-safety assumptions, or cross-suite interference.
 - If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
+- If a changed proof-owning file uses BDD or step-style phases, also record whether assertion-style steps mutate the state that earlier setup or action phases were supposed to establish, and mark that proof as weak when the step can satisfy its own expectation.
 - If a changed test file is being used as acceptance proof, also record whether any negative assertion depends on an arbitrary elapsed-time sleep instead of a deterministic scheduler, resource, or state boundary, and mark that proof as weak when no stronger boundary is demonstrated.
 
 </hotspot_rules>

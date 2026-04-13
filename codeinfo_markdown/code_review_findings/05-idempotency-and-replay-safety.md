@@ -13,6 +13,7 @@ Run the findings-phase audit for idempotency, replay safety, and duplicate side 
   - state transitions that should not be duplicated or skipped.
 - Raise a finding when the same logical operation can perform the side effect more than once without a dedupe key, idempotency token, ownership proof, compare-and-swap guard, terminal-state check, or equivalent replay barrier.
 - Raise a finding when retry or resume logic can reapply an old intent after fresher state has already superseded it.
+- Raise a finding when a pre-read guard and a later write or update do not enforce the same rewrite rules, ownership rules, or compare-and-swap conditions. Pay special attention to time-of-check/time-of-use windows where a later `update`, `findOneAndUpdate`, or equivalent write can overwrite state that was inserted or changed after the earlier read.
 - Raise a finding when partial-failure handling leaves the system unable to distinguish:
   - not started;
   - started but not committed;

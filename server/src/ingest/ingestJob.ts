@@ -65,6 +65,7 @@ import {
   resolveEmbeddingModelSelection,
 } from './providers/index.js';
 import type { ProviderEmbeddingModel } from './providers/types.js';
+import { resolveRequestEmbeddingSelection } from './requestContracts.js';
 import * as requestQueue from './requestQueue.js';
 import type { IngestRunState } from './types.js';
 import {
@@ -74,7 +75,6 @@ import {
   hashFile,
   resolveConfig,
 } from './index.js';
-import { resolveRequestEmbeddingSelection } from './requestContracts.js';
 
 export type IngestJobInput = {
   path: string;
@@ -685,8 +685,7 @@ function mapIngestError(err: unknown): {
   }
   if ((err as { code?: unknown })?.code === 'VALIDATION') {
     return {
-      message:
-        err instanceof Error ? err.message : String(err ?? 'VALIDATION'),
+      message: err instanceof Error ? err.message : String(err ?? 'VALIDATION'),
       normalized: {
         error: 'VALIDATION',
         message:

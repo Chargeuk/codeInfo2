@@ -496,7 +496,7 @@ export async function runReingestRepository(
     (repo) =>
       isRepoReingestable(repo) &&
       normalizeCanonicalQueueTargetPath(repo.containerPath) ===
-      normalizedSourceId,
+        normalizedSourceId,
   );
   if (!selectedRepo) {
     const err = notFoundError(retryLists);

@@ -1396,9 +1396,7 @@ export async function vectorSearch(
   const metadatas = Array.isArray(rawRoots?.metadatas)
     ? rawRoots.metadatas
     : [];
-  const ids = Array.isArray(rawRoots?.ids) ? rawRoots.ids : [];
-
-  const repoMeta = metadatas.map((meta, idx) => {
+  const repoMeta = metadatas.map((meta) => {
     const m = (meta ?? {}) as Record<string, unknown>;
     const rootPath = typeof m.root === 'string' ? m.root : '';
     const repoId = buildCanonicalRepoId(rootPath);

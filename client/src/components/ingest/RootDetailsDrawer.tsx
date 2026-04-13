@@ -188,12 +188,12 @@ export default function RootDetailsDrawer({
 function getRootEmbeddingDisplay(root: IngestRoot) {
   const provider =
     root.queueState === 'waiting'
-      ? root.embeddingProvider ?? root.lock?.embeddingProvider
+      ? (root.embeddingProvider ?? root.lock?.embeddingProvider)
       : root.embeddingProvider;
   const model =
     root.queueState === 'waiting'
-      ? root.embeddingModel ?? root.model
-      : root.embeddingModel ?? root.model;
+      ? (root.embeddingModel ?? root.model)
+      : (root.embeddingModel ?? root.model);
   if (provider && model) {
     return `${provider} / ${model}`;
   }

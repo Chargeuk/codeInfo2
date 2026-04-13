@@ -1,5 +1,5 @@
-import { jest } from '@jest/globals';
 import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
+import { jest } from '@jest/globals';
 import {
   act,
   cleanup,

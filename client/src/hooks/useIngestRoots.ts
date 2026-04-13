@@ -184,12 +184,12 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
     waitingOverlayPresent && embeddingModel
       ? embeddingModel
       : typeof lockObj?.embeddingModel === 'string'
-      ? lockObj.embeddingModel
-      : typeof lockObj?.lockedModelId === 'string'
-        ? lockObj.lockedModelId
-        : typeof lockObj?.modelId === 'string'
-          ? lockObj.modelId
-          : embeddingModel || undefined;
+        ? lockObj.embeddingModel
+        : typeof lockObj?.lockedModelId === 'string'
+          ? lockObj.lockedModelId
+          : typeof lockObj?.modelId === 'string'
+            ? lockObj.modelId
+            : embeddingModel || undefined;
   const lockProvider =
     (waitingOverlayPresent ? canonicalEmbeddingProvider : undefined) ??
     normalizeProvider(lockObj?.embeddingProvider) ??

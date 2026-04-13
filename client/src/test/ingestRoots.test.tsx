@@ -887,10 +887,16 @@ describe('RootsTable', () => {
     mockFetch.mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes('/ingest/reembed/%2Frepo-a')) {
-        return mockJsonResponse({ requestId: 'queue-request-a', runId: 'run-a' });
+        return mockJsonResponse({
+          requestId: 'queue-request-a',
+          runId: 'run-a',
+        });
       }
       if (url.includes('/ingest/reembed/%2Frepo-b')) {
-        return mockJsonResponse({ requestId: 'queue-request-b', runId: 'run-b' });
+        return mockJsonResponse({
+          requestId: 'queue-request-b',
+          runId: 'run-b',
+        });
       }
       throw new Error(`Unexpected fetch: ${url}`);
     });
@@ -912,10 +918,14 @@ describe('RootsTable', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('checkbox', { name: /select all roots/i }));
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select all roots/i }),
+    );
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /re-embed selected/i }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /re-embed selected/i }),
+      );
       await Promise.resolve();
     });
 
@@ -959,7 +969,9 @@ describe('RootsTable', () => {
     fireEvent.click(
       await screen.findByRole('checkbox', { name: /select repo-eligible/i }),
     );
-    fireEvent.click(screen.getByRole('checkbox', { name: /select repo-stale/i }));
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /select repo-stale/i }),
+    );
     expect(screen.getByText('2 selected')).toBeInTheDocument();
 
     rerender(
@@ -989,7 +1001,9 @@ describe('RootsTable', () => {
     expect(screen.getByText('1 selected')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /re-embed selected/i }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /re-embed selected/i }),
+      );
       await Promise.resolve();
     });
 
@@ -1240,7 +1254,9 @@ describe('RootsTable', () => {
       />,
     );
 
-    expect(screen.getByText('openai / text-embedding-3-small')).toBeInTheDocument();
+    expect(
+      screen.getByText('openai / text-embedding-3-small'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('stale-persisted-model')).not.toBeInTheDocument();
     expect(screen.getByText(/waiting \(#1\)/i)).toBeInTheDocument();
   });

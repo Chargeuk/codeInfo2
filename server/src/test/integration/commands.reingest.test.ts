@@ -1005,7 +1005,9 @@ test('direct command target working resolves a host working_folder into the moun
 });
 
 test('direct command target working preserves QUEUE_READ_FAILED blocking results from reingest_repository', async () => {
-  const harness = await setupRepoCommandHarness('target-working-queue-read-failed');
+  const harness = await setupRepoCommandHarness(
+    'target-working-queue-read-failed',
+  );
 
   try {
     await writeCommandFile({

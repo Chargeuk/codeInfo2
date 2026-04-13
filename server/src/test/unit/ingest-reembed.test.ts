@@ -401,12 +401,10 @@ test('ingest-reembed rejects a still-visible queued start row before queue admis
 });
 
 test('ingest-reembed queue admission persists the stable repo name instead of an overlay run id', async () => {
-  let queuedPayload:
-    | {
-        name?: string;
-        path?: string;
-      }
-    | null = null;
+  let queuedPayload: {
+    name?: string;
+    path?: string;
+  } | null = null;
   const response = await request(
     buildApp({
       listIngestedRepositories: async () => ({

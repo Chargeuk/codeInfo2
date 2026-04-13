@@ -133,10 +133,7 @@ function shouldRewriteWaitingRequest(
   waitingRequest: IngestQueueRequest,
   input: EnqueueIngestRequestInput,
 ): boolean {
-  if (
-    waitingRequest.operation === 'start' &&
-    input.operation === 'reembed'
-  ) {
+  if (waitingRequest.operation === 'start' && input.operation === 'reembed') {
     return false;
   }
   return true;
@@ -239,7 +236,9 @@ export async function enqueueOrReuseIngestRequest(
     ) {
       return buildQueueResult({
         queueRequest: racedExistingWaitingRequest,
-        queuePosition: await countOlderWaitingRequests(racedExistingWaitingRequest),
+        queuePosition: await countOlderWaitingRequests(
+          racedExistingWaitingRequest,
+        ),
         reusedExisting: true,
         updatedExisting: false,
       });

@@ -87,12 +87,12 @@ function blocksSharedSelection(root: IngestRoot, activeRunId?: string) {
 function getRootEmbeddingDisplay(root: IngestRoot) {
   const provider =
     root.queueState === 'waiting'
-      ? root.embeddingProvider ?? root.lock?.embeddingProvider
+      ? (root.embeddingProvider ?? root.lock?.embeddingProvider)
       : root.embeddingProvider;
   const model =
     root.queueState === 'waiting'
-      ? root.embeddingModel ?? root.model
-      : root.embeddingModel ?? root.model;
+      ? (root.embeddingModel ?? root.model)
+      : (root.embeddingModel ?? root.model);
   if (provider && model) {
     return `${provider} / ${model}`;
   }
@@ -411,7 +411,7 @@ export default function RootsTable({
 
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="body2" color="text.secondary">
-        {selected.size} selected
+          {selected.size} selected
         </Typography>
         <Button
           variant="outlined"

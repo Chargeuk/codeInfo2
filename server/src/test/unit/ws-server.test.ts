@@ -11,6 +11,11 @@ import WebSocket, { type RawData } from 'ws';
 
 import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
 import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
   getPendingConversationCancel,
   cleanupInflight,
   createInflight,
@@ -19,11 +24,6 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import {
-  getActiveRunOwnership,
-  releaseConversationLock,
-  tryAcquireConversationLock,
-} from '../../agents/runLock.js';
 import {
   __resetIngestJobsForTest,
   __setStatusAndPublishForTest,
@@ -962,10 +962,7 @@ test('WS conversation-only cancel keeps pending stop across aborted inflight cle
     sendJson(ws, { type: 'cancel_inflight', conversationId });
 
     const deadline = Date.now() + 1000;
-    while (
-      !inflight.abortController.signal.aborted &&
-      Date.now() < deadline
-    ) {
+    while (!inflight.abortController.signal.aborted && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
     assert.equal(inflight.abortController.signal.aborted, true);

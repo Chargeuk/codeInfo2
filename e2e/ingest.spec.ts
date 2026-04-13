@@ -671,7 +671,9 @@ test.describe.serial('Ingest flows', () => {
     });
   });
 
-  test('re-embed rows keep one stable identity through retry progression and stay locked', async ({ page }) => {
+  test('re-embed rows keep one stable identity through retry progression and stay locked', async ({
+    page,
+  }) => {
     await page.goto(`${baseUrl}/ingest`);
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
@@ -814,7 +816,9 @@ test.describe.serial('Ingest flows', () => {
     const row = rows.first();
     await expect(row).toBeVisible();
     await expect(rows).toHaveCount(1);
-    await expect(row.getByText('openai / text-embedding-3-small')).toBeVisible();
+    await expect(
+      row.getByText('openai / text-embedding-3-small'),
+    ).toBeVisible();
     await expect(row.getByText(/queued \(#1\)/i)).toBeVisible();
     await expect(row.getByText('stale-persisted-model')).toHaveCount(0);
     await expect(page.getByText('fallback identity only')).toBeVisible();
@@ -1150,7 +1154,9 @@ test.describe.serial('Ingest flows', () => {
       if (url.includes('/ingest/remove/%2Fmock-success')) {
         mockedRoots = {
           ...mockedRoots,
-          roots: mockedRoots.roots.filter((root) => root.path !== '/mock-success'),
+          roots: mockedRoots.roots.filter(
+            (root) => root.path !== '/mock-success',
+          ),
         };
         await route.fulfill({
           status: 200,
@@ -1172,7 +1178,9 @@ test.describe.serial('Ingest flows', () => {
 
     await page.goto(`${baseUrl}/ingest`);
 
-    await page.getByRole('checkbox', { name: /^Select mock-success$/i }).check();
+    await page
+      .getByRole('checkbox', { name: /^Select mock-success$/i })
+      .check();
     await page.getByRole('checkbox', { name: /^Select mock-failed$/i }).check();
     await expect(page.getByText('2 selected')).toBeVisible();
 
@@ -1198,10 +1206,7 @@ test.describe.serial('Ingest flows', () => {
       page.getByRole('checkbox', { name: /^Select mock-success$/i }),
     ).toHaveCount(0);
 
-    await saveStableScreenshot(
-      page,
-      '0000055-bulk-partial-failure-state.png',
-    );
+    await saveStableScreenshot(page, '0000055-bulk-partial-failure-state.png');
   });
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {

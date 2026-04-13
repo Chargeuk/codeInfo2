@@ -22,7 +22,10 @@ import {
   clearRootsCollection,
   clearVectorsCollection,
 } from '../../ingest/chromaClient.js';
-import { __resetIngestJobsForTest, setIngestDeps } from '../../ingest/ingestJob.js';
+import {
+  __resetIngestJobsForTest,
+  setIngestDeps,
+} from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';

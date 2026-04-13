@@ -222,7 +222,8 @@ test('preserves provider-qualified identity when providers share model ids', asy
 
   assert.equal(res.status, 200);
   const openaiRepo = res.body.repos.find(
-    (repo: { containerPath: string }) => repo.containerPath === '/data/openai-repo',
+    (repo: { containerPath: string }) =>
+      repo.containerPath === '/data/openai-repo',
   );
   const lmstudioRepo = res.body.repos.find(
     (repo: { containerPath: string }) =>

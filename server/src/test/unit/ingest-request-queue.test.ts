@@ -96,7 +96,9 @@ test('ingest queue model uses timestamps and explicit target plus FIFO indexes',
           )?.queueState?.$in,
         ) &&
         (
-          options.partialFilterExpression as { queueState?: { $in?: unknown[] } }
+          options.partialFilterExpression as {
+            queueState?: { $in?: unknown[] };
+          }
         ).queueState?.$in?.includes('cleanup-blocked'),
     ),
   );
@@ -290,24 +292,25 @@ test('waiting duplicate reembed reuse preserves queue identity and provenance wh
       };
     },
   );
-  mock.method(IngestQueueRequestModel, 'findOne', (filter: {
-    canonicalTargetPath?: string;
-    queueState?: string;
-  }) => {
-    if (filter.queueState === 'waiting') {
+  mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: { canonicalTargetPath?: string; queueState?: string }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => existing,
+          }),
+        };
+      }
+
       return {
         sort: () => ({
-          exec: async () => existing,
+          exec: async () => null,
         }),
       };
-    }
-
-    return {
-      sort: () => ({
-        exec: async () => null,
-      }),
-    };
-  });
+    },
+  );
   mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
     exec: async () => 2,
   }));
@@ -371,23 +374,27 @@ test('concurrent first-submit requests collapse onto one waiting queue row', asy
       return { exec: async () => waitingRequest };
     },
   );
-  mock.method(IngestQueueRequestModel, 'findOne', (filter: {
-    canonicalTargetPath?: string;
-    queueState?: string | { $in?: string[] };
-  }) => {
-    if (filter.queueState === 'waiting') {
+  mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: {
+      canonicalTargetPath?: string;
+      queueState?: string | { $in?: string[] };
+    }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => waitingRequest,
+          }),
+        };
+      }
       return {
         sort: () => ({
-          exec: async () => waitingRequest,
+          exec: async () => null,
         }),
       };
-    }
-    return {
-      sort: () => ({
-        exec: async () => null,
-      }),
-    };
-  });
+    },
+  );
   mock.method(
     IngestQueueRequestModel,
     'create',
@@ -586,15 +593,11 @@ test('waiting queue position counts only older waiting items and uses countDocum
   mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
     exec: async () => waiting,
   }));
-  const findOneMock = mock.method(
-    IngestQueueRequestModel,
-    'findOne',
-    () => ({
-      sort: () => ({
-        exec: async () => null,
-      }),
+  const findOneMock = mock.method(IngestQueueRequestModel, 'findOne', () => ({
+    sort: () => ({
+      exec: async () => null,
     }),
-  );
+  }));
   const countMock = mock.method(
     IngestQueueRequestModel,
     'countDocuments',

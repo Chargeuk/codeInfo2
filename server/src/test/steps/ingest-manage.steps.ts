@@ -663,12 +663,7 @@ Given(
 
 Given(
   'ingest manage mongo queue has waiting request for {string} named {string} with provider {string} model {string}',
-  async (
-    rootPath: string,
-    name: string,
-    provider: string,
-    model: string,
-  ) => {
+  async (rootPath: string, name: string, provider: string, model: string) => {
     await IngestQueueRequestModel.create({
       canonicalTargetPath: rootPath,
       operation: 'reembed',

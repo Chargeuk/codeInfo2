@@ -41,7 +41,7 @@ export function createIngestReembedRouter({
         (repo) =>
           isRepoReingestable(repo) &&
           normalizeCanonicalQueueTargetPath(repo.containerPath) ===
-          normalizedRoot,
+            normalizedRoot,
       );
       if (!selectedRepo) {
         const error = new Error('NOT_FOUND');

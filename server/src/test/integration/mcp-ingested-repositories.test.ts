@@ -203,15 +203,17 @@ test('reingest_repository canonicalizes selectors to canonical repository identi
     }),
   );
 
-  const response = await request(app).post('/mcp').send({
-    jsonrpc: '2.0',
-    id: 'selector-canonical',
-    method: 'tools/call',
-    params: {
-      name: 'reingest_repository',
-      arguments: { sourceId: '/host/stable-repo' },
-    },
-  });
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'selector-canonical',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/host/stable-repo' },
+      },
+    });
 
   assert.equal(response.status, 200);
   assert.equal(capturedSourceId, '/data/stable-repo');
@@ -268,15 +270,17 @@ test('reingest_repository still prefers canonical repository identity when stale
     }),
   );
 
-  const response = await request(app).post('/mcp').send({
-    jsonrpc: '2.0',
-    id: 'selector-stale-vs-fresh',
-    method: 'tools/call',
-    params: {
-      name: 'reingest_repository',
-      arguments: { sourceId: '/host/stable-repo' },
-    },
-  });
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'selector-stale-vs-fresh',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/host/stable-repo' },
+      },
+    });
 
   assert.equal(response.status, 200);
   assert.equal(capturedSourceId, '/data/stable-repo');

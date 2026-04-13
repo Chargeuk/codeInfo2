@@ -8558,9 +8558,9 @@ This final review-follow-up task revalidates Story 55 after the current review f
 ### Task 109. Close The Waiting Start-To-Reembed Queue Admission Race
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `108`
-- Task Status: `__in_progress__`
-- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 1, which was also strengthened by the endorsed external review comment without changing the finding scope.
+- Task Dependencies: `108, 110`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 1, which was also strengthened by the endorsed external review comment without changing the finding scope. Re-owned to `__to_do__` on 2026-04-13 by planner repair after the current `**BLOCKING ANSWER**` proved the next honest owner is a fresh earlier `flows.run.loop` prerequisite rather than more queue-admission work in this task.
 
 #### Overview
 
@@ -8609,7 +8609,7 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the queue-admission race repair.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the queue-admission race repair so the broader backend queued-admission and re-embed feature path stays honest beyond the direct unit proof home.
 4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` only if targeted diagnosis is needed while repairing the guarded update ordering, then finish by rerunning Testing items 2 and 3.
-5. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs the queue-admission document update seam rather than the default startup path; Task 115 owns the combined compose-backed runtime rerun after the review-fix set lands.
+5. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs the queue-admission document update seam rather than the default startup path; Task 116 owns the combined compose-backed runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
@@ -8630,9 +8630,64 @@ This task hardens queue admission so a waiting `start` request can never be rewr
 - **BLOCKING ANSWER** Issue-resolution references found: the current local proof pair is decisive. Task 109's exact proof owner `server/src/test/unit/ingest-request-queue.test.ts` now passes cleanly in `test-results/server-unit-tests-2026-04-13T13-48-22-094Z.log` with `tests run: 11`, `passed: 11`, and `failed: 0`, while the full wrapper log `test-results/server-unit-tests-2026-04-13T13-48-46-354Z.log` stops first at `not ok 280 - flow stop during a looped flow prevents later iterations from continuing` and then the wrapper watchdog records `semantic_progress_stalled`. That split matches the earlier Story 55 prerequisite pattern exactly: repair or re-own the earliest failing full-suite lane, then resume the later task only after the shared baseline is trustworthy again.
 - **BLOCKING ANSWER** Chosen fix: keep Task 109's implementation and targeted proof as valid local evidence, preserve Testing 2 and Testing 3 as real remaining gates, and re-own the blocker to a fresh earlier prerequisite that is bounded to `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/agents/runLock.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/ws/server.ts`, and `server/src/test/support/wsClient.ts`. That prerequisite should restore or cleanly re-hand off the full `npm run test:summary:server:unit` baseline before Task 109 resumes, because the current failing owner now lives there rather than in the queue-request race files.
 - **BLOCKING ANSWER** Why this fits the current repo state, and why alternatives were rejected: it fits because the active Task 109 owner file is green in isolation, the wrapper and Node runtime both point to a still-open child-side resource rather than a wrapper bug, and Story 55 already has direct precedent for re-owning this same earlier `flows.run.loop` lane when a later task's local proofs are complete. Rejected alternatives are not suitable: do not mark Testing 2 complete from the targeted rerun alone; do not keep widening `server/src/ingest/requestQueue.ts` or `server/src/test/unit/ingest-request-queue.test.ts` without a local failure; do not alter `scripts/summary-wrapper-protocol.mjs` or `scripts/test-summary-server-unit.mjs` to hide the stall; and do not use `--test-force-exit`, `process.exit()`, or longer sleeps, because both repo precedent and official Node guidance treat those as leak-masking workarounds rather than the correct owner-level repair.
-- **BLOCKER** Testing 2: reran `npm run test:summary:server:unit` after the Task 109 proof repair, and the full wrapper no longer stopped in any Task 109-owned test. Instead it failed earlier in the unrelated full-suite lane `not ok 280 - flow stop during a looped flow prevents later iterations from continuing`, with wrapper reason `semantic_progress_stalled` in `test-results/server-unit-tests-2026-04-13T13-48-46-354Z.log`. I also confirmed the retained log only reports that earlier `flows.run.loop` owner and not the Task 109 proof titles, so the missing capability here is a trustworthy upstream full `server:unit` baseline rather than more queue-admission work. This task should be reordered behind a fresh prerequisite or planner repair that re-isolates that earlier full-suite contradiction before Task 109 can finish Testing 2 and Testing 3 honestly.
+- **RESOLVED ISSUE** Historical blocker summary on 2026-04-13: after Task 109's targeted proof owner reran green, the full `npm run test:summary:server:unit` wrapper still failed first in the earlier `flows.run.loop` lane with `semantic_progress_stalled`. That blocker is now retired here because planner repair re-owned the next real work into fresh Task 110, so this task returns to `__to_do__` until that earlier prerequisite restores or cleanly re-hands off the shared `server:unit` baseline again.
+- Planner repair on 2026-04-13: returned Task 109 to `__to_do__` and inserted fresh Task 110 because the current `**BLOCKING ANSWER**` proves the next honest owner is the earlier `flows.run.loop` baseline, not additional queue-request edits in this task.
 
-### Task 110. Re-Validate Deferred And Recovered Re-Embed Input Before Execution
+### Task 110. Re-Isolate The Reopened `flows.run.loop` Baseline Before Task 109 Resumes
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `108`
+- Task Status: `__in_progress__`
+- Notes: Inserted on 2026-04-13 by planner repair because Task 109's blocker answer proved the latest full `server:unit` rerun from current `HEAD` now fails first in the earlier `flows.run.loop` lane after the local queue-race proof reran green. This fresh prerequisite exists so the overnight loop repairs the earliest failing shared baseline instead of repeating blocked Task 109 passes.
+
+#### Overview
+
+This prerequisite task owns only the currently reopened `flows.run.loop` contradiction surfaced after Task 109's exact proof owner reran green but the full `server:unit` wrapper still failed first in the earlier loop-cleanup lane. Keep the work bounded to `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`, `server/src/test/support/wsClient.ts`, and at most one directly shared helper if fresh reruns still prove that same local owner.
+
+#### Task Exit Criteria
+
+- The reopened `flows.run.loop` owner is named explicitly from current disk state, either as a repaired local owner or as one new exhausted-branch successor owner.
+- Any implementation work stays bounded to `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`, `server/src/test/support/wsClient.ts`, and one directly shared helper only if fresh reruns prove that tighter local owner.
+- Direct proof exists for the exact targeted `flows.run.loop` failure file and a fresh full `npm run test:summary:server:unit` pass, or one named exhausted-branch owner conclusion, before Task 109 resumes.
+- If this bounded loop-cleanup class exhausts cleanly and the blocker still belongs elsewhere, this task ends by naming that successor owner explicitly instead of remaining investigative.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `test-results/server-unit-tests-2026-04-13T13-48-22-094Z.log`
+- `test-results/server-unit-tests-2026-04-13T13-48-46-354Z.log`
+- `server/src/test/integration/flows.run.loop.test.ts`
+- `server/src/flows/service.ts`
+- `server/src/ws/server.ts`
+- `server/src/chat/inflightRegistry.ts`
+- `server/src/agents/runLock.ts`
+- `server/src/test/support/wsClient.ts`
+- `scripts/test-summary-server-unit.mjs`
+- `scripts/summary-wrapper-protocol.mjs`
+
+#### Proof Mapping
+
+- The reopened loop-cleanup owner is isolated without widening back into the Task 109 queue-admission lane: owned by `server/src/test/integration/flows.run.loop.test.ts` plus the bounded runtime-owner files; prove with the targeted server-unit wrapper in Testing 1 and the exact owner conclusion recorded in `Implementation notes`.
+- The full `server:unit` wrapper baseline is restored or exhaustively re-handed off before Task 109 resumes: owned by the same bounded runtime lane; prove with the full server-unit wrapper in Testing 2 and the repaired or successor-owner conclusion recorded in `Implementation notes`.
+
+#### Subtasks
+
+1. [ ] Re-read Task 109's current `**RESOLVED ISSUE**`, current `**BLOCKING ANSWER**`, and retained full-wrapper log `test-results/server-unit-tests-2026-04-13T13-48-46-354Z.log` before editing. Purpose: keep this prerequisite anchored to the current earlier full-wrapper contradiction instead of reopening the queue-admission scope.
+2. [ ] Inspect `server/src/test/integration/flows.run.loop.test.ts`, `server/src/flows/service.ts`, `server/src/ws/server.ts`, `server/src/chat/inflightRegistry.ts`, `server/src/agents/runLock.ts`, and `server/src/test/support/wsClient.ts` before changing behavior. Purpose: identify the exact bounded loop-cleanup seam that the current full wrapper now exercises first.
+3. [ ] Reproduce the current bounded owner from `HEAD` by comparing the exact targeted `flows.run.loop` rerun against the full `server:unit` wrapper. Use one temporary trace or helper-level log only if the fresh reruns still show this same lane as the first failing owner, and stop as soon as one exact local owner or one exhausted-branch handoff is proved. Purpose: give the next implementation loop one concrete owner instead of another broad full-suite search.
+4. [ ] If Subtask 3 proves one exact local loop-cleanup owner, repair only that owner and the exact `flows.run.loop` proof text or assertions it affects, then restore the full `server:unit` baseline. If it instead proves this loop-cleanup lane is exhausted because the full wrapper now advances into a different task's named proof homes, record that exhausted branch in `Implementation notes` and hand execution forward to that owner instead of widening this task. Purpose: keep the repair exact, bounded, and honest.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"` after the bounded diagnostic or repair, and confirm the targeted wrapper passes cleanly or yields one named exhausted-branch owner conclusion.
+2. [ ] Run `npm run test:summary:server:unit` after the bounded diagnostic or repair, and confirm the full server-unit wrapper passes cleanly or yields one named exhausted-branch owner conclusion before Task 109 resumes.
+
+#### Implementation notes
+
+- Inserted on 2026-04-13 by planner repair because Task 109's current `**BLOCKING ANSWER**` proved the latest full-wrapper rerun from current `HEAD` now fails first in the earlier `flows.run.loop` lane after the local queue-race proof reran green.
+
+### Task 111. Re-Validate Deferred And Recovered Re-Embed Input Before Execution
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `109`
@@ -8688,16 +8743,16 @@ This task restores the invalid-root-state guard for queued and startup-recovered
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the deferred and recovered `reembed` validation repair so the broader backend re-embed feature path stays honest beyond the direct unit and route-integration proof homes.
 4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` only if targeted diagnosis is needed while repairing the deferred and recovered execution seam, then finish by rerunning Testing items 2 and 3.
 5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts` only if targeted diagnosis is needed while aligning the route-level proof with the repaired execution contract, then finish by rerunning Testing items 2 and 3.
-6. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs deferred and recovered `reembed` guard logic inside the running server rather than the startup launcher path; Task 115 owns the combined compose-backed runtime rerun after the review-fix set lands.
+6. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task repairs deferred and recovered `reembed` guard logic inside the running server rather than the startup launcher path; Task 116 owns the combined compose-backed runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the deferred and recovered `reembed` invalid-state drift finding.
 
-### Task 111. Keep Startup Reachable When Queue Recovery Degrades
+### Task 112. Keep Startup Reachable When Queue Recovery Degrades
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `110`
+- Task Dependencies: `111`
 - Task Status: `__to_do__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 3.
 
@@ -8732,7 +8787,7 @@ This task hardens startup recovery so a post-connect queue read or write failure
 - `R2.` The degraded startup branch leaves one observable diagnostic boundary such as a returned degraded result or explicit log event instead of silently swallowing the failure. Owners: `server/src/index.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof home: `server/src/test/unit/ingest-queue-runtime.test.ts`.
 - `R3.` Queue-backed start requests still return retryable `QUEUE_UNAVAILABLE` after degraded startup keeps the server reachable. Owners: `server/src/routes/ingestStart.ts`, `server/src/test/unit/ingest-start.test.ts`. Proof home: `server/src/test/unit/ingest-start.test.ts`.
 - `R4.` Queue-backed `reembed` requests still return retryable `QUEUE_UNAVAILABLE` after degraded startup keeps the server reachable. Owners: `server/src/routes/ingestReembed.ts`, `server/src/test/unit/ingest-reembed.test.ts`. Proof home: `server/src/test/unit/ingest-reembed.test.ts`.
-- `R5.` The post-connect recovery failure handling remains isolated behind one direct unit-test seam instead of requiring whole-process boot inspection, and the supported compose runtime path still starts and stops cleanly after the repair. Owners: `server/src/index.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `docker-compose.yml`. Proof homes: `server/src/test/unit/ingest-queue-runtime.test.ts`, Task 111 Testing items 1 through 5.
+- `R5.` The post-connect recovery failure handling remains isolated behind one direct unit-test seam instead of requiring whole-process boot inspection, and the supported compose runtime path still starts and stops cleanly after the repair. Owners: `server/src/index.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `docker-compose.yml`. Proof homes: `server/src/test/unit/ingest-queue-runtime.test.ts`, Task 112 Testing items 1 through 5.
 
 #### Subtasks
 
@@ -8762,10 +8817,10 @@ This task hardens startup recovery so a post-connect queue read or write failure
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the degraded-startup reachability finding.
 
-### Task 112. Repair The No-Mongo Re-Embed Cucumber Proof
+### Task 113. Repair The No-Mongo Re-Embed Cucumber Proof
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `111`
+- Task Dependencies: `112`
 - Task Status: `__to_do__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 4 and to keep the cucumber proof honest.
 
@@ -8805,16 +8860,16 @@ This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step n
 
 1. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the proof repair.
 2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` only if targeted diagnosis is needed while repairing the no-Mongo scenario, then finish by rerunning Testing item 1.
-3. [ ] Separate server build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber feature and step-definition proof owners; Task 115 owns the broader backend wrapper and runtime rerun after the review-fix set lands.
+3. [ ] Separate server build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber feature and step-definition proof owners; Task 116 owns the broader backend wrapper and runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the endorsed no-Mongo cucumber proof-honesty finding.
 
-### Task 113. Make Current Review Artifacts Naturally Commit-Visible
+### Task 114. Make Current Review Artifacts Naturally Commit-Visible
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `112`
+- Task Dependencies: `113`
 - Task Status: `__to_do__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 5 as an allowed support-file hygiene fix.
 
@@ -8840,12 +8895,12 @@ This task narrows the ignore policy so the current review pass evidence and find
 
 #### Proof Mapping
 
-- `R1.` The current-pass evidence artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof home: Task 113 Testing item 1.
-- `R1.` The current-pass findings artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof home: Task 113 Testing item 1.
-- `R2.` The current-review handoff JSON remains treated as transient input rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`. Proof homes: Task 113 Testing items 2 and 3.
-- `R2.` The external-review input markdown remains treated as transient input rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`, this plan. Proof homes: Task 113 Testing items 2 and 3.
-- `R2.` The optional blind-spot challenge file remains treated as transient additive context rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`. Proof homes: Task 113 Testing items 2 and 3.
-- `R3.` The touched workflow wording and plan wording stay aligned with the same durable-versus-transient artifact split. Owners: `codeinfo_markdown/review_disposition.md`, this plan. Proof homes: direct file inspection plus Task 113 Testing item 3.
+- `R1.` The current-pass evidence artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof home: Task 114 Testing item 1.
+- `R1.` The current-pass findings artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof home: Task 114 Testing item 1.
+- `R2.` The current-review handoff JSON remains treated as transient input rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`. Proof homes: Task 114 Testing items 2 and 3.
+- `R2.` The external-review input markdown remains treated as transient input rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`, this plan. Proof homes: Task 114 Testing items 2 and 3.
+- `R2.` The optional blind-spot challenge file remains treated as transient additive context rather than a durable artifact. Owners: `.gitignore`, `codeinfo_markdown/review_disposition.md`. Proof homes: Task 114 Testing items 2 and 3.
+- `R3.` The touched workflow wording and plan wording stay aligned with the same durable-versus-transient artifact split. Owners: `codeinfo_markdown/review_disposition.md`, this plan. Proof homes: direct file inspection plus Task 114 Testing item 3.
 
 #### Subtasks
 
@@ -8863,16 +8918,16 @@ This task narrows the ignore policy so the current review pass evidence and find
 1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md` and confirm those durable review artifacts are no longer ignored.
 2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` and confirm those transient inputs remain ignored.
 3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore codeinfo_markdown/review_disposition.md` and confirm the durable artifacts are naturally visible without relying on force-add while the transient inputs stay out of the normal commit set.
-4. [ ] Separate server build, automated test, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes ignore rules and workflow wording files; Task 115 owns the broader wrapper and runtime rerun after the visibility fix lands.
+4. [ ] Separate server build, automated test, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes ignore rules and workflow wording files; Task 116 owns the broader wrapper and runtime rerun after the visibility fix lands.
 
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the review-artifact visibility hygiene finding.
 
-### Task 114. Honor Pre-Aborted Signals In The LM Studio Mock Stream Helper
+### Task 115. Honor Pre-Aborted Signals In The LM Studio Mock Stream Helper
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `113`
+- Task Dependencies: `114`
 - Task Status: `__to_do__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 6.
 
@@ -8912,16 +8967,16 @@ This task repairs the shared LM Studio mock stream helper so it behaves correctl
 
 1. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the mock-stream repair.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mockLmStudioSdk.test.ts` only if targeted diagnosis is needed while repairing the helper, then finish by rerunning Testing item 1.
-3. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes the unit-test support helper `server/src/test/support/mockLmStudioSdk.ts` and its direct unit proof owner; Task 115 owns the broader backend cucumber and runtime rerun after the review-fix set lands.
+3. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes the unit-test support helper `server/src/test/support/mockLmStudioSdk.ts` and its direct unit proof owner; Task 116 owns the broader backend cucumber and runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the pre-aborted signal mock-helper finding.
 
-### Task 115. Re-Validate Story 55 After Review Pass `0000055-20260413T080058Z-1eb771da`
+### Task 116. Re-Validate Story 55 After Review Pass `0000055-20260413T080058Z-1eb771da`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `109, 110, 111, 112, 113, 114`
+- Task Dependencies: `109, 110, 111, 112, 113, 114, 115`
 - Task Status: `__to_do__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` as the required final revalidation task after the new review-fix tasks land.
 
@@ -8931,7 +8986,7 @@ This final review-follow-up task revalidates Story 55 after the current findings
 
 #### Task Exit Criteria
 
-- `R1.` Tasks 109 through 114 are `__done__` before final reruns begin.
+- `R1.` Tasks 109 through 115 are `__done__` before final reruns begin.
 - `R2.` The current durable evidence and findings artifacts for review pass `0000055-20260413T080058Z-1eb771da` still exist on disk and remain cited as the adjudication record for the reopened work.
 - `R3.` The maintained summary records the exact owner files and retained proof homes for each review-fix task before or during final close-out.
 - `R4.` The relevant wrapper and non-wrapper proof chain for this scoped review-fix set passes on current disk after the current review-fix tasks land, including the direct `git check-ignore` and `git status` visibility checks owned by Task 113.
@@ -8946,29 +9001,30 @@ This final review-follow-up task revalidates Story 55 after the current findings
 - `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md`
 - `README.md`
 - `docker-compose.yml`
-- the owner files and proof files named in Tasks 109 through 114
+- the owner files and proof files named in Tasks 109 through 115
 
 #### Proof Mapping
 
-- `R1.` Final revalidation does not start until Tasks 109 through 114 have been completed and re-opened for proof-home retention. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 115 subtasks 2 through 7.
-- `R2.` The current review pass remains anchored to its durable evidence and findings artifacts before final reruns begin. Owners: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`, `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Proof homes: Task 115 subtasks 1 and 11.
-- `R3.` Each endorsed finding from the current review pass has a retained proof home recorded in `planning/0000055-pr-summary.md` before final close-out. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 115 subtasks 2 through 9.
-- `R4.` The final build wrappers, automated test wrappers, supported compose smoke path, and direct git checks confirm the repaired server implementation, proof harnesses, and artifact-visibility behavior remain green together on current disk. Owners: wrapper scripts, `docker-compose.yml`, `.gitignore`, `codeinfo_markdown/review_disposition.md`, and the task owner files above. Proof homes: Task 115 Testing items 1 through 8.
-- `R5.` Any residual weak-proof notes still carried forward after the reruns and compose smoke proof are explicitly retained in `planning/0000055-pr-summary.md` instead of being hidden by green wrappers. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 115 subtask 10.
+- `R1.` Final revalidation does not start until Tasks 109 through 115 have been completed and re-opened for proof-home retention. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 116 subtasks 2 through 8.
+- `R2.` The current review pass remains anchored to its durable evidence and findings artifacts before final reruns begin. Owners: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md`, `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Proof homes: Task 116 subtasks 1 and 12.
+- `R3.` Each endorsed finding from the current review pass has a retained proof home recorded in `planning/0000055-pr-summary.md` before final close-out. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 116 subtasks 2 through 10.
+- `R4.` The final build wrappers, automated test wrappers, supported compose smoke path, and direct git checks confirm the repaired server implementation, proof harnesses, and artifact-visibility behavior remain green together on current disk. Owners: wrapper scripts, `docker-compose.yml`, `.gitignore`, `codeinfo_markdown/review_disposition.md`, and the task owner files above. Proof homes: Task 116 Testing items 1 through 8.
+- `R5.` Any residual weak-proof notes still carried forward after the reruns and compose smoke proof are explicitly retained in `planning/0000055-pr-summary.md` instead of being hidden by green wrappers. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 116 subtask 11.
 
 #### Subtasks
 
 1. [ ] Re-read the current review evidence, findings, and optional blind-spot challenge artifacts before final reruns begin. Purpose: anchor final close-out to the current findings-present pass instead of the older no-findings close-out.
 2. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 109’s repaired owner file and retained proof homes for the guarded queue-admission race and the preserved waiting-row metadata proofs. Purpose: keep the race-fix proof chain explicit for later reviewers.
-3. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 110’s repaired owner files and retained proof homes for deferred cancelled-state rejection, recovery-time error-state rejection, and shared `INVALID_REEMBED_STATE` vocabulary proofs. Purpose: keep the execution-time invalid-state proof chain explicit for later reviewers.
-4. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 111’s repaired owner files and retained proof homes for degraded startup reachability, diagnostic visibility, and retryable `QUEUE_UNAVAILABLE` route proofs. Purpose: keep the startup-degradation proof chain explicit for later reviewers.
-5. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 112’s repaired owner files and retained proof homes for the no-Mongo disconnect setup, pure assertion, and fail-fast cucumber proof maintenance. Purpose: keep the cucumber proof-honesty repair explicit for later reviewers.
-6. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 113’s repaired owner files and retained proof homes for durable artifact visibility plus transient current-review, external-input, and challenge-file boundaries. Purpose: keep the non-wrapper artifact-visibility proof chain explicit for later reviewers.
-7. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 114’s repaired owner files and retained proof homes for pre-aborted cancellation ordering, deterministic no-callback proof, and early-return cleanup coverage. Purpose: keep the helper-lifecycle proof chain explicit for later reviewers.
+3. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 110’s repaired owner files and retained proof homes for the reopened `flows.run.loop` baseline prerequisite and its restored or re-handed-off full-wrapper proof chain. Purpose: keep the blocker-driven prerequisite repair explicit for later reviewers.
+4. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 111’s repaired owner files and retained proof homes for deferred cancelled-state rejection, recovery-time error-state rejection, and shared `INVALID_REEMBED_STATE` vocabulary proofs. Purpose: keep the execution-time invalid-state proof chain explicit for later reviewers.
+5. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 112’s repaired owner files and retained proof homes for degraded startup reachability, diagnostic visibility, and retryable `QUEUE_UNAVAILABLE` route proofs. Purpose: keep the startup-degradation proof chain explicit for later reviewers.
+6. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 113’s repaired owner files and retained proof homes for the no-Mongo disconnect setup, pure assertion, and fail-fast cucumber proof maintenance. Purpose: keep the cucumber proof-honesty repair explicit for later reviewers.
+7. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 114’s repaired owner files and retained proof homes for durable artifact visibility plus transient current-review, external-input, and challenge-file boundaries. Purpose: keep the non-wrapper artifact-visibility proof chain explicit for later reviewers.
+8. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 115’s repaired owner files and retained proof homes for pre-aborted cancellation ordering, deterministic no-callback proof, and early-return cleanup coverage. Purpose: keep the helper-lifecycle proof chain explicit for later reviewers.
 8. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final server-wrapper and compose-smoke proof chain from this pass. Purpose: preserve the supported runtime rerun trail instead of collapsing it into a generic close-out line.
-9. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the retained Task 113 visibility-check proof homes from this pass beside the wrapper and compose-smoke reruns. Purpose: keep the direct git visibility proof explicit in final close-out.
-10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest residual weak-proof notes that still remain after this pass. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
-11. [ ] Proof type: durable artifact existence check. Location: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md` and `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Description: verify both durable review artifacts still exist on disk before final close-out. Purpose: keep the adjudication record explicit in the final review-fix pass.
+10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the retained Task 114 visibility-check proof homes from this pass beside the wrapper and compose-smoke reruns. Purpose: keep the direct git visibility proof explicit in final close-out.
+11. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest residual weak-proof notes that still remain after this pass. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
+12. [ ] Proof type: durable artifact existence check. Location: `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md` and `codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md`. Description: verify both durable review artifacts still exist on disk before final close-out. Purpose: keep the adjudication record explicit in the final review-fix pass.
 
 #### Testing
 
@@ -8978,10 +9034,10 @@ This final review-follow-up task revalidates Story 55 after the current findings
 4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the current review-fix tasks land.
 5. [ ] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the current review-fix tasks land.
 6. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the runtime smoke proof.
-7. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient files remain ignored after Task 113 lands.
+7. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient files remain ignored after Task 114 lands.
 8. [ ] Run `git status --short codeInfoStatus/reviews .gitignore codeinfo_markdown/review_disposition.md planning/0000055-pr-summary.md` and confirm the final review-fix pass leaves the durable artifacts and required plan or wording updates naturally visible.
-9. [ ] Run additional targeted proof commands only if one of Tasks 109 through 114 needed narrower diagnosis during implementation, then finish by rerunning the full relevant wrapper or compose steps above.
-10. [ ] Separate client-wrapper and browser-wrapper proof is not applicable here because Tasks 109 through 114 only change server and workflow-support seams; if a later implementation diff broadens into client-visible code, update this task before closing it.
+9. [ ] Run additional targeted proof commands only if one of Tasks 109 through 115 needed narrower diagnosis during implementation, then finish by rerunning the full relevant wrapper or compose steps above.
+10. [ ] Separate client-wrapper and browser-wrapper proof is not applicable here because Tasks 109 through 115 only change server and workflow-support seams; if a later implementation diff broadens into client-visible code, update this task before closing it.
 
 #### Implementation notes
 

@@ -8870,7 +8870,7 @@ This task hardens startup recovery so a post-connect queue read or write failure
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `112`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 4 and to keep the cucumber proof honest.
 
 #### Overview
@@ -8920,6 +8920,7 @@ This task fixes the no-Mongo `reembed` cucumber scenario so the assertion step n
 - Testing 2 passed via `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` with `14/14` passing in `test-results/server-cucumber-tests-2026-04-13T23-09-50-351Z.log`; this targeted rerun was executed because the plan still carried the diagnosis wrapper as an unchecked mandatory proof item.
 - Testing 1 passed via `npm run test:summary:server:cucumber`; the full server-cucumber wrapper finished with `88/88` passing in `test-results/server-cucumber-tests-2026-04-13T23-11-10-941Z.log`.
 - Testing 3 is now marked complete as not applicable because Task 113 only changes cucumber feature and step-definition proof owners; the broader server build, unit, compose-build, and supported-runtime reruns remain owned by Task 116.
+- Automated-proof audit on 2026-04-13: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 113 section, the latest Task 113 proof notes, and the current parser output before normalizing status. All subtasks and Testing 1-3 are now honestly complete on current disk, `selected_task.live_blockers` is empty, and the Task 116 scope note is a real downstream ownership boundary rather than a remaining gate. Task 113 is therefore normalized from `__in_progress__` to `__done__`.
 
 ### Task 114. Make Current Review Artifacts Naturally Commit-Visible
 

@@ -61,9 +61,12 @@ Do not perform manual testing in this step.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
 - Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.
+- When a testing step fails, inspect the concrete failure evidence first and identify the failing assertion, error, or command before deciding whether a blocker exists.
 - Mark each unchecked testing step complete immediately after it honestly passes.
 - If a testing step honestly closes one or more remaining proof-owned subtasks, mark those subtasks complete immediately as well and update the implementation notes before starting the next testing step.
 - Do not batch proof-owned subtask updates until the end of the full rerun chain. Each completed wrapper-backed checkpoint must be recorded as soon as it is honest.
+- For an ordinary failing test that appears to be in scope, attempt at least one concrete repair and rerun of the affected proof before considering a blocker.
+- Use targeted wrapper reruns for diagnosis when the repository workflow supports them, but rerun the original task-listed proof step honestly after any repair.
 - If a testing step fails, diagnose the exact failure, fix it if it is within the task's scope, and rerun the affected proof honestly.
 - Keep implementation notes concise as you work so later steps can see what changed and why.
 
@@ -81,6 +84,8 @@ Do not perform manual testing in this step.
 <blocker_rules>
 
 - If a testing step becomes honestly blocked, stop and write a `**BLOCKER**` note into the task's `Implementation Notes`.
+- Do not raise a `**BLOCKER**` for a normal failing test until you have inspected the failure evidence, attempted at least one concrete in-scope repair when the failure appears task-owned, and rerun the affected proof honestly.
+- Treat a testing step as honestly blocked only when the failure depends on a missing capability, an out-of-scope contract contradiction, an environment or harness defect you cannot repair in this step, or a bounded repair attempt has exhausted without a credible next in-scope fix.
 - The blocker note must include:
   - the exact testing step where work stopped;
   - what you tried;
@@ -129,6 +134,7 @@ Before finishing:
 - confirm you ran only the `Testing` section or honestly skipped it;
 - confirm each completed testing step was marked immediately;
 - confirm any proof-owned subtasks closed by a testing step were marked immediately instead of being deferred until the end of the rerun chain;
+- confirm you did not raise a blocker for an ordinary failing test without first inspecting the failure evidence, attempting at least one concrete in-scope repair when appropriate, and rerunning the affected proof;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;
 - confirm tracked changes were committed if any were made.

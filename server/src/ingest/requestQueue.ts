@@ -36,6 +36,11 @@ export type QueueRequestDocumentFilter = {
   runId?: string | null;
 };
 
+type IngestQueueAvailability = {
+  available: boolean;
+  message: string | null;
+};
+
 export const QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE =
   'QUEUE_REQUEST_UPDATED_IN_PLACE';
 
@@ -45,14 +50,43 @@ const liveQueueStatesForTarget = [
   'cleanup-blocked',
 ] as const satisfies IngestQueueState[];
 
-function createQueueUnavailableError(): EnqueueQueueUnavailableError {
+let ingestQueueAvailability: IngestQueueAvailability = {
+  available: true,
+  message: null,
+};
+
+function createQueueUnavailableError(
+  message = 'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+): EnqueueQueueUnavailableError {
   const error = new Error(
-    'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+    message,
   ) as EnqueueQueueUnavailableError;
   error.code = 'QUEUE_UNAVAILABLE';
   error.status = 503;
   error.retryable = true;
   return error;
+}
+
+export function clearIngestQueueUnavailable() {
+  ingestQueueAvailability = {
+    available: true,
+    message: null,
+  };
+}
+
+export function markIngestQueueUnavailable(message: string) {
+  ingestQueueAvailability = {
+    available: false,
+    message,
+  };
+}
+
+export function getIngestQueueAvailability(): IngestQueueAvailability {
+  return { ...ingestQueueAvailability };
+}
+
+export function __resetIngestQueueAvailabilityForTest() {
+  clearIngestQueueUnavailable();
 }
 
 function toRequestId(value: IngestQueueRequest['_id']): string {
@@ -200,6 +234,13 @@ async function rewriteWaitingQueueRequestIfAllowed(
 export async function enqueueOrReuseIngestRequest(
   input: EnqueueIngestRequestInput,
 ): Promise<EnqueueIngestRequestResult> {
+  if (!ingestQueueAvailability.available) {
+    throw createQueueUnavailableError(
+      ingestQueueAvailability.message ??
+        'Mongo-backed ingest queue is unavailable',
+    );
+  }
+
   if (mongoose.connection.readyState !== 1) {
     throw createQueueUnavailableError();
   }

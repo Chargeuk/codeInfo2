@@ -24,7 +24,6 @@ import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.
 import './flows/flowSchema.js';
 import './ingest/index.js';
 import {
-  recoverIngestQueueOnStartup,
   setIngestDeps,
 } from './ingest/ingestJob.js';
 import './mongo/astCoverage.js';
@@ -72,6 +71,7 @@ import { createToolsAstListSymbolsRouter } from './routes/toolsAstListSymbols.js
 import { createToolsAstModuleImportsRouter } from './routes/toolsAstModuleImports.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
+import { recoverIngestQueueForStartup } from './startup/ingestQueueStartup.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
@@ -400,7 +400,7 @@ const start = async () => {
     lmClientFactory: clientFactory,
     baseUrl: toWebSocketUrl(process.env.CODEINFO_LMSTUDIO_BASE_URL ?? ''),
   });
-  await recoverIngestQueueOnStartup();
+  await recoverIngestQueueForStartup();
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });

@@ -29,8 +29,18 @@ import {
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
+import {
+  __resetIngestQueueAvailabilityForTest,
+  getIngestQueueAvailability,
+} from '../../ingest/requestQueue.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
+import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
+import {
+  INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_EVENT,
+  INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  recoverIngestQueueForStartup,
+} from '../../startup/ingestQueueStartup.js';
 
 function waitForNextTurn() {
   return new Promise<void>((resolve) => {
@@ -176,8 +186,10 @@ beforeEach(() => {
   mock.restoreAll();
   mock.reset();
   resetCollectionsForTests();
+  resetStore();
   process.env.NODE_ENV = 'test';
   __resetIngestJobsForTest();
+  __resetIngestQueueAvailabilityForTest();
   release();
   delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
   __setRunSchedulerForTest((task) => {
@@ -193,10 +205,12 @@ afterEach(() => {
   mock.restoreAll();
   mock.reset();
   resetCollectionsForTests();
+  resetStore();
   setNoopQueueRuntimeOps();
   __setRunSchedulerForTest(null);
   __setRunProcessorForTest(null);
   __resetIngestJobsForTest();
+  __resetIngestQueueAvailabilityForTest();
   release();
   delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
 });
@@ -1103,4 +1117,67 @@ test('recovery selectors use one oldest-item lookup per queue state instead of l
     runningLookups: 1,
     waitingPromotions: 1,
   });
+});
+
+test('post-connect startup recovery degradation keeps the standard startup path reachable', async () => {
+  const events: string[] = [];
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => {
+      events.push('cleanup-lookup');
+      throw new Error('startup queue lookup failed');
+    },
+    findOldestRunningQueueRequest: async () => {
+      events.push('running-lookup');
+      return null;
+    },
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promote');
+      return null;
+    },
+  });
+
+  const result = await recoverIngestQueueForStartup();
+
+  assert.equal(result.reachable, true);
+  assert.equal(result.degraded, true);
+  assert.deepEqual(events, ['cleanup-lookup']);
+  assert.deepEqual(result.queueAvailability, {
+    available: false,
+    message: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  });
+});
+
+test('post-connect startup recovery degradation emits an explicit diagnostic result and log', async () => {
+  const result = await recoverIngestQueueForStartup({
+    recoverQueueOnStartup: async () => {
+      throw new Error('startup queue write failed');
+    },
+    now: () => '2026-04-13T23:00:00.000Z',
+  });
+
+  assert.equal(result.reachable, true);
+  assert.equal(result.degraded, true);
+  assert.equal(
+    result.diagnosticEvent,
+    INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_EVENT,
+  );
+  assert.equal(result.causeMessage, 'startup queue write failed');
+  assert.deepEqual(getIngestQueueAvailability(), {
+    available: false,
+    message: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  });
+
+  const entries = query(
+    { text: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_EVENT },
+    10,
+  );
+  const degradedEntry = entries.find(
+    (entry) =>
+      entry.level === 'error' &&
+      entry.message === INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_EVENT &&
+      entry.context?.queueUnavailableMessage ===
+        INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  );
+  assert.ok(degradedEntry, 'expected degraded startup diagnostic log');
 });

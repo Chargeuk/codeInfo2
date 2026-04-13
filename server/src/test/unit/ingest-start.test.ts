@@ -24,6 +24,11 @@ import {
   normalizeCanonicalQueueTargetPath,
   resolveRequestEmbeddingSelection,
 } from '../../ingest/requestContracts.js';
+import {
+  __resetIngestQueueAvailabilityForTest,
+  markIngestQueueUnavailable,
+  enqueueOrReuseIngestRequest,
+} from '../../ingest/requestQueue.js';
 import type {
   EnqueueIngestRequestInput,
   EnqueueIngestRequestResult,
@@ -31,6 +36,7 @@ import type {
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
+import { INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE } from '../../startup/ingestQueueStartup.js';
 
 type PumpIngestQueueResult = Awaited<ReturnType<typeof pumpIngestQueue>>;
 
@@ -61,6 +67,7 @@ function buildApp(options?: {
   enqueueOrReuseIngestRequest?: (
     input: EnqueueIngestRequestInput,
   ) => Promise<EnqueueIngestRequestResult>;
+  useRealQueueRequest?: boolean;
   pumpIngestQueue?: () => Promise<PumpIngestQueueResult>;
 }) {
   const app = express();
@@ -70,7 +77,9 @@ function buildApp(options?: {
       clientFactory: () => ({}) as never,
       getLockedEmbeddingModel: async () => options?.locked ?? null,
       enqueueOrReuseIngestRequest: async (input) =>
-        options?.enqueueOrReuseIngestRequest
+        options?.useRealQueueRequest
+          ? enqueueOrReuseIngestRequest(input)
+          : options?.enqueueOrReuseIngestRequest
           ? options.enqueueOrReuseIngestRequest(input)
           : buildQueueResult({
               canonicalTargetPath: input.canonicalTargetPath,
@@ -97,6 +106,7 @@ afterEach(() => {
   mock.restoreAll();
   mock.reset();
   __resetIngestJobsForTest();
+  __resetIngestQueueAvailabilityForTest();
   __resetAstParserLogStateForTest();
   __setParseAstSourceForTest();
   resetCollectionsForTests();
@@ -613,6 +623,43 @@ test('ingest-start maps queue outages to retryable 503 without Retry-After by de
       entry.context?.code === 'QUEUE_UNAVAILABLE',
   );
   assert.ok(warnEntry, 'expected retryable warn log for queue outage');
+});
+
+test('ingest-start degraded startup queue outage still returns retryable 503 QUEUE_UNAVAILABLE', async () => {
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  markIngestQueueUnavailable(INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE);
+
+  const response = await request(buildApp({ useRealQueueRequest: true }))
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    status: 'error',
+    code: 'QUEUE_UNAVAILABLE',
+    retryable: true,
+    message: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  });
+
+  const entries = query(
+    { text: 'DEV-0000036:T17:ingest_provider_failure' },
+    20,
+  );
+  const warnEntry = entries.find(
+    (entry) =>
+      entry.level === 'warn' &&
+      entry.context?.surface === 'ingest/start' &&
+      entry.context?.code === 'QUEUE_UNAVAILABLE' &&
+      entry.context?.message === INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  );
+  assert.ok(
+    warnEntry,
+    'expected retryable warn log for degraded startup queue outage',
+  );
 });
 
 test('blank-only fresh ingest now fails with the zero-files NO_ELIGIBLE_FILES contract', async () => {

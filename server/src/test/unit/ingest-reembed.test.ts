@@ -24,6 +24,11 @@ import {
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import { normalizeCanonicalQueueTargetPath } from '../../ingest/requestContracts.js';
+import {
+  __resetIngestQueueAvailabilityForTest,
+  enqueueOrReuseIngestRequest,
+  markIngestQueueUnavailable,
+} from '../../ingest/requestQueue.js';
 import type {
   EnqueueIngestRequestInput,
   EnqueueIngestRequestResult,
@@ -32,6 +37,7 @@ import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
+import { INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE } from '../../startup/ingestQueueStartup.js';
 
 type PumpIngestQueueResult = Awaited<
   ReturnType<typeof import('../../ingest/ingestJob.js').pumpIngestQueue>
@@ -90,6 +96,7 @@ function buildApp(options?: {
   enqueueOrReuseIngestRequest?: (
     input: EnqueueIngestRequestInput,
   ) => Promise<EnqueueIngestRequestResult>;
+  useRealQueueRequest?: boolean;
   pumpIngestQueue?: () => Promise<PumpIngestQueueResult>;
 }) {
   const app = express();
@@ -102,7 +109,9 @@ function buildApp(options?: {
           ? options.listIngestedRepositories()
           : buildListReposResult(),
       enqueueOrReuseIngestRequest: async (input) =>
-        options?.enqueueOrReuseIngestRequest
+        options?.useRealQueueRequest
+          ? enqueueOrReuseIngestRequest(input)
+          : options?.enqueueOrReuseIngestRequest
           ? options.enqueueOrReuseIngestRequest(input)
           : buildQueueResult({
               canonicalTargetPath: input.canonicalTargetPath,
@@ -129,6 +138,7 @@ beforeEach(() => {
   mock.restoreAll();
   mock.reset();
   __resetIngestJobsForTest();
+  __resetIngestQueueAvailabilityForTest();
   __resetAstParserLogStateForTest();
   __setParseAstSourceForTest();
   resetCollectionsForTests();
@@ -141,6 +151,7 @@ afterEach(() => {
   mock.restoreAll();
   mock.reset();
   __resetIngestJobsForTest();
+  __resetIngestQueueAvailabilityForTest();
   __resetAstParserLogStateForTest();
   __setParseAstSourceForTest();
   resetCollectionsForTests();
@@ -617,6 +628,39 @@ test('ingest-reembed queue outage mapping returns retryable 503 QUEUE_UNAVAILABL
       entry.context?.code === 'QUEUE_UNAVAILABLE',
   );
   assert.ok(warnEntry, 'expected retryable reembed queue outage warn log');
+});
+
+test('ingest-reembed degraded startup queue outage still returns retryable 503 QUEUE_UNAVAILABLE', async () => {
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  markIngestQueueUnavailable(INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE);
+
+  const response = await request(buildApp({ useRealQueueRequest: true })).post(
+    '/ingest/reembed/%2Ftmp%2Frepo',
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(response.body, {
+    status: 'error',
+    code: 'QUEUE_UNAVAILABLE',
+    retryable: true,
+    message: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  });
+
+  const entries = query(
+    { text: 'DEV-0000036:T17:ingest_provider_failure' },
+    20,
+  );
+  const warnEntry = entries.find(
+    (entry) =>
+      entry.level === 'warn' &&
+      entry.context?.surface === 'ingest/reembed' &&
+      entry.context?.code === 'QUEUE_UNAVAILABLE' &&
+      entry.context?.message === INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  );
+  assert.ok(
+    warnEntry,
+    'expected retryable reembed warn log for degraded startup queue outage',
+  );
 });
 
 test('blank-only delta reembed keeps completed no-op semantics after execution-time validation passes', async () => {

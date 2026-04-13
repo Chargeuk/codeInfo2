@@ -8789,7 +8789,7 @@ This task restores the invalid-root-state guard for queued and startup-recovered
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `111`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 3.
 
 #### Overview
@@ -8827,17 +8827,17 @@ This task hardens startup recovery so a post-connect queue read or write failure
 
 #### Subtasks
 
-1. [ ] Extract the post-connect queue-recovery call in `server/src/index.ts` into one small helper that runs after `connectMongo(...)` and before `server.listen(...)`, and have that helper return a degraded-startup result the unit tests can call directly. Purpose: give the startup-ordering repair one direct proof seam without turning this task into a broad bootstrap rewrite.
-2. [ ] Update that startup seam so queue recovery failures after a successful `connectMongo(...)` do not abort the default startup path before `server.listen(...)` is reached. Purpose: preserve the story’s steady-state retryable outage contract.
-3. [ ] Keep degraded startup behavior explicit through existing logging or other current status surfaces rather than silently swallowing the failure. Purpose: make the runtime diagnosable while avoiding fail-closed startup.
-4. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a post-connect recovery failure leaves the standard startup path reachable by asserting the startup seam returns or resolves its reachable-state boundary instead of failing closed. Purpose: make the launcher-reachability fix direct through the existing startup-recovery proof seam.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the same degraded startup branch emits an observable degraded result or diagnostic signal instead of silently swallowing the failure. Purpose: keep degraded startup diagnosable through the same direct unit seam.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the degraded startup branch does not leave a partial promotion side effect behind by asserting the recorded queue-runtime calls or captured promoted request ids in that test file stay unchanged after the recovery failure, instead of using a delay-based assertion. Purpose: keep mixed startup-failure state honest while the launcher stays reachable.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove queue-backed start requests still return retryable `QUEUE_UNAVAILABLE` after that degraded startup state. Purpose: keep the start-route contract explicit once startup stays reachable.
-8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove queue-backed `reembed` requests still return retryable `QUEUE_UNAVAILABLE` after that degraded startup state. Purpose: keep the `reembed` route contract explicit once startup stays reachable.
-9. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a new degraded-startup reachability proof or rename or split any reused startup-recovery test whose current title only claims cleanup-blocked ordering, malformed payload rejection, or canonical-path fallback behavior. Purpose: keep the post-connect recovery-failure invariant explicit instead of hiding it behind adjacent startup-recovery semantics.
-10. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-start.test.ts`. Description: add a dedicated degraded-startup queue-outage proof, or rename or split any reused generic queue-outage mapping test so its title and assertions explicitly name degraded startup as the source of the `QUEUE_UNAVAILABLE` response. Purpose: prevent the start-route proof from claiming a narrower generic outage than it actually proves.
-11. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: add a dedicated degraded-startup queue-outage proof, or rename or split any reused generic queue-outage mapping test so its title and assertions explicitly name degraded startup as the source of the `QUEUE_UNAVAILABLE` response. Purpose: prevent the `reembed` route proof from claiming a narrower generic outage than it actually proves.
+1. [x] Extract the post-connect queue-recovery call in `server/src/index.ts` into one small helper that runs after `connectMongo(...)` and before `server.listen(...)`, and have that helper return a degraded-startup result the unit tests can call directly. Purpose: give the startup-ordering repair one direct proof seam without turning this task into a broad bootstrap rewrite.
+2. [x] Update that startup seam so queue recovery failures after a successful `connectMongo(...)` do not abort the default startup path before `server.listen(...)` is reached. Purpose: preserve the story’s steady-state retryable outage contract.
+3. [x] Keep degraded startup behavior explicit through existing logging or other current status surfaces rather than silently swallowing the failure. Purpose: make the runtime diagnosable while avoiding fail-closed startup.
+4. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove a post-connect recovery failure leaves the standard startup path reachable by asserting the startup seam returns or resolves its reachable-state boundary instead of failing closed. Purpose: make the launcher-reachability fix direct through the existing startup-recovery proof seam.
+5. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the same degraded startup branch emits an observable degraded result or diagnostic signal instead of silently swallowing the failure. Purpose: keep degraded startup diagnosable through the same direct unit seam.
+6. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the degraded startup branch does not leave a partial promotion side effect behind by asserting the recorded queue-runtime calls or captured promoted request ids in that test file stay unchanged after the recovery failure, instead of using a delay-based assertion. Purpose: keep mixed startup-failure state honest while the launcher stays reachable.
+7. [x] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove queue-backed start requests still return retryable `QUEUE_UNAVAILABLE` after that degraded startup state. Purpose: keep the start-route contract explicit once startup stays reachable.
+8. [x] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove queue-backed `reembed` requests still return retryable `QUEUE_UNAVAILABLE` after that degraded startup state. Purpose: keep the `reembed` route contract explicit once startup stays reachable.
+9. [x] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: add a new degraded-startup reachability proof or rename or split any reused startup-recovery test whose current title only claims cleanup-blocked ordering, malformed payload rejection, or canonical-path fallback behavior. Purpose: keep the post-connect recovery-failure invariant explicit instead of hiding it behind adjacent startup-recovery semantics.
+10. [x] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-start.test.ts`. Description: add a dedicated degraded-startup queue-outage proof, or rename or split any reused generic queue-outage mapping test so its title and assertions explicitly name degraded startup as the source of the `QUEUE_UNAVAILABLE` response. Purpose: prevent the start-route proof from claiming a narrower generic outage than it actually proves.
+11. [x] Test type: server unit proof maintenance. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: add a dedicated degraded-startup queue-outage proof, or rename or split any reused generic queue-outage mapping test so its title and assertions explicitly name degraded startup as the source of the `QUEUE_UNAVAILABLE` response. Purpose: prevent the `reembed` route proof from claiming a narrower generic outage than it actually proves.
 
 #### Testing
 
@@ -8852,6 +8852,10 @@ This task hardens startup recovery so a post-connect queue read or write failure
 #### Implementation notes
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the degraded-startup reachability finding.
+- Activation on 2026-04-13: promoted Task 112 to `__in_progress__` as the earliest executable owner after Task 111 closed on current disk.
+- Added `server/src/startup/ingestQueueStartup.ts` as the direct post-connect recovery seam, updated `server/src/index.ts` to use it before `server.listen(...)`, and made degraded startup return a reachable result instead of failing closed.
+- Added shared queue-availability state in `server/src/ingest/requestQueue.ts` so degraded startup can preserve the retryable `QUEUE_UNAVAILABLE` contract even while Mongo remains connected.
+- Added dedicated degraded-startup unit proofs in `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/unit/ingest-start.test.ts`, and `server/src/test/unit/ingest-reembed.test.ts`; this step only authored proof owners and did not run Task 112 Testing wrappers yet.
 
 ### Task 113. Repair The No-Mongo Re-Embed Cucumber Proof
 

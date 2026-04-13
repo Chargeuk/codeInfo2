@@ -8774,6 +8774,7 @@ This task restores the invalid-root-state guard for queued and startup-recovered
 - Testing 2: after the proof fixes above, `npm run test:summary:server:unit` passed cleanly with `tests run: 1663`, `passed: 1663`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-13T19-39-52-254Z.log`, so the full server-unit baseline is honest again on current disk.
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 88`, `passed: 88`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-13T20-00-58-654Z.log`, so the broader backend re-embed feature path stayed green after the deferred and recovered invalid-state repair.
 - Testing 6: confirmed again that compose-build and supported-runtime smoke proof remains not applicable to Task 111 because this task only repairs deferred and recovered `reembed` guard logic inside the running server; Task 116 still owns the combined compose-backed runtime rerun.
+- Manual testing assessment on 2026-04-13: skipped because Task 111 is still `__in_progress__` on current disk with unchecked Testing items 4 and 5, so the latest task is not honestly complete yet and this pass could not advance into supported manual proof.
 
 ### Task 112. Keep Startup Reachable When Queue Recovery Degrades
 

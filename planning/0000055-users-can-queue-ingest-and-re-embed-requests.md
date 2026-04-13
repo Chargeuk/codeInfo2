@@ -8290,7 +8290,7 @@ This task makes the shared repository-list `id` a stable repository identity ins
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `106`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260412T231111Z-04540d3d` to accept the localized optional simplification while the changed proof files are already open.
 
 #### Overview
@@ -8320,11 +8320,11 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 
 #### Subtasks
 
-1. [ ] Update `client/src/test/ingestStatus.test.tsx` to import `INGEST_ROOTS_SCHEMA_VERSION` from `common/src/lmstudio.ts` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: move the client proof file back onto the shared contract owner.
-2. [ ] Update the changed schema-version assertions in `client/src/test/ingestStatus.test.tsx` so they read from `INGEST_ROOTS_SCHEMA_VERSION` and no longer imply a file-local schema owner. Purpose: keep the client-side proof semantics aligned with the shared contract.
-3. [ ] Update `server/src/test/integration/mcp-ingested-repositories.test.ts` to import `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: move the server proof file back onto the same shared contract owner.
-4. [ ] Refresh the changed schema-version assertions or nearby wording in `server/src/test/integration/mcp-ingested-repositories.test.ts` so the test still claims the shared contract owner rather than a copied literal. Purpose: keep the server-side proof semantics aligned with the shared contract.
-5. [ ] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record that the remaining schema-version proof drift was removed by reusing `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: keep the optional simplification visible in the final review handoff.
+1. [x] Update `client/src/test/ingestStatus.test.tsx` to import `INGEST_ROOTS_SCHEMA_VERSION` from `common/src/lmstudio.ts` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: move the client proof file back onto the shared contract owner.
+2. [x] Update the changed schema-version assertions in `client/src/test/ingestStatus.test.tsx` so they read from `INGEST_ROOTS_SCHEMA_VERSION` and no longer imply a file-local schema owner. Purpose: keep the client-side proof semantics aligned with the shared contract.
+3. [x] Update `server/src/test/integration/mcp-ingested-repositories.test.ts` to import `INGEST_ROOTS_SCHEMA_VERSION` instead of duplicating `0000055-queued-repo-list-v1`. Purpose: move the server proof file back onto the same shared contract owner.
+4. [x] Refresh the changed schema-version assertions or nearby wording in `server/src/test/integration/mcp-ingested-repositories.test.ts` so the test still claims the shared contract owner rather than a copied literal. Purpose: keep the server-side proof semantics aligned with the shared contract.
+5. [x] Proof type: summary refresh. Location: `planning/0000055-pr-summary.md`. Description: record that the remaining schema-version proof drift was removed by reusing `INGEST_ROOTS_SCHEMA_VERSION`. Purpose: keep the optional simplification visible in the final review handoff.
 
 #### Testing
 
@@ -8335,6 +8335,9 @@ This task removes the remaining duplicated `0000055-queued-repo-list-v1` literal
 #### Implementation notes
 
 - Added by review pass `0000055-20260412T231111Z-04540d3d` because the remaining literal drift is localized, low risk, and objectively testable in already changed proof files.
+- Subtasks 1-2: updated `client/src/test/ingestStatus.test.tsx` to import and assert `INGEST_ROOTS_SCHEMA_VERSION` directly so the remaining client proof no longer carries a file-local copy of the Story 55 schema literal.
+- Subtasks 3-4: updated `server/src/test/integration/mcp-ingested-repositories.test.ts` to import and assert `INGEST_ROOTS_SCHEMA_VERSION` directly so the remaining server integration proof now points back at the shared schema owner instead of a duplicated literal.
+- Subtask 5: refreshed `planning/0000055-pr-summary.md` so the latest review-follow-up section explicitly records that the remaining schema-version proof drift was removed by reusing `INGEST_ROOTS_SCHEMA_VERSION` in the client and server proof files.
 
 ### Task 108. Re-Validate Story 55 After Review Pass `0000055-20260412T231111Z-04540d3d`
 

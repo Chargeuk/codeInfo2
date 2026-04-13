@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import express from 'express';
 import request from 'supertest';
 import { createMcpRouter } from '../../mcp/server.js';
@@ -82,7 +83,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
   assert.equal(parsed.lock?.embeddingModel, 'text-embedding-openai');
   assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
-  assert.equal(parsed.schemaVersion, '0000055-queued-repo-list-v1');
+  assert.equal(parsed.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
   assert.equal(parsed.repos.length, 1);
   assert.equal(parsed.repos[0]?.id, '/data/repo');
   assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
@@ -177,7 +178,7 @@ test('reingest_repository canonicalizes selectors to canonical repository identi
         ],
         lock: null,
         lockedModelId: null,
-        schemaVersion: '0000055-queued-repo-list-v1',
+        schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
       }),
       runReingestRepository: async (args) => {
         const { sourceId } = args as { sourceId: string };
@@ -242,7 +243,7 @@ test('reingest_repository still prefers canonical repository identity when stale
         ],
         lock: null,
         lockedModelId: null,
-        schemaVersion: '0000055-queued-repo-list-v1',
+        schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
       }),
       runReingestRepository: async (args) => {
         const { sourceId } = args as { sourceId: string };

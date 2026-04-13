@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import {
   act,
   cleanup,
@@ -234,7 +235,7 @@ describe('IngestPage realtime status UI', () => {
           ok: true,
           status: 200,
           json: async () => ({
-            schemaVersion: '0000055-queued-repo-list-v1',
+            schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
             roots: [
               {
                 runId: 'root-run-1',
@@ -278,7 +279,7 @@ describe('IngestPage realtime status UI', () => {
           ok: true,
           status: 200,
           json: async () => ({
-            schemaVersion: '0000055-queued-repo-list-v1',
+            schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
             roots: [
               {
                 runId: 'root-run-2',

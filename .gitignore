@@ -30,7 +30,7 @@ copilot/
 codex_agents/**/auth.json
 codex_agents/**/sessions/
 logs/
-codeInfoStatus/reviews/0000055-current-review.json
+codeInfoStatus/reviews/
 codeInfoStatus/flow-state/manual-testing-runtime.json
 certs/task6-valid/*.key
 

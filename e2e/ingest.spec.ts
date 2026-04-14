@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   expect,
   request,
@@ -15,7 +16,12 @@ const mountedLargeFixturePath = `${fixturePath}/${largeFixtureRelPath}`;
 const fixtureName = 'fixtures-e2e';
 
 const preferredEmbeddingModel = 'text-embedding-qwen3-embedding-4b';
-const stableScreenshotDir = path.join('artifacts', 'story-0000055-screenshots');
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const stableScreenshotDir = path.join(
+  repoRoot,
+  'artifacts',
+  'story-0000055-screenshots',
+);
 
 let skipReason: string | undefined;
 let ingestSkip: string | undefined;

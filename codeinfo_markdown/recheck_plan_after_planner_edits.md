@@ -4,10 +4,12 @@ Re-check the active plan after planner edits so the next loop pass continues fro
 
 <task>
 
+Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff first and use only that scope for this step.
+Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
 Re-open the exact plan file from disk after the planner step.
 Validate the current plan scope again.
-Identify the active task for the next loop pass using the updated plan on disk.
+Use the current-task handoff plus the updated plan on disk to identify what the selector should resolve next, rather than assuming stale task-selection rules.
 Summarize what changed and what the next pass should do.
 
 </task>
@@ -30,6 +32,9 @@ Summarize what changed and what the next pass should do.
 
 - Read the end of the plan file from disk and report the highest `### <number>.` task heading currently present.
 - Confirm any `Task Status` updates, new tasks, or task renumbering that occurred after the planner edits.
+- Treat `current-task.json` as the current loop handoff for this re-check step.
+- If `current-task.json` clearly resolves a bound task, state whether the repaired plan still leaves that same task as the active owner or whether the planner edits moved ownership elsewhere.
+- If `current-task.json` instead says plan repair is needed or story completion was reached, state that explicitly before describing what the updated plan on disk now implies.
 - If any task is currently `__in_progress__`, the highest-numbered `__in_progress__` task is the active task for the next pass.
 - If planner repair says a different prerequisite task must happen before an earlier blocked task can continue, treat the repair as incomplete unless that prerequisite is now the highest-numbered `__in_progress__` task.
 - Do not accept a repaired plan where a blocked task still occupies the active `__in_progress__` slot ahead of its newly inserted prerequisite.
@@ -53,8 +58,9 @@ Return a concise summary that includes:
 
 1. the highest task heading currently present;
 2. any task-status updates, new tasks, or renumbering that occurred;
-3. which task is now the active task for the next pass;
-4. whether that active task needs implementation work or is instead waiting for automated proof or other remaining non-subtask work.
+3. what `current-task.json` said before this re-check;
+4. which task is now the active task for the next pass, or whether selector repair/completion state still needs to be honored;
+5. whether that active task needs implementation work or is instead waiting for automated proof or other remaining non-subtask work.
 
 </output_contract>
 
@@ -64,6 +70,7 @@ Before finishing:
 
 - confirm you re-read the plan from disk after the planner edits;
 - confirm you validated the current scope from `current-plan.json`;
+- confirm you re-read `current-task.json` from disk and used it as context rather than ignoring the current loop handoff;
 - confirm you preferred the highest-numbered `__in_progress__` task when one exists;
 - confirm the active `__in_progress__` task is also the true next executable owner after planner repair, rather than a still-blocked task ahead of a newly added prerequisite;
 - confirm you did not advance past an `__in_progress__` task merely because its subtasks were complete;

@@ -208,7 +208,7 @@
                   "label": "Check whether current task is ready",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape. Answer yes only if it does NOT resolve a current task for implementation, for example because it says plan repair is needed or the story is already complete. Answer no only if it clearly resolves one current task for this loop pass. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Answer from the selector result you just produced in the immediately preceding step. Answer yes only if you just wrote a state that does NOT resolve a current task for implementation, for example because plan repair is needed or the story is already complete. Answer no only if you just resolved one current task for this loop pass. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -237,7 +237,7 @@
                   "label": "Check for blocker before automated proof",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 scripts/plan_status.py --task-number <bound-task-number>`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Use the same bound task from the immediately preceding audit step. If that step did not clearly resolve one bound task, answer no. Otherwise run `python3 scripts/plan_status.py --task-number <that-same-bound-task-number>`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -259,7 +259,7 @@
                   "label": "Check for blocker before manual testing",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 scripts/plan_status.py --task-number <bound-task-number>`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Use the same bound task from the immediately preceding automated-proof audit step. If that step did not clearly resolve one bound task, answer no. Otherwise run `python3 scripts/plan_status.py --task-number <that-same-bound-task-number>`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {

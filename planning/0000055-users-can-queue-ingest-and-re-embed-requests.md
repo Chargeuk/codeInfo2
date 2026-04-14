@@ -9981,7 +9981,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `126, 127`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T131709Z-cd90d65b` as the required final revalidation task after the current findings-driven follow-up work lands.
 
 #### Overview
@@ -10081,3 +10081,4 @@ This final review-follow-up task revalidates Story 55 after the current review-f
 - 2026-04-14 Testing 13: `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` showed only the expected maintained plan updates plus the older intentionally visible `0000055-20260414T013213Z-2aaab374` durable artifacts.
 - 2026-04-14 Subtask 12: `planning/0000055-pr-summary.md` now retains the direct artifact-existence and git-visibility chain for the current pass instead of flattening those checks into the broader wrapper or compose summaries.
 - 2026-04-14 Subtask 13: `planning/0000055-pr-summary.md` now carries forward the remaining honest weak-proof and rejected-risk notes from the current findings and blind-spot challenge artifacts, including the residual `AC30`, `AC32`, and `AC43` cautions plus the more indirect row-level `Remove` parity caveat.
+- 2026-04-14 Automated-proof audit: Task 128 now has all `13/13` subtasks checked, all `13/13` testing items checked, and no live blocker. Current repository evidence already matches the retained summary, wrapper, compose, host-network probe, and direct git proof homes on disk, so this audit closes the final revalidation task without inventing any extra manual-only gate.

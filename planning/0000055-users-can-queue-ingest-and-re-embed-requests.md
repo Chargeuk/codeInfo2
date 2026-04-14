@@ -9060,7 +9060,7 @@ This task narrows the ignore policy so the current review pass evidence and find
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `115`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 6.
 
 #### Overview
@@ -9112,6 +9112,7 @@ This task repairs the shared LM Studio mock stream helper so it behaves correctl
 - Testing 1 passed via `npm run test:summary:server:unit`; the first rerun failed during the build step because the new helper-test callback parameters were implicitly `any`, then the rerun passed cleanly after adding explicit callback parameter types with `tests run: 1671`, `passed: 1671`, `failed: 0`, and log `test-results/server-unit-tests-2026-04-14T00-11-07-026Z.log`.
 - Testing 2 was honestly not needed: the full wrapper failure evidence identified the exact in-scope TypeScript errors directly from the wrapper log, so no targeted `--file server/src/test/unit/mockLmStudioSdk.test.ts` rerun was required before the successful full-wrapper rerun in Testing 1.
 - Testing 3 marked complete as honestly not applicable because Task 116 only changes the unit-test support helper `server/src/test/support/mockLmStudioSdk.ts` and its direct unit proof owner `server/src/test/unit/mockLmStudioSdk.test.ts`; Task 117 remains the owner for the broader cucumber, compose-build, and supported-runtime reruns after the review-fix set lands.
+- Automated-proof audit on 2026-04-14: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 116 section, the current parser output, and the helper owner files before normalizing status. All subtasks and Testing 1-3 are now honestly complete on current disk, `selected_task.live_blockers` is empty, and the Task 117 scope note is a downstream ownership boundary rather than a remaining gate, so Task 116 is normalized from `__in_progress__` to `__done__`.
 
 ### Task 117. Re-Validate Story 55 After Review Pass `0000055-20260413T080058Z-1eb771da`
 

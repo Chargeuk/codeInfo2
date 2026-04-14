@@ -9203,3 +9203,402 @@ This final review-follow-up task revalidates Story 55 after the current findings
 - Subtasks 10 through 12: refreshed `planning/0000055-pr-summary.md` with the current Task 117 wrapper rerun homes, the direct durable-artifact existence and visibility proof results, and an explicit statement that no new pass-specific weak-proof caveat surfaced beyond the carried-forward story boundaries already retained in the summary.
 - Automated-proof audit on 2026-04-14: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 117 section, the refreshed summary file, and the current parser output before normalizing status. All subtasks and Testing 1-10 are now honestly complete on current disk, `selected_task.live_blockers` is empty, and no prose-only remaining gate survives, so Task 117 is normalized from `__in_progress__` to `__done__`.
 - Manual testing on 2026-04-14 expanded to full-story proof because Task 117 is the final story task. I restarted the documented main compose stack instead of reusing an older local stack of unknown freshness, then proved on the fresh runtime that `/health` reported `mongoConnected: true`, `/ingest/roots` exposed one running row plus waiting rows with `requestId`, `queueState`, and waiting-only `queuePosition`, and the Ingest UI at `http://localhost:5001/ingest` visibly rendered the active ingest, queued `#1` and `#2` rows, disabled destructive actions for queued and running rows, and queued-row details with the durable `Request ID` plus `waiting (#1)`. Screenshots were captured at `/tmp/playwright-output/artifacts/manual-testing/story55-task117-ingest-queue-page.png` and `/tmp/playwright-output/artifacts/manual-testing/story55-task117-queued-row-details.png`; browser console warnings were absent, browser network requests stayed successful, and no additional subtasks were needed.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260414T013213Z-2aaab374`
+
+- Disposition: reopen Story 55 because this pass endorsed 3 `must_fix` findings and 4 `should_fix` findings on `Current Repository`.
+- The current review handoff still matches the canonical plan path, current single-repository scope, current branch `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, and current `HEAD` `2aaab374`, so this findings-present pass is the active review outcome that the canonical plan must now follow.
+- Durable review artifacts for this pass:
+  - `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- Optional additive blind-spot artifact for this pass:
+  - `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md`
+- The challenge pass reported `no_new_findings`, so the plan only needs to respond to the seven endorsed findings already recorded in the stored findings artifact.
+- Endorsed findings that require plan follow-up:
+  - Finding 1 `must_fix`: repair the cucumber queued-roots state assertion so unexpected `error` states cannot false-pass non-error proof steps.
+  - Finding 2 `should_fix`: make the current pass durable review artifacts naturally git-visible instead of leaving them hidden behind the broad `codeInfoStatus/reviews/*` ignore rule.
+  - Finding 3 `should_fix`: normalize the shared queue route log-marker schema so both route emitters use the same canonical target field names for the same markers.
+  - Finding 4 `should_fix`: replace the timer-sleep proof for queue terminal-cache eviction with deterministic proof instead of wall-clock timing.
+  - Finding 5 `should_fix`: clear stale persisted error diagnostics when a fresh queue overlay moves a repository back to healthy `waiting` or `running` state.
+  - Finding 6 `must_fix`: reject arbitrary queued ingest-start filesystem paths on the server before persistence or replay instead of accepting any non-empty path.
+  - Finding 7 `must_fix`: prevent startup recovery from replaying already-committed queue work after a crash that happens after terminal side effects but before queue-row deletion.
+
+### Task 118. Make The Queued-Roots Cucumber State Assertion Exact
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `117`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 1.
+
+#### Overview
+
+This task repairs the cucumber proof owner for queued root status so it only passes when the requested state actually matches the observed `/ingest/status/:runId` response. Unexpected `error` responses must fail the step unless the scenario explicitly asked for `error`.
+
+#### Task Exit Criteria
+
+- `R1.` `server/src/test/steps/ingest-roots.steps.ts` no longer treats `body.state === 'error'` as a generic success path when the scenario asked for a different state.
+- `R2.` The repaired queued-roots assertion fails fast with a clear mismatch message that includes the requested state and the actual response state.
+- `R3.` `server/src/test/features/ingest-roots.feature` still proves the intended queued-roots contract after the exact-state repair instead of relying on a self-fulfilling or over-broad assertion.
+- `R4.` Direct proof now covers the regression shape called out in the findings artifact: a non-error expected state must not pass when the runtime actually reached `error`.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `server/src/test/features/ingest-roots.feature`
+- `server/src/test/steps/ingest-roots.steps.ts`
+
+#### Subtasks
+
+1. [ ] Update the queued-roots assertion step in `server/src/test/steps/ingest-roots.steps.ts` so it only succeeds when the observed state exactly matches the requested state. Purpose: close the current false-pass seam.
+2. [ ] Add explicit mismatch diagnostics in the same step so an unexpected `error` response surfaces the requested state, actual state, and relevant response payload details. Purpose: make future proof failures self-explanatory instead of silently green.
+3. [ ] Refresh the affected scenario wording in `server/src/test/features/ingest-roots.feature` if needed so the expected non-error state remains obvious and reviewable after the step repair. Purpose: keep the proof home readable for later reviewers.
+4. [ ] Add direct regression coverage for the exact failure shape named in the findings artifact so a non-error expectation cannot pass on an `error` response again. Purpose: retain proof for the repaired step owner.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the queued-roots proof repair.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature` only if targeted diagnosis is needed while repairing the step-owner proof, then finish by rerunning Testing item 1.
+3. [ ] Separate server-build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber proof owners; the later final revalidation task owns the broader wrapper and runtime rerun.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the queued-roots cucumber false-pass finding.
+
+### Task 119. Reject Untrusted Ingest Start Paths Before Queue Persistence
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `118`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 6.
+
+#### Overview
+
+This task restores server-side path safety for queued ingest-start requests. The server must not persist or replay arbitrary relative or absolute filesystem paths merely because the incoming `path` string is non-empty.
+
+#### Task Exit Criteria
+
+- `R1.` `server/src/routes/ingestStart.ts` rejects queueable ingest-start requests whose path is outside the story's allowed canonical repository-root contract before any queue row is created.
+- `R2.` The queue-managed replay path no longer allows a previously persisted invalid path to reach discovery or `git -C <root>` execution without server-side validation.
+- `R3.` Valid canonical repository-root submissions still pass through the same queue contract without regressing current start-ingest behavior.
+- `R4.` Direct proof covers both relative-path and out-of-scope absolute-path submissions, plus the persisted-payload replay seam that previously replayed raw paths verbatim.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `server/src/routes/ingestStart.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/discovery.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current canonical-path and repository-root owners used elsewhere in Story 55, then define one shared server-side validator for queueable ingest-start paths before persistence. Purpose: keep the repair aligned with existing canonical path rules instead of inventing a second root contract.
+2. [ ] Apply that validator in `server/src/routes/ingestStart.ts` before queue admission and in the replay seam that converts persisted queue payloads back into managed ingest input. Purpose: block both fresh submits and startup-replayed invalid paths.
+3. [ ] Preserve the current valid queue contract for honest repository-root submits, including canonical target normalization and durable queue identity behavior. Purpose: harden path safety without regressing normal Story 55 usage.
+4. [ ] Add or refresh direct proof in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts` for rejected relative paths, rejected out-of-scope absolute paths, and replay-time refusal of invalid persisted payloads. Purpose: make the repaired server-side validation explicit and durable.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the path-validation repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the path-validation repair.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the path-validation repair so the broader ingest route surface remains honest.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` only if targeted diagnosis is needed while repairing the path-validation contract, then finish by rerunning Testing items 2 and 3.
+5. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task changes route validation and replay seams rather than the launcher path; the later final revalidation task owns the combined runtime rerun.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the server-side queued-path validation finding.
+
+### Task 120. Prevent Startup Recovery From Replaying Already-Committed Queue Runs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `119`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 7.
+
+#### Overview
+
+This task closes the startup replay safety gap where a crash after terminal side effects but before queue-row deletion can cause the same ingest request to run again on restart. Recovery must distinguish genuinely unfinished work from committed-before-cleanup work.
+
+#### Task Exit Criteria
+
+- `R1.` The queue runtime persists or derives a concrete barrier that lets startup recovery tell the difference between unfinished work and already-committed terminal work whose cleanup did not complete.
+- `R2.` `recoverIngestQueueOnStartup()` no longer blindly restarts every leftover `running` row when the prior run had already committed its side effects.
+- `R3.` Recovery still resumes honestly unfinished work and still preserves the story's queue-stall semantics for real cleanup-blocked rows.
+- `R4.` Direct proof covers both sides of the repaired contract: committed-before-cleanup rows do not replay, while genuinely unfinished rows still recover.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/startup/ingestQueueStartup.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `server/src/test/integration/ingest-reembed.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current terminal-publication, queue-cleanup, and startup-recovery seams in `server/src/ingest/ingestJob.ts` and `server/src/startup/ingestQueueStartup.ts`, then choose one concrete completion barrier that fits the existing queue contract without introducing an invented second worker. Purpose: make the repair explicit before code changes begin.
+2. [ ] Implement the chosen barrier so terminal side effects and startup recovery can distinguish committed work from unfinished work before any replay decision is made. Purpose: prevent duplicate side effects after post-commit crashes.
+3. [ ] Preserve the intended recovery behavior for genuinely unfinished work and for true cleanup-blocked rows that should still stall later queue progress. Purpose: keep the original restart contract honest while closing the replay hole.
+4. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/integration/ingest-reembed.test.ts` so the committed-before-cleanup crash case is now a no-replay proof and the genuinely unfinished case remains a replay proof. Purpose: make the repaired startup contract durable.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the startup-recovery safety repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the startup-recovery safety repair.
+3. [ ] Run `npm run compose:up` and confirm the default supported compose stack still starts cleanly after the startup-recovery repair.
+4. [ ] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the startup smoke proof.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` only if targeted diagnosis is needed while repairing startup replay safety, then finish by rerunning Testing items 2 through 4 as applicable.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the startup-replay duplicate-side-effects finding.
+
+### Task 121. Make Current Review Artifacts Commit-Visible For Pass `0000055-20260414T013213Z-2aaab374`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `120`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 2 as an allowed support-file hygiene fix.
+
+#### Overview
+
+This task narrows the review-artifact ignore behavior for the current pass so the durable evidence and findings files for review pass `0000055-20260414T013213Z-2aaab374` are naturally visible to normal git workflows while the transient handoff and input files remain ignored.
+
+#### Task Exit Criteria
+
+- `R1.` `.gitignore` no longer hides `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md` or `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`.
+- `R2.` `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` remain treated as transient or additive workflow files rather than durable artifacts.
+- `R3.` The current review-pass section of this plan stays aligned with the durable-versus-transient artifact split after the ignore repair lands.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `codeInfoStatus/reviews/0000055-current-review.json`
+- `codeInfoStatus/reviews/0000055-external-review-input.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md`
+- `.gitignore`
+
+#### Subtasks
+
+1. [ ] Narrow `.gitignore` so the current pass evidence and findings artifacts are no longer hidden behind the broad `codeInfoStatus/reviews/*` ignore rule. Purpose: restore natural git visibility for the durable review artifacts of this pass.
+2. [ ] Keep `codeInfoStatus/reviews/0000055-current-review.json` ignored as transient review handoff state while the current pass durable artifacts become visible. Purpose: preserve the handoff-versus-artifact boundary for this flow.
+3. [ ] Keep `codeInfoStatus/reviews/0000055-external-review-input.md` ignored as transient workflow input while the current pass durable artifacts become visible. Purpose: preserve the external-review input boundary for this flow.
+4. [ ] Keep `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` ignored as optional additive context rather than part of the durable artifact set. Purpose: preserve the challenge-file boundary for this flow.
+5. [ ] Refresh this review-pass section of the canonical plan if needed so its durable-versus-transient artifact wording stays aligned with the repaired ignore policy. Purpose: keep the active plan honest after the hygiene fix lands.
+
+#### Testing
+
+1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md` and confirm those durable artifacts are no longer ignored.
+2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` and confirm those transient or additive files remain ignored.
+3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm the durable artifacts are naturally visible without reopening the transient files.
+4. [ ] Separate server-build, test-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes ignore rules and active-plan wording; the later final revalidation task owns the broader wrapper and runtime rerun.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the durable review-artifact visibility hygiene finding for the current pass.
+
+### Task 122. Normalize Shared Queue Route Log Marker Fields
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `121`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 3.
+
+#### Overview
+
+This task makes the queue route emitters use one shared marker schema for the same queue lifecycle events. The log fields for `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` must not vary by route for the same canonical target-path concept.
+
+#### Task Exit Criteria
+
+- `R1.` `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts` emit the same target-path field name for `QUEUE_REQUEST_UPDATED_IN_PLACE`.
+- `R2.` The same two routes emit the same target-path field name for `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`.
+- `R3.` The chosen shared field name matches the canonical target-path concept already used elsewhere in Story 55 rather than inventing route-specific vocabulary.
+- `R4.` Direct proof now asserts the shared marker payload schema from both route surfaces.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `server/src/routes/ingestStart.ts`
+- `server/src/routes/ingestReembed.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+
+#### Subtasks
+
+1. [ ] Choose one shared target-path field name for the queue route markers and apply it consistently in both route emitters. Purpose: remove endpoint-specific marker-schema branching for the same target-path concept.
+2. [ ] Refresh the direct proof owners in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` so both routes now assert the same marker payload fields for the shared queue events. Purpose: make the schema consistency durable.
+3. [ ] Update any retained wording or proof comments that still describe route-specific target-path field names for those markers. Purpose: keep the repaired schema explicit for later reviewers.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the marker-schema repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the marker-schema repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts --file server/src/test/unit/ingest-reembed.test.ts` only if targeted diagnosis is needed while repairing the shared marker schema, then finish by rerunning Testing item 2.
+4. [ ] Separate server-cucumber, client-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes shared route logging and its direct proof owners; the later final revalidation task owns the broader rerun set.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the shared queue marker-schema consistency finding.
+
+### Task 123. Replace Wall-Clock Queue Cache Proof With Deterministic Timing Proof
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `122`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 4.
+
+#### Overview
+
+This task removes the wall-clock sleep from the queue terminal-cache eviction proof and replaces it with deterministic timing control. The proof-owning runtime test must demonstrate cache eviction because of the helper logic, not because an arbitrary `setTimeout(20)` happened to be long enough on one machine.
+
+#### Task Exit Criteria
+
+- `R1.` The queue terminal-cache eviction proof in `server/src/test/unit/ingest-queue-runtime.test.ts` no longer depends on a real wall-clock sleep.
+- `R2.` Any new timing seam introduced for proof is owned by the existing queue runtime helper and does not broaden the production contract beyond what the current implementation already needs.
+- `R3.` The repaired proof deterministically demonstrates both cache retention before expiry and cache eviction after expiry.
+- `R4.` The old timer-sleep proof shape is removed or rewritten so the risky helper is no longer validated through timing luck.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+
+#### Subtasks
+
+1. [ ] Introduce or expose one deterministic time-control seam owned by the queue terminal-cache helper so expiry can be advanced in proof without sleeping. Purpose: replace flaky wall-clock dependence with bounded deterministic proof.
+2. [ ] Rewrite the terminal-cache eviction proof in `server/src/test/unit/ingest-queue-runtime.test.ts` to use that deterministic timing control and to assert both pre-expiry retention and post-expiry eviction. Purpose: make the cache invariant directly testable.
+3. [ ] Remove the old `setTimeout(20)`-style proof path so the runtime helper is no longer justified by wall-clock timing luck. Purpose: keep the proof owner honest after the deterministic seam lands.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the deterministic-timing proof repair.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the deterministic-timing proof repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` only if targeted diagnosis is needed while rewriting the cache proof, then finish by rerunning Testing item 2.
+4. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task repairs a queue-runtime proof owner rather than the default launcher path; the later final revalidation task owns the broader rerun set.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the timer-based queue-cache proof weakness.
+
+### Task 124. Clear Stale Diagnostics When Queue Overlay Returns To Healthy State
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `123`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 5.
+
+#### Overview
+
+This task removes stale persisted error display from repositories that have re-entered healthy queued or running state. A previous failure must not keep surfacing as the current error once the live queue overlay says the repository is now `waiting` or `running` without a fresh live error.
+
+#### Task Exit Criteria
+
+- `R1.` The waiting and running queue-overlay paths clear stale persisted `error` or `lastError` values when the current live state is healthy and has no new live error.
+- `R2.` Current live error reporting still works for genuinely errored rows and cleanup-blocked failure state after the stale-diagnostic repair.
+- `R3.` The client normalization and ingest UI surfaces no longer prefer an old persisted error over a fresh healthy queued or running overlay.
+- `R4.` Direct proof covers a previously errored repository that becomes `waiting` and then `running` again without carrying the old error banner or detail forward.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `server/src/lmstudio/toolService.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/components/ingest/RootDetailsDrawer.tsx`
+- `client/src/test/useIngestRoots.test.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+
+#### Subtasks
+
+1. [ ] Update the waiting and active queue-overlay helpers in `server/src/lmstudio/toolService.ts` so healthy live queue state clears stale persisted diagnostic fields when no new live error exists. Purpose: stop old failures from leaking into fresh queued or running attempts.
+2. [ ] Preserve current error visibility for genuinely errored or cleanup-blocked rows after the overlay repair. Purpose: avoid fixing stale diagnostics by hiding real current failures.
+3. [ ] Refresh `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, and `client/src/components/ingest/RootDetailsDrawer.tsx` only as needed so the client honors the repaired live-overlay precedence instead of preferring a stale persisted error. Purpose: keep server and client precedence aligned.
+4. [ ] Add direct regression proof in `client/src/test/useIngestRoots.test.tsx` and `client/src/test/ingestRoots.test.tsx` for a previously errored row that becomes healthy `waiting` or `running`, plus retained proof for a genuinely current error row. Purpose: make the repaired stale-diagnostic contract durable.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the stale-diagnostic repair.
+2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes after the stale-diagnostic repair.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the stale-diagnostic repair.
+4. [ ] Run `npm run test:summary:client` and confirm the full client test wrapper passes after the stale-diagnostic repair.
+5. [ ] Run targeted server or client wrappers only if narrower diagnosis is needed while repairing the overlay precedence, then finish by rerunning Testing items 3 and 4 plus the relevant build wrapper above.
+6. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task repairs server plus client overlay precedence and direct UI proof owners rather than launcher behavior; the later final revalidation task owns the broader rerun set.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the stale queue-overlay diagnostics finding.
+
+### Task 125. Re-Validate Story 55 After Review Pass `0000055-20260414T013213Z-2aaab374`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `118, 119, 120, 121, 122, 123, 124`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` as the required final revalidation task after the current findings-driven follow-up work.
+
+#### Overview
+
+This final review-follow-up task revalidates Story 55 after the current findings-driven fixes land. It must confirm that the repaired cucumber proof, server-side ingest-path validation, startup-replay safety barrier, current-pass review-artifact visibility fix, shared route marker schema, deterministic queue-cache proof, and stale-diagnostic overlay repair all hold together on current disk, then refresh the maintained summary with the retained proof homes and honest residual-risk notes for this pass.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks 118 through 124 are `__done__` before final reruns begin.
+- `R2.` The current durable evidence and findings artifacts for review pass `0000055-20260414T013213Z-2aaab374` still exist on disk and remain naturally visible to normal git workflows.
+- `R3.` `planning/0000055-pr-summary.md` records the exact owner files and retained proof homes for Tasks 118 through 124 before or during final close-out.
+- `R4.` The relevant wrapper, compose, and direct git proof chain for this findings-present pass passes on current disk after Tasks 118 through 124 land.
+- `R5.` Final close-out records any remaining rejected-risk or residual weak-proof notes from the current findings and blind-spot artifacts honestly instead of silently dropping them behind green wrappers.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
+- `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md`
+- `.gitignore`
+- the owner files and proof files named in Tasks 118 through 124
+
+#### Subtasks
+
+1. [ ] Re-read the current review evidence, findings, and blind-spot challenge artifacts before final reruns begin. Purpose: anchor final close-out to the current findings-present pass instead of the older review passes.
+2. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 118's repaired owner files and retained proof homes for the exact queued-roots cucumber assertion repair. Purpose: keep the proof-honesty repair explicit for later reviewers.
+3. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 119's repaired owner files and retained proof homes for server-side queued-path validation and replay-time rejection proof. Purpose: keep the path-safety repair explicit for later reviewers.
+4. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 120's repaired owner files and retained proof homes for startup replay safety and the no-replay committed-before-cleanup proof. Purpose: keep the startup-recovery safety repair explicit for later reviewers.
+5. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 121's repaired owner files and retained proof homes for current-pass durable-artifact visibility and transient-file boundaries. Purpose: keep the current-pass review-artifact hygiene proof explicit for later reviewers.
+6. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 122's repaired owner files and retained proof homes for the shared queue marker-schema repair. Purpose: keep the shared logging contract repair explicit for later reviewers.
+7. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 123's repaired owner files and retained proof homes for deterministic queue-cache eviction proof. Purpose: keep the proof-quality repair explicit for later reviewers.
+8. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 124's repaired owner files and retained proof homes for stale-diagnostic clearing across server and client overlays. Purpose: keep the overlay-precedence repair explicit for later reviewers.
+9. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final wrapper, compose, and direct git proof chain from this pass. Purpose: preserve the supported proof trail instead of collapsing it into a generic close-out line.
+10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest rejected-risk or residual weak-proof notes that still remain after this pass, using the current findings and blind-spot artifacts as the source of truth. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
+11. [ ] Proof type: durable artifact existence check. Location: `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md` and `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`. Description: verify both current durable review artifacts still exist on disk before final close-out. Purpose: keep the adjudication record explicit in the final review-fix pass.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` and confirm the compose build wrapper passes for the normal supported runtime path after the current review-fix tasks land.
+2. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the current review-fix tasks land.
+3. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes after the current review-fix tasks land.
+4. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the current review-fix tasks land.
+5. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the current review-fix tasks land.
+6. [ ] Run `npm run test:summary:client` and confirm the full client test wrapper passes after the current review-fix tasks land.
+7. [ ] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the current review-fix tasks land.
+8. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the runtime smoke proof.
+9. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient or additive files remain ignored after Task 121 lands.
+10. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the final review-fix pass leaves the durable artifacts and required plan or summary updates naturally visible.
+11. [ ] Run additional targeted proof commands only if one of Tasks 118 through 124 needed narrower diagnosis during implementation, then finish by rerunning the full relevant wrapper or compose steps above.
+12. [ ] Separate browser and e2e wrapper proof is not applicable here unless a later implementation diff broadens beyond the current server, client, and support-file seams; if that happens, update this task before closing it.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T013213Z-2aaab374` as the required final revalidation task after the endorsed findings-driven follow-up work.

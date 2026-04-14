@@ -1542,12 +1542,20 @@ describe('RootDetailsDrawer', () => {
   });
 
   it('hides stale persisted diagnostics in an open details drawer when healthy queued or running data arrives', () => {
+    const recoveryBaseRoot = {
+      name: 'repo',
+      description: 'demo repo',
+      path: '/repo',
+      model: 'embed-1',
+      lastIngestAt: '2025-01-01T00:00:00.000Z',
+      counts: { files: 2, chunks: 4, embedded: 4 },
+    } as const;
     const { rerender } = render(
       <RootDetailsDrawer
         open
         onClose={() => undefined}
         root={{
-          ...root,
+          ...recoveryBaseRoot,
           runId: null,
           requestId: 'queue-request-waiting-recovery',
           queueState: 'waiting',
@@ -1572,7 +1580,7 @@ describe('RootDetailsDrawer', () => {
         open
         onClose={() => undefined}
         root={{
-          ...root,
+          ...recoveryBaseRoot,
           runId: 'run-running-recovery',
           requestId: 'queue-request-running-recovery',
           queueState: 'running',

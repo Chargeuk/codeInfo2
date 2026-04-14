@@ -9694,12 +9694,12 @@ This task removes stale persisted error display from repositories that have re-e
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the stale-diagnostic repair.
-2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes after the stale-diagnostic repair.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the stale-diagnostic repair.
-4. [ ] Run `npm run test:summary:client` and confirm the full client test wrapper passes after the stale-diagnostic repair.
-5. [ ] Run `npm run test:summary:e2e` and confirm the full e2e wrapper passes after the stale-diagnostic repair so the paired ingest UI and server overlay contract is proved on the supported browser path.
-6. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task repairs stale-diagnostic precedence rather than the default launcher path; the later final revalidation task owns the broader supported-stack rerun.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the stale-diagnostic repair.
+2. [x] Run `npm run build:summary:client` and confirm the client build wrapper passes after the stale-diagnostic repair.
+3. [x] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the stale-diagnostic repair.
+4. [x] Run `npm run test:summary:client` and confirm the full client test wrapper passes after the stale-diagnostic repair.
+5. [x] Run `npm run test:summary:e2e` and confirm the full e2e wrapper passes after the stale-diagnostic repair so the paired ingest UI and server overlay contract is proved on the supported browser path.
+6. [x] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task repairs stale-diagnostic precedence rather than the default launcher path; the later final revalidation task owns the broader supported-stack rerun.
 
 If Testing items 3 through 5 fail during diagnosis, narrower targeted server, client, or e2e reruns may be used to isolate the repair, but this task only closes after the full wrappers in Testing items 3 through 5 and the relevant build wrappers above pass again.
 
@@ -9712,6 +9712,12 @@ If Testing items 3 through 5 fail during diagnosis, narrower targeted server, cl
 - Subtasks 7 and 8 plus 17 through 20: updated `client/src/components/ingest/RootsTable.tsx` and `client/src/components/ingest/RootDetailsDrawer.tsx` to suppress stale diagnostics for healthy `waiting` and `running` rows at render time, and refreshed `client/src/test/ingestRoots.test.tsx` so the table, open drawer, and retained current-error visibility cases now assert the repaired mixed-state contract directly.
 - Subtasks 21 and 22: rewrote the queue-refresh browser proof in `e2e/ingest.spec.ts` so the scenario now claims stale-diagnostic recovery explicitly, asserts the stale persisted error stays hidden in both the table and the open details drawer, and retains the future screenshot path `artifacts/story-0000055-screenshots/0000055-stale-diagnostics-recovered.png` when the e2e wrapper is run later.
 - Activation on 2026-04-14: promoted Task 124 to `__in_progress__` as the earliest executable owner after Task 123 normalized to `__done__`.
+- Testing 1: `npm run build:summary:server` passed with `warning_count: 0`, `agent_action: skip_log`, and retained `logs/test-summaries/build-server-latest.log`, so the server stale-diagnostic overlay repair still builds cleanly on the supported wrapper path.
+- Testing 2: the first `npm run build:summary:client` rerun failed in typecheck because the new open-drawer recovery test in `client/src/test/ingestRoots.test.tsx` referenced an out-of-scope `root` fixture inside the `RootDetailsDrawer` describe block. I replaced that spread with a local `recoveryBaseRoot` fixture and reran the full client build wrapper successfully with `warning_count: 0`, `agent_action: skip_log`, and retained `logs/test-summaries/build-client-latest.log`.
+- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 1679`, `passed: 1679`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-unit-tests-2026-04-14T10-58-35-988Z.log`, so the server overlay-precedence repair and its broader unit or integration surface remain green on current disk.
+- Testing 4: `npm run test:summary:client` passed with `tests run: 691`, `passed: 691`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/client-tests-2026-04-14T11-18-46-637Z.log`, so the client normalization and render repair stays green across the full client wrapper.
+- Testing 5: `npm run test:summary:e2e` passed with `tests run: 48`, `passed: 48`, `failed: 0`, `agent_action: skip_log`, and retained `logs/test-summaries/e2e-tests-latest.log`, so the supported browser path now proves stale-diagnostic recovery in both the table and the open details drawer on current disk.
+- Testing 6: separate server-cucumber, compose-build, and supported-runtime smoke proof remains honestly not applicable for Task 124 because this task repairs stale-diagnostic precedence rather than the default launcher path; Task 125 still owns that broader supported-stack rerun chain.
 
 ### Task 125. Re-Validate Story 55 After Review Pass `0000055-20260414T013213Z-2aaab374`
 

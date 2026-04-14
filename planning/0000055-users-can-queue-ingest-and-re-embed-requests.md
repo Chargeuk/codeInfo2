@@ -9285,7 +9285,7 @@ If Testing item 1 fails during diagnosis, a targeted `npm run test:summary:serve
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `118`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 6.
 
 #### Overview
@@ -9354,7 +9354,8 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 - **RESOLVED ISSUE** Testing item 2 no longer blocks Task 119. A targeted rerun of `server/src/test/integration/flows.run.loop.test.ts` for `flow stop during a looped flow prevents later iterations from continuing` passed on current disk, and the follow-up full `npm run test:summary:server:unit` wrapper then passed cleanly with `1675/1675` tests green in `test-results/server-unit-tests-2026-04-14T04-27-01-511Z.log`.
 - Testing item 3 initially failed broadly because the new queued-root validator correctly honored `CODEINFO_CODEX_WORKDIR=/home/d_a_s/code` while the cucumber step fixtures were still creating accepted-path temp repositories under `/tmp`. I added `server/src/test/support/tempRepoRoot.ts` and updated the affected ingest cucumber step files to create scenario repos under the configured workdir when it is a real absolute path, then reran the full `npm run test:summary:server:cucumber` wrapper successfully with `89/89` passing in `test-results/server-cucumber-tests-2026-04-14T05-04-26-701Z.log`.
 - Testing item 4 is honestly not applicable for Task 119 because this task only hardens route validation, replay validation, and their direct proof owners. The later final revalidation task still owns compose-build plus supported-runtime smoke for the combined runnable stack.
-- Manual testing on 2026-04-14 was skipped because Task 119 remains `__in_progress__` with Testing items 3 and 4 still incomplete, so the latest task is not honestly complete yet.
+- Manual testing on 2026-04-14 was skipped during the earlier implementation-only audit, when Testing items 3 and 4 were still incomplete; later automated proof completed those items on current disk, so manual testing is not an honest remaining gate for Task 119.
+- Automated-proof audit on 2026-04-14: re-read the stored handoff and this exact Task 119 section from disk, confirmed all 11 subtasks and all 4 Testing items are now honestly complete with matching repository evidence and no live `**BLOCKER**`, and normalized the task status from `__in_progress__` to `__done__`.
 
 ### Task 120. Prevent Startup Recovery From Replaying Already-Committed Queue Runs
 

@@ -9819,3 +9819,164 @@ If any required wrapper in Testing items 1 through 9 fails during diagnosis, nar
 - Testing items 10 through 12 and Subtask 12: because the remaining close-out work explicitly depended on the retained browser artifact and direct git checks, this pass ran the direct durable-artifact existence check, `git check-ignore -v`, and `git status --short ...` commands; all passed on current `HEAD`, confirming the evidence, findings, and screenshot files exist while only the durable review artifacts and retained screenshot remain naturally visible.
 - Audit 2026-04-14: normalized Task 125 to `__done__` after confirming current disk already shows `13/13` subtasks complete, `12/12` testing items complete, the retained screenshot and review artifacts on disk, and no live standalone blocker; the earlier manual-testing-skip note remains only as historical sequencing context rather than an open gate.
 - Manual testing 2026-04-14: because Task 125 is the final `__done__` story task, this pass expanded to full-story proof; after restarting the stale-or-unknown main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, REST `POST /ingest/start` proved the active request returned `queued:false` with `runId` while the follower returned `queued:true` with `queuePosition:1`, and the real `/ingest` UI proved queued-row visibility, waiting-only drawer metadata (`requestId`, `Pending queue start`, `waiting (#1)`), refresh persistence, and follower completion after cancelling the head run. Screenshots were saved to `/tmp/playwright-output/task125-queued-visible.png`, `/tmp/playwright-output/task125-queued-details.png`, `/tmp/playwright-output/task125-queued-after-refresh.png`, and `/tmp/playwright-output/task125-queue-handoff-complete.png`; Playwright console review showed only expected info/log markers, browser network review showed no failed requests, `npm run compose:down` shut the supported stack down cleanly afterward, and no additional subtasks were needed.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260414T131709Z-cd90d65b`
+
+- Review handoff: `codeInfoStatus/reviews/0000055-current-review.json`
+- Durable evidence: `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`
+- Durable findings: `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`
+- Additive challenge context: `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`
+- Disposition: reopen Story 55 because this pass endorsed `2` `should_fix` findings in the current repository.
+- Finding summary:
+  - `should_fix`: zero-work re-embed completion in `server/src/ingest/ingestJob.ts` still depends on Chroma lock metadata after the code has already proved there is no real ingest work left, so a no-change re-embed can still fail on bootstrap or Chroma outage before publishing its zero-count terminal result.
+  - `should_fix`: the current pass durable review artifacts are still hidden by `.gitignore`, so `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md` and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` are not naturally commit-visible on current disk.
+- Rejected-risk and challenge carry-forward:
+  - The challenge pass produced a new duplicate-admission race finding for `enqueueOrReuseIngestRequest()`, which is folded into the fresh review-fix work below rather than deferred as prose-only risk.
+  - Rejected-risk notes for `recoverIngestQueueOnStartup()` and `applyQueueOverlay()` stay in force for this pass; they remain weaker around ordinary read-then-act pressure and row-level remove parity, but the review artifacts did not confirm a live contradiction on current disk.
+  - Residual weak-proof areas carried forward from the findings artifact remain `AC30`, `AC32`, and `AC43`.
+
+### Task 126. Keep Zero-Work Re-Embed Completion Independent From Late Queue Or Chroma State
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `125`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T131709Z-cd90d65b` to resolve the endorsed zero-work re-embed fast-path dependency and stale waiting-response race findings in current-repository queue runtime code.
+
+#### Overview
+
+This review-fix task repairs the queue and zero-work re-embed paths so they return current queue semantics and can publish a zero-count terminal result after proving there is no real ingest work left, even when late Chroma or lock-metadata reads are unavailable. The task must keep the healthy-path response contract intact while removing the stale waiting reuse window challenged in the review artifacts.
+
+#### Task Exit Criteria
+
+- `R1.` A duplicate request can no longer return stale `queued: true` waiting semantics when the matched queue row is promoted to `running` between the helper's read and reuse path.
+- `R2.` A zero-work re-embed can still publish its zero-count terminal result after the code has already proved there is no ingest work left, without depending on a late Chroma vectors-collection lookup to succeed first.
+- `R3.` The repaired server proof owners explicitly cover both the stale waiting-response race boundary and the degraded zero-work re-embed completion boundary.
+
+#### Documentation Locations
+
+- `server/src/ingest/requestQueue.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/chromaClient.ts`
+- `server/src/test/unit/ingest-request-queue.test.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the current review evidence, findings, and challenge artifacts for review pass `0000055-20260414T131709Z-cd90d65b` before changing queue-admission or zero-work re-embed logic.
+2. [ ] Update `server/src/ingest/requestQueue.ts` so duplicate reuse re-checks or otherwise derives current row state before returning a waiting-response payload, preventing a stale waiting response after the matched queue row has already been promoted to `running`.
+3. [ ] Keep the duplicate-admission contract explicit for both `start` and `reembed` callers so current waiting-versus-running semantics, `queuePosition`, and `runId` remain honest after the race-window repair.
+4. [ ] Update the zero-work re-embed fast path in `server/src/ingest/ingestJob.ts` so once the code has already proved there is no real ingest work left, publishing the zero-count terminal result does not require a late Chroma lock-metadata read to succeed first.
+5. [ ] Preserve the existing healthy-path terminal payload semantics for zero-work re-embed completion, including any model or summary fields that are still honestly available without reintroducing the late Chroma dependency.
+6. [ ] Add or rewrite server proof owners in `server/src/test/unit/ingest-request-queue.test.ts` to prove a duplicate request sees current running semantics instead of stale waiting semantics when promotion happens between the original lookup and response assembly.
+7. [ ] Add or rewrite server proof owners in `server/src/test/unit/reingestService.test.ts` to prove a zero-work re-embed still reaches its zero-count terminal result when late Chroma metadata or bootstrap access is unavailable after the no-work decision point.
+8. [ ] Refresh `planning/0000055-pr-summary.md` with the repaired owner files and retained proof homes for this review-fix task.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the queue-admission and zero-work fast-path repairs.
+2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes after the new queue-admission and zero-work proof owners land.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the queue-admission contract repair.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T131709Z-cd90d65b` to make the duplicate-admission response contract and zero-work re-embed fast path honest under the race and degraded-dependency boundaries identified in the stored review artifacts.
+
+### Task 127. Make Review Pass `0000055-20260414T131709Z-cd90d65b` Durable Artifacts Naturally Visible
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `125`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T131709Z-cd90d65b` to repair the current pass review-artifact visibility boundary in `.gitignore`.
+
+#### Overview
+
+This review-fix task updates the current repository's ignore rules so the durable evidence and findings artifacts for review pass `0000055-20260414T131709Z-cd90d65b` are naturally commit-visible while transient handoff or additive review files remain ignored.
+
+#### Task Exit Criteria
+
+- `R1.` `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md` is not ignored on current disk.
+- `R2.` `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` is not ignored on current disk.
+- `R3.` `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` remain transient or additive and do not become required durable artifacts.
+
+#### Documentation Locations
+
+- `.gitignore`
+- `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the current review evidence and findings artifacts for review pass `0000055-20260414T131709Z-cd90d65b` before changing `.gitignore`.
+2. [ ] Update `.gitignore` so `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md` and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` are explicitly visible to normal git workflows.
+3. [ ] Preserve the transient status of `codeInfoStatus/reviews/0000055-current-review.json` and the additive status of `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` while repairing the durable-artifact visibility boundary.
+4. [ ] Refresh `planning/0000055-pr-summary.md` with the retained proof homes for the repaired ignore-rule boundary and the durable review artifacts for this pass.
+
+#### Testing
+
+1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` and confirm only the transient or additive files remain ignored.
+2. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` and confirm the durable artifacts for review pass `0000055-20260414T131709Z-cd90d65b` are naturally visible after the ignore-rule repair.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T131709Z-cd90d65b` to repair the current pass durable review-artifact visibility boundary without reopening other support-file scope.
+
+### Task 128. Re-Validate Story 55 After Review Pass `0000055-20260414T131709Z-cd90d65b`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `126, 127`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260414T131709Z-cd90d65b` as the required final revalidation task after the current findings-driven follow-up work lands.
+
+#### Overview
+
+This final review-follow-up task revalidates Story 55 after the current review-fix tasks land. It must confirm the repaired duplicate-admission response contract, the zero-work re-embed degraded-path completion contract, and the current-pass durable review-artifact visibility boundary on current disk, then refresh the maintained summary with retained proof homes and honest residual-risk notes for this pass.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks 126 and 127 are `__done__` before final reruns begin.
+- `R2.` The current durable evidence and findings artifacts for review pass `0000055-20260414T131709Z-cd90d65b` still exist on disk and remain naturally visible to normal git workflows.
+- `R3.` `planning/0000055-pr-summary.md` records the exact owner files and retained proof homes for Tasks 126 and 127 before final close-out.
+- `R4.` The relevant wrapper, browser or API, compose, and direct git proof chain for this findings-present pass passes on current disk after Tasks 126 and 127 land.
+- `R5.` Final close-out records the remaining rejected-risk and weak-proof notes from the current findings and challenge artifacts honestly instead of silently dropping them behind green wrappers.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`
+- `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/ingest/ingestJob.ts`
+- `.gitignore`
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`, and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` before final reruns begin.
+2. [ ] Refresh `planning/0000055-pr-summary.md` with Task 126's repaired owner files and retained proof homes for the duplicate-admission race repair and the zero-work re-embed degraded-path completion repair.
+3. [ ] Refresh `planning/0000055-pr-summary.md` with Task 127's repaired owner files and retained proof homes for the current-pass durable review-artifact visibility repair.
+4. [ ] Refresh `planning/0000055-pr-summary.md` with the final automated wrapper and direct git proof chain from this pass, including the exact wrapper names and retained proof homes for the repaired contracts.
+5. [ ] Carry forward the remaining honest rejected-risk and weak-proof notes from the current findings and challenge artifacts in the maintained summary after the review-fix tasks land.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` and confirm the compose build wrapper passes on current `HEAD` after Tasks 126 and 127 land.
+2. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes on current `HEAD` after Tasks 126 and 127 land.
+3. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes on current `HEAD` after Tasks 126 and 127 land.
+4. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes on current `HEAD` after Tasks 126 and 127 land.
+5. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes on current `HEAD` after Tasks 126 and 127 land.
+6. [ ] Run `npm run test:summary:client` and confirm the full client test wrapper passes on current `HEAD` after Tasks 126 and 127 land.
+7. [ ] Run `npm run test:summary:e2e` and confirm the full e2e wrapper passes on current `HEAD` after Tasks 126 and 127 land.
+8. [ ] Run `npm run compose:up` and confirm the supported compose stack starts cleanly after the current review-fix tasks land.
+9. [ ] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the runtime smoke proof.
+10. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md && test -f codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` and confirm the current durable review artifacts still exist on disk before final close-out.
+11. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient or additive files remain ignored.
+12. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the final review-fix pass leaves the durable artifacts and required plan and summary updates naturally visible.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260414T131709Z-cd90d65b` as the required final revalidation task after the endorsed findings-driven follow-up work.

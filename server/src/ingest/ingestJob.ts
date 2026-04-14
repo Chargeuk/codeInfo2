@@ -69,6 +69,7 @@ import {
   assertReembedRootStateAllowed,
   createInvalidReembedStateError,
   resolveRequestEmbeddingSelection,
+  validateQueueableRepositoryRootPath,
 } from './requestContracts.js';
 import * as requestQueue from './requestQueue.js';
 import type { IngestRunState } from './types.js';
@@ -970,6 +971,10 @@ async function processRun(runId: string, input: IngestJobInput) {
       operation: op,
     } = input;
     const operation = op ?? 'start';
+    const validatedStartPath =
+      operation === 'start'
+        ? validateQueueableRepositoryRootPath(startPath)
+        : startPath;
     const requestedSelection = resolveValidatedInputSelection(input);
     const embeddingProvider = requestedSelection.providerId;
     const embeddingModel = requestedSelection.modelKey;
@@ -981,7 +986,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     logLifecycle('info', 'ingest start', {
       runId,
       operation,
-      path: startPath,
+      path: validatedStartPath,
       name,
       description,
       model: embeddingModel,
@@ -995,7 +1000,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     });
     const ingestConfig = resolveConfig();
     const { files, root: discoveredRoot } = await discoverFiles(
-      startPath,
+      validatedStartPath,
       ingestConfig,
     );
     const root = canonicalTargetPath ?? discoveredRoot;

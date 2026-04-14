@@ -16,6 +16,12 @@ export type QueuedIngestRequestPaths = {
   requestPayloadPath: string;
 };
 
+function createValidationError(message: string, code = 'VALIDATION') {
+  const error = new Error(message);
+  (error as { code?: string }).code = code;
+  return error;
+}
+
 export function splitQueuedIngestExecutionPath(params: {
   canonicalTargetPath: string;
   mountedPath?: unknown;
@@ -66,6 +72,78 @@ export function normalizeCanonicalQueueTargetPath(rawPath: string): string {
     return normalized.slice(0, -1);
   }
   return normalized;
+}
+
+export function validateQueueableRepositoryRootPath(
+  rawPath: unknown,
+  options?: {
+    fieldName?: string;
+    allowedRoot?: string | null;
+  },
+): string {
+  const fieldName = options?.fieldName ?? 'path';
+  if (typeof rawPath !== 'string' || rawPath.trim().length === 0) {
+    throw createValidationError(`${fieldName} is required`);
+  }
+
+  const trimmedPath = rawPath.trim();
+  const hasForwardSlash = trimmedPath.includes('/');
+  const hasBackslash = trimmedPath.includes('\\');
+  if (hasForwardSlash && hasBackslash) {
+    throw createValidationError(
+      `${fieldName} must be an absolute normalized repository root path`,
+    );
+  }
+
+  if (trimmedPath.length > 1 && trimmedPath.endsWith('/')) {
+    throw createValidationError(
+      `${fieldName} must be an absolute normalized repository root path`,
+    );
+  }
+
+  if (/\/(\.\.?)(\/|$)/.test(trimmedPath)) {
+    throw createValidationError(
+      `${fieldName} must be an absolute normalized repository root path`,
+    );
+  }
+
+  if (hasBackslash) {
+    throw createValidationError(
+      `${fieldName} must be an absolute normalized repository root path`,
+    );
+  }
+
+  if (!path.posix.isAbsolute(trimmedPath)) {
+    throw createValidationError(
+      `${fieldName} must be an absolute normalized repository root path`,
+    );
+  }
+
+  const canonicalPath = normalizeCanonicalQueueTargetPath(trimmedPath);
+  if (canonicalPath !== trimmedPath) {
+    throw createValidationError(
+      `${fieldName} must be an absolute normalized repository root path`,
+    );
+  }
+
+  const rawAllowedRoot =
+    options?.allowedRoot?.trim() ?? process.env.CODEINFO_CODEX_WORKDIR?.trim();
+  if (!rawAllowedRoot) {
+    return canonicalPath;
+  }
+
+  const canonicalAllowedRoot =
+    normalizeCanonicalQueueTargetPath(rawAllowedRoot);
+  const withinAllowedRoot =
+    canonicalPath === canonicalAllowedRoot ||
+    canonicalPath.startsWith(`${canonicalAllowedRoot}/`);
+  if (!withinAllowedRoot) {
+    throw createValidationError(
+      `${fieldName} must stay within ${canonicalAllowedRoot}`,
+    );
+  }
+
+  return canonicalPath;
 }
 
 function normalizeProvider(

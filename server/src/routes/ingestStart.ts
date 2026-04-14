@@ -15,8 +15,8 @@ import {
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
 import {
-  normalizeCanonicalQueueTargetPath,
   resolveRequestEmbeddingSelection,
+  validateQueueableRepositoryRootPath,
 } from '../ingest/requestContracts.js';
 import {
   enqueueOrReuseIngestRequest,
@@ -95,6 +95,16 @@ export function createIngestStartRouter({
         message: 'path and name are required',
       });
     }
+    let canonicalQueuePath: string;
+    try {
+      canonicalQueuePath = validateQueueableRepositoryRootPath(path);
+    } catch (error) {
+      return res.status(400).json({
+        status: 'error',
+        code: (error as { code?: string }).code ?? 'VALIDATION',
+        message: (error as Error).message,
+      });
+    }
     const requestId =
       (res.locals?.requestId as string | undefined) ?? undefined;
     const resolvedSelection = resolveRequestEmbeddingSelection(req.body ?? {});
@@ -161,11 +171,11 @@ export function createIngestStartRouter({
         throw err;
       }
       const queueResult = await enqueueOrReuseIngestRequestOverride({
-        canonicalTargetPath: normalizeCanonicalQueueTargetPath(path),
+        canonicalTargetPath: canonicalQueuePath,
         operation: 'start',
         sourceSurface: 'rest:ingest/start',
         requestPayload: {
-          path,
+          path: canonicalQueuePath,
           name,
           description,
           model: resolvedSelection.requestedModelId,

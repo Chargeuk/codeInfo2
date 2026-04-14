@@ -39,6 +39,7 @@ import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE } from '../../startup/ingestQueueStartup.js';
 
 type PumpIngestQueueResult = Awaited<ReturnType<typeof pumpIngestQueue>>;
+const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 
 function buildQueueResult(
   overrides: Partial<EnqueueIngestRequestResult> = {},
@@ -113,6 +114,11 @@ afterEach(() => {
   release();
   delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
   delete process.env.NODE_ENV;
+  if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  } else {
+    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
 });
 
 const createTempRepo = async (files: Record<string, string>) => {
@@ -339,6 +345,91 @@ test('ingest-start rejects blank canonical model even when legacy model is also 
     'embeddingProvider and embeddingModel are required when canonical fields are present',
   );
   assert.equal(enqueueCalled, false);
+});
+
+test('ingest-start rejects relative queue roots before queue admission creates any row', async () => {
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: 'relative/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'VALIDATION');
+  assert.equal(
+    response.body.message,
+    'path must be an absolute normalized repository root path',
+  );
+  assert.equal(enqueueCalled, false);
+});
+
+test('ingest-start rejects out-of-scope absolute queue roots before queue admission creates any row', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/outside/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'VALIDATION');
+  assert.equal(
+    response.body.message,
+    'path must stay within /allowed/workdir',
+  );
+  assert.equal(enqueueCalled, false);
+});
+
+test('ingest-start keeps canonical repository-root admission working for allowed queue roots', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  let capturedCanonicalTargetPath = '';
+  let capturedRequestPayloadPath = '';
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) => {
+        capturedCanonicalTargetPath = input.canonicalTargetPath;
+        capturedRequestPayloadPath = String(
+          (input.requestPayload as Record<string, unknown>).path ?? '',
+        );
+        return buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+        });
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/allowed/workdir/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.equal(capturedCanonicalTargetPath, '/allowed/workdir/repo');
+  assert.equal(capturedRequestPayloadPath, '/allowed/workdir/repo');
 });
 
 test('ingest-start legacy model maps to lmstudio compatibility input', async () => {

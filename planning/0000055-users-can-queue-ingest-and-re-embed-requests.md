@@ -9285,7 +9285,7 @@ If Testing item 1 fails during diagnosis, a targeted `npm run test:summary:serve
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `118`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 6.
 
 #### Overview
@@ -9319,17 +9319,17 @@ This task restores server-side path safety for queued ingest-start requests. The
 
 #### Subtasks
 
-1. [ ] Inspect the existing canonical repository-root validation and normalization seams already used by Story 55 in `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, and any shared queue-path helper they already rely on. Then name the exact helper or extract-point that both fresh submit validation and replay validation will call. Purpose: keep the repair aligned with existing canonical path rules instead of inventing a second root contract.
-2. [ ] Add the shared validator to `server/src/routes/ingestStart.ts` before queue admission runs. Purpose: block invalid fresh submits before any queue row is created.
-3. [ ] Add the same shared validator to the replay seam in `server/src/ingest/ingestJob.ts` before persisted queue payloads become managed ingest input. Purpose: block startup-replayed invalid paths before discovery or git execution begins.
-4. [ ] Keep the accepted-path behavior in `server/src/routes/ingestStart.ts` and `server/src/ingest/ingestJob.ts` unchanged for valid canonical repository-root submissions, including canonical target normalization and durable queue identity behavior. Purpose: harden path safety without regressing normal Story 55 usage.
-5. [ ] Proof type: test maintenance. Location: `server/src/test/unit/ingest-start.test.ts`. Description: rename, split, or rewrite any reused start-ingest tests so relative-path rejection, out-of-scope absolute-path rejection, and valid canonical-path admission each have titles and assertions that describe the new invariant exactly. Purpose: keep the unit proof owner semantically honest after path-safety hardening.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove relative ingest-start paths are rejected before any queue row is created. Purpose: make the relative-path rejection contract explicit.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove out-of-scope absolute ingest-start paths are rejected before any queue row is created. Purpose: make the absolute-path rejection contract explicit.
-8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove valid canonical repository-root paths still reach queue admission successfully after the validator is added. Purpose: retain the accepted-path contract while path safety tightens.
-9. [ ] Proof type: test maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: rename, split, or rewrite any reused replay-path tests so invalid persisted-path rejection is not hidden behind a generic queue-runtime or recovery title. Purpose: keep the replay proof owner aligned with the new validation invariant.
-10. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove replay-time validation refuses invalid persisted queue payloads before discovery or git execution begins. Purpose: make the replay seam repair durable.
-11. [ ] Proof type: cucumber proof maintenance. Location: `server/src/test/features/ingest-start.feature`. Description: refresh the accepted-path scenario wording only as needed so canonical repository-root submits remain the visible high-level proof owner after path validation tightens. Purpose: keep the broader ingest-start contract reviewable beyond the unit seam.
+1. [x] Inspect the existing canonical repository-root validation and normalization seams already used by Story 55 in `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, and any shared queue-path helper they already rely on. Then name the exact helper or extract-point that both fresh submit validation and replay validation will call. Purpose: keep the repair aligned with existing canonical path rules instead of inventing a second root contract.
+2. [x] Add the shared validator to `server/src/routes/ingestStart.ts` before queue admission runs. Purpose: block invalid fresh submits before any queue row is created.
+3. [x] Add the same shared validator to the replay seam in `server/src/ingest/ingestJob.ts` before persisted queue payloads become managed ingest input. Purpose: block startup-replayed invalid paths before discovery or git execution begins.
+4. [x] Keep the accepted-path behavior in `server/src/routes/ingestStart.ts` and `server/src/ingest/ingestJob.ts` unchanged for valid canonical repository-root submissions, including canonical target normalization and durable queue identity behavior. Purpose: harden path safety without regressing normal Story 55 usage.
+5. [x] Proof type: test maintenance. Location: `server/src/test/unit/ingest-start.test.ts`. Description: rename, split, or rewrite any reused start-ingest tests so relative-path rejection, out-of-scope absolute-path rejection, and valid canonical-path admission each have titles and assertions that describe the new invariant exactly. Purpose: keep the unit proof owner semantically honest after path-safety hardening.
+6. [x] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove relative ingest-start paths are rejected before any queue row is created. Purpose: make the relative-path rejection contract explicit.
+7. [x] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove out-of-scope absolute ingest-start paths are rejected before any queue row is created. Purpose: make the absolute-path rejection contract explicit.
+8. [x] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove valid canonical repository-root paths still reach queue admission successfully after the validator is added. Purpose: retain the accepted-path contract while path safety tightens.
+9. [x] Proof type: test maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: rename, split, or rewrite any reused replay-path tests so invalid persisted-path rejection is not hidden behind a generic queue-runtime or recovery title. Purpose: keep the replay proof owner aligned with the new validation invariant.
+10. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove replay-time validation refuses invalid persisted queue payloads before discovery or git execution begins. Purpose: make the replay seam repair durable.
+11. [x] Proof type: cucumber proof maintenance. Location: `server/src/test/features/ingest-start.feature`. Description: refresh the accepted-path scenario wording only as needed so canonical repository-root submits remain the visible high-level proof owner after path validation tightens. Purpose: keep the broader ingest-start contract reviewable beyond the unit seam.
 
 #### Testing
 
@@ -9343,6 +9343,12 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 #### Implementation notes
 
 - Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the server-side queued-path validation finding.
+- Activation on 2026-04-14: promoted Task 119 to `__in_progress__` as the earliest executable owner after Task 118 closed on current disk.
+- Reused `normalizeCanonicalQueueTargetPath()` as the existing normalization seam and extracted `validateQueueableRepositoryRootPath()` in `server/src/ingest/requestContracts.ts` as the shared queued-root validator for fresh route admission and queued start execution.
+- Updated `server/src/routes/ingestStart.ts` to reject relative or out-of-scope absolute queued start paths before enqueueing, while still enqueueing valid canonical roots with the same canonical target and payload path.
+- Updated the queued start execution path in `server/src/ingest/ingestJob.ts` to validate persisted start paths before discovery begins so replayed invalid payloads fail on the managed error path instead of reaching filesystem or git work.
+- Added direct unit proof in `server/src/test/unit/ingest-start.test.ts` for relative rejection, out-of-scope absolute rejection, and valid canonical admission, and added replay-path proof in `server/src/test/unit/ingest-queue-runtime.test.ts` that startup recovery refuses invalid persisted ingest-start roots before discovery starts.
+- Refreshed `server/src/test/features/ingest-start.feature` wording so the accepted high-level scenario explicitly claims canonical repository-root admission after the validation tightening.
 
 ### Task 120. Prevent Startup Recovery From Replaying Already-Committed Queue Runs
 

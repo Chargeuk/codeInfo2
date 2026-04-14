@@ -42,6 +42,8 @@ import {
   recoverIngestQueueForStartup,
 } from '../../startup/ingestQueueStartup.js';
 
+const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+
 function waitForNextTurn() {
   return new Promise<void>((resolve) => {
     setImmediate(resolve);
@@ -51,19 +53,21 @@ function waitForNextTurn() {
 function createQueueRequest(params: {
   requestId: string;
   root: string;
+  operation?: 'start' | 'reembed';
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
   runId?: string | null;
 }) {
+  const operation = params.operation ?? 'reembed';
   return {
     _id: new mongoose.Types.ObjectId(params.requestId.padStart(24, '0')),
     canonicalTargetPath: params.root,
-    operation: 'reembed' as const,
+    operation,
     queueState: params.queueState,
     requestPayload: {
       path: params.root,
       name: params.root.split('/').filter(Boolean).at(-1) ?? 'repo',
       model: 'embed-1',
-      operation: 'reembed',
+      operation,
     } as Record<string, unknown>,
     sourceSurface: 'test',
     runId: params.runId ?? null,
@@ -213,6 +217,11 @@ afterEach(() => {
   __resetIngestQueueAvailabilityForTest();
   release();
   delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
+  if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  } else {
+    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
 });
 
 test('queue pump immediately promotes the oldest eligible queue item when the ingest lock is idle', async () => {
@@ -905,6 +914,63 @@ test('startup recovery fallback uses canonicalTargetPath when persisted requestP
     'running-selected',
     `started:run-recovered-degraded:${canonicalRoot}`,
     `canonical:${canonicalRoot}`,
+  ]);
+});
+
+test('startup recovery refuses out-of-scope persisted ingest-start paths before discovery begins', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  const deletedRequestIds: string[] = [];
+  let getOrCreateCollectionCalls = 0;
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '24',
+    root: '/outside/repo',
+    operation: 'start',
+    queueState: 'running',
+    runId: 'run-recovered-invalid-root',
+  });
+
+  mock.method(
+    ChromaClient.prototype,
+    'getOrCreateCollection',
+    async () => {
+      getOrCreateCollectionCalls += 1;
+      return {
+        get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
+      } as never;
+    },
+  );
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  assert.equal(result.recovered, true);
+
+  const terminal = await waitForTerminalIngestStatus(
+    recoveryQueueRequest.runId!,
+    {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    },
+  );
+
+  assert.equal(terminal.reason, 'terminal');
+  assert.equal(terminal.status?.state, 'error');
+  assert.equal(
+    terminal.status?.lastError,
+    'path must stay within /allowed/workdir',
+  );
+  assert.equal(terminal.status?.error?.error, 'VALIDATION');
+  assert.equal(getOrCreateCollectionCalls, 0);
+  assert.deepEqual(deletedRequestIds, [
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
   ]);
 });
 

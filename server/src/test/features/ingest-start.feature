@@ -4,7 +4,7 @@ Feature: ingest start endpoint
   Background:
     Given chroma stub is empty
 
-  Scenario: happy path starts ingest
+  Scenario: happy path starts ingest from a canonical repository root
     Given ingest start models scenario "many"
     And temp repo with file "a.ts" containing "export const a=1;"
     When I POST ingest start with model "embed-1"

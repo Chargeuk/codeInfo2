@@ -9313,9 +9313,12 @@ This task restores server-side path safety for queued ingest-start requests. The
 #### Subtasks
 
 1. [ ] Re-read the current canonical-path and repository-root owners used elsewhere in Story 55, then define one shared server-side validator for queueable ingest-start paths before persistence. Purpose: keep the repair aligned with existing canonical path rules instead of inventing a second root contract.
-2. [ ] Apply that validator in `server/src/routes/ingestStart.ts` before queue admission and in the replay seam that converts persisted queue payloads back into managed ingest input. Purpose: block both fresh submits and startup-replayed invalid paths.
-3. [ ] Preserve the current valid queue contract for honest repository-root submits, including canonical target normalization and durable queue identity behavior. Purpose: harden path safety without regressing normal Story 55 usage.
-4. [ ] Add or refresh direct proof in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-queue-runtime.test.ts` for rejected relative paths, rejected out-of-scope absolute paths, and replay-time refusal of invalid persisted payloads. Purpose: make the repaired server-side validation explicit and durable.
+2. [ ] Add the shared validator to `server/src/routes/ingestStart.ts` before queue admission runs. Purpose: block invalid fresh submits before any queue row is created.
+3. [ ] Add the same shared validator to the replay seam in `server/src/ingest/ingestJob.ts` before persisted queue payloads become managed ingest input. Purpose: block startup-replayed invalid paths before discovery or git execution begins.
+4. [ ] Confirm the repaired route and replay paths still preserve valid canonical repository-root submissions, including canonical target normalization and durable queue identity behavior. Purpose: harden path safety without regressing normal Story 55 usage.
+5. [ ] Extend `server/src/test/unit/ingest-start.test.ts` with direct proof for rejected relative ingest-start paths. Purpose: make the relative-path rejection contract explicit.
+6. [ ] Extend `server/src/test/unit/ingest-start.test.ts` with direct proof for rejected out-of-scope absolute ingest-start paths. Purpose: make the absolute-path rejection contract explicit.
+7. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` with direct proof that replay-time validation refuses invalid persisted queue payloads. Purpose: make the replay seam repair durable.
 
 #### Testing
 
@@ -9367,9 +9370,13 @@ This task closes the startup replay safety gap where a crash after terminal side
 #### Subtasks
 
 1. [ ] Re-read the current terminal-publication, queue-cleanup, and startup-recovery seams in `server/src/ingest/ingestJob.ts` and `server/src/startup/ingestQueueStartup.ts`, then choose one concrete completion barrier that fits the existing queue contract without introducing an invented second worker. Purpose: make the repair explicit before code changes begin.
-2. [ ] Implement the chosen barrier so terminal side effects and startup recovery can distinguish committed work from unfinished work before any replay decision is made. Purpose: prevent duplicate side effects after post-commit crashes.
-3. [ ] Preserve the intended recovery behavior for genuinely unfinished work and for true cleanup-blocked rows that should still stall later queue progress. Purpose: keep the original restart contract honest while closing the replay hole.
-4. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/integration/ingest-reembed.test.ts` so the committed-before-cleanup crash case is now a no-replay proof and the genuinely unfinished case remains a replay proof. Purpose: make the repaired startup contract durable.
+2. [ ] Update the terminal path in `server/src/ingest/ingestJob.ts` to record or derive the chosen completion barrier before queue-row deletion is attempted. Purpose: distinguish committed work from unfinished work after a crash.
+3. [ ] Update the startup recovery path in `server/src/startup/ingestQueueStartup.ts` to consult the chosen completion barrier before deciding whether to replay a leftover queue row. Purpose: prevent duplicate side effects on restart.
+4. [ ] Preserve the intended recovery path for genuinely unfinished rows in the same startup owner seam. Purpose: keep honest recovery behavior while closing the replay hole.
+5. [ ] Preserve the intended stalling behavior for true cleanup-blocked rows in the same startup owner seam. Purpose: avoid regressing queue-stall ownership while repairing replay safety.
+6. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` with direct proof that a committed-before-cleanup row no longer replays on startup. Purpose: make the no-replay repair explicit.
+7. [ ] Extend `server/src/test/unit/ingest-queue-runtime.test.ts` with direct proof that a genuinely unfinished row still replays on startup. Purpose: retain the valid recovery contract.
+8. [ ] Extend `server/src/test/integration/ingest-reembed.test.ts` with integration proof for the repaired startup replay barrier. Purpose: keep the startup contract honest beyond the unit seam.
 
 #### Testing
 
@@ -9472,9 +9479,11 @@ This task makes the queue route emitters use one shared marker schema for the sa
 
 #### Subtasks
 
-1. [ ] Choose one shared target-path field name for the queue route markers and apply it consistently in both route emitters. Purpose: remove endpoint-specific marker-schema branching for the same target-path concept.
-2. [ ] Refresh the direct proof owners in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` so both routes now assert the same marker payload fields for the shared queue events. Purpose: make the schema consistency durable.
-3. [ ] Update any retained wording or proof comments that still describe route-specific target-path field names for those markers. Purpose: keep the repaired schema explicit for later reviewers.
+1. [ ] Choose one shared target-path field name for the queue route markers and apply it in `server/src/routes/ingestStart.ts` for `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`. Purpose: remove route-specific marker vocabulary from the start-ingest surface.
+2. [ ] Apply the same shared target-path field name in `server/src/routes/ingestReembed.ts` for `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`. Purpose: keep the re-embed surface aligned with the start-ingest marker schema.
+3. [ ] Refresh `server/src/test/unit/ingest-start.test.ts` so the direct proof owner asserts the repaired shared marker payload fields from the start-ingest route. Purpose: make the start-route schema proof explicit.
+4. [ ] Refresh `server/src/test/unit/ingest-reembed.test.ts` so the direct proof owner asserts the repaired shared marker payload fields from the re-embed route. Purpose: make the re-embed route schema proof explicit.
+5. [ ] Update any retained wording or proof comments that still describe route-specific target-path field names for those markers. Purpose: keep the repaired schema explicit for later reviewers.
 
 #### Testing
 
@@ -9523,8 +9532,9 @@ This task removes the wall-clock sleep from the queue terminal-cache eviction pr
 #### Subtasks
 
 1. [ ] Introduce or expose one deterministic time-control seam owned by the queue terminal-cache helper so expiry can be advanced in proof without sleeping. Purpose: replace flaky wall-clock dependence with bounded deterministic proof.
-2. [ ] Rewrite the terminal-cache eviction proof in `server/src/test/unit/ingest-queue-runtime.test.ts` to use that deterministic timing control and to assert both pre-expiry retention and post-expiry eviction. Purpose: make the cache invariant directly testable.
-3. [ ] Remove the old `setTimeout(20)`-style proof path so the runtime helper is no longer justified by wall-clock timing luck. Purpose: keep the proof owner honest after the deterministic seam lands.
+2. [ ] Rewrite the pre-expiry portion of the terminal-cache proof in `server/src/test/unit/ingest-queue-runtime.test.ts` to use deterministic timing control instead of sleeping. Purpose: prove cache retention without wall-clock luck.
+3. [ ] Rewrite the post-expiry portion of the terminal-cache proof in `server/src/test/unit/ingest-queue-runtime.test.ts` to use deterministic timing control instead of sleeping. Purpose: prove cache eviction without wall-clock luck.
+4. [ ] Remove the old `setTimeout(20)`-style proof path from `server/src/test/unit/ingest-queue-runtime.test.ts` once the deterministic proof owns both invariants. Purpose: keep the proof owner honest after the deterministic seam lands.
 
 #### Testing
 
@@ -9577,10 +9587,17 @@ This task removes stale persisted error display from repositories that have re-e
 
 #### Subtasks
 
-1. [ ] Update the waiting and active queue-overlay helpers in `server/src/lmstudio/toolService.ts` so healthy live queue state clears stale persisted diagnostic fields when no new live error exists. Purpose: stop old failures from leaking into fresh queued or running attempts.
-2. [ ] Preserve current error visibility for genuinely errored or cleanup-blocked rows after the overlay repair. Purpose: avoid fixing stale diagnostics by hiding real current failures.
-3. [ ] Refresh `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, and `client/src/components/ingest/RootDetailsDrawer.tsx` only as needed so the client honors the repaired live-overlay precedence instead of preferring a stale persisted error. Purpose: keep server and client precedence aligned.
-4. [ ] Add direct regression proof in `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx`, and `client/src/test/ingestRoots.test.tsx` for a previously errored row that becomes healthy `waiting` or `running`, plus retained proof for a genuinely current error row. Purpose: make the repaired stale-diagnostic contract durable across both server and client proof owners.
+1. [ ] Update the waiting queue-overlay helper in `server/src/lmstudio/toolService.ts` so healthy `waiting` state clears stale persisted diagnostic fields when no new live error exists. Purpose: stop old failures from leaking into fresh waiting rows.
+2. [ ] Update the active or running queue-overlay helper in `server/src/lmstudio/toolService.ts` so healthy live execution state clears stale persisted diagnostic fields when no new live error exists. Purpose: stop old failures from leaking into fresh running rows.
+3. [ ] Preserve current error visibility for genuinely errored rows in `server/src/lmstudio/toolService.ts` after the overlay repair. Purpose: avoid fixing stale diagnostics by hiding real current failures.
+4. [ ] Preserve current error visibility for cleanup-blocked failure rows in `server/src/lmstudio/toolService.ts` after the overlay repair. Purpose: keep the queue-stall error contract honest.
+5. [ ] Refresh `client/src/hooks/useIngestRoots.ts` only as needed so normalized rows respect the repaired live-overlay precedence instead of preferring a stale persisted error. Purpose: keep client normalization aligned with the repaired server contract.
+6. [ ] Refresh `client/src/components/ingest/RootsTable.tsx` only as needed so the table surface no longer shows stale persisted errors for healthy queued or running rows. Purpose: keep the main ingest table aligned with the repaired normalization contract.
+7. [ ] Refresh `client/src/components/ingest/RootDetailsDrawer.tsx` only as needed so the details surface no longer shows stale persisted errors for healthy queued or running rows. Purpose: keep the row-details surface aligned with the repaired normalization contract.
+8. [ ] Extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with direct proof that a previously errored row becomes healthy `waiting` without carrying the old error forward. Purpose: make the server-side waiting repair explicit.
+9. [ ] Extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with direct proof that a previously errored row becomes healthy `running` without carrying the old error forward. Purpose: make the server-side running repair explicit.
+10. [ ] Extend `client/src/test/useIngestRoots.test.tsx` with direct proof that normalized queued or running rows no longer surface stale persisted errors. Purpose: make the hook-level precedence repair explicit.
+11. [ ] Extend `client/src/test/ingestRoots.test.tsx` with direct proof that the rendered ingest surfaces still show genuine current errors while hiding stale ones for healthy queued or running rows. Purpose: make the UI-level precedence repair explicit.
 
 #### Testing
 
@@ -9643,8 +9660,10 @@ This final review-follow-up task revalidates Story 55 after the current findings
 6. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 122's repaired owner files and retained proof homes for the shared queue marker-schema repair. Purpose: keep the shared logging contract repair explicit for later reviewers.
 7. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 123's repaired owner files and retained proof homes for deterministic queue-cache eviction proof. Purpose: keep the proof-quality repair explicit for later reviewers.
 8. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 124's repaired owner files and retained proof homes for stale-diagnostic clearing across server and client overlays. Purpose: keep the overlay-precedence repair explicit for later reviewers.
-9. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final wrapper, compose, and direct git proof chain from this pass. Purpose: preserve the supported proof trail instead of collapsing it into a generic close-out line.
-10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest rejected-risk or residual weak-proof notes that still remain after this pass, using the current findings and blind-spot artifacts as the source of truth. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
+9. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final wrapper proof chain from this pass. Purpose: preserve the retained automated-proof trail instead of collapsing it into a generic close-out line.
+10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final compose smoke proof chain from this pass. Purpose: preserve the retained runtime-proof trail instead of collapsing it into a generic close-out line.
+11. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final direct git proof chain from this pass, including artifact existence and visibility checks. Purpose: preserve the retained review-artifact hygiene trail instead of collapsing it into a generic close-out line.
+12. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest rejected-risk or residual weak-proof notes that still remain after this pass, using the current findings and blind-spot artifacts as the source of truth. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
 
 #### Testing
 

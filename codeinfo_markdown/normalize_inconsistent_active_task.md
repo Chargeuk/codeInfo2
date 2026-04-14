@@ -4,6 +4,7 @@ Normalize structurally inconsistent task state so the overnight implementation l
 
 <task>
 
+Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
 Re-open the exact plan file from disk before normalizing anything, using explicit shell reads such as `sed`, `cat`, or `rg`.

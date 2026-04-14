@@ -4,6 +4,7 @@ Resolve the single current task for this implementation-loop pass, or record tha
 
 <critical_rules>
 
+- Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow its disk-reread rules after the selector writes `current-task.json`.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Run `python3 scripts/select_current_task.py` before doing any manual task selection.

@@ -971,8 +971,10 @@ async function processRun(runId: string, input: IngestJobInput) {
       operation: op,
     } = input;
     const operation = op ?? 'start';
+    const isQueueManagedStart =
+      operation === 'start' && queueRequestIdsByRunId.has(runId);
     const validatedStartPath =
-      operation === 'start'
+      isQueueManagedStart
         ? validateQueueableRepositoryRootPath(startPath)
         : startPath;
     const requestedSelection = resolveValidatedInputSelection(input);

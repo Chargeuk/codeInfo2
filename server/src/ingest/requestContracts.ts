@@ -128,7 +128,11 @@ export function validateQueueableRepositoryRootPath(
 
   const rawAllowedRoot =
     options?.allowedRoot?.trim() ?? process.env.CODEINFO_CODEX_WORKDIR?.trim();
-  if (!rawAllowedRoot) {
+  if (
+    !rawAllowedRoot ||
+    rawAllowedRoot.includes('$') ||
+    !path.posix.isAbsolute(normalizeCanonicalQueueTargetPath(rawAllowedRoot))
+  ) {
     return canonicalPath;
   }
 

@@ -9854,6 +9854,12 @@ This review-fix task repairs the queue and zero-work re-embed paths so they retu
 - `R2.` A zero-work re-embed can still publish its zero-count terminal result after the code has already proved there is no ingest work left, without depending on a late Chroma vectors-collection lookup to succeed first.
 - `R3.` The repaired server proof owners explicitly cover both the stale waiting-response race boundary and the degraded zero-work re-embed completion boundary.
 
+#### Proof Mapping
+
+- `R1.` Duplicate admission returns current waiting-versus-running semantics even when the matched row changes state during reuse. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof homes: Task 126 subtasks 2, 3, and 6 plus Testing items 2 and 3.
+- `R2.` Zero-work re-embed publishes its terminal zero-count result without a late Chroma dependency after the no-work decision point. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/reingestService.test.ts`. Proof homes: Task 126 subtasks 4, 5, and 7 plus Testing items 1 and 2.
+- `R3.` The maintained summary records the repaired owner files and retained proof homes for both review findings. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 126 subtask 8.
+
 #### Documentation Locations
 
 - `server/src/ingest/requestQueue.ts`
@@ -9866,12 +9872,12 @@ This review-fix task repairs the queue and zero-work re-embed paths so they retu
 #### Subtasks
 
 1. [ ] Re-read the current review evidence, findings, and challenge artifacts for review pass `0000055-20260414T131709Z-cd90d65b` before changing queue-admission or zero-work re-embed logic.
-2. [ ] Update `server/src/ingest/requestQueue.ts` so duplicate reuse re-checks or otherwise derives current row state before returning a waiting-response payload, preventing a stale waiting response after the matched queue row has already been promoted to `running`.
-3. [ ] Keep the duplicate-admission contract explicit for both `start` and `reembed` callers so current waiting-versus-running semantics, `queuePosition`, and `runId` remain honest after the race-window repair.
-4. [ ] Update the zero-work re-embed fast path in `server/src/ingest/ingestJob.ts` so once the code has already proved there is no real ingest work left, publishing the zero-count terminal result does not require a late Chroma lock-metadata read to succeed first.
-5. [ ] Preserve the existing healthy-path terminal payload semantics for zero-work re-embed completion, including any model or summary fields that are still honestly available without reintroducing the late Chroma dependency.
+2. [ ] Update `server/src/ingest/requestQueue.ts` so any duplicate-response branch that would return waiting semantics first confirms the matched queue row is still `waiting`; if the row is already `running`, return current running semantics from current row state instead of the earlier waiting snapshot.
+3. [ ] Keep the duplicate-admission contract explicit for both `start` and `reembed` callers by preserving honest `queued`, `queuePosition`, and `runId` values after the race-window repair rather than silently collapsing those fields to stale waiting defaults.
+4. [ ] Update the zero-work re-embed fast path in `server/src/ingest/ingestJob.ts` so after the code has already proved there is no real ingest work left, the terminal zero-count result is assembled from already-available state and does not call `getLockedEmbeddingModel()` or any later vectors-collection bootstrap dependency first.
+5. [ ] Preserve the existing healthy-path zero-work completion payload semantics by keeping any still-honest model or summary fields when they are already available, and fall back only to fields that remain truthful without reintroducing the late Chroma dependency.
 6. [ ] Add or rewrite server proof owners in `server/src/test/unit/ingest-request-queue.test.ts` to prove a duplicate request sees current running semantics instead of stale waiting semantics when promotion happens between the original lookup and response assembly.
-7. [ ] Add or rewrite server proof owners in `server/src/test/unit/reingestService.test.ts` to prove a zero-work re-embed still reaches its zero-count terminal result when late Chroma metadata or bootstrap access is unavailable after the no-work decision point.
+7. [ ] Add or rewrite server proof owners in `server/src/test/unit/reingestService.test.ts` to prove a zero-work re-embed still reaches its zero-count terminal result when late Chroma metadata or bootstrap access is unavailable only after the no-work decision point, while preserving the healthy-path terminal payload shape.
 8. [ ] Refresh `planning/0000055-pr-summary.md` with the repaired owner files and retained proof homes for this review-fix task.
 
 #### Testing
@@ -9901,6 +9907,12 @@ This review-fix task updates the current repository's ignore rules so the durabl
 - `R2.` `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` is not ignored on current disk.
 - `R3.` `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` remain transient or additive and do not become required durable artifacts.
 
+#### Proof Mapping
+
+- `R1.` The current pass durable evidence artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof homes: Task 127 subtasks 2 and 4 plus Testing items 1 and 2.
+- `R2.` The current pass durable findings artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof homes: Task 127 subtasks 2 and 4 plus Testing items 1 and 2.
+- `R3.` Transient handoff and additive review files stay ignored while the durable artifacts become visible. Owners: `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: Task 127 subtasks 3 and 4 plus Testing items 1 and 2.
+
 #### Documentation Locations
 
 - `.gitignore`
@@ -9911,8 +9923,8 @@ This review-fix task updates the current repository's ignore rules so the durabl
 #### Subtasks
 
 1. [ ] Re-read the current review evidence and findings artifacts for review pass `0000055-20260414T131709Z-cd90d65b` before changing `.gitignore`.
-2. [ ] Update `.gitignore` so `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md` and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` are explicitly visible to normal git workflows.
-3. [ ] Preserve the transient status of `codeInfoStatus/reviews/0000055-current-review.json` and the additive status of `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` while repairing the durable-artifact visibility boundary.
+2. [ ] Update `.gitignore` so `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md` and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` are explicitly visible to normal git workflows without disturbing the already-retained older Story 55 durable artifacts.
+3. [ ] Preserve the transient status of `codeInfoStatus/reviews/0000055-current-review.json` and `codeInfoStatus/reviews/0000055-external-review-input.md`, and preserve the additive status of `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`, while repairing only the durable-artifact visibility boundary for this pass.
 4. [ ] Refresh `planning/0000055-pr-summary.md` with the retained proof homes for the repaired ignore-rule boundary and the durable review artifacts for this pass.
 
 #### Testing
@@ -9943,6 +9955,14 @@ This final review-follow-up task revalidates Story 55 after the current review-f
 - `R4.` The relevant wrapper, browser or API, compose, and direct git proof chain for this findings-present pass passes on current disk after Tasks 126 and 127 land.
 - `R5.` Final close-out records the remaining rejected-risk and weak-proof notes from the current findings and challenge artifacts honestly instead of silently dropping them behind green wrappers.
 
+#### Proof Mapping
+
+- `R1.` Final revalidation does not begin until Tasks 126 and 127 are complete and their proof homes are retained in the maintained summary. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 128 subtasks 2 and 3 plus Testing items 1 through 7.
+- `R2.` The current durable evidence and findings artifacts still exist on disk and remain naturally visible while transient or additive review files stay ignored. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`. Proof homes: Task 128 subtasks 3 and 4 plus Testing items 10 through 12.
+- `R3.` `planning/0000055-pr-summary.md` records the repaired owner files and retained proof homes for Tasks 126 and 127 before final close-out. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 128 subtasks 2 through 4.
+- `R4.` The relevant wrapper, compose, browser-backed e2e, and direct git proof chain all pass on current disk after the review-fix tasks land. Owners: wrapper scripts, `docker-compose.yml`, `server/src/ingest/requestQueue.ts`, `server/src/ingest/ingestJob.ts`, `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: Task 128 Testing items 1 through 12.
+- `R5.` Remaining rejected-risk and weak-proof notes from the current findings and challenge artifacts are explicitly retained in the maintained summary. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 128 subtask 5.
+
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
@@ -9957,9 +9977,9 @@ This final review-follow-up task revalidates Story 55 after the current review-f
 #### Subtasks
 
 1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`, and `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` before final reruns begin.
-2. [ ] Refresh `planning/0000055-pr-summary.md` with Task 126's repaired owner files and retained proof homes for the duplicate-admission race repair and the zero-work re-embed degraded-path completion repair.
-3. [ ] Refresh `planning/0000055-pr-summary.md` with Task 127's repaired owner files and retained proof homes for the current-pass durable review-artifact visibility repair.
-4. [ ] Refresh `planning/0000055-pr-summary.md` with the final automated wrapper and direct git proof chain from this pass, including the exact wrapper names and retained proof homes for the repaired contracts.
+2. [ ] Refresh `planning/0000055-pr-summary.md` with Task 126's repaired owner files and retained proof homes for both the duplicate-admission race repair and the zero-work re-embed degraded-path completion repair, including the exact unit-proof owners that cover each contract boundary.
+3. [ ] Refresh `planning/0000055-pr-summary.md` with Task 127's repaired owner files and retained proof homes for the current-pass durable review-artifact visibility repair, including the exact `.gitignore` and direct git checks that prove the boundary.
+4. [ ] Refresh `planning/0000055-pr-summary.md` with the final automated wrapper and direct git proof chain from this pass, including the exact wrapper names, direct git commands, and retained proof homes that validate the repaired contracts on current disk.
 5. [ ] Carry forward the remaining honest rejected-risk and weak-proof notes from the current findings and challenge artifacts in the maintained summary after the review-fix tasks land.
 
 #### Testing

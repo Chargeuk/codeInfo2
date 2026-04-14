@@ -9498,6 +9498,7 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 - Testing 3: `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` now shows only the current pass evidence and findings artifacts as naturally visible untracked files, with no reopened transient review files.
 - Testing 4: broader server-build, test-wrapper, compose-build, and supported-runtime smoke proof remained honestly not applicable here because Task 121 only changes ignore rules and active-plan wording; Task 125 still owns the wider rerun chain.
 - Automated-proof audit on 2026-04-14: closed Task 121 after confirming all subtasks and testing items were already complete on disk, no live blocker remained, and the broader wrapper/runtime rerun was still correctly owned by Task 125 rather than this ignore-hygiene task.
+- Manual testing on 2026-04-14 was assessed as not applicable and stayed task-scoped because Task 121 changes only `.gitignore`, the current pass review artifacts, and plan wording. There is no runnable, browser-visible, or HTTP proof surface to exercise honestly through the stored runtime-research scope, so no additional subtasks were needed.
 
 ### Task 122. Normalize Shared Queue Route Log Marker Fields
 

@@ -5,6 +5,7 @@ Research the current blocker, prove the best technical solution, and record that
 <task>
 
 Read the stored current-plan handoff and use only that scope for this step.
+Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
 Re-open the exact plan file from disk before checking for blockers.
 If the current implementation does not contain a blocker, state that and stop.
 If the current implementation contains a blocker, you MUST research and prove the solution before work continues.
@@ -14,10 +15,10 @@ Write the proven blocker answer into the implementation notes marked as `**BLOCK
 
 <scope_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
-- Re-open the exact relative `plan_path` from disk before checking for blockers or implementation notes.
+- Re-open the exact relative `plan_path` from disk before checking for blockers or implementation notes, using explicit shell reads such as `sed`, `cat`, or `rg`.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </scope_rules>
@@ -25,7 +26,9 @@ Write the proven blocker answer into the implementation notes marked as `**BLOCK
 <blocker_detection_rules>
 
 - Before deciding whether the current implementation contains a blocker, read `codeinfo_markdown/shared/blocker-detection.md`.
-- Run `python3 scripts/plan_status.py --selector active_or_done`.
+- If `current-task.json` clearly resolves a bound task, determine that task number from its contents and run `python3 scripts/plan_status.py --task-number <that-number>`.
+- If `current-task.json` instead says plan repair is still needed and does not clearly resolve one task, say that explicitly and use the current repaired plan state on disk only as a fallback to understand whether a single blocker owner now exists.
+- Only when that fallback is necessary may you run `python3 scripts/plan_status.py --selector active_or_done`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as the current live blocker state for this step.
 - If the parser reports no live blocker lines for the selected task, state that no current blocker is present and stop.

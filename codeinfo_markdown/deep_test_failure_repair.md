@@ -4,7 +4,9 @@ Perform a deep repair pass only for a live blocker caused by automated-proof tes
 
 <task>
 
+Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff and use only that scope for this step.
+Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
 Re-open the exact plan file from disk before doing anything else.
 Check whether the current selected task has a live blocker caused by automated-proof test failure.
 If there is no such blocker, stop immediately, make no edits, and do not append any implementation note.
@@ -18,6 +20,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the f
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
 - Re-open the exact relative `plan_path` from disk before starting.
+- If `current-task.json` does not clearly resolve a task for this loop pass, stop and say the task handoff must be regenerated before deep automated-proof repair continues.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </scope_rules>
@@ -25,7 +28,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the f
 <blocker_detection_rules>
 
 - Before deciding whether this step applies, read `codeinfo_markdown/shared/blocker-detection.md`.
-- Run `python3 scripts/plan_status.py --selector active_or_done`.
+- Determine the bound task number from `current-task.json`, then run `python3 scripts/plan_status.py --task-number <that-number>`.
 - Use the parser output, not visual scanning, as the source of truth for live blocker state.
 - Treat only `selected_task.live_blockers` as active blockers for this step.
 - If `selected_task` is null or `selected_task.live_blockers` is empty, this step is a no-op: state that no live blocker is present, make no edits, and do not append any implementation note.
@@ -98,6 +101,7 @@ Return a concise summary that includes:
 Before finishing:
 
 - confirm you re-read the plan from disk;
+- confirm you re-read `current-task.json` from disk and used the bound task from it;
 - confirm you used `selected_task.live_blockers` as the blocker source of truth;
 - confirm you made no edits and appended no note when no applicable live blocker existed;
 - confirm you kept this step limited to automated-proof test-failure blockers rather than generic task-shape repair;

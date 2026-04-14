@@ -4,9 +4,12 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 <critical_rules>
 
+- Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Use fresh disk reads and current git state, not conversational memory.
-- Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
-- Re-open the exact relative `plan_path` from disk before deciding what to test, because another agent may have just edited it.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
+- Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
+- Re-open the exact relative `plan_path` from disk before deciding what to test, because another agent may have just edited it. Use explicit shell reads such as `sed`, `cat`, or `rg`.
+- If `current-task.json` does not clearly resolve a task for this loop pass, state that manual testing must wait for task resolution and do not invent a different candidate task.
 - Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists and determine its meaning from the information it contains rather than depending on an exact JSON shape.
 - Treat the runtime research file as a stored summary of the best supported startup, shutdown, prerequisite, surface, availability, and fallback information for the repositories in scope.
 - The runtime research file may legitimately be absent between regeneration steps because it is live local research rather than a durable tracked handoff artifact.
@@ -61,17 +64,16 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <blocker_detection_rules>
 
 - Before deciding whether the candidate task is blocked, read `codeinfo_markdown/shared/blocker-detection.md`.
-- Run `python3 scripts/plan_status.py --selector active_or_done`.
+- Determine the bound task number from `current-task.json`, then run `python3 scripts/plan_status.py --task-number <that-number>`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for candidate selection.
-- If the parser-selected task does not match the candidate task you intend to test, stop and re-check the task-selection reasoning before continuing.
+- If the parser-selected task does not match the bound task from `current-task.json`, stop and say the task handoff must be regenerated before manual testing continues.
 
 </blocker_detection_rules>
 
 <candidate_selection_rules>
 
-- Identify the candidate task for this loop iteration by scanning the plan from bottom to top and selecting the highest-numbered task whose `Task Status` is either `__done__` or `__in_progress__`.
-- If there is no such candidate task, report that manual testing is not applicable for this loop pass and do not edit files.
+- Use the task already resolved into `current-task.json` as the candidate task for this loop iteration.
 - If the candidate task is `__in_progress__`, or its implementation notes contain a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, or it otherwise is not honestly complete yet, do not perform manual testing.
 - Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**` when deciding whether the task is still blocked.
 - Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not complete yet.
@@ -146,6 +148,17 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 <outcome_rules>
 
+- When manual testing cannot proceed normally, classify the reason into exactly one of these buckets before deciding what to do:
+  - `not_applicable`:
+    - the candidate task has no relevant runnable, browser-visible, network-visible, or otherwise externally observable proof surface that its own exit criteria require;
+    - in this case, record that manual testing was assessed as not applicable and continue without blocker.
+  - `recoverable_runtime_trouble`:
+    - the required proof surface should already exist, but the current runtime instance is stale, the documented startup path was not followed yet, readiness is not yet established, or a narrow in-scope startup or environment issue still looks credibly repairable in this step;
+    - in this case, do one bounded recovery pass before considering a blocker.
+  - `structural_proof_gap`:
+    - the candidate task's required proof surface cannot honestly be exercised because a prerequisite runtime, harness, startup contract, environment contract, dependency contract, or other enabling capability does not yet exist or is clearly planner-owned;
+    - in this case, stop retrying manual testing and record an honest blocker for planner repair.
+
 - If you can honestly prove the candidate task's own changed behavior, but a later-task-owned surface prevents additional convenience, observability, cleanup, or exploratory checks, do not add `**BLOCKER**`.
 - Instead, add a concise implementation note stating:
   - what was successfully proved;
@@ -196,7 +209,18 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - leave the candidate task as `__done__`;
   - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the screenshot artifacts were saved, and that no additional subtasks were needed.
 
-- If you cannot honestly complete the relevant manual proof because startup, shutdown, environment, dependency, tooling, or readiness conditions are missing:
+- If the non-run reason is `recoverable_runtime_trouble`:
+  - prefer continuing manual testing if possible instead of blocking immediately;
+  - perform one bounded recovery pass before adding `**BLOCKER**`;
+  - that recovery pass must:
+    - stop any stale or freshness-unknown running stack that would contaminate honest proof;
+    - restart the required surface using the documented workflow;
+    - repair only narrow in-scope runtime or environment issues that are realistically fixable in this step;
+    - rerun the smallest honest proof path for the candidate task;
+  - if that recovery pass restores the proof surface, continue manual testing normally and do not add `**BLOCKER**`;
+  - if that recovery pass exhausts cleanly and the missing capability is clearly planner-owned or structurally absent, reclassify the outcome as `structural_proof_gap`.
+
+- If the non-run reason is `structural_proof_gap`:
   - add `**BLOCKER**` only when you cannot honestly prove a behavior that is required by the candidate task's own exit criteria using supported surfaces that should already exist at this point in the plan;
   - do not use `**BLOCKER**` for limitations caused only by later-task-owned observability, queue-management, UI, cleanup, or convenience surfaces;
   - add `**BLOCKER**` to the implementation notes for that candidate task with a concise explanation of what prevented manual testing;
@@ -221,9 +245,10 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <verification_loop>
 
 - Confirm you used only the stored handoff and runtime-research scope.
-- Confirm you selected the highest-numbered `__done__` or `__in_progress__` task honestly.
+- Confirm you used the task already resolved into `current-task.json`.
 - Confirm you did not require later-task-owned surfaces unless the candidate task explicitly depended on them.
 - Confirm any failure-triggered follow-up work came after a bounded diagnosis pass rather than from first-guess speculation.
+- Confirm any non-run outcome was classified as `not_applicable`, `recoverable_runtime_trouble`, or `structural_proof_gap` before finalizing.
 - Confirm any new subtasks and proof-authoring subtasks are detailed enough for a weak junior agent to follow.
 - Confirm no vague `investigate` or `debug` subtasks were added unless planner repair explicitly turned the work into a bounded diagnostic task.
 - Confirm no manual-testing step was added to the task's `Testing` section.

@@ -47,6 +47,7 @@ codeInfoStatus/flow-state/manual-testing-runtime.json
 certs/task6-valid/*.key
 
 server/tmp-flows-*/
+codeInfoStatus/flow-state/current-task.json
 planning/**/*.png
 planning/**/*.jpg
 planning/**/*.jpeg

@@ -9505,9 +9505,10 @@ This task makes the queue route emitters use one shared marker schema for the sa
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the marker-schema repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the marker-schema repair.
-3. [ ] Separate server-cucumber, client-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes shared route logging and its direct proof owners; the later final revalidation task owns the broader rerun set.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the marker-schema repair so the normal Mongo-backed route surface remains honest beyond the direct unit log proofs.
+4. [ ] Separate client-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes shared route-log payload fields rather than the default launcher or browser path; the later final revalidation task owns the broader rerun set.
 
-If Testing item 2 fails during diagnosis, a targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts --file server/src/test/unit/ingest-reembed.test.ts` rerun may be used to narrow the repair, but this task only closes after Testing item 2 passes again.
+If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts --file server/src/test/unit/ingest-reembed.test.ts` rerun may be used to narrow the direct proof owner, but this task only closes after the full wrappers in Testing items 2 and 3 pass again.
 
 #### Implementation notes
 

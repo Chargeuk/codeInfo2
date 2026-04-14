@@ -8987,7 +8987,7 @@ This task restores the current pass durable review artifacts that Task 115 expec
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `114`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 5 as an allowed support-file hygiene fix.
 
 #### Overview
@@ -9053,6 +9053,7 @@ This task narrows the ignore policy so the current review pass evidence and find
 - Activation on 2026-04-13: promoted Task 115 to `__in_progress__` after Task 114 finished restoring and proving the current pass durable review artifacts on current disk. All Task 115 subtasks were already complete at activation time, so the next honest owner step is the remaining automated-proof work in Testing 3 and 4 rather than more implementation edits.
 - Testing 3 passed via `git status --short codeInfoStatus/reviews .gitignore codeinfo_markdown/review_disposition.md`; the command returned no in-scope status entries, which is honest here because the durable evidence and findings artifacts are already tracked in Git (`git ls-files --stage` shows both paths in the index) and the transient current-review, external-input, and challenge files remain ignored by the narrowed `.gitignore` rules, so normal status no longer requires force-add and no transient review inputs leaked into the commit set.
 - Testing 4 marked complete as honestly not applicable: Task 115 only changes `.gitignore`, `codeinfo_markdown/review_disposition.md`, and this plan’s review-pass wording, while Task 117 remains the explicit owner for the broader server build, automated test, compose-build, and supported-runtime smoke reruns after the review-fix set lands.
+- Automated-proof audit on 2026-04-14: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 115 section, the latest Task 115 proof notes, and the current parser output before normalizing status. All subtasks and Testing 1-4 are now honestly complete on current disk, `selected_task.live_blockers` is empty, and the Task 117 scope note is a downstream ownership boundary rather than a remaining gate, so Task 115 is normalized from `__in_progress__` to `__done__`.
 
 ### Task 116. Honor Pre-Aborted Signals In The LM Studio Mock Stream Helper
 

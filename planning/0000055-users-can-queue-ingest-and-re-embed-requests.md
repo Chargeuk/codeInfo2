@@ -9443,7 +9443,7 @@ If Testing items 2 or 3 fail during diagnosis, targeted `npm run test:summary:se
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `120`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 2 as an allowed support-file hygiene fix.
 
 #### Overview
@@ -9497,6 +9497,7 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 - Testing 2: `git check-ignore -v` still reports the current-review handoff, external-review input, and current-pass blind-spot challenge file as ignored by `.gitignore`, preserving the transient or additive side of the split.
 - Testing 3: `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` now shows only the current pass evidence and findings artifacts as naturally visible untracked files, with no reopened transient review files.
 - Testing 4: broader server-build, test-wrapper, compose-build, and supported-runtime smoke proof remained honestly not applicable here because Task 121 only changes ignore rules and active-plan wording; Task 125 still owns the wider rerun chain.
+- Automated-proof audit on 2026-04-14: closed Task 121 after confirming all subtasks and testing items were already complete on disk, no live blocker remained, and the broader wrapper/runtime rerun was still correctly owned by Task 125 rather than this ignore-hygiene task.
 
 ### Task 122. Normalize Shared Queue Route Log Marker Fields
 

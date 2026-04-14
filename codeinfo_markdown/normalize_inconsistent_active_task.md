@@ -5,9 +5,11 @@ Normalize structurally inconsistent task state so the overnight implementation l
 <task>
 
 Read the stored current-plan handoff and use only that scope for this step.
+Read `codeInfoStatus/flow-state/current-task.json` if it exists and determine its meaning from what it contains rather than depending on an exact JSON shape.
 Re-open the exact plan file from disk before normalizing anything.
 Identify the highest-numbered task whose `Task Status` is `__in_progress__`.
 If there is no such task, identify the highest-numbered task whose `Task Status` is `__done__` but whose parser state still reports unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`.
+If `current-task.json` says the plan needs repair because multiple open `__in_progress__` tasks remain, treat that as an inconsistent state that MUST be repaired before work continues.
 If no such inconsistent task exists, state that no normalization was needed and stop.
 If the inconsistent task is `__in_progress__` even though all subtasks are checked, all testing steps are checked, and no live standalone `**BLOCKER**` exists, you MUST normalize that task into an honest state before work continues.
 If the inconsistent task is `__done__` even though unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**` still remain, you MUST repair that invalid `__done__` state before work continues.
@@ -39,7 +41,10 @@ If the inconsistent task is `__done__` even though unchecked subtasks, unchecked
 
 - Treat a highest active task with all subtasks checked, all testing checked, and no live standalone `**BLOCKER**` as an invalid plan state that must not be left unchanged.
 - Treat any `__done__` task still reported by the parser under `inconsistent_done_tasks` as an invalid plan state that must not be left unchanged.
+- Treat multiple open `__in_progress__` tasks reported either by the parser or by `current-task.json` as an invalid plan state that must not be left unchanged.
 - Re-read the task's full section, including `Task Exit Criteria`, `Subtasks`, `Testing`, and `Implementation notes`, before deciding what to change.
+- If multiple open `__in_progress__` tasks exist, repair the plan so exactly one true active owner remains before the implementation loop continues.
+- Do not guess silently. Use the current task notes, prerequisites, and task ordering to decide which task should remain active, and move any stale, blocked-behind-prerequisite, or wrongly active task out of `__in_progress__`.
 - Then do exactly one of the following:
   - mark the task `__done__` if current repository evidence shows the remaining prose-only note is already satisfied or is not an honest remaining gate; or
   - convert the real remaining work into one or more unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**` note, and leave the task `__in_progress__`.
@@ -78,6 +83,7 @@ Before finishing:
 - confirm you re-read the plan from disk;
 - confirm you judged the inconsistent state from current plan state rather than memory;
 - confirm you did not leave a fully checked, unblocked task as `__in_progress__`;
+- confirm you did not leave multiple open `__in_progress__` tasks after normalization;
 - confirm you did not leave any parser-reported `inconsistent_done_tasks` entry in an invalid `__done__` state;
 - confirm any remaining work was represented as unchecked checklist state or a live standalone `**BLOCKER**`, not only in prose;
 - confirm tracked changes were committed if any were made.

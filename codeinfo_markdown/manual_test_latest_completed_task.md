@@ -6,7 +6,9 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
+- Read `codeInfoStatus/flow-state/current-task.json` after `current-plan.json` and determine the bound task from what it contains rather than depending on an exact JSON shape.
 - Re-open the exact relative `plan_path` from disk before deciding what to test, because another agent may have just edited it.
+- If `current-task.json` does not clearly resolve a task for this loop pass, state that manual testing must wait for task resolution and do not invent a different candidate task.
 - Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists and determine its meaning from the information it contains rather than depending on an exact JSON shape.
 - Treat the runtime research file as a stored summary of the best supported startup, shutdown, prerequisite, surface, availability, and fallback information for the repositories in scope.
 - The runtime research file may legitimately be absent between regeneration steps because it is live local research rather than a durable tracked handoff artifact.
@@ -61,17 +63,16 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <blocker_detection_rules>
 
 - Before deciding whether the candidate task is blocked, read `codeinfo_markdown/shared/blocker-detection.md`.
-- Run `python3 scripts/plan_status.py --selector active_or_done`.
+- Determine the bound task number from `current-task.json`, then run `python3 scripts/plan_status.py --task-number <that-number>`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for candidate selection.
-- If the parser-selected task does not match the candidate task you intend to test, stop and re-check the task-selection reasoning before continuing.
+- If the parser-selected task does not match the bound task from `current-task.json`, stop and say the task handoff must be regenerated before manual testing continues.
 
 </blocker_detection_rules>
 
 <candidate_selection_rules>
 
-- Identify the candidate task for this loop iteration by scanning the plan from bottom to top and selecting the highest-numbered task whose `Task Status` is either `__done__` or `__in_progress__`.
-- If there is no such candidate task, report that manual testing is not applicable for this loop pass and do not edit files.
+- Use the task already resolved into `current-task.json` as the candidate task for this loop iteration.
 - If the candidate task is `__in_progress__`, or its implementation notes contain a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, or it otherwise is not honestly complete yet, do not perform manual testing.
 - Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**` when deciding whether the task is still blocked.
 - Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not complete yet.
@@ -221,7 +222,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <verification_loop>
 
 - Confirm you used only the stored handoff and runtime-research scope.
-- Confirm you selected the highest-numbered `__done__` or `__in_progress__` task honestly.
+- Confirm you used the task already resolved into `current-task.json`.
 - Confirm you did not require later-task-owned surfaces unless the candidate task explicitly depended on them.
 - Confirm any failure-triggered follow-up work came after a bounded diagnosis pass rather than from first-guess speculation.
 - Confirm any new subtasks and proof-authoring subtasks are detailed enough for a weak junior agent to follow.

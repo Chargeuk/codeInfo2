@@ -10113,7 +10113,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 - `R1.` The current pass durable evidence artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof homes: Task 129 subtasks 4 and 9 plus Testing items 1 and 2.
 - `R2.` The current pass durable findings artifact is no longer ignored by the repository ignore rules. Owner: `.gitignore`. Proof homes: Task 129 subtasks 5 and 10 plus Testing items 1 and 2.
 - `R3.` Transient handoff and additive review files stay ignored while the durable artifacts become visible. Owners: `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: Task 129 subtasks 6 through 13 plus Testing items 1 and 2.
-- `R4.` `planning/0000055-pr-summary.md` retains the repaired visibility proof chain for the current pass. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 129 subtasks 9 through 13 plus Testing items 1 through 3.
+- `R4.` `planning/0000055-pr-summary.md` retains the repaired visibility proof chain for the current pass. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 129 subtasks 9 through 14 plus Testing items 1 through 3.
 
 #### Documentation Locations
 
@@ -10140,6 +10140,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 11. [ ] Proof type: summary proof retention. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-current-review.json`. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes showing `codeInfoStatus/reviews/0000055-current-review.json` stayed ignored while the durable artifacts became visible. Purpose: keep the transient current-review boundary explicit for this pass.
 12. [ ] Proof type: summary proof retention. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-external-review-input.md`. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes showing `codeInfoStatus/reviews/0000055-external-review-input.md` stayed ignored while the durable artifacts became visible. Purpose: keep the transient external-review-input boundary explicit for this pass.
 13. [ ] Proof type: summary proof retention. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-blind-spot-challenge.md`. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes showing the optional blind-spot challenge file stayed ignored while the durable artifacts became visible. Purpose: keep the additive challenge boundary explicit for this pass.
+14. [ ] Proof type: summary proof retention. Owners: `.gitignore`, `planning/0000055-pr-summary.md`. Location: `planning/0000055-pr-summary.md`. Description: record that no wrapper build, wrapper test, compose startup, or compose shutdown proof applies because the change surface is limited to `.gitignore` and retained proof notes. Purpose: keep the support-file-only validation boundary explicit for this pass.
 
 #### Testing
 
@@ -10173,8 +10174,8 @@ This final review-follow-up task confirms the current pass durable review-artifa
 
 - `R1.` Final validation does not begin until Task 129 is complete and its proof homes are retained in the maintained summary. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 130 subtasks 4 through 9 plus Testing items 1 through 3.
 - `R2.` The current durable evidence and findings artifacts still exist on disk and remain naturally visible while transient or additive review files stay ignored. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-findings.md`. Proof homes: Task 130 subtasks 7 through 10 plus Testing items 1 through 3.
-- `R3.` `planning/0000055-pr-summary.md` preserves the final Story 55 proof chain from Task 128 while adding the repaired Task 129 visibility proof homes. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 130 subtasks 4 through 10.
-- `R4.` Remaining rejected-risk and challenge notes from review pass `0000055-20260414T172618Z-9d2d2467` stay explicitly retained in the maintained summary after the support-file repair lands. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 130 subtask 11.
+- `R3.` `planning/0000055-pr-summary.md` preserves the final Story 55 proof chain from Task 128 while adding the repaired Task 129 visibility proof homes. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 130 subtasks 4 through 12.
+- `R4.` Remaining rejected-risk and challenge notes from review pass `0000055-20260414T172618Z-9d2d2467` stay explicitly retained in the maintained summary after the support-file repair lands. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 130 subtasks 11 and 12.
 
 #### Documentation Locations
 
@@ -10198,6 +10199,7 @@ This final review-follow-up task confirms the current pass durable review-artifa
 9. [ ] Proof type: summary proof retention. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, `codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-blind-spot-challenge.md`. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes showing the transient and additive review files stayed ignored after the current pass durable artifacts became visible. Purpose: keep the transient/additive boundary explicit for this final validation pass.
 10. [ ] Proof type: final validation. Owner: `planning/0000055-pr-summary.md`. Location: `planning/0000055-pr-summary.md`. Description: confirm the Task 128 retained wrapper and main-stack proof homes remain cited verbatim after the Task 129 support-file repair, without replacing them with a narrower support-file-only proof chain. Purpose: keep the completed Story 55 runtime proof chain intact while this pass only repairs artifact hygiene.
 11. [ ] Proof type: final validation. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-findings.md`, `codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-blind-spot-challenge.md`. Location: `planning/0000055-pr-summary.md`. Description: carry forward the current pass rejected-risk and challenge notes after the visibility repair lands. Purpose: keep residual risk honest at final close-out.
+12. [ ] Proof type: final validation. Owners: `.gitignore`, `planning/0000055-pr-summary.md`. Location: `planning/0000055-pr-summary.md`. Description: record that this final pass closes with the direct git visibility chain instead of rerunning unrelated wrapper suites because Task 129 changes only `.gitignore` and retained proof notes. Purpose: keep the support-file-only final validation boundary explicit for this pass.
 
 #### Testing
 

@@ -9504,7 +9504,7 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `121`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 3.
 
 #### Overview
@@ -9563,6 +9563,7 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 - Testing 2: `npm run test:summary:server:unit` passed with `tests run: 1677`, `passed: 1677`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-unit-tests-2026-04-14T08-50-02-721Z.log`, so the direct route-log proof owners and the broader server unit surface both accept the shared `canonicalTargetPath` marker schema.
 - Testing 3: `npm run test:summary:server:cucumber` passed with `tests run: 90`, `passed: 90`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-cucumber-tests-2026-04-14T09-10-53-238Z.log`, so the broader Mongo-backed route surface still stays green after the shared marker-schema repair.
 - Testing 4: broader client-wrapper, compose-build, and supported-runtime smoke proof remained honestly not applicable here because Task 122 only changes shared route-log payload fields; Task 125 still owns that wider rerun chain.
+- Automated-proof audit on 2026-04-14: closed Task 122 after confirming all subtasks and testing items were already complete on disk, no live blocker remained, and the broader wrapper/runtime rerun stayed correctly owned by Task 125 rather than this route-log schema repair.
 
 ### Task 123. Replace Wall-Clock Queue Cache Proof With Deterministic Timing Proof
 

@@ -166,12 +166,21 @@ When('the ingest run finishes successfully', async () => {
 
 When('I remove the repo ingest entry', async () => {
   assert(tempDir, 'temp dir missing');
-  const res = await fetch(
-    `${baseUrl}/ingest/remove/${encodeURIComponent(tempDir)}`,
-    { method: 'POST' },
-  );
-  lastResponse = { status: res.status, body: await res.json() };
-  assert.equal(res.status, 200);
+  for (let i = 0; i < 60; i += 1) {
+    const res = await fetch(
+      `${baseUrl}/ingest/remove/${encodeURIComponent(tempDir)}`,
+      { method: 'POST' },
+    );
+    lastResponse = { status: res.status, body: await res.json() };
+    if (res.status === 200) {
+      return;
+    }
+    if (res.status !== 429) {
+      assert.equal(res.status, 200);
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(lastResponse?.status, 200);
 });
 
 Then('the vectors collection is deleted and the lock is cleared', async () => {

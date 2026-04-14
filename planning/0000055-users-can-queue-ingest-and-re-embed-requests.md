@@ -9905,7 +9905,7 @@ This review-fix task repairs the queue and zero-work re-embed paths so they retu
 
 #### Overview
 
-This review-fix task updates the current repository's ignore rules so the durable evidence and findings artifacts for review pass `0000055-20260414T131709Z-cd90d65b` are naturally commit-visible while transient handoff or additive review files remain ignored.
+This review-fix task updates the current repository's ignore rules so the durable evidence and findings artifacts for review pass `0000055-20260414T131709Z-cd90d65b` are naturally commit-visible while transient handoff or additive review files remain ignored. Because this task only changes repository ignore rules, wrapper build, test, and runtime proof steps are not applicable; direct git visibility checks are the honest validation path.
 
 #### Task Exit Criteria
 
@@ -9958,33 +9958,37 @@ This review-fix task updates the current repository's ignore rules so the durabl
 
 #### Overview
 
-This final review-follow-up task revalidates Story 55 after the current review-fix tasks land. It must confirm the repaired duplicate-admission response contract, the zero-work re-embed degraded-path completion contract, and the current-pass durable review-artifact visibility boundary on current disk, then refresh the maintained summary with retained proof homes and honest residual-risk notes for this pass.
+This final review-follow-up task revalidates Story 55 after the current review-fix tasks land. It must confirm the repaired duplicate-admission response contract, the zero-work re-embed degraded-path completion contract, and the current-pass durable review-artifact visibility boundary on current disk, then refresh the maintained summary with retained proof homes and honest residual-risk notes for this pass. Because this repository's normal supported runtime path is the main `compose` stack, the final proof must include both the wrapper-first automated validation path and a live main-stack smoke proof through the existing host-network probe wrapper before shutdown.
 
 #### Task Exit Criteria
 
 - `R1.` Tasks 126 and 127 are `__done__` before final reruns begin.
 - `R2.` The current durable evidence and findings artifacts for review pass `0000055-20260414T131709Z-cd90d65b` still exist on disk and remain naturally visible to normal git workflows.
 - `R3.` `planning/0000055-pr-summary.md` records the exact owner files and retained proof homes for Tasks 126 and 127 before final close-out.
-- `R4.` The relevant wrapper, browser or API, compose, and direct git proof chain for this findings-present pass passes on current disk after Tasks 126 and 127 land.
+- `R4.` The relevant wrapper, browser or API, compose, live main-stack smoke, and direct git proof chain for this findings-present pass passes on current disk after Tasks 126 and 127 land.
 - `R5.` Final close-out records the remaining rejected-risk and weak-proof notes from the current findings and challenge artifacts honestly instead of silently dropping them behind green wrappers.
 
 #### Proof Mapping
 
 - `R1.` Final revalidation does not begin until Tasks 126 and 127 are complete and their proof homes are retained in the maintained summary. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 128 subtasks 2 through 5 plus Testing items 1 through 7.
-- `R2.` The current durable evidence and findings artifacts still exist on disk and remain naturally visible while transient or additive review files stay ignored. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`. Proof homes: Task 128 subtasks 5 through 12 plus Testing items 10 through 12.
+- `R2.` The current durable evidence and findings artifacts still exist on disk and remain naturally visible while transient or additive review files stay ignored. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`. Proof homes: Task 128 subtasks 5 through 12 plus Testing items 11 through 13.
 - `R3.` `planning/0000055-pr-summary.md` records the repaired owner files and retained proof homes for Tasks 126 and 127 before final close-out. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 128 subtasks 2 through 12.
-- `R4.` The relevant wrapper, compose, browser-backed e2e, and direct git proof chain all pass on current disk after the review-fix tasks land. Owners: wrapper scripts, `docker-compose.yml`, `server/src/ingest/requestQueue.ts`, `server/src/ingest/ingestJob.ts`, `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: Task 128 subtasks 10 through 12 plus Testing items 1 through 12.
+- `R4.` The relevant wrapper, compose, browser-backed e2e, live main-stack smoke, and direct git proof chain all pass on current disk after the review-fix tasks land. Owners: wrapper scripts, `docker-compose.yml`, `scripts/test-summary-host-network-main.mjs`, `server/src/test/support/hostNetworkMainProbe.mjs`, `server/src/ingest/requestQueue.ts`, `server/src/ingest/ingestJob.ts`, `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: Task 128 subtasks 10 through 12 plus Testing items 1 through 13.
 - `R5.` Remaining rejected-risk and weak-proof notes from the current findings and challenge artifacts are explicitly retained in the maintained summary. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 128 subtask 13.
 
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `planning/0000055-pr-summary.md`
+- `README.md`
+- `docker-compose.yml`
+- `scripts/test-summary-host-network-main.mjs`
 - `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`
 - `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`
 - `server/src/ingest/requestQueue.ts`
 - `server/src/ingest/ingestJob.ts`
+- `server/src/test/support/hostNetworkMainProbe.mjs`
 - `.gitignore`
 
 #### Subtasks
@@ -9999,7 +10003,7 @@ This final review-follow-up task revalidates Story 55 after the current review-f
 8. [ ] Proof type: summary proof retention. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-external-review-input.md`. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes showing the transient external review input file stayed ignored while the durable artifacts became visible. Purpose: keep the workflow-state input boundary explicit in the final summary.
 9. [ ] Proof type: summary proof retention. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`. Location: `planning/0000055-pr-summary.md`. Description: record the retained proof homes showing the additive blind-spot challenge file stayed ignored while the durable artifacts became visible. Purpose: keep additive review context distinct from durable artifacts in the final summary.
 10. [ ] Proof type: summary proof maintenance. Owners: wrapper scripts, `server/src/ingest/requestQueue.ts`, `server/src/ingest/ingestJob.ts`. Location: `planning/0000055-pr-summary.md`. Description: record the final automated wrapper proof chain from this pass, including the exact wrapper names and retained proof homes that validate the repaired queue and zero-work contracts on current disk. Purpose: preserve the retained automated-proof trail instead of flattening it into a generic close-out line.
-11. [ ] Proof type: summary proof maintenance. Owners: `docker-compose.yml`, compose wrapper scripts. Location: `planning/0000055-pr-summary.md`. Description: record the final compose smoke proof chain from this pass, including the exact build, startup, and shutdown proof homes that validate the repaired story on current disk. Purpose: keep the runtime lifecycle proof distinct from the automated wrapper proof chain.
+11. [ ] Proof type: summary proof maintenance. Owners: `docker-compose.yml`, compose wrapper scripts, `scripts/test-summary-host-network-main.mjs`, `server/src/test/support/hostNetworkMainProbe.mjs`. Location: `planning/0000055-pr-summary.md`. Description: record the final normal main-stack smoke proof chain from this pass, including the exact compose startup, `npm run test:summary:host-network:main` probe, and compose shutdown proof homes that validate the repaired story on current disk. Purpose: keep the supported-runtime proof distinct from both the automated wrapper proof chain and the direct git visibility checks.
 12. [ ] Proof type: summary proof maintenance. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`. Location: `planning/0000055-pr-summary.md`. Description: record the final direct git proof chain from this pass, including the exact direct git commands and retained proof homes that validate durable-artifact visibility on current disk. Purpose: preserve the retained artifact-hygiene trail instead of flattening it into a generic close-out line.
 13. [ ] Proof type: summary proof maintenance. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md`, `codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`. Location: `planning/0000055-pr-summary.md`. Description: carry forward the remaining honest rejected-risk and weak-proof notes from the current findings and challenge artifacts after the review-fix tasks land. Purpose: keep the final revalidation honest about what this pass still proves only indirectly.
 
@@ -10012,11 +10016,12 @@ This final review-follow-up task revalidates Story 55 after the current review-f
 5. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper passes on current `HEAD` after Tasks 126 and 127 land.
 6. [ ] Run `npm run test:summary:client` and confirm the full client test wrapper passes on current `HEAD` after Tasks 126 and 127 land.
 7. [ ] Run `npm run test:summary:e2e` and confirm the full e2e wrapper passes on current `HEAD` after Tasks 126 and 127 land.
-8. [ ] Run `npm run compose:up` and confirm the supported compose stack starts cleanly after the current review-fix tasks land.
-9. [ ] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the runtime smoke proof.
-10. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md && test -f codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` and confirm the current durable review artifacts still exist on disk before final close-out.
-11. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient or additive files remain ignored.
-12. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the final review-fix pass leaves the durable artifacts and required plan and summary updates naturally visible.
+8. [ ] Run `npm run compose:up` and confirm the supported main compose stack starts cleanly after the current review-fix tasks land and stays available for the live smoke probe.
+9. [ ] Run `npm run test:summary:host-network:main` and confirm the existing main-stack host-network probe wrapper passes against the live supported compose stack after `npm run compose:up`.
+10. [ ] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the live main-stack smoke proof.
+11. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md && test -f codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md` and confirm the current durable review artifacts still exist on disk before final close-out.
+12. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient or additive files remain ignored.
+13. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the final review-fix pass leaves the durable artifacts and required plan and summary updates naturally visible.
 
 #### Implementation notes
 

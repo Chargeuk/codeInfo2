@@ -9266,8 +9266,8 @@ This task repairs the cucumber proof owner for queued root status so it only pas
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the queued-roots proof repair.
-2. [ ] Separate server-build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber proof owners; the later final revalidation task owns the broader wrapper and runtime rerun.
+1. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the queued-roots proof repair.
+2. [x] Separate server-build, server-unit, compose-build, and supported-runtime smoke proof is not applicable here because this task only repairs cucumber proof owners; the later final revalidation task owns the broader wrapper and runtime rerun.
 
 If Testing item 1 fails during diagnosis, a targeted `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature` rerun may be used to narrow the repair, but this task only closes after Testing item 1 passes again.
 
@@ -9276,6 +9276,8 @@ If Testing item 1 fails during diagnosis, a targeted `npm run test:summary:serve
 - Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the queued-roots cucumber false-pass finding.
 - Activation on 2026-04-14: promoted Task 118 to `__in_progress__` as the earliest executable owner after the newer review-created tasks 118 through 125 were re-read from current disk.
 - Subtasks 1 through 4: refactored the queued-roots status poll into an exact-match helper in `server/src/test/steps/ingest-roots.steps.ts`, added explicit mismatch diagnostics that include the unexpected `error` payload, renamed the happy-path feature scenario to keep the expected completed state obvious, and added a cucumber regression scenario that asserts the completed-state check now fails with a readable mismatch when an empty repo run reaches `error`.
+- Testing 1: `npm run test:summary:server:cucumber` passed cleanly on current disk with `89/89` scenarios green and wrapper `agent_action: skip_log`, retaining proof home `test-results/server-cucumber-tests-2026-04-14T03-33-10-829Z.log`.
+- Testing 2: separate server-build, server-unit, compose-build, and supported-runtime smoke proof remains honestly not applicable because Task 118 only repairs cucumber proof owners and the later final revalidation task still owns the broader wrapper and runtime rerun set.
 
 ### Task 119. Reject Untrusted Ingest Start Paths Before Queue Persistence
 

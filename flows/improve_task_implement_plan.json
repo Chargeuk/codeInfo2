@@ -249,6 +249,13 @@
                 },
                 {
                   "type": "llm",
+                  "label": "Deep repair automated-proof test blocker",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "deep_test_failure_repair.md"
+                },
+                {
+                  "type": "llm",
                   "label": "Audit after automated proof",
                   "agentType": "planning_agent",
                   "identifier": "planner",

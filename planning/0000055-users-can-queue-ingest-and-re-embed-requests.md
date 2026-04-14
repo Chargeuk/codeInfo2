@@ -9570,7 +9570,7 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `122`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 4.
 
 #### Overview
@@ -9600,10 +9600,10 @@ This task removes the wall-clock sleep from the queue terminal-cache eviction pr
 
 #### Subtasks
 
-1. [ ] Introduce or expose one deterministic time-control seam owned by the queue terminal-cache helper so expiry can be advanced in proof without sleeping. Purpose: replace flaky wall-clock dependence with bounded deterministic proof.
-2. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the cache still retains terminal state before expiry by advancing the deterministic time seam without using a fixed-delay sleep. Purpose: make the pre-expiry retention invariant explicit.
-3. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the cache evicts terminal state after expiry by advancing the same deterministic time seam without using a fixed-delay sleep. Purpose: make the post-expiry eviction invariant explicit.
-4. [ ] Proof type: test maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: remove or rewrite the old `setTimeout(20)`-based proof path so the test title, deterministic clock boundary, and cache-reset setup no longer imply a wall-clock race or hidden shared-state dependence. Purpose: keep the proof owner honest after the deterministic seam lands.
+1. [x] Introduce or expose one deterministic time-control seam owned by the queue terminal-cache helper so expiry can be advanced in proof without sleeping. Purpose: replace flaky wall-clock dependence with bounded deterministic proof.
+2. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the cache still retains terminal state before expiry by advancing the deterministic time seam without using a fixed-delay sleep. Purpose: make the pre-expiry retention invariant explicit.
+3. [x] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove the cache evicts terminal state after expiry by advancing the same deterministic time seam without using a fixed-delay sleep. Purpose: make the post-expiry eviction invariant explicit.
+4. [x] Proof type: test maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: remove or rewrite the old `setTimeout(20)`-based proof path so the test title, deterministic clock boundary, and cache-reset setup no longer imply a wall-clock race or hidden shared-state dependence. Purpose: keep the proof owner honest after the deterministic seam lands.
 
 #### Testing
 
@@ -9616,6 +9616,10 @@ If Testing item 2 fails during diagnosis, a targeted `npm run test:summary:serve
 #### Implementation notes
 
 - Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the timer-based queue-cache proof weakness.
+- Activation on 2026-04-14: promoted Task 123 to `__in_progress__` as the earliest executable owner after Task 122 normalized to `__done__`.
+- Subtask 1: updated `server/src/ingest/ingestJob.ts` so the terminal-status cache now records per-request expiry timestamps and exposes a test-only `__setQueueRequestTerminalStatusNowForTest(...)` clock seam. The production helper still uses the existing timeout cleanup path, but proof can now advance helper-owned time without sleeping.
+- Subtasks 2 and 3: rewrote the Task 123 owner in `server/src/test/unit/ingest-queue-runtime.test.ts` to pin the terminal-cache clock before publishing, advance it to just before expiry to prove retention, and then advance it across the expiry boundary to prove eviction deterministically.
+- Subtask 4: removed the old `setTimeout(20)` wall-clock proof shape and renamed the queue-cache test so it now states the explicit pre-expiry retention and post-expiry eviction boundary instead of implying a timing race.
 
 ### Task 124. Clear Stale Diagnostics When Queue Overlay Returns To Healthy State
 

@@ -14,6 +14,7 @@ import {
   __finalizeQueueRequestForRunForTest,
   __getQueueRequestTerminalStatusCountForTest,
   __resetIngestJobsForTest,
+  __setQueueRequestTerminalStatusNowForTest,
   __setQueueRequestTerminalStatusTtlForTest,
   __setQueueRuntimeOpsForTest,
   __setQueueRequestIdForRunForTest,
@@ -688,7 +689,14 @@ test('terminal queue cleanup deletes the current queue record before the next wa
   assert.deepEqual(events, ['delete-current', 'promote-next']);
 });
 
-test('terminal queue request cache evicts completed entries after the retention window', async () => {
+test('terminal queue request cache retains completed entries until expiry and evicts them deterministically after the boundary', async () => {
+  let terminalStatusNowMs = 1_000;
+  const advanceTerminalStatusTime = (ms: number) => {
+    terminalStatusNowMs += ms;
+    __setQueueRequestTerminalStatusNowForTest(terminalStatusNowMs);
+  };
+
+  __setQueueRequestTerminalStatusNowForTest(terminalStatusNowMs);
   __setQueueRequestIdForRunForTest('run-evicted', 'queue-evicted');
   __setQueueRequestTerminalStatusTtlForTest(5);
 
@@ -701,7 +709,9 @@ test('terminal queue request cache evicts completed entries after the retention 
   });
 
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
-  await new Promise((resolve) => globalThis.setTimeout(resolve, 20));
+  advanceTerminalStatusTime(4);
+  assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
+  advanceTerminalStatusTime(1);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
 });
 

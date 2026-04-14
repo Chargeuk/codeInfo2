@@ -218,6 +218,7 @@ const queueRequestTerminalStatusEvictionTimers = new Map<
   string,
   ReturnType<typeof globalThis.setTimeout>
 >();
+const queueRequestTerminalStatusExpiresAtMs = new Map<string, number>();
 const queueCleanupRetryAttempts = new Map<string, number>();
 const blockedCleanupStatusSnapshots = new Map<string, IngestJobStatus>();
 const queueRequestTerminalStatuses = new Map<
@@ -235,6 +236,7 @@ let runProcessor:
   | null = null;
 let queueCleanupRetryDelayOverrideMs: number | null = null;
 let queueRequestTerminalStatusTtlOverrideMs: number | null = null;
+let queueRequestTerminalStatusNowForTestMs: number | null = null;
 const defaultRunScheduler: RunScheduler = (task) => {
   setImmediate(task);
 };
@@ -288,6 +290,32 @@ type RunStatusEvent = {
   status: IngestJobStatus;
 };
 
+function getQueueRequestTerminalStatusNowMs() {
+  return queueRequestTerminalStatusNowForTestMs ?? Date.now();
+}
+
+function clearQueueRequestTerminalStatusRetention(requestId: string) {
+  const handle =
+    queueRequestTerminalStatusEvictionTimers.get(requestId) ?? null;
+  if (handle) {
+    globalThis.clearTimeout(handle);
+  }
+  queueRequestTerminalStatusEvictionTimers.delete(requestId);
+  queueRequestTerminalStatusExpiresAtMs.delete(requestId);
+}
+
+function evictExpiredQueueRequestTerminalStatuses(
+  nowMs = getQueueRequestTerminalStatusNowMs(),
+) {
+  for (const [requestId, expiresAtMs] of queueRequestTerminalStatusExpiresAtMs) {
+    if (expiresAtMs > nowMs) {
+      continue;
+    }
+    queueRequestTerminalStatuses.delete(requestId);
+    clearQueueRequestTerminalStatusRetention(requestId);
+  }
+}
+
 function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
   jobs.set(runId, nextStatus);
   broadcastIngestUpdate(nextStatus);
@@ -297,19 +325,18 @@ function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
       runId,
       status: nextStatus,
     });
-    const existingEvictionTimer =
-      queueRequestTerminalStatusEvictionTimers.get(requestId) ?? null;
-    if (existingEvictionTimer) {
-      globalThis.clearTimeout(existingEvictionTimer);
-    }
+    clearQueueRequestTerminalStatusRetention(requestId);
     const retentionMs = Math.max(
       1,
       queueRequestTerminalStatusTtlOverrideMs ??
         QUEUE_REQUEST_TERMINAL_STATUS_TTL_MS,
     );
+    queueRequestTerminalStatusExpiresAtMs.set(
+      requestId,
+      getQueueRequestTerminalStatusNowMs() + retentionMs,
+    );
     const evictionTimer = globalThis.setTimeout(() => {
-      queueRequestTerminalStatuses.delete(requestId);
-      queueRequestTerminalStatusEvictionTimers.delete(requestId);
+      evictExpiredQueueRequestTerminalStatuses();
     }, retentionMs);
     evictionTimer.unref?.();
     queueRequestTerminalStatusEvictionTimers.set(requestId, evictionTimer);
@@ -3059,6 +3086,18 @@ export function __setQueueRequestTerminalStatusTtlForTest(
   queueRequestTerminalStatusTtlOverrideMs = ttlMs;
 }
 
+export function __setQueueRequestTerminalStatusNowForTest(
+  nowMs: number | null,
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__setQueueRequestTerminalStatusNowForTest is only available in test mode',
+    );
+  }
+  queueRequestTerminalStatusNowForTestMs = nowMs;
+  evictExpiredQueueRequestTerminalStatuses();
+}
+
 export function __setRunSchedulerForTest(scheduler: RunScheduler | null) {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error('__setRunSchedulerForTest is only available in test mode');
@@ -3118,6 +3157,7 @@ export function __resetIngestJobsForTest() {
   queueCleanupFinalizers.clear();
   blockedCleanupStatusSnapshots.clear();
   queueRequestTerminalStatuses.clear();
+  queueRequestTerminalStatusExpiresAtMs.clear();
   for (const handle of queueRequestTerminalStatusEvictionTimers.values()) {
     globalThis.clearTimeout(handle);
   }
@@ -3132,6 +3172,7 @@ export function __resetIngestJobsForTest() {
   runScheduler = defaultRunScheduler;
   queueCleanupRetryDelayOverrideMs = null;
   queueRequestTerminalStatusTtlOverrideMs = null;
+  queueRequestTerminalStatusNowForTestMs = null;
   queueRuntimeOps = defaultQueueRuntimeOps;
 }
 

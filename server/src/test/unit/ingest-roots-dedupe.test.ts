@@ -188,7 +188,7 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
 });
 
-test('GET /ingest/roots emits the flat normalized error payload shape and preserves legacy lastError string', async () => {
+test('GET /ingest/roots keeps genuine current error diagnostics visible while serializing the flat normalized error payload', async () => {
   const response = await request(
     createRootsApp(
       {
@@ -326,7 +326,7 @@ test('GET /ingest/roots preserves canonical queued repository identity alongside
   });
 });
 
-test('GET /ingest/roots keeps queue document fields authoritative when persisted metadata exists for the same target', async () => {
+test('GET /ingest/roots keeps cleanup-blocked diagnostics visible when queue document fields stay authoritative over persisted metadata', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -404,7 +404,7 @@ test('GET /ingest/roots keeps queue document fields authoritative when persisted
   });
 });
 
-test('GET /ingest/roots keeps the blocked owner when a later waiting request targets the same root', async () => {
+test('GET /ingest/roots keeps cleanup-blocked diagnostics visible when a later waiting request targets the same root', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -657,6 +657,160 @@ test('GET /ingest/roots keeps the more complete duplicate metadata row before ap
   assert.deepEqual(matches[0]?.counts, { files: 9, chunks: 12, embedded: 12 });
   assert.equal(matches[0]?.embeddingModel, 'embed-model');
   assert.equal(matches[0]?.queueState, 'waiting');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('GET /ingest/roots clears stale persisted diagnostics when a healthy waiting queue overlay replaces the old failure state', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000091'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                description: 'queued recovery',
+                model: 'fresh-model',
+                embeddingProvider: 'openai',
+                embeddingModel: 'fresh-model',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'stale-model',
+            state: 'error',
+            lastError: 'stale persisted failure',
+            error: {
+              error: 'OPENAI_TIMEOUT',
+              message: 'stale persisted failure',
+              retryable: true,
+              provider: 'openai',
+            },
+          },
+        ],
+      },
+      'stale-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const root = response.body.roots[0];
+  assert.equal(root.queueState, 'waiting');
+  assert.equal(root.status, 'ingesting');
+  assert.equal(root.phase, 'queued');
+  assert.equal(root.lastError, null);
+  assert.equal(root.error, null);
+  assert.equal(root.embeddingProvider, 'openai');
+  assert.equal(root.embeddingModel, 'fresh-model');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('GET /ingest/roots clears stale persisted diagnostics when a healthy running queue overlay replaces the old failure state', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000092'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'reembed',
+              queueState: 'running',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'fresh-model',
+                embeddingProvider: 'openai',
+                embeddingModel: 'fresh-model',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: 'run-recovered',
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('run-recovered', {
+    runId: 'run-recovered',
+    state: 'embedding',
+    counts: { files: 6, chunks: 12, embedded: 4 },
+    lastError: null,
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'stale-model',
+            state: 'error',
+            lastError: 'stale persisted failure',
+            error: {
+              error: 'OPENAI_TIMEOUT',
+              message: 'stale persisted failure',
+              retryable: true,
+              provider: 'openai',
+            },
+          },
+        ],
+      },
+      'stale-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const root = response.body.roots[0];
+  assert.equal(root.queueState, 'running');
+  assert.equal(root.status, 'ingesting');
+  assert.equal(root.phase, 'embedding');
+  assert.equal(root.lastError, null);
+  assert.equal(root.error, null);
+  assert.deepEqual(root.counts, { files: 6, chunks: 12, embedded: 4 });
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
     value: originalReadyState,

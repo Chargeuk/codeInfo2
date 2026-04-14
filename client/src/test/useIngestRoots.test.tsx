@@ -256,6 +256,46 @@ describe('useIngestRoots', () => {
     });
   });
 
+  it('clears stale persisted diagnostics from healthy waiting rows during normalization', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: 'stable-repo-id',
+          requestId: 'queue-request-waiting-recovery',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'repo-waiting-recovery',
+          path: '/repo-waiting-recovery',
+          status: 'ingesting',
+          phase: 'queued',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
+          model: 'text-embedding-3-small',
+          lastError: 'stale persisted failure',
+          error: {
+            error: 'OPENAI_TIMEOUT',
+            message: 'stale persisted failure',
+            retryable: true,
+            provider: 'openai',
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]).toMatchObject({
+      id: 'stable-repo-id',
+      queueState: 'waiting',
+      status: 'ingesting',
+      phase: 'queued',
+      lastError: null,
+      error: null,
+    });
+  });
+
   it('uses the restored route-level id instead of weaker name or path fallbacks when both are present', async () => {
     mockRootsResponse({
       roots: [
@@ -412,6 +452,44 @@ describe('useIngestRoots', () => {
         phase: 'scanning',
       }),
     );
+  });
+
+  it('clears stale persisted diagnostics from healthy running rows during normalization', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          requestId: 'queue-request-running-recovery',
+          runId: 'run-queued-recovery',
+          queueState: 'running',
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'ingesting',
+          phase: 'scanning',
+          model: 'embed-model',
+          lastError: 'stale persisted failure',
+          error: {
+            error: 'OPENAI_TIMEOUT',
+            message: 'stale persisted failure',
+            retryable: true,
+            provider: 'openai',
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]).toMatchObject({
+      id: '/stable-repo',
+      runId: 'run-queued-recovery',
+      queueState: 'running',
+      status: 'ingesting',
+      phase: 'scanning',
+      lastError: null,
+      error: null,
+    });
   });
 
   it('retried rows keep canonical route-level identity instead of reviving stale display-derived fallback data', async () => {

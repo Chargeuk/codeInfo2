@@ -767,7 +767,7 @@ test.describe.serial('Ingest flows', () => {
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
-  test('queued ingest rows keep one stable canonical identity through refresh', async ({
+  test('previously errored queued ingest rows recover into healthy state without stale diagnostics through refresh', async ({
     page,
   }) => {
     let rootsRequestCount = 0;
@@ -801,7 +801,7 @@ test.describe.serial('Ingest flows', () => {
               queuePosition: 1,
               lastIngestAt: '2025-01-01T00:00:00.000Z',
               counts: { files: 2, chunks: 4, embedded: 4 },
-              lastError: null,
+              lastError: 'Stale persisted error',
             },
           ],
           schemaVersion: '0000055-queued-repo-list-v1',
@@ -821,6 +821,7 @@ test.describe.serial('Ingest flows', () => {
     ).toBeVisible();
     await expect(row.getByText(/queued \(#1\)/i)).toBeVisible();
     await expect(row.getByText('stale-persisted-model')).toHaveCount(0);
+    await expect(row.getByText('Stale persisted error')).toHaveCount(0);
     await expect(page.getByText('fallback identity only')).toBeVisible();
 
     await page.getByRole('button', { name: /^refresh$/i }).click();
@@ -843,6 +844,11 @@ test.describe.serial('Ingest flows', () => {
       page.getByText('openai / text-embedding-3-small'),
     ).toBeVisible();
     await expect(page.getByText('stale-persisted-model')).toHaveCount(0);
+    await expect(page.getByText('Stale persisted error')).toHaveCount(0);
+    await saveStableScreenshot(
+      page,
+      '0000055-stale-diagnostics-recovered.png',
+    );
   });
 
   test('queued ingest rows keep one stable identity while queue ownership resumes after the current head finishes', async ({

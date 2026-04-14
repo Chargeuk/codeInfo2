@@ -1231,6 +1231,63 @@ describe('RootsTable', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('hides stale persisted diagnostics when a healthy queued or running overlay replaces the old failure state in table rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-waiting-recovery',
+            name: 'repo-waiting-recovery',
+            status: 'ingesting',
+            phase: 'queued',
+            queueState: 'waiting',
+            queuePosition: 1,
+            requestId: 'queue-request-waiting-recovery',
+            lastError: 'stale waiting error',
+            error: {
+              code: 'OPENAI_TIMEOUT',
+              message: 'stale waiting error',
+            },
+          },
+          {
+            ...root,
+            path: '/repo-running-recovery',
+            name: 'repo-running-recovery',
+            status: 'ingesting',
+            phase: 'embedding',
+            queueState: 'running',
+            runId: 'run-running-recovery',
+            lastError: 'stale running error',
+            error: {
+              code: 'OPENAI_TIMEOUT',
+              message: 'stale running error',
+            },
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const waitingRow = await screen.findByRole('row', {
+      name: /repo-waiting-recovery/i,
+    });
+    const runningRow = await screen.findByRole('row', {
+      name: /repo-running-recovery/i,
+    });
+
+    expect(
+      within(waitingRow).queryByTestId('roots-row-last-error'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(runningRow).queryByTestId('roots-row-last-error'),
+    ).not.toBeInTheDocument();
+  });
+
   it('re-renders an open details drawer from fresh waiting metadata for a reused row', async () => {
     render(
       <RootDetailsDrawer
@@ -1484,7 +1541,58 @@ describe('RootDetailsDrawer', () => {
     expect(screen.getByText(/AST Failed: –/)).toBeInTheDocument();
   });
 
-  it('renders legacy and normalized error payloads safely in details', () => {
+  it('hides stale persisted diagnostics in an open details drawer when healthy queued or running data arrives', () => {
+    const { rerender } = render(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          ...root,
+          runId: null,
+          requestId: 'queue-request-waiting-recovery',
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'repo-waiting-recovery',
+          path: '/repo-waiting-recovery',
+          status: 'ingesting',
+          phase: 'queued',
+          lastError: 'stale waiting error',
+          error: {
+            code: 'OPENAI_TIMEOUT',
+            message: 'stale waiting error',
+          },
+        }}
+      />,
+    );
+
+    expect(screen.queryByText(/Last error:/i)).not.toBeInTheDocument();
+
+    rerender(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          ...root,
+          runId: 'run-running-recovery',
+          requestId: 'queue-request-running-recovery',
+          queueState: 'running',
+          name: 'repo-running-recovery',
+          path: '/repo-running-recovery',
+          status: 'ingesting',
+          phase: 'embedding',
+          lastError: 'stale running error',
+          error: {
+            code: 'OPENAI_TIMEOUT',
+            message: 'stale running error',
+          },
+        }}
+      />,
+    );
+
+    expect(screen.queryByText(/Last error:/i)).not.toBeInTheDocument();
+  });
+
+  it('renders genuine current and cleanup-blocked diagnostics safely in details', () => {
     const { rerender } = render(
       <RootDetailsDrawer
         open
@@ -1531,6 +1639,30 @@ describe('RootDetailsDrawer', () => {
 
     expect(
       screen.getByText(/Last error: Normalized details error/),
+    ).toBeInTheDocument();
+
+    rerender(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          runId: 'run-cleanup-blocked',
+          requestId: 'queue-request-cleanup-blocked',
+          queueState: 'cleanup-blocked',
+          name: 'repo',
+          description: 'demo repo',
+          path: '/repo',
+          model: 'embed-1',
+          status: 'error',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: 'Queue cleanup blocked',
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Last error: Queue cleanup blocked/),
     ).toBeInTheDocument();
   });
 });

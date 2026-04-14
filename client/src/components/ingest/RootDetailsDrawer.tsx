@@ -52,8 +52,7 @@ export default function RootDetailsDrawer({
         .join(' · ')
     : null;
   const rootModelDisplay = root ? getRootEmbeddingDisplay(root) : undefined;
-  const rootError =
-    root?.lastError ?? root?.error?.message ?? root?.error?.details;
+  const rootError = root ? getRenderableRootError(root) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -183,6 +182,16 @@ export default function RootDetailsDrawer({
       </Box>
     </Drawer>
   );
+}
+
+function getRenderableRootError(root: IngestRoot) {
+  if (
+    root.status === 'ingesting' &&
+    (root.queueState === 'waiting' || root.queueState === 'running')
+  ) {
+    return null;
+  }
+  return root.lastError ?? root.error?.message ?? root.error?.details;
 }
 
 function getRootEmbeddingDisplay(root: IngestRoot) {

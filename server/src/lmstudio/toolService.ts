@@ -750,6 +750,11 @@ function applyWaitingQueueRequestMetadata(
   };
 }
 
+function clearHealthyQueueOverlayDiagnostics(repo: RepoEntry) {
+  repo.lastError = null;
+  repo.error = null;
+}
+
 function getQueueOverlayPrecedence(
   queueState: IngestQueueState | null | undefined,
 ) {
@@ -808,6 +813,7 @@ function applyQueueOverlay(params: {
 
   if (queueRequest.queueState === 'waiting') {
     applyWaitingQueueRequestMetadata(repo, queueRequest);
+    clearHealthyQueueOverlayDiagnostics(repo);
     repo.status = 'ingesting';
     repo.phase = 'queued';
     return;
@@ -827,6 +833,9 @@ function applyQueueOverlay(params: {
 
   if (activeContext) {
     const mappedState = mapInternalStateToExternal(activeContext.state);
+    if (mappedState.status === 'ingesting') {
+      clearHealthyQueueOverlayDiagnostics(repo);
+    }
     repo.status = mappedState.status;
     if (mappedState.phase) {
       repo.phase = mappedState.phase;
@@ -841,6 +850,9 @@ function applyQueueOverlay(params: {
 
   if (runtimeStatus) {
     const mappedState = mapInternalStateToExternal(runtimeStatus.state);
+    if (mappedState.status === 'ingesting') {
+      clearHealthyQueueOverlayDiagnostics(repo);
+    }
     repo.status = mappedState.status;
     if (mappedState.phase) {
       repo.phase = mappedState.phase;
@@ -852,6 +864,7 @@ function applyQueueOverlay(params: {
     return;
   }
 
+  clearHealthyQueueOverlayDiagnostics(repo);
   repo.status = 'ingesting';
   repo.phase = 'queued';
 }

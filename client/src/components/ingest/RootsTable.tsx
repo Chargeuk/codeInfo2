@@ -103,6 +103,16 @@ function getRootSelectionKey(root: IngestRoot) {
   return root.path;
 }
 
+function getRenderableRootError(root: IngestRoot) {
+  if (
+    root.status === 'ingesting' &&
+    (root.queueState === 'waiting' || root.queueState === 'running')
+  ) {
+    return null;
+  }
+  return root.lastError ?? root.error?.message ?? root.error?.details;
+}
+
 export default function RootsTable({
   roots,
   activeRunId,
@@ -493,8 +503,7 @@ export default function RootsTable({
                       ? `${root.status} (${phase})`
                       : root.status;
               const rootModelDisplay = getRootEmbeddingDisplay(root);
-              const rootError =
-                root.lastError ?? root.error?.message ?? root.error?.details;
+              const rootError = getRenderableRootError(root);
               const astCounts = root.ast;
               return (
                 <TableRow key={rowKey} hover selected={isSelected}>

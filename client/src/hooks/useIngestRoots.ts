@@ -128,6 +128,16 @@ function normalizeLastError(
   return null;
 }
 
+function shouldClearStaleQueueOverlayDiagnostics(
+  status: ExternalIngestStatus,
+  queueState: IngestQueueState | null,
+) {
+  return (
+    status === 'ingesting' &&
+    (queueState === 'waiting' || queueState === 'running')
+  );
+}
+
 function normalizeIdentityCandidate(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -160,13 +170,17 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
       ? entry.phase
       : undefined;
 
-  const error = normalizeError(entry.error);
   const queueState =
     entry.queueState === 'waiting' ||
     entry.queueState === 'running' ||
     entry.queueState === 'cleanup-blocked'
       ? entry.queueState
       : null;
+  const error = normalizeError(entry.error);
+  const clearStaleDiagnostics = shouldClearStaleQueueOverlayDiagnostics(
+    status,
+    queueState,
+  );
   const waitingOverlayPresent =
     queueState === 'waiting' && typeof entry.requestId === 'string';
   const canonicalEmbeddingProvider = normalizeProvider(entry.embeddingProvider);
@@ -305,8 +319,10 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
                 : null,
           }
         : undefined,
-    error,
-    lastError: normalizeLastError(entry.lastError, error),
+    error: clearStaleDiagnostics ? null : error,
+    lastError: clearStaleDiagnostics
+      ? null
+      : normalizeLastError(entry.lastError, error),
   };
 }
 

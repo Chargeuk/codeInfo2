@@ -9546,10 +9546,10 @@ This task makes the queue route emitters use one shared marker schema for the sa
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the marker-schema repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the marker-schema repair.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the marker-schema repair so the normal Mongo-backed route surface remains honest beyond the direct unit log proofs.
-4. [ ] Separate client-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes shared route-log payload fields rather than the default launcher or browser path; the later final revalidation task owns the broader rerun set.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the marker-schema repair.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the marker-schema repair.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the marker-schema repair so the normal Mongo-backed route surface remains honest beyond the direct unit log proofs.
+4. [x] Separate client-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes shared route-log payload fields rather than the default launcher or browser path; the later final revalidation task owns the broader rerun set.
 
 If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts --file server/src/test/unit/ingest-reembed.test.ts` rerun may be used to narrow the direct proof owner, but this task only closes after the full wrappers in Testing items 2 and 3 pass again.
 
@@ -9559,6 +9559,10 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 - Activation on 2026-04-14: promoted Task 122 to `__in_progress__` as the earliest executable owner after Task 121 normalized to `__done__`.
 - Subtasks 1 through 2: normalized both `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` to emit the shared `canonicalTargetPath` field across `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`, removing the route-specific `root` payload from the re-embed marker contexts.
 - Subtasks 3 through 7: refreshed `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` so the retained queue-marker proof titles and assertions now explicitly require the shared `canonicalTargetPath` field on both acceptance and updated-in-place markers.
+- Testing 1: `npm run build:summary:server` passed with `agent_action: skip_log` and retained `logs/test-summaries/build-server-latest.log`, so the server build still accepts the shared queue-marker schema repair.
+- Testing 2: `npm run test:summary:server:unit` passed with `tests run: 1677`, `passed: 1677`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-unit-tests-2026-04-14T08-50-02-721Z.log`, so the direct route-log proof owners and the broader server unit surface both accept the shared `canonicalTargetPath` marker schema.
+- Testing 3: `npm run test:summary:server:cucumber` passed with `tests run: 90`, `passed: 90`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-cucumber-tests-2026-04-14T09-10-53-238Z.log`, so the broader Mongo-backed route surface still stays green after the shared marker-schema repair.
+- Testing 4: broader client-wrapper, compose-build, and supported-runtime smoke proof remained honestly not applicable here because Task 122 only changes shared route-log payload fields; Task 125 still owns that wider rerun chain.
 
 ### Task 123. Replace Wall-Clock Queue Cache Proof With Deterministic Timing Proof
 

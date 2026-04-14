@@ -63,6 +63,7 @@ test.afterEach(() => {
     findOldestRunningQueueRequest: async () => null,
     getQueueRequestId: () => 'noop',
     markQueueRequestCleanupBlocked: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
   __setRunProcessorForTest(null);
@@ -359,6 +360,7 @@ test('cancel waits for queue cleanup before newer queued work advances', async (
       } as never;
     },
     findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async (runId: string) =>
       ({
         _id: { toString: () => 'queue-next' },

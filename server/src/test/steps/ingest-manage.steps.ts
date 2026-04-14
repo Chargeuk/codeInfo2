@@ -167,6 +167,7 @@ After(async () => {
     findOldestRunningQueueRequest: async () => null,
     getQueueRequestId: () => 'noop',
     markQueueRequestCleanupBlocked: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
   __setRunProcessorForTest(null);

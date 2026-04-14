@@ -9412,12 +9412,12 @@ This task closes the startup replay safety gap where a crash after terminal side
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the startup-recovery safety repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the startup-recovery safety repair.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the startup-recovery safety repair so the normal Mongo-backed backend path still proves committed-before-cleanup no-replay and genuinely unfinished replay.
-4. [ ] Run `npm run compose:build:summary` and confirm the compose build wrapper passes after the startup-recovery repair so the supported containerized runtime still packages the restart-path changes.
-5. [ ] Run `npm run compose:up` and confirm the default supported compose stack still starts cleanly after the startup-recovery repair.
-6. [ ] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the startup smoke proof.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the startup-recovery safety repair.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the startup-recovery safety repair.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the startup-recovery safety repair so the normal Mongo-backed backend path still proves committed-before-cleanup no-replay and genuinely unfinished replay.
+4. [x] Run `npm run compose:build:summary` and confirm the compose build wrapper passes after the startup-recovery repair so the supported containerized runtime still packages the restart-path changes.
+5. [x] Run `npm run compose:up` and confirm the default supported compose stack still starts cleanly after the startup-recovery repair.
+6. [x] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the startup smoke proof.
 
 If Testing items 2 or 3 fail during diagnosis, targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` or `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature` reruns may be used to narrow the repair, but this task only closes after the full wrappers in Testing items 2 and 3 and the supported compose proof chain in Testing items 4 through 6 pass again.
 
@@ -9430,6 +9430,12 @@ If Testing items 2 or 3 fail during diagnosis, targeted `npm run test:summary:se
 - Subtasks 6 through 9: updated `server/src/test/unit/ingest-queue-runtime.test.ts` so startup recovery now has distinct proof owners for committed-before-cleanup no-replay, genuinely unfinished replay, and cleanup-blocked stalling.
 - Subtasks 10 through 11: refreshed `server/src/test/integration/ingest-reembed.test.ts` with a no-replay committed-before-cleanup startup case and kept the unfinished replay integration proof as its own explicit branch.
 - Subtasks 12 through 13: refreshed the startup-recovery cucumber proof in `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts` so committed-before-cleanup no-replay and genuinely unfinished replay are separate, reviewable higher-level scenarios.
+- Testing 1: `npm run build:summary:server` now passes with `agent_action: skip_log`. The first build failed because Task 120's new `terminalPublishedAt` field widened a few unit-test helpers beyond the real queue-document type, so the rerun followed a small test-helper fix in `server/src/test/unit/ingest-queue-runtime.test.ts` and `server/src/test/unit/ingest-request-queue.test.ts`.
+- Testing 2: `npm run test:summary:server:unit` now passes with `tests run: 1677`, `passed: 1677`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-unit-tests-2026-04-14T07-43-58-688Z.log`. The first full-wrapper rerun exposed lingering test doubles that still fell through to the real `markQueueRequestTerminalPublished(...)` path plus one over-strict no-replay expectation, so the proof owners were tightened in `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/unit/ingest-cancel.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`, and `server/src/test/steps/ingest-manage.steps.ts` before the honest full rerun passed.
+- Testing 3: `npm run test:summary:server:cucumber` now passes with `tests run: 90`, `passed: 90`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-cucumber-tests-2026-04-14T08-03-07-345Z.log`, so the supported Mongo-backed feature path still proves both committed-before-cleanup no-replay and genuinely unfinished replay after the runtime repair.
+- Testing 4: `npm run compose:build:summary` now passes with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log` while retaining `logs/test-summaries/compose-build-latest.log`, so the supported containerized runtime still packages the startup-recovery changes cleanly.
+- Testing 5: `npm run compose:up` completed cleanly and brought the supported stack up with healthy `server`, `client`, `mongo`, `chroma`, `zipkin`, `otel`, and `playwright-mcp` containers, so the startup-recovery repair still runs on the normal supported compose path.
+- Testing 6: `npm run compose:down` completed cleanly and removed the supported containers plus the internal compose network, so the startup smoke proof now has a matching honest shutdown checkpoint.
 
 ### Task 121. Make Current Review Artifacts Commit-Visible For Pass `0000055-20260414T013213Z-2aaab374`
 

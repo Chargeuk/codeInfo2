@@ -28,6 +28,7 @@ function setNoopQueueRuntimeOps() {
     findOldestRunningQueueRequest: async () => null,
     getQueueRequestId: () => 'noop',
     markQueueRequestCleanupBlocked: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
 }
@@ -82,6 +83,7 @@ test('startup recovery does not replay committed-before-cleanup running work', a
         runId: 'run-recovered',
         terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
       }) as never,
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => {
       events.push('waiting-promoted');
       return null;
@@ -96,7 +98,7 @@ test('startup recovery does not replay committed-before-cleanup running work', a
   await waitForNextTurn();
 
   assert.equal(result.recovered, true);
-  assert.deepEqual(events, []);
+  assert.deepEqual(events, ['waiting-promoted']);
 });
 
 test('startup recovery still retries leftover running work before newer waiting work', async () => {

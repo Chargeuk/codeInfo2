@@ -36,6 +36,7 @@ function createQueueRequest(
       } satisfies Record<string, unknown>),
     sourceSurface: overrides.sourceSurface ?? 'rest/ingest/start',
     runId: overrides.runId ?? null,
+    terminalPublishedAt: overrides.terminalPublishedAt ?? null,
     createdAt,
     updatedAt,
   };

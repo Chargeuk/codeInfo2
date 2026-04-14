@@ -56,7 +56,7 @@ function createQueueRequest(params: {
   operation?: 'start' | 'reembed';
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
   runId?: string | null;
-  terminalPublishedAt?: Date | string | null;
+  terminalPublishedAt?: Date | null;
 }) {
   const operation = params.operation ?? 'reembed';
   return {
@@ -184,6 +184,7 @@ function setNoopQueueRuntimeOps() {
     findOldestRunningQueueRequest: async () => null,
     getQueueRequestId: () => 'noop',
     markQueueRequestCleanupBlocked: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
 }
@@ -380,6 +381,7 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
         return null;
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => {
         if (promotedOnce) {
           return null;
@@ -454,6 +456,7 @@ test('queue promotion rejects bogus canonical provider even when a legacy model 
         return null;
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => {
         if (promotedOnce) {
           return null;
@@ -539,6 +542,7 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
         return null;
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => ({
         ...createQueueRequest({
           requestId: '21',
@@ -593,6 +597,7 @@ test('queue-managed deferred reembed preserves INVALID_REEMBED_STATE when cancel
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async () => null,
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => ({
         ...createQueueRequest({
           requestId: '22',
@@ -818,7 +823,7 @@ test('startup recovery does not replay running rows whose terminal work was alre
         root: '/data/repo-running',
         queueState: 'running',
         runId: 'run-recovered',
-        terminalPublishedAt: '2026-01-01T00:00:05.000Z',
+        terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
       });
     },
     findOldestCleanupBlockedQueueRequest: async () => null,
@@ -828,8 +833,9 @@ test('startup recovery does not replay running rows whose terminal work was alre
         root: '/data/repo-running',
         queueState: 'running',
         runId: 'run-recovered',
-        terminalPublishedAt: '2026-01-01T00:00:05.000Z',
+        terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
       }),
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => {
       events.push('waiting-promoted');
       return null;
@@ -845,7 +851,10 @@ test('startup recovery does not replay running rows whose terminal work was alre
   await waitForNextTurn();
 
   assert.equal(result.recovered, true);
-  assert.deepEqual(events, ['deleted:000000000000000000000011']);
+  assert.deepEqual(events, [
+    'deleted:000000000000000000000011',
+    'waiting-promoted',
+  ]);
   assert.deepEqual(deletedRequestIds, ['000000000000000000000011']);
 });
 
@@ -993,6 +1002,7 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
     },
     findOldestCleanupBlockedQueueRequest: async () => null,
     findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
 
@@ -1049,6 +1059,7 @@ test('startup recovery rejects blank canonical model even when a legacy model is
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
       findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });
 
@@ -1124,6 +1135,7 @@ test('startup recovery rejects error root drift before queued reembed delta work
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
       findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });
 
@@ -1176,6 +1188,7 @@ test('startup recovery preserves INVALID_REEMBED_STATE when persisted error root
       deleteQueueRequestById: async () => null,
       findOldestCleanupBlockedQueueRequest: async () => null,
       findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });
 

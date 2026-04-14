@@ -25,6 +25,7 @@ logs/
 certs/task6-valid/*.key
 
 server/tmp-flows-cmd*/
+codeInfoStatus/flow-state/current-task.json
 planning/**/*.png
 planning/**/*.jpg
 planning/**/*.jpeg

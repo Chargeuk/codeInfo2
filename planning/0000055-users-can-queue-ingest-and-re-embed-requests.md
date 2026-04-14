@@ -9841,7 +9841,7 @@ If any required wrapper in Testing items 1 through 9 fails during diagnosis, nar
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `125`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T131709Z-cd90d65b` to resolve the endorsed zero-work re-embed fast-path dependency and stale waiting-response race findings in current-repository queue runtime code.
 
 #### Overview
@@ -9914,6 +9914,7 @@ This review-fix task repairs the queue and zero-work re-embed paths so they retu
 - 2026-04-14 Testing 4: confirmed this task does not own a separate compose-build or supported main-stack smoke rerun because it only repairs in-process server queue and zero-work seams. Task 128 still owns the compose-backed final runtime validation after Tasks 126 and 127 finish, so this non-applicable testing gate is now recorded as complete instead of remaining as stale unchecked checklist state.
 - 2026-04-14 Subtask 17: `planning/0000055-pr-summary.md` now records the duplicate-admission race repair across `requestQueue.ts`, `ingestStart.ts`, `ingestReembed.ts`, and their direct unit owners, citing retained proof homes `logs/test-summaries/build-server-latest.log`, `test-results/server-unit-tests-2026-04-14T14-51-50-092Z.log`, and `test-results/server-cucumber-tests-2026-04-14T15-23-35-814Z.log` so the waiting-versus-running contract stays explicit for later audit.
 - 2026-04-14 Manual testing assessment: skipped this loop because Task 126 is still `__in_progress__` with Subtask 17 open, so the latest task is not honestly complete yet.
+- 2026-04-14 Automated-proof audit: Task 126 now has all `18/18` subtasks checked, all `4/4` testing items checked, and no live blocker. The earlier manual-testing-skip note is historical rather than an open gate because Subtask 17 and the retained proof homes are now complete on disk, so this audit closes the task while leaving the later compose-backed runtime rerun owned by Task 128.
 
 ### Task 127. Make Review Pass `0000055-20260414T131709Z-cd90d65b` Durable Artifacts Naturally Visible
 

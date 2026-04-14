@@ -219,6 +219,13 @@ test('canonical queue-target normalization keeps a still-waiting start row on ho
       },
     }),
   );
+  const findByIdMock = mock.method(
+    IngestQueueRequestModel,
+    'findById',
+    () => ({
+      exec: async () => existing,
+    }),
+  );
   mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
     exec: async () => 0,
   }));
@@ -242,6 +249,7 @@ test('canonical queue-target normalization keeps a still-waiting start row on ho
   assert.equal(result.updatedExisting, false);
   assert.equal(result.queueRequest.operation, 'start');
   assert.equal(waitingLookupMock.mock.calls.length, 1);
+  assert.equal(findByIdMock.mock.calls.length, 1);
   assert.equal(waitingUpdateMock.mock.calls.length, 0);
 });
 

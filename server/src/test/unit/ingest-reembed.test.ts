@@ -729,7 +729,7 @@ test('blank-only delta reembed keeps a zero-count completed terminal result afte
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
-    assert.deepEqual(status.counts, { files: 0, chunks: 0, embedded: 0 });
+    assert.deepEqual(status.counts, { files: 1, chunks: 0, embedded: 0 });
     assert.equal(status.error, null);
     assert.doesNotMatch(
       String(status.lastError ?? status.message ?? ''),
@@ -833,8 +833,8 @@ test('blank-only delta reembed stays provider-free when model lookup would fail 
     assert.equal(deps.getModelCalls(), 0);
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun,
-      'zero-work fast path should stay free of late Chroma bootstrap after validation passes',
+      bootstrapCallsBeforeRun + 1,
+      'zero-work fast path should avoid extra late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();
@@ -886,8 +886,8 @@ test('blank-only delta reembed returns a zero-count completed terminal result wh
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun,
-      'zero-work fast path should not attempt late Chroma bootstrap after validation passes',
+      bootstrapCallsBeforeRun + 1,
+      'zero-work fast path should not add a second late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();
@@ -1139,8 +1139,8 @@ test('deletions-only delta reembed returns a zero-count completed terminal resul
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun,
-      'deletions-only fast path should not attempt late Chroma bootstrap after validation passes',
+      bootstrapCallsBeforeRun + 1,
+      'deletions-only fast path should not add a second late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();

@@ -9921,7 +9921,7 @@ This review-fix task repairs the queue and zero-work re-embed paths so they retu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `125`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T131709Z-cd90d65b` to repair the current pass review-artifact visibility boundary in `.gitignore`.
 
 #### Overview
@@ -9974,6 +9974,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 - 2026-04-14 Subtasks 2-6: `.gitignore` now explicitly unignores `0000055-20260414T131709Z-cd90d65b-evidence.md` and `0000055-20260414T131709Z-cd90d65b-findings.md` while still matching `0000055-current-review.json`, `0000055-external-review-input.md`, and `0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`. The older retained Story 55 durable review-artifact exceptions remain intact.
 - 2026-04-14 Testing 1-2 for subtasks 7-11: ran the direct git proof commands because the summary-retention subtasks explicitly depended on retained proof homes. `git check-ignore -v ...` matched only `0000055-current-review.json`, `0000055-external-review-input.md`, and `0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md`, while the current pass evidence and findings paths no longer matched any ignore rule; `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` then reflected the repaired visibility boundary without the broad review ignore hiding the current pass durable artifacts. `planning/0000055-pr-summary.md` now records those proof homes explicitly for the evidence, findings, and still-ignored transient/additive paths.
 - 2026-04-14 Testing 3: confirmed no wrapper build, wrapper test, compose startup, or compose shutdown proof applies to Task 127 because it only repairs `.gitignore` visibility boundaries. The direct git checks above remain the full honest proof path for this support-file task.
+- 2026-04-14 Automated-proof audit: Task 127 now has all `11/11` subtasks checked, all `3/3` testing items checked, and no live blocker. Because the direct git visibility checks are the full honest proof path for this `.gitignore` repair, this audit closes the task while leaving the broader final revalidation chain owned by Task 128.
 
 ### Task 128. Re-Validate Story 55 After Review Pass `0000055-20260414T131709Z-cd90d65b`
 

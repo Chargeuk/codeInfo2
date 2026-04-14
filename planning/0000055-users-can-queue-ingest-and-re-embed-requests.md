@@ -9482,10 +9482,10 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 
 #### Testing
 
-1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md` and confirm those durable artifacts are no longer ignored.
-2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` and confirm those transient or additive files remain ignored.
-3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm the durable artifacts are naturally visible without reopening the transient files.
-4. [ ] Separate server-build, test-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes ignore rules and active-plan wording; the later final revalidation task owns the broader wrapper and runtime rerun.
+1. [x] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md` and confirm those durable artifacts are no longer ignored.
+2. [x] Run `git check-ignore -v codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` and confirm those transient or additive files remain ignored.
+3. [x] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm the durable artifacts are naturally visible without reopening the transient files.
+4. [x] Separate server-build, test-wrapper, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes ignore rules and active-plan wording; the later final revalidation task owns the broader wrapper and runtime rerun.
 
 #### Implementation notes
 
@@ -9493,6 +9493,10 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 - Activation on 2026-04-14: promoted Task 121 to `__in_progress__` as the earliest executable owner after Task 120 normalized to `__done__`.
 - Subtasks 1 through 4: narrowed `.gitignore` with pass-specific unignore entries for the current evidence and findings artifacts while keeping the current-review handoff, external-review input, and current-pass blind-spot challenge file on the ignored side of the split.
 - Subtask 5: re-read the Task 121 and Task 125 wording after the `.gitignore` repair and confirmed the named durable-versus-transient file split already matches the on-disk rules, so no plan wording change was needed.
+- Testing 1: `git check-ignore -v` now resolves the current pass evidence and findings artifacts through the explicit `.gitignore` unignore lines, so those durable files are no longer hidden behind the broad review ignore rule.
+- Testing 2: `git check-ignore -v` still reports the current-review handoff, external-review input, and current-pass blind-spot challenge file as ignored by `.gitignore`, preserving the transient or additive side of the split.
+- Testing 3: `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` now shows only the current pass evidence and findings artifacts as naturally visible untracked files, with no reopened transient review files.
+- Testing 4: broader server-build, test-wrapper, compose-build, and supported-runtime smoke proof remained honestly not applicable here because Task 121 only changes ignore rules and active-plan wording; Task 125 still owns the wider rerun chain.
 
 ### Task 122. Normalize Shared Queue Route Log Marker Fields
 

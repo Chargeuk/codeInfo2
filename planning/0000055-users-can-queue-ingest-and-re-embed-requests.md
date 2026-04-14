@@ -9584,14 +9584,16 @@ This task removes stale persisted error display from repositories that have re-e
 - `client/src/components/ingest/RootDetailsDrawer.tsx`
 - `client/src/test/useIngestRoots.test.tsx`
 - `client/src/test/ingestRoots.test.tsx`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-stale-diagnostics-recovered.png`
 
 #### Proof Mapping
 
 - `R1.` Healthy waiting and running queue overlays clear stale persisted diagnostic fields on the server side when no new live error exists. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: Task 124 Testing items 1 and 3.
 - `R2.` Real current error visibility still works for genuinely errored or cleanup-blocked rows after the repair. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`. Proof homes: Task 124 Testing items 3 and 4.
 - `R3.` The client normalization and ingest UI surfaces clear stale persisted errors from healthy queue overlays instead of retaining them in normalized row state or visible row content. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`. Proof homes: Task 124 Testing items 2 and 4.
-- `R4.` Selected-row and open-drawer UI state updates from stale persisted error content to fresh healthy `waiting` or `running` content when live overlay data arrives. Owners: `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `client/src/test/ingestRoots.test.tsx`. Proof home: Task 124 Testing item 4.
-- `R5.` Direct regression proof covers a previously errored row returning to healthy `waiting` and `running` state without carrying the old error forward. Owners: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`. Proof homes: Task 124 Testing items 3 and 4.
+- `R4.` Selected-row and open-drawer UI state updates from stale persisted error content to fresh healthy `waiting` or `running` content when live overlay data arrives. Owners: `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `client/src/test/ingestRoots.test.tsx`, `e2e/ingest.spec.ts`. Proof homes: Task 124 Testing items 4 and 5.
+- `R5.` Direct regression proof covers a previously errored row returning to healthy `waiting` and `running` state without carrying the old error forward, including one retained browser artifact on the supported Playwright path. Owners: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `client/src/test/useIngestRoots.test.tsx`, `client/src/test/ingestRoots.test.tsx`, `e2e/ingest.spec.ts`. Proof homes: Task 124 Testing items 3 through 5.
 
 #### Subtasks
 
@@ -9612,6 +9614,7 @@ This task removes stale persisted error display from repositories that have re-e
 15. [ ] Test type: client render proof. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove list rows and any selected row view stop showing stale persisted errors when a healthy queued or running overlay replaces the old failure state. Purpose: make the table-level mixed-state repair explicit.
 16. [ ] Test type: client render proof. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove an already-open details drawer updates from stale persisted error details to healthy queued or running details when the same row receives fresh live overlay data. Purpose: make the open-drawer mixed-state repair explicit.
 17. [ ] Test type: client render proof. Location: `client/src/test/ingestRoots.test.tsx`. Description: prove the rendered ingest surfaces still show genuine current errors after stale persisted errors are cleared from healthy rows. Purpose: keep the UI-level real-error contract explicit.
+18. [ ] Test type: Playwright e2e. Location: `e2e/ingest.spec.ts`. Description: prove the supported browser path shows a previously errored repository recover into healthy queued or running state without stale error content in the table or open details drawer, and retain screenshot artifact `artifacts/story-0000055-screenshots/0000055-stale-diagnostics-recovered.png`. Purpose: keep the paired server-plus-client mixed-state repair visible on the repository's real browser harness.
 
 #### Testing
 
@@ -9619,9 +9622,10 @@ This task removes stale persisted error display from repositories that have re-e
 2. [ ] Run `npm run build:summary:client` and confirm the client build wrapper passes after the stale-diagnostic repair.
 3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the stale-diagnostic repair.
 4. [ ] Run `npm run test:summary:client` and confirm the full client test wrapper passes after the stale-diagnostic repair.
-5. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task repairs server plus client overlay precedence and direct UI proof owners rather than launcher behavior; the later final revalidation task owns the broader rerun set.
+5. [ ] Run `npm run test:summary:e2e` and confirm the full e2e wrapper passes after the stale-diagnostic repair so the paired ingest UI and server overlay contract is proved on the supported browser path.
+6. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task repairs stale-diagnostic precedence rather than the default launcher path; the later final revalidation task owns the broader supported-stack rerun.
 
-If Testing items 3 or 4 fail during diagnosis, narrower targeted server or client reruns may be used to isolate the repair, but this task only closes after the full wrappers in Testing items 3 and 4 and the relevant build wrappers above pass again.
+If Testing items 3 through 5 fail during diagnosis, narrower targeted server, client, or e2e reruns may be used to isolate the repair, but this task only closes after the full wrappers in Testing items 3 through 5 and the relevant build wrappers above pass again.
 
 #### Implementation notes
 
@@ -9643,7 +9647,7 @@ This final review-follow-up task revalidates Story 55 after the current findings
 - `R1.` Tasks 118 through 124 are `__done__` before final reruns begin.
 - `R2.` The current durable evidence and findings artifacts for review pass `0000055-20260414T013213Z-2aaab374` still exist on disk and remain naturally visible to normal git workflows.
 - `R3.` `planning/0000055-pr-summary.md` records the exact owner files and retained proof homes for Tasks 118 through 124 before or during final close-out.
-- `R4.` The relevant wrapper, compose, and direct git proof chain for this findings-present pass passes on current disk after Tasks 118 through 124 land.
+- `R4.` The relevant wrapper, browser, compose, and direct git proof chain for this findings-present pass passes on current disk after Tasks 118 through 124 land.
 - `R5.` Final close-out records any remaining rejected-risk or residual weak-proof notes from the current findings and blind-spot artifacts honestly instead of silently dropping them behind green wrappers.
 
 #### Documentation Locations
@@ -9653,6 +9657,8 @@ This final review-follow-up task revalidates Story 55 after the current findings
 - `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`
 - `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/0000055-stale-diagnostics-recovered.png`
 - `.gitignore`
 - the owner files and proof files named in Tasks 118 through 124
 
@@ -9661,8 +9667,8 @@ This final review-follow-up task revalidates Story 55 after the current findings
 - `R1.` Final revalidation does not begin until Tasks 118 through 124 are all complete and their proof homes are retained in the maintained summary. Owners: this plan, `planning/0000055-pr-summary.md`. Proof homes: Task 125 subtasks 2 through 10 plus Testing items 1 through 8.
 - `R2.` The current durable evidence and findings artifacts still exist on disk and remain naturally visible while the transient or additive review files stay out of the durable set. Owners: `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md`, `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md`, `.gitignore`. Proof homes: Task 125 Testing items 9 through 11.
 - `R3.` `planning/0000055-pr-summary.md` records the exact owner files and retained proof homes for Tasks 118 through 124 before final close-out. Owner: `planning/0000055-pr-summary.md`. Proof homes: Task 125 subtasks 2 through 10.
-- `R4.` The relevant wrapper, compose, and direct git proof chain all pass on current disk after the review-fix tasks land. Owners: wrapper scripts, `docker-compose.yml`, `.gitignore`, `planning/0000055-pr-summary.md`, and the task owner files named above. Proof homes: Task 125 Testing items 1 through 11.
-- `R5.` Any remaining rejected-risk or residual weak-proof notes from the current findings and challenge artifacts are explicitly retained in the maintained summary. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 125 subtask 10.
+- `R4.` The relevant wrapper, browser, compose, and direct git proof chain all pass on current disk after the review-fix tasks land. Owners: wrapper scripts, `docker-compose.yml`, `e2e/ingest.spec.ts`, `.gitignore`, `planning/0000055-pr-summary.md`, and the task owner files named above. Proof homes: Task 125 Testing items 1 through 12.
+- `R5.` Any remaining rejected-risk or residual weak-proof notes from the current findings and challenge artifacts are explicitly retained in the maintained summary. Owner: `planning/0000055-pr-summary.md`. Proof home: Task 125 subtask 13.
 
 #### Subtasks
 
@@ -9673,11 +9679,12 @@ This final review-follow-up task revalidates Story 55 after the current findings
 5. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 121's repaired owner files and retained proof homes for current-pass durable-artifact visibility and transient-file boundaries. Purpose: keep the current-pass review-artifact hygiene proof explicit for later reviewers.
 6. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 122's repaired owner files and retained proof homes for the shared queue marker-schema repair. Purpose: keep the shared logging contract repair explicit for later reviewers.
 7. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 123's repaired owner files and retained proof homes for deterministic queue-cache eviction proof. Purpose: keep the proof-quality repair explicit for later reviewers.
-8. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 124's repaired owner files and retained proof homes for stale-diagnostic clearing across server and client overlays. Purpose: keep the overlay-precedence repair explicit for later reviewers.
+8. [ ] Proof type: summary proof retention. Location: `planning/0000055-pr-summary.md`. Description: record Task 124's repaired owner files and retained proof homes for stale-diagnostic clearing across server and client overlays, including the browser proof owner `e2e/ingest.spec.ts` and screenshot artifact `artifacts/story-0000055-screenshots/0000055-stale-diagnostics-recovered.png`. Purpose: keep the overlay-precedence repair explicit for later reviewers.
 9. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final wrapper proof chain from this pass. Purpose: preserve the retained automated-proof trail instead of collapsing it into a generic close-out line.
-10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final compose smoke proof chain from this pass. Purpose: preserve the retained runtime-proof trail instead of collapsing it into a generic close-out line.
-11. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final direct git proof chain from this pass, including artifact existence and visibility checks. Purpose: preserve the retained review-artifact hygiene trail instead of collapsing it into a generic close-out line.
-12. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest rejected-risk or residual weak-proof notes that still remain after this pass, using the current findings and blind-spot artifacts as the source of truth. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
+10. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final browser proof chain from this pass, including the retained e2e screenshot artifact for the stale-diagnostic recovery path. Purpose: preserve the browser-level proof trail instead of collapsing it into a generic close-out line.
+11. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final compose smoke proof chain from this pass. Purpose: preserve the retained runtime-proof trail instead of collapsing it into a generic close-out line.
+12. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh the final direct git proof chain from this pass, including artifact existence and visibility checks. Purpose: preserve the retained review-artifact hygiene trail instead of collapsing it into a generic close-out line.
+13. [ ] Proof type: summary proof maintenance. Location: `planning/0000055-pr-summary.md`. Description: refresh any honest rejected-risk or residual weak-proof notes that still remain after this pass, using the current findings and blind-spot artifacts as the source of truth. Purpose: preserve the adjudication trail instead of letting green reruns hide remaining caveats.
 
 #### Testing
 
@@ -9687,14 +9694,14 @@ This final review-follow-up task revalidates Story 55 after the current findings
 4. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the current review-fix tasks land.
 5. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the current review-fix tasks land.
 6. [ ] Run `npm run test:summary:client` and confirm the full client test wrapper passes after the current review-fix tasks land.
-7. [ ] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the current review-fix tasks land.
-8. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the runtime smoke proof.
-9. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md && test -f codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md` and confirm both current durable review artifacts still exist on disk before final close-out.
-10. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient or additive files remain ignored after Task 121 lands.
-11. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the final review-fix pass leaves the durable artifacts and required plan or summary updates naturally visible.
-12. [ ] Separate browser and e2e wrapper proof is not applicable here unless a later implementation diff broadens beyond the current server, client, and support-file seams; if that happens, update this task before closing it.
+7. [ ] Run `npm run test:summary:e2e` and confirm the full e2e wrapper passes after the current review-fix tasks land, including the stale-diagnostic recovery proof on the supported browser harness.
+8. [ ] Run `npm run compose:up` and confirm the normal supported compose stack starts cleanly after the current review-fix tasks land.
+9. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the runtime smoke proof.
+10. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md && test -f codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md && test -f artifacts/story-0000055-screenshots/0000055-stale-diagnostics-recovered.png` and confirm the current durable review artifacts and retained browser screenshot still exist on disk before final close-out.
+11. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` and confirm the durable artifacts are visible while the transient or additive files remain ignored after Task 121 lands.
+12. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md artifacts/story-0000055-screenshots` and confirm the final review-fix pass leaves the durable artifacts and required plan, summary, and screenshot updates naturally visible.
 
-If any required wrapper in Testing items 1 through 8 fails during diagnosis, narrower targeted reruns may be used to isolate the repair, but this task only closes after the full required wrappers and direct git checks above pass again.
+If any required wrapper in Testing items 1 through 9 fails during diagnosis, narrower targeted reruns may be used to isolate the repair, but this task only closes after the full required wrappers and direct git checks above pass again.
 
 #### Implementation notes
 

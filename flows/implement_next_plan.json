@@ -64,7 +64,7 @@
                 },
                 {
                   "type": "break",
-                  "label": "Check whether current task is ready",
+                  "label": "Exit if no implementation task is available",
                   "agentType": "planning_agent",
                   "identifier": "planner",
                   "question": "Answer from the selector result you just produced in the immediately preceding step. Answer yes only if you just wrote a state that does NOT resolve a current task for implementation, for example because plan repair is needed or the story is already complete. Answer no only if you just resolved one current task for this loop pass. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
@@ -103,7 +103,7 @@
                   "label": "Check for blocker before automated proof",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Use the same bound task from the immediately preceding deep repair step. If that step did not clearly resolve one bound task, answer no. Otherwise run `python3 scripts/plan_status.py --task-number <that-same-bound-task-number>`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Use the same bound task from the immediately preceding deep repair step. If that step did not clearly resolve one bound task, answer yes. Otherwise run `python3 scripts/plan_status.py --task-number <that-same-bound-task-number>`. Answer from that JSON output only. Answer yes iff `selected_task` is missing or `selected_task.live_blockers` is non-empty. Answer no only if `selected_task` exists and `selected_task.live_blockers` is empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -132,7 +132,7 @@
                   "label": "Check for inconsistent fully-checked active task",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Use the same bound task from the immediately preceding automated-proof audit step. If that step did not clearly resolve one bound task, answer no. Otherwise run `python3 scripts/plan_status.py --task-number <that-same-bound-task-number>`. Answer no if `selected_task` is null. Otherwise answer yes only if `selected_task.has_unchecked_subtasks` is false, `selected_task.has_unchecked_testing` is false, and `selected_task.live_blockers` is empty. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Use the same bound task from the immediately preceding automated-proof audit step. If that step did not clearly resolve one bound task, answer yes. Otherwise run `python3 scripts/plan_status.py --task-number <that-same-bound-task-number>`. Answer yes iff either `selected_task` is missing, or `selected_task.status` is `__in_progress__` and `selected_task.has_unchecked_subtasks` is false and `selected_task.has_unchecked_testing` is false and `selected_task.live_blockers` is empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {

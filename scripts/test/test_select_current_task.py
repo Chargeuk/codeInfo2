@@ -142,6 +142,44 @@ class SelectCurrentTaskTests(unittest.TestCase):
         self.assertEqual(payload["selected_task"]["number"], 2)
         self.assertIn("- Task Status: `__in_progress__`", plan_path.read_text())
 
+    def test_resolves_existing_active_in_progress_task_without_rewrite(self) -> None:
+        plan_path, handoff_path, output_path = self.make_repo(
+            """
+            ### Task 1. First
+
+            - Task Status: `__done__`
+
+            #### Subtasks
+
+            1. [x] Done
+
+            #### Testing
+
+            1. [x] Done
+
+            ### Task 2. Second
+
+            - Task Status: `__in_progress__`
+
+            #### Subtasks
+
+            1. [ ] Pending
+
+            #### Testing
+
+            1. [ ] Pending
+            """
+        )
+        original_plan = plan_path.read_text()
+
+        payload = self.invoke_selector(handoff_path, output_path)
+
+        self.assertEqual(payload["selection_status"], "resolved")
+        self.assertEqual(payload["selection_reason"], "active_in_progress")
+        self.assertEqual(payload["selected_task"]["number"], 2)
+        self.assertEqual(payload["normalized_tasks"], [])
+        self.assertEqual(plan_path.read_text(), original_plan)
+
 
 if __name__ == "__main__":
     unittest.main()

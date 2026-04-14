@@ -51,6 +51,8 @@ Explain the implementation gotchas for the currently active task using the store
 - If the active task is still `__in_progress__` but has no unchecked subtasks, state that explicitly and make clear that the task remains active because automated proof or other remaining non-subtask work still needs to run before later tasks may begin.
 - If the previous loop iteration involved manual-testing edits, explicitly re-read the current task's subtasks, testing steps, and implementation notes so you catch any newly added follow-up work before giving gotchas.
 - If the previous loop iteration involved a blocker or planner edits, also re-read the next downstream task that depends on the current task so you understand the updated sequencing and proof expectations.
+- When the previous loop iteration involved normalization or planner repair, briefly call out any task-status updates, newly inserted tasks, or renumbering that affect this pass.
+- When the previous loop iteration involved normalization or planner repair, explicitly confirm the bound task is still the true next executable owner after those edits, not a still-blocked task sitting ahead of a newly inserted prerequisite.
 - If the active task has already gone through repeated implementation passes while the same subtasks remain unchecked, call that out explicitly.
 - In that repeated-pass state, tell the coding agent that the next implementation pass must either complete at least one of the remaining subtasks or raise a live `**BLOCKER**`; another partial no-closure pass is not an honest outcome.
 - If the active task is a bounded diagnostic or derivation task, explicitly remind the coding agent of its stopping rule.
@@ -63,6 +65,7 @@ Explain the implementation gotchas for the currently active task using the store
 - Name the highest task heading currently present in the plan.
 - Name the active task heading and its `Task Status`.
 - Explain the main gotchas for the next implementation pass.
+- Call out any repair-driven task-status changes, inserted tasks, or renumbering when they affect this pass.
 - Call out any repeated-pass stall state or bounded-diagnostic stopping rule when applicable.
 
 </output_contract>
@@ -72,6 +75,7 @@ Explain the implementation gotchas for the currently active task using the store
 - Confirm you re-read the active plan from the stored handoff.
 - Confirm you re-read the active task from disk.
 - Confirm the target repository branch matches the selected plan story number.
+- Confirm you sanity-checked that the bound task is still the true next executable owner after any normalization or planner repair.
 - Confirm your gotchas reflect the latest task notes, subtasks, testing steps, and sequencing context when required.
 
 </verification_loop>

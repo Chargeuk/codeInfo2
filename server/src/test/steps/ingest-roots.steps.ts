@@ -37,6 +37,36 @@ let response: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
 
+type IngestStatusBody = {
+  state?: string;
+  message?: string;
+  lastError?: string;
+  [key: string]: unknown;
+};
+
+async function waitForIngestRootsStatus(expectedState: string) {
+  assert(lastRunId, 'runId missing');
+  let lastObserved: IngestStatusBody | null = null;
+  for (let i = 0; i < 60; i += 1) {
+    const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
+    const body = (await res.json()) as IngestStatusBody;
+    lastObserved = body;
+    console.log(
+      `[ingest-roots] poll ${i} runId=${lastRunId} state=${body.state} message=${body.message ?? ''}`,
+    );
+    if (body.state === expectedState) return;
+    if (body.state === 'error' && expectedState !== 'error') {
+      assert.fail(
+        `Expected ingest roots run ${lastRunId} to reach state "${expectedState}" but actual state was "error". Payload: ${JSON.stringify(body)}`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.fail(
+    `Did not reach state "${expectedState}". Last observed payload: ${JSON.stringify(lastObserved)}`,
+  );
+}
+
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
@@ -136,17 +166,28 @@ When('I GET ingest roots', async () => {
 Then(
   'ingest roots status for the last run becomes {string}',
   async (state: string) => {
-    assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 60; i += 1) {
-      const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-      const body = await res.json();
-      console.log(
-        `[ingest-roots] poll ${i} runId=${lastRunId} state=${body.state} message=${body.message ?? ''}`,
-      );
-      if (body.state === state || body.state === 'error') return;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    assert.fail(`did not reach state ${state}`);
+    await waitForIngestRootsStatus(state);
+  },
+);
+
+Then(
+  'ingest roots status assertion for the last run expecting {string} fails with mismatch mentioning {string}',
+  async (expectedState: string, actualState: string) => {
+    await assert.rejects(
+      async () => waitForIngestRootsStatus(expectedState),
+      (error: unknown) => {
+        assert(error instanceof Error, 'expected an Error mismatch');
+        assert(
+          error.message.includes(`state "${expectedState}"`),
+          `expected mismatch to mention requested state ${expectedState}, got: ${error.message}`,
+        );
+        assert(
+          error.message.includes(`actual state was "${actualState}"`),
+          `expected mismatch to mention actual state ${actualState}, got: ${error.message}`,
+        );
+        return true;
+      },
+    );
   },
 );
 

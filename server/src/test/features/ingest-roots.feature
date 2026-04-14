@@ -1,6 +1,6 @@
 Feature: Ingest roots listing
 
-  Scenario: returns root entry after an ingest run
+  Scenario: returns root entry after an ingest run reaches completed state
     Given ingest roots chroma stub is empty
     And ingest roots models scenario "basic"
     And ingest roots temp repo with file "docs/readme.md" containing "hello"
@@ -11,6 +11,12 @@ Feature: Ingest roots listing
     And ingest roots response has 1 root
     And ingest roots first item path is the temp repo
     And ingest roots first item status is "completed"
+
+  Scenario: queued roots exact-state assertion rejects unexpected error status
+    Given ingest roots chroma stub is empty
+    And ingest roots models scenario "basic"
+    When I POST ingest roots start with model "embed-1"
+    Then ingest roots status assertion for the last run expecting "completed" fails with mismatch mentioning "error"
 
   Scenario: returns empty list when no roots exist
     Given ingest roots chroma stub is empty

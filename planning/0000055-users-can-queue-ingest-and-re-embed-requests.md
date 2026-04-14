@@ -9229,7 +9229,7 @@ This final review-follow-up task revalidates Story 55 after the current findings
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `117`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 1.
 
 #### Overview
@@ -9259,10 +9259,10 @@ This task repairs the cucumber proof owner for queued root status so it only pas
 
 #### Subtasks
 
-1. [ ] Update the queued-roots assertion step in `server/src/test/steps/ingest-roots.steps.ts` so it only succeeds when the observed state exactly matches the requested state. Purpose: close the current false-pass seam.
-2. [ ] Add explicit mismatch diagnostics in the same step so an unexpected `error` response surfaces the requested state, actual state, and relevant response payload details. Purpose: make future proof failures self-explanatory instead of silently green.
-3. [ ] Proof type: cucumber proof maintenance. Location: `server/src/test/features/ingest-roots.feature`. Description: refresh the affected scenario wording so the expected non-error queue state remains obvious and reviewable after the step repair. Purpose: keep the proof home readable for later reviewers.
-4. [ ] Test type: server cucumber. Location: `server/src/test/features/ingest-roots.feature`. Description: add or refresh regression coverage so a non-error expected queue state does not pass when `/ingest/status/:runId` actually returns `error`. Purpose: retain direct proof for the repaired false-pass seam.
+1. [x] Update the queued-roots assertion step in `server/src/test/steps/ingest-roots.steps.ts` so it only succeeds when the observed state exactly matches the requested state. Purpose: close the current false-pass seam.
+2. [x] Add explicit mismatch diagnostics in the same step so an unexpected `error` response surfaces the requested state, actual state, and relevant response payload details. Purpose: make future proof failures self-explanatory instead of silently green.
+3. [x] Proof type: cucumber proof maintenance. Location: `server/src/test/features/ingest-roots.feature`. Description: refresh the affected scenario wording so the expected non-error queue state remains obvious and reviewable after the step repair. Purpose: keep the proof home readable for later reviewers.
+4. [x] Test type: server cucumber. Location: `server/src/test/features/ingest-roots.feature`. Description: add or refresh regression coverage so a non-error expected queue state does not pass when `/ingest/status/:runId` actually returns `error`. Purpose: retain direct proof for the repaired false-pass seam.
 
 #### Testing
 
@@ -9274,6 +9274,8 @@ If Testing item 1 fails during diagnosis, a targeted `npm run test:summary:serve
 #### Implementation notes
 
 - Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the queued-roots cucumber false-pass finding.
+- Activation on 2026-04-14: promoted Task 118 to `__in_progress__` as the earliest executable owner after the newer review-created tasks 118 through 125 were re-read from current disk.
+- Subtasks 1 through 4: refactored the queued-roots status poll into an exact-match helper in `server/src/test/steps/ingest-roots.steps.ts`, added explicit mismatch diagnostics that include the unexpected `error` payload, renamed the happy-path feature scenario to keep the expected completed state obvious, and added a cucumber regression scenario that asserts the completed-state check now fails with a readable mismatch when an empty repo run reaches `error`.
 
 ### Task 119. Reject Untrusted Ingest Start Paths Before Queue Persistence
 

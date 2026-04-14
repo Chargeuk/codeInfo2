@@ -56,6 +56,7 @@ function createQueueRequest(params: {
   operation?: 'start' | 'reembed';
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
   runId?: string | null;
+  terminalPublishedAt?: Date | string | null;
 }) {
   const operation = params.operation ?? 'reembed';
   return {
@@ -71,6 +72,7 @@ function createQueueRequest(params: {
     } as Record<string, unknown>,
     sourceSurface: 'test',
     runId: params.runId ?? null,
+    terminalPublishedAt: params.terminalPublishedAt ?? null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   };
@@ -803,7 +805,51 @@ test('startup recovery does not advance past cleanup-blocked rows with missing r
   assert.deepEqual(events, []);
 });
 
-test('startup recovery retries leftover running work before newer waiting work', async () => {
+test('startup recovery does not replay running rows whose terminal work was already published before cleanup', async () => {
+  const events: string[] = [];
+  const deletedRequestIds: string[] = [];
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      events.push(`deleted:${requestId}`);
+      return createQueueRequest({
+        requestId: '11',
+        root: '/data/repo-running',
+        queueState: 'running',
+        runId: 'run-recovered',
+        terminalPublishedAt: '2026-01-01T00:00:05.000Z',
+      });
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () =>
+      createQueueRequest({
+        requestId: '11',
+        root: '/data/repo-running',
+        queueState: 'running',
+        runId: 'run-recovered',
+        terminalPublishedAt: '2026-01-01T00:00:05.000Z',
+      }),
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promoted');
+      return null;
+    },
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`started:${runId}:${input.path}`);
+    release(runId);
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  await waitForNextTurn();
+  await waitForNextTurn();
+
+  assert.equal(result.recovered, true);
+  assert.deepEqual(events, ['deleted:000000000000000000000011']);
+  assert.deepEqual(deletedRequestIds, ['000000000000000000000011']);
+});
+
+test('startup recovery still retries genuinely unfinished running work before newer waiting work', async () => {
   const events: string[] = [];
   const runningQueueRequest = createQueueRequest({
     requestId: '11',

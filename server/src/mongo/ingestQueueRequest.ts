@@ -33,6 +33,7 @@ const ingestQueueRequestSchema = new Schema(
     requestPayload: { type: Schema.Types.Mixed, required: true },
     sourceSurface: { type: String, required: true, trim: true },
     runId: { type: String, default: null },
+    terminalPublishedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -67,6 +68,7 @@ export type IngestQueueRequest = {
   requestPayload: Record<string, unknown>;
   sourceSurface: string;
   runId: string | null;
+  terminalPublishedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

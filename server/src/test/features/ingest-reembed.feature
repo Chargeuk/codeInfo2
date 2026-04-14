@@ -35,7 +35,17 @@ And ingest manage roots entry for "/tmp/reembed-root" has queue state "waiting"
 And ingest manage roots entry for "/tmp/reembed-root" has queue position 1
 
 @mongo
-Scenario: startup recovery resumes running work before newer waiting work
+Scenario: startup recovery does not replay committed-before-cleanup running work
+Given ingest manage chroma stub is empty
+And ingest manage mongo queue is empty
+And ingest manage mongo queue has committed-before-cleanup running request for "/tmp/recover-finished" with run id "run-recovered-finished"
+And ingest manage mongo queue has waiting request for "/tmp/recover-second"
+And ingest manage queue runtime records started paths
+When ingest manage startup recovery runs
+Then ingest manage queue runtime started paths are empty
+
+@mongo
+Scenario: startup recovery resumes genuinely unfinished running work before newer waiting work
 Given ingest manage chroma stub is empty
 And ingest manage mongo queue is empty
 And ingest manage mongo queue has running request for "/tmp/recover-first" with run id "run-recovered"

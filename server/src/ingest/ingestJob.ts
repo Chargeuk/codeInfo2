@@ -170,6 +170,7 @@ type QueueRuntimeRequest = {
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
   requestPayload: Record<string, unknown>;
   runId: string | null;
+  terminalPublishedAt?: Date | string | null;
 };
 
 type QueueRuntimeOps = {
@@ -187,6 +188,10 @@ type QueueRuntimeOps = {
   findOldestRunningQueueRequest: () => Promise<QueueRuntimeRequest | null>;
   getQueueRequestId: (queueRequest: QueueRuntimeRequest) => string;
   markQueueRequestCleanupBlocked: (params: {
+    requestId: string;
+    runId: string | null;
+  }) => Promise<QueueRuntimeRequest | null>;
+  markQueueRequestTerminalPublished: (params: {
     requestId: string;
     runId: string | null;
   }) => Promise<QueueRuntimeRequest | null>;
@@ -244,6 +249,8 @@ const defaultQueueRuntimeOps: QueueRuntimeOps = {
   getQueueRequestId: (queueRequest) =>
     requestQueue.getQueueRequestId(queueRequest as never),
   markQueueRequestCleanupBlocked: requestQueue.markQueueRequestCleanupBlocked,
+  markQueueRequestTerminalPublished:
+    requestQueue.markQueueRequestTerminalPublished,
   promoteOldestWaitingQueueRequest:
     requestQueue.promoteOldestWaitingQueueRequest,
 };
@@ -547,6 +554,18 @@ async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
       scheduleQueueAdvance();
     }
   }
+}
+
+async function persistQueueTerminalBarrier(runId: string): Promise<void> {
+  const requestId = queueRequestIdsByRunId.get(runId);
+  if (!requestId) {
+    return;
+  }
+
+  await queueRuntimeOps.markQueueRequestTerminalPublished({
+    requestId,
+    runId,
+  });
 }
 
 function buildNoEligibleFilesErrorStatus(params: {
@@ -2482,6 +2501,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     });
   } finally {
     activeDispatchers.delete(runId);
+    await persistQueueTerminalBarrier(runId);
     const queueCleanupCompleted = await finalizeQueueRequestForRun(runId);
     if (queueCleanupCompleted) {
       releaseRunOwnership(runId);
@@ -2629,10 +2649,34 @@ export async function recoverIngestQueueOnStartup() {
 
   const running = await queueRuntimeOps.findOldestRunningQueueRequest();
   if (running && deps) {
+    const runningRequestId = queueRuntimeOps.getQueueRequestId(running);
+    const terminalPublishedAt =
+      running.terminalPublishedAt instanceof Date
+        ? running.terminalPublishedAt
+        : running.terminalPublishedAt
+        ? new Date(running.terminalPublishedAt)
+        : null;
     const existingRunId =
       typeof running.runId === 'string' && running.runId.length > 0
         ? running.runId
         : randomUUID();
+    if (terminalPublishedAt) {
+      queueRequestIdsByRunId.set(existingRunId, runningRequestId);
+      if (existingRunId !== running.runId) {
+        await queueRuntimeOps.ensureQueueRequestRunId(
+          runningRequestId,
+          existingRunId,
+        );
+      }
+      await finalizeQueueRequestForRun(existingRunId);
+      logLifecycle('info', 'QUEUE_STARTUP_RECOVERY_SKIPPED_COMMITTED_RUN', {
+        recoveryState: 'terminal-cleanup',
+        runId: existingRunId,
+        requestId: runningRequestId,
+        canonicalTargetPath: running.canonicalTargetPath,
+      });
+      return { recovered: true, blockedByActiveLock: false };
+    }
     if (!ingestLock.acquire(existingRunId)) {
       return { recovered: false, blockedByActiveLock: true };
     }
@@ -2640,19 +2684,19 @@ export async function recoverIngestQueueOnStartup() {
     try {
       if (existingRunId !== running.runId) {
         await queueRuntimeOps.ensureQueueRequestRunId(
-          queueRuntimeOps.getQueueRequestId(running),
+          runningRequestId,
           existingRunId,
         );
       }
       startManagedRun({
         runId: existingRunId,
         input: toQueueManagedInput(running),
-        queueRequestId: queueRuntimeOps.getQueueRequestId(running),
+        queueRequestId: runningRequestId,
       });
       logLifecycle('info', 'QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER', {
         recoveryState: 'running',
         runId: existingRunId,
-        requestId: queueRuntimeOps.getQueueRequestId(running),
+        requestId: runningRequestId,
         canonicalTargetPath: running.canonicalTargetPath,
       });
       return { recovered: true, blockedByActiveLock: false };
@@ -3240,6 +3284,7 @@ export async function cancelRun(runId: string) {
     state: 'cancelled',
     counts: status?.counts ?? { files: 0, chunks: 0, embedded: 0 },
   });
+  await persistQueueTerminalBarrier(runId);
   const queueCleanupCompleted = await finalizeQueueRequestForRun(runId);
   if (queueCleanupCompleted) {
     releaseRunOwnership(runId);

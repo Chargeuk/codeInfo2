@@ -372,6 +372,7 @@ export async function promoteOldestWaitingQueueRequest(runId: string) {
       $set: {
         queueState: 'running',
         runId,
+        terminalPublishedAt: null,
       },
     },
     {
@@ -408,6 +409,24 @@ export async function markQueueRequestCleanupBlocked(params: {
       $set: {
         queueState: 'cleanup-blocked',
         runId: params.runId,
+      },
+    },
+    {
+      new: true,
+    },
+  ).exec();
+}
+
+export async function markQueueRequestTerminalPublished(params: {
+  requestId: string;
+  runId: string | null;
+}) {
+  return IngestQueueRequestModel.findByIdAndUpdate(
+    params.requestId,
+    {
+      $set: {
+        runId: params.runId,
+        terminalPublishedAt: new Date(),
       },
     },
     {

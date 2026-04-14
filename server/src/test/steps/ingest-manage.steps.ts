@@ -608,6 +608,25 @@ Given(
 );
 
 Given(
+  'ingest manage mongo queue has committed-before-cleanup running request for {string} with run id {string}',
+  async (rootPath: string, runId: string) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'running',
+      requestPayload: {
+        path: rootPath,
+        name: path.posix.basename(rootPath) || 'repo',
+        model: 'embed-1',
+      },
+      sourceSurface: 'cucumber',
+      runId,
+      terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
+    });
+  },
+);
+
+Given(
   'ingest manage mongo queue has cleanup-blocked request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
     await IngestQueueRequestModel.create({

@@ -49,7 +49,57 @@ test.afterEach(() => {
   release();
 });
 
-test('startup recovery retries leftover running work before newer waiting work', async () => {
+test('startup recovery does not replay committed-before-cleanup running work', async () => {
+  const events: string[] = [];
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () =>
+      ({
+        _id: { toString: () => 'queue-running' },
+        canonicalTargetPath: '/data/repo-running',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: {
+          path: '/data/repo-running',
+          name: 'repo-running',
+          model: 'embed-1',
+        },
+        runId: 'run-recovered',
+        terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
+      }) as never,
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () =>
+      ({
+        _id: { toString: () => 'queue-running' },
+        canonicalTargetPath: '/data/repo-running',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: {
+          path: '/data/repo-running',
+          name: 'repo-running',
+          model: 'embed-1',
+        },
+        runId: 'run-recovered',
+        terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
+      }) as never,
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promoted');
+      return null;
+    },
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`started:${runId}:${input.path}`);
+    release(runId);
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  await waitForNextTurn();
+
+  assert.equal(result.recovered, true);
+  assert.deepEqual(events, []);
+});
+
+test('startup recovery still retries leftover running work before newer waiting work', async () => {
   const events: string[] = [];
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,

@@ -112,6 +112,7 @@ def find_stale_in_progress_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, 
         task
         for task in tasks
         if task["status"] == "__in_progress__"
+        and (task["subtasks_total"] > 0 or task["testing_total"] > 0)
         and not task["has_unchecked_subtasks"]
         and not task["has_unchecked_testing"]
         and not task["has_live_blocker"]

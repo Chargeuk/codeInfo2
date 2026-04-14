@@ -180,6 +180,28 @@ class SelectCurrentTaskTests(unittest.TestCase):
         self.assertEqual(payload["normalized_tasks"], [])
         self.assertEqual(plan_path.read_text(), original_plan)
 
+    def test_does_not_auto_complete_in_progress_task_with_empty_checklists(self) -> None:
+        plan_path, handoff_path, output_path = self.make_repo(
+            """
+            ### Task 1. First
+
+            - Task Status: `__in_progress__`
+
+            #### Subtasks
+
+            #### Testing
+            """
+        )
+        original_plan = plan_path.read_text()
+
+        payload = self.invoke_selector(handoff_path, output_path)
+
+        self.assertEqual(payload["selection_status"], "resolved")
+        self.assertEqual(payload["selection_reason"], "active_in_progress")
+        self.assertEqual(payload["selected_task"]["number"], 1)
+        self.assertEqual(payload["normalized_tasks"], [])
+        self.assertEqual(plan_path.read_text(), original_plan)
+
 
 if __name__ == "__main__":
     unittest.main()

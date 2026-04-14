@@ -34,9 +34,12 @@ codeInfoStatus/reviews/*
 !codeInfoStatus/reviews/
 !codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-evidence.md
 !codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-findings.md
+!codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-evidence.md
+!codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-findings.md
 codeInfoStatus/reviews/0000055-current-review.json
 codeInfoStatus/reviews/0000055-external-review-input.md
 codeInfoStatus/reviews/0000055-20260413T080058Z-1eb771da-blind-spot-challenge.md
+codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md
 codeInfoStatus/flow-state/manual-testing-runtime.json
 certs/task6-valid/*.key
 

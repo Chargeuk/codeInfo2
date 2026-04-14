@@ -9443,7 +9443,7 @@ If Testing items 2 or 3 fail during diagnosis, targeted `npm run test:summary:se
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `120`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 2 as an allowed support-file hygiene fix.
 
 #### Overview
@@ -9474,11 +9474,11 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 
 #### Subtasks
 
-1. [ ] Narrow `.gitignore` so the current pass evidence and findings artifacts are no longer hidden behind the broad `codeInfoStatus/reviews/*` ignore rule. Purpose: restore natural git visibility for the durable review artifacts of this pass.
-2. [ ] Keep `codeInfoStatus/reviews/0000055-current-review.json` ignored as transient review handoff state while the current pass durable artifacts become visible. Purpose: preserve the handoff-versus-artifact boundary for this flow.
-3. [ ] Keep `codeInfoStatus/reviews/0000055-external-review-input.md` ignored as transient workflow input while the current pass durable artifacts become visible. Purpose: preserve the external-review input boundary for this flow.
-4. [ ] Keep `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` ignored as optional additive context rather than part of the durable artifact set. Purpose: preserve the challenge-file boundary for this flow.
-5. [ ] If the `.gitignore` repair changes which current-pass review files are durable versus transient, update the Task 121 and Task 125 wording in this plan so the named file split matches the on-disk ignore rules exactly. Purpose: keep the active plan honest after the hygiene fix lands.
+1. [x] Narrow `.gitignore` so the current pass evidence and findings artifacts are no longer hidden behind the broad `codeInfoStatus/reviews/*` ignore rule. Purpose: restore natural git visibility for the durable review artifacts of this pass.
+2. [x] Keep `codeInfoStatus/reviews/0000055-current-review.json` ignored as transient review handoff state while the current pass durable artifacts become visible. Purpose: preserve the handoff-versus-artifact boundary for this flow.
+3. [x] Keep `codeInfoStatus/reviews/0000055-external-review-input.md` ignored as transient workflow input while the current pass durable artifacts become visible. Purpose: preserve the external-review input boundary for this flow.
+4. [x] Keep `codeInfoStatus/reviews/0000055-20260414T013213Z-2aaab374-blind-spot-challenge.md` ignored as optional additive context rather than part of the durable artifact set. Purpose: preserve the challenge-file boundary for this flow.
+5. [x] If the `.gitignore` repair changes which current-pass review files are durable versus transient, update the Task 121 and Task 125 wording in this plan so the named file split matches the on-disk ignore rules exactly. Purpose: keep the active plan honest after the hygiene fix lands.
 
 #### Testing
 
@@ -9490,6 +9490,9 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 #### Implementation notes
 
 - Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the durable review-artifact visibility hygiene finding for the current pass.
+- Activation on 2026-04-14: promoted Task 121 to `__in_progress__` as the earliest executable owner after Task 120 normalized to `__done__`.
+- Subtasks 1 through 4: narrowed `.gitignore` with pass-specific unignore entries for the current evidence and findings artifacts while keeping the current-review handoff, external-review input, and current-pass blind-spot challenge file on the ignored side of the split.
+- Subtask 5: re-read the Task 121 and Task 125 wording after the `.gitignore` repair and confirmed the named durable-versus-transient file split already matches the on-disk rules, so no plan wording change was needed.
 
 ### Task 122. Normalize Shared Queue Route Log Marker Fields
 

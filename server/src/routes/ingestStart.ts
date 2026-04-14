@@ -218,6 +218,7 @@ export function createIngestStartRouter({
         context: {
           endpoint: '/ingest/start',
           queueRequestId: queueResult.requestId,
+          canonicalTargetPath: queueResult.canonicalTargetPath,
           runId,
           queued: !runId,
           queuePosition: runId ? undefined : queueResult.queuePosition,

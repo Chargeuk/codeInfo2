@@ -472,7 +472,7 @@ test('ingest-start legacy model maps to lmstudio compatibility input', async () 
   assert.equal(capturedProvider, 'lmstudio');
 });
 
-test('ingest-start immediate queue-aware contract returns queued false with requestId and runId', async () => {
+test('ingest-start logs QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID with shared canonicalTargetPath', async () => {
   const response = await request(buildApp()).post('/ingest/start').send({
     path: '/tmp/repo',
     name: 'repo',
@@ -486,6 +486,19 @@ test('ingest-start immediate queue-aware contract returns queued false with requ
     runId: '00000000-0000-0000-0000-000000000001',
   });
   assert.equal('queuePosition' in response.body, false);
+
+  const entries = query({ text: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID' }, 20);
+  const acceptanceEntry = entries.find(
+    (entry) =>
+      entry.context?.endpoint === '/ingest/start' &&
+      entry.context?.queueRequestId === 'queue-request-123' &&
+      entry.context?.canonicalTargetPath === '/tmp/repo' &&
+      entry.context?.runId === '00000000-0000-0000-0000-000000000001',
+  );
+  assert.ok(
+    acceptanceEntry,
+    'expected queue acceptance marker with shared canonicalTargetPath',
+  );
 });
 
 test('ingest-start waiting queue-aware contract returns queued true with requestId and waiting-only queuePosition', async () => {
@@ -516,7 +529,7 @@ test('ingest-start waiting queue-aware contract returns queued true with request
   assert.equal('deduped' in response.body, false);
 });
 
-test('ingest-start waiting duplicate updates emit an updated-in-place diagnostic without changing the queue response shape', async () => {
+test('ingest-start logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTargetPath', async () => {
   const response = await request(
     buildApp({
       enqueueOrReuseIngestRequest: async (input) =>
@@ -552,10 +565,14 @@ test('ingest-start waiting duplicate updates emit an updated-in-place diagnostic
     (entry) =>
       entry.context?.endpoint === '/ingest/start' &&
       entry.context?.queueRequestId === 'queue-request-123' &&
+      entry.context?.canonicalTargetPath === '/tmp/repo' &&
       entry.context?.updatedExisting === true &&
       entry.context?.reusedExisting === true,
   );
-  assert.ok(updateEntry, 'expected updated-in-place queue diagnostic');
+  assert.ok(
+    updateEntry,
+    'expected updated-in-place queue marker with shared canonicalTargetPath',
+  );
 });
 
 test('ingest-start rejects non-allowlisted OpenAI model ids deterministically', async () => {

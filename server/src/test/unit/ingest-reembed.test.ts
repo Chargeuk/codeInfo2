@@ -301,7 +301,7 @@ const buildIngestDeps = (options?: { modelError?: Error }) => {
   };
 };
 
-test('ingest-reembed immediate queue-aware contract emits requestId and runId with QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID', async () => {
+test('ingest-reembed logs QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID with shared canonicalTargetPath', async () => {
   const response = await request(buildApp()).post(
     '/ingest/reembed/%2Ftmp%2Frepo',
   );
@@ -318,9 +318,13 @@ test('ingest-reembed immediate queue-aware contract emits requestId and runId wi
     (entry) =>
       entry.context?.endpoint === '/ingest/reembed/:root' &&
       entry.context?.queueRequestId === 'queue-request-123' &&
+      entry.context?.canonicalTargetPath === '/tmp/repo' &&
       entry.context?.runId === '00000000-0000-0000-0000-000000000001',
   );
-  assert.ok(acceptanceEntry, 'expected queue acceptance proof marker');
+  assert.ok(
+    acceptanceEntry,
+    'expected queue acceptance marker with shared canonicalTargetPath',
+  );
 });
 
 test('ingest-reembed waiting queue-aware contract returns queued state without runId', async () => {
@@ -344,7 +348,7 @@ test('ingest-reembed waiting queue-aware contract returns queued state without r
   assert.equal('runId' in response.body, false);
 });
 
-test('ingest-reembed waiting duplicate updates emit an updated-in-place diagnostic without changing the queue response shape', async () => {
+test('ingest-reembed logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTargetPath', async () => {
   const response = await request(
     buildApp({
       enqueueOrReuseIngestRequest: async (input) =>
@@ -374,10 +378,14 @@ test('ingest-reembed waiting duplicate updates emit an updated-in-place diagnost
     (entry) =>
       entry.context?.endpoint === '/ingest/reembed/:root' &&
       entry.context?.queueRequestId === 'queue-request-123' &&
+      entry.context?.canonicalTargetPath === '/tmp/repo' &&
       entry.context?.updatedExisting === true &&
       entry.context?.reusedExisting === true,
   );
-  assert.ok(updateEntry, 'expected updated-in-place queue diagnostic');
+  assert.ok(
+    updateEntry,
+    'expected updated-in-place queue marker with shared canonicalTargetPath',
+  );
 });
 
 test('ingest-reembed rejects a still-visible queued start row before queue admission starts', async () => {

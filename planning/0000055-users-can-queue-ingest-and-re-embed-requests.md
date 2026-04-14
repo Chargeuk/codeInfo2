@@ -9504,7 +9504,7 @@ This task narrows the review-artifact ignore behavior for the current pass so th
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `121`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 3.
 
 #### Overview
@@ -9536,13 +9536,13 @@ This task makes the queue route emitters use one shared marker schema for the sa
 
 #### Subtasks
 
-1. [ ] Choose one shared target-path field name for the queue route markers and apply it in `server/src/routes/ingestStart.ts` for `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`. Purpose: remove route-specific marker vocabulary from the start-ingest surface.
-2. [ ] Apply the same shared target-path field name in `server/src/routes/ingestReembed.ts` for `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`. Purpose: keep the re-embed surface aligned with the start-ingest marker schema.
-3. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove the start-ingest route logs `QUEUE_REQUEST_UPDATED_IN_PLACE` with the shared canonical target-path field name. Purpose: make the first repaired start-route marker explicit.
-4. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove the start-ingest route logs `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` with the shared canonical target-path field name. Purpose: make the second repaired start-route marker explicit.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove the re-embed route logs `QUEUE_REQUEST_UPDATED_IN_PLACE` with the shared canonical target-path field name. Purpose: make the first repaired re-embed marker explicit.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove the re-embed route logs `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` with the shared canonical target-path field name. Purpose: make the second repaired re-embed marker explicit.
-7. [ ] Proof type: test maintenance. Location: `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts`. Description: rename or split any retained route-log proof titles whose wording would still imply route-specific target-path field names after the shared-marker repair. Purpose: keep the stated invariants aligned with the new assertions.
+1. [x] Choose one shared target-path field name for the queue route markers and apply it in `server/src/routes/ingestStart.ts` for `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`. Purpose: remove route-specific marker vocabulary from the start-ingest surface.
+2. [x] Apply the same shared target-path field name in `server/src/routes/ingestReembed.ts` for `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID`. Purpose: keep the re-embed surface aligned with the start-ingest marker schema.
+3. [x] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove the start-ingest route logs `QUEUE_REQUEST_UPDATED_IN_PLACE` with the shared canonical target-path field name. Purpose: make the first repaired start-route marker explicit.
+4. [x] Test type: server unit. Location: `server/src/test/unit/ingest-start.test.ts`. Description: prove the start-ingest route logs `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` with the shared canonical target-path field name. Purpose: make the second repaired start-route marker explicit.
+5. [x] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove the re-embed route logs `QUEUE_REQUEST_UPDATED_IN_PLACE` with the shared canonical target-path field name. Purpose: make the first repaired re-embed marker explicit.
+6. [x] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: prove the re-embed route logs `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` with the shared canonical target-path field name. Purpose: make the second repaired re-embed marker explicit.
+7. [x] Proof type: test maintenance. Location: `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts`. Description: rename or split any retained route-log proof titles whose wording would still imply route-specific target-path field names after the shared-marker repair. Purpose: keep the stated invariants aligned with the new assertions.
 
 #### Testing
 
@@ -9556,6 +9556,9 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 #### Implementation notes
 
 - Added from review pass `0000055-20260414T013213Z-2aaab374` to answer the shared queue marker-schema consistency finding.
+- Activation on 2026-04-14: promoted Task 122 to `__in_progress__` as the earliest executable owner after Task 121 normalized to `__done__`.
+- Subtasks 1 through 2: normalized both `QUEUE_REQUEST_UPDATED_IN_PLACE` and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` to emit the shared `canonicalTargetPath` field across `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`, removing the route-specific `root` payload from the re-embed marker contexts.
+- Subtasks 3 through 7: refreshed `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` so the retained queue-marker proof titles and assertions now explicitly require the shared `canonicalTargetPath` field on both acceptance and updated-in-place markers.
 
 ### Task 123. Replace Wall-Clock Queue Cache Proof With Deterministic Timing Proof
 

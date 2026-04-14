@@ -67,8 +67,8 @@ export function createIngestReembedRouter({
           requestId: (res.locals?.requestId as string | undefined) ?? undefined,
           context: {
             endpoint: '/ingest/reembed/:root',
-            root: normalizedRoot,
             queueRequestId: queueResult.requestId,
+            canonicalTargetPath: queueResult.canonicalTargetPath,
             runId,
             queued: !runId,
             queuePosition: runId ? undefined : queueResult.queuePosition,
@@ -85,8 +85,8 @@ export function createIngestReembedRouter({
         requestId: (res.locals?.requestId as string | undefined) ?? undefined,
         context: {
           endpoint: '/ingest/reembed/:root',
-          root: normalizedRoot,
           queueRequestId: queueResult.requestId,
+          canonicalTargetPath: queueResult.canonicalTargetPath,
           runId,
           queued: !runId,
           queuePosition: runId ? undefined : queueResult.queuePosition,

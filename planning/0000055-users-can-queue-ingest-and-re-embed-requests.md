@@ -9352,6 +9352,7 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 - Testing item 1 passed via `npm run build:summary:server`; the wrapper ended with `agent_action: skip_log` and retained `logs/test-summaries/build-server-latest.log`.
 - The first full `npm run test:summary:server:unit` rerun exposed two task-owned issues: unresolved `${HOME}` `CODEINFO_CODEX_WORKDIR` placeholders were being enforced as literal scope roots, and the queued-root validator had been applied to direct non-queue `startIngest()` runs; the repair now ignores unresolved placeholder roots and limits the replay-time guard to queue-managed start work before the full wrapper was rerun.
 - **RESOLVED ISSUE** Testing item 2 no longer blocks Task 119. A targeted rerun of `server/src/test/integration/flows.run.loop.test.ts` for `flow stop during a looped flow prevents later iterations from continuing` passed on current disk, and the follow-up full `npm run test:summary:server:unit` wrapper then passed cleanly with `1675/1675` tests green in `test-results/server-unit-tests-2026-04-14T04-27-01-511Z.log`.
+- Manual testing on 2026-04-14 was skipped because Task 119 remains `__in_progress__` with Testing items 3 and 4 still incomplete, so the latest task is not honestly complete yet.
 
 ### Task 120. Prevent Startup Recovery From Replaying Already-Committed Queue Runs
 

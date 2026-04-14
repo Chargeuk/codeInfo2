@@ -9334,7 +9334,7 @@ This task restores server-side path safety for queued ingest-start requests. The
 #### Testing
 
 1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the path-validation repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the path-validation repair.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the path-validation repair.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the path-validation repair so the broader ingest route surface remains honest.
 4. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task changes route validation and replay seams rather than the launcher path; the later final revalidation task owns the combined runtime rerun.
 
@@ -9351,7 +9351,7 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 - Refreshed `server/src/test/features/ingest-start.feature` wording so the accepted high-level scenario explicitly claims canonical repository-root admission after the validation tightening.
 - Testing item 1 passed via `npm run build:summary:server`; the wrapper ended with `agent_action: skip_log` and retained `logs/test-summaries/build-server-latest.log`.
 - The first full `npm run test:summary:server:unit` rerun exposed two task-owned issues: unresolved `${HOME}` `CODEINFO_CODEX_WORKDIR` placeholders were being enforced as literal scope roots, and the queued-root validator had been applied to direct non-queue `startIngest()` runs; the repair now ignores unresolved placeholder roots and limits the replay-time guard to queue-managed start work before the full wrapper was rerun.
-- **BLOCKER** Testing item 2 (`npm run test:summary:server:unit`) is now blocked by an unrelated existing failure in `server/src/test/integration/flows.run.loop.test.ts` (`flow stop during a looped flow prevents later iterations from continuing`). I inspected the full-wrapper failure log at `test-results/server-unit-tests-2026-04-14T04-14-20-584Z.log`, repaired and reran the task-owned path-validation regressions, and confirmed the remaining stop is a flow-loop runtime cleanup failure outside Task 119's route and queued-ingest-path scope. This task should stay `__in_progress__` and either wait for that external failure to be repaired first or be split so Task 119's proof is not blocked on the unrelated flow-runtime suite.
+- **RESOLVED ISSUE** Testing item 2 no longer blocks Task 119. A targeted rerun of `server/src/test/integration/flows.run.loop.test.ts` for `flow stop during a looped flow prevents later iterations from continuing` passed on current disk, and the follow-up full `npm run test:summary:server:unit` wrapper then passed cleanly with `1675/1675` tests green in `test-results/server-unit-tests-2026-04-14T04-27-01-511Z.log`.
 
 ### Task 120. Prevent Startup Recovery From Replaying Already-Committed Queue Runs
 

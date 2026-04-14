@@ -9899,6 +9899,7 @@ This review-fix task repairs the queue and zero-work re-embed paths so they retu
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the queue-admission and zero-work fast-path repairs.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit wrapper passes after the new queue-admission and zero-work proof owners land.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber wrapper still passes after the queue-admission contract repair.
+4. [ ] Separate compose-build and supported main-stack smoke proof is not applicable here because this task repairs queue-admission and zero-work execution logic inside the running server rather than the repository's default startup or launcher path; Task 128 owns the compose-backed final runtime rerun after Tasks 126 and 127 land.
 
 #### Implementation notes
 
@@ -9952,6 +9953,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 
 1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-evidence.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260414T131709Z-cd90d65b-blind-spot-challenge.md` and confirm only the transient or additive files remain ignored.
 2. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` and confirm the durable artifacts for review pass `0000055-20260414T131709Z-cd90d65b` are naturally visible after the ignore-rule repair.
+3. [ ] Wrapper build, wrapper test, compose startup, and compose shutdown proof are not applicable here because this task only changes `.gitignore` visibility boundaries; the direct git checks above are the full honest proof path for this repository-owned support-file repair.
 
 #### Implementation notes
 

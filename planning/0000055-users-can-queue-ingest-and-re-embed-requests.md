@@ -9364,13 +9364,15 @@ This task closes the startup replay safety gap where a crash after terminal side
 - `server/src/startup/ingestQueueStartup.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`
 - `server/src/test/integration/ingest-reembed.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 
 #### Proof Mapping
 
-- `R1.` The queue runtime now records or derives a concrete completion barrier before startup recovery decides whether to replay persisted work. Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`. Proof homes: Task 120 Testing items 1 and 2.
-- `R2.` Startup recovery no longer blindly replays already-committed queue rows. Owners: `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`. Proof home: Task 120 Testing item 2.
-- `R3.` Genuine unfinished work and true cleanup-blocked rows still retain the intended recovery and stalling behavior. Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: Task 120 Testing items 2 through 4.
-- `R4.` Direct proof covers both the no-replay committed-before-cleanup case and the still-replay unfinished case. Owners: `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`. Proof homes: Task 120 Testing items 2 through 4.
+- `R1.` The queue runtime now records or derives a concrete completion barrier before startup recovery decides whether to replay persisted work. Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`. Proof homes: Task 120 Testing items 1 through 4.
+- `R2.` Startup recovery no longer blindly replays already-committed queue rows. Owners: `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`, `server/src/test/features/ingest-reembed.feature`, `server/src/test/steps/ingest-manage.steps.ts`. Proof homes: Task 120 Testing items 2 and 3.
+- `R3.` Genuine unfinished work and true cleanup-blocked rows still retain the intended recovery and stalling behavior. Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/features/ingest-reembed.feature`, `server/src/test/steps/ingest-manage.steps.ts`. Proof homes: Task 120 Testing items 2 through 6.
+- `R4.` Direct proof covers both the no-replay committed-before-cleanup case and the still-replay unfinished case. Owners: `server/src/test/unit/ingest-queue-runtime.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`, `server/src/test/features/ingest-reembed.feature`, `server/src/test/steps/ingest-manage.steps.ts`. Proof homes: Task 120 Testing items 2 through 3.
 
 #### Subtasks
 
@@ -9385,15 +9387,19 @@ This task closes the startup replay safety gap where a crash after terminal side
 9. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove cleanup-blocked rows still preserve queue stalling and do not silently advance later work after the replay repair. Purpose: retain the cleanup-ownership contract while startup logic changes.
 10. [ ] Proof type: test maintenance. Location: `server/src/test/integration/ingest-reembed.test.ts`. Description: rename or narrow any reused startup-recovery integration proof so its title and assertions claim the replay barrier itself rather than generic re-embed success. Purpose: keep the broader integration proof semantically aligned with the new invariant.
 11. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-reembed.test.ts`. Description: prove the repaired startup replay barrier still holds through the broader ingest re-embed integration seam. Purpose: keep the startup contract honest beyond the unit seam.
+12. [ ] Proof type: cucumber proof maintenance. Location: `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts`. Description: rename, split, or rewrite any reused startup-recovery feature proof so committed-before-cleanup no-replay and genuinely unfinished replay remain explicit in the higher-level queue-recovery wording. Purpose: keep the supported Mongo-backed feature proof semantically aligned with the repaired restart contract.
+13. [ ] Test type: server cucumber. Location: `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts`. Description: prove the startup path does not replay already-committed queue work while still resuming genuinely unfinished work on the supported Mongo-backed cucumber route. Purpose: keep the repaired restart contract visible on the repo's normal backend feature harness, not only in unit or integration files.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the startup-recovery safety repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the startup-recovery safety repair.
-3. [ ] Run `npm run compose:up` and confirm the default supported compose stack still starts cleanly after the startup-recovery repair.
-4. [ ] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the startup smoke proof.
+3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper passes after the startup-recovery safety repair so the normal Mongo-backed backend path still proves committed-before-cleanup no-replay and genuinely unfinished replay.
+4. [ ] Run `npm run compose:build:summary` and confirm the compose build wrapper passes after the startup-recovery repair so the supported containerized runtime still packages the restart-path changes.
+5. [ ] Run `npm run compose:up` and confirm the default supported compose stack still starts cleanly after the startup-recovery repair.
+6. [ ] Run `npm run compose:down` and confirm the supported compose stack shuts down cleanly after the startup smoke proof.
 
-If Testing item 2 fails during diagnosis, a targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` rerun may be used to narrow the repair, but this task only closes after the full wrapper in Testing item 2 and the compose smoke pair in Testing items 3 and 4 pass again.
+If Testing items 2 or 3 fail during diagnosis, targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` or `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature` reruns may be used to narrow the repair, but this task only closes after the full wrappers in Testing items 2 and 3 and the supported compose proof chain in Testing items 4 through 6 pass again.
 
 #### Implementation notes
 

@@ -9725,7 +9725,7 @@ If Testing items 3 through 5 fail during diagnosis, narrower targeted server, cl
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `118, 119, 120, 121, 122, 123, 124`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` as the required final revalidation task after the current findings-driven follow-up work.
 
 #### Overview
@@ -9817,3 +9817,4 @@ If any required wrapper in Testing items 1 through 9 fails during diagnosis, nar
 - Manual testing skipped on 2026-04-14 because Task 125 is still the highest-numbered active task and is not honestly complete yet: subtasks 10 and 12 plus Testing items 10 through 12 remain open, so this loop did not run manual proof early.
 - Subtask 10: repaired `e2e/ingest.spec.ts` so the stale-diagnostics recovery scenario no longer inherits an unrelated global ingest skip and now asserts the actual rendered surfaces for the mocked row or drawer state; the targeted wrapper rerun `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "previously errored queued ingest rows recover into healthy state without stale diagnostics through refresh"` then passed with `1/1` and retained `artifacts/story-0000055-screenshots/0000055-stale-diagnostics-recovered.png` plus the supported-host marker `DEV-0000050:T13:e2e_host_network_config_verified`.
 - Testing items 10 through 12 and Subtask 12: because the remaining close-out work explicitly depended on the retained browser artifact and direct git checks, this pass ran the direct durable-artifact existence check, `git check-ignore -v`, and `git status --short ...` commands; all passed on current `HEAD`, confirming the evidence, findings, and screenshot files exist while only the durable review artifacts and retained screenshot remain naturally visible.
+- Audit 2026-04-14: normalized Task 125 to `__done__` after confirming current disk already shows `13/13` subtasks complete, `12/12` testing items complete, the retained screenshot and review artifacts on disk, and no live standalone blocker; the earlier manual-testing-skip note remains only as historical sequencing context rather than an open gate.

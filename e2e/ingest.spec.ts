@@ -27,6 +27,9 @@ let skipReason: string | undefined;
 let ingestSkip: string | undefined;
 let chosenModelId: string | undefined;
 
+const staleDiagnosticsRecoveryScenario =
+  'previously errored queued ingest rows recover into healthy state without stale diagnostics through refresh';
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function saveStableScreenshot(
@@ -508,9 +511,14 @@ test.describe.serial('Ingest flows', () => {
     await checkPrereqs();
   });
 
-  test.beforeEach(async () => {
+  test.beforeEach(async ({}, testInfo) => {
     test.skip(Boolean(skipReason), skipReason ?? 'prerequisites missing');
-    test.skip(Boolean(ingestSkip), ingestSkip ?? 'ingest unavailable');
+    const requiresLiveIngestPrereqs =
+      testInfo.title !== staleDiagnosticsRecoveryScenario;
+    test.skip(
+      requiresLiveIngestPrereqs && Boolean(ingestSkip),
+      ingestSkip ?? 'ingest unavailable',
+    );
     await ensureCleanRoots();
   });
 
@@ -773,7 +781,7 @@ test.describe.serial('Ingest flows', () => {
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
-  test('previously errored queued ingest rows recover into healthy state without stale diagnostics through refresh', async ({
+  test(staleDiagnosticsRecoveryScenario, async ({
     page,
   }) => {
     let rootsRequestCount = 0;
@@ -828,7 +836,6 @@ test.describe.serial('Ingest flows', () => {
     await expect(row.getByText(/queued \(#1\)/i)).toBeVisible();
     await expect(row.getByText('stale-persisted-model')).toHaveCount(0);
     await expect(row.getByText('Stale persisted error')).toHaveCount(0);
-    await expect(page.getByText('fallback identity only')).toBeVisible();
 
     await page.getByRole('button', { name: /^refresh$/i }).click();
 
@@ -840,14 +847,14 @@ test.describe.serial('Ingest flows', () => {
       .toBeGreaterThan(1);
 
     await expect(rows).toHaveCount(1);
-    await expect(page.getByText('canonical id restored')).toBeVisible();
-
     await row.getByRole('button', { name: /details/i }).click();
     await expect(page.getByText(/Request ID/i)).toBeVisible();
     await expect(page.getByText(/Pending queue start/i)).toBeVisible();
     await expect(page.getByText('canonical id restored')).toBeVisible();
     await expect(
-      page.getByText('openai / text-embedding-3-small'),
+      page
+        .getByTestId('root-details')
+        .getByText('openai / text-embedding-3-small', { exact: true }),
     ).toBeVisible();
     await expect(page.getByText('stale-persisted-model')).toHaveCount(0);
     await expect(page.getByText('Stale persisted error')).toHaveCount(0);

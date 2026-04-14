@@ -9119,7 +9119,7 @@ This task repairs the shared LM Studio mock stream helper so it behaves correctl
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `109, 110, 111, 112, 113, 114, 115, 116`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` as the required final revalidation task after the new review-fix tasks land.
 
 #### Overview
@@ -9201,3 +9201,4 @@ This final review-follow-up task revalidates Story 55 after the current findings
 - Testing 9: no narrower targeted proof reruns were needed in this final pass because each full required wrapper and direct git check passed without task-owned failure diagnosis.
 - Testing 10: separate client-wrapper and browser-wrapper proof remained honestly not applicable because Tasks 109 through 116 and this final close-out only touched server and workflow-support seams.
 - Subtasks 10 through 12: refreshed `planning/0000055-pr-summary.md` with the current Task 117 wrapper rerun homes, the direct durable-artifact existence and visibility proof results, and an explicit statement that no new pass-specific weak-proof caveat surfaced beyond the carried-forward story boundaries already retained in the summary.
+- Automated-proof audit on 2026-04-14: re-read `codeInfoStatus/flow-state/current-plan.json`, this exact Task 117 section, the refreshed summary file, and the current parser output before normalizing status. All subtasks and Testing 1-10 are now honestly complete on current disk, `selected_task.live_blockers` is empty, and no prose-only remaining gate survives, so Task 117 is normalized from `__in_progress__` to `__done__`.

@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   getControlledEmbeddingWaiterCount,
+  getLastPredictionState,
+  MockLMStudioClient,
   startMock,
   stopMock,
   waitForControlledEmbeddingCalls,
@@ -21,4 +23,106 @@ test('controlled embedding waiters are cleaned up after timeout', async () => {
   );
 
   assert.equal(getControlledEmbeddingWaiterCount(), 0);
+});
+
+test('pre-aborted chat prediction marks the helper cancelled immediately', async () => {
+  startMock({ scenario: 'chat-stream' });
+
+  const controller = new AbortController();
+  controller.abort();
+
+  const client = new MockLMStudioClient();
+  const model = await client.llm.model('chat-model');
+
+  await model.act([], [], { signal: controller.signal });
+  const state = getLastPredictionState();
+
+  assert.ok(state);
+  assert.equal(state.cancelled, true);
+  assert.equal(state.emittedEventCount, 0);
+  assert.equal(state.roundStartCount, 0);
+});
+
+test('pre-aborted chat prediction emits no delayed callbacks or chunks', async () => {
+  startMock({ scenario: 'chat-stream' });
+
+  const controller = new AbortController();
+  controller.abort();
+
+  const fragments: unknown[] = [];
+  const messages: unknown[] = [];
+  const rounds: number[] = [];
+  const client = new MockLMStudioClient();
+  const model = await client.llm.model('chat-model');
+
+  await model.act([], [], {
+    signal: controller.signal,
+    onPredictionFragment: (fragment) => {
+      fragments.push(fragment);
+    },
+    onMessage: (message) => {
+      messages.push(message);
+    },
+    onRoundStart: (roundIndex) => {
+      rounds.push(roundIndex);
+    },
+  });
+
+  const state = getLastPredictionState();
+  assert.ok(state);
+  assert.deepEqual(fragments, []);
+  assert.deepEqual(messages, []);
+  assert.deepEqual(rounds, []);
+  assert.equal(state.emittedEventCount, 0);
+  assert.equal(state.roundStartCount, 0);
+});
+
+test('pre-aborted chat prediction completes its cleanup boundary before returning', async () => {
+  startMock({ scenario: 'chat-stream' });
+
+  const controller = new AbortController();
+  controller.abort();
+
+  const client = new MockLMStudioClient();
+  const model = await client.llm.model('chat-model');
+
+  await model.act([], [], { signal: controller.signal });
+
+  const state = getLastPredictionState();
+  assert.ok(state);
+  assert.equal(state.cancelled, true);
+  assert.equal(state.abortListenerRemoved, true);
+});
+
+test('non-aborted chat prediction still emits output and clears helper cleanup state', async () => {
+  startMock({ scenario: 'chat-stream' });
+
+  const fragments: unknown[] = [];
+  const messages: unknown[] = [];
+  const rounds: number[] = [];
+  const client = new MockLMStudioClient();
+  const model = await client.llm.model('chat-model');
+
+  const result = await model.act([], [], {
+    onPredictionFragment: (fragment) => {
+      fragments.push(fragment);
+    },
+    onMessage: (message) => {
+      messages.push(message);
+    },
+    onRoundStart: (roundIndex) => {
+      rounds.push(roundIndex);
+    },
+  });
+
+  const state = getLastPredictionState();
+  assert.ok(state);
+  assert.equal(state.cancelled, false);
+  assert.ok(fragments.length > 0);
+  assert.ok(messages.length > 0);
+  assert.ok(rounds.length > 0);
+  assert.ok(state.emittedEventCount > 0);
+  assert.ok(state.roundStartCount > 0);
+  assert.equal(state.abortListenerRemoved, true);
+  assert.ok(result.rounds > 0);
 });

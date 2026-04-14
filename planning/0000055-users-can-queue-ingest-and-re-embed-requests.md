@@ -9060,7 +9060,7 @@ This task narrows the ignore policy so the current review pass evidence and find
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `115`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260413T080058Z-1eb771da` to answer Finding 6.
 
 #### Overview
@@ -9088,12 +9088,12 @@ This task repairs the shared LM Studio mock stream helper so it behaves correctl
 
 #### Subtasks
 
-1. [ ] Update `server/src/test/support/mockLmStudioSdk.ts` so it checks `signal.aborted` before registering the later abort listener and before entering the event-emission loop. Purpose: make pre-aborted signals behave like real cancelled streams from the first turn.
-2. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted proof that the helper marks the call as cancelled immediately on construction before any later abort event could fire. Purpose: make the cancellation-ordering invariant explicit at the helper seam.
-3. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted proof that no delayed stream callbacks or yielded chunks appear after construction, using the helper’s captured call state or collected output boundary instead of a fixed sleep. Purpose: keep the “nothing happened yet” invariant deterministic and reviewable.
-4. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted early-return cleanup proof that the helper terminates cleanly and awaits its cleanup boundary without leaving listener-driven work active after the first cancelled turn. Purpose: cover the listener and awaited early-return cleanup path that this helper owns.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add one dedicated non-aborted control proof that the helper still emits the expected controlled stream output and clears its waiter bookkeeping on a normal non-aborted run. Purpose: keep the normal helper contract covered alongside the new pre-aborted and early-return cases.
-6. [ ] Test type: server unit proof maintenance. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: keep the existing timeout-cleanup test focused on timeout cleanup, and add separate pre-aborted tests with titles that explicitly name pre-aborted cancellation instead of silently broadening the timeout case. Purpose: keep timeout and pre-aborted semantics distinct in the shared helper proof file.
+1. [x] Update `server/src/test/support/mockLmStudioSdk.ts` so it checks `signal.aborted` before registering the later abort listener and before entering the event-emission loop. Purpose: make pre-aborted signals behave like real cancelled streams from the first turn.
+2. [x] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted proof that the helper marks the call as cancelled immediately on construction before any later abort event could fire. Purpose: make the cancellation-ordering invariant explicit at the helper seam.
+3. [x] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted proof that no delayed stream callbacks or yielded chunks appear after construction, using the helper’s captured call state or collected output boundary instead of a fixed sleep. Purpose: keep the “nothing happened yet” invariant deterministic and reviewable.
+4. [x] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add a pre-aborted early-return cleanup proof that the helper terminates cleanly and awaits its cleanup boundary without leaving listener-driven work active after the first cancelled turn. Purpose: cover the listener and awaited early-return cleanup path that this helper owns.
+5. [x] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: add one dedicated non-aborted control proof that the helper still emits the expected controlled stream output and clears its waiter bookkeeping on a normal non-aborted run. Purpose: keep the normal helper contract covered alongside the new pre-aborted and early-return cases.
+6. [x] Test type: server unit proof maintenance. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: keep the existing timeout-cleanup test focused on timeout cleanup, and add separate pre-aborted tests with titles that explicitly name pre-aborted cancellation instead of silently broadening the timeout case. Purpose: keep timeout and pre-aborted semantics distinct in the shared helper proof file.
 
 #### Testing
 
@@ -9105,6 +9105,10 @@ This task repairs the shared LM Studio mock stream helper so it behaves correctl
 
 - Added from review pass `0000055-20260413T080058Z-1eb771da` to answer the pre-aborted signal mock-helper finding.
 - Planner repair on 2026-04-13 renumbered this task from the earlier Task 115 slot to Task 116 after the missing durable-review-artifact prerequisite was split into new Task 114.
+- Activation on 2026-04-14: promoted Task 116 to `__in_progress__` as the earliest executable owner after Task 115 closed on current disk.
+- Updated `server/src/test/support/mockLmStudioSdk.ts` so pre-aborted chat signals short-circuit before listener registration or event emission, while the shared prediction state now records emitted-event counts, round-start counts, and whether listener cleanup completed for direct helper proofs.
+- Added dedicated pre-aborted helper tests in `server/src/test/unit/mockLmStudioSdk.test.ts` for immediate cancelled-state convergence, deterministic no-callback behavior, and early-return cleanup completion, using captured helper state and callback arrays instead of fixed sleeps.
+- Added a separate non-aborted control proof in `server/src/test/unit/mockLmStudioSdk.test.ts` and kept the existing timeout-cleanup test unchanged so timeout and pre-aborted semantics remain distinct in the helper proof owner.
 
 ### Task 117. Re-Validate Story 55 After Review Pass `0000055-20260413T080058Z-1eb771da`
 

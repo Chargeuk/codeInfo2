@@ -9607,7 +9607,7 @@ This task removes the wall-clock sleep from the queue terminal-cache eviction pr
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server build wrapper passes after the deterministic-timing proof repair.
+1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the deterministic-timing proof repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the deterministic-timing proof repair.
 3. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task repairs a queue-runtime proof owner rather than the default launcher path; the later final revalidation task owns the broader rerun set.
 
@@ -9620,6 +9620,8 @@ If Testing item 2 fails during diagnosis, a targeted `npm run test:summary:serve
 - Subtask 1: updated `server/src/ingest/ingestJob.ts` so the terminal-status cache now records per-request expiry timestamps and exposes a test-only `__setQueueRequestTerminalStatusNowForTest(...)` clock seam. The production helper still uses the existing timeout cleanup path, but proof can now advance helper-owned time without sleeping.
 - Subtasks 2 and 3: rewrote the Task 123 owner in `server/src/test/unit/ingest-queue-runtime.test.ts` to pin the terminal-cache clock before publishing, advance it to just before expiry to prove retention, and then advance it across the expiry boundary to prove eviction deterministically.
 - Subtask 4: removed the old `setTimeout(20)` wall-clock proof shape and renamed the queue-cache test so it now states the explicit pre-expiry retention and post-expiry eviction boundary instead of implying a timing race.
+- Testing 1: `npm run build:summary:server` passed with `warning_count: 0`, `agent_action: skip_log`, and retained `logs/test-summaries/build-server-latest.log`, so the deterministic cache-timing seam still builds on the supported server wrapper path.
+- **BLOCKER** Testing 2 (`npm run test:summary:server:unit`) stopped on the full wrapper rerun after I inspected `test-results/server-unit-tests-2026-04-14T10-05-46-677Z.log` and confirmed the concrete failure is `flow stop during a looped flow prevents later iterations from continuing` in `server/src/test/integration/flows.run.loop.test.ts`, not the Task 123 queue-cache owner. I then ran the allowed targeted diagnosis wrapper `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts`, which passed with `tests run: 24`, `passed: 24`, and `failed: 0`, so the deterministic cache proof itself is green while the broader baseline remains blocked by an out-of-scope flow-runtime regression. This task should be reordered behind a repair or plan normalization for that shared `server:unit` failure owner before Task 123 can honestly finish its full-wrapper proof.
 
 ### Task 124. Clear Stale Diagnostics When Queue Overlay Returns To Healthy State
 

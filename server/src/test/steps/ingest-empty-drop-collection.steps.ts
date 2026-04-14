@@ -23,6 +23,7 @@ import {
 } from '../../ingest/chromaClient.js';
 import {
   __resetIngestJobsForTest,
+  isBusy,
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
@@ -150,7 +151,13 @@ When('the ingest run finishes successfully', async () => {
     if (body.state === 'completed' || body.state === 'error') {
       lastResponse = { status: res.status, body };
       assert.equal(body.state, 'completed');
-      return;
+      for (let j = 0; j < 60; j += 1) {
+        if (!isBusy()) {
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      assert.fail('ingest completed but busy cleanup did not settle');
     }
     await new Promise((r) => setTimeout(r, 100));
   }

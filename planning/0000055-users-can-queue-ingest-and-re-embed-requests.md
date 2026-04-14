@@ -9630,7 +9630,7 @@ If Testing item 2 fails during diagnosis, a targeted `npm run test:summary:serve
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `123`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T013213Z-2aaab374` to answer Finding 5.
 
 #### Overview
@@ -9718,6 +9718,7 @@ If Testing items 3 through 5 fail during diagnosis, narrower targeted server, cl
 - Testing 4: `npm run test:summary:client` passed with `tests run: 691`, `passed: 691`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/client-tests-2026-04-14T11-18-46-637Z.log`, so the client normalization and render repair stays green across the full client wrapper.
 - Testing 5: `npm run test:summary:e2e` passed with `tests run: 48`, `passed: 48`, `failed: 0`, `agent_action: skip_log`, and retained `logs/test-summaries/e2e-tests-latest.log`, so the supported browser path now proves stale-diagnostic recovery in both the table and the open details drawer on current disk.
 - Testing 6: separate server-cucumber, compose-build, and supported-runtime smoke proof remains honestly not applicable for Task 124 because this task repairs stale-diagnostic precedence rather than the default launcher path; Task 125 still owns that broader supported-stack rerun chain.
+- Automated-proof audit on 2026-04-14: closed Task 124 as `__done__` because all 22 subtasks and all 6 Testing items were already complete on disk, `selected_task.live_blockers` remained empty, and no prose-only remainder was an honest gate after the wrapper pass in `54182061`.
 
 ### Task 125. Re-Validate Story 55 After Review Pass `0000055-20260414T013213Z-2aaab374`
 

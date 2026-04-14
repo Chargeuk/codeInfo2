@@ -6,7 +6,7 @@ Resolve the single current task for this implementation-loop pass, or record tha
 
 Read the stored current-plan handoff and use only that scope for this step.
 Run `python3 scripts/select_current_task.py`.
-Read `codeInfoStatus/flow-state/current-task.json` after the script finishes and determine its meaning from what it contains rather than depending on an exact JSON shape.
+Read `codeInfoStatus/flow-state/current-task.json` from disk after the script finishes, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
 If it says a current task was resolved, re-open the exact plan from disk and re-read that bound task before answering.
 If it says the plan needs repair, or the story is already complete, report that clearly and do not invent a task anyway.
 
@@ -14,10 +14,11 @@ If it says the plan needs repair, or the story is already complete, report that 
 
 <scope_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
 - Treat `codeInfoStatus/flow-state/current-task.json` as a per-iteration flow-state artifact rather than as a durable tracked handoff like `current-plan.json`.
+- If a task is resolved, re-open the exact `plan_path` from disk with shell reads such as `sed`, `cat`, or `rg` so you are looking at the current file contents rather than memory.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </scope_rules>

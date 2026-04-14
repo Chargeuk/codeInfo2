@@ -5,8 +5,8 @@ Normalize structurally inconsistent task state so the overnight implementation l
 <task>
 
 Read the stored current-plan handoff and use only that scope for this step.
-Read `codeInfoStatus/flow-state/current-task.json` if it exists and determine its meaning from what it contains rather than depending on an exact JSON shape.
-Re-open the exact plan file from disk before normalizing anything.
+Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
+Re-open the exact plan file from disk before normalizing anything, using explicit shell reads such as `sed`, `cat`, or `rg`.
 Identify the highest-numbered task whose `Task Status` is `__in_progress__`.
 If there is no such task, identify the highest-numbered task whose `Task Status` is `__done__` but whose parser state still reports unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`.
 If `current-task.json` says the plan needs repair because multiple open `__in_progress__` tasks remain, treat that as an inconsistent state that MUST be repaired before work continues.
@@ -18,7 +18,7 @@ If the inconsistent task is `__done__` even though unchecked subtasks, unchecked
 
 <scope_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
 - Re-open the exact relative `plan_path` from disk before normalizing.

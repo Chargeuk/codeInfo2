@@ -9279,6 +9279,7 @@ If Testing item 1 fails during diagnosis, a targeted `npm run test:summary:serve
 - Testing 1: `npm run test:summary:server:cucumber` passed cleanly on current disk with `89/89` scenarios green and wrapper `agent_action: skip_log`, retaining proof home `test-results/server-cucumber-tests-2026-04-14T03-33-10-829Z.log`.
 - Testing 2: separate server-build, server-unit, compose-build, and supported-runtime smoke proof remains honestly not applicable because Task 118 only repairs cucumber proof owners and the later final revalidation task still owns the broader wrapper and runtime rerun set.
 - Automated-proof audit on 2026-04-14: normalized Task 118 to `__done__` because all subtasks and testing were already complete on disk, no live blocker remained, and no prose-only gate was left to justify keeping the task open.
+- Manual testing on 2026-04-14: assessed as not applicable for task-scoped proof because Task 118 only changes `server/src/test/features/ingest-roots.feature` and `server/src/test/steps/ingest-roots.steps.ts`, so there is no runnable, browser-visible, or externally observable surface to exercise beyond the completed automated proof.
 
 ### Task 119. Reject Untrusted Ingest Start Paths Before Queue Persistence
 

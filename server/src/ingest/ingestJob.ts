@@ -1517,15 +1517,11 @@ async function processRun(runId: string, input: IngestJobInput) {
         }
       }
 
-      const currentLock =
-        allowCollectionBootstrapFailure && !collectionsBootstrapped
-          ? null
-          : await getLockedEmbeddingModel();
       const rootEmbeddingDim = resolveKnownRootEmbeddingDimOrNull({
         existingRootDim: rootDim,
         collectionDim: rootCollectionDim,
         vectorDim,
-        lockedDim: currentLock?.embeddingDimensions ?? null,
+        lockedDim: null,
       });
       if (rootCollection && rootEmbeddingDim) {
         const rootMetadata: Metadata = {

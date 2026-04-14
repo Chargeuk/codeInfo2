@@ -179,7 +179,7 @@ test('queue admission rejects when Mongo is unavailable before any write starts'
   assert.equal(createMock.mock.calls.length, 0);
 });
 
-test('canonical queue-target normalization collapses start-ingest and re-embed aliases onto one queue identity for an existing waiting start row without rewriting it', async () => {
+test('canonical queue-target normalization keeps a still-waiting start row on honest waiting reuse semantics without rewriting it', async () => {
   const canonicalStartTarget =
     normalizeCanonicalQueueTargetPath('/data/example/');
   const canonicalReembedTarget =
@@ -243,6 +243,170 @@ test('canonical queue-target normalization collapses start-ingest and re-embed a
   assert.equal(result.queueRequest.operation, 'start');
   assert.equal(waitingLookupMock.mock.calls.length, 1);
   assert.equal(waitingUpdateMock.mock.calls.length, 0);
+});
+
+test('reembed duplicate sees current running semantics when a waiting start row is promoted before reuse response assembly', async () => {
+  const waitingSnapshot = createQueueRequest({
+    operation: 'start',
+    queueState: 'waiting',
+    runId: null,
+    requestPayload: {
+      model: 'queued-start-model',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'queued-start-model',
+    },
+  });
+  const promotedRunning = createQueueRequest({
+    ...waitingSnapshot,
+    queueState: 'running',
+    runId: '00000000-0000-0000-0000-000000000777',
+  });
+
+  const findOneMock = mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: { queueState?: string | { $in?: string[] } }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => waitingSnapshot,
+          }),
+        };
+      }
+
+      return {
+        sort: () => ({
+          exec: async () => null,
+        }),
+      };
+    },
+  );
+  const findByIdMock = mock.method(
+    IngestQueueRequestModel,
+    'findById',
+    () => ({
+      exec: async () => promotedRunning,
+    }),
+  );
+  const waitingUpdateMock = mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    () => ({
+      exec: async () => {
+        throw new Error('reembed duplicate should not rewrite a waiting start row');
+      },
+    }),
+  );
+  const countMock = mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
+    exec: async () => {
+      throw new Error('promoted running reuse should not count waiting rows');
+    },
+  }));
+
+  const result = await enqueueOrReuseIngestRequest(
+    buildInput({
+      operation: 'reembed',
+      requestPayload: {
+        model: 'queued-reembed-model',
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+      },
+      sourceSurface: 'rest/ingest/reembed',
+    }),
+  );
+
+  assert.equal(result.requestId, promotedRunning._id.toString());
+  assert.equal(result.queueState, 'running');
+  assert.equal(result.queuePosition, null);
+  assert.equal(result.runId, '00000000-0000-0000-0000-000000000777');
+  assert.equal(result.reusedExisting, true);
+  assert.equal(result.updatedExisting, false);
+  assert.deepEqual(result.queueRequest.requestPayload, {
+    model: 'queued-start-model',
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'queued-start-model',
+  });
+  assert.equal(findOneMock.mock.calls.length, 1);
+  assert.equal(findByIdMock.mock.calls.length, 1);
+  assert.equal(waitingUpdateMock.mock.calls.length, 0);
+  assert.equal(countMock.mock.calls.length, 0);
+});
+
+test('start duplicate sees current running semantics when a waiting row is promoted before rewrite response assembly', async () => {
+  const waitingSnapshot = createQueueRequest({
+    operation: 'start',
+    queueState: 'waiting',
+    runId: null,
+  });
+  const promotedRunning = createQueueRequest({
+    ...waitingSnapshot,
+    queueState: 'running',
+    runId: '00000000-0000-0000-0000-000000000778',
+  });
+
+  let waitingLookupCount = 0;
+  let liveLookupCount = 0;
+  const findOneMock = mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: { queueState?: string | { $in?: string[] } }) => {
+      if (filter.queueState === 'waiting') {
+        return {
+          sort: () => ({
+            exec: async () => {
+              waitingLookupCount += 1;
+              return waitingSnapshot;
+            },
+          }),
+        };
+      }
+
+      return {
+        sort: () => ({
+          exec: async () => {
+            liveLookupCount += 1;
+            return promotedRunning;
+          },
+        }),
+      };
+    },
+  );
+  const waitingUpdateMock = mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    () => ({
+      exec: async () => null,
+    }),
+  );
+  const countMock = mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
+    exec: async () => {
+      throw new Error('promoted running reuse should not count waiting rows');
+    },
+  }));
+
+  const result = await enqueueOrReuseIngestRequest(
+    buildInput({
+      operation: 'start',
+      requestPayload: {
+        model: 'queued-start-model',
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+      },
+      sourceSurface: 'rest/ingest/start',
+    }),
+  );
+
+  assert.equal(result.requestId, promotedRunning._id.toString());
+  assert.equal(result.queueState, 'running');
+  assert.equal(result.queuePosition, null);
+  assert.equal(result.runId, '00000000-0000-0000-0000-000000000778');
+  assert.equal(result.reusedExisting, true);
+  assert.equal(result.updatedExisting, false);
+  assert.equal(waitingLookupCount, 1);
+  assert.equal(liveLookupCount, 1);
+  assert.equal(findOneMock.mock.calls.length, 2);
+  assert.equal(waitingUpdateMock.mock.calls.length, 1);
+  assert.equal(countMock.mock.calls.length, 0);
 });
 
 test('ordinary matched-row update race keeps a raced-in waiting start row as start with updatedExisting false', async () => {

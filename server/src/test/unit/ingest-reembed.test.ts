@@ -348,6 +348,35 @@ test('ingest-reembed waiting queue-aware contract returns queued state without r
   assert.equal('runId' in response.body, false);
 });
 
+test('ingest-reembed promoted duplicate returns immediate acceptance with runId instead of stale waiting semantics', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () =>
+        buildQueueResult({
+          queueState: 'running',
+          queuePosition: null,
+          runId: '00000000-0000-0000-0000-000000000124',
+          reusedExisting: true,
+          updatedExisting: false,
+        }),
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: 'queue-request-other',
+        runId: null,
+      }),
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: false,
+    requestId: 'queue-request-123',
+    runId: '00000000-0000-0000-0000-000000000124',
+  });
+  assert.equal('queuePosition' in response.body, false);
+});
+
 test('ingest-reembed logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTargetPath', async () => {
   const response = await request(
     buildApp({
@@ -671,7 +700,7 @@ test('ingest-reembed degraded startup queue outage still returns retryable 503 Q
   );
 });
 
-test('blank-only delta reembed keeps completed no-op semantics after execution-time validation passes', async () => {
+test('blank-only delta reembed keeps a zero-count completed terminal result after execution-time validation passes', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
     'src/blank.ts': '   \n\t\n',
@@ -700,6 +729,7 @@ test('blank-only delta reembed keeps completed no-op semantics after execution-t
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
+    assert.deepEqual(status.counts, { files: 0, chunks: 0, embedded: 0 });
     assert.equal(status.error, null);
     assert.doesNotMatch(
       String(status.lastError ?? status.message ?? ''),
@@ -798,19 +828,20 @@ test('blank-only delta reembed stays provider-free when model lookup would fail 
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
+    assert.deepEqual(status.counts, { files: 0, chunks: 0, embedded: 0 });
     assert.equal(status.error, null);
     assert.equal(deps.getModelCalls(), 0);
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun + 1,
-      'zero-work fast path should stay Chroma-bootstrap-free after validation passes',
+      bootstrapCallsBeforeRun,
+      'zero-work fast path should stay free of late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();
   }
 });
 
-test('blank-only delta reembed returns completed when Chroma bootstrap would fail after validation passes', async () => {
+test('blank-only delta reembed returns a zero-count completed terminal result when late Chroma bootstrap would fail after validation passes', async () => {
   const chromaBootstrapFailure = new Error('chroma bootstrap failed');
   const { getOrCreateCollection, setCollectionFailure } =
     setupIngestChromaMocks();
@@ -845,6 +876,7 @@ test('blank-only delta reembed returns completed when Chroma bootstrap would fai
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
+    assert.deepEqual(status.counts, { files: 0, chunks: 0, embedded: 0 });
     assert.equal(status.error, null);
     assert.match(String(status.message ?? ''), /no changes/i);
     assert.equal(
@@ -854,8 +886,8 @@ test('blank-only delta reembed returns completed when Chroma bootstrap would fai
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun + 1,
-      'zero-work fast path should not bootstrap Chroma collections after validation passes',
+      bootstrapCallsBeforeRun,
+      'zero-work fast path should not attempt late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();
@@ -1052,6 +1084,7 @@ test('deletions-only delta reembed stays provider-free when model lookup would f
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
+    assert.deepEqual(status.counts, { files: 0, chunks: 0, embedded: 0 });
     assert.equal(status.error, null);
     assert.equal(deps.getModelCalls(), 0);
   } finally {
@@ -1059,7 +1092,7 @@ test('deletions-only delta reembed stays provider-free when model lookup would f
   }
 });
 
-test('deletions-only delta reembed returns completed when Chroma bootstrap would fail after validation passes', async () => {
+test('deletions-only delta reembed returns a zero-count completed terminal result when late Chroma bootstrap would fail after validation passes', async () => {
   const chromaBootstrapFailure = new Error('chroma bootstrap failed');
   const { getOrCreateCollection, setCollectionFailure } =
     setupIngestChromaMocks();
@@ -1097,6 +1130,7 @@ test('deletions-only delta reembed returns completed when Chroma bootstrap would
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
+    assert.deepEqual(status.counts, { files: 0, chunks: 0, embedded: 0 });
     assert.equal(status.error, null);
     assert.equal(
       deps.getModelCalls(),
@@ -1105,8 +1139,8 @@ test('deletions-only delta reembed returns completed when Chroma bootstrap would
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun + 1,
-      'deletions-only fast path should not bootstrap Chroma collections after validation passes',
+      bootstrapCallsBeforeRun,
+      'deletions-only fast path should not attempt late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();

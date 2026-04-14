@@ -529,6 +529,42 @@ test('ingest-start waiting queue-aware contract returns queued true with request
   assert.equal('deduped' in response.body, false);
 });
 
+test('ingest-start promoted duplicate returns immediate acceptance with runId instead of stale waiting semantics', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () =>
+        buildQueueResult({
+          queueState: 'running',
+          queuePosition: null,
+          runId: '00000000-0000-0000-0000-000000000123',
+          reusedExisting: true,
+          updatedExisting: false,
+        }),
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: 'queue-request-other',
+        runId: null,
+      }),
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: false,
+    requestId: 'queue-request-123',
+    runId: '00000000-0000-0000-0000-000000000123',
+  });
+  assert.equal('queuePosition' in response.body, false);
+  assert.equal('deduped' in response.body, false);
+});
+
 test('ingest-start logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTargetPath', async () => {
   const response = await request(
     buildApp({

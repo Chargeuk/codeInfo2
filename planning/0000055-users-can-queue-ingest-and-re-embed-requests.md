@@ -9335,8 +9335,8 @@ This task restores server-side path safety for queued ingest-start requests. The
 
 1. [x] Run `npm run build:summary:server` and confirm the server build wrapper passes after the path-validation repair.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit or integration wrapper passes after the path-validation repair.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the path-validation repair so the broader ingest route surface remains honest.
-4. [ ] Separate compose-build and supported-runtime smoke proof is not applicable here because this task changes route validation and replay seams rather than the launcher path; the later final revalidation task owns the combined runtime rerun.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server-cucumber wrapper still passes after the path-validation repair so the broader ingest route surface remains honest.
+4. [x] Separate compose-build and supported-runtime smoke proof is not applicable here because this task changes route validation and replay seams rather than the launcher path; the later final revalidation task owns the combined runtime rerun.
 
 If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` rerun may be used to narrow the repair, but this task only closes after the full wrappers in Testing items 2 and 3 pass again.
 
@@ -9352,6 +9352,8 @@ If Testing items 2 or 3 fail during diagnosis, a targeted `npm run test:summary:
 - Testing item 1 passed via `npm run build:summary:server`; the wrapper ended with `agent_action: skip_log` and retained `logs/test-summaries/build-server-latest.log`.
 - The first full `npm run test:summary:server:unit` rerun exposed two task-owned issues: unresolved `${HOME}` `CODEINFO_CODEX_WORKDIR` placeholders were being enforced as literal scope roots, and the queued-root validator had been applied to direct non-queue `startIngest()` runs; the repair now ignores unresolved placeholder roots and limits the replay-time guard to queue-managed start work before the full wrapper was rerun.
 - **RESOLVED ISSUE** Testing item 2 no longer blocks Task 119. A targeted rerun of `server/src/test/integration/flows.run.loop.test.ts` for `flow stop during a looped flow prevents later iterations from continuing` passed on current disk, and the follow-up full `npm run test:summary:server:unit` wrapper then passed cleanly with `1675/1675` tests green in `test-results/server-unit-tests-2026-04-14T04-27-01-511Z.log`.
+- Testing item 3 initially failed broadly because the new queued-root validator correctly honored `CODEINFO_CODEX_WORKDIR=/home/d_a_s/code` while the cucumber step fixtures were still creating accepted-path temp repositories under `/tmp`. I added `server/src/test/support/tempRepoRoot.ts` and updated the affected ingest cucumber step files to create scenario repos under the configured workdir when it is a real absolute path, then reran the full `npm run test:summary:server:cucumber` wrapper successfully with `89/89` passing in `test-results/server-cucumber-tests-2026-04-14T05-04-26-701Z.log`.
+- Testing item 4 is honestly not applicable for Task 119 because this task only hardens route validation, replay validation, and their direct proof owners. The later final revalidation task still owns compose-build plus supported-runtime smoke for the combined runnable stack.
 - Manual testing on 2026-04-14 was skipped because Task 119 remains `__in_progress__` with Testing items 3 and 4 still incomplete, so the latest task is not honestly complete yet.
 
 ### Task 120. Prevent Startup Recovery From Replaying Already-Committed Queue Runs

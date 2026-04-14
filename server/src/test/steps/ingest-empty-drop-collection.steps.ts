@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -31,6 +30,7 @@ import { createRequestLogger } from '../../logger.js';
 import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { MockLMStudioClient, stopMock } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 const VECTOR_COLLECTION =
   process.env.CODEINFO_INGEST_COLLECTION ?? 'ingest_vectors';
@@ -121,7 +121,7 @@ After(async () => {
 Given(
   'a temp repo for cleanup with file {string} containing {string}',
   async (rel: string, content: string) => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-cleanup-'));
+    tempDir = await createTempRepoRoot('ingest-cleanup-');
     const filePath = path.join(tempDir, rel);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);

@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -30,6 +29,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 setDefaultTimeout(15_000);
 
@@ -141,7 +141,7 @@ Given('ingest chroma stores are empty', async () => {
 });
 
 When('I POST the ingest start endpoint with JSON body', async () => {
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-body-'));
+  tempDir = await createTempRepoRoot('ingest-body-');
   const filePath = path.join(tempDir, 'readme.md');
   await fs.writeFile(filePath, '# sample');
 
@@ -160,7 +160,7 @@ When('I POST the ingest start endpoint with JSON body', async () => {
 });
 
 When('I POST ingest start with canonical and legacy model fields', async () => {
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-body-'));
+  tempDir = await createTempRepoRoot('ingest-body-');
   const filePath = path.join(tempDir, 'readme.md');
   await fs.writeFile(filePath, '# sample');
 

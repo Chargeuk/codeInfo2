@@ -4,7 +4,6 @@ import '../support/mongoContainer.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -50,6 +49,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -199,7 +199,7 @@ Given('ingest manage models scenario {string}', (name: string) => {
 Given(
   'ingest manage temp repo with file {string} containing {string}',
   async (rel: string, content: string) => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-manage-'));
+    tempDir = await createTempRepoRoot('ingest-manage-');
     const filePath = path.join(tempDir, rel);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
@@ -210,7 +210,7 @@ When(
   'I POST ingest manage start with model {string}',
   async (model: string) => {
     if (!tempDir) {
-      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-manage-'));
+      tempDir = await createTempRepoRoot('ingest-manage-');
     }
     const res = await fetch(`${baseUrl}/ingest/start`, {
       method: 'POST',

@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -28,6 +27,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -104,7 +104,7 @@ Given('ingest start models scenario {string}', (name: string) => {
 Given(
   'temp repo with file {string} containing {string}',
   async (rel: string, content: string) => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-start-'));
+    tempDir = await createTempRepoRoot('ingest-start-');
     const filePath = path.join(tempDir, rel);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
@@ -113,7 +113,7 @@ Given(
 
 When('I POST ingest start with model {string}', async (model: string) => {
   if (!tempDir) {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-start-'));
+    tempDir = await createTempRepoRoot('ingest-start-');
   }
   const res = await fetch(`${baseUrl}/ingest/start`, {
     method: 'POST',
@@ -130,7 +130,7 @@ When(
   'I POST ingest start with model {string} and dryRun',
   async (model: string) => {
     if (!tempDir) {
-      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-start-'));
+      tempDir = await createTempRepoRoot('ingest-start-');
     }
     const res = await fetch(`${baseUrl}/ingest/start`, {
       method: 'POST',

@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -33,6 +32,7 @@ import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { AstCoverageModel } from '../../mongo/astCoverage.js';
 import { disconnectMongo, isMongoConnected } from '../../mongo/connection.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -60,7 +60,7 @@ let rememberedAstCoverageTimestamp: string | null = null;
 
 async function ensureTempDir() {
   if (tempDir) return tempDir;
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-delta-'));
+  tempDir = await createTempRepoRoot('ingest-delta-');
   return tempDir;
 }
 

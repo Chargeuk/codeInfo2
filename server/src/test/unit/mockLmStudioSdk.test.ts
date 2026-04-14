@@ -57,13 +57,13 @@ test('pre-aborted chat prediction emits no delayed callbacks or chunks', async (
 
   await model.act([], [], {
     signal: controller.signal,
-    onPredictionFragment: (fragment) => {
+    onPredictionFragment: (fragment: unknown) => {
       fragments.push(fragment);
     },
-    onMessage: (message) => {
+    onMessage: (message: unknown) => {
       messages.push(message);
     },
-    onRoundStart: (roundIndex) => {
+    onRoundStart: (roundIndex: number) => {
       rounds.push(roundIndex);
     },
   });
@@ -104,13 +104,13 @@ test('non-aborted chat prediction still emits output and clears helper cleanup s
   const model = await client.llm.model('chat-model');
 
   const result = await model.act([], [], {
-    onPredictionFragment: (fragment) => {
+    onPredictionFragment: (fragment: unknown) => {
       fragments.push(fragment);
     },
-    onMessage: (message) => {
+    onMessage: (message: unknown) => {
       messages.push(message);
     },
-    onRoundStart: (roundIndex) => {
+    onRoundStart: (roundIndex: number) => {
       rounds.push(roundIndex);
     },
   });

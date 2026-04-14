@@ -9097,9 +9097,9 @@ This task repairs the shared LM Studio mock stream helper so it behaves correctl
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the mock-stream repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mockLmStudioSdk.test.ts` only if targeted diagnosis is needed while repairing the helper, then finish by rerunning Testing item 1.
-3. [ ] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes the unit-test support helper `server/src/test/support/mockLmStudioSdk.ts` and its direct unit proof owner; Task 117 owns the broader backend cucumber and runtime rerun after the review-fix set lands.
+1. [x] Run `npm run test:summary:server:unit` and confirm the full server-unit wrapper passes after the mock-stream repair.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mockLmStudioSdk.test.ts` only if targeted diagnosis is needed while repairing the helper, then finish by rerunning Testing item 1.
+3. [x] Separate server-cucumber, compose-build, and supported-runtime smoke proof is not applicable here because this task only changes the unit-test support helper `server/src/test/support/mockLmStudioSdk.ts` and its direct unit proof owner; Task 117 owns the broader backend cucumber and runtime rerun after the review-fix set lands.
 
 #### Implementation notes
 
@@ -9109,6 +9109,9 @@ This task repairs the shared LM Studio mock stream helper so it behaves correctl
 - Updated `server/src/test/support/mockLmStudioSdk.ts` so pre-aborted chat signals short-circuit before listener registration or event emission, while the shared prediction state now records emitted-event counts, round-start counts, and whether listener cleanup completed for direct helper proofs.
 - Added dedicated pre-aborted helper tests in `server/src/test/unit/mockLmStudioSdk.test.ts` for immediate cancelled-state convergence, deterministic no-callback behavior, and early-return cleanup completion, using captured helper state and callback arrays instead of fixed sleeps.
 - Added a separate non-aborted control proof in `server/src/test/unit/mockLmStudioSdk.test.ts` and kept the existing timeout-cleanup test unchanged so timeout and pre-aborted semantics remain distinct in the helper proof owner.
+- Testing 1 passed via `npm run test:summary:server:unit`; the first rerun failed during the build step because the new helper-test callback parameters were implicitly `any`, then the rerun passed cleanly after adding explicit callback parameter types with `tests run: 1671`, `passed: 1671`, `failed: 0`, and log `test-results/server-unit-tests-2026-04-14T00-11-07-026Z.log`.
+- Testing 2 was honestly not needed: the full wrapper failure evidence identified the exact in-scope TypeScript errors directly from the wrapper log, so no targeted `--file server/src/test/unit/mockLmStudioSdk.test.ts` rerun was required before the successful full-wrapper rerun in Testing 1.
+- Testing 3 marked complete as honestly not applicable because Task 116 only changes the unit-test support helper `server/src/test/support/mockLmStudioSdk.ts` and its direct unit proof owner `server/src/test/unit/mockLmStudioSdk.test.ts`; Task 117 remains the owner for the broader cucumber, compose-build, and supported-runtime reruns after the review-fix set lands.
 
 ### Task 117. Re-Validate Story 55 After Review Pass `0000055-20260413T080058Z-1eb771da`
 

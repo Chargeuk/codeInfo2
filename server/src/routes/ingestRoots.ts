@@ -117,6 +117,72 @@ function normalizeEmbeddingDimensions(value: unknown): number | null {
   return value;
 }
 
+function resolveRootEmbeddingModel(
+  repo: {
+    queueState?: RootEntry['queueState'];
+    embeddingModel?: string;
+    model?: string;
+  },
+  lock: LockEnvelope | null,
+): string {
+  if (repo.queueState === 'waiting') {
+    if (typeof repo.embeddingModel === 'string') {
+      return repo.embeddingModel;
+    }
+    if (typeof repo.model === 'string') {
+      return repo.model;
+    }
+  }
+
+  return (
+    normalizeEmbeddingModel(repo.embeddingModel) ??
+    normalizeEmbeddingModel(repo.model) ??
+    lock?.embeddingModel ??
+    ''
+  );
+}
+
+function resolveRootEmbeddingProvider(
+  repo: {
+    queueState?: RootEntry['queueState'];
+    embeddingProvider?: EmbeddingProviderId;
+    embeddingModel?: string;
+    model?: string;
+  },
+  lock: LockEnvelope | null,
+  embeddingModel: string,
+): EmbeddingProviderId {
+  if (
+    repo.queueState === 'waiting' &&
+    normalizeEmbeddingProvider(repo.embeddingProvider) !== null
+  ) {
+    return normalizeEmbeddingProvider(repo.embeddingProvider) ?? 'lmstudio';
+  }
+
+  return (
+    normalizeEmbeddingProvider(repo.embeddingProvider) ??
+    (lock &&
+    lock.embeddingModel === embeddingModel &&
+    embeddingModel.length > 0
+      ? lock.embeddingProvider
+      : 'lmstudio')
+  );
+}
+
+function resolveRootModelId(
+  repo: {
+    queueState?: RootEntry['queueState'];
+    modelId?: string;
+  },
+  embeddingModel: string,
+): string {
+  if (repo.queueState === 'waiting' && typeof repo.modelId === 'string') {
+    return repo.modelId;
+  }
+
+  return normalizeEmbeddingModel(repo.modelId) ?? embeddingModel;
+}
+
 export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
   const bestByPath = new Map<string, RootEntry>();
   for (const root of roots) {
@@ -173,18 +239,12 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
       const lock = payload.lock ?? null;
       logLockResolverState(requestId, 'ingest/roots', lock);
       const roots: RootEntry[] = payload.repos.map((repo) => {
-        const embeddingModel =
-          normalizeEmbeddingModel(repo.embeddingModel) ??
-          normalizeEmbeddingModel(repo.model) ??
-          lock?.embeddingModel ??
-          '';
-        const embeddingProvider =
-          normalizeEmbeddingProvider(repo.embeddingProvider) ??
-          (lock &&
-          lock.embeddingModel === embeddingModel &&
-          embeddingModel.length > 0
-            ? lock.embeddingProvider
-            : 'lmstudio');
+        const embeddingModel = resolveRootEmbeddingModel(repo, lock);
+        const embeddingProvider = resolveRootEmbeddingProvider(
+          repo,
+          lock,
+          embeddingModel,
+        );
         const embeddingDimensions =
           normalizeEmbeddingDimensions(repo.embeddingDimensions) ??
           (lock &&
@@ -192,6 +252,7 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
           lock.embeddingModel === embeddingModel
             ? lock.embeddingDimensions
             : 0);
+        const modelId = resolveRootModelId(repo, embeddingModel);
         const rootLock: LockEnvelope = {
           embeddingProvider,
           embeddingModel,
@@ -212,7 +273,7 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
           embeddingModel,
           embeddingDimensions,
           model: repo.model ?? embeddingModel,
-          modelId: repo.modelId,
+          modelId,
           lock: rootLock,
           status: repo.status ?? 'completed',
           ...(repo.phase ? { phase: repo.phase } : {}),

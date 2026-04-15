@@ -10595,15 +10595,19 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the waiting-overlay proof owned by `server/src/test/unit/ingest-roots-dedupe.test.ts`.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the waiting-overlay route proof owned by `server/src/test/features/ingest-roots.feature`.
-4. [ ] Run `npm run test:summary:client` and confirm the full client suite still passes, with the consumer-alignment proof owned by `client/src/test/useIngestRoots.test.tsx`.
+1. [x] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the waiting-overlay proof owned by `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the waiting-overlay route proof owned by `server/src/test/features/ingest-roots.feature`.
+4. [x] Run `npm run test:summary:client` and confirm the full client suite still passes, with the consumer-alignment proof owned by `client/src/test/useIngestRoots.test.tsx`.
 
 #### Implementation notes
 
 - Added from review pass `0000055-20260415T004532Z-74f062c7` to stop mixed canonical-plus-legacy waiting overlays from emitting contradictory model identity.
 - Subtasks 1 through 2: re-read the waiting-overlay finding plus the current `applyWaitingQueueRequestMetadata()` seam. That confirmed the live bug is canonical provider/model precedence being resolved field-by-field, which lets a waiting row combine canonical provider data with unrelated legacy model fallback identity.
+- Testing 1: `npm run build:summary:server` passed cleanly with `warning_count: 0`; retained proof home `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` initially exposed `/ingest/roots` waiting-row serialization falling back to the global lock model after the Task 135 repair; tightening `server/src/routes/ingestRoots.ts` to preserve explicit waiting-row blanks fixed the owner regression, the targeted owner-file rerun passed, and the full suite then passed with retained proof home `test-results/server-unit-tests-2026-04-15T07-58-34-861Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed with the waiting-overlay route proof still owned by `server/src/test/features/ingest-roots.feature`; retained proof home `test-results/server-cucumber-tests-2026-04-15T08-18-38-164Z.log`.
+- Testing 4: `npm run test:summary:client` passed with the consumer-alignment proof still owned by `client/src/test/useIngestRoots.test.tsx`; retained proof home `test-results/client-tests-2026-04-15T08-21-21-921Z.log`.
 - Subtasks 3 through 6: rewrote `applyWaitingQueueRequestMetadata()` around source-aware precedence. Full canonical queue payload wins, partial canonical queue payload now degrades instead of mixing with legacy fallback identity, existing canonical repo or lock pairs stay intact, and fully legacy waiting rows still use the pre-existing legacy-compatible output.
 - Subtasks 7 through 11: added explicit server-unit proof homes for partial-canonical repair, incompatible-legacy blanking, fully canonical control, and fully legacy control in `server/src/test/unit/ingest-roots-dedupe.test.ts`, and kept the final titles specific to those waiting-overlay semantics instead of generic queued-metadata wording.
 - Subtasks 12 through 14: added a client consumer proof that waiting-row normalization keeps the canonical provider/model pair even when stale legacy model fields are still present, and added matching ingest-roots cucumber scenarios plus queue seeding and per-entry provider/model assertions for the repaired waiting-overlay contract.

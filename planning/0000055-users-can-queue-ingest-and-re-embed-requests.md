@@ -11464,7 +11464,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `145`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T144433Z-95f6e31e` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview
@@ -11552,3 +11552,4 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Ran the subtask-required retained-proof audit from Testing 5; the `95f6e31e` close-out section now retains the exact Task 144 proof-home filenames, the exact `git check-ignore -v` and `git status --short` references, and the carried-forward `enqueueOrReuseIngestRequest()`, `recoverIngestQueueOnStartup()`, `applyQueueOverlay()`, sibling blocked-row affordance parity, and `reingest` waiter surface notes on disk.
 - Kept the final validation work anchored to retained support-file proof only; no current-pass review artifacts or retained proof homes were deleted, recreated, or replaced, and fresh wrapper reruns remain reserved for the later explicit Testing 6 guardrail.
 - Completed Testing 6 as the explicit support-file-only guardrail: no build, test, compose, smoke, lint, or format wrappers were rerun because Task 146 only refreshes the maintained summary and retained direct-git proof for the existing artifact-visibility repair.
+- Automated-proof audit closed Task 146 after confirming all 31 subtasks and all 6 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.

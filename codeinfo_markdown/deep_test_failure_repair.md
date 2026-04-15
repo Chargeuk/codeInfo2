@@ -57,6 +57,18 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the f
 
 </repair_rules>
 
+<section_ownership_rules>
+
+- Any task structure added or rewritten by this step MUST follow this section contract:
+  - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - `Testing` for automated proof execution only.
+  - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
+- Do not add manual-testing checklist items in `Subtasks` or `Testing`.
+- Do not add subtasks that depend on future screenshots, logs, later manual-testing-agent reruns, or later automated-proof outputs in order to become complete.
+- Do not add subtasks that tell the coding agent to perform browser validation, Playwright MCP validation, screenshot review, or other manual-testing-agent proof work.
+
+</section_ownership_rules>
+
 <plan_update_rules>
 
 - If there is no applicable live blocker, do not edit the plan and do not append a no-op note.
@@ -64,7 +76,10 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the f
 - Keep the blocker-history update concise and avoid appending repeated essays when the same failure mode has already been documented.
 - Mark testing steps complete only when they honestly pass.
 - Mark any proof-owned subtasks complete immediately when the passing proof now honestly closes them.
-- If the deeper pass discovers new in-scope work that must be tracked explicitly, add concise unchecked subtasks or testing steps to the same task before continuing.
+- If the deeper pass discovers new in-scope work that must be tracked explicitly, add only:
+  - concise unchecked implementation or proof-authoring subtasks; or
+  - concise unchecked automated-only testing steps.
+- If optional later browser-visible, runtime-visible, or otherwise externally observable validation would still help after the repair, place that only in `Manual Testing Guidance`.
 - Do not append a note that only says this step ran. Every new note must capture a real repair, a real proof result, or an honest remaining blocker.
 
 </plan_update_rules>
@@ -107,6 +122,10 @@ Before finishing:
 - confirm you kept this step limited to automated-proof test-failure blockers rather than generic task-shape repair;
 - confirm you performed a real diagnose-fix-rerun cycle before leaving an ordinary failing test blocked;
 - confirm any resolved blocker was retired from live blocker state honestly;
+- confirm you did not add manual-testing checklist items in `Subtasks` or `Testing`;
+- confirm you did not add subtasks that depend on future manual-testing-agent or automated-proof outputs;
+- confirm any added `Testing` steps remain automated-only;
+- confirm any added `Manual Testing Guidance` is optional and non-blocking;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

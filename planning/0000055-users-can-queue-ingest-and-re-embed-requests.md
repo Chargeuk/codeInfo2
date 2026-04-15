@@ -11565,7 +11565,7 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `146`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T160116Z-63f69857` to repair the new durable-review-artifact ignore-boundary regression on the current HEAD.
 
 #### Overview
@@ -11637,6 +11637,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Ran `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` because subtasks 19 and 20 require ordinary workflow proof; the current pass durable evidence and findings files stayed naturally visible without force-add, but they were already tracked and clean, so short status only showed the `.gitignore` and plan edits plus unrelated pre-existing review artifacts outside this task.
 - Kept Task 147 support-file-only and left current-pass review artifacts untouched aside from the `.gitignore` boundary repair, so no cleanup ownership changed and no runtime wrapper work was introduced in this implementation pass.
 - Completed the final Task 147 proof guardrail by explicitly keeping this pass limited to `.gitignore`, direct git validation, and plan maintenance; no build, test, compose, smoke, lint, or format wrappers were run because the task never changed runtime code.
+- Automated-proof audit closed Task 147 after confirming all 22 subtasks and all 4 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
 
 ### Task 148. Re-Validate Story 55 After Review Pass `0000055-20260415T160116Z-63f69857`
 

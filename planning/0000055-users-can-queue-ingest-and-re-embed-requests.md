@@ -10520,9 +10520,9 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the hook repair.
-2. [ ] Run `npm run test:summary:client` and confirm the full client suite still passes, with the overlapping-refetch proof owned by `client/src/test/useIngestRoots.test.tsx`.
-3. [ ] Run `npm run test:summary:e2e` and confirm the full browser flow still passes, with the overlapping-refetch proof owned by `e2e/ingest.spec.ts` and refreshed screenshot evidence under `artifacts/story-0000055-screenshots/`.
+1. [x] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the hook repair.
+2. [x] Run `npm run test:summary:client` and confirm the full client suite still passes, with the overlapping-refetch proof owned by `client/src/test/useIngestRoots.test.tsx`.
+3. [x] Run `npm run test:summary:e2e` and confirm the full browser flow still passes, with the overlapping-refetch proof owned by `e2e/ingest.spec.ts` and refreshed screenshot evidence under `artifacts/story-0000055-screenshots/`.
 
 #### Implementation notes
 
@@ -10533,6 +10533,9 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - Subtasks 11 through 13: replaced the older stale-diagnostics-only browser refresh stub with a deterministic overlapping-refetch scenario in `e2e/ingest.spec.ts` that holds the refresh response open, proves the previously settled row stays visible while the newest refresh owns loading, and unregisters the route interception before exit.
 - Subtask 14: ran the targeted wrapper `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "overlapping ingest-roots refresh keeps retained rows visible while the newest request owns loading"` because the screenshot artifact was an explicit task-owned deliverable. That targeted run passed cleanly and refreshed `artifacts/story-0000055-screenshots/0000055-overlapping-refetch-retained-rows.png` without claiming the later full Task 134 browser wrapper proof.
 - Subtask 15: updated `planning/0000055-pr-summary.md` so the retained Story 55 summary now names the overlapping loading-ownership hook proof, retained-local-data success proof, retained-local-data failure proof, stale-aborted-state exclusion proof, the deterministic browser scenario, and the refreshed screenshot artifact separately.
+- Testing 1: `npm run build:summary:client` passed cleanly with `warning_count: 0` and `agent_action: skip_log`; the retained wrapper proof home is `logs/test-summaries/build-client-latest.log`.
+- Testing 2: `npm run test:summary:client` passed cleanly with `tests run: 695`, `passed: 695`, `failed: 0`, and `agent_action: skip_log`; the retained wrapper proof home is `test-results/client-tests-2026-04-15T07-12-38-726Z.log`.
+- Testing 3: `npm run test:summary:e2e` passed cleanly with `DEV-0000050:T13:e2e_host_network_config_verified`, `tests run: 49`, `passed: 49`, `failed: 0`, and `agent_action: skip_log`; the retained wrapper proof home is `logs/test-summaries/e2e-tests-latest.log`, and the refreshed browser artifact remains `artifacts/story-0000055-screenshots/0000055-overlapping-refetch-retained-rows.png`.
 
 ### Task 135. Keep Waiting Queue Overlays Canonical When Legacy Model Fields Coexist
 

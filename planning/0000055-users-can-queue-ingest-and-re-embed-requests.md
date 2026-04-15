@@ -10670,10 +10670,10 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the runtime-diagnostics overlay proof owned by `server/src/test/unit/ingest-roots-dedupe.test.ts`.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the runtime-diagnostics route proof owned by `server/src/test/features/ingest-roots.feature`.
-4. [ ] Run `npm run test:summary:client` and confirm the full client suite still passes, with the consumer-alignment proof owned by `client/src/test/useIngestRoots.test.tsx`.
+1. [x] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the runtime-diagnostics overlay proof owned by `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the runtime-diagnostics route proof owned by `server/src/test/features/ingest-roots.feature`.
+4. [x] Run `npm run test:summary:client` and confirm the full client suite still passes, with the consumer-alignment proof owned by `client/src/test/useIngestRoots.test.tsx`.
 
 #### Implementation notes
 
@@ -10683,6 +10683,10 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 - Subtasks 7 through 11: expanded `server/src/test/unit/ingest-roots-dedupe.test.ts` with explicit runtime-error overlay proofs for structured runtime preservation, `lastError` derivation, and stale-persisted replacement, while retaining the existing healthy waiting/running control cases as the compatibility owners.
 - Subtasks 12 through 14: added the client consumer proof in `client/src/test/useIngestRoots.test.tsx` plus explicit ingest-roots cucumber scenarios and step definitions for fresh runtime error payloads, matching `lastError`, stale-persisted replacement, and healthy recovery clearing.
 - Subtask 15: updated `planning/0000055-pr-summary.md` with the Task 136 proof homes for structured runtime preservation, `lastError` freshness, stale-persisted replacement, healthy controls, and the consumer-alignment proof.
+- Testing 1: `npm run build:summary:server` initially failed on the new Task 136 typing seams in `server/src/lmstudio/toolService.ts` and the cucumber metadata seed; tightening the runtime error normalizer to `RepoEntry['error']` and keeping the stale-persisted feature seed scalar fixed the build, and the rerun then passed cleanly with retained proof home `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed after the Task 136 runtime-diagnostic overlay proofs and build-surface fixes landed; retained proof home `test-results/server-unit-tests-2026-04-15T08-43-35-675Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed with the runtime-diagnostic route proof owned by `server/src/test/features/ingest-roots.feature`; retained proof home `test-results/server-cucumber-tests-2026-04-15T09-03-37-084Z.log`.
+- Testing 4: `npm run test:summary:client` passed with the consumer-alignment proof still owned by `client/src/test/useIngestRoots.test.tsx`; retained proof home `test-results/client-tests-2026-04-15T09-06-23-208Z.log`.
 
 ### Task 137. Align The Controlled Embedding Mock's Pre-Abort Semantics
 

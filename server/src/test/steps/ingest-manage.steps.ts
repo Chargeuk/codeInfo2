@@ -705,12 +705,6 @@ Given(
           model: 'stale-model',
           state: 'error',
           lastError: message,
-          error: {
-            error: 'OPENAI_TIMEOUT',
-            message,
-            retryable: true,
-            provider: 'openai',
-          },
           files: 1,
           chunks: 1,
           embedded: 0,

@@ -795,19 +795,46 @@ function clearHealthyQueueOverlayDiagnostics(repo: RepoEntry) {
 
 function applyRuntimeOverlayDiagnostics(
   repo: RepoEntry,
-  runtimeStatus: Pick<IngestJobStatus, 'lastError' | 'error'>,
+  runtimeStatus: {
+    lastError?: string | null;
+    error?: unknown;
+  },
 ) {
-  repo.error = runtimeStatus.error ? { ...runtimeStatus.error } : null;
+  const candidate =
+    runtimeStatus.error && typeof runtimeStatus.error === 'object'
+      ? (runtimeStatus.error as Record<string, unknown>)
+      : null;
+  const normalizedProvider =
+    candidate?.provider === 'openai' || candidate?.provider === 'lmstudio'
+      ? candidate.provider
+      : null;
+  const normalizedError: RepoEntry['error'] =
+    candidate &&
+    normalizedProvider &&
+    typeof candidate.error === 'string' &&
+    typeof candidate.message === 'string' &&
+    typeof candidate.retryable === 'boolean'
+      ? {
+          error: candidate.error,
+          message: candidate.message,
+          retryable: candidate.retryable,
+          provider: normalizedProvider,
+          ...(typeof candidate.upstreamStatus === 'number'
+            ? { upstreamStatus: candidate.upstreamStatus }
+            : {}),
+          ...(typeof candidate.retryAfterMs === 'number'
+            ? { retryAfterMs: candidate.retryAfterMs }
+            : {}),
+        }
+      : null;
+
+  repo.error = normalizedError;
   if (typeof runtimeStatus.lastError === 'string') {
     repo.lastError = runtimeStatus.lastError;
     return;
   }
-  if (
-    runtimeStatus.error &&
-    typeof runtimeStatus.error.message === 'string' &&
-    runtimeStatus.error.message.length > 0
-  ) {
-    repo.lastError = runtimeStatus.error.message;
+  if (normalizedError && normalizedError.message.length > 0) {
+    repo.lastError = normalizedError.message;
     return;
   }
   repo.lastError = null;

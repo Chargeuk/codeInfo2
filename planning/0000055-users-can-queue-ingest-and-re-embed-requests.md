@@ -11352,6 +11352,7 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 #### Implementation notes
 
 - Added from review pass `0000055-20260415T131258Z-df888f42` as the final validation task required after the findings-driven artifact-hygiene repair lands.
+- Manual testing skipped on 2026-04-15 because `codeInfoStatus/flow-state/current-task.json` still binds this loop to Task 144 as `__in_progress__`; although the live plan text and `python3 scripts/plan_status.py --task-number 144` now show Task 144 `__done__` and Story 55 complete, the latest-complete-task manual-proof pass must wait for the stored handoff to advance before it can run honestly.
 - Re-read the current `df888f42` evidence, findings, and blind-spot challenge artifacts to anchor the final close-out to the exact stored review bundle for this pass before summary edits began.
 - Ran the subtask-required file-inventory command from Testing 1; the current-pass durable, transient, and additive review artifacts all still exist on disk, so final validation can stay explicit about retained evidence instead of inferring or replacing missing files.
 - Ran the subtask-required plan-state proof from Testing 2; Task 143 is now `__done__`, Task 144 is the only remaining non-`__done__` owner, and no later task reopened ahead of this close-out.

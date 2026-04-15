@@ -10318,6 +10318,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Testing 1: `git check-ignore -v` matched only `0000055-current-review.json`, `0000055-external-review-input.md`, and `0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`, so the current pass durable evidence and findings files are no longer on the ignored side of the boundary.
 - Testing 2: `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` reported only the older intentionally visible `0000055-20260414T013213Z-2aaab374` durable artifacts. The current pass evidence and findings files are now naturally visible to normal git workflows, but because they are already tracked and clean on current `HEAD` they do not appear as fresh status rows.
 - Automated-proof audit: Task 131 is now `__done__` because all subtasks and testing checks are complete on current disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest gate.
+- 2026-04-15 Manual testing skipped: the stored handoff still resolves Task 131 as `__in_progress__`, so this loop did not start task-scoped manual proof before the latest task is honestly complete.
 
 ### Task 132. Re-Validate Persisted Re-Embed Paths At Replay Time Before Discovery Runs
 

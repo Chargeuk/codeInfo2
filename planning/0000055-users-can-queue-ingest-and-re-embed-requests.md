@@ -10398,7 +10398,7 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `132`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 3.
 
 #### Overview
@@ -10463,6 +10463,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - **RESOLVED ISSUE** Testing 2 (`npm run test:summary:server:unit`) now passes again after replacing the oversized queue-runtime owner with a small manifest at `server/src/test/unit/ingest-queue-runtime.test.ts` plus split proof files for pump, deferred replay, terminal barrier, recovery, and startup diagnostics. I used the supported targeted wrapper to catch and fix split-specific issues first, then reran the exact previously failing flow-loop integration test once when a later unrelated full-wrapper red appeared, and finally reran the original full wrapper to a clean pass with `tests run: 1688`, `passed: 1688`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-unit-tests-2026-04-15T06-13-23-590Z.log`.
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 93`, `passed: 93`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-cucumber-tests-2026-04-15T06-44-33-210Z.log`, so the barrier-backed recovery feature proof remains green at the supported cucumber surface.
 - Manual testing skipped on 2026-04-15 because the bound latest task is still `__in_progress__` for audit sequencing only: direct automated proof is now complete for Task 133, so later selector/audit flow can decide when to advance without adding task-scoped manual proof here.
+- Automated-proof audit: all Task 133 subtasks and testing checkboxes are now complete on current disk, `selected_task.live_blockers` remains empty, and the task closes as `__done__` without any remaining honest open gate.
 
 ### Task 134. Keep `useIngestRoots` Loading Ownership Honest Across Overlapping Refetches
 

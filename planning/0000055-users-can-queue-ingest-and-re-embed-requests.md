@@ -10543,7 +10543,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `134`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 5.
 
 #### Overview
@@ -10612,6 +10612,7 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 - Subtasks 7 through 11: added explicit server-unit proof homes for partial-canonical repair, incompatible-legacy blanking, fully canonical control, and fully legacy control in `server/src/test/unit/ingest-roots-dedupe.test.ts`, and kept the final titles specific to those waiting-overlay semantics instead of generic queued-metadata wording.
 - Subtasks 12 through 14: added a client consumer proof that waiting-row normalization keeps the canonical provider/model pair even when stale legacy model fields are still present, and added matching ingest-roots cucumber scenarios plus queue seeding and per-entry provider/model assertions for the repaired waiting-overlay contract.
 - Subtask 15: updated `planning/0000055-pr-summary.md` so the retained Story 55 summary now names the partial-canonical repair, incompatible-legacy suppression, canonical and legacy controls, and the client consumer-alignment proof separately.
+- Automated-proof audit: closed Task 135 after confirming all subtasks and testing are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
 
 ### Task 136. Preserve Fresh Runtime Error Metadata In `/ingest/roots` Queue Overlays
 

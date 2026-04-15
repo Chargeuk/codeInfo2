@@ -11384,7 +11384,7 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `144`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260415T144433Z-95f6e31e` to address the new durable-review-artifact ignore-boundary regression on the current HEAD.
 
 #### Overview

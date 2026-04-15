@@ -10875,6 +10875,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - `R1.` `codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-evidence.md` and `codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-findings.md` no longer match the broad `codeInfoStatus/reviews/*` ignore rule.
 - `R2.` `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-blind-spot-challenge.md` remain ignored.
 - `R3.` The current pass durable evidence and findings artifacts are naturally visible in ordinary git status output without force-add.
+- `R4.` No fresh build, test, compose, smoke, lint, or format wrapper rerun is required because this task changes only `.gitignore` and review-artifact visibility boundaries, not runtime code or runnable system behavior.
 
 #### Proof Mapping
 
@@ -10915,7 +10916,8 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 1. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-evidence.md && test -f codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-findings.md` and confirm the current pass durable artifacts still exist on disk before the ignore-boundary proof.
 2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-evidence.md codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules.
-3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm the current pass durable artifacts plus the `.gitignore` repair are naturally visible to normal git workflows.
+3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm the current pass durable artifacts plus the `.gitignore` repair are naturally visible to normal git workflows, while tolerating any earlier intentionally visible durable review artifacts that already share the same review-artifact path.
+4. [ ] Not applicable: do not run fresh build, test, compose, smoke, lint, or format wrappers for this task because the change surface is limited to `.gitignore` and review-artifact visibility boundaries. Purpose: keep proof proportional to the actual support-file-only repair instead of inventing runtime validation that this task does not exercise.
 
 #### Implementation notes
 
@@ -10938,6 +10940,7 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - `R2.` `planning/0000055-pr-summary.md` carries forward the retained Task 138 acceptance-proof chain, explicitly including `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-04-15T09-57-34-003Z.log`, `test-results/server-cucumber-tests-2026-04-15T10-17-40-710Z.log`, `test-results/client-tests-2026-04-15T10-21-28-458Z.log`, and `logs/test-summaries/e2e-tests-latest.log`, plus the current pass direct git visibility proof homes.
 - `R3.` `planning/0000055-pr-summary.md` carries forward the current pass rejected-risk notes, blind-spot challenge outcome, and any still-honest weak-proof caveats without overstating the review as exhaustive.
 - `R4.` Story 55 final validation records the direct git proof that the repaired visibility boundary now matches the review flow contract on current disk.
+- `R5.` No fresh build, test, compose, smoke, lint, or format wrapper rerun is required because this task only revalidates `.gitignore` plus maintained-summary support-file updates and intentionally retains the Task 138 runtime proof chain instead of inventing a narrower or duplicate runtime proof path.
 
 #### Proof Mapping
 
@@ -10984,7 +10987,8 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 
 1. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-evidence.md && test -f codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-findings.md` and confirm the current pass durable artifacts still exist on disk during final validation.
 2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-evidence.md codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T103448Z-0a37b558-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules.
-3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the current pass durable artifacts plus the maintained plan and summary updates are naturally visible to normal git workflows.
+3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the current pass durable artifacts plus the maintained plan and summary updates are naturally visible to normal git workflows, while tolerating any earlier intentionally visible durable review artifacts that already share the same review-artifact path.
+4. [ ] Not applicable: do not rerun fresh build, test, compose, smoke, lint, or format wrappers for this task because the changed files are limited to `.gitignore` plus `planning/0000055-pr-summary.md`, and the retained Task 138 wrapper proof chain remains the realistic runtime evidence owner. Purpose: keep final validation proportional to the support-file-only change surface instead of inventing duplicate runtime proof.
 
 #### Implementation notes
 

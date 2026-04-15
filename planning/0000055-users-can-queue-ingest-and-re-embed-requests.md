@@ -11170,3 +11170,141 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Automated-proof audit: Testing 4 is honestly not applicable on current disk because Task 142 only revalidates `.gitignore` plus `planning/0000055-pr-summary.md`, and the retained Task 140 proof chain remains the correct runtime evidence owner for this final support-file-only pass.
 - Automated-proof audit closed Task 142 after confirming all 28 subtasks and all 4 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
 - Manual testing skipped on 2026-04-15 because `codeInfoStatus/flow-state/current-task.json` still binds this loop to Task 142 as `__in_progress__`; although the live plan text now shows Task 142 `__done__` and Story 55 complete, manual proof must wait for the stored handoff to advance before a latest-complete-task pass can run honestly.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260415T131258Z-df888f42`
+
+- Scope: `Current Repository` only.
+- Durable review artifacts:
+  - `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`
+- Additive context:
+  - `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`
+- Endorsed findings summary:
+  - `must_fix` 1: `.gitignore` still hides the current pass durable review artifacts because the broad `codeInfoStatus/reviews/*` ignore rule only unignores older Story 55 evidence and findings files, so a normal git workflow will silently omit this pass's required evidence and findings artifacts unless someone force-adds them.
+- Challenge outcome:
+  - The blind-spot pass generated no new findings, strengthened rejected-risk conclusions for queue admission and startup recovery, and kept residual weak proof only for sibling blocked-row affordance parity plus the green-path `reingest` waiter surface.
+
+### Task 143. Make Review Pass `0000055-20260415T131258Z-df888f42` Durable Artifacts Naturally Visible
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `142`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T131258Z-df888f42` to address the new durable-review-artifact ignore-boundary regression on the current HEAD.
+
+#### Overview
+
+Repair the review-artifact ignore boundary for this exact pass so its durable evidence and findings files become naturally visible to normal git workflows without promoting the transient current-review handoff, external review input, or optional blind-spot challenge file into durable tracked artifacts.
+
+#### Task Exit Criteria
+
+- `R1.` `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md` and `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md` no longer match the broad `codeInfoStatus/reviews/*` ignore rule.
+- `R2.` `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` remain ignored.
+- `R3.` The current pass durable evidence and findings artifacts are naturally visible in ordinary git status output without force-add.
+- `R4.` No fresh build, test, compose, smoke, lint, or format wrapper rerun is required because this task changes only `.gitignore` and review-artifact visibility boundaries, not runtime code or runnable system behavior.
+
+#### Documentation Locations
+
+- `.gitignore`
+- `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`
+- `codeInfoStatus/reviews/0000055-current-review.json`
+- `codeInfoStatus/reviews/0000055-external-review-input.md`
+- `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`. Purpose: keep the repair anchored to the exact current-pass artifact-visibility defect endorsed by the review.
+2. [ ] Re-read `.gitignore` around the `codeInfoStatus/reviews/*` boundary. Purpose: anchor the edit to the exact ignore block that currently hides the current pass durable artifacts.
+3. [ ] Update the exact `codeInfoStatus/reviews/*` block in `.gitignore` so `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md` is explicitly unignored. Purpose: make the current pass evidence artifact naturally visible to normal git workflows.
+4. [ ] Update that same `.gitignore` block so `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md` is explicitly unignored. Purpose: make the current pass findings artifact naturally visible to normal git workflows.
+5. [ ] Preserve the existing ignore coverage for `codeInfoStatus/reviews/0000055-current-review.json` in that same `.gitignore` block. Purpose: keep the transient review handoff out of durable tracked history.
+6. [ ] Preserve the existing ignore coverage for `codeInfoStatus/reviews/0000055-external-review-input.md` in that same `.gitignore` block. Purpose: keep the transient reviewer-input handoff out of durable tracked history.
+7. [ ] Preserve the existing ignore coverage for `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` in that same `.gitignore` block. Purpose: keep the additive challenge artifact transient instead of silently promoting it into the durable commit boundary.
+8. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`. Description: Requirement `R1` and `R2`. Use the Testing 1 `test -f` output to prove the durable, transient, and additive review artifacts all still exist on disk before the ignore-boundary proof runs. Purpose: prevent the later visibility proof from relying on a missing artifact path.
+9. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R1`. Use the Testing 2 `git check-ignore -v` output to prove `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md` no longer matches an ignore rule after the boundary repair. Purpose: keep the evidence-artifact visibility requirement explicit and reviewable.
+10. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R1`. Use the Testing 2 `git check-ignore -v` output to prove `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md` no longer matches an ignore rule after the boundary repair. Purpose: keep the findings-artifact visibility requirement explicit and reviewable.
+11. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R2`. Use the Testing 2 `git check-ignore -v` output to prove `codeInfoStatus/reviews/0000055-current-review.json` still matches an ignore rule after the boundary repair. Purpose: keep the transient handoff boundary explicit and reviewable.
+12. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R2`. Use the Testing 2 `git check-ignore -v` output to prove `codeInfoStatus/reviews/0000055-external-review-input.md` still matches an ignore rule after the boundary repair. Purpose: keep the transient reviewer-input boundary explicit and reviewable.
+13. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R2`. Use the Testing 2 `git check-ignore -v` output to prove `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` still matches an ignore rule after the boundary repair. Purpose: keep the additive blind-spot boundary explicit and reviewable.
+14. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R3`. Use the Testing 3 `git status --short` output to prove ordinary git status now shows the current pass durable artifacts without force-add after the boundary repair. Purpose: make the normal-workflow visibility requirement explicit instead of inferring it from the artifact-specific checks.
+15. [ ] Proof type: scope guard. Location: `.gitignore`. Description: Requirement `R4`. Keep the implementation limited to `.gitignore` and review-artifact visibility boundaries so Testing 4 remains honestly not applicable for build, test, compose, smoke, lint, or format wrappers. Purpose: make the support-file-only proof boundary explicit instead of leaving the no-wrapper decision implied.
+
+#### Testing
+
+1. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md && test -f codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md && test -f codeInfoStatus/reviews/0000055-current-review.json && test -f codeInfoStatus/reviews/0000055-external-review-input.md && test -f codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` and confirm the current pass durable, transient, and additive review files all still exist on disk before the ignore-boundary proof.
+2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules.
+3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm the current pass durable artifacts plus the `.gitignore` repair are naturally visible to normal git workflows, while tolerating any earlier intentionally visible durable review artifacts that already share the same review-artifact path.
+4. [ ] Not applicable: do not run fresh build, test, compose, smoke, lint, or format wrappers for this task because the change surface is limited to `.gitignore` and review-artifact visibility boundaries. Purpose: keep proof proportional to the actual support-file-only repair instead of inventing runtime validation that this task does not exercise.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T131258Z-df888f42` to repair the current pass durable-review-artifact ignore boundary.
+
+### Task 144. Re-Validate Story 55 After Review Pass `0000055-20260415T131258Z-df888f42`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `143`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T131258Z-df888f42` as the required final validation task after the findings-driven artifact-hygiene repair lands.
+
+#### Overview
+
+This final review-follow-up task re-validates Story 55 after the current pass artifact-visibility repair lands, preserves the retained acceptance-proof chain from Task 142, and refreshes the maintained summary so the story can become honestly complete again without dropping the current pass rejected-risk and blind-spot reasoning.
+
+#### Task Exit Criteria
+
+- `R1.` Task 143 is `__done__`, and the current pass durable evidence and findings artifacts are naturally visible while the transient current-review, reviewer-input, and optional blind-spot challenge files remain ignored.
+- `R2.` `planning/0000055-pr-summary.md` carries forward the retained Task 142 acceptance-proof chain, explicitly including `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-04-15T09-57-34-003Z.log`, `test-results/server-cucumber-tests-2026-04-15T10-17-40-710Z.log`, `test-results/client-tests-2026-04-15T10-21-28-458Z.log`, `logs/test-summaries/e2e-tests-latest.log`, and the Task 142 direct git visibility proof homes for pass `0000055-20260415T120128Z-e33d1d76`.
+- `R3.` `planning/0000055-pr-summary.md` carries forward the current pass rejected-risk notes, blind-spot challenge outcome, and any still-honest weak-proof caveats without overstating the review as exhaustive.
+- `R4.` Story 55 final validation records the direct git proof that the repaired visibility boundary now matches the review flow contract on current disk.
+- `R5.` No fresh build, test, compose, smoke, lint, or format wrapper rerun is required because this task only revalidates `.gitignore` plus maintained-summary support-file updates and intentionally retains the Task 142 runtime and direct-git proof chain instead of inventing a narrower or duplicate runtime proof path.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `.gitignore`
+- `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`
+- `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`. Purpose: keep the final close-out anchored to the exact stored evidence artifact for this pass.
+2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`. Purpose: keep the final close-out anchored to the exact stored findings artifact for this pass.
+3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`. Purpose: preserve the additive blind-spot reasoning explicitly while final validation closes out.
+4. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` before this task's validation commands run and confirm Tasks 141 through 143 are `__done__` while Task 144 is the only remaining open owner. Purpose: keep final revalidation as the single active close-out task instead of leaving ownership ambiguous for the next loop.
+5. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`. Description: Requirement `R1`. Use the Testing 1 `test -f` output to prove the durable, transient, and additive review artifacts still exist on disk during final validation. Purpose: prevent the later visibility, ignore-boundary, and summary-refresh proofs from relying on a missing artifact path.
+6. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact Task 142 proof home `logs/test-summaries/compose-build-latest.log`. Purpose: keep the retained compose-build proof explicit instead of letting this support-file-only repair silently replace it.
+7. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact Task 142 proof home `logs/test-summaries/build-server-latest.log`. Purpose: keep the retained server-build proof explicit instead of letting this support-file-only repair silently replace it.
+8. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact Task 142 proof home `logs/test-summaries/build-client-latest.log`. Purpose: keep the retained client-build proof explicit instead of letting this support-file-only repair silently replace it.
+9. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact Task 142 proof home `test-results/server-unit-tests-2026-04-15T09-57-34-003Z.log`. Purpose: keep the retained server-unit proof explicit instead of letting this support-file-only repair silently replace it.
+10. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact Task 142 proof home `test-results/server-cucumber-tests-2026-04-15T10-17-40-710Z.log`. Purpose: keep the retained server-cucumber proof explicit instead of letting this support-file-only repair silently replace it.
+11. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact Task 142 proof home `test-results/client-tests-2026-04-15T10-21-28-458Z.log`. Purpose: keep the retained client-test proof explicit instead of letting this support-file-only repair silently replace it.
+12. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact Task 142 proof home `logs/test-summaries/e2e-tests-latest.log`. Purpose: keep the retained e2e proof explicit instead of letting this support-file-only repair silently replace it.
+13. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md` is visible after the `.gitignore` repair. Purpose: keep the evidence-artifact visibility contract explicit in the maintained summary.
+14. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md` is visible after the `.gitignore` repair. Purpose: keep the findings-artifact visibility contract explicit in the maintained summary.
+15. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-current-review.json` remains ignored after the visibility repair. Purpose: keep the transient current-review boundary explicit instead of implied.
+16. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-external-review-input.md` remains ignored after the visibility repair. Purpose: keep the transient reviewer-input boundary explicit instead of implied.
+17. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` remains ignored after the visibility repair. Purpose: keep the additive blind-spot boundary explicit instead of implied.
+18. [ ] Proof type: direct git validation. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R4`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, record the exact `git check-ignore -v` proof home used for the repaired visibility boundary on current disk. Purpose: preserve the final validation path for the current support-file hygiene repair.
+19. [ ] Proof type: direct git validation. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R4`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, record the exact `git status --short` proof home used to show the durable artifacts and support-file updates are naturally visible to normal git workflows. Purpose: preserve the final validation path for the current support-file hygiene repair.
+20. [ ] Proof type: retained-evidence audit. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. In the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, confirm the exact retained Task 142 runtime and direct-git proof homes from subtasks 6 through 19 remain cited verbatim after this pass's support-file repair, rather than being paraphrased or silently dropped. Purpose: keep the completed Story 55 proof chain intact while this pass only repairs artifact hygiene.
+21. [ ] Proof type: review close-out note. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, carry forward the current pass rejected-risk notes for `enqueueOrReuseIngestRequest()`, `recoverIngestQueueOnStartup()`, and `applyQueueOverlay()`. Purpose: keep the review's non-endorsed but still relevant challenge outcomes explicit after revalidation.
+22. [ ] Proof type: review close-out note. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, carry forward the current pass blind-spot challenge outcome. Purpose: keep the additive challenge result explicit after revalidation instead of implying the review ended at the endorsed finding.
+23. [ ] Proof type: review close-out note. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, carry forward the still-honest weak-proof seam around sibling blocked-row affordance parity. Purpose: keep the remaining UI-proof weakness explicit instead of silently upgrading it to exhaustive proof.
+24. [ ] Proof type: review close-out note. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. Under the `0000055-20260415T131258Z-df888f42` close-out section in `planning/0000055-pr-summary.md`, carry forward the still-honest weak-proof seam around the green-path `reingest` waiter surface. Purpose: keep the remaining waiter-proof weakness explicit instead of silently upgrading it to exhaustive proof.
+25. [ ] Proof type: retained-runtime-scope guard. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R5`. Keep the summary refresh anchored to the retained Task 142 wrapper and direct-git proof chain rather than inventing new runtime proof, so Testing 4 remains honestly not applicable for fresh build, test, compose, smoke, lint, or format wrappers. Purpose: make the final support-file-only validation boundary explicit instead of leaving the no-wrapper decision implied.
+
+#### Testing
+
+1. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md && test -f codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md && test -f codeInfoStatus/reviews/0000055-current-review.json && test -f codeInfoStatus/reviews/0000055-external-review-input.md && test -f codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` and confirm the current pass durable, transient, and additive review files all still exist on disk during final validation.
+2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules.
+3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the current pass durable artifacts plus the maintained plan and summary updates are naturally visible to normal git workflows, while tolerating any earlier intentionally visible durable review artifacts that already share the same review-artifact path.
+4. [ ] Not applicable: do not rerun fresh build, test, compose, smoke, lint, or format wrappers for this task because the changed files are limited to `.gitignore` plus `planning/0000055-pr-summary.md`, and the retained Task 142 proof chain remains the realistic runtime evidence owner. Purpose: keep final validation proportional to the support-file-only change surface instead of inventing duplicate runtime proof.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T131258Z-df888f42` as the final validation task required after the findings-driven artifact-hygiene repair lands.

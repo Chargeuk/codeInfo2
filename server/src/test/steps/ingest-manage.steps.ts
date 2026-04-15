@@ -86,6 +86,36 @@ function findRootByPath(rootPath: string) {
   return entry;
 }
 
+async function seedQueuedReembedRequest(params: {
+  rootPath: string;
+  queueState: 'waiting' | 'running' | 'cleanup-blocked';
+  runId?: string | null;
+  requestPayloadPath?: string | null;
+  terminalPublishedAt?: Date;
+  name?: string;
+}) {
+  const requestPayload: Record<string, unknown> = {
+    name: params.name ?? path.posix.basename(params.rootPath) || 'repo',
+    model: 'embed-1',
+  };
+  if (params.requestPayloadPath !== null) {
+    requestPayload.path =
+      params.requestPayloadPath ?? params.rootPath;
+  }
+
+  await IngestQueueRequestModel.create({
+    canonicalTargetPath: params.rootPath,
+    operation: 'reembed',
+    queueState: params.queueState,
+    requestPayload,
+    sourceSurface: 'cucumber',
+    runId: params.runId ?? null,
+    ...(params.terminalPublishedAt
+      ? { terminalPublishedAt: params.terminalPublishedAt }
+      : {}),
+  });
+}
+
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.NODE_ENV = 'test';
@@ -294,6 +324,33 @@ Then(
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);
+  },
+);
+
+Then(
+  'ingest manage status for run {string} becomes {string}',
+  async (runId: string, state: string) => {
+    for (let i = 0; i < 120; i += 1) {
+      const res = await fetch(`${baseUrl}/ingest/status/${runId}`);
+      const body = await res.json();
+      if ((body as { state?: string }).state === state) {
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.fail(`did not reach state ${state} for run ${runId}`);
+  },
+);
+
+Then(
+  'ingest manage status for run {string} has last error {string}',
+  async (runId: string, expectedError: string) => {
+    const res = await fetch(`${baseUrl}/ingest/status/${runId}`);
+    const body = await res.json();
+    assert.equal(
+      (body as { lastError?: string | null }).lastError,
+      expectedError,
+    );
   },
 );
 
@@ -593,17 +650,34 @@ Then('ingest manage response status is {int}', (status: number) => {
 Given(
   'ingest manage mongo queue has running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
-    await IngestQueueRequestModel.create({
-      canonicalTargetPath: rootPath,
-      operation: 'reembed',
+    await seedQueuedReembedRequest({
+      rootPath,
       queueState: 'running',
-      requestPayload: {
-        path: rootPath,
-        name: path.posix.basename(rootPath) || 'repo',
-        model: 'embed-1',
-      },
-      sourceSurface: 'cucumber',
       runId,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has running request for {string} with run id {string} and persisted path {string}',
+  async (rootPath: string, runId: string, requestPayloadPath: string) => {
+    await seedQueuedReembedRequest({
+      rootPath,
+      queueState: 'running',
+      runId,
+      requestPayloadPath,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has running request for {string} with run id {string} missing persisted path',
+  async (rootPath: string, runId: string) => {
+    await seedQueuedReembedRequest({
+      rootPath,
+      queueState: 'running',
+      runId,
+      requestPayloadPath: null,
     });
   },
 );
@@ -611,16 +685,9 @@ Given(
 Given(
   'ingest manage mongo queue has committed-before-cleanup running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
-    await IngestQueueRequestModel.create({
-      canonicalTargetPath: rootPath,
-      operation: 'reembed',
+    await seedQueuedReembedRequest({
+      rootPath,
       queueState: 'running',
-      requestPayload: {
-        path: rootPath,
-        name: path.posix.basename(rootPath) || 'repo',
-        model: 'embed-1',
-      },
-      sourceSurface: 'cucumber',
       runId,
       terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
     });
@@ -630,16 +697,9 @@ Given(
 Given(
   'ingest manage mongo queue has cleanup-blocked request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
-    await IngestQueueRequestModel.create({
-      canonicalTargetPath: rootPath,
-      operation: 'reembed',
+    await seedQueuedReembedRequest({
+      rootPath,
       queueState: 'cleanup-blocked',
-      requestPayload: {
-        path: rootPath,
-        name: path.posix.basename(rootPath) || 'repo',
-        model: 'embed-1',
-      },
-      sourceSurface: 'cucumber',
       runId,
     });
   },
@@ -648,17 +708,9 @@ Given(
 Given(
   'ingest manage mongo queue has waiting request for {string}',
   async (rootPath: string) => {
-    await IngestQueueRequestModel.create({
-      canonicalTargetPath: rootPath,
-      operation: 'reembed',
+    await seedQueuedReembedRequest({
+      rootPath,
       queueState: 'waiting',
-      requestPayload: {
-        path: rootPath,
-        name: path.posix.basename(rootPath) || 'repo',
-        model: 'embed-1',
-      },
-      sourceSurface: 'cucumber',
-      runId: null,
     });
   },
 );
@@ -666,17 +718,10 @@ Given(
 Given(
   'ingest manage mongo queue has waiting request for {string} named {string}',
   async (rootPath: string, name: string) => {
-    await IngestQueueRequestModel.create({
-      canonicalTargetPath: rootPath,
-      operation: 'reembed',
+    await seedQueuedReembedRequest({
+      rootPath,
       queueState: 'waiting',
-      requestPayload: {
-        path: rootPath,
-        name,
-        model: 'embed-1',
-      },
-      sourceSurface: 'cucumber',
-      runId: null,
+      name,
     });
   },
 );

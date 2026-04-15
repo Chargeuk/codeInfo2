@@ -578,6 +578,95 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
   }
 });
 
+test('queue-managed deferred reembed uses canonicalTargetPath as the executable root before discovery begins', async () => {
+  const events: string[] = [];
+  const canonicalRoot = '/allowed/workdir/reembed-canonical';
+
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => ({
+      ...createQueueRequest({
+        requestId: '23',
+        root: canonicalRoot,
+        queueState: 'running',
+        runId,
+      }),
+      runId,
+    }),
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`started:${runId}:${input.path}`);
+    events.push(`canonical:${input.canonicalTargetPath}`);
+    release(runId);
+  });
+
+  const started = await pumpIngestQueue();
+  await waitForNextTurn();
+
+  assert.equal(started.started, true);
+  assert.ok(started.runId);
+  assert.deepEqual(events, [
+    `started:${started.runId}:${canonicalRoot}`,
+    `canonical:${canonicalRoot}`,
+  ]);
+});
+
+test('queue-managed deferred reembed rejects mismatched persisted requestPayload.path before discovery begins', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  const canonicalRoot = '/allowed/workdir/reembed-canonical';
+  const mismatchedPersistedPath = '/allowed/workdir/reembed-other';
+  const deletedRequestIds: string[] = [];
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => ({
+      ...createQueueRequest({
+        requestId: '24',
+        root: canonicalRoot,
+        queueState: 'running',
+        runId,
+      }),
+      runId,
+      requestPayload: {
+        path: mismatchedPersistedPath,
+        name: 'repo',
+        model: 'embed-1',
+        operation: 'reembed',
+      },
+    }),
+  });
+
+  const started = await pumpIngestQueue();
+  assert.equal(started.started, true);
+  assert.ok(started.runId);
+
+  const terminal = await waitForTerminalIngestStatus(started.runId!, {
+    timeoutMs: 1_000,
+    pollMs: 10,
+  });
+
+  assert.equal(terminal.reason, 'terminal');
+  assert.equal(terminal.status?.state, 'error');
+  assert.equal(
+    terminal.status?.lastError,
+    'queued reembed requestPayload.path must match canonicalTargetPath',
+  );
+  assert.ok(deletedRequestIds.length >= 1);
+  assert.equal(
+    deletedRequestIds.every(
+      (requestId) => requestId === '000000000000000000000024',
+    ),
+    true,
+  );
+});
+
 test('queue-managed deferred reembed preserves INVALID_REEMBED_STATE when cancelled root drift is detected at execution time', async () => {
   const { root, cleanup } = await createTempRepo({
     'src/deferred-cancelled-code.ts':
@@ -903,17 +992,15 @@ test('startup recovery still retries genuinely unfinished running work before ne
   ]);
 });
 
-test('startup recovery replays queued reembed work using canonicalTargetPath for bookkeeping', async () => {
+test('startup recovery replays queued reembed work using canonicalTargetPath as the executable root before discovery resumes', async () => {
   const events: string[] = [];
   const canonicalRoot = '/data/canonical-running-root';
-  const mountedPath = '/tmp/mounted-running-root';
   const recoveryQueueRequest = createQueueRequest({
     requestId: '12',
     root: canonicalRoot,
     queueState: 'running',
     runId: 'run-recovered-split',
   });
-  recoveryQueueRequest.requestPayload.path = mountedPath;
 
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,
@@ -938,16 +1025,66 @@ test('startup recovery replays queued reembed work using canonicalTargetPath for
   assert.equal(result.recovered, true);
   assert.deepEqual(events, [
     'running-selected',
-    `started:run-recovered-split:${mountedPath}`,
+    `started:run-recovered-split:${canonicalRoot}`,
     `canonical:${canonicalRoot}`,
   ]);
 });
 
-test('startup recovery fallback uses canonicalTargetPath when persisted requestPayload.path is missing', async () => {
+test('startup recovery rejects mismatched persisted reembed paths before discovery resumes', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  const canonicalRoot = '/allowed/workdir/recover-canonical-root';
+  const mismatchedPersistedPath = '/allowed/workdir/recover-other-root';
+  const deletedRequestIds: string[] = [];
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '13',
+    root: canonicalRoot,
+    queueState: 'running',
+    runId: 'run-recovered-mismatched-path',
+  });
+  recoveryQueueRequest.requestPayload.path = mismatchedPersistedPath;
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  assert.equal(result.recovered, true);
+
+  const terminal = await waitForTerminalIngestStatus(
+    'run-recovered-mismatched-path',
+    {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    },
+  );
+
+  assert.equal(terminal.reason, 'terminal');
+  assert.equal(terminal.status?.state, 'error');
+  assert.equal(
+    terminal.status?.lastError,
+    'queued reembed requestPayload.path must match canonicalTargetPath',
+  );
+  assert.ok(deletedRequestIds.length >= 1);
+  assert.equal(
+    deletedRequestIds.every(
+      (requestId) => requestId === '000000000000000000000013',
+    ),
+    true,
+  );
+});
+
+test('startup recovery uses canonicalTargetPath as the executable root when persisted requestPayload.path is missing', async () => {
   const events: string[] = [];
   const canonicalRoot = '/data/canonical-degraded-root';
   const recoveryQueueRequest = createQueueRequest({
-    requestId: '13',
+    requestId: '14',
     root: canonicalRoot,
     queueState: 'running',
     runId: 'run-recovered-degraded',

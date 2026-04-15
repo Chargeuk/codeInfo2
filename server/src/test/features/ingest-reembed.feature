@@ -35,6 +35,15 @@ And ingest manage roots entry for "/tmp/reembed-root" has queue state "waiting"
 And ingest manage roots entry for "/tmp/reembed-root" has queue position 1
 
 @mongo
+Scenario: queue pump replays waiting re-embed using the canonical target as the executable root
+Given ingest manage chroma stub is empty
+And ingest manage mongo queue is empty
+And ingest manage mongo queue has waiting request for "/tmp/recover-waiting"
+And ingest manage queue runtime records started paths
+When ingest manage queue pump runs
+Then ingest manage queue runtime started paths are "/tmp/recover-waiting"
+
+@mongo
 Scenario: startup recovery does not replay committed-before-cleanup running work
 Given ingest manage chroma stub is empty
 And ingest manage mongo queue is empty
@@ -54,3 +63,21 @@ And ingest manage queue runtime records started paths
 When ingest manage startup recovery runs
 Then ingest manage queue runtime started paths are "/tmp/recover-first"
 And ingest manage logs include "QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER"
+
+@mongo
+Scenario: startup recovery rejects mismatched persisted re-embed paths before replay
+Given ingest manage chroma stub is empty
+And ingest manage mongo queue is empty
+And ingest manage mongo queue has running request for "/tmp/recover-canonical" with run id "run-recovered-mismatch" and persisted path "/tmp/recover-other"
+When ingest manage startup recovery runs
+Then ingest manage status for run "run-recovered-mismatch" becomes "error"
+And ingest manage status for run "run-recovered-mismatch" has last error "queued reembed requestPayload.path must match canonicalTargetPath"
+
+@mongo
+Scenario: startup recovery falls back to the canonical target when persisted re-embed path is missing
+Given ingest manage chroma stub is empty
+And ingest manage mongo queue is empty
+And ingest manage mongo queue has running request for "/tmp/recover-missing-path" with run id "run-recovered-missing-path" missing persisted path
+And ingest manage queue runtime records started paths
+When ingest manage startup recovery runs
+Then ingest manage queue runtime started paths are "/tmp/recover-missing-path"

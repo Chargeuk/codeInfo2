@@ -84,6 +84,7 @@ import {
 export type IngestJobInput = {
   path: string;
   canonicalTargetPath?: string;
+  queuedRequestPayloadPath?: string;
   name: string;
   description?: string;
   model: string;
@@ -442,9 +443,15 @@ function toQueueManagedInput(queueRequest: {
   const payload = queueRequest.requestPayload;
   const canonicalTargetPath = queueRequest.canonicalTargetPath;
   const pathValue =
+    queueRequest.operation === 'reembed'
+      ? canonicalTargetPath
+      : typeof payload.path === 'string' && payload.path.length > 0
+        ? payload.path
+        : canonicalTargetPath;
+  const queuedRequestPayloadPath =
     typeof payload.path === 'string' && payload.path.length > 0
       ? payload.path
-      : canonicalTargetPath;
+      : undefined;
   const nameValue =
     typeof payload.name === 'string' && payload.name.length > 0
       ? payload.name
@@ -453,6 +460,9 @@ function toQueueManagedInput(queueRequest: {
   return {
     canonicalTargetPath,
     path: pathValue,
+    ...(queuedRequestPayloadPath
+      ? { queuedRequestPayloadPath }
+      : {}),
     name: nameValue,
     ...(typeof payload.description === 'string'
       ? { description: payload.description }
@@ -472,6 +482,35 @@ function toQueueManagedInput(queueRequest: {
     ...(typeof payload.dryRun === 'boolean' ? { dryRun: payload.dryRun } : {}),
     operation: queueRequest.operation,
   };
+}
+
+function resolveQueuedReembedExecutionPath(input: IngestJobInput): string {
+  const canonicalTargetPath = validateQueueableRepositoryRootPath(
+    input.canonicalTargetPath ?? input.path,
+    {
+      fieldName: 'canonicalTargetPath',
+    },
+  );
+  const persistedPath = input.queuedRequestPayloadPath?.trim();
+  if (!persistedPath) {
+    return canonicalTargetPath;
+  }
+
+  const validatedPersistedPath = validateQueueableRepositoryRootPath(
+    persistedPath,
+    {
+      fieldName: 'requestPayload.path',
+    },
+  );
+  if (validatedPersistedPath !== canonicalTargetPath) {
+    const error = new Error(
+      'queued reembed requestPayload.path must match canonicalTargetPath',
+    );
+    (error as { code?: string }).code = 'VALIDATION';
+    throw error;
+  }
+
+  return canonicalTargetPath;
 }
 
 function releaseRunOwnership(runId: string) {
@@ -1019,10 +1058,17 @@ async function processRun(runId: string, input: IngestJobInput) {
     const operation = op ?? 'start';
     const isQueueManagedStart =
       operation === 'start' && queueRequestIdsByRunId.has(runId);
+    const isQueueManagedReembed =
+      operation === 'reembed' && queueRequestIdsByRunId.has(runId);
+    const validatedReembedPath =
+      isQueueManagedReembed
+        ? resolveQueuedReembedExecutionPath(input)
+        : null;
     const validatedStartPath =
       isQueueManagedStart
         ? validateQueueableRepositoryRootPath(startPath)
         : startPath;
+    const executionRootPath = validatedReembedPath ?? validatedStartPath;
     const requestedSelection = resolveValidatedInputSelection(input);
     const embeddingProvider = requestedSelection.providerId;
     const embeddingModel = requestedSelection.modelKey;
@@ -1034,7 +1080,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     logLifecycle('info', 'ingest start', {
       runId,
       operation,
-      path: validatedStartPath,
+      path: executionRootPath,
       name,
       description,
       model: embeddingModel,
@@ -1048,7 +1094,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     });
     const ingestConfig = resolveConfig();
     const { files, root: discoveredRoot } = await discoverFiles(
-      validatedStartPath,
+      executionRootPath,
       ingestConfig,
     );
     const root = canonicalTargetPath ?? discoveredRoot;

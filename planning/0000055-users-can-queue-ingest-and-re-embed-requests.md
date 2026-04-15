@@ -10164,7 +10164,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `129`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260414T172618Z-9d2d2467` as the required final validation task after the current findings-driven support-file repair lands.
 
 #### Overview

@@ -10306,8 +10306,8 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 #### Testing
 
-1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules.
-2. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` and confirm the current pass durable evidence and findings artifacts are naturally visible to normal git workflows.
+1. [x] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules.
+2. [x] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` and confirm the current pass durable evidence and findings artifacts are naturally visible to normal git workflows.
 
 #### Implementation notes
 
@@ -10315,6 +10315,8 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Subtasks 1 through 3: re-read the current pass evidence, findings, and blind-spot challenge from disk before editing. That kept the repair scoped to the new durable-artifact boundary and confirmed the blind-spot file should remain additive-only.
 - Subtasks 4 through 8: added pass-specific `.gitignore` exceptions for the new durable evidence and findings files only, then re-checked the adjacent ignore rules in the file so `0000055-current-review.json`, `0000055-external-review-input.md`, and the current blind-spot challenge stay on the ignored side of the boundary.
 - Subtasks 9 through 10: extended `planning/0000055-pr-summary.md` with a new review-follow-up section for pass `0000055-20260415T004532Z-74f062c7`, recording the durable artifact anchors plus the exact future `git check-ignore -v` and `git status --short` proof homes that Task 131's automated-proof step must run.
+- Testing 1: `git check-ignore -v` matched only `0000055-current-review.json`, `0000055-external-review-input.md`, and `0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`, so the current pass durable evidence and findings files are no longer on the ignored side of the boundary.
+- Testing 2: `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` reported only the older intentionally visible `0000055-20260414T013213Z-2aaab374` durable artifacts. The current pass evidence and findings files are now naturally visible to normal git workflows, but because they are already tracked and clean on current `HEAD` they do not appear as fresh status rows.
 
 ### Task 132. Re-Validate Persisted Re-Embed Paths At Replay Time Before Discovery Runs
 

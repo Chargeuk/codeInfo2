@@ -11644,7 +11644,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `147`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260415T160116Z-63f69857` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview

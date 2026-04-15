@@ -11820,6 +11820,7 @@ This support-file-only task repairs the `.gitignore` review-artifact stanza so t
 - Ran `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` because subtasks 19 and 20 explicitly depend on Testing 3 output; the current pass durable evidence and findings files are naturally visible but already tracked and clean, so the short status only surfaced the `.gitignore` and plan edits plus earlier intentionally visible durable review artifacts.
 - Kept Task 149 scoped to `.gitignore`, direct git validation, and plan maintenance only, and did not delete, recreate, or reset any current-pass review artifact while closing subtasks 21 and 22.
 - Automated-proof audit closed Task 149 after confirming all 22 subtasks and all 4 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
+- Manual testing skipped on 2026-04-15 because `codeInfoStatus/flow-state/current-task.json` still binds this loop to Task 149 as `__in_progress__`; although the live plan text and `python3 scripts/plan_status.py --task-number 149` now show Task 149 `__done__`, the latest-complete-task manual-proof pass must wait for the stored handoff to advance before it can run honestly.
 
 ### Task 150. Re-Validate Story 55 After Review Pass `0000055-20260415T170919Z-c22c790c`
 

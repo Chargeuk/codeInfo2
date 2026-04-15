@@ -11264,6 +11264,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Kept the work limited to `.gitignore`, direct git validation, and plan maintenance; no runtime wrappers were run and no current-pass review artifacts were deleted, recreated, or reset during this repair.
 - Completed Testing 4 as an explicit support-file-only guardrail: no build, test, compose, smoke, lint, or format wrappers were rerun because Task 143 changed only `.gitignore` and review-artifact visibility boundaries.
 - Automated-proof audit closed Task 143 after confirming all 20 subtasks and all 4 testing items were already honestly complete on current disk with no live blocker remaining.
+- Manual testing skipped on 2026-04-15 because `codeInfoStatus/flow-state/current-task.json` still binds this loop to Task 143 as `__in_progress__`; although the live plan text now shows Task 143 `__done__`, manual proof must wait for the stored handoff to advance before a latest-complete-task pass can run honestly.
 
 ### Task 144. Re-Validate Story 55 After Review Pass `0000055-20260415T131258Z-df888f42`
 

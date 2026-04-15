@@ -92,6 +92,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - first prove the final task's own acceptance-relevant behavior;
   - then run a concise end-to-end manual validation of the story's visible or externally observable outcomes across the earlier completed tasks that matter to the user-facing or externally observable story result;
   - use the story Overview, the final task's Task Exit Criteria, and the completed task sequence as the scope for that broader proof;
+  - when the story acceptance criteria can be proved more durably with artifacts, generate them where possible, such as Playwright MCP screenshots for visible states, browser console or network evidence for browser proof, and log lines or other observable runtime markers for backend-facing acceptance criteria;
+  - tie each generated artifact back to the specific story acceptance criterion or externally observable outcome it proves;
   - keep follow-up work on the final task unless the failure clearly requires planner repair because the plan boundary is now wrong.
 - Record in the implementation notes whether the pass stayed task-scoped or expanded to full-story proof because the candidate task was the final task in the story.
 
@@ -143,6 +145,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - If screenshot capture is blocked, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.
 - When the candidate task is the final task in the story, extend that manual proof into the smallest honest full-story validation that still proves the story's end-to-end observable outcomes.
+- When the candidate task is the final task in the story, prefer saving durable proof artifacts where the surface supports them, including screenshots, console or network captures, and runtime log evidence that map back to the story acceptance criteria.
 - If one proof path contaminates later runtime state and a smaller supported proof path already demonstrated the candidate task's required behavior, stop at the smaller successful proof and record the later-task limitation as a concise implementation note rather than escalating it into a blocker.
 
 </execution_rules>

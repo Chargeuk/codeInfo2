@@ -154,7 +154,7 @@ const unitEnv = {
   TS_NODE_FILES: 'true',
   TS_NODE_PROJECT: './tsconfig.json',
   NODE_OPTIONS:
-    '--import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180',
+    '--max-old-space-size=6144 --import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180',
 };
 
 let exitCode = buildResult.code;

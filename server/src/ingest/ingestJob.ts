@@ -3236,6 +3236,15 @@ export async function __finalizeQueueRequestForRunForTest(runId: string) {
   return finalizeQueueRequestForRun(runId);
 }
 
+export async function __persistQueueTerminalBarrierForTest(runId: string) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__persistQueueTerminalBarrierForTest is only available in test mode',
+    );
+  }
+  await persistQueueTerminalBarrier(runId);
+}
+
 export function __resetIngestJobsForTest() {
   if (process.env.NODE_ENV !== 'test') return;
   jobs.clear();

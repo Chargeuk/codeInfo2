@@ -10446,7 +10446,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the barrier repair.
+1. [x] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the barrier repair.
 2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the barrier-write-failure proof owned by `server/src/test/unit/ingest-queue-runtime.test.ts`.
 3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the recovery-barrier feature proof owned by `server/src/test/features/ingest-reembed.feature`.
 
@@ -10457,6 +10457,8 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - Subtasks 4 through 6: added persisted `nonReplayableAt` support on queue rows, recorded that barrier before the legacy `terminalPublishedAt` write, and taught startup recovery to skip replay when either barrier is already present while still running the existing cleanup continuation path afterward.
 - Subtasks 7 through 10: rewrote the queue-runtime proof home so it now separately names barrier recording after terminal-marker failure, barrier-backed recovery skip, and cleanup continuation after the barrier exists instead of hiding those semantics behind the older terminal-published-only wording.
 - Subtasks 11 through 13: updated the ingest re-embed cucumber scenario and queue seeding step to speak in terms of barrier-backed no-replay recovery, then staged the exact Task 133 proof homes in `planning/0000055-pr-summary.md` for the later automated-proof pass.
+- Testing 1: `npm run build:summary:server` passed after one in-scope repair. The first run failed because `server/src/test/unit/ingest-request-queue.test.ts` still built an `IngestQueueRequest` without the new `nonReplayableAt` field, so I added that helper field and reran the wrapper to a clean pass at `logs/test-summaries/build-server-latest.log`.
+- **BLOCKER** Testing 2 (`npm run test:summary:server:unit`) is currently blocked by a repeatable Node heap abort inside `server/src/test/unit/ingest-queue-runtime.test.ts` during the full wrapper run. I first inspected and repaired the task-owned assertion failures by stubbing the new `markQueueRequestNonReplayable` seam in older queue-runtime tests, tightening deletion assertions to wait for post-terminal cleanup, and shrinking the new barrier proof to a direct test-only helper seam; I then reran the full wrapper twice and also raised the server unit wrapper plus raw `server` test script heap limit to `--max-old-space-size=6144`, but the full wrapper still ends with `FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory` for that owner file. The exact missing capability is a stable in-repo way to execute the very large `ingest-queue-runtime.test.ts` owner file within the available Node heap during the required full wrapper proof; this should be split or rewritten as a dedicated harness-memory follow-up before Task 133 automated proof can continue honestly.
 
 ### Task 134. Keep `useIngestRoots` Loading Ownership Honest Across Overlapping Refetches
 

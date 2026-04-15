@@ -13,6 +13,7 @@ import {
 import {
   __finalizeQueueRequestForRunForTest,
   __getQueueRequestTerminalStatusCountForTest,
+  __persistQueueTerminalBarrierForTest,
   __resetIngestJobsForTest,
   __setQueueRequestTerminalStatusNowForTest,
   __setQueueRequestTerminalStatusTtlForTest,
@@ -385,6 +386,7 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
         return null;
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => {
         if (promotedOnce) {
@@ -415,6 +417,8 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
       timeoutMs: 1_000,
       pollMs: 10,
     });
+    await waitForNextTurn();
+    await waitForNextTurn();
 
     assert.equal(terminal.reason, 'terminal');
     assert.equal(terminal.status?.state, 'error');
@@ -425,12 +429,6 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
     );
 
     const afterTerminal = await pumpIngestQueue();
-    console.error('DEBUG_TASK73_PROMOTION', {
-      result,
-      terminal,
-      deletedRequestIds,
-      afterTerminal,
-    });
     assert.equal(afterTerminal.started, false);
     assert.equal(afterTerminal.blockedByCleanup, false);
     assert.equal(afterTerminal.runId, null);
@@ -460,6 +458,7 @@ test('queue promotion rejects bogus canonical provider even when a legacy model 
         return null;
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => {
         if (promotedOnce) {
@@ -490,6 +489,8 @@ test('queue promotion rejects bogus canonical provider even when a legacy model 
       timeoutMs: 1_000,
       pollMs: 10,
     });
+    await waitForNextTurn();
+    await waitForNextTurn();
 
     assert.equal(terminal.reason, 'terminal');
     assert.equal(terminal.status?.state, 'error');
@@ -546,6 +547,7 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
         return null;
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => ({
         ...createQueueRequest({
@@ -588,6 +590,7 @@ test('queue-managed deferred reembed uses canonicalTargetPath as the executable 
   process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestNonReplayable: async () => null,
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async (runId: string) => ({
       ...createQueueRequest({
@@ -628,6 +631,7 @@ test('queue-managed deferred reembed rejects mismatched persisted requestPayload
       return null;
     },
     findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestNonReplayable: async () => null,
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async (runId: string) => ({
       ...createQueueRequest({
@@ -654,6 +658,8 @@ test('queue-managed deferred reembed rejects mismatched persisted requestPayload
     timeoutMs: 1_000,
     pollMs: 10,
   });
+  await waitForNextTurn();
+  await waitForNextTurn();
 
   assert.equal(terminal.reason, 'terminal');
   assert.equal(terminal.status?.state, 'error');
@@ -690,6 +696,7 @@ test('queue-managed deferred reembed preserves INVALID_REEMBED_STATE when cancel
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async () => null,
       findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => ({
         ...createQueueRequest({
@@ -913,62 +920,52 @@ test('startup recovery does not advance past cleanup-blocked rows with missing r
 });
 
 test('queue-managed completion records a durable replay barrier even when terminal marker persistence fails after commit', async () => {
-  setupIngestChromaMocks();
-  const { root, cleanup } = await createTempRepo({
-    'src/barrier.ts': 'export const barrier = true;\n',
-  });
   const events: string[] = [];
+  __setStatusForTest('run-barrier-written', {
+    runId: 'run-barrier-written',
+    state: 'completed',
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    message: 'Completed',
+    lastError: null,
+  });
+  __setQueueRequestIdForRunForTest(
+    'run-barrier-written',
+    'queue-barrier-written',
+  );
 
-  try {
-    __setQueueRuntimeOpsForTest({
-      deleteQueueRequestById: async (requestId: string) => {
-        events.push(`deleted:${requestId}`);
-        return null;
-      },
-      findOldestCleanupBlockedQueueRequest: async () => null,
-      markQueueRequestNonReplayable: async ({ requestId, runId }) => {
-        events.push(`barrier:${runId}:${requestId}`);
-        return createQueueRequest({
-          requestId: '30',
-          root,
-          queueState: 'running',
-          runId: runId ?? 'missing-run-id',
-          nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
-        });
-      },
-      markQueueRequestTerminalPublished: async () => {
-        events.push('terminal-marker-failed');
-        throw new Error('terminal marker write failed');
-      },
-      promoteOldestWaitingQueueRequest: async (runId: string) =>
-        createQueueRequest({
-          requestId: '30',
-          root,
-          queueState: 'running',
-          runId,
-        }),
-    });
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      events.push(`deleted:${requestId}`);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestNonReplayable: async ({ requestId, runId }) => {
+      events.push(`barrier:${runId}:${requestId}`);
+      return createQueueRequest({
+        requestId: '30',
+        root: '/data/repo-barrier',
+        queueState: 'running',
+        runId: runId ?? 'missing-run-id',
+        nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
+      });
+    },
+    markQueueRequestTerminalPublished: async () => {
+      events.push('terminal-marker-failed');
+      throw new Error('terminal marker write failed');
+    },
+  });
 
-    const pumpResult = await pumpIngestQueue();
-    assert.equal(pumpResult.started, true);
+  await __persistQueueTerminalBarrierForTest('run-barrier-written');
+  const cleaned = await __finalizeQueueRequestForRunForTest(
+    'run-barrier-written',
+  );
 
-    const terminal = await waitForTerminalIngestStatus(pumpResult.runId!, {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    });
-    await waitForNextTurn();
-    await waitForNextTurn();
-
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'completed');
-    assert.deepEqual(events, [
-      `barrier:${pumpResult.runId}:000000000000000000000030`,
-      'terminal-marker-failed',
-      'deleted:000000000000000000000030',
-    ]);
-  } finally {
-    await cleanup();
-  }
+  assert.equal(cleaned, true);
+  assert.deepEqual(events, [
+    'barrier:run-barrier-written:queue-barrier-written',
+    'terminal-marker-failed',
+    'deleted:queue-barrier-written',
+  ]);
 });
 
 test('startup recovery skips replay for running rows whose durable replay barrier was already recorded before cleanup', async () => {
@@ -1164,6 +1161,7 @@ test('startup recovery rejects mismatched persisted reembed paths before discove
     },
     findOldestCleanupBlockedQueueRequest: async () => null,
     findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestNonReplayable: async () => null,
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
@@ -1171,15 +1169,17 @@ test('startup recovery rejects mismatched persisted reembed paths before discove
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
 
-  const terminal = await waitForTerminalIngestStatus(
-    'run-recovered-mismatched-path',
-    {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    },
-  );
+    const terminal = await waitForTerminalIngestStatus(
+      'run-recovered-mismatched-path',
+      {
+        timeoutMs: 1_000,
+        pollMs: 10,
+      },
+    );
+    await waitForNextTurn();
+    await waitForNextTurn();
 
-  assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.reason, 'terminal');
   assert.equal(terminal.status?.state, 'error');
   assert.equal(
     terminal.status?.lastError,
@@ -1263,6 +1263,7 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
     },
     findOldestCleanupBlockedQueueRequest: async () => null,
     findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestNonReplayable: async () => null,
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
@@ -1277,6 +1278,8 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
       pollMs: 10,
     },
   );
+  await waitForNextTurn();
+  await waitForNextTurn();
 
   assert.equal(terminal.reason, 'terminal');
   assert.equal(terminal.status?.state, 'error');
@@ -1320,6 +1323,7 @@ test('startup recovery rejects blank canonical model even when a legacy model is
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
       findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });
@@ -1334,6 +1338,8 @@ test('startup recovery rejects blank canonical model even when a legacy model is
         pollMs: 10,
       },
     );
+    await waitForNextTurn();
+    await waitForNextTurn();
 
     assert.equal(terminal.reason, 'terminal');
     assert.equal(terminal.status?.state, 'error');
@@ -1396,6 +1402,7 @@ test('startup recovery rejects error root drift before queued reembed delta work
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
       findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });

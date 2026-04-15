@@ -62,9 +62,9 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 <disposition_rules>
 
 1. If any `must_fix` or `should_fix` findings exist, reopen the story in the canonical plan.
-2. Add a `Code Review Findings` summary section to the END of the canonical plan file.
-3. Add explicit follow-up tasks using the same structure as previous tasks AFTER the newly added `Code Review Findings`.
-4. Add a fresh full re-test/final validation task after those review-fix tasks so the story must be revalidated against the acceptance criteria.
+2. Add a `Code Review Findings` summary section to the physical END of the canonical plan file.
+3. Add explicit follow-up tasks using the same structure as previous tasks immediately AFTER the newly added `Code Review Findings` so they form one contiguous appended block at the end of the file.
+4. Add a fresh full re-test/final validation task immediately after those review-fix tasks so the story must be revalidated against the acceptance criteria.
 5. Update numbering and cross-references if needed.
 6. Every new review-fix task MUST name exactly one repository using `Repository Name`.
 7. For cross-repository findings, keep the work in the one canonical plan but split it into repository-specific tasks and make sequencing explicit.
@@ -103,9 +103,10 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - a new `Code Review Findings` section for the current `review_pass_id`;
     - at least one new review-created `Task Status: __to_do__` task that responds to the endorsed findings;
     - a fresh final re-test or revalidation task after those new review-fix tasks.
-24. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
-25. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
-26. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
+24. Do not insert new review-created tasks into the middle or top of the plan file, even when they describe a prerequisite. Keep them appended at the end of the file and express any prerequisite relationship through task wording, dependencies, sequencing notes, and task status rather than insertion position.
+25. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
+26. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
+27. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 
 </disposition_rules>
 

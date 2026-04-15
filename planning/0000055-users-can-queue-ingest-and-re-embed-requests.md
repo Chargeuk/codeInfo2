@@ -11096,7 +11096,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `141`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T120128Z-e33d1d76` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview
@@ -11168,3 +11168,4 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Ran `git check-ignore -v ...` and `git status --short ...` during this implementation step because subtasks 18, 19, and 21 explicitly required those direct git proof outputs; only `0000055-current-review.json`, `0000055-external-review-input.md`, and the `e33d1d76` blind-spot challenge still matched ignore rules, while the current pass evidence and findings stayed on the visible side of the repaired boundary.
 - Kept Task 142 scoped to retained proof, direct git validation, and maintained-summary updates only, so fresh build, test, compose, smoke, lint, and format wrappers remain honestly out of scope for this support-file-only close-out step.
 - Automated-proof audit: Testing 4 is honestly not applicable on current disk because Task 142 only revalidates `.gitignore` plus `planning/0000055-pr-summary.md`, and the retained Task 140 proof chain remains the correct runtime evidence owner for this final support-file-only pass.
+- Automated-proof audit closed Task 142 after confirming all 28 subtasks and all 4 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.

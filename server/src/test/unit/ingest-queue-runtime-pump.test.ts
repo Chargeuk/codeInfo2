@@ -1,0 +1,408 @@
+import assert from 'node:assert/strict';
+import test, { mock } from 'node:test';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
+import {
+  __setQueueRuntimeOpsForTest,
+  __setRunProcessorForTest,
+  getStatus,
+  pumpIngestQueue,
+  validateExecutableIngestInput,
+  waitForTerminalIngestStatus,
+} from '../../ingest/ingestJob.js';
+import { getLockedEmbeddingModel } from '../../ingest/chromaClient.js';
+import { release } from '../../ingest/lock.js';
+import * as requestQueue from '../../ingest/requestQueue.js';
+import {
+  createQueueRequest,
+  createTempRepo,
+  installQueueRuntimeTestHooks,
+  setupIngestChromaMocks,
+  waitForNextTurn,
+} from './ingest-queue-runtime.helpers.js';
+
+installQueueRuntimeTestHooks();
+
+test('queue pump immediately promotes the oldest eligible queue item when the ingest lock is idle', async () => {
+  const promoted = createQueueRequest({
+    requestId: '1',
+    root: '/data/repo-one',
+    queueState: 'running',
+    runId: 'pump-run-1',
+  });
+  let capturedRunId = '';
+  let capturedPath = '';
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => {
+      capturedRunId = runId;
+      return { ...promoted, runId };
+    },
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    capturedRunId = runId;
+    capturedPath = input.path;
+    release(runId);
+  });
+
+  const result = await pumpIngestQueue();
+  await waitForNextTurn();
+
+  assert.equal(result.started, true);
+  assert.equal(result.blockedByCleanup, false);
+  assert.equal(result.requestId, requestQueue.getQueueRequestId(promoted));
+  assert.equal(capturedPath, '/data/repo-one');
+  assert.equal(getStatus(capturedRunId)?.state, 'queued');
+});
+
+test('queue pump preserves FIFO waiting order by not starting the next item while the first run still owns the lock', async () => {
+  const queueRequests = [
+    createQueueRequest({
+      requestId: '2',
+      root: '/data/repo-first',
+      queueState: 'running',
+    }),
+    createQueueRequest({
+      requestId: '3',
+      root: '/data/repo-second',
+      queueState: 'running',
+    }),
+  ];
+  const startedRoots: string[] = [];
+  let releaseFirstRun: (() => void) | null = null;
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => {
+      const next = queueRequests.shift();
+      return next ? { ...next, runId } : null;
+    },
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    startedRoots.push(input.path);
+    if (input.path === '/data/repo-first') {
+      await new Promise<void>((resolve) => {
+        releaseFirstRun = () => {
+          release(runId);
+          resolve();
+        };
+      });
+      return;
+    }
+    release(runId);
+  });
+
+  const first = await pumpIngestQueue();
+  await waitForNextTurn();
+  const secondWhileLocked = await pumpIngestQueue();
+
+  assert.equal(first.started, true);
+  assert.equal(secondWhileLocked.started, false);
+  assert.deepEqual(startedRoots, ['/data/repo-first']);
+
+  if (!releaseFirstRun) {
+    throw new Error('expected first run release hook to be captured');
+  }
+  (releaseFirstRun as () => void)();
+  await waitForNextTurn();
+  const secondAfterRelease = await pumpIngestQueue();
+  await waitForNextTurn();
+
+  assert.equal(secondAfterRelease.started, true);
+  assert.deepEqual(startedRoots, ['/data/repo-first', '/data/repo-second']);
+});
+
+test('queue pump creates the real runId only when queued work actually starts', async () => {
+  const promoted = createQueueRequest({
+    requestId: '4',
+    root: '/data/repo-runid',
+    queueState: 'running',
+  });
+  let promotedRunId = '';
+
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => {
+      promotedRunId = runId;
+      return { ...promoted, runId };
+    },
+  });
+  __setRunProcessorForTest(async () => {});
+
+  const result = await pumpIngestQueue();
+
+  assert.equal(result.started, true);
+  assert.ok(promotedRunId.length > 0);
+  assert.equal(getStatus(promotedRunId)?.runId, promotedRunId);
+});
+
+test('queue promotion rejects queued zero-work reembed drift at execution time and releases queue ownership cleanly', async () => {
+  const { vectors } = setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/blank.ts': '   \n\t\n',
+  });
+  const deletedRequestIds: string[] = [];
+
+  try {
+    const blankFileHash = 'blank-file-hash';
+    mock.method(IngestFileModel, 'find', (query: { root?: string }) => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () =>
+            query.root === root
+              ? [{ relPath: 'src/blank.ts', fileHash: blankFileHash }]
+              : [],
+        }),
+      }),
+    }));
+    await getLockedEmbeddingModel();
+    vectors.metadata = {
+      lockedModelId: 'embed-locked',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-locked',
+      embeddingDimensions: 768,
+    };
+
+    const promoted = createQueueRequest({
+      requestId: '5',
+      root,
+      queueState: 'running',
+    });
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...promoted,
+          runId,
+          requestPayload: {
+            ...promoted.requestPayload,
+            path: root,
+            canonicalTargetPath: `${root}-queued`,
+            model: 'embed-1',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-1',
+            operation: 'reembed',
+          },
+        };
+      },
+    });
+
+    const result = await pumpIngestQueue();
+    assert.equal(result.started, true);
+    assert.ok(result.runId);
+
+    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'MODEL_LOCKED');
+    assert.ok(
+      deletedRequestIds.length >= 1,
+      'promotion-time rejection should still finalize and release the queued request',
+    );
+
+    const afterTerminal = await pumpIngestQueue();
+    assert.equal(afterTerminal.started, false);
+    assert.equal(afterTerminal.blockedByCleanup, false);
+    assert.equal(afterTerminal.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue promotion rejects bogus canonical provider even when a legacy model is also present and releases queue ownership cleanly', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/index.ts': 'export const value = 1;\n',
+  });
+  const deletedRequestIds: string[] = [];
+
+  try {
+    const promoted = createQueueRequest({
+      requestId: '6',
+      root,
+      queueState: 'running',
+    });
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...promoted,
+          runId,
+          requestPayload: {
+            ...promoted.requestPayload,
+            path: root,
+            canonicalTargetPath: root,
+            operation: 'reembed',
+            model: 'embed-1',
+            embeddingProvider: 'bogus',
+            embeddingModel: 'embed-1',
+          },
+        };
+      },
+    });
+
+    const result = await pumpIngestQueue();
+    assert.equal(result.started, true);
+    assert.ok(result.runId);
+
+    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(
+      terminal.status?.lastError,
+      'embeddingProvider and embeddingModel are required when canonical fields are present',
+    );
+    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.ok(
+      deletedRequestIds.length >= 1,
+      'invalid canonical provider payloads should still finalize and release the queued request',
+    );
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    const afterTerminal = await pumpIngestQueue();
+    assert.equal(afterTerminal.started, false);
+    assert.equal(afterTerminal.blockedByCleanup, false);
+    assert.equal(afterTerminal.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue-managed deferred reembed rejects cancelled root drift before delta work begins', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/deferred-cancelled.ts': 'export const deferredCancelled = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootIds: ['root-deferred-cancelled'],
+    rootMetadatas: [
+      {
+        root,
+        state: 'cancelled',
+        lastIngestAt: '2026-01-02T00:00:00.000Z',
+      },
+    ],
+  });
+  const deletedRequestIds: string[] = [];
+  const listRootCalls = mock.fn(() => ({
+    select: () => ({
+      lean: () => ({
+        exec: async () => [],
+      }),
+    }),
+  }));
+
+  try {
+    mock.method(IngestFileModel, 'find', listRootCalls);
+
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (requestId: string) => {
+        deletedRequestIds.push(requestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => ({
+        ...createQueueRequest({
+          requestId: '21',
+          root,
+          queueState: 'running',
+          runId,
+        }),
+        runId,
+      }),
+    });
+
+    const started = await pumpIngestQueue();
+    assert.equal(started.started, true);
+    assert.ok(started.runId);
+
+    const terminal = await waitForTerminalIngestStatus(started.runId!, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(listRootCalls.mock.calls.length, 0);
+    assert.ok(deletedRequestIds.length >= 1);
+    assert.equal(
+      deletedRequestIds.every((requestId) => requestId === '000000000000000000000021'),
+      true,
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue-managed deferred reembed uses canonicalTargetPath as the executable root before discovery begins', async () => {
+  const events: string[] = [];
+  const canonicalRoot = '/allowed/workdir/reembed-canonical';
+
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  __setQueueRuntimeOpsForTest({
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => ({
+      ...createQueueRequest({
+        requestId: '23',
+        root: canonicalRoot,
+        queueState: 'running',
+        runId,
+      }),
+      runId,
+    }),
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`started:${runId}:${input.path}`);
+    events.push(`canonical:${input.canonicalTargetPath}`);
+    release(runId);
+  });
+
+  const started = await pumpIngestQueue();
+  await waitForNextTurn();
+
+  assert.equal(started.started, true);
+  assert.ok(started.runId);
+  assert.deepEqual(events, [
+    `started:${started.runId}:${canonicalRoot}`,
+    `canonical:${canonicalRoot}`,
+  ]);
+});

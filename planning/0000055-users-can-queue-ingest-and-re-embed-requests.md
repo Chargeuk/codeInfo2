@@ -10543,7 +10543,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `134`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 5.
 
 #### Overview

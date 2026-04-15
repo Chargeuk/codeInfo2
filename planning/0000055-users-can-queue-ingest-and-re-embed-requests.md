@@ -11270,7 +11270,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `143`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T131258Z-df888f42` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview
@@ -11360,4 +11360,5 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Ran the subtask-required `git status --short` proof from Testing 4; ordinary workflow output showed the maintained plan and summary updates plus the older intentionally visible `2aaab374` durable review artifacts, while the current-pass `df888f42` evidence and findings artifacts stayed absent from the short output because they are already tracked and clean on this branch.
 - Ran the subtask-required retained-proof audit from Testing 5; the `df888f42` close-out section now retains the exact Task 142 proof-home filenames, the exact `git check-ignore -v` and `git status --short` references, and the carried-forward `enqueueOrReuseIngestRequest()`, `recoverIngestQueueOnStartup()`, `applyQueueOverlay()`, sibling blocked-row affordance parity, and `reingest` waiter surface notes on disk.
 - Kept the final validation work anchored to retained support-file proof only; no current-pass review artifacts or retained proof homes were deleted, recreated, or replaced, and fresh wrapper reruns remain reserved for the later explicit Testing 6 guardrail.
+- Automated-proof audit closed Task 144 after confirming all 32 subtasks and all 6 testing items were already honestly complete on current disk with no live blocker remaining.
 - Completed Testing 6 as the explicit support-file-only guardrail: no build, test, compose, smoke, lint, or format wrappers were rerun because Task 144 only refreshed the maintained summary and retained direct-git proof for the existing artifact-visibility repair.

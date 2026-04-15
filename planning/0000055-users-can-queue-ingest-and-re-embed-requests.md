@@ -10328,22 +10328,25 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 
 - `R1.` Deferred and startup-recovered `reembed` execution no longer passes an unvalidated persisted `requestPayload.path` into discovery work.
 - `R2.` A stale or tampered persisted `reembed` path cannot broaden execution beyond the canonical queued repository root.
-- `R3.` Direct server proof covers both the valid replay path and the mismatched persisted-path rejection path.
+- `R3.` Direct server proof covers both the valid replay path and the mismatched persisted-path rejection path through the unit replay harness and the supported ingest re-embed cucumber surface.
 
 #### Proof Mapping
 
-- `P1.` Requirement: a freshly promoted waiting `reembed` run derives its executable repository root from the canonical queued target before discovery starts. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 2 through 3 and 6, Testing 1 through 2.
-- `P2.` Failure mode: a freshly promoted waiting `reembed` run rejects a mismatched persisted path before discovery starts. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 2 through 3 and 7, Testing 1.
-- `P3.` Requirement: a startup-recovered `running` `reembed` run derives its executable repository root from the canonical queued target before discovery resumes. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 2 and 4 and 8, Testing 1 through 2.
-- `P4.` Failure mode: a startup-recovered `running` `reembed` run rejects a mismatched persisted path before discovery resumes. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 2 and 4 and 9, Testing 1.
-- `P5.` Partial-state compatibility requirement: startup recovery still derives the executable root from `canonicalTargetPath` when a persisted `reembed` row is missing `requestPayload.path`. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 2 and 4 and 10 through 11, Testing 1.
-- `P6.` Compatibility requirement: the repair leaves the existing `start`-path validation and queue cleanup ownership intact. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-start.test.ts`. Proof homes: subtasks 5 and 12, Testing 1 through 2.
-- `P7.` Summary requirement: the maintained summary names the valid, rejected, and partial-state replay proof homes separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 13, Task 138 subtask 5.
+- `P1.` Requirement: a freshly promoted waiting `reembed` run derives its executable repository root from the canonical queued target before discovery starts. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 2 through 3 and 6 and 13 through 14, Testing 1 through 2.
+- `P2.` Failure mode: a freshly promoted waiting `reembed` run rejects a mismatched persisted path before discovery starts. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 2 through 3 and 7 and 13 through 14, Testing 1 through 2.
+- `P3.` Requirement: a startup-recovered `running` `reembed` run derives its executable repository root from the canonical queued target before discovery resumes. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 2 and 4 and 8 and 13 through 14, Testing 1 through 2.
+- `P4.` Failure mode: a startup-recovered `running` `reembed` run rejects a mismatched persisted path before discovery resumes. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 2 and 4 and 9 and 13 through 14, Testing 1 through 2.
+- `P5.` Partial-state compatibility requirement: startup recovery still derives the executable root from `canonicalTargetPath` when a persisted `reembed` row is missing `requestPayload.path`. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 2 and 4 and 10 through 11 and 13 through 14, Testing 1 through 2.
+- `P6.` Compatibility requirement: the repair leaves the existing `start`-path validation and queue cleanup ownership intact. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-start.test.ts`. Proof homes: subtasks 5 and 12, Testing 1 through 3.
+- `P7.` Summary requirement: the maintained summary names the valid, rejected, and partial-state replay proof homes separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 15, Task 138 subtask 5.
 
 #### Documentation Locations
 
 - `server/src/ingest/ingestJob.ts`
 - `server/src/ingest/requestContracts.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `server/src/test/unit/ingest-start.test.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`
 - `planning/0000055-pr-summary.md`
 
@@ -10361,12 +10364,15 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 10. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove startup recovery still uses `canonicalTargetPath` as the executable-root source when a persisted `reembed` row is missing `requestPayload.path`. Purpose: make partial-row replay compatibility explicit instead of leaving it hidden behind an older fallback test.
 11. [ ] Test type: proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: rename, split, or rewrite any reused recovery-path tests whose current titles only claim `canonicalTargetPath` bookkeeping or missing-path fallback so the final proof text explicitly states executable-root authority, partial-row compatibility, and mismatched-path rejection before discovery resumes. Purpose: prevent the repaired replay-boundary proof from hiding behind weaker pre-repair semantics.
 12. [ ] Test type: server unit compatibility control. Location: `server/src/test/unit/ingest-start.test.ts`. Description: retain or update the existing start-path validation proof so the replay-path repair does not weaken the already-proved `start`-path and cleanup-ownership contract. Purpose: make the compatibility proof home explicit instead of leaving it implied by adjacent coverage.
-13. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for the valid deferred replay, rejected deferred replay, valid recovered replay, rejected recovered replay, partial-row canonical fallback, and retained `start`-path control. Purpose: keep the maintained summary aligned with the repaired replay boundary.
+13. [ ] Test type: server cucumber feature. Location: `server/src/test/features/ingest-reembed.feature`. Description: add or update ingest re-embed startup-recovery scenarios so queued or resumed `reembed` replay uses `canonicalTargetPath` as the executable root, rejects mismatched persisted paths before replay, and keeps missing-`requestPayload.path` recovery pinned to the canonical target. Purpose: give the replay-boundary repair a server-route proof home in the repository's supported ingest re-embed feature harness.
+14. [ ] Test type: server cucumber steps. Location: `server/src/test/steps/ingest-manage.steps.ts`. Description: add or update queue seeding and started-path assertion steps for mismatched persisted paths, missing `requestPayload.path`, and canonical replay input so the cucumber scenarios prove the repaired recovery boundary without hidden step logic. Purpose: keep the feature proof executable and explicit at the queue-recovery seam.
+15. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for the valid deferred replay, rejected deferred replay, valid recovered replay, rejected recovered replay, partial-row canonical fallback, and retained `start`-path control. Purpose: keep the maintained summary aligned with the repaired replay boundary.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the replay-time `reembed` root guard passes cleanly.
-2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the replay-path repair.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature` and confirm the ingest re-embed feature harness proves the repaired replay boundary through the supported server route.
+3. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the replay-path repair.
 
 #### Implementation notes
 
@@ -10387,19 +10393,22 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 - `R1.` Queue-managed work has a persisted post-commit barrier that startup recovery honors even when the normal `terminalPublishedAt` write path fails.
 - `R2.` Recovery no longer replays logically finished work simply because the terminal marker write failed after the side effects committed.
-- `R3.` Direct server proof covers the barrier-write-failure branch and the resulting recovery behavior.
+- `R3.` Direct server proof covers the barrier-write-failure branch and the resulting recovery behavior through the unit replay harness and the supported ingest re-embed cucumber surface.
 
 #### Proof Mapping
 
-- `P1.` Requirement: a committed run records a durable non-replayable barrier even when `markQueueRequestTerminalPublished()` fails. Owners: `server/src/ingest/ingestJob.ts`, persisted queue-request state. Proof homes: subtasks 2 through 4 and 7, Testing 1 through 2.
-- `P2.` Failure mode: startup recovery checks the new barrier before replay promotion and skips re-running logically finished work. Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`. Proof homes: subtasks 3 and 5 and 8, Testing 1.
-- `P3.` Requirement: later cleanup ownership can still finish deterministically after the barrier is recorded. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 3 and 6 and 9, Testing 1.
-- `P4.` Summary requirement: the maintained summary names the barrier-write-failure, recovery-skip, and cleanup-continuation proof homes separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 11, Task 138 subtask 6.
+- `P1.` Requirement: a committed run records a durable non-replayable barrier even when `markQueueRequestTerminalPublished()` fails. Owners: `server/src/ingest/ingestJob.ts`, persisted queue-request state. Proof homes: subtasks 2 through 4 and 7 and 11 through 12, Testing 1 through 2.
+- `P2.` Failure mode: startup recovery checks the new barrier before replay promotion and skips re-running logically finished work. Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`. Proof homes: subtasks 3 and 5 and 8 and 11 through 12, Testing 1 through 2.
+- `P3.` Requirement: later cleanup ownership can still finish deterministically after the barrier is recorded. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 3 and 6 and 9 and 11 through 12, Testing 1 through 2.
+- `P4.` Summary requirement: the maintained summary names the barrier-write-failure, recovery-skip, and cleanup-continuation proof homes separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 13, Task 138 subtask 6.
 
 #### Documentation Locations
 
 - `server/src/ingest/ingestJob.ts`
+- `server/src/mongo/ingestQueueRequest.ts`
 - `server/src/startup/ingestQueueStartup.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 - `server/src/test/unit/ingest-queue-runtime.test.ts`
 - `planning/0000055-pr-summary.md`
 
@@ -10415,12 +10424,15 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove startup recovery sees the new barrier before replay promotion and skips rerunning logically finished work. Purpose: make the recovery-ordering invariant explicit instead of bundling it into the barrier-write proof.
 9. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: prove cleanup continuation still runs deterministically when cleanup remains after the barrier is recorded. Purpose: keep the lifecycle-sensitive cleanup-ordering invariant explicit and reviewable.
 10. [ ] Test type: proof maintenance. Location: `server/src/test/unit/ingest-queue-runtime.test.ts`. Description: rename, split, or rewrite any reused recovery tests whose titles still claim only the old `terminalPublishedAt` success-path contract so the repaired proof text explicitly distinguishes barrier-write failure fallback, recovery skip, and cleanup continuation. Purpose: keep the replay-barrier proof semantics honest after the fallback barrier is introduced.
-11. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for barrier-write failure, recovery skip, and cleanup continuation. Purpose: keep the maintained summary aligned with the repaired replay semantics.
+11. [ ] Test type: server cucumber feature. Location: `server/src/test/features/ingest-reembed.feature`. Description: add or update ingest re-embed startup-recovery scenarios so the committed-before-cleanup branch proves the new persisted barrier prevents replay and the recovery-ordering proof still resumes only genuinely unfinished work. Purpose: give the replay-barrier repair a server-route proof home in the repository's supported ingest re-embed feature harness.
+12. [ ] Test type: server cucumber steps. Location: `server/src/test/steps/ingest-manage.steps.ts`. Description: add or update queue seeding and started-path assertion steps so the feature harness can distinguish barrier-backed no-replay recovery from genuinely unfinished running work and can prove cleanup-safe ordering explicitly. Purpose: keep the feature proof executable and specific at the startup-recovery seam.
+13. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for barrier-write failure, recovery skip, and cleanup continuation. Purpose: keep the maintained summary aligned with the repaired replay semantics.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the barrier-write-failure and recovery proofs pass cleanly.
-2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the barrier repair.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature` and confirm the ingest re-embed feature harness proves the repaired recovery barrier through the supported server route.
+3. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the barrier repair.
 
 #### Implementation notes
 
@@ -10503,22 +10515,25 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 
 - `R1.` Waiting queue overlays no longer combine canonical provider data with unrelated legacy model fields into an impossible emitted pair.
 - `R2.` Mixed-shape waiting payloads either stay canonical or degrade to an honestly blank or legacy-free emitted state instead of emitting contradictory identity.
-- `R3.` Direct server proof covers the partial-canonical waiting-overlay path.
+- `R3.` Direct server proof covers the partial-canonical waiting-overlay path through the unit overlay harness, the supported ingest-roots cucumber surface, and the client consumer normalization proof.
 
 #### Proof Mapping
 
-- `P1.` Requirement: a partial-canonical waiting row emits a canonical-consistent provider/model pair. Owners: `server/src/lmstudio/toolService.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 3 and 7, Testing 1 through 2.
-- `P2.` Failure mode: incompatible legacy fallbacks are blanked or dropped instead of being mixed into a canonical waiting row. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 4 and 8, Testing 1.
-- `P3.` Compatibility requirement: fully canonical waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 5 and 9, Testing 1.
-- `P4.` Compatibility requirement: fully legacy waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 6 and 10, Testing 1.
-- `P5.` Consumer-alignment requirement: the normalized client consumer keeps the canonical provider/model pair and does not reintroduce incompatible legacy fallback identity from the repaired waiting overlay payload. Owners: `client/src/test/useIngestRoots.test.tsx`, shared `/ingest/roots` payload contract. Proof homes: subtasks 11 through 12, Testing 2.
-- `P6.` Summary requirement: the maintained summary separates the partial-canonical, incompatible-legacy, compatibility-control, and consumer-alignment proofs. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 13, Task 138 subtask 8.
+- `P1.` Requirement: a partial-canonical waiting row emits a canonical-consistent provider/model pair. Owners: `server/src/lmstudio/toolService.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 3 and 7 and 13 through 14, Testing 1 through 2.
+- `P2.` Failure mode: incompatible legacy fallbacks are blanked or dropped instead of being mixed into a canonical waiting row. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 4 and 8 and 13 through 14, Testing 1 through 2.
+- `P3.` Compatibility requirement: fully canonical waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 5 and 9 and 13 through 14, Testing 1 through 2.
+- `P4.` Compatibility requirement: fully legacy waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 6 and 10 and 13 through 14, Testing 1 through 2.
+- `P5.` Consumer-alignment requirement: the normalized client consumer keeps the canonical provider/model pair and does not reintroduce incompatible legacy fallback identity from the repaired waiting overlay payload. Owners: `client/src/test/useIngestRoots.test.tsx`, shared `/ingest/roots` payload contract. Proof homes: subtasks 11 through 12, Testing 3.
+- `P6.` Summary requirement: the maintained summary separates the partial-canonical, incompatible-legacy, compatibility-control, and consumer-alignment proofs. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 15, Task 138 subtask 8.
 
 #### Documentation Locations
 
 - `server/src/lmstudio/toolService.ts`
 - `server/src/ingest/requestContracts.ts`
+- `server/src/test/features/ingest-roots.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
 - `planning/0000055-pr-summary.md`
 
 #### Subtasks
@@ -10535,13 +10550,16 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 10. [ ] Test type: server unit control. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: prove a fully legacy waiting row still emits the existing stable legacy output. Purpose: keep the legacy compatibility control separate from the mixed-shape repair proof.
 11. [ ] Test type: proof maintenance. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: rename, split, or rewrite any reused overlay tests whose current titles still describe generic queued metadata, provider-collision identity, or stale-diagnostic cleanup when the final assertions prove partial-canonical waiting overlays or incompatible-legacy suppression. Purpose: keep the waiting-overlay proof semantics matched to the mixed-shape contract this task repairs.
 12. [ ] Test type: client unit consumer proof. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the consumer-normalized `/ingest/roots` payload keeps the canonical provider/model pair for a partial-canonical waiting row and does not revive incompatible legacy fallback identity. Purpose: give the shared waiting-overlay contract an explicit consumer-side proof home instead of relying on producer-only coverage.
-13. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for the partial-canonical repair, incompatible-legacy failure mode, the canonical and legacy compatibility controls, and the consumer-alignment control. Purpose: keep the maintained summary aligned with the repaired shared-contract behavior.
+13. [ ] Test type: server cucumber feature. Location: `server/src/test/features/ingest-roots.feature`. Description: add or update ingest-roots scenarios so a partial-canonical waiting row keeps its canonical provider/model pair and an incompatible legacy fallback cannot leak back into the emitted payload. Purpose: give the waiting-overlay repair a server-route proof home in the repository's supported ingest-roots feature harness.
+14. [ ] Test type: server cucumber steps. Location: `server/src/test/steps/ingest-manage.steps.ts`. Description: add or update queue seeding and roots-response assertion steps for canonical-plus-legacy waiting rows so the feature scenarios prove the repaired provider/model precedence without hidden setup logic. Purpose: keep the feature proof executable and explicit at the waiting-overlay seam.
+15. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for the partial-canonical repair, incompatible-legacy failure mode, the canonical and legacy compatibility controls, and the consumer-alignment control. Purpose: keep the maintained summary aligned with the repaired shared-contract behavior.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the waiting-overlay canonicality proof passes cleanly.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the waiting-overlay consumer proof passes cleanly.
-3. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature` and confirm the ingest-roots feature harness proves the repaired waiting-overlay contract through the supported server route.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the waiting-overlay consumer proof passes cleanly.
+4. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
 
 #### Implementation notes
 
@@ -10562,21 +10580,24 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 
 - `R1.` Runtime-backed queue overlays preserve fresh structured `error` metadata and the freshest matching `lastError` string.
 - `R2.` Older persisted `error` or `lastError` values no longer survive when newer runtime diagnostics exist.
-- `R3.` Direct server proof covers the runtime-backed queue-error overlay branch.
+- `R3.` Direct server proof covers the runtime-backed queue-error overlay branch through the unit overlay harness, the supported ingest-roots cucumber surface, and the client consumer normalization proof.
 
 #### Proof Mapping
 
-- `P1.` Requirement: a runtime-backed queue row preserves fresh structured `error` metadata on the shared `/ingest/roots` payload. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 3 and 7, Testing 1 through 2.
-- `P2.` Requirement: `lastError` is derived from the same freshest runtime signal when runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 4 and 8, Testing 1.
-- `P3.` Failure mode: stale persisted `error` and `lastError` values are displaced when fresher runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 5 and 9, Testing 1.
-- `P4.` Compatibility requirement: existing healthy waiting and running stale-diagnostic clearing behavior remains intact. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 6 and 10, Testing 1 through 2.
-- `P5.` Consumer-alignment requirement: the normalized client consumer preserves the fresh structured runtime error and matching `lastError` while excluding stale persisted diagnostics from the repaired overlay payload. Owners: `client/src/test/useIngestRoots.test.tsx`, shared `/ingest/roots` payload contract. Proof homes: subtasks 11 through 12, Testing 2.
-- `P6.` Summary requirement: the maintained summary separates structured-runtime preservation, `lastError` freshness, stale-persisted replacement, healthy-control, and consumer-alignment proof homes. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 13, Task 138 subtask 9.
+- `P1.` Requirement: a runtime-backed queue row preserves fresh structured `error` metadata on the shared `/ingest/roots` payload. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 3 and 7 and 13 through 14, Testing 1 through 2.
+- `P2.` Requirement: `lastError` is derived from the same freshest runtime signal when runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 4 and 8 and 13 through 14, Testing 1 through 2.
+- `P3.` Failure mode: stale persisted `error` and `lastError` values are displaced when fresher runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 5 and 9 and 13 through 14, Testing 1 through 2.
+- `P4.` Compatibility requirement: existing healthy waiting and running stale-diagnostic clearing behavior remains intact. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 6 and 10 and 13 through 14, Testing 1 through 2.
+- `P5.` Consumer-alignment requirement: the normalized client consumer preserves the fresh structured runtime error and matching `lastError` while excluding stale persisted diagnostics from the repaired overlay payload. Owners: `client/src/test/useIngestRoots.test.tsx`, shared `/ingest/roots` payload contract. Proof homes: subtasks 11 through 12, Testing 3.
+- `P6.` Summary requirement: the maintained summary separates structured-runtime preservation, `lastError` freshness, stale-persisted replacement, healthy-control, and consumer-alignment proof homes. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 15, Task 138 subtask 9.
 
 #### Documentation Locations
 
 - `server/src/lmstudio/toolService.ts`
+- `server/src/test/features/ingest-roots.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
 - `planning/0000055-pr-summary.md`
 
 #### Subtasks
@@ -10593,13 +10614,16 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 10. [ ] Test type: server unit control. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: retain or update the healthy waiting and running control proof that clears stale diagnostics when no fresh runtime error exists. Purpose: make the healthy overlay compatibility proof explicit instead of leaving it implied by adjacent assertions.
 11. [ ] Test type: proof maintenance. Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: rename, split, or rewrite any reused runtime-diagnostic overlay tests whose current titles only claim generic current-error visibility or healthy stale-clear behavior so the final proof text explicitly separates fresh structured runtime preservation, `lastError` freshness, stale-persisted replacement, and healthy controls. Purpose: stop adjacent old test names from understating the repaired precedence contract.
 12. [ ] Test type: client unit consumer proof. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the consumer-normalized `/ingest/roots` payload keeps the fresh structured runtime error and matching `lastError` when queue-backed runtime diagnostics win, and does not revive stale persisted diagnostics. Purpose: give the repaired producer-and-consumer error contract an explicit consumer-side proof home.
-13. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for structured runtime preservation, `lastError` freshness, stale-persisted replacement, the healthy waiting and running control, and the consumer-alignment proof. Purpose: keep the maintained summary aligned with the repaired shared payload behavior.
+13. [ ] Test type: server cucumber feature. Location: `server/src/test/features/ingest-roots.feature`. Description: add or update ingest-roots scenarios so a runtime-backed queue row returns the fresh structured error and matching `lastError`, while older persisted diagnostics are displaced and healthy control rows still clear stale diagnostics. Purpose: give the runtime-diagnostic overlay repair a server-route proof home in the repository's supported ingest-roots feature harness.
+14. [ ] Test type: server cucumber steps. Location: `server/src/test/steps/ingest-manage.steps.ts`. Description: add or update queue seeding and roots-response assertion steps for fresh runtime error objects, matching `lastError`, and stale-persisted diagnostic removal so the feature scenarios prove the repaired precedence contract without hidden setup logic. Purpose: keep the feature proof executable and explicit at the runtime-overlay seam.
+15. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for structured runtime preservation, `lastError` freshness, stale-persisted replacement, the healthy waiting and running control, and the consumer-alignment proof. Purpose: keep the maintained summary aligned with the repaired shared payload behavior.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the runtime-diagnostics overlay proof passes cleanly.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the runtime-diagnostics consumer proof passes cleanly.
-3. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature` and confirm the ingest-roots feature harness proves the repaired runtime-diagnostic contract through the supported server route.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the runtime-diagnostics consumer proof passes cleanly.
+4. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
 
 #### Implementation notes
 

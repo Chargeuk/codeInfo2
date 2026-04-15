@@ -56,7 +56,8 @@ Leave the task ready for the later automated-proof step.
 - Do not batch plan updates until the whole rerun chain finishes. If a reread, setup, wording, or proof-authoring subtask is honestly complete before later wrapper-backed subtasks begin, mark it complete immediately before moving on.
 - Treat each subtask-required wrapper run as its own checkpoint. When one wrapper reaches a terminal state that honestly closes a subtask or a directly corresponding `Testing` item, update the plan and implementation notes before starting the next wrapper.
 - It is not valid to say work was completed \"in practice\" while deferring the checkbox or note update until later in the same pass. If the work is complete enough to rely on, it is complete enough to record immediately.
-- If the task needs additional in-scope implementation work to stay honest, you may add concise new unchecked subtasks to the same task before completing that work.
+- If the task needs additional in-scope implementation work to stay honest, you may add concise new unchecked subtasks to the same task before completing that work, but only when those subtasks are implementation work, proof-authoring work, documentation updates, config changes, or explicitly allowed code-hygiene work that can be completed before formal proof runs.
+- Do not add subtasks that run automated proof commands, depend on later screenshots or logs, or require later manual-testing-agent validation in order to become complete.
 - If the task needs additional automated proof obligations to stay honest, do not run them here; leave those for the later automated-proof step.
 - If the selected task still has unchecked subtasks at the end of this step, then one of the following must be true:
   - at least one previously unchecked subtask was completed in this step; or
@@ -108,6 +109,8 @@ Before finishing:
 - confirm you re-read the plan from disk;
 - confirm you used the same bound task already resolved in the immediately preceding gotchas step;
 - confirm you worked only on the selected task's `Subtasks`;
+- confirm any newly added subtasks stayed within implementation, proof-authoring, documentation, config, or explicitly allowed code-hygiene work;
+- confirm you did not add subtasks that run automated proof commands or depend on future manual-testing-agent or automated-proof outputs;
 - confirm you did not advance to a later task when the active task was still `__in_progress__`;
 - confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;
 - confirm completed subtasks were marked immediately;

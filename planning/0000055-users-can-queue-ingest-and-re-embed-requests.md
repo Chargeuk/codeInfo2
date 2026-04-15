@@ -10094,7 +10094,7 @@ This final review-follow-up task revalidates Story 55 after the current review-f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `128`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T172618Z-9d2d2467` to repair the current pass review-artifact visibility boundary in `.gitignore`.
 
 #### Overview
@@ -10157,6 +10157,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 - 2026-04-15 Testing 1: `git check-ignore -v` matched only `0000055-current-review.json`, `0000055-external-review-input.md`, and `0000055-20260414T172618Z-9d2d2467-blind-spot-challenge.md`, so the current pass durable evidence and findings files are no longer ignored. Git still emitted the known `/home/d_a_s/.config/git/ignore` permission warning, but the repo-local `.gitignore` result used for this proof stayed correct.
 - 2026-04-15 Testing 2: `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` returned only the older intentionally visible `0000055-20260414T013213Z-2aaab374` durable artifacts. The current pass evidence and findings files are already tracked and clean on current `HEAD`, so they do not appear as untracked or modified rows even though the repaired ignore boundary now leaves them visible to normal git workflows.
 - 2026-04-15 Testing 3: refreshed `planning/0000055-pr-summary.md` with the final direct git proof chain for this support-file-only repair and recorded that no wrapper, compose, or runtime proof applies to Task 129. A targeted `git ls-files --stage` diagnosis also confirmed the current pass evidence and findings files are tracked, which explains the clean `git status` output from Testing 2 without reopening the ignore-boundary defect.
+- 2026-04-15 Automated-proof audit: re-read the stored handoff, this exact Task 129 section, and `python3 scripts/plan_status.py --task-number 129` output from current disk. All 14 subtasks and all 3 Testing items are now honestly complete, `selected_task.live_blockers` is empty, and no prose-only remaining gate survives, so the task status is normalized from `__in_progress__` to `__done__`.
 
 ### Task 130. Re-Validate Story 55 After Review Pass `0000055-20260414T172618Z-9d2d2467`
 

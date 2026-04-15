@@ -32,7 +32,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Make every eligible review-created task concrete enough for a weak, junior, forgetful implementer who may read one subtask at a time.
 - Ensure each eligible task has explicit ownership, clear subtasks, honest proof homes, and realistic wrapper-first testing.
 - Keep review-created tasks executable in order: no subtask may depend on a later `Testing` step to become runnable.
-- Keep `Testing` automated-only and place any optional human-followed scenarios only in `Manual Testing Guidance`.
+- Keep `Testing` automated-only and place any optional manual-testing-agent scenarios only in `Manual Testing Guidance`.
 - Do not create manual testing subtasks or testing checklist items in these review-created tasks.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
 - Subtasks may name proof-owning files, markers, fixtures, harness surfaces, or screenshot path conventions to prepare, but they must not require the later generated artifact itself for completion.

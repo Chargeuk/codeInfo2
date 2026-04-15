@@ -241,10 +241,10 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
           : '',
     model: embeddingModel,
     modelId:
-      typeof entry.modelId === 'string'
-        ? entry.modelId
-        : waitingOverlayPresent && embeddingModel
-          ? embeddingModel
+      waitingOverlayPresent && embeddingModel
+        ? embeddingModel
+        : typeof entry.modelId === 'string'
+          ? entry.modelId
           : embeddingModel,
     embeddingProvider: canonicalEmbeddingProvider ?? lockProvider ?? 'lmstudio',
     embeddingModel,

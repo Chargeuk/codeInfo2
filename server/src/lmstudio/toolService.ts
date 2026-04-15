@@ -710,27 +710,65 @@ function applyWaitingQueueRequestMetadata(
 ) {
   const payload = queueRequest.requestPayload;
   const name = deriveQueuePayloadName(queueRequest);
-  const provider =
-    normalizeEmbeddingProvider(payload.embeddingProvider) ??
-    repo.embeddingProvider ??
-    repo.lock?.embeddingProvider ??
-    'lmstudio';
-  const model =
-    normalizeEmbeddingModel(payload.embeddingModel) ??
-    normalizeEmbeddingModel(payload.model) ??
-    normalizeEmbeddingModel(repo.embeddingModel) ??
-    normalizeEmbeddingModel(repo.lock?.embeddingModel) ??
-    normalizeEmbeddingModel(repo.modelId) ??
-    normalizeEmbeddingModel(repo.model) ??
-    '';
-  const dimensions =
-    normalizeEmbeddingDimensions(payload.embeddingDimensions) ??
-    (repo.lock?.embeddingProvider === provider &&
-    repo.lock.embeddingModel === model
-      ? repo.lock.embeddingDimensions
-      : repo.embeddingProvider === provider && repo.embeddingModel === model
+  const payloadCanonicalProvider = normalizeEmbeddingProvider(
+    payload.embeddingProvider,
+  );
+  const payloadCanonicalModel = normalizeEmbeddingModel(payload.embeddingModel);
+  const payloadCanonicalDimensions = normalizeEmbeddingDimensions(
+    payload.embeddingDimensions,
+  );
+  const repoCanonicalProvider = normalizeEmbeddingProvider(repo.embeddingProvider);
+  const repoCanonicalModel = normalizeEmbeddingModel(repo.embeddingModel);
+  const lockCanonicalProvider = normalizeEmbeddingProvider(
+    repo.lock?.embeddingProvider,
+  );
+  const lockCanonicalModel = normalizeEmbeddingModel(repo.lock?.embeddingModel);
+
+  let provider: EmbeddingProviderId = 'lmstudio';
+  let model = '';
+  let dimensions = 0;
+
+  if (payloadCanonicalProvider && payloadCanonicalModel) {
+    provider = payloadCanonicalProvider;
+    model = payloadCanonicalModel;
+    dimensions =
+      payloadCanonicalDimensions ??
+      (repoCanonicalProvider === provider && repoCanonicalModel === model
         ? repo.embeddingDimensions
-        : 0);
+        : repo.lock?.embeddingProvider === provider &&
+            repo.lock.embeddingModel === model
+          ? repo.lock.embeddingDimensions
+          : 0);
+  } else if (payloadCanonicalProvider || payloadCanonicalModel) {
+    provider =
+      payloadCanonicalProvider ??
+      repoCanonicalProvider ??
+      lockCanonicalProvider ??
+      'lmstudio';
+  } else if (repoCanonicalProvider && repoCanonicalModel) {
+    provider = repoCanonicalProvider;
+    model = repoCanonicalModel;
+    dimensions = repo.embeddingDimensions;
+  } else if (lockCanonicalProvider && lockCanonicalModel) {
+    provider = lockCanonicalProvider;
+    model = lockCanonicalModel;
+    dimensions = repo.lock?.embeddingDimensions ?? 0;
+  } else {
+    provider =
+      repoCanonicalProvider ?? lockCanonicalProvider ?? 'lmstudio';
+    model =
+      normalizeEmbeddingModel(payload.model) ??
+      normalizeEmbeddingModel(repo.modelId) ??
+      normalizeEmbeddingModel(repo.model) ??
+      '';
+    dimensions =
+      repo.lock?.embeddingProvider === provider &&
+      repo.lock.embeddingModel === model
+        ? repo.lock.embeddingDimensions
+        : repo.embeddingProvider === provider && repo.embeddingModel === model
+          ? repo.embeddingDimensions
+          : 0;
+  }
 
   repo.name = name;
   if (typeof payload.description === 'string') {

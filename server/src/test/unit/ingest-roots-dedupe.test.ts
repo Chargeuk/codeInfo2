@@ -326,6 +326,271 @@ test('GET /ingest/roots preserves canonical queued repository identity alongside
   });
 });
 
+test('GET /ingest/roots keeps a partial-canonical waiting overlay on one canonical provider/model pair', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000101'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'legacy-lmstudio-model',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-15T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-15T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-3-small',
+            embeddingDimensions: 1536,
+            model: 'legacy-lmstudio-model',
+            modelId: 'legacy-lmstudio-model',
+            state: 'completed',
+            lastIngestAt: '2026-04-14T00:00:00.000Z',
+          },
+        ],
+      },
+      'text-embedding-3-small',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const root = response.body.roots[0];
+  assert.equal(root.queueState, 'waiting');
+  assert.equal(root.embeddingProvider, 'openai');
+  assert.equal(root.embeddingModel, 'text-embedding-3-small');
+  assert.equal(root.model, 'text-embedding-3-small');
+  assert.equal(root.modelId, 'text-embedding-3-small');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('GET /ingest/roots blanks incompatible legacy fallback identity when a waiting overlay only has a partial canonical provider', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000102'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'legacy-lmstudio-model',
+                embeddingProvider: 'openai',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-15T00:01:00.000Z'),
+              updatedAt: new Date('2026-04-15T00:01:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'legacy-lmstudio-model',
+            state: 'completed',
+            lastIngestAt: '2026-04-14T00:00:00.000Z',
+          },
+        ],
+      },
+      'legacy-lmstudio-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const root = response.body.roots[0];
+  assert.equal(root.queueState, 'waiting');
+  assert.equal(root.embeddingProvider, 'openai');
+  assert.equal(root.embeddingModel, '');
+  assert.equal(root.model, '');
+  assert.equal(root.modelId, '');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('GET /ingest/roots keeps a fully canonical waiting overlay unchanged', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000103'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'legacy-lmstudio-model',
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-small',
+                embeddingDimensions: 1536,
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-15T00:02:00.000Z'),
+              updatedAt: new Date('2026-04-15T00:02:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-3-small',
+            embeddingDimensions: 1536,
+            model: 'legacy-lmstudio-model',
+            state: 'completed',
+            lastIngestAt: '2026-04-14T00:00:00.000Z',
+          },
+        ],
+      },
+      'text-embedding-3-small',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const root = response.body.roots[0];
+  assert.equal(root.embeddingProvider, 'openai');
+  assert.equal(root.embeddingModel, 'text-embedding-3-small');
+  assert.equal(root.model, 'text-embedding-3-small');
+  assert.equal(root.modelId, 'text-embedding-3-small');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
+test('GET /ingest/roots keeps a fully legacy waiting overlay on its legacy-compatible identity', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000104'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'reembed',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'legacy-lmstudio-model',
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: null,
+              createdAt: new Date('2026-04-15T00:03:00.000Z'),
+              updatedAt: new Date('2026-04-15T00:03:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'legacy-lmstudio-model',
+            state: 'completed',
+            lastIngestAt: '2026-04-14T00:00:00.000Z',
+          },
+        ],
+      },
+      'legacy-lmstudio-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const root = response.body.roots[0];
+  assert.equal(root.embeddingProvider, 'lmstudio');
+  assert.equal(root.embeddingModel, 'legacy-lmstudio-model');
+  assert.equal(root.model, 'legacy-lmstudio-model');
+  assert.equal(root.modelId, 'legacy-lmstudio-model');
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('GET /ingest/roots keeps cleanup-blocked diagnostics visible when queue document fields stay authoritative over persisted metadata', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

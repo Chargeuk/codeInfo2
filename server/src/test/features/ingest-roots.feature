@@ -71,6 +71,26 @@ Feature: Ingest roots listing
     And ingest manage roots first embedding provider is "openai"
     And ingest manage roots first model is "fresh-model"
 
+  Scenario: waiting roots keep one canonical provider/model pair when canonical and legacy model fields coexist
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/queued-root" with legacy model "legacy-lmstudio-model"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has waiting request for "/data/queued-root" named "legacy-repo" with canonical provider "openai" canonical model "text-embedding-3-small" and legacy model "legacy-lmstudio-model"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/queued-root" has embedding provider "openai"
+    And ingest manage roots entry for "/data/queued-root" has embedding model "text-embedding-3-small"
+
+  Scenario: waiting roots blank incompatible legacy fallback identity when only a partial canonical provider survives
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/queued-root" with legacy model "legacy-lmstudio-model"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has waiting request for "/data/queued-root" named "legacy-repo" with canonical provider "openai" and legacy model "legacy-lmstudio-model"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/queued-root" has embedding provider "openai"
+    And ingest manage roots entry for "/data/queued-root" has embedding model ""
+
   Scenario: resumed roots keep canonical repository identity instead of display-derived fallback
     Given ingest manage chroma stub is empty
     And ingest manage root metadata exists for "/data/queued-root" with legacy model "stale-model"

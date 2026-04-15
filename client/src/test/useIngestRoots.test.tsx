@@ -300,6 +300,55 @@ describe('useIngestRoots', () => {
     });
   });
 
+  it('keeps the canonical waiting overlay identity when a queued row still carries incompatible legacy model fields', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: 'stable-repo-id',
+          requestId: 'queue-request-canonical-mixed',
+          runId: null,
+          queueState: 'waiting',
+          queuePosition: 1,
+          name: 'repo-canonical-mixed',
+          path: '/repo-canonical-mixed',
+          status: 'ingesting',
+          phase: 'queued',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
+          model: 'legacy-lmstudio-model',
+          modelId: 'legacy-lmstudio-model',
+          lock: {
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-3-small',
+            embeddingDimensions: 1536,
+            lockedModelId: 'text-embedding-3-small',
+            modelId: 'text-embedding-3-small',
+          },
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]).toMatchObject({
+      id: 'stable-repo-id',
+      queueState: 'waiting',
+      embeddingProvider: 'openai',
+      embeddingModel: 'text-embedding-3-small',
+      model: 'text-embedding-3-small',
+      modelId: 'text-embedding-3-small',
+      lock: {
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+        lockedModelId: 'text-embedding-3-small',
+        modelId: 'text-embedding-3-small',
+      },
+    });
+    expect(result.current.roots[0]?.model).not.toBe('legacy-lmstudio-model');
+  });
+
   it('clears stale persisted diagnostics from healthy waiting rows during normalization', async () => {
     mockRootsResponse({
       roots: [

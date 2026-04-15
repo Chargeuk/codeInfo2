@@ -499,6 +499,30 @@ Then(
 );
 
 Then(
+  'ingest manage roots entry for {string} has embedding provider {string}',
+  (rootPath: string, expectedProvider: string) => {
+    const root = findRootByPath(rootPath) as {
+      embeddingProvider?: string;
+    };
+    assert.equal(root.embeddingProvider, expectedProvider);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has embedding model {string}',
+  (rootPath: string, expectedModel: string) => {
+    const root = findRootByPath(rootPath) as {
+      embeddingModel?: string;
+      model?: string;
+      modelId?: string;
+    };
+    assert.equal(root.embeddingModel, expectedModel);
+    assert.equal(root.model, expectedModel);
+    assert.equal(root.modelId, expectedModel);
+  },
+);
+
+Then(
   'ingest manage roots first queue state is {string}',
   (queueState: string) => {
     assert(response, 'expected response');
@@ -744,6 +768,56 @@ Given(
         model,
         embeddingProvider: provider,
         embeddingModel: model,
+      },
+      sourceSurface: 'cucumber',
+      runId: null,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has waiting request for {string} named {string} with canonical provider {string} canonical model {string} and legacy model {string}',
+  async (
+    rootPath: string,
+    name: string,
+    provider: string,
+    canonicalModel: string,
+    legacyModel: string,
+  ) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'waiting',
+      requestPayload: {
+        path: rootPath,
+        name,
+        model: legacyModel,
+        embeddingProvider: provider,
+        embeddingModel: canonicalModel,
+      },
+      sourceSurface: 'cucumber',
+      runId: null,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has waiting request for {string} named {string} with canonical provider {string} and legacy model {string}',
+  async (
+    rootPath: string,
+    name: string,
+    provider: string,
+    legacyModel: string,
+  ) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'waiting',
+      requestPayload: {
+        path: rootPath,
+        name,
+        model: legacyModel,
+        embeddingProvider: provider,
       },
       sourceSurface: 'cucumber',
       runId: null,

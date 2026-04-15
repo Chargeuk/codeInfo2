@@ -10688,6 +10688,7 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 - Testing 3: `npm run test:summary:server:cucumber` passed with the runtime-diagnostic route proof owned by `server/src/test/features/ingest-roots.feature`; retained proof home `test-results/server-cucumber-tests-2026-04-15T09-03-37-084Z.log`.
 - Testing 4: `npm run test:summary:client` passed with the consumer-alignment proof still owned by `client/src/test/useIngestRoots.test.tsx`; retained proof home `test-results/client-tests-2026-04-15T09-06-23-208Z.log`.
 - Automated-proof audit: closed Task 136 after confirming all subtasks and testing are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
+- Manual testing skipped on 2026-04-15 because this loop is still bound to Task 136 as `__in_progress__` in `codeInfoStatus/flow-state/current-task.json`; although the live plan now shows Task 136 `__done__`, manual proof must wait for the stored task handoff to catch up before a new latest-complete-task pass runs.
 
 ### Task 137. Align The Controlled Embedding Mock's Pre-Abort Semantics
 

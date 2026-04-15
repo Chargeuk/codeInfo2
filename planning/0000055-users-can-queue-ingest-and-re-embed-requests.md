@@ -12009,7 +12009,7 @@ This support-file-only task repairs the `.gitignore` review-artifact stanza so t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `151`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T181123Z-5c5b80b1` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview
@@ -12108,3 +12108,4 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Ran `git status --short ... planning/0000055-pr-summary.md` because subtask 26 explicitly depends on Testing 4 output; the maintained summary and plan edits are naturally visible to normal git workflows, while unrelated earlier intentionally visible review artifacts remain tolerated.
 - Ran the current-pass `sed ... | rg ...` proof because subtasks 11 through 38 explicitly require the retained proof-home and review-note strings to remain literal on disk; the new close-out section now carries `enqueueOrReuseIngestRequest()`, `recoverIngestQueueOnStartup()`, `applyQueueOverlay()`, `no new findings`, `row-level Remove`, `AC30`, `AC32`, `AC43`, `git check-ignore -v`, and `git status --short` verbatim.
 - Recorded the final automated-proof guardrail as not applicable because Task 152 still changes only maintained summary and plan files while retaining the existing Task 150 runtime proof chain; no fresh build, test, compose, smoke, lint, or format wrapper rerun was honest in this step.
+- Automated-proof audit closed Task 152 after confirming all 38 subtasks and all 7 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.

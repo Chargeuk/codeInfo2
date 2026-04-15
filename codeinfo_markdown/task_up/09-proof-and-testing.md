@@ -51,7 +51,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 - For back-end systems, plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
 - For front-end systems, plan automated unit tests plus automated Playwright end-to-end tests where supported.
-- For systems where a back end is paired with a front end, keep automated browser proof in `Testing` and put any optional human-followed browser scenarios in `Manual Testing Guidance`.
+- For systems where a back end is paired with a front end, keep automated browser proof in `Testing` and put any optional manual-testing-agent browser scenarios in `Manual Testing Guidance`.
 - If any of those expected harnesses are missing for the system being changed, add the harness work early in the story before later tasks rely on them.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.

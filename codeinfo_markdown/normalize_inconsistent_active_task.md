@@ -57,7 +57,7 @@ If the inconsistent task is `__done__` even though unchecked subtasks, unchecked
 - When converting remaining work into explicit ownership, use this section contract:
   - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that can be completed before formal proof runs;
   - `Testing` for automated proof execution only;
-  - `Manual Testing Guidance` for optional, non-blocking human-followed validation only when useful.
+  - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
 - Do not create manual testing checklist items in `Subtasks` or `Testing`.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
 - If the remaining prose describes manual validation, browser checks, screenshots, or runtime-visible follow-up, place that only in `Manual Testing Guidance` when useful rather than converting it into an unchecked subtask or testing checklist item.
@@ -70,9 +70,9 @@ If the inconsistent task is `__done__` even though unchecked subtasks, unchecked
   - convert the real remaining work into one or more of:
     - unchecked implementation or proof-authoring subtasks;
     - unchecked automated-only testing steps;
-    - optional `Manual Testing Guidance` when later human-followed validation would help for an externally observable surface; or
     - a live standalone `**BLOCKER**` note,
     and leave the task `__in_progress__`.
+- You may also add optional `Manual Testing Guidance` when later manual-testing-agent validation would help for an externally observable surface, but that guidance is not by itself a reason to keep the task `__in_progress__`.
 - If the inconsistent task is currently `__done__` and the remaining unchecked checklist state is still honest unfinished work, reopen that task to `__in_progress__` before returning it to the loop.
 - A task must not remain `__done__` while the parser still reports unchecked subtasks, unchecked testing, or a live blocker for that task.
 - Do not leave prose-only “still incomplete” notes as the sole reason a task remains `__in_progress__`.
@@ -115,7 +115,7 @@ Before finishing:
 - confirm any remaining work was represented as unchecked checklist state or a live standalone `**BLOCKER**`, not only in prose;
 - confirm you did not create manual testing checklist items in `Subtasks` or `Testing`;
 - confirm you did not create subtasks that depend on future automated or manual proof output;
-- confirm any optional human-followed validation was placed only in `Manual Testing Guidance`;
+- confirm any optional manual-testing-agent guidance was placed only in `Manual Testing Guidance`;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

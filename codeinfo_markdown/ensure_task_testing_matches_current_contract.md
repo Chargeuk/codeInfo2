@@ -7,7 +7,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Rework task testing sections to match the current proof contract.
 - Keep the testing guidance repository-aware and wrapper-first.
 - Do not add manual testing steps here; manual testing is handled separately by the implementation flows.
-- Keep `Testing` automated-only and place any optional human-followed scenarios in `Manual Testing Guidance`.
+- Keep `Testing` automated-only and place any optional manual-testing-agent scenarios in `Manual Testing Guidance`.
 - Keep testing proportional to the actual change surface.
 - Prefer updating review-created `__to_do__` tasks and newly added revalidation tasks first.
 - Only update older `__done__` or `__in_progress__` tasks when a minimal testing-ownership, proof-path, dependency, or sequencing correction is required to keep the plan honest.
@@ -61,7 +61,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 
 - For back-end systems, require unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
 - For front-end systems, require automated unit tests plus automated Playwright end-to-end tests, and include expected automated screenshot artifacts only when those artifacts are part of the automated proof.
-- For systems where a back end is paired with a front end, keep automated browser proof in `Testing` and put any optional human-followed browser scenarios in `Manual Testing Guidance`.
+- For systems where a back end is paired with a front end, keep automated browser proof in `Testing` and put any optional manual-testing-agent browser scenarios in `Manual Testing Guidance`.
 - If any expected automated harnesses are missing for the system being changed, add or preserve prerequisite work for them before later tasks rely on them.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.

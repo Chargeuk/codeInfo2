@@ -78,7 +78,7 @@ If there is or was a blocker, decide whether it reveals any of the following:
 - Any task, subtask, testing step, or guidance section created or rewritten by this step MUST follow this section contract:
   - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that can be completed before formal proof runs;
   - `Testing` for automated proof execution only;
-  - `Manual Testing Guidance` for optional, non-blocking human-followed validation only when useful.
+  - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
 - Do not create manual testing checklist items in `Subtasks` or `Testing`.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
 - Do not place automated test execution commands in `Subtasks` unless the task is specifically creating, repairing, or proving a harness or wrapper itself.
@@ -114,7 +114,7 @@ If any of those are true, you MUST repair the story before continuing:
   - convert the blocker evidence into concrete bounded implementation subtasks plus proof-authoring subtasks with explicit owners, exact file or surface targets, and clear stopping rules; or
   - create a bounded diagnostic task with exact files or surfaces to inspect, an explicit stopping threshold, and an explicit exhausted-branch outcome.
 - Do not encode manual testing itself as a required subtask or testing checklist item.
-- If human-followed browser or runtime validation would still help after the repair, place it only in `Manual Testing Guidance`.
+- If later manual-testing-agent browser or runtime validation would still help after the repair, place it only in `Manual Testing Guidance`.
 - Do not keep or create open-ended subtasks like `investigate X until the cause is found` after manual-testing blocker repair.
 - When repairing a blocker that originated from a manual-testing failure, add a separate automated proof-authoring subtask for that failed manual scenario whenever realistic in the affected repository and harness.
 - If realistic automated proof is not possible for that manual-testing failure, record that limitation explicitly in the implementation notes instead of silently omitting it.
@@ -175,7 +175,7 @@ Before finishing:
 - confirm any repaired or newly added task keeps `Testing` automated-only;
 - confirm you did not create manual testing checklist items in `Subtasks` or `Testing`;
 - confirm you did not create subtasks that depend on future automated or manual proof output;
-- confirm any optional human-followed validation was placed only in `Manual Testing Guidance`;
+- confirm any optional manual-testing-agent guidance was placed only in `Manual Testing Guidance`;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

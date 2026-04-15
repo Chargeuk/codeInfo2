@@ -122,7 +122,7 @@ Rules:
 - When the repository's primary build mechanism is Docker or Compose, keep that as the first build proof rather than replacing it with ad hoc local build commands.
 - Back-end systems should plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path unless the repository's instructions explicitly define a different standard.
 - Front-end systems should plan automated unit tests plus automated Playwright end-to-end tests where supported, and may name expected automated screenshot artifacts when those artifacts are part of the automated proof.
-- Systems where a back end is paired with a front end should keep automated browser proof in `Testing` and place any optional human-followed browser scenarios in `Manual Testing Guidance`.
+- Systems where a back end is paired with a front end should keep automated browser proof in `Testing` and place any optional manual-testing-agent browser scenarios in `Manual Testing Guidance`.
 - If expected harnesses are missing for the system being changed, add prerequisite harness work earlier in the story before later tasks rely on it.
 - If a proof step is not applicable, omit it and explain why in the task wording or implementation notes rather than inventing it.
 - If the task depends on a new harness, wrapper, or runtime seam, that prerequisite should be created in an earlier task.

@@ -74,10 +74,11 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <candidate_selection_rules>
 
 - Use the task already resolved into `current-task.json` as the candidate task for this loop iteration.
-- If the candidate task is `__in_progress__`, or its implementation notes contain a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, or it otherwise is not honestly complete yet, do not perform manual testing.
+- Determine candidate eligibility from honest checklist and blocker state, not from `Task Status` alone.
 - Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**` when deciding whether the task is still blocked.
-- Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not complete yet.
-- Only if the candidate task is `__done__` should you continue with manual testing consideration.
+- If the parser-selected task still has unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`, do not perform manual testing.
+- Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not honestly complete yet.
+- If the parser-selected task has no unchecked subtasks, no unchecked testing steps, and no live standalone `**BLOCKER**`, it is eligible for manual testing whether its `Task Status` is `__in_progress__` or `__done__`.
 - Before adding a manual-testing implementation note for any outcome, re-read that task's existing implementation notes and avoid adding a duplicate note if the same manual-testing outcome is already recorded from the latest loop pass.
 
 </candidate_selection_rules>
@@ -86,7 +87,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - After selecting the candidate task, determine whether it is the highest-numbered real task in the story.
 - If the candidate task is not the final task in the story, keep manual proof task-scoped.
-- If the candidate task is the final task in the story and it is `__done__`, expand manual proof to full-story scope.
+- If the candidate task is the final task in the story and it is eligible for manual testing, expand manual proof to full-story scope.
 - In that final-task case:
   - first prove the final task's own acceptance-relevant behavior;
   - then run a concise end-to-end manual validation of the story's visible or externally observable outcomes across the earlier completed tasks that matter to the user-facing or externally observable story result;
@@ -151,7 +152,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - When manual testing cannot proceed normally, classify the reason into exactly one of these buckets before deciding what to do:
   - `not_applicable`:
     - the candidate task has no relevant runnable, browser-visible, network-visible, or otherwise externally observable proof surface that its own exit criteria require;
-    - in this case, record that manual testing was assessed as not applicable and continue without blocker.
+    - in this case, record that manual testing was assessed as not applicable and continue without blocker;
+    - if the candidate task has no unchecked subtasks, no unchecked testing steps, and no live standalone `**BLOCKER**`, set its `Task Status` to `__done__` before finishing.
   - `recoverable_runtime_trouble`:
     - the required proof surface should already exist, but the current runtime instance is stale, the documented startup path was not followed yet, readiness is not yet established, or a narrow in-scope startup or environment issue still looks credibly repairable in this step;
     - in this case, do one bounded recovery pass before considering a blocker.
@@ -218,7 +220,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - set that candidate task's `Task Status` to `__in_progress__`.
 
 - If manual testing succeeds without finding further work:
-  - leave the candidate task as `__done__`;
+  - set the candidate task's `Task Status` to `__done__`;
   - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the screenshot artifacts were saved, and that no additional subtasks were needed.
 
 - If the non-run reason is `recoverable_runtime_trouble`:
@@ -249,8 +251,9 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Report which candidate task you evaluated.
 - Report whether manual testing was skipped, assessed as not applicable, run successfully, or blocked.
 - Report whether the pass stayed task-scoped or expanded to full-story proof.
+- Report whether the task was eligible for manual testing because it was fully checked and unblocked.
 - Report whether new subtasks or testing steps were added.
-- Report whether the task status changed back to `__in_progress__`.
+- Report whether the task status changed back to `__in_progress__` or forward to `__done__`.
 
 </output_contract>
 
@@ -258,6 +261,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - Confirm you used only the stored handoff and runtime-research scope.
 - Confirm you used the task already resolved into `current-task.json`.
+- Confirm candidate eligibility was determined from checklist and blocker state rather than `Task Status` alone.
 - Confirm you did not require later-task-owned surfaces unless the candidate task explicitly depended on them.
 - Confirm any failure-triggered follow-up work came after a bounded diagnosis pass rather than from first-guess speculation.
 - Confirm any non-run outcome was classified as `not_applicable`, `recoverable_runtime_trouble`, or `structural_proof_gap` before finalizing.
@@ -267,6 +271,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Confirm no manual-testing step was added to the task's `Testing` section.
 - Confirm no newly added subtask depends on future manual-testing-agent or automated-proof outputs.
 - Confirm any added `Manual Testing Guidance` is optional, non-blocking, and checkbox-free.
+- Confirm a fully checked unblocked `__in_progress__` task was not incorrectly skipped.
+- Confirm the task was set to `__done__` when manual testing succeeded or was honestly not applicable and no further work remained.
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
 

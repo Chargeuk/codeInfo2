@@ -117,8 +117,8 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 - Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
 - Do not create manual testing checklist items in `Subtasks` or `Testing`.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
-- Place optional human-followed browser scenarios only in `Manual Testing Guidance`.
-- Add `Manual Testing Guidance` only when the reviewed fix changes a browser-visible, runtime-visible, or otherwise externally observable surface that would benefit from optional human-followed validation.
+- Place optional manual-testing-agent browser scenarios only in `Manual Testing Guidance`.
+- Add `Manual Testing Guidance` only when the reviewed fix changes a browser-visible, runtime-visible, or otherwise externally observable surface that would benefit from optional manual-testing-agent validation.
 - When one wrapper run later produces outputs used for validation, keep the execution command once in `Testing` and do not make any follow-up subtask depend on those later outputs in order to become executable.
 - Do not create hybrid subtasks such as `run wrapper X and update note Y` when the execution step can live in `Testing` and the resulting proof work can be expressed separately in `Subtasks`.
 

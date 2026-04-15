@@ -26,6 +26,13 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 - Check that any `Manual Testing Guidance` section is optional, non-blocking, and checkbox-free.
 - Check that no subtask depends on future automated or manual proof output.
 - Check that no manual testing checklist items remain in `Subtasks` or `Testing`.
+- Check the final task in the story.
+- If it has a runnable, browser-visible, or otherwise externally observable manual-proof surface, verify that its `Manual Testing Guidance` includes:
+  - required prerequisite services;
+  - startup order where relevant;
+  - any needed login, seed, or setup path;
+  - where credentials or access come from without inlining secrets.
+- Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>
 
 <final_edit_rules>

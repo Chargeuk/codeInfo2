@@ -45,6 +45,13 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add:
   - proof-authoring subtasks for the code, tests, markers, or harness changes that make those signals available; and
   - automated `Testing` steps or optional `Manual Testing Guidance` entries that describe how those signals will later be observed.
+- When the final task in the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, its `Manual Testing Guidance` must include story-specific startup and access guidance for the later `manual_testing_agent` pass.
+- That guidance should name:
+  - which system surfaces to start or use;
+  - which prerequisite services or helpers must already be running;
+  - the required startup order when multiple surfaces matter;
+  - the supported login, seed, or setup path if one is needed for proof;
+  - where credentials, seeded accounts, helper scripts, or env-backed access come from without inlining secrets.
   </proof_and_testing_rules>
 
 <coverage_rules>

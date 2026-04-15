@@ -133,9 +133,15 @@ Optional guidance for the manual testing agent only.
 
 - Describe the most useful browser-visible, runtime-visible, or externally observable scenarios to check manually when this task reaches manual validation.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help manual validation.
+- For the final task, when the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, include enough guidance for the `manual_testing_agent` to:
+  - identify which services or surfaces must be started;
+  - know any prerequisites that must already be running;
+  - follow the required startup order when more than one service or surface matters;
+  - know where credentials, seeded accounts, helper scripts, fixture data, or env-backed access come from without inlining secrets.
 - Do not use checkboxes.
 - Do not make this section a completion gate.
 - Do not require the coding agent to perform any item in this section.
+- Do not write actual secrets, passwords, or tokens into the plan. Point only to the supported source of access.
 
 #### Implementation notes
 

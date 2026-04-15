@@ -10694,7 +10694,7 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `136`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to reopen the localized optional simplification in finding 7.
 
 #### Overview

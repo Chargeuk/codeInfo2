@@ -10279,7 +10279,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - `P3.` Requirement: `codeInfoStatus/reviews/0000055-current-review.json` stays ignored after the boundary repair. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-current-review.json`. Proof homes: subtask 6, Testing 1.
 - `P4.` Requirement: `codeInfoStatus/reviews/0000055-external-review-input.md` stays ignored after the boundary repair. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-external-review-input.md`. Proof homes: subtask 7, Testing 1.
 - `P5.` Requirement: `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` stays ignored after the boundary repair. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Proof homes: subtasks 3 and 8, Testing 1.
-- `P6.` Requirement: the repaired visibility boundary and the transient-file exclusions are retained in the maintained summary. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtasks 9 through 10, Testing 2, Task 138 subtasks 4 through 5.
+- `P6.` Requirement: the repaired visibility boundary and the transient-file exclusions are retained in the maintained summary. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtasks 9 through 10, Testing 2, Task 138 subtask 4.
 
 #### Documentation Locations
 
@@ -10390,7 +10390,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - `P1.` Requirement: a committed run records a durable non-replayable barrier even when `markQueueRequestTerminalPublished()` fails. Owners: `server/src/ingest/ingestJob.ts`, persisted queue-request state. Proof homes: subtasks 2 through 4 and 7, Testing 1 through 2.
 - `P2.` Failure mode: startup recovery checks the new barrier before replay promotion and skips re-running logically finished work. Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`. Proof homes: subtasks 3 and 5 and 8, Testing 1.
 - `P3.` Requirement: later cleanup ownership can still finish deterministically after the barrier is recorded. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 3 and 6 and 9, Testing 1.
-- `P4.` Summary requirement: the maintained summary names the barrier-write-failure, recovery-skip, and cleanup-continuation proof homes separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 10, Task 138 subtask 5.
+- `P4.` Summary requirement: the maintained summary names the barrier-write-failure, recovery-skip, and cleanup-continuation proof homes separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 10, Task 138 subtask 6.
 
 #### Documentation Locations
 
@@ -10440,10 +10440,10 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 #### Proof Mapping
 
-- `P1.` Requirement: an older aborted `/ingest/roots` request cannot clear `isLoading` while a newer request is still pending. Owners: `client/src/hooks/useIngestRoots.ts`. Proof homes: subtasks 2 through 3 and 6 through 7, Testing 1 through 2.
-- `P2.` Requirement: superseded requests still abort normally after the loading-ownership change. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 and 4 and 6 through 7, Testing 1.
-- `P3.` Requirement: the newest successful response remains the only final data adoption path after overlapping refetches. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 and 5 and 6, Testing 1.
-- `P4.` Summary requirement: the maintained summary names the success-path and failure-path overlapping-refetch proofs separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 8, Task 138 subtask 5.
+- `P1.` Requirement: an older aborted `/ingest/roots` request cannot clear `isLoading` while a newer request is still pending. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 through 3 and 6 and 8, Testing 1 through 2.
+- `P2.` Requirement: superseded requests still abort normally after the loading-ownership change. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 and 4 and 6, Testing 1.
+- `P3.` Requirement: the newest successful response remains the only final data adoption path after overlapping refetches. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 and 5 and 7, Testing 1.
+- `P4.` Summary requirement: the maintained summary names the success-path, failure-path, and stale-adoption control proofs separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 9, Task 138 subtask 7.
 
 #### Documentation Locations
 
@@ -10458,9 +10458,10 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 3. [ ] Update `client/src/hooks/useIngestRoots.ts` so the loading reset is owned by the same request token, controller, or equivalent latest-request discriminator that owns the fetch start. Purpose: prevent an older aborted refetch from briefly making the UI look idle while a newer fetch is still pending.
 4. [ ] Preserve the existing abort behavior for superseded requests after the loading-ownership repair lands. Purpose: keep the fix scoped to request ownership rather than changing cancellation policy.
 5. [ ] Preserve the latest successful response as the only state that can win the final data adoption path after overlapping refetches. Purpose: keep the repaired loading ownership aligned with the existing newest-response data contract.
-6. [ ] Add direct client proof in `client/src/test/useIngestRoots.test.tsx` for an overlapping abort-and-restart success path. Purpose: prove `isLoading` stays true until the newest successful request settles.
-7. [ ] Add direct client proof in `client/src/test/useIngestRoots.test.tsx` for an overlapping abort-and-restart failure path. Purpose: prove `isLoading` stays true until the newest failed request settles.
-8. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes for the overlapping refetch lifecycle. Purpose: keep the maintained summary aligned with the repaired client loading ownership.
+6. [ ] Add direct client proof in `client/src/test/useIngestRoots.test.tsx` that a superseded aborted request cannot clear `isLoading` while a newer successful refetch is still pending. Purpose: prove loading ownership stays attached to the newest in-flight request during the overlapping success path.
+7. [ ] Add direct client proof in `client/src/test/useIngestRoots.test.tsx` that only the newest successful response can win final data adoption after overlapping refetches. Purpose: prove the loading-ownership repair does not reopen stale-response adoption.
+8. [ ] Add direct client proof in `client/src/test/useIngestRoots.test.tsx` that a superseded aborted request cannot clear `isLoading` while a newer failing refetch is still pending. Purpose: prove loading ownership stays attached to the newest in-flight request during the overlapping failure path.
+9. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes for the overlapping refetch lifecycle. Purpose: keep the maintained summary aligned with the repaired client loading ownership.
 
 #### Testing
 
@@ -10490,11 +10491,11 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 
 #### Proof Mapping
 
-- `P1.` Requirement: a partial-canonical waiting row emits a canonical-consistent provider/model pair. Owners: `server/src/lmstudio/toolService.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 2 through 3 and 7, Testing 1 through 2.
-- `P2.` Failure mode: incompatible legacy fallbacks are blanked or dropped instead of being mixed into a canonical waiting row. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 4 and 7, Testing 1.
-- `P3.` Compatibility requirement: fully canonical waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtask 5, Testing 1.
-- `P4.` Compatibility requirement: fully legacy waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtask 6, Testing 1.
-- `P5.` Summary requirement: the maintained summary separates the partial-canonical proof from the compatibility-control proofs. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 9, Task 138 subtask 5.
+- `P1.` Requirement: a partial-canonical waiting row emits a canonical-consistent provider/model pair. Owners: `server/src/lmstudio/toolService.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 3 and 7, Testing 1 through 2.
+- `P2.` Failure mode: incompatible legacy fallbacks are blanked or dropped instead of being mixed into a canonical waiting row. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 4 and 8, Testing 1.
+- `P3.` Compatibility requirement: fully canonical waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 5 and 9, Testing 1.
+- `P4.` Compatibility requirement: fully legacy waiting rows keep their existing output. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 6 and 10, Testing 1.
+- `P5.` Summary requirement: the maintained summary separates the partial-canonical, incompatible-legacy, and compatibility-control proofs. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 11, Task 138 subtask 8.
 
 #### Documentation Locations
 
@@ -10511,10 +10512,11 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 4. [ ] Update `server/src/lmstudio/toolService.ts` so incompatible legacy fallbacks are blanked or dropped instead of being mixed into a canonical row. Purpose: remove the exact contradictory provider/model emission path endorsed by the review.
 5. [ ] Preserve the current output for fully canonical waiting rows. Purpose: keep the repair scoped to the mixed-shape contradiction rather than reopening already-valid canonical rows.
 6. [ ] Preserve the current output for fully legacy waiting rows. Purpose: keep the repair scoped to the mixed-shape contradiction rather than broadening it into a legacy contract redesign.
-7. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for a partial-canonical waiting row. Purpose: prove the contradictory mixed-shape row now emits an honest contract.
-8. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for a fully canonical waiting-row control case. Purpose: prove the repair did not regress the stable canonical-path behavior.
-9. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for a fully legacy waiting-row control case. Purpose: prove the repair did not regress the stable legacy-path behavior.
-10. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new waiting-overlay proof homes and any honest residual caveat only if one survives. Purpose: keep the maintained summary aligned with the repaired shared-contract behavior.
+7. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` that a partial-canonical waiting row emits a canonical-consistent provider/model pair. Purpose: prove the repaired overlay preserves canonical identity when canonical queue fields are present.
+8. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` that incompatible legacy fallbacks are blanked or dropped instead of being mixed into a canonical waiting row. Purpose: prove the contradictory mixed-shape emission path is closed.
+9. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for a fully canonical waiting-row control case. Purpose: prove the repair did not regress the stable canonical-path behavior.
+10. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for a fully legacy waiting-row control case. Purpose: prove the repair did not regress the stable legacy-path behavior.
+11. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new waiting-overlay proof homes and any honest residual caveat only if one survives. Purpose: keep the maintained summary aligned with the repaired shared-contract behavior.
 
 #### Testing
 
@@ -10544,11 +10546,11 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 
 #### Proof Mapping
 
-- `P1.` Requirement: a runtime-backed queue row preserves fresh structured `error` metadata on the shared `/ingest/roots` payload. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data. Proof homes: subtasks 2 through 3 and 7, Testing 1 through 2.
-- `P2.` Requirement: `lastError` is derived from the same freshest runtime signal when runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data. Proof homes: subtasks 2 and 4 and 7, Testing 1.
-- `P3.` Failure mode: stale persisted `error` and `lastError` values are displaced when fresher runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 5 and 8, Testing 1.
+- `P1.` Requirement: a runtime-backed queue row preserves fresh structured `error` metadata on the shared `/ingest/roots` payload. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 3 and 7, Testing 1 through 2.
+- `P2.` Requirement: `lastError` is derived from the same freshest runtime signal when runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 4 and 8, Testing 1.
+- `P3.` Failure mode: stale persisted `error` and `lastError` values are displaced when fresher runtime diagnostics exist. Owners: `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 and 5 and 9, Testing 1.
 - `P4.` Compatibility requirement: existing healthy waiting and running stale-diagnostic clearing behavior remains intact. Owners: `server/src/lmstudio/toolService.ts`, retained healthy overlay proofs in `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtask 6, Testing 1 through 2.
-- `P5.` Summary requirement: the maintained summary separates structured-runtime preservation, `lastError` freshness, and stale-persisted replacement proof homes. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 9, Task 138 subtask 5.
+- `P5.` Summary requirement: the maintained summary separates structured-runtime preservation, `lastError` freshness, and stale-persisted replacement proof homes. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 10, Task 138 subtask 9.
 
 #### Documentation Locations
 
@@ -10564,9 +10566,10 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 4. [ ] Update `server/src/lmstudio/toolService.ts` so it derives `lastError` from the same freshest runtime signal when runtime diagnostics exist. Purpose: keep the string error summary aligned with the structured runtime payload.
 5. [ ] Actively displace stale persisted `error` and `lastError` fields when fresher runtime diagnostics are present. Purpose: stop older persisted diagnostics from outranking current queue-backed error state.
 6. [ ] Preserve the existing healthy waiting and running stale-diagnostic clearing behavior. Purpose: keep the repair localized to the runtime-error branch instead of reopening already-proved healthy overlay cleanup.
-7. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` that a runtime-backed error row preserves fresh structured metadata. Purpose: prove the repaired overlay keeps the richer runtime diagnostics.
-8. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` that a stale persisted diagnostic is replaced when fresher runtime diagnostics exist. Purpose: prove the repaired overlay no longer lets stale persisted errors win.
-9. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new runtime-diagnostics proof homes and any honest residual caveat only if one survives. Purpose: keep the maintained summary aligned with the repaired shared payload behavior.
+7. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` that a runtime-backed error row preserves fresh structured `error` metadata. Purpose: prove the repaired overlay keeps the richer runtime diagnostic payload.
+8. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` that `lastError` is derived from the same freshest runtime signal. Purpose: prove the string error summary stays aligned with the structured runtime payload.
+9. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` that a stale persisted diagnostic is replaced when fresher runtime diagnostics exist. Purpose: prove the repaired overlay no longer lets stale persisted errors win.
+10. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new runtime-diagnostics proof homes and any honest residual caveat only if one survives. Purpose: keep the maintained summary aligned with the repaired shared payload behavior.
 
 #### Testing
 
@@ -10596,10 +10599,10 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 
 #### Proof Mapping
 
-- `P1.` Requirement: a pre-aborted controlled `embed()` call short-circuits before live controlled embedding work is registered. Owners: `server/src/test/support/mockLmStudioSdk.ts`. Proof homes: subtasks 2 and 4 and 8, Testing 1 through 2.
-- `P2.` Requirement: the pre-aborted `embed()` return shape matches the prediction helper's existing short-circuit contract. Owners: `server/src/test/support/mockLmStudioSdk.ts`. Proof homes: subtasks 3 and 5 and 8, Testing 1.
-- `P3.` Harness-proof requirement: the focused proof home is explicit and small enough to prove the helper directly without unrelated runtime setup. Owners: the proof file selected by subtasks 6 through 7. Proof homes: subtasks 6 through 8, Testing 1.
-- `P4.` Summary requirement: the maintained summary records the exact proof home used for the repaired helper semantics. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 9, Task 138 subtask 5.
+- `P1.` Requirement: a pre-aborted controlled `embed()` call short-circuits before live controlled embedding work is registered. Owners: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`. Proof homes: subtasks 2 and 4 and 6, Testing 1 through 2.
+- `P2.` Requirement: the pre-aborted `embed()` return shape matches the prediction helper's existing short-circuit contract. Owners: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`. Proof homes: subtasks 3 and 5 and 7, Testing 1.
+- `P3.` Harness-proof requirement: the focused proof home is explicit and small enough to prove the helper directly without unrelated runtime setup. Owners: `server/src/test/unit/mockLmStudioSdk.test.ts`. Proof homes: subtasks 6 through 7, Testing 1.
+- `P4.` Summary requirement: the maintained summary records the exact proof home used for the repaired helper semantics. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 8, Task 138 subtask 10.
 
 #### Documentation Locations
 
@@ -10614,10 +10617,9 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 3. [ ] Re-read the current prediction helper pre-abort branch in `server/src/test/support/mockLmStudioSdk.ts`. Purpose: anchor the cleanup to the short-circuit contract the embed helper must match.
 4. [ ] Update the controlled `embed()` helper so a pre-aborted request short-circuits before live controlled embedding work is registered. Purpose: align the mock's cancellation semantics without widening the change into unrelated queue or provider behavior.
 5. [ ] Update the controlled `embed()` helper so its returned shape matches the prediction helper's existing short-circuit contract. Purpose: keep the mock's pre-abort result honest for cancellation-path tests.
-6. [ ] Inspect the smallest existing server-unit proof home that could assert the pre-aborted `embed()` path directly. Purpose: avoid widening the proof into unrelated queue runtime setup if an existing focused suite already exists.
-7. [ ] Create `server/src/test/unit/mockLmStudioSdk.test.ts` only if no existing focused server-unit suite can assert the helper directly after subtask 6. Purpose: give the optional simplification one small dedicated proof home instead of overloading an unrelated runtime suite.
-8. [ ] Add direct proof for the pre-aborted `embed()` path in the focused proof home chosen by subtasks 6 through 7. Purpose: make the localized simplification objectively testable and durable.
-9. [ ] Refresh `planning/0000055-pr-summary.md` with the exact proof home chosen for the repaired helper semantics. Purpose: keep the maintained summary aligned with the repaired helper behavior.
+6. [ ] Add or update direct proof in `server/src/test/unit/mockLmStudioSdk.test.ts` that a pre-aborted controlled `embed()` call short-circuits before live controlled work is registered. Purpose: keep the helper proof focused and independent from unrelated queue-runtime setup.
+7. [ ] Add or update direct proof in `server/src/test/unit/mockLmStudioSdk.test.ts` that the pre-aborted `embed()` return shape matches the prediction helper's existing short-circuit contract. Purpose: make the helper's cancellation result explicit and reviewable.
+8. [ ] Refresh `planning/0000055-pr-summary.md` with the exact proof home used for the repaired helper semantics. Purpose: keep the maintained summary aligned with the repaired helper behavior.
 
 #### Testing
 
@@ -10649,14 +10651,15 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 
 #### Proof Mapping
 
-- `P1.` Requirement: Task 131 is complete and the current pass durable review artifacts are visible while transient review handoff files stay ignored. Owners: Task 131, `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 5, Testing 7 through 8.
-- `P2.` Requirement: Task 132 is complete and both deferred and recovered `reembed` replay paths honor canonical-root authority. Owners: Task 132, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtasks 4 through 5, Testing 1 and 3.
-- `P3.` Requirement: Task 133 is complete and the post-commit replay barrier plus cleanup continuation semantics are directly proved. Owners: Task 133, `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtask 5, Testing 1 and 3.
-- `P4.` Requirement: Task 134 is complete and overlapping `/ingest/roots` refetch loading ownership is directly proved. Owners: Task 134, `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtask 5, Testing 2 and 5.
-- `P5.` Requirement: Tasks 135 and 136 are complete and the `/ingest/roots` waiting-overlay and runtime-error precedence seams are directly proved. Owners: Tasks 135 and 136, `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtask 5, Testing 1 and 3.
-- `P6.` Requirement: Task 137 is complete and the controlled-embedding pre-abort helper semantics are directly proved in an explicit focused proof home. Owners: Task 137, `server/src/test/support/mockLmStudioSdk.ts`, the proof file selected for Task 137. Proof homes: subtask 5, Testing 1 and 3.
-- `P7.` Requirement: unchanged Story 55 acceptance areas retain their earlier proof chain while the current pass adds new wrapper outputs for the repaired seams. Owners: `planning/0000055-pr-summary.md`, retained Story 55 proof homes, current wrapper outputs. Proof homes: subtasks 4 through 6, Testing 1 through 6.
-- `P8.` Requirement: the maintained summary carries forward rejected-risk notes, blind-spot challenge outcome, and any still-honest weak-proof caveats. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Proof homes: subtasks 1 through 3 and 7 through 9, Testing 7 through 8.
+- `P1.` Requirement: Task 131 is complete and the current pass durable review artifacts are visible while transient review handoff files stay ignored. Owners: Task 131, `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 4, Testing 7 through 8.
+- `P2.` Requirement: Task 132 is complete and both deferred and recovered `reembed` replay paths honor canonical-root authority. Owners: Task 132, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 5, Testing 1 and 3.
+- `P3.` Requirement: Task 133 is complete and the post-commit replay barrier plus cleanup continuation semantics are directly proved. Owners: Task 133, `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 6, Testing 1 and 3.
+- `P4.` Requirement: Task 134 is complete and overlapping `/ingest/roots` refetch loading ownership is directly proved. Owners: Task 134, `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`, `planning/0000055-pr-summary.md`. Proof homes: subtask 7, Testing 2 and 5.
+- `P5.` Requirement: Task 135 is complete and the `/ingest/roots` waiting-overlay canonicality repair is directly proved. Owners: Task 135, `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 8, Testing 1 and 3.
+- `P6.` Requirement: Task 136 is complete and the `/ingest/roots` runtime-error precedence repair is directly proved. Owners: Task 136, `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 9, Testing 1 and 3.
+- `P7.` Requirement: Task 137 is complete and the controlled-embedding pre-abort helper semantics are directly proved in an explicit focused proof home. Owners: Task 137, `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 10, Testing 1 and 3.
+- `P8.` Requirement: unchanged Story 55 acceptance areas retain their earlier proof chain while the current pass adds new wrapper outputs for the repaired seams. Owners: `planning/0000055-pr-summary.md`, retained Story 55 proof homes, current wrapper outputs. Proof homes: subtask 11, Testing 1 through 6.
+- `P9.` Requirement: the maintained summary carries forward rejected-risk notes, blind-spot challenge outcome, and any still-honest weak-proof caveats. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Proof homes: subtasks 1 through 3 and 12 through 14, Testing 7 through 8.
 
 #### Documentation Locations
 
@@ -10672,12 +10675,17 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`. Purpose: keep the final close-out anchored to the exact stored findings artifact for this pass.
 3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Purpose: preserve the additive blind-spot reasoning while final validation closes out.
 4. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Task 131. Purpose: keep the current-pass artifact-visibility repair explicitly represented in the maintained summary.
-5. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Tasks 132 through 137. Purpose: keep each repaired runtime, overlay, client, and helper seam explicitly represented in the maintained summary.
-6. [ ] Retain the earlier Story 55 acceptance-evidence chain only for unchanged areas that were not re-proved in this pass. Purpose: keep retained proof separate from new proof so the close-out remains honest.
-7. [ ] Re-state the current pass rejected-risk notes inside `planning/0000055-pr-summary.md`. Purpose: carry forward the review's non-endorsed but still relevant challenge outcomes.
-8. [ ] Re-state the blind-spot challenge outcome inside `planning/0000055-pr-summary.md`. Purpose: keep the additive challenge reasoning explicit instead of silently dropping it after revalidation.
-9. [ ] Re-state any still-honest weak-proof caveats such as retained indirect acceptance seams inside `planning/0000055-pr-summary.md`. Purpose: keep final close-out honest instead of implying the review was exhaustive.
-10. [ ] Refresh this plan's review-created task notes or close-out notes only where needed so the next implementation loop can see that Task 131 is the first real owner and Task 138 is the final revalidation gate. Purpose: keep the reopened story executable and auditable for later loops without reopening older completed tasks.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Task 132. Purpose: keep the replay-time canonical-root repair explicitly represented in the maintained summary.
+6. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Task 133. Purpose: keep the replay-barrier repair explicitly represented in the maintained summary.
+7. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Task 134. Purpose: keep the overlapping-refetch loading-ownership repair explicitly represented in the maintained summary.
+8. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Task 135. Purpose: keep the waiting-overlay canonicality repair explicitly represented in the maintained summary.
+9. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Task 136. Purpose: keep the runtime-diagnostic overlay repair explicitly represented in the maintained summary.
+10. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Task 137. Purpose: keep the controlled-embedding helper repair explicitly represented in the maintained summary.
+11. [ ] Retain the earlier Story 55 acceptance-evidence chain only for unchanged areas that were not re-proved in this pass. Purpose: keep retained proof separate from new proof so the close-out remains honest.
+12. [ ] Re-state the current pass rejected-risk notes inside `planning/0000055-pr-summary.md`. Purpose: carry forward the review's non-endorsed but still relevant challenge outcomes.
+13. [ ] Re-state the blind-spot challenge outcome inside `planning/0000055-pr-summary.md`. Purpose: keep the additive challenge reasoning explicit instead of silently dropping it after revalidation.
+14. [ ] Re-state any still-honest weak-proof caveats such as retained indirect acceptance seams inside `planning/0000055-pr-summary.md`. Purpose: keep final close-out honest instead of implying the review was exhaustive.
+15. [ ] Refresh this plan's review-created task notes or close-out notes only where needed so the next implementation loop can see that Task 131 is the first real owner and Task 138 is the final revalidation gate. Purpose: keep the reopened story executable and auditable for later loops without reopening older completed tasks.
 
 #### Testing
 

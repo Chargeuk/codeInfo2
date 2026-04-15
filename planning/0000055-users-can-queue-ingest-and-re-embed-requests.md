@@ -10613,6 +10613,7 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 - Subtasks 12 through 14: added a client consumer proof that waiting-row normalization keeps the canonical provider/model pair even when stale legacy model fields are still present, and added matching ingest-roots cucumber scenarios plus queue seeding and per-entry provider/model assertions for the repaired waiting-overlay contract.
 - Subtask 15: updated `planning/0000055-pr-summary.md` so the retained Story 55 summary now names the partial-canonical repair, incompatible-legacy suppression, canonical and legacy controls, and the client consumer-alignment proof separately.
 - Automated-proof audit: closed Task 135 after confirming all subtasks and testing are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
+- Manual testing skipped on 2026-04-15 because this loop is still bound to Task 135 as `__in_progress__` in `codeInfoStatus/flow-state/current-task.json`; although the live plan now shows Task 135 `__done__`, manual proof must wait for the stored task handoff to catch up before a new latest-complete-task pass runs.
 
 ### Task 136. Preserve Fresh Runtime Error Metadata In `/ingest/roots` Queue Overlays
 

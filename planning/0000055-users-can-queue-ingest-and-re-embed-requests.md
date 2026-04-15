@@ -10812,17 +10812,17 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` and confirm the repository's primary Docker Compose build path completes cleanly for the normal supported system.
-2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the review-created fixes.
-3. [ ] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the review-created fixes.
-4. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes after the review-created fixes.
-5. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes after the review-created fixes.
-6. [ ] Run `npm run test:summary:client` and confirm the full client test suite still passes after the review-created fixes.
-7. [ ] Run `npm run test:summary:e2e` and confirm the full browser flow still passes after the review-created fixes and preserves the Story 55 screenshot evidence under `artifacts/story-0000055-screenshots/`.
-8. [ ] Run `npm run compose:up` and confirm the repository's normal supported compose stack starts cleanly after the review-created fixes.
-9. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the smoke proof.
-10. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm the durable artifact visibility boundary remains correct.
-11. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the review-created support-file updates plus durable artifacts remain naturally visible to normal git workflows.
+1. [x] Run `npm run compose:build:summary` and confirm the repository's primary Docker Compose build path completes cleanly for the normal supported system.
+2. [x] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the review-created fixes.
+3. [x] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the review-created fixes.
+4. [x] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes after the review-created fixes.
+5. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes after the review-created fixes.
+6. [x] Run `npm run test:summary:client` and confirm the full client test suite still passes after the review-created fixes.
+7. [x] Run `npm run test:summary:e2e` and confirm the full browser flow still passes after the review-created fixes and preserves the Story 55 screenshot evidence under `artifacts/story-0000055-screenshots/`.
+8. [x] Run `npm run compose:up` and confirm the repository's normal supported compose stack starts cleanly after the review-created fixes.
+9. [x] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the smoke proof.
+10. [x] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm the durable artifact visibility boundary remains correct.
+11. [x] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the review-created support-file updates plus durable artifacts remain naturally visible to normal git workflows.
 
 #### Implementation notes
 
@@ -10830,3 +10830,14 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 - Re-read the stored evidence, findings, and blind-spot challenge artifacts for pass `0000055-20260415T004532Z-74f062c7`, then re-opened the live plan to confirm Tasks 131 through 137 are now `__done__` and Task 138 is the only remaining open owner before the final wrapper phase.
 - Updated `planning/0000055-pr-summary.md` with the final close-out bundle for Tasks 131 through 137, separating direct proof homes for each repaired seam from the earlier retained Story 55 acceptance evidence that still carries unchanged areas.
 - Re-stated the current pass rejected-risk notes, the blind-spot challenge outcome, and the still-honest weak-proof caveats in the maintained summary so the later wrapper reruns can close the story without implying this review pass was exhaustive.
+- Testing 1 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `DEV-0000050:T10:image_runtime_assets_baked`; retained proof home: `logs/test-summaries/compose-build-latest.log`.
+- Testing 2 passed via `npm run build:summary:server` with `warning_count: 0`; retained proof home: `logs/test-summaries/build-server-latest.log`.
+- Testing 3 passed via `npm run build:summary:client` with `warning_count: 0`; retained proof home: `logs/test-summaries/build-client-latest.log`.
+- Testing 4 passed via `npm run test:summary:server:unit` with `tests run: 1699`, `passed: 1699`, and `failed: 0`; retained proof home: `test-results/server-unit-tests-2026-04-15T09-57-34-003Z.log`.
+- Testing 5 passed via `npm run test:summary:server:cucumber` with `tests run: 97`, `passed: 97`, and `failed: 0`; retained proof home: `test-results/server-cucumber-tests-2026-04-15T10-17-40-710Z.log`.
+- Testing 6 passed via `npm run test:summary:client` with `tests run: 697`, `passed: 697`, and `failed: 0`; retained proof home: `test-results/client-tests-2026-04-15T10-21-28-458Z.log`.
+- Testing 7 passed via `npm run test:summary:e2e` with `DEV-0000050:T13:e2e_host_network_config_verified`, `tests run: 49`, `passed: 49`, and `failed: 0`; retained proof home: `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 8 passed via `npm run compose:up`; the standard compose preflight reported `DEV-0000050:T09:compose_preflight_result` with `result: passed`, and the supported stack reached healthy startup with `mongo_db_CodeInfo`, `codeinfo2-server-1`, and `codeinfo2-client-1` started.
+- Testing 9 passed via `npm run compose:down`; the supported smoke stack shut down cleanly with all containers removed and the `codeinfo2_internal` network removed.
+- Testing 10 passed via `git check-ignore -v ...`; `.gitignore` still ignores `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`, while the durable `...-evidence.md` and `...-findings.md` files remained unignored and therefore visible.
+- Testing 11 passed via `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md`; the durable review artifacts remained naturally visible, with `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` modified and earlier durable review artifacts still shown as untracked.

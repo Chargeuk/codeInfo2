@@ -10736,8 +10736,8 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the helper cleanup.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the pre-aborted controlled-embedding proof owned by `server/src/test/unit/mockLmStudioSdk.test.ts`.
+1. [x] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the helper cleanup.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the pre-aborted controlled-embedding proof owned by `server/src/test/unit/mockLmStudioSdk.test.ts`.
 
 #### Implementation notes
 
@@ -10746,6 +10746,8 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 - Updated `mockLmStudioSdk.ts` so a pre-aborted controlled `embed()` call now returns an immediate empty-embedding result before registering live controlled work, and the controlled path now records cleanup state instead of leaving the already-aborted request visible to waiter-based tests.
 - Added focused `mockLmStudioSdk.test.ts` proof for pre-aborted controlled `embed()` semantics so live-work registration, short-circuit return shape, and cleanup ownership are explicit without hiding inside the older chat-prediction cancellation titles.
 - Updated `0000055-pr-summary.md` with the exact focused `mockLmStudioSdk.test.ts` proof home for the repaired controlled-embedding pre-abort semantics so Task 138 can cite the helper seam directly.
+- Testing 1 passed via `npm run build:summary:server` with `warning_count: 0`; retained proof home: `logs/test-summaries/build-server-latest.log`.
+- Testing 2 passed via `npm run test:summary:server:unit` with `1699/1699` passing; retained proof home: `test-results/server-unit-tests-2026-04-15T09-23-28-612Z.log`.
 
 ### Task 138. Re-Validate Story 55 After Review Pass `0000055-20260415T004532Z-74f062c7`
 

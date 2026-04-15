@@ -10749,6 +10749,7 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 - Testing 1 passed via `npm run build:summary:server` with `warning_count: 0`; retained proof home: `logs/test-summaries/build-server-latest.log`.
 - Automated-proof audit: closed Task 137 after confirming all subtasks and both testing gates are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
 - Testing 2 passed via `npm run test:summary:server:unit` with `1699/1699` passing; retained proof home: `test-results/server-unit-tests-2026-04-15T09-23-28-612Z.log`.
+- Manual testing skipped on 2026-04-15 because this loop is still bound to Task 137 as `__in_progress__` in `codeInfoStatus/flow-state/current-task.json`; although the live plan now shows Task 137 `__done__`, manual proof must wait for the stored task handoff to catch up before a new latest-complete-task pass runs.
 
 ### Task 138. Re-Validate Story 55 After Review Pass `0000055-20260415T004532Z-74f062c7`
 

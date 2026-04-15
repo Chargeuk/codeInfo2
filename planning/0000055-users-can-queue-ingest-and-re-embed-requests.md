@@ -10863,7 +10863,7 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `138`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T103448Z-0a37b558` to address the durable-review-artifact ignore-boundary regression.
 
 #### Overview
@@ -10928,6 +10928,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Ran `git check-ignore -v ...` and `git status --short ...` during this implementation step because subtasks 9 through 14 explicitly required direct git-boundary proof; those commands showed the current-pass durable evidence and findings paths no longer match ignore rules while `0000055-current-review.json`, `0000055-external-review-input.md`, and the pass blind-spot challenge still do.
 - **RESOLVED ISSUE** Subtask 15 originally blocked because `codeInfoStatus/reviews/0000055-external-review-input.md` was missing on disk after the repo's review-artifact cleanup commit removed the tracked transient file. I restored the file locally from the last committed Story 55 source at `50d2a014^:codeInfoStatus/reviews/0000055-external-review-input.md`, confirmed the restored file matches that authoritative git version, and reran the full Task 139 file-inventory check successfully. The restored file remains intentionally ignored and untracked, so later automated-proof work can rely on its presence without treating it as a durable commit artifact.
 - Testing 4 is honestly not applicable on current disk: Task 139's verified change surface remains limited to `.gitignore` plus direct git visibility checks, so this automated-proof step did not invent duplicate build, test, compose, smoke, lint, or format reruns beyond the file-inventory and git-boundary proof already recorded above.
+- Automated-proof audit: closed Task 139 after confirming all 15 subtasks and all 4 testing gates are complete on disk, `python3 scripts/plan_status.py --task-number 139` reports `selected_task.live_blockers: []`, and no prose-only remainder survives as an honest open gate.
 
 ### Task 140. Re-Validate Story 55 After Review Pass `0000055-20260415T103448Z-0a37b558`
 

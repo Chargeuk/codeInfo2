@@ -10377,9 +10377,9 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the replay-path repair.
-2. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the replay-boundary proof owned by `server/src/test/unit/ingest-queue-runtime.test.ts`.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the replay-boundary feature proof owned by `server/src/test/features/ingest-reembed.feature`.
+1. [x] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the replay-path repair.
+2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the replay-boundary proof owned by `server/src/test/unit/ingest-queue-runtime.test.ts`.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the replay-boundary feature proof owned by `server/src/test/features/ingest-reembed.feature`.
 
 #### Implementation notes
 
@@ -10388,6 +10388,9 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 - Subtasks 3 through 5: updated `server/src/ingest/ingestJob.ts` so queue-managed `reembed` input now carries `canonicalTargetPath` as the executable discovery root while preserving the persisted queue path separately for mismatch checks. The replay validator now rejects stale or tampered persisted paths before discovery, and the existing `start`-path validation plus queue finalization flow stayed unchanged.
 - Subtasks 6 through 14: rewrote the Task 132 proof owners around the repaired boundary. `server/src/test/unit/ingest-queue-runtime.test.ts` now separates valid deferred replay, rejected deferred replay, valid recovered replay, rejected recovered replay, and missing-path canonical fallback; `server/src/test/features/ingest-reembed.feature` plus `server/src/test/steps/ingest-manage.steps.ts` now exercise the same canonical, mismatch, and missing-path recovery seams; and the existing `ingest-start` queue-root validation proof remains the compatibility control for the untouched `start` path contract.
 - Subtask 15: extended `planning/0000055-pr-summary.md` with the Task 132 replay-boundary proof owners so the later audit pass can cite the valid deferred replay, rejected deferred replay, valid recovered replay, rejected recovered replay, missing-path canonical fallback, and retained `start`-path control separately.
+- Testing 1: `npm run build:summary:server` failed first on a TypeScript precedence error in `server/src/test/steps/ingest-manage.steps.ts`, where the new helper mixed `??` and `||` without parentheses. After tightening that expression, the same wrapper passed cleanly with `agent_action: skip_log`, retaining the updated server build proof home at `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly on the full suite with `tests run: 1686`, `passed: 1686`, `failed: 0`, and `agent_action: skip_log`. The retained unit proof home is `test-results/server-unit-tests-2026-04-15T03-27-05-836Z.log`, with the repaired replay-boundary assertions owned by `server/src/test/unit/ingest-queue-runtime.test.ts`.
+- Testing 3: the first `npm run test:summary:server:cucumber` rerun failed because the new mismatch scenario used `/tmp/...`, so the existing allowed-root guard fired before the task-owned mismatch check. After moving that scenario to `/home/d_a_s/code/...` paths inside the current workdir boundary, the original full cucumber wrapper passed with `tests run: 93`, `passed: 93`, `failed: 0`, and `agent_action: skip_log`, retaining the replay-boundary feature proof home at `test-results/server-cucumber-tests-2026-04-15T03-49-58-164Z.log`.
 
 ### Task 133. Persist A Durable Replay Barrier When Terminal Marker Writes Fail
 

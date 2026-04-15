@@ -68,7 +68,7 @@ And ingest manage logs include "QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER"
 Scenario: startup recovery rejects mismatched persisted re-embed paths before replay
 Given ingest manage chroma stub is empty
 And ingest manage mongo queue is empty
-And ingest manage mongo queue has running request for "/tmp/recover-canonical" with run id "run-recovered-mismatch" and persisted path "/tmp/recover-other"
+And ingest manage mongo queue has running request for "/home/d_a_s/code/recover-canonical" with run id "run-recovered-mismatch" and persisted path "/home/d_a_s/code/recover-other"
 When ingest manage startup recovery runs
 Then ingest manage status for run "run-recovered-mismatch" becomes "error"
 And ingest manage status for run "run-recovered-mismatch" has last error "queued reembed requestPayload.path must match canonicalTargetPath"

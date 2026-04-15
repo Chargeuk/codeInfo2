@@ -95,7 +95,8 @@ async function seedQueuedReembedRequest(params: {
   name?: string;
 }) {
   const requestPayload: Record<string, unknown> = {
-    name: params.name ?? path.posix.basename(params.rootPath) || 'repo',
+    name:
+      params.name ?? (path.posix.basename(params.rootPath) || 'repo'),
     model: 'embed-1',
   };
   if (params.requestPayloadPath !== null) {

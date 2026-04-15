@@ -10450,7 +10450,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 1. [x] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the barrier repair.
 2. [x] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes, with the barrier-write-failure proof owned by the split queue-runtime unit files anchored by `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
-3. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the recovery-barrier feature proof owned by `server/src/test/features/ingest-reembed.feature`.
+3. [x] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes, with the recovery-barrier feature proof owned by `server/src/test/features/ingest-reembed.feature`.
 
 #### Implementation notes
 
@@ -10461,7 +10461,8 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - Subtasks 11 through 13: updated the ingest re-embed cucumber scenario and queue seeding step to speak in terms of barrier-backed no-replay recovery, then staged the exact Task 133 proof homes in `planning/0000055-pr-summary.md` for the later automated-proof pass.
 - Testing 1: `npm run build:summary:server` passed after one in-scope repair. The first run failed because `server/src/test/unit/ingest-request-queue.test.ts` still built an `IngestQueueRequest` without the new `nonReplayableAt` field, so I added that helper field and reran the wrapper to a clean pass at `logs/test-summaries/build-server-latest.log`.
 - **RESOLVED ISSUE** Testing 2 (`npm run test:summary:server:unit`) now passes again after replacing the oversized queue-runtime owner with a small manifest at `server/src/test/unit/ingest-queue-runtime.test.ts` plus split proof files for pump, deferred replay, terminal barrier, recovery, and startup diagnostics. I used the supported targeted wrapper to catch and fix split-specific issues first, then reran the exact previously failing flow-loop integration test once when a later unrelated full-wrapper red appeared, and finally reran the original full wrapper to a clean pass with `tests run: 1688`, `passed: 1688`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-unit-tests-2026-04-15T06-13-23-590Z.log`.
-- Manual testing skipped on 2026-04-15 because the bound latest task is still `__in_progress__`: `python3 scripts/plan_status.py --task-number 133` shows no live blocker, but Testing 3 (`npm run test:summary:server:cucumber`) remains unchecked, so no honest task-scoped manual proof should run yet.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 93`, `passed: 93`, `failed: 0`, and `agent_action: skip_log` in `test-results/server-cucumber-tests-2026-04-15T06-44-33-210Z.log`, so the barrier-backed recovery feature proof remains green at the supported cucumber surface.
+- Manual testing skipped on 2026-04-15 because the bound latest task is still `__in_progress__` for audit sequencing only: direct automated proof is now complete for Task 133, so later selector/audit flow can decide when to advance without adding task-scoped manual proof here.
 
 ### Task 134. Keep `useIngestRoots` Loading Ownership Honest Across Overlapping Refetches
 

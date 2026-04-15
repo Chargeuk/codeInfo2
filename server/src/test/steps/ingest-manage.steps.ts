@@ -91,6 +91,7 @@ async function seedQueuedReembedRequest(params: {
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
   runId?: string | null;
   requestPayloadPath?: string | null;
+  nonReplayableAt?: Date;
   terminalPublishedAt?: Date;
   name?: string;
 }) {
@@ -111,6 +112,9 @@ async function seedQueuedReembedRequest(params: {
     requestPayload,
     sourceSurface: 'cucumber',
     runId: params.runId ?? null,
+    ...(params.nonReplayableAt
+      ? { nonReplayableAt: params.nonReplayableAt }
+      : {}),
     ...(params.terminalPublishedAt
       ? { terminalPublishedAt: params.terminalPublishedAt }
       : {}),
@@ -684,13 +688,13 @@ Given(
 );
 
 Given(
-  'ingest manage mongo queue has committed-before-cleanup running request for {string} with run id {string}',
+  'ingest manage mongo queue has barrier-backed running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
     await seedQueuedReembedRequest({
       rootPath,
       queueState: 'running',
       runId,
-      terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
+      nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
     });
   },
 );

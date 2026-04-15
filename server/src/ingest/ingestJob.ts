@@ -171,6 +171,7 @@ type QueueRuntimeRequest = {
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
   requestPayload: Record<string, unknown>;
   runId: string | null;
+  nonReplayableAt?: Date | string | null;
   terminalPublishedAt?: Date | string | null;
 };
 
@@ -189,6 +190,10 @@ type QueueRuntimeOps = {
   findOldestRunningQueueRequest: () => Promise<QueueRuntimeRequest | null>;
   getQueueRequestId: (queueRequest: QueueRuntimeRequest) => string;
   markQueueRequestCleanupBlocked: (params: {
+    requestId: string;
+    runId: string | null;
+  }) => Promise<QueueRuntimeRequest | null>;
+  markQueueRequestNonReplayable: (params: {
     requestId: string;
     runId: string | null;
   }) => Promise<QueueRuntimeRequest | null>;
@@ -252,6 +257,7 @@ const defaultQueueRuntimeOps: QueueRuntimeOps = {
   getQueueRequestId: (queueRequest) =>
     requestQueue.getQueueRequestId(queueRequest as never),
   markQueueRequestCleanupBlocked: requestQueue.markQueueRequestCleanupBlocked,
+  markQueueRequestNonReplayable: requestQueue.markQueueRequestNonReplayable,
   markQueueRequestTerminalPublished:
     requestQueue.markQueueRequestTerminalPublished,
   promoteOldestWaitingQueueRequest:
@@ -628,10 +634,48 @@ async function persistQueueTerminalBarrier(runId: string): Promise<void> {
     return;
   }
 
-  await queueRuntimeOps.markQueueRequestTerminalPublished({
-    requestId,
-    runId,
-  });
+  try {
+    await queueRuntimeOps.markQueueRequestNonReplayable({
+      requestId,
+      runId,
+    });
+  } catch (error) {
+    logWarning('queue replay barrier persistence failed', {
+      runId,
+      requestId,
+      error: error instanceof Error ? error.message : String(error ?? 'unknown'),
+    });
+    return;
+  }
+
+  try {
+    await queueRuntimeOps.markQueueRequestTerminalPublished({
+      requestId,
+      runId,
+    });
+  } catch (error) {
+    logWarning(
+      'queue terminal marker persistence failed after replay barrier',
+      {
+        runId,
+        requestId,
+        error:
+          error instanceof Error ? error.message : String(error ?? 'unknown'),
+      },
+    );
+  }
+}
+
+function parseQueueBarrierTimestamp(
+  value: Date | string | null | undefined,
+): Date | null {
+  if (value instanceof Date) {
+    return value;
+  }
+  if (!value) {
+    return null;
+  }
+  return new Date(value);
 }
 
 function buildNoEligibleFilesErrorStatus(params: {
@@ -2719,17 +2763,17 @@ export async function recoverIngestQueueOnStartup() {
   const running = await queueRuntimeOps.findOldestRunningQueueRequest();
   if (running && deps) {
     const runningRequestId = queueRuntimeOps.getQueueRequestId(running);
-    const terminalPublishedAt =
-      running.terminalPublishedAt instanceof Date
-        ? running.terminalPublishedAt
-        : running.terminalPublishedAt
-        ? new Date(running.terminalPublishedAt)
-        : null;
+    const nonReplayableAt = parseQueueBarrierTimestamp(
+      running.nonReplayableAt,
+    );
+    const terminalPublishedAt = parseQueueBarrierTimestamp(
+      running.terminalPublishedAt,
+    );
     const existingRunId =
       typeof running.runId === 'string' && running.runId.length > 0
         ? running.runId
         : randomUUID();
-    if (terminalPublishedAt) {
+    if (nonReplayableAt || terminalPublishedAt) {
       queueRequestIdsByRunId.set(existingRunId, runningRequestId);
       if (existingRunId !== running.runId) {
         await queueRuntimeOps.ensureQueueRequestRunId(
@@ -2739,10 +2783,14 @@ export async function recoverIngestQueueOnStartup() {
       }
       await finalizeQueueRequestForRun(existingRunId);
       logLifecycle('info', 'QUEUE_STARTUP_RECOVERY_SKIPPED_COMMITTED_RUN', {
-        recoveryState: 'terminal-cleanup',
+        recoveryState: 'durable-replay-barrier',
         runId: existingRunId,
         requestId: runningRequestId,
         canonicalTargetPath: running.canonicalTargetPath,
+        nonReplayableAt:
+          nonReplayableAt?.toISOString?.() ?? nonReplayableAt ?? undefined,
+        terminalPublishedAt:
+          terminalPublishedAt?.toISOString?.() ?? terminalPublishedAt ?? undefined,
       });
       return { recovered: true, blockedByActiveLock: false };
     }

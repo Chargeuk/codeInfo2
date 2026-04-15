@@ -57,6 +57,7 @@ function createQueueRequest(params: {
   operation?: 'start' | 'reembed';
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
   runId?: string | null;
+  nonReplayableAt?: Date | null;
   terminalPublishedAt?: Date | null;
 }) {
   const operation = params.operation ?? 'reembed';
@@ -73,6 +74,7 @@ function createQueueRequest(params: {
     } as Record<string, unknown>,
     sourceSurface: 'test',
     runId: params.runId ?? null,
+    nonReplayableAt: params.nonReplayableAt ?? null,
     terminalPublishedAt: params.terminalPublishedAt ?? null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -185,6 +187,7 @@ function setNoopQueueRuntimeOps() {
     findOldestRunningQueueRequest: async () => null,
     getQueueRequestId: () => 'noop',
     markQueueRequestCleanupBlocked: async () => null,
+    markQueueRequestNonReplayable: async () => null,
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
@@ -909,7 +912,66 @@ test('startup recovery does not advance past cleanup-blocked rows with missing r
   assert.deepEqual(events, []);
 });
 
-test('startup recovery does not replay running rows whose terminal work was already published before cleanup', async () => {
+test('queue-managed completion records a durable replay barrier even when terminal marker persistence fails after commit', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/barrier.ts': 'export const barrier = true;\n',
+  });
+  const events: string[] = [];
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (requestId: string) => {
+        events.push(`deleted:${requestId}`);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async ({ requestId, runId }) => {
+        events.push(`barrier:${runId}:${requestId}`);
+        return createQueueRequest({
+          requestId: '30',
+          root,
+          queueState: 'running',
+          runId: runId ?? 'missing-run-id',
+          nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
+        });
+      },
+      markQueueRequestTerminalPublished: async () => {
+        events.push('terminal-marker-failed');
+        throw new Error('terminal marker write failed');
+      },
+      promoteOldestWaitingQueueRequest: async (runId: string) =>
+        createQueueRequest({
+          requestId: '30',
+          root,
+          queueState: 'running',
+          runId,
+        }),
+    });
+
+    const pumpResult = await pumpIngestQueue();
+    assert.equal(pumpResult.started, true);
+
+    const terminal = await waitForTerminalIngestStatus(pumpResult.runId!, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'completed');
+    assert.deepEqual(events, [
+      `barrier:${pumpResult.runId}:000000000000000000000030`,
+      'terminal-marker-failed',
+      'deleted:000000000000000000000030',
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('startup recovery skips replay for running rows whose durable replay barrier was already recorded before cleanup', async () => {
   const events: string[] = [];
   const deletedRequestIds: string[] = [];
 
@@ -922,7 +984,7 @@ test('startup recovery does not replay running rows whose terminal work was alre
         root: '/data/repo-running',
         queueState: 'running',
         runId: 'run-recovered',
-        terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
+        nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
       });
     },
     findOldestCleanupBlockedQueueRequest: async () => null,
@@ -932,8 +994,9 @@ test('startup recovery does not replay running rows whose terminal work was alre
         root: '/data/repo-running',
         queueState: 'running',
         runId: 'run-recovered',
-        terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
+        nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
       }),
+    markQueueRequestNonReplayable: async () => null,
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => {
       events.push('waiting-promoted');
@@ -955,6 +1018,57 @@ test('startup recovery does not replay running rows whose terminal work was alre
     'waiting-promoted',
   ]);
   assert.deepEqual(deletedRequestIds, ['000000000000000000000011']);
+});
+
+test('cleanup continuation still runs after the durable replay barrier is recorded', async () => {
+  const events: string[] = [];
+  __setStatusForTest('run-cleanup-after-barrier', {
+    runId: 'run-cleanup-after-barrier',
+    state: 'completed',
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    message: 'Completed',
+    lastError: null,
+  });
+  __setQueueRequestIdForRunForTest(
+    'run-cleanup-after-barrier',
+    'queue-cleanup-after-barrier',
+  );
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => {
+      events.push('cleanup-delete-attempted');
+      throw new Error('delete failed');
+    },
+    findOldestCleanupBlockedQueueRequest: async () =>
+      createQueueRequest({
+        requestId: '31',
+        root: '/data/repo-cleanup-after-barrier',
+        queueState: 'cleanup-blocked',
+        runId: 'run-cleanup-after-barrier',
+        nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
+      }),
+    markQueueRequestCleanupBlocked: async () => {
+      events.push('cleanup-blocked-persisted');
+      return createQueueRequest({
+        requestId: '31',
+        root: '/data/repo-cleanup-after-barrier',
+        queueState: 'cleanup-blocked',
+        runId: 'run-cleanup-after-barrier',
+        nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
+      });
+    },
+  });
+
+  const cleaned = await __finalizeQueueRequestForRunForTest(
+    'run-cleanup-after-barrier',
+  );
+
+  assert.equal(cleaned, false);
+  assert.deepEqual(events, [
+    'cleanup-delete-attempted',
+    'cleanup-blocked-persisted',
+  ]);
+  assert.equal(getStatus('run-cleanup-after-barrier')?.state, 'cleanup-blocked');
 });
 
 test('startup recovery still retries genuinely unfinished running work before newer waiting work', async () => {

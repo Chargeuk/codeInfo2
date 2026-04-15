@@ -44,10 +44,10 @@ When ingest manage queue pump runs
 Then ingest manage queue runtime started paths are "/tmp/recover-waiting"
 
 @mongo
-Scenario: startup recovery does not replay committed-before-cleanup running work
+Scenario: startup recovery does not replay barrier-backed committed running work
 Given ingest manage chroma stub is empty
 And ingest manage mongo queue is empty
-And ingest manage mongo queue has committed-before-cleanup running request for "/tmp/recover-finished" with run id "run-recovered-finished"
+And ingest manage mongo queue has barrier-backed running request for "/tmp/recover-finished" with run id "run-recovered-finished"
 And ingest manage mongo queue has waiting request for "/tmp/recover-second"
 And ingest manage queue runtime records started paths
 When ingest manage startup recovery runs

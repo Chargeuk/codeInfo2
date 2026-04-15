@@ -390,6 +390,7 @@ export async function promoteOldestWaitingQueueRequest(runId: string) {
       $set: {
         queueState: 'running',
         runId,
+        nonReplayableAt: null,
         terminalPublishedAt: null,
       },
     },
@@ -445,6 +446,24 @@ export async function markQueueRequestTerminalPublished(params: {
       $set: {
         runId: params.runId,
         terminalPublishedAt: new Date(),
+      },
+    },
+    {
+      new: true,
+    },
+  ).exec();
+}
+
+export async function markQueueRequestNonReplayable(params: {
+  requestId: string;
+  runId: string | null;
+}) {
+  return IngestQueueRequestModel.findByIdAndUpdate(
+    params.requestId,
+    {
+      $set: {
+        runId: params.runId,
+        nonReplayableAt: new Date(),
       },
     },
     {

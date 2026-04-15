@@ -793,6 +793,26 @@ function clearHealthyQueueOverlayDiagnostics(repo: RepoEntry) {
   repo.error = null;
 }
 
+function applyRuntimeOverlayDiagnostics(
+  repo: RepoEntry,
+  runtimeStatus: Pick<IngestJobStatus, 'lastError' | 'error'>,
+) {
+  repo.error = runtimeStatus.error ? { ...runtimeStatus.error } : null;
+  if (typeof runtimeStatus.lastError === 'string') {
+    repo.lastError = runtimeStatus.lastError;
+    return;
+  }
+  if (
+    runtimeStatus.error &&
+    typeof runtimeStatus.error.message === 'string' &&
+    runtimeStatus.error.message.length > 0
+  ) {
+    repo.lastError = runtimeStatus.error.message;
+    return;
+  }
+  repo.lastError = null;
+}
+
 function getQueueOverlayPrecedence(
   queueState: IngestQueueState | null | undefined,
 ) {
@@ -888,7 +908,7 @@ function applyQueueOverlay(params: {
 
   if (runtimeStatus) {
     const mappedState = mapInternalStateToExternal(runtimeStatus.state);
-    if (mappedState.status === 'ingesting') {
+    if (mappedState.status === 'ingesting' && !runtimeStatus.error) {
       clearHealthyQueueOverlayDiagnostics(repo);
     }
     repo.status = mappedState.status;
@@ -898,7 +918,7 @@ function applyQueueOverlay(params: {
       delete repo.phase;
     }
     repo.counts = { ...runtimeStatus.counts };
-    repo.lastError = runtimeStatus.lastError ?? repo.lastError;
+    applyRuntimeOverlayDiagnostics(repo, runtimeStatus);
     return;
   }
 

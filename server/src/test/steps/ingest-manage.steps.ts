@@ -26,6 +26,7 @@ import {
 } from '../../ingest/chromaClient.js';
 import {
   __resetIngestJobsForTest,
+  __setStatusForTest,
   __setQueueRuntimeOpsForTest,
   __setRunProcessorForTest,
   pumpIngestQueue,
@@ -523,6 +524,44 @@ Then(
 );
 
 Then(
+  'ingest manage roots entry for {string} has last error {string}',
+  (rootPath: string, expectedError: string) => {
+    const root = findRootByPath(rootPath) as { lastError?: string | null };
+    assert.equal(root.lastError, expectedError);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has no diagnostics',
+  (rootPath: string) => {
+    const root = findRootByPath(rootPath) as {
+      lastError?: string | null;
+      error?: unknown;
+    };
+    assert.equal(root.lastError, null);
+    assert.equal(root.error ?? null, null);
+  },
+);
+
+Then(
+  'ingest manage roots entry for {string} has runtime error {string} with message {string}',
+  (rootPath: string, expectedCode: string, expectedMessage: string) => {
+    const root = findRootByPath(rootPath) as {
+      error?: {
+        error?: string;
+        message?: string;
+        retryable?: boolean;
+        provider?: string;
+      } | null;
+    };
+    assert.equal(root.error?.error, expectedCode);
+    assert.equal(root.error?.message, expectedMessage);
+    assert.equal(root.error?.retryable, true);
+    assert.equal(root.error?.provider, 'openai');
+  },
+);
+
+Then(
   'ingest manage roots first queue state is {string}',
   (queueState: string) => {
     assert(response, 'expected response');
@@ -652,6 +691,38 @@ Given(
 );
 
 Given(
+  'ingest manage root metadata exists for {string} with stale persisted error {string}',
+  async (rootPath: string, message: string) => {
+    const roots = await getRootsCollection();
+    await roots.add({
+      ids: ['legacy-error-run'],
+      embeddings: [[0]],
+      metadatas: [
+        {
+          runId: 'legacy-error-run',
+          root: rootPath,
+          name: 'legacy-error-repo',
+          model: 'stale-model',
+          state: 'error',
+          lastError: message,
+          error: {
+            error: 'OPENAI_TIMEOUT',
+            message,
+            retryable: true,
+            provider: 'openai',
+          },
+          files: 1,
+          chunks: 1,
+          embedded: 0,
+          lastIngestAt: new Date().toISOString(),
+          ingestedAtMs: Date.now(),
+        },
+      ],
+    });
+  },
+);
+
+Given(
   'ingest manage lock is provider {string} model {string} dimensions {int}',
   async (provider: string, model: string, dimensions: number) => {
     await setLockedModel({
@@ -683,6 +754,41 @@ Given(
       rootPath,
       queueState: 'running',
       runId,
+    });
+  },
+);
+
+Given(
+  'ingest manage runtime status for run {string} is error {string} with message {string}',
+  (runId: string, code: string, message: string) => {
+    __setStatusForTest(runId, {
+      runId,
+      state: 'error',
+      counts: { files: 1, chunks: 1, embedded: 0 },
+      lastError: message,
+      error: {
+        error: code,
+        message,
+        retryable: true,
+        provider: 'openai',
+      },
+    });
+  },
+);
+
+Given(
+  'ingest manage runtime status for run {string} is healthy {string}',
+  (runId: string, state: string) => {
+    assert(
+      state === 'queued' || state === 'scanning' || state === 'embedding',
+      `unsupported ingest state ${state}`,
+    );
+    __setStatusForTest(runId, {
+      runId,
+      state: state as 'queued' | 'scanning' | 'embedding',
+      counts: { files: 1, chunks: 1, embedded: 0 },
+      lastError: null,
+      error: null,
     });
   },
 );

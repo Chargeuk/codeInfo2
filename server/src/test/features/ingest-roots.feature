@@ -101,3 +101,26 @@ Feature: Ingest roots listing
     And ingest manage roots entry for "/data/queued-root" keeps canonical id "/data/queued-root" when resumed
     And ingest manage roots entry for "/data/queued-root" has run id "resumed-run-1"
     And ingest manage roots entry for "/data/queued-root" has queue state "running"
+
+  Scenario: running roots keep fresh runtime diagnostics when newer queue-backed errors win
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/runtime-error-root" with stale persisted error "stale persisted failure"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has running request for "/data/runtime-error-root" with run id "runtime-error-run"
+    And ingest manage runtime status for run "runtime-error-run" is error "OPENAI_TIMEOUT" with message "fresh runtime failure"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/runtime-error-root" has queue state "running"
+    And ingest manage roots entry for "/data/runtime-error-root" has last error "fresh runtime failure"
+    And ingest manage roots entry for "/data/runtime-error-root" has runtime error "OPENAI_TIMEOUT" with message "fresh runtime failure"
+
+  Scenario: healthy running roots clear stale persisted diagnostics after the queue overlay recovers
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/runtime-healthy-root" with stale persisted error "stale persisted failure"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has running request for "/data/runtime-healthy-root" with run id "runtime-healthy-run"
+    And ingest manage runtime status for run "runtime-healthy-run" is healthy "embedding"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/runtime-healthy-root" has queue state "running"
+    And ingest manage roots entry for "/data/runtime-healthy-root" has no diagnostics

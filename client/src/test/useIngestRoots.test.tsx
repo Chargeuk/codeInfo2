@@ -585,6 +585,47 @@ describe('useIngestRoots', () => {
     });
   });
 
+  it('keeps the fresh runtime error payload and matching lastError when a running queue overlay beats stale persisted diagnostics', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/runtime-error-repo',
+          requestId: 'queue-request-running-error',
+          runId: 'run-runtime-error',
+          queueState: 'running',
+          name: 'runtime-error-repo',
+          path: '/runtime-error-repo',
+          status: 'error',
+          model: 'embed-model',
+          lastError: 'fresh runtime failure',
+          error: {
+            error: 'OPENAI_TIMEOUT',
+            message: 'fresh runtime failure',
+            retryable: true,
+            provider: 'openai',
+          },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]).toMatchObject({
+      id: '/runtime-error-repo',
+      runId: 'run-runtime-error',
+      queueState: 'running',
+      status: 'error',
+      lastError: 'fresh runtime failure',
+      error: {
+        code: 'OPENAI_TIMEOUT',
+        message: 'fresh runtime failure',
+        retryable: true,
+        provider: 'openai',
+      },
+    });
+  });
+
   it('retried rows keep canonical route-level identity instead of reviving stale display-derived fallback data', async () => {
     mockRootsResponse({
       roots: [

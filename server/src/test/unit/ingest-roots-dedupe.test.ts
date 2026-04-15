@@ -1082,6 +1082,263 @@ test('GET /ingest/roots clears stale persisted diagnostics when a healthy runnin
   });
 });
 
+test('GET /ingest/roots preserves the fresh structured runtime error when a running queue overlay reports a current failure', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId('000000000000000000000093'),
+                canonicalTargetPath: '/data/runtime-error',
+                operation: 'reembed',
+                queueState: 'running',
+                requestPayload: {
+                  path: '/data/runtime-error',
+                  name: 'runtime-error',
+                  model: 'fresh-model',
+                  embeddingProvider: 'openai',
+                  embeddingModel: 'fresh-model',
+                },
+                sourceSurface: 'rest:ingest/reembed',
+                runId: 'run-runtime-error',
+                createdAt: new Date('2026-04-02T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+    __setStatusForTest('run-runtime-error', {
+      runId: 'run-runtime-error',
+      state: 'error',
+      counts: { files: 6, chunks: 12, embedded: 4 },
+      lastError: 'fresh runtime failure',
+      error: {
+        error: 'OPENAI_TIMEOUT',
+        message: 'fresh runtime failure',
+        retryable: true,
+        provider: 'openai',
+      },
+    });
+
+    const response = await request(
+      createRootsApp(
+        {
+          ids: ['persisted-run'],
+          metadatas: [
+            {
+              name: 'runtime-error',
+              root: '/data/runtime-error',
+              model: 'stale-model',
+              state: 'error',
+              lastError: 'stale persisted failure',
+              error: {
+                error: 'OPENAI_TIMEOUT',
+                message: 'stale persisted failure',
+                retryable: true,
+                provider: 'openai',
+              },
+            },
+          ],
+        },
+        'stale-model',
+      ),
+    ).get('/ingest/roots');
+
+    assert.equal(response.status, 200);
+    const root = response.body.roots[0];
+    assert.equal(root.queueState, 'running');
+    assert.equal(root.status, 'error');
+    assert.equal(root.lastError, 'fresh runtime failure');
+    assert.deepEqual(root.error, {
+      error: 'OPENAI_TIMEOUT',
+      message: 'fresh runtime failure',
+      retryable: true,
+      provider: 'openai',
+    });
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
+test('GET /ingest/roots derives lastError from the fresh runtime error when the running overlay omits a separate string summary', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId('000000000000000000000094'),
+                canonicalTargetPath: '/data/runtime-error',
+                operation: 'reembed',
+                queueState: 'running',
+                requestPayload: {
+                  path: '/data/runtime-error',
+                  name: 'runtime-error',
+                  model: 'fresh-model',
+                  embeddingProvider: 'openai',
+                  embeddingModel: 'fresh-model',
+                },
+                sourceSurface: 'rest:ingest/reembed',
+                runId: 'run-runtime-error-derived',
+                createdAt: new Date('2026-04-02T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+    __setStatusForTest('run-runtime-error-derived', {
+      runId: 'run-runtime-error-derived',
+      state: 'error',
+      counts: { files: 6, chunks: 12, embedded: 4 },
+      lastError: null,
+      error: {
+        error: 'OPENAI_TIMEOUT',
+        message: 'fresh runtime failure from error payload',
+        retryable: true,
+        provider: 'openai',
+      },
+    });
+
+    const response = await request(
+      createRootsApp(
+        {
+          ids: ['persisted-run'],
+          metadatas: [
+            {
+              name: 'runtime-error',
+              root: '/data/runtime-error',
+              model: 'stale-model',
+              state: 'error',
+              lastError: 'stale persisted failure',
+              error: {
+                error: 'OPENAI_TIMEOUT',
+                message: 'stale persisted failure',
+                retryable: true,
+                provider: 'openai',
+              },
+            },
+          ],
+        },
+        'stale-model',
+      ),
+    ).get('/ingest/roots');
+
+    assert.equal(response.status, 200);
+    const root = response.body.roots[0];
+    assert.equal(root.queueState, 'running');
+    assert.equal(root.status, 'error');
+    assert.equal(root.lastError, 'fresh runtime failure from error payload');
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
+test('GET /ingest/roots replaces stale persisted diagnostics when a fresher running queue error wins', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId('000000000000000000000095'),
+                canonicalTargetPath: '/data/runtime-error',
+                operation: 'reembed',
+                queueState: 'running',
+                requestPayload: {
+                  path: '/data/runtime-error',
+                  name: 'runtime-error',
+                  model: 'fresh-model',
+                  embeddingProvider: 'openai',
+                  embeddingModel: 'fresh-model',
+                },
+                sourceSurface: 'rest:ingest/reembed',
+                runId: 'run-runtime-error-replaced',
+                createdAt: new Date('2026-04-02T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+    __setStatusForTest('run-runtime-error-replaced', {
+      runId: 'run-runtime-error-replaced',
+      state: 'error',
+      counts: { files: 6, chunks: 12, embedded: 4 },
+      lastError: null,
+      error: null,
+    });
+
+    const response = await request(
+      createRootsApp(
+        {
+          ids: ['persisted-run'],
+          metadatas: [
+            {
+              name: 'runtime-error',
+              root: '/data/runtime-error',
+              model: 'stale-model',
+              state: 'error',
+              lastError: 'stale persisted failure',
+              error: {
+                error: 'OPENAI_TIMEOUT',
+                message: 'stale persisted failure',
+                retryable: true,
+                provider: 'openai',
+              },
+            },
+          ],
+        },
+        'stale-model',
+      ),
+    ).get('/ingest/roots');
+
+    assert.equal(response.status, 200);
+    const root = response.body.roots[0];
+    assert.equal(root.queueState, 'running');
+    assert.equal(root.status, 'error');
+    assert.equal(root.lastError, null);
+    assert.equal(root.error, null);
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
 test('GET /ingest/roots maps ingesting phase states and omits phase for terminal statuses', async () => {
   const response = await request(
     createRootsApp(

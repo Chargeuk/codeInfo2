@@ -11384,7 +11384,7 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `144`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T144433Z-95f6e31e` to address the new durable-review-artifact ignore-boundary regression on the current HEAD.
 
 #### Overview
@@ -11457,6 +11457,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Ran the subtask-required `git status --short` proof from Testing 3; ordinary git workflow output now shows the `.gitignore` repair and plan maintenance, while the current-pass durable evidence and findings remain absent from short status because they are already tracked and clean on this branch, so no force-add is needed to keep them visible.
 - Kept Task 145 support-file-only: the work stayed limited to `.gitignore`, direct git validation, and plan maintenance, and no current-pass review file was deleted, recreated, or reset while closing the task-owned proof subtasks.
 - Completed Testing 4 as the explicit support-file-only guardrail: no build, test, compose, smoke, lint, or format wrappers were rerun because Task 145 only repairs `.gitignore` and review-artifact visibility boundaries.
+- Automated-proof audit closed Task 145 after confirming all 22 subtasks and all 4 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
 
 ### Task 146. Re-Validate Story 55 After Review Pass `0000055-20260415T144433Z-95f6e31e`
 

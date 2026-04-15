@@ -11458,6 +11458,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Kept Task 145 support-file-only: the work stayed limited to `.gitignore`, direct git validation, and plan maintenance, and no current-pass review file was deleted, recreated, or reset while closing the task-owned proof subtasks.
 - Completed Testing 4 as the explicit support-file-only guardrail: no build, test, compose, smoke, lint, or format wrappers were rerun because Task 145 only repairs `.gitignore` and review-artifact visibility boundaries.
 - Automated-proof audit closed Task 145 after confirming all 22 subtasks and all 4 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
+- Manual testing skipped on 2026-04-15 because `codeInfoStatus/flow-state/current-task.json` still binds this loop to Task 145 as `__in_progress__`; although the live plan text and `python3 scripts/plan_status.py --task-number 145` now show Task 145 `__done__`, the latest-complete-task manual-proof pass must wait for the stored handoff to advance before it can run honestly.
 
 ### Task 146. Re-Validate Story 55 After Review Pass `0000055-20260415T144433Z-95f6e31e`
 

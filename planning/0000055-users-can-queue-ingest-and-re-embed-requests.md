@@ -10755,7 +10755,7 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `131, 132, 133, 134, 135, 136, 137`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` as the required final validation task after the review-created follow-up fixes land.
 
 #### Overview

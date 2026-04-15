@@ -10445,12 +10445,15 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - `P2.` Requirement: superseded requests still abort normally and are excluded from loading ownership after the change. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 and 4 and 6 and 9, Testing 1.
 - `P3.` Requirement: the last settled repo list stays locally visible while a newer request is pending, and only the newest successful response can replace it. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 and 5 and 7, Testing 1.
 - `P4.` Failure mode: a newer failing refetch keeps the prior settled repo list locally visible until the failure settles, instead of clearing or replacing it with aborted stale state. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 and 5 and 8 and 9, Testing 1.
-- `P5.` Summary requirement: the maintained summary names the success-path loading proof, retained-local-data proof, failure-path proof, and stale-adoption exclusion proof separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 10, Task 138 subtask 7.
+- `P5.` Browser-proof requirement: the retained-local-data mixed state is proved through the supported Playwright ingest path and preserved in stable screenshot evidence. Owners: `e2e/ingest.spec.ts`, `artifacts/story-0000055-screenshots/`. Proof homes: subtasks 10 through 11, Testing 3.
+- `P6.` Summary requirement: the maintained summary names the success-path loading proof, retained-local-data proof, failure-path proof, stale-adoption exclusion proof, and browser-proof artifacts separately. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 12, Task 138 subtask 7.
 
 #### Documentation Locations
 
 - `client/src/hooks/useIngestRoots.ts`
 - `client/src/test/useIngestRoots.test.tsx`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/`
 - `planning/0000055-pr-summary.md`
 
 #### Subtasks
@@ -10464,12 +10467,15 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 7. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove the previously settled repo list stays locally visible until the newest successful refetch replaces it. Purpose: make the retain-locally rule explicit instead of leaving it implied by the success-path adoption proof.
 8. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove a newer failing refetch keeps the previously settled repo list locally visible while loading stays owned by the newest request until failure settles. Purpose: cover the client-visible mixed success-to-failure state without clearing or replacing local data early.
 9. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: prove a superseded aborted request cannot overwrite or clear the retained repo list after abort. Purpose: keep stale aborted state explicitly excluded from the visible hook payload.
-10. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for success-path loading ownership, retained-local-data success behavior, retained-local-data failure behavior, and stale-aborted-state exclusion. Purpose: keep the maintained summary aligned with the repaired client loading ownership.
+10. [ ] Test type: Playwright e2e. Location: `e2e/ingest.spec.ts`. Description: add or update browser proof that overlapping ingest-roots refreshes keep the previously settled rows visible while the newest refetch owns the loading state. Purpose: route the mixed-state client behavior through the supported browser harness instead of proving it only at hook level.
+11. [ ] Proof artifact: stable screenshot evidence. Location: `artifacts/story-0000055-screenshots/`. Description: capture or refresh the stable screenshot that shows the retained rows during the overlapping-refetch mixed state or immediately after the failure-path resolution. Purpose: preserve a visual proof home for the client-visible state transition.
+12. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for success-path loading ownership, retained-local-data success behavior, retained-local-data failure behavior, stale-aborted-state exclusion, and the browser-proof artifacts. Purpose: keep the maintained summary aligned with the repaired client loading ownership.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the overlapping refetch loading-state proof passes cleanly.
 2. [ ] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the hook repair.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts` and confirm the browser-level ingest proof passes and refreshes the stable screenshot evidence for the mixed-state path.
 
 #### Implementation notes
 
@@ -10655,20 +10661,22 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 
 #### Proof Mapping
 
-- `P1.` Requirement: Task 131 is complete and the current pass durable review artifacts are visible while transient review handoff files stay ignored. Owners: Task 131, `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 4, Testing 7 through 8.
-- `P2.` Requirement: Task 132 is complete and both deferred and recovered `reembed` replay paths honor canonical-root authority. Owners: Task 132, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 5, Testing 1 and 3.
-- `P3.` Requirement: Task 133 is complete and the post-commit replay barrier plus cleanup continuation semantics are directly proved. Owners: Task 133, `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 6, Testing 1 and 3.
-- `P4.` Requirement: Task 134 is complete and overlapping `/ingest/roots` refetch loading ownership plus retained-local-data mixed-state handling are directly proved. Owners: Task 134, `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`, `planning/0000055-pr-summary.md`. Proof homes: subtask 7, Testing 2 and 5.
-- `P5.` Requirement: Task 135 is complete and the `/ingest/roots` waiting-overlay canonicality repair is directly proved. Owners: Task 135, `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 8, Testing 1 and 3.
-- `P6.` Requirement: Task 136 is complete and the `/ingest/roots` runtime-error precedence repair is directly proved. Owners: Task 136, `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 9, Testing 1 and 3.
-- `P7.` Requirement: Task 137 is complete and the controlled-embedding pre-abort helper semantics are directly proved in an explicit focused proof home. Owners: Task 137, `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 10, Testing 1 and 3.
-- `P8.` Requirement: unchanged Story 55 acceptance areas retain their earlier proof chain while the current pass adds new wrapper outputs for the repaired seams. Owners: `planning/0000055-pr-summary.md`, retained Story 55 proof homes, current wrapper outputs. Proof homes: subtask 11, Testing 1 through 6.
-- `P9.` Requirement: the maintained summary carries forward rejected-risk notes, blind-spot challenge outcome, and any still-honest weak-proof caveats. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Proof homes: subtasks 1 through 3 and 12 through 14, Testing 7 through 8.
+- `P1.` Requirement: Task 131 is complete and the current pass durable review artifacts are visible while transient review handoff files stay ignored. Owners: Task 131, `.gitignore`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 4, Testing 10 through 11.
+- `P2.` Requirement: Task 132 is complete and both deferred and recovered `reembed` replay paths honor canonical-root authority. Owners: Task 132, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 5, Testing 2 and 4.
+- `P3.` Requirement: Task 133 is complete and the post-commit replay barrier plus cleanup continuation semantics are directly proved. Owners: Task 133, `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/test/unit/ingest-queue-runtime.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 6, Testing 2 and 4.
+- `P4.` Requirement: Task 134 is complete and overlapping `/ingest/roots` refetch loading ownership, retained-local-data mixed-state handling, and browser-visible behavior are directly proved. Owners: Task 134, `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`, `e2e/ingest.spec.ts`, `artifacts/story-0000055-screenshots/`, `planning/0000055-pr-summary.md`. Proof homes: subtask 7, Testing 3 and 6 and 7.
+- `P5.` Requirement: Task 135 is complete and the `/ingest/roots` waiting-overlay canonicality repair is directly proved. Owners: Task 135, `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 8, Testing 2 and 4.
+- `P6.` Requirement: Task 136 is complete and the `/ingest/roots` runtime-error precedence repair is directly proved. Owners: Task 136, `server/src/lmstudio/toolService.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 9, Testing 2 and 4.
+- `P7.` Requirement: Task 137 is complete and the controlled-embedding pre-abort helper semantics are directly proved in an explicit focused proof home. Owners: Task 137, `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/unit/mockLmStudioSdk.test.ts`, `planning/0000055-pr-summary.md`. Proof homes: subtask 10, Testing 2 and 4.
+- `P8.` Requirement: unchanged Story 55 acceptance areas retain their earlier proof chain while the current pass adds new wrapper outputs plus the normal supported compose smoke path for the repaired seams. Owners: `planning/0000055-pr-summary.md`, retained Story 55 proof homes, current wrapper outputs, normal compose runtime path. Proof homes: subtask 11, Testing 1 through 9.
+- `P9.` Requirement: the maintained summary carries forward rejected-risk notes, blind-spot challenge outcome, and any still-honest weak-proof caveats. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Proof homes: subtasks 1 through 3 and 12 through 14, Testing 10 through 11.
 
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `planning/0000055-pr-summary.md`
+- `e2e/ingest.spec.ts`
+- `artifacts/story-0000055-screenshots/`
 - `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`
 - `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`
 - `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`
@@ -10681,7 +10689,7 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 4. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes from Task 131 for durable-artifact visibility and transient-artifact exclusion. Purpose: keep the current-pass artifact-boundary repair explicitly represented in the final close-out bundle.
 5. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes from Task 132 for valid deferred replay, rejected deferred replay, valid recovered replay, rejected recovered replay, and the retained `start`-path control. Purpose: keep the replay-time canonical-root repair explicitly represented in the final close-out bundle.
 6. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes from Task 133 for barrier-write failure, recovery skip, and cleanup continuation. Purpose: keep the replay-barrier repair explicitly represented in the final close-out bundle.
-7. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes from Task 134 for overlapping success loading ownership, retained-local-data success behavior, retained-local-data failure behavior, and stale-aborted-state exclusion. Purpose: keep the overlapping-refetch loading-ownership repair explicitly represented in the final close-out bundle.
+7. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes from Task 134 for overlapping success loading ownership, retained-local-data success behavior, retained-local-data failure behavior, stale-aborted-state exclusion, browser proof, and stable screenshot evidence. Purpose: keep the overlapping-refetch loading-ownership repair explicitly represented in the final close-out bundle.
 8. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes from Task 135 for the partial-canonical repair, incompatible-legacy failure mode, and canonical and legacy control cases. Purpose: keep the waiting-overlay canonicality repair explicitly represented in the final close-out bundle.
 9. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes from Task 136 for structured runtime preservation, `lastError` freshness, stale-persisted replacement, and healthy overlay controls. Purpose: keep the runtime-diagnostic overlay repair explicitly represented in the final close-out bundle.
 10. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact focused proof home from Task 137 for the pre-aborted controlled embedding helper semantics. Purpose: keep the controlled-embedding helper repair explicitly represented in the final close-out bundle.
@@ -10693,14 +10701,17 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the review-created fixes.
-2. [ ] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the review-created fixes.
-3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite still passes after the review-created fixes.
-4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes after the review-created fixes.
-5. [ ] Run `npm run test:summary:client` and confirm the full client test suite still passes after the review-created fixes.
-6. [ ] Run `npm run test:summary:e2e` and confirm the full browser flow still passes after the review-created fixes.
-7. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm the durable artifact visibility boundary remains correct.
-8. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the review-created support-file updates plus durable artifacts remain naturally visible to normal git workflows.
+1. [ ] Run `npm run compose:build:summary` and confirm the repository's primary Docker Compose build path completes cleanly for the normal supported system.
+2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the review-created fixes.
+3. [ ] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the review-created fixes.
+4. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit and integration suite still passes after the review-created fixes.
+5. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes after the review-created fixes.
+6. [ ] Run `npm run test:summary:client` and confirm the full client test suite still passes after the review-created fixes.
+7. [ ] Run `npm run test:summary:e2e` and confirm the full browser flow still passes after the review-created fixes and preserves the Story 55 screenshot evidence under `artifacts/story-0000055-screenshots/`.
+8. [ ] Run `npm run compose:up` and confirm the repository's normal supported compose stack starts cleanly after the review-created fixes.
+9. [ ] Run `npm run compose:down` and confirm the normal supported compose stack shuts down cleanly after the smoke proof.
+10. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm the durable artifact visibility boundary remains correct.
+11. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the review-created support-file updates plus durable artifacts remain naturally visible to normal git workflows.
 
 #### Implementation notes
 

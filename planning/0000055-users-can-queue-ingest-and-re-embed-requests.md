@@ -11090,6 +11090,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - Confirmed the current-pass durable evidence and findings files are already tracked artifacts on disk, so after the `.gitignore` repair ordinary git workflows no longer need force-add to keep those paths visible when they change.
 - Automated-proof audit: Testing 4 is honestly not applicable on current disk because Task 141 only changes `.gitignore` and review-artifact visibility boundaries; no fresh build, test, compose, smoke, lint, or format wrapper rerun would validate additional behavior for this support-file-only repair.
 - Automated-proof audit closed Task 141 after confirming all 16 subtasks and all 4 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
+- Manual testing skipped on 2026-04-15 because `codeInfoStatus/flow-state/current-task.json` still binds this loop to Task 141 as `__in_progress__`; although the live plan text now shows Task 141 `__done__`, manual proof must wait for the stored handoff to advance before a latest-complete-task pass can run honestly.
 
 ### Task 142. Re-Validate Story 55 After Review Pass `0000055-20260415T120128Z-e33d1d76`
 

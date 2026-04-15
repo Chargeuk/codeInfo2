@@ -11930,7 +11930,7 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `150`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260415T181123Z-5c5b80b1` to repair the current pass durable-review-artifact visibility boundary without widening scope beyond allowed support-file hygiene.
 
 #### Overview

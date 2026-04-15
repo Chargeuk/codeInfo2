@@ -11826,7 +11826,7 @@ This support-file-only task repairs the `.gitignore` review-artifact stanza so t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `149`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Notes: Added from review pass `0000055-20260415T170919Z-c22c790c` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview

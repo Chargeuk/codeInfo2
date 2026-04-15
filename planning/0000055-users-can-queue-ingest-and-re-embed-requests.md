@@ -11826,7 +11826,7 @@ This support-file-only task repairs the `.gitignore` review-artifact stanza so t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `149`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T170919Z-c22c790c` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview
@@ -11917,3 +11917,4 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Ran `git check-ignore -v` and `git status --short` because subtasks 18 through 24 explicitly depend on Testing 3 and 4 outputs; only the transient handoff, external input, and blind-spot challenge files still matched ignore rules, and the short status only showed unrelated earlier durable review artifacts because the current pass durable files remain tracked and clean.
 - Added the `0000055-20260415T170919Z-c22c790c` close-out section to `planning/0000055-pr-summary.md`, keeping the retained Task 148 proof homes, current-pass direct-git proof references, rejected-risk notes, blind-spot outcome, and `AC30`/`AC32`/`AC43` caveats explicit instead of paraphrased.
 - Ran the targeted `sed ... | rg ...` retention check because subtasks 11 through 33 explicitly depend on Testing 5 output; the new close-out section matched the exact retained proof-home filenames plus `enqueueOrReuseIngestRequest()`, `recoverIngestQueueOnStartup()`, `applyQueueOverlay()`, `no new findings`, `AC30`, `AC32`, `AC43`, `git check-ignore -v`, and `git status --short`.
+- Automated-proof audit closed Task 150 after confirming all 33 subtasks and all 6 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.

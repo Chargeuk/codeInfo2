@@ -23,6 +23,8 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 - Add explicit proof subtasks that name the exact test files or proof artifacts needed to cover those mixed states.
 - Make tasks say whether the correct behavior is to clear the stale state, retain it locally, or exclude it from submission.
 - If the server must ignore or reject contradictory payloads coming from these states, make that proof explicit too.
+- When UI work benefits from later browser checks, keep required automated browser proof in `Testing` and place optional manual or browser follow-up only in `Manual Testing Guidance`.
+- Do not create manual testing checklist items or subtasks for stateful UI flows.
   </stateful_ui_rules>
 
 <verification_loop>

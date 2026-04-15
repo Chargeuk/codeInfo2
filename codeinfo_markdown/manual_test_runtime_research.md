@@ -95,6 +95,22 @@ If repository evidence suggests later tasks in the active plan are expected to c
 
 </availability_rules>
 
+<credential_source_rules>
+
+- If a runnable proof surface requires credentials, seeded accounts, login helpers, tokens, or other access material, record only the supported source of that access.
+- Never write actual usernames, passwords, tokens, API keys, or other credential values into `codeInfoStatus/flow-state/manual-testing-runtime.json`.
+- This rule applies even when a credential appears to be non-secret, public, seeded, or intended only for test use.
+- Record only where the `manual_testing_agent` should look, such as:
+  - env var names;
+  - env file paths;
+  - README sections;
+  - helper scripts;
+  - seed or fixture files;
+  - repository-documented login helpers.
+- If the supported credential source cannot be discovered from repository evidence, record that honestly instead of guessing.
+
+</credential_source_rules>
+
 <dependency_checks>
 
 For every recorded startup path, identify:
@@ -105,6 +121,9 @@ For every recorded startup path, identify:
 - the system variant or mode to use for manual proof, using the full normal system by default unless repository evidence says otherwise
 - prerequisites that must already exist
 - whether the path depends on build outputs, generated files, environment setup, or harness work that may not exist yet
+- whether access requires credentials, a seeded identity, a login helper, or other access material
+- where that access comes from, such as env vars, env files, README guidance, helper scripts, or seed data
+- do not inline the actual credential or access values; record only the source
 - whether the path is for the edited repository itself or for a connected or paired proof surface
 
 If the best supported proof surface for a task would actually live in a connected repository, record that linked proof surface explicitly.
@@ -160,6 +179,13 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
             "restart_required_for": ["server code changes"],
             "proof": "No supported freshness marker documented; restart unless a later repository-supported proof is added."
           },
+          "access": {
+            "required": true,
+            "kind": "seeded_account",
+            "source": "README.md -> Local Login",
+            "locator": ".env file / seeded account helper",
+            "notes": "Use the repository-documented seeded account source; never store credential values here."
+          },
           "prerequisites": ["docker running"],
           "notes": "Use the paired frontend for browser proof."
         }
@@ -172,6 +198,12 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
 You may extend this shape if needed, but keep it concise and deterministic.
 Do not omit the evidence source for startup and shutdown commands.
 Do not write commands that are not supported by repository evidence.
+Do not write actual credential values into this file; only source pointers are allowed.
+
+Mini-example:
+
+- Bad: `"username": "test-admin@example.com", "password": "secret123"`
+- Good: `"access": { "required": true, "source": "README.md -> Local Login", "locator": ".env file / seeded account helper", "notes": "Use the documented source; do not store values here." }`
 
 </file_contract>
 
@@ -188,6 +220,9 @@ Before finishing:
 - confirm likely future runtime or harness changes from later plan tasks are noted when relevant
 - confirm freshness or restart-by-default guidance was recorded when repository evidence supported it
 - confirm any unsupported freshness assumptions were recorded as unprovable rather than guessed
+- confirm no actual credential values were written into the runtime research file
+- confirm any required access information was recorded only as a source pointer
+- confirm undiscoverable credential sources were recorded as unknown rather than guessed
 
 </verification_loop>
 

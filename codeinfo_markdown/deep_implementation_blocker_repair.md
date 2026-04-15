@@ -64,12 +64,23 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 
 </repair_rules>
 
+<section_ownership_rules>
+
+- Any task structure added or rewritten by this step MUST follow this section contract:
+  - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - `Testing` for automated proof execution only.
+  - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
+- Do not add manual-testing work to `Subtasks` or `Testing`.
+- Do not add subtasks that run automated proof commands or that depend on later screenshots, logs, manual-testing-agent reruns, or other future proof outputs in order to become complete.
+
+</section_ownership_rules>
+
 <plan_update_rules>
 
 - If there is no applicable live blocker, do not edit the plan and do not append a no-op note.
 - If you resolve the blocker, retire the live `**BLOCKER**` note and preserve the outcome as `**RESOLVED ISSUE**` or `**BLOCKING ANSWER**`, whichever is the honest fit for the task history.
 - Keep blocker-history updates concise and avoid appending repeated essays when the same failure mode has already been documented.
-- If the deeper pass discovers new in-scope implementation work that must be tracked explicitly, add concise unchecked subtasks to the same task before continuing.
+- If the deeper pass discovers new in-scope implementation work that must be tracked explicitly, add only concise unchecked implementation or proof-authoring subtasks to the same task before continuing.
 - Do not append a note that only says this step ran. Every new note must capture a real repair, a real proof result, or an honest remaining blocker.
 - Do not leave the task blocked if the deeper pass actually repaired the owning issue.
 
@@ -111,6 +122,9 @@ Return a concise summary that includes:
 - confirm you kept this step limited to implementation-local blocker repair rather than planner-style task rewriting;
 - confirm you performed a real diagnose-fix-verify cycle before leaving an ordinary in-scope issue blocked;
 - confirm any resolved blocker was retired from live blocker state honestly;
+- confirm any newly added subtasks stayed within implementation, proof-authoring, documentation, config, or explicitly allowed code-hygiene work;
+- confirm you did not add manual-testing work to `Subtasks` or `Testing`;
+- confirm you did not add subtasks that run automated proof commands or depend on future manual-testing-agent or automated-proof outputs;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

@@ -25,6 +25,8 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 - When contracts, error vocabularies, or wrapped-vs-raw errors are touched, ensure the tasks include explicit producer and consumer proof rather than only one side.
 - When tests rely on shared state, ports, files, caches, retries, or negative assertions, ensure the tasks make deterministic boundaries, teardown behavior, and worker or parallel-safety explicit.
 - Add or rewrite subtasks where needed so a later implementer does not have to infer these review hotspots from broad task wording.
+- When a likely review hotspot would benefit from manual browser validation, express that as optional `Manual Testing Guidance`, not as a required subtask or testing checklist item.
+- When a hotspot needs proof, prefer proof-authoring subtasks plus automated `Testing` coverage wherever realistic.
   </review_preemption_audit_rules>
 
 <verification_loop>

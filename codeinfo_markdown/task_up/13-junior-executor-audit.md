@@ -24,6 +24,8 @@ Perform a final readability and execution audit so the resulting task list can b
 - Keep sequencing obvious: if one subtask depends on another subtask's output, order them so the implementer does not have to guess.
 - Preserve the repository's testing workflow, but make sure the `Testing` section is still runnable and honest at the point the task is supposed to complete.
 - Preserve any review-preemption subtasks added by earlier passes unless repository evidence shows they are genuinely not applicable.
+- Check whether a weak coding agent could honestly complete every subtask before formal proof runs, without browser MCP tools, manual validation, or later executed proof artifacts.
+- Check whether any subtask still depends on future automated or manual testing output. If so, rewrite it.
   </junior_executor_rules>
 
 <verification_loop>

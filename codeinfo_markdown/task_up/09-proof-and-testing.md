@@ -21,6 +21,8 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 <proof_and_testing_rules>
 
+- `Testing` must contain automated proof execution only.
+- Manual Playwright, browser, or agent-driven validation does not belong in `Testing`; place optional later guidance in `Manual Testing Guidance` instead.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each affected repository or project, define proof in this order when applicable:
@@ -40,14 +42,23 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Keep the normal-system smoke proof separate from any special runtime variant that may later be used for manual testing.
 - If a proof step is not applicable, state why instead of inventing it.
 - If a new harness is required, create an earlier task for that harness and include at least one proof step that demonstrates the harness itself is runnable.
-- If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add those proof expectations.
+- If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add:
+  - proof-authoring subtasks for the code, tests, markers, or harness changes that make those signals available; and
+  - automated `Testing` steps or optional `Manual Testing Guidance` entries that describe how those signals will later be observed.
+- When the final task in the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, its `Manual Testing Guidance` must include story-specific startup and access guidance for the later `manual_testing_agent` pass.
+- That guidance should name:
+  - which system surfaces to start or use;
+  - which prerequisite services or helpers must already be running;
+  - the required startup order when multiple surfaces matter;
+  - the supported login, seed, or setup path if one is needed for proof;
+  - where credentials, seeded accounts, helper scripts, or env-backed access come from without inlining secrets.
   </proof_and_testing_rules>
 
 <coverage_rules>
 
 - For back-end systems, plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
-- For front-end systems, plan unit tests plus Playwright end-to-end tests, and include screenshot evidence where the UI can be checked visually.
-- For systems where a back end is paired with a front end, include the Playwright end-to-end path plus any automated browser-proof artifacts, such as screenshots, that are needed to show the changed behaviour clearly.
+- For front-end systems, plan automated unit tests plus automated Playwright end-to-end tests where supported.
+- For systems where a back end is paired with a front end, keep automated browser proof in `Testing` and put any optional manual-testing-agent browser scenarios in `Manual Testing Guidance`.
 - If any of those expected harnesses are missing for the system being changed, add the harness work early in the story before later tasks rely on them.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.
@@ -59,6 +70,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - When a task changes fallback or precedence helpers that may compare stale persisted hints against fresh observed values, ensure the proof covers both the degraded-history path and the later successful path.
 - Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
 - Explicit proof-authoring subtasks should describe creation or update of proof-owning files, screenshots, logs, or artifacts that are part of the implementation work.
+- Do not create subtasks that depend on the results of those later automated testing steps.
 - Do not turn routine `Implementation notes` refreshes into standalone subtasks.
 - When a testing step produces a result that must be preserved in `Implementation notes`, express that as:
   - a requirement in the relevant `Testing` bullet; or

@@ -21,6 +21,7 @@ Audit the planned proof files so changed or reused tests still claim and prove t
 - When a planned proof depends on teardown or cancellation ordering, check whether the task also makes awaited teardown or cleanup completion explicit instead of assuming it.
 - When a planned proof claims that something has not happened yet, check whether the task names a deterministic boundary instead of relying on arbitrary elapsed time.
 - When a planned proof touches shared state or concurrency-sensitive behavior, check whether the task states the isolation or worker-safety assumption that keeps the proof honest.
+- Check that proof subtasks still describe file changes and invariants to author, not later executed proof output to collect.
   </test_semantics_rules>
 
 <verification_loop>

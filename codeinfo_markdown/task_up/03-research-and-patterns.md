@@ -30,6 +30,16 @@ Confirm the tasking against existing repository patterns and external contract e
 - For each planned reader and writer pair over the same artifact, confirm how partial or in-progress state is tolerated, how stale state is distinguished from live state, and who owns cleanup.
 - For each planned lifecycle-sensitive seam, confirm the relevant cancel, retry, failure, teardown, or crash-recovery expectations from repository evidence now.
 - If the contract is still ambiguous after repository and official-doc review, create or run the smallest safe proving example needed to settle the uncertainty now.
+- For each proof surface, distinguish between:
+  - automated proof that should later appear in `Testing`; and
+  - optional manual or browser validation that should later appear only in `Manual Testing Guidance`.
+- When the story is likely to end in runnable or browser-visible manual proof, gather repository evidence for:
+  - prerequisite services or helpers;
+  - startup order;
+  - login, seed, or setup path;
+  - where credentials or access come from without exposing secrets.
+- Use that evidence later when writing the final task's `Manual Testing Guidance`.
+- Do not let research conclusions turn into manual-testing subtasks, manual-testing checklist items, or subtasks that depend on future proof outputs.
 - Feed any newly confirmed pattern or contract detail back into the plan immediately when the current plan text is still too vague for clean task generation.
 - If a prerequisite capability, harness, or contract adapter is missing, make it explicit in the plan before task generation instead of burying it in a later subtask.
   </research_and_pattern_rules>

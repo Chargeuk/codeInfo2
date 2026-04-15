@@ -11644,7 +11644,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `147`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T160116Z-63f69857` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview
@@ -11732,4 +11732,5 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Reused the direct `git check-ignore -v ...` split for subtasks 17 through 22 because the repaired visibility boundary did not change after Task 147; only the transient current-review, external-review-input, and blind-spot challenge files still matched ignore rules on current disk.
 - Completed the final Task 148 support-file-only guardrail by explicitly keeping this pass limited to plan maintenance, retained proof citation, and direct git validation; no fresh build, test, compose, smoke, lint, or format wrappers were rerun because this close-out did not change runtime code.
 - Ran `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` after the summary refresh because subtask 23 requires ordinary workflow proof; the maintained plan and summary updates are visible, while the current-pass durable evidence and findings remain naturally visible but tracked and clean, so the short-status output still shows only the support-file edits plus older intentionally visible durable review artifacts.
+- Automated-proof audit closed Task 148 after confirming all 32 subtasks and all 6 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
 - Ran the exact `sed ... | rg ...` retained-section check because subtasks 10 through 31 require literal proof that the new close-out section still names every retained proof home, `git check-ignore -v`, `git status --short`, `enqueueOrReuseIngestRequest()`, `recoverIngestQueueOnStartup()`, `applyQueueOverlay()`, `no new findings`, and the `AC30`/`AC32`/`AC43` caveats without paraphrasing them away.

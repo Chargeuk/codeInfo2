@@ -10619,7 +10619,7 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `135`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 6.
 
 #### Overview
@@ -10687,6 +10687,7 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 - Testing 2: `npm run test:summary:server:unit` passed after the Task 136 runtime-diagnostic overlay proofs and build-surface fixes landed; retained proof home `test-results/server-unit-tests-2026-04-15T08-43-35-675Z.log`.
 - Testing 3: `npm run test:summary:server:cucumber` passed with the runtime-diagnostic route proof owned by `server/src/test/features/ingest-roots.feature`; retained proof home `test-results/server-cucumber-tests-2026-04-15T09-03-37-084Z.log`.
 - Testing 4: `npm run test:summary:client` passed with the consumer-alignment proof still owned by `client/src/test/useIngestRoots.test.tsx`; retained proof home `test-results/client-tests-2026-04-15T09-06-23-208Z.log`.
+- Automated-proof audit: closed Task 136 after confirming all subtasks and testing are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
 
 ### Task 137. Align The Controlled Embedding Mock's Pre-Abort Semantics
 

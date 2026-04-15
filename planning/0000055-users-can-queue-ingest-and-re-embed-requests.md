@@ -10755,7 +10755,7 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `131, 132, 133, 134, 135, 136, 137`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` as the required final validation task after the review-created follow-up fixes land.
 
 #### Overview
@@ -10830,6 +10830,7 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 - Re-read the stored evidence, findings, and blind-spot challenge artifacts for pass `0000055-20260415T004532Z-74f062c7`, then re-opened the live plan to confirm Tasks 131 through 137 are now `__done__` and Task 138 is the only remaining open owner before the final wrapper phase.
 - Updated `planning/0000055-pr-summary.md` with the final close-out bundle for Tasks 131 through 137, separating direct proof homes for each repaired seam from the earlier retained Story 55 acceptance evidence that still carries unchanged areas.
 - Re-stated the current pass rejected-risk notes, the blind-spot challenge outcome, and the still-honest weak-proof caveats in the maintained summary so the later wrapper reruns can close the story without implying this review pass was exhaustive.
+- Automated-proof audit: closed Task 138 after confirming all subtasks and all 11 testing gates are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
 - Testing 1 passed via `npm run compose:build:summary` with `items passed: 2`, `items failed: 0`, and `DEV-0000050:T10:image_runtime_assets_baked`; retained proof home: `logs/test-summaries/compose-build-latest.log`.
 - Testing 2 passed via `npm run build:summary:server` with `warning_count: 0`; retained proof home: `logs/test-summaries/build-server-latest.log`.
 - Testing 3 passed via `npm run build:summary:client` with `warning_count: 0`; retained proof home: `logs/test-summaries/build-client-latest.log`.

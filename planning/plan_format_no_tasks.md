@@ -9,6 +9,12 @@ Create (or reuse if it already exists) the feature branch for this phase using t
 The Description, Acceptance Criteria & Out Of Scope sections must be fully documented to the point where a very junior, inexperienced developer who has never seen the product before would be able to read and understand what we want to do and why.
 The Questions sections should be populated by an AI at the start of the planning phase, as soon as the initial description is provided. As these questions get answered, the questions should be removed and relevent information should be added to the other sections. The Questions section must be empty before creating tasks.
 
+When tasks are later added to this story, use this section contract:
+
+- `Subtasks` are for implementation and proof-authoring work that can be completed before formal proof runs.
+- `Testing` is for automated proof execution only.
+- `Manual Testing Guidance` is optional, non-blocking guidance for the manual testing agent and must not contain checkboxes.
+
 ### Description
 
 Overview of where we are now, and where we would like to be once this phase has been completed and why we are implementing this phase. Non-technical, from a user perspective.

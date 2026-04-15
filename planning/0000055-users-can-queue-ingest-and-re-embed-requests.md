@@ -11204,6 +11204,13 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - `R3.` The current pass durable evidence and findings artifacts are naturally visible in ordinary git status output without force-add.
 - `R4.` No fresh build, test, compose, smoke, lint, or format wrapper rerun is required because this task changes only `.gitignore` and review-artifact visibility boundaries, not runtime code or runnable system behavior.
 
+#### Proof Mapping
+
+- `P1.` Requirement: current pass durable evidence and findings artifacts move onto the visible side of the review-artifact boundary. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`. Proof homes: subtasks 1 through 4, 8, 9, 13, 14, 18; Testing 1 through 3.
+- `P2.` Requirement: transient and additive review files remain ignored while the durable artifacts become visible. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`. Proof homes: subtasks 5 through 7, 10 through 12, 15 through 17; Testing 1 and 2.
+- `P3.` Requirement: the repaired boundary is naturally visible through the normal git workflow rather than only through targeted ignore checks. Owners: `.gitignore`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtask 18; Testing 3.
+- `P4.` Requirement: support-file-only scope stays honest, so fresh wrapper reruns remain out of scope. Owners: `.gitignore`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtask 19; Testing 4.
+
 #### Documentation Locations
 
 - `.gitignore`
@@ -11264,6 +11271,14 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - `R3.` `planning/0000055-pr-summary.md` carries forward the current pass rejected-risk notes, blind-spot challenge outcome, and any still-honest weak-proof caveats without overstating the review as exhaustive.
 - `R4.` Story 55 final validation records the direct git proof that the repaired visibility boundary now matches the review flow contract on current disk.
 - `R5.` No fresh build, test, compose, smoke, lint, or format wrapper rerun is required because this task only revalidates `.gitignore` plus maintained-summary support-file updates and intentionally retains the Task 142 runtime and direct-git proof chain instead of inventing a narrower or duplicate runtime proof path.
+
+#### Proof Mapping
+
+- `P1.` Requirement: Task 143 is complete, the current pass durable artifacts are visible, and the transient or additive review files still exist on disk for honest close-out. Owners: Task 143, `.gitignore`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 9, 17 through 23; Testing 1 through 3.
+- `P2.` Requirement: the retained Task 142 acceptance-proof chain remains cited honestly in the maintained summary after this support-file repair. Owner: `planning/0000055-pr-summary.md`. Proof homes: subtasks 10 through 16 and 24; Testing 3.
+- `P3.` Requirement: the maintained summary carries forward the current pass rejected-risk notes, blind-spot challenge outcome, and residual weak-proof seams without overstating coverage. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-findings.md`, `codeInfoStatus/reviews/0000055-20260415T131258Z-df888f42-blind-spot-challenge.md`. Proof homes: subtasks 1 through 3 and 26 through 31.
+- `P4.` Requirement: the final validation records the direct git proof for the repaired visibility boundary on current disk. Owners: `planning/0000055-pr-summary.md`, `.gitignore`. Proof homes: subtasks 17 through 25; Testing 2 and 3.
+- `P5.` Requirement: support-file-only scope stays honest, so fresh wrapper reruns remain out of scope. Owners: `planning/0000055-pr-summary.md`, `.gitignore`. Proof homes: subtask 32; Testing 4.
 
 #### Documentation Locations
 

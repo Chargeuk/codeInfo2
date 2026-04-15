@@ -10164,7 +10164,7 @@ This review-fix task updates the current repository's ignore rules so the durabl
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `129`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260414T172618Z-9d2d2467` as the required final validation task after the current findings-driven support-file repair lands.
 
 #### Overview
@@ -10229,5 +10229,6 @@ This final review-follow-up task confirms the current pass durable review-artifa
 - 2026-04-15 Testing 1: `test -f codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-evidence.md && test -f codeInfoStatus/reviews/0000055-20260414T172618Z-9d2d2467-findings.md` passed, confirming the current pass durable review artifacts still exist on disk before the final visibility checks continued.
 - 2026-04-15 Testing 2: `git check-ignore -v` matched only `0000055-current-review.json`, `0000055-external-review-input.md`, and `0000055-20260414T172618Z-9d2d2467-blind-spot-challenge.md`, so the repaired ignore boundary still leaves the current pass durable evidence and findings files visible. Git again emitted the known `/home/d_a_s/.config/git/ignore` permission warning, but the repo-local `.gitignore` result used for this proof remained correct.
 - 2026-04-15 Testing 3: after refreshing `planning/0000055-pr-summary.md` with the final direct git proof wording, `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` showed the maintained plan plus summary updates and the older intentionally visible `0000055-20260414T013213Z-2aaab374` durable artifacts. The current pass evidence and findings files remain tracked and clean on current `HEAD`, so they stay naturally visible without appearing as extra status rows.
+- 2026-04-15 Automated-proof audit: re-read the stored handoff, this exact Task 130 section, and `python3 scripts/plan_status.py --task-number 130` output from current disk. All 19 subtasks and all 3 Testing items are now honestly complete, `selected_task.live_blockers` is empty, and no prose-only remaining gate survives, so the task status is normalized from `__in_progress__` to `__done__`.
 
 - Added from review pass `0000055-20260414T172618Z-9d2d2467` as the required final validation task after the findings-driven artifact-hygiene repair lands.

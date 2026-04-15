@@ -25,6 +25,13 @@ let lastPrediction:
       abortListenerRemoved: boolean;
     }
   | null = null;
+let lastControlledEmbedding:
+  | {
+      preAborted: boolean;
+      liveWorkRegistered: boolean;
+      abortListenerRemoved: boolean;
+    }
+  | null = null;
 let lastChatHistory: Array<{ role?: string; content?: string }> = [];
 type ControlledEmbeddingCall = {
   text: string;
@@ -37,6 +44,7 @@ let controlledEmbeddingWaiters: Array<() => void> = [];
 
 export function startMock({ scenario: next }: { scenario: MockScenario }) {
   scenario = next;
+  lastControlledEmbedding = null;
   controlledEmbeddingCalls = [];
   controlledEmbeddingWaiters = [];
 }
@@ -44,6 +52,7 @@ export function startMock({ scenario: next }: { scenario: MockScenario }) {
 export function stopMock() {
   scenario = 'many';
   lastPrediction = null;
+  lastControlledEmbedding = null;
   lastChatHistory = [];
   controlledEmbeddingCalls = [];
   controlledEmbeddingWaiters = [];
@@ -227,6 +236,10 @@ export function getLastPredictionState() {
   return lastPrediction;
 }
 
+export function getLastControlledEmbeddingState() {
+  return lastControlledEmbedding;
+}
+
 export function getControlledEmbeddingCalls() {
   return controlledEmbeddingCalls.map((call) => ({
     text: call.text,
@@ -366,15 +379,37 @@ export class MockLMStudioClient {
       return {
         async embed(text: string, options?: { signal?: AbortSignal }) {
           if (scenario === 'controlled-embedding') {
+            const state = {
+              preAborted: false,
+              liveWorkRegistered: false,
+              abortListenerRemoved: false,
+            };
+            lastControlledEmbedding = state;
+            if (options?.signal?.aborted) {
+              state.preAborted = true;
+              state.abortListenerRemoved = true;
+              return { modelKey, embedding: [] };
+            }
             return await new Promise<{ modelKey: string; embedding: number[] }>(
               (resolve, reject) => {
+                let settled = false;
+                const cleanup = () => {
+                  if (settled) return;
+                  settled = true;
+                  options?.signal?.removeEventListener('abort', abortListener);
+                  state.abortListenerRemoved = true;
+                };
                 const call: ControlledEmbeddingCall = {
                   text,
                   aborted: options?.signal?.aborted ?? false,
                   resolve: (embedding = [0.4]) => {
+                    cleanup();
                     resolve({ modelKey, embedding });
                   },
-                  reject,
+                  reject: (error) => {
+                    cleanup();
+                    reject(error);
+                  },
                 };
                 const abortListener = () => {
                   call.aborted = true;
@@ -383,6 +418,7 @@ export class MockLMStudioClient {
                   once: true,
                 });
                 controlledEmbeddingCalls.push(call);
+                state.liveWorkRegistered = true;
                 for (const waiter of controlledEmbeddingWaiters) {
                   waiter();
                 }

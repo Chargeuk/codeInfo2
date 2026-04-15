@@ -10723,16 +10723,16 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 
 #### Subtasks
 
-1. [ ] Re-read the optional simplification finding. Purpose: keep the cleanup anchored to the exact pre-abort mismatch endorsed by the review.
-2. [ ] Re-read the current controlled `embed()` helper in `server/src/test/support/mockLmStudioSdk.ts`. Purpose: anchor the implementation work to the helper branch that still treats pre-aborted embed calls as live work.
-3. [ ] Re-read the current prediction helper pre-abort branch in `server/src/test/support/mockLmStudioSdk.ts`. Purpose: anchor the cleanup to the short-circuit contract the embed helper must match.
-4. [ ] Update the controlled-embedding `embed()` branch in `server/src/test/support/mockLmStudioSdk.ts` so a pre-aborted request returns before the helper registers live controlled work, abort listeners, or waiter-visible state. Purpose: align the mock's cancellation semantics without widening the change into unrelated queue or provider behavior.
-5. [ ] Update the same `embed()` branch in `server/src/test/support/mockLmStudioSdk.ts` so its resolved or rejected pre-abort return shape matches the prediction helper's existing short-circuit contract. Purpose: keep the mock's pre-abort result honest for cancellation-path tests.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: prove a pre-aborted controlled `embed()` call short-circuits before the helper registers any live controlled work on the already-aborted signal boundary. Purpose: keep the helper's cancellation ordering explicit and focused.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: prove the pre-aborted `embed()` return shape matches the prediction helper's existing short-circuit contract. Purpose: make the helper's returned cancellation contract explicit and reviewable.
-8. [ ] Test type: server unit cleanup control. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: prove a pre-aborted controlled `embed()` call removes abort listeners and leaves no controlled-embedding waiter state behind before the helper returns. Purpose: make the helper's early-return cleanup ownership explicit for the shared async test-support surface.
-9. [ ] Test type: proof maintenance. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: keep the new controlled-embedding proof separate from the existing chat-prediction cancellation tests by adding or renaming embed-specific cases whose titles explicitly mention pre-aborted `embed()` semantics. Purpose: prevent the helper proof from hiding inside adjacent prediction-path titles that claim a different API surface.
-10. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact focused proof home for the repaired pre-aborted helper semantics. Purpose: keep the maintained summary aligned with the repaired helper behavior.
+1. [x] Re-read the optional simplification finding. Purpose: keep the cleanup anchored to the exact pre-abort mismatch endorsed by the review.
+2. [x] Re-read the current controlled `embed()` helper in `server/src/test/support/mockLmStudioSdk.ts`. Purpose: anchor the implementation work to the helper branch that still treats pre-aborted embed calls as live work.
+3. [x] Re-read the current prediction helper pre-abort branch in `server/src/test/support/mockLmStudioSdk.ts`. Purpose: anchor the cleanup to the short-circuit contract the embed helper must match.
+4. [x] Update the controlled-embedding `embed()` branch in `server/src/test/support/mockLmStudioSdk.ts` so a pre-aborted request returns before the helper registers live controlled work, abort listeners, or waiter-visible state. Purpose: align the mock's cancellation semantics without widening the change into unrelated queue or provider behavior.
+5. [x] Update the same `embed()` branch in `server/src/test/support/mockLmStudioSdk.ts` so its resolved or rejected pre-abort return shape matches the prediction helper's existing short-circuit contract. Purpose: keep the mock's pre-abort result honest for cancellation-path tests.
+6. [x] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: prove a pre-aborted controlled `embed()` call short-circuits before the helper registers any live controlled work on the already-aborted signal boundary. Purpose: keep the helper's cancellation ordering explicit and focused.
+7. [x] Test type: server unit. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: prove the pre-aborted `embed()` return shape matches the prediction helper's existing short-circuit contract. Purpose: make the helper's returned cancellation contract explicit and reviewable.
+8. [x] Test type: server unit cleanup control. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: prove a pre-aborted controlled `embed()` call removes abort listeners and leaves no controlled-embedding waiter state behind before the helper returns. Purpose: make the helper's early-return cleanup ownership explicit for the shared async test-support surface.
+9. [x] Test type: proof maintenance. Location: `server/src/test/unit/mockLmStudioSdk.test.ts`. Description: keep the new controlled-embedding proof separate from the existing chat-prediction cancellation tests by adding or renaming embed-specific cases whose titles explicitly mention pre-aborted `embed()` semantics. Purpose: prevent the helper proof from hiding inside adjacent prediction-path titles that claim a different API surface.
+10. [x] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact focused proof home for the repaired pre-aborted helper semantics. Purpose: keep the maintained summary aligned with the repaired helper behavior.
 
 #### Testing
 
@@ -10742,6 +10742,10 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 #### Implementation notes
 
 - Added from review pass `0000055-20260415T004532Z-74f062c7` because the optional simplification is localized, low-risk, and directly testable inside the current repository.
+- Re-read the Task 137 review finding plus the current controlled `embed()` and chat-prediction pre-abort branches so the helper cleanup stays pinned to the exact already-aborted mismatch instead of widening into unrelated mock behavior.
+- Updated `mockLmStudioSdk.ts` so a pre-aborted controlled `embed()` call now returns an immediate empty-embedding result before registering live controlled work, and the controlled path now records cleanup state instead of leaving the already-aborted request visible to waiter-based tests.
+- Added focused `mockLmStudioSdk.test.ts` proof for pre-aborted controlled `embed()` semantics so live-work registration, short-circuit return shape, and cleanup ownership are explicit without hiding inside the older chat-prediction cancellation titles.
+- Updated `0000055-pr-summary.md` with the exact focused `mockLmStudioSdk.test.ts` proof home for the repaired controlled-embedding pre-abort semantics so Task 138 can cite the helper seam directly.
 
 ### Task 138. Re-Validate Story 55 After Review Pass `0000055-20260415T004532Z-74f062c7`
 

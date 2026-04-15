@@ -10694,7 +10694,7 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `136`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to reopen the localized optional simplification in finding 7.
 
 #### Overview
@@ -10747,6 +10747,7 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 - Added focused `mockLmStudioSdk.test.ts` proof for pre-aborted controlled `embed()` semantics so live-work registration, short-circuit return shape, and cleanup ownership are explicit without hiding inside the older chat-prediction cancellation titles.
 - Updated `0000055-pr-summary.md` with the exact focused `mockLmStudioSdk.test.ts` proof home for the repaired controlled-embedding pre-abort semantics so Task 138 can cite the helper seam directly.
 - Testing 1 passed via `npm run build:summary:server` with `warning_count: 0`; retained proof home: `logs/test-summaries/build-server-latest.log`.
+- Automated-proof audit: closed Task 137 after confirming all subtasks and both testing gates are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
 - Testing 2 passed via `npm run test:summary:server:unit` with `1699/1699` passing; retained proof home: `test-results/server-unit-tests-2026-04-15T09-23-28-612Z.log`.
 
 ### Task 138. Re-Validate Story 55 After Review Pass `0000055-20260415T004532Z-74f062c7`

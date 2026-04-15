@@ -10233,3 +10233,358 @@ This final review-follow-up task confirms the current pass durable review-artifa
 - 2026-04-15 Manual testing assessment: `not_applicable`. Task-scoped proof and full-story proof were both assessed against the stored runtime research and this final task's support-file-only exit criteria, and neither required a runnable, browser-visible, or network-visible surface because Task 130 only closes out retained proof notes plus direct git validation for the Story 55 hygiene repair.
 
 - Added from review pass `0000055-20260414T172618Z-9d2d2467` as the required final validation task after the findings-driven artifact-hygiene repair lands.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260415T004532Z-74f062c7`
+
+- Scope: `current_repository` only. `codeInfoStatus/flow-state/current-plan.json` still points at this canonical plan, the current repository remains on `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, and `codeInfoStatus/reviews/0000055-current-review.json` matched the stored review scope and reviewed `HEAD` before this planner follow-up reopened the story.
+- Durable artifacts for this pass:
+  - `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`
+  - `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`
+- Additive context:
+  - `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`
+- Endorsed findings summary:
+  - `must_fix` 1: `.gitignore` still hides this pass's durable review artifacts, so ordinary commit workflows omit the required evidence and findings files unless they are force-added.
+  - `must_fix` 2: queued `reembed` replay trusts persisted `requestPayload.path` at execution time, so a stale or tampered queue row can scan a broader absolute path than the canonical repository root.
+  - `must_fix` 3: queue-managed runs have no durable replay barrier if the post-commit `terminalPublishedAt` write fails, so restart recovery can replay logically finished work.
+  - `should_fix` 4: overlapping `/ingest/roots` refetches can drop `isLoading` too early because an aborted older request still runs the unconditional loading reset.
+  - `should_fix` 5: waiting queue overlays can synthesize an impossible provider/model pair from mixed canonical-plus-legacy payloads instead of honoring the stricter canonical-field contract.
+  - `should_fix` 6: `/ingest/roots` queue overlays can drop fresh runtime structured error metadata and leave stale persisted diagnostics in place.
+  - `optional_simplification` 7: the changed controlled-embedding mock helper treats pre-aborted `embed()` calls differently from the same mock's prediction path, and the cleanup is localized, low-risk, and objectively testable, so it is reopened here instead of being deferred.
+- Challenge outcome:
+  - The blind-spot pass generated no new findings, strengthened rejected-risk notes for queue admission and startup recovery, and kept the event-first green-path `reingest` waiter plus some row-level remove parity seams as explicit residual weak proof rather than silently marking them exhaustive.
+
+### Task 131. Make Review Pass `0000055-20260415T004532Z-74f062c7` Durable Artifacts Naturally Visible
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `130`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 1.
+
+#### Overview
+
+Repair the review-artifact ignore boundary for this exact pass so its durable evidence and findings files become naturally visible to normal git workflows without promoting the transient current-review handoff, external review input, or optional blind-spot challenge file into durable tracked artifacts.
+
+#### Task Exit Criteria
+
+- `R1.` `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md` and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md` no longer match the broad `codeInfoStatus/reviews/*` ignore rule.
+- `R2.` `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` remain ignored.
+- `R3.` `planning/0000055-pr-summary.md` records the repaired proof homes and keeps the current pass durable artifacts commit-visible in the maintained summary.
+
+#### Documentation Locations
+
+- `.gitignore`
+- `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`
+- `codeInfoStatus/reviews/0000055-current-review.json`
+- `codeInfoStatus/reviews/0000055-external-review-input.md`
+- `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` before changing `.gitignore`. Purpose: keep the ignore-boundary repair anchored to the exact stored review pass.
+2. [ ] Update `.gitignore` so this pass's `evidence.md` and `findings.md` paths become naturally visible to ordinary `git status` and `git add` flows without broadening visibility for unrelated review artifacts. Purpose: make the current durable review artifacts commit-visible.
+3. [ ] Preserve the existing ignore treatment for `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Purpose: keep the workflow handoff, transient reviewer input, and additive challenge file off the durable side of the boundary.
+4. [ ] Refresh `planning/0000055-pr-summary.md` with the repaired proof homes for this exact review pass. Purpose: keep the maintained summary aligned with the new durable artifact boundary.
+
+#### Testing
+
+1. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules.
+2. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-pr-summary.md` and confirm the current pass durable evidence and findings artifacts are naturally visible to normal git workflows.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` to repair the current pass durable review-artifact visibility boundary.
+
+### Task 132. Re-Validate Persisted Re-Embed Paths At Replay Time Before Discovery Runs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `131`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 2.
+
+#### Overview
+
+Queued `reembed` execution must not trust the persisted `requestPayload.path` at the filesystem boundary. This task restores replay-time path authority by validating or re-deriving the executable repository root from the canonical queued target before discovery or recovery work runs, then proving both deferred live execution and startup-recovery replay honor that boundary.
+
+#### Task Exit Criteria
+
+- `R1.` Deferred and startup-recovered `reembed` execution no longer passes an unvalidated persisted `requestPayload.path` into discovery work.
+- `R2.` A stale or tampered persisted `reembed` path cannot broaden execution beyond the canonical queued repository root.
+- `R3.` Direct server proof covers both the valid replay path and the mismatched persisted-path rejection path.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/requestContracts.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the finding entry in `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md` and the current `reembed` replay path in `server/src/ingest/ingestJob.ts`. Purpose: keep the fix anchored to the exact persisted-path authority gap endorsed by the review.
+2. [ ] Update queued `reembed` execution so it validates or re-derives the executable repository root from the canonical queued target before any discovery or provider work begins. Purpose: remove the replay-time trust in stale persisted absolute paths.
+3. [ ] Preserve the existing canonical target bookkeeping and queue cleanup ownership while applying the replay-time root guard. Purpose: fix the authority boundary without widening the task into unrelated queue lifecycle changes.
+4. [ ] Add direct unit coverage for deferred and startup-recovered `reembed` work with both valid and mismatched persisted paths. Purpose: prove the corrected replay-time boundary instead of relying on adjacent `start`-only guards.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the new proof homes and any remaining residual caveat, if one survives. Purpose: keep the maintained summary aligned with the repaired replay path.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the replay-time `reembed` root guard passes cleanly.
+2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the replay-path repair.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` to close the queued `reembed` persisted-path authority-boundary gap.
+
+### Task 133. Persist A Durable Replay Barrier When Terminal Marker Writes Fail
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `132`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 3.
+
+#### Overview
+
+Queue-managed runs need a durable post-commit replay barrier even when `markQueueRequestTerminalPublished()` fails. This task restores that barrier so startup recovery does not rerun logically finished work after the main side effects have already committed.
+
+#### Task Exit Criteria
+
+- `R1.` Queue-managed work has a persisted post-commit barrier that startup recovery honors even when the normal `terminalPublishedAt` write path fails.
+- `R2.` Recovery no longer replays logically finished work simply because the terminal marker write failed after the side effects committed.
+- `R3.` Direct server proof covers the barrier-write-failure branch and the resulting recovery behavior.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/startup/ingestQueueStartup.ts`
+- `server/src/test/unit/ingest-queue-runtime.test.ts`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the stored finding for the post-commit replay barrier failure and the current finalization plus recovery paths in `server/src/ingest/ingestJob.ts`. Purpose: keep the repair bounded to the exact replay window endorsed by the review.
+2. [ ] Introduce a durable barrier path that survives terminal-marker write failure and still lets later cleanup finish without replaying committed work. Purpose: preserve side-effect idempotence across restart recovery.
+3. [ ] Update recovery or cleanup handling so the new barrier state is consumed deterministically before any waiting work is promoted. Purpose: keep startup ordering honest after the barrier repair lands.
+4. [ ] Add direct unit coverage for the barrier-write-failure path and its recovery outcome. Purpose: prove the repaired replay boundary rather than relying on the existing happy-path skip coverage alone.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the new barrier proof home and any honest residual caveat. Purpose: keep the maintained summary aligned with the repaired replay semantics.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime.test.ts` and confirm the barrier-write-failure and recovery proofs pass cleanly.
+2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the barrier repair.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` to restore a durable replay barrier when post-commit terminal-marker persistence fails.
+
+### Task 134. Keep `useIngestRoots` Loading Ownership Honest Across Overlapping Refetches
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `133`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 4.
+
+#### Overview
+
+`useIngestRoots` must keep `isLoading` owned by the latest in-flight `/ingest/roots` request. This task prevents an older aborted fetch from clearing the loading state for a newer refetch and adds direct client proof for that overlapping abort-and-restart lifecycle.
+
+#### Task Exit Criteria
+
+- `R1.` An aborted older `/ingest/roots` request cannot clear `isLoading` while a newer refetch is still in flight.
+- `R2.` The client continues to abort superseded requests without regressing the latest successful state adoption.
+- `R3.` Direct client proof covers the overlapping abort-and-restart loading lifecycle.
+
+#### Documentation Locations
+
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the stored finding for overlapping `/ingest/roots` refetches and the current loading-state ownership in `client/src/hooks/useIngestRoots.ts`. Purpose: keep the repair bounded to the exact lifecycle bug endorsed by the review.
+2. [ ] Update `useIngestRoots` so only the newest request can clear the loading state it owns. Purpose: prevent the default UI path from briefly looking idle while the latest refetch is still pending.
+3. [ ] Preserve the existing abort-and-restart fetch behavior and data adoption semantics for the latest successful response. Purpose: keep the hook repair localized to loading ownership instead of widening it into unrelated fetch policy changes.
+4. [ ] Add direct client proof for overlapping abort-and-restart refetches. Purpose: replace the current indirect coverage with an honest lifecycle assertion.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the new loading-ownership proof home. Purpose: keep the maintained summary aligned with the repaired client lifecycle behavior.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx` and confirm the overlapping refetch loading-state proof passes cleanly.
+2. [ ] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the hook repair.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` to restore honest loading ownership across overlapping `/ingest/roots` refetches.
+
+### Task 135. Keep Waiting Queue Overlays Canonical When Legacy Model Fields Coexist
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `134`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 5.
+
+#### Overview
+
+The waiting queue overlay must not synthesize an impossible provider/model pair from mixed canonical-plus-legacy payloads. This task restores canonical-field precedence for waiting rows and adds direct server proof for the partial-canonical overlay seam the review found missing.
+
+#### Task Exit Criteria
+
+- `R1.` Waiting queue overlays no longer combine canonical provider data with unrelated legacy model fields into an impossible emitted pair.
+- `R2.` Mixed-shape waiting payloads either stay canonical or degrade to an honestly blank or legacy-free emitted state instead of emitting contradictory identity.
+- `R3.` Direct server proof covers the partial-canonical waiting-overlay path.
+
+#### Documentation Locations
+
+- `server/src/lmstudio/toolService.ts`
+- `server/src/ingest/requestContracts.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the stored waiting-overlay finding and the current `applyWaitingQueueRequestMetadata()` logic in `server/src/lmstudio/toolService.ts`. Purpose: keep the repair anchored to the exact mixed canonical-plus-legacy contradiction endorsed by the review.
+2. [ ] Update waiting-overlay field precedence so canonical provider/model data is emitted consistently and incompatible legacy fallbacks cannot synthesize a contradictory pair. Purpose: restore the shared `/ingest/roots` contract for waiting rows.
+3. [ ] Preserve the existing compatibility behavior for fully legacy or fully canonical payloads. Purpose: keep the repair localized to the mixed-shape seam rather than widening it into a broader contract redesign.
+4. [ ] Add direct server proof for the partial-canonical waiting-overlay case. Purpose: replace the current missing proof with an honest assertion of the corrected emitted contract.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the new waiting-overlay proof home. Purpose: keep the maintained summary aligned with the repaired shared-contract behavior.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the waiting-overlay canonicality proof passes cleanly.
+2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` to stop mixed canonical-plus-legacy waiting overlays from emitting contradictory model identity.
+
+### Task 136. Preserve Fresh Runtime Error Metadata In `/ingest/roots` Queue Overlays
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `135`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 6.
+
+#### Overview
+
+The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic state when queue-backed status wins over persisted metadata. This task restores structured runtime error propagation and stale-diagnostic precedence so the shared payload no longer drops fresh runtime details or leaves older persisted errors in place.
+
+#### Task Exit Criteria
+
+- `R1.` Runtime-backed queue overlays preserve fresh structured `error` metadata and the freshest matching `lastError` string.
+- `R2.` Older persisted `error` or `lastError` values no longer survive when newer runtime diagnostics exist.
+- `R3.` Direct server proof covers the runtime-backed queue-error overlay branch.
+
+#### Documentation Locations
+
+- `server/src/lmstudio/toolService.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the stored runtime-diagnostic finding and the current runtime-status overlay branch in `server/src/lmstudio/toolService.ts`. Purpose: keep the repair bounded to the fresh-runtime versus stale-persisted diagnostic gap endorsed by the review.
+2. [ ] Update the runtime overlay branch so it copies the freshest structured `error` object and keeps `lastError` precedence aligned with the current runtime state. Purpose: prevent queue-backed runtime errors from being flattened or hidden behind stale persisted diagnostics.
+3. [ ] Preserve the existing healthy waiting and running stale-diagnostic clearing behavior. Purpose: keep the repair localized to the runtime-error branch instead of reopening already-proved healthy overlay cleanup.
+4. [ ] Add direct server proof for the runtime-backed queue-error overlay path. Purpose: replace the current missing proof with an honest assertion of the repaired diagnostics contract.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the new runtime-diagnostics proof home. Purpose: keep the maintained summary aligned with the repaired shared payload behavior.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` and confirm the runtime-diagnostics overlay proof passes cleanly.
+2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the overlay repair.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` to preserve fresh runtime structured diagnostics on the shared `/ingest/roots` payload.
+
+### Task 137. Align The Controlled Embedding Mock's Pre-Abort Semantics
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `136`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to reopen the localized optional simplification in finding 7.
+
+#### Overview
+
+The changed controlled-embedding mock helper should treat a pre-aborted `embed()` call consistently with the same mock's prediction path. This is a localized, low-risk, objectively testable simplification that improves proof honesty for cancellation-path tests without widening the story into unrelated runtime behavior.
+
+#### Task Exit Criteria
+
+- `R1.` A pre-aborted controlled `embed()` call short-circuits consistently with the mock's existing prediction path behavior.
+- `R2.` Controlled embedding cancellation tests no longer treat an already-aborted embed request as live work.
+- `R3.` Direct proof covers the mock's pre-aborted `embed()` behavior.
+
+#### Documentation Locations
+
+- `server/src/test/support/mockLmStudioSdk.ts`
+- `server/src/test/unit/mockLmStudioSdk.test.ts`
+- `planning/0000055-pr-summary.md`
+
+#### Subtasks
+
+1. [ ] Re-read the optional simplification finding and the current controlled-embedding helper in `server/src/test/support/mockLmStudioSdk.ts`. Purpose: keep the cleanup anchored to the exact pre-abort mismatch endorsed by the review.
+2. [ ] Update the controlled `embed()` helper so pre-aborted requests short-circuit consistently instead of registering live work. Purpose: align mock behavior with the same file's existing prediction-path cancellation semantics.
+3. [ ] Add direct proof for the helper's pre-aborted `embed()` path. Purpose: make the localized simplification objectively testable and durable.
+4. [ ] Refresh `planning/0000055-pr-summary.md` with the new proof home. Purpose: keep the maintained summary aligned with the repaired helper semantics.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mockLmStudioSdk.test.ts` and confirm the pre-aborted controlled-embedding proof passes cleanly.
+2. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the helper cleanup.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` because the optional simplification is localized, low-risk, and directly testable inside the current repository.
+
+### Task 138. Re-Validate Story 55 After Review Pass `0000055-20260415T004532Z-74f062c7`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `131, 132, 133, 134, 135, 136, 137`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` as the required final validation task after the review-created follow-up fixes land.
+
+#### Overview
+
+This final review-follow-up task re-validates the reopened Story 55 work after the actionable findings are fixed, preserves the retained proof chain for unchanged acceptance areas, and refreshes the maintained summary so the story can become honestly complete again without dropping the current pass rejected-risk and blind-spot reasoning.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks 131 through 137 are `__done__`.
+- `R2.` The current pass durable review artifacts remain naturally visible while the transient current-review, reviewer-input, and optional challenge files stay ignored.
+- `R3.` The repaired queue-runtime, `/ingest/roots`, and client loading-lifecycle behaviors all have direct proof recorded in the maintained summary.
+- `R4.` Story 55 final validation reruns the full relevant build and test wrappers and preserves the retained acceptance-evidence chain honestly.
+- `R5.` `planning/0000055-pr-summary.md` carries forward the current pass rejected-risk notes and the blind-spot challenge outcome without overstating the review as exhaustive.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`
+- `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` before final validation begins. Purpose: keep the close-out anchored to the exact stored review outcome for this pass.
+2. [ ] Refresh `planning/0000055-pr-summary.md` with the new proof homes for Tasks 131 through 137 while retaining the earlier Story 55 acceptance-evidence chain for unchanged areas. Purpose: keep the maintained summary aligned with the repaired review-follow-up surface.
+3. [ ] Confirm the current pass rejected-risk notes, blind-spot challenge outcome, and any surviving weak-proof caveats remain explicit in the maintained summary after the revalidation lands. Purpose: keep final close-out honest instead of implying the review was exhaustive.
+4. [ ] Refresh this plan's implementation notes or review-created task notes as needed so the repaired review pass and its final validation path are discoverable from the canonical plan. Purpose: keep the reopened story executable and auditable for later loops.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and confirm the server workspace still builds cleanly after the review-created fixes.
+2. [ ] Run `npm run build:summary:client` and confirm the client workspace still typechecks and builds cleanly after the review-created fixes.
+3. [ ] Run `npm run test:summary:server:unit` and confirm the full server unit suite still passes after the review-created fixes.
+4. [ ] Run `npm run test:summary:server:cucumber` and confirm the full server cucumber suite still passes after the review-created fixes.
+5. [ ] Run `npm run test:summary:client` and confirm the full client test suite still passes after the review-created fixes.
+6. [ ] Run `npm run test:summary:e2e` and confirm the full browser flow still passes after the review-created fixes.
+7. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` and confirm the durable artifact visibility boundary remains correct.
+8. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the review-created support-file updates plus durable artifacts remain naturally visible to normal git workflows.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T004532Z-74f062c7` as the final revalidation task required after the review-created follow-up work lands.

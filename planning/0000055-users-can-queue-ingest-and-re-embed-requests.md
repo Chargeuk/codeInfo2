@@ -11919,3 +11919,168 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Ran the targeted `sed ... | rg ...` retention check because subtasks 11 through 33 explicitly depend on Testing 5 output; the new close-out section matched the exact retained proof-home filenames plus `enqueueOrReuseIngestRequest()`, `recoverIngestQueueOnStartup()`, `applyQueueOverlay()`, `no new findings`, `AC30`, `AC32`, `AC43`, `git check-ignore -v`, and `git status --short`.
 - Automated-proof audit closed Task 150 after confirming all 33 subtasks and all 6 testing items are honestly complete on current disk with no live blocker and no prose-only remaining gate.
 - Manual testing skipped on 2026-04-15 because `codeInfoStatus/flow-state/current-task.json` still binds this loop to Task 150 as `__in_progress__`; although the live plan text and `python3 scripts/plan_status.py --task-number 150` now show Task 150 `__done__` and Story 55 complete, the latest-complete-task manual-proof pass must wait for the stored handoff to advance before it can run honestly.
+
+## Code Review Findings
+
+### Review Pass `0000055-20260415T181123Z-5c5b80b1`
+
+- `must_fix`: `.gitignore` still leaves the current pass durable review artifacts `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md` and `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md` behind the broad `codeInfoStatus/reviews/*` ignore rule. The transient handoff files and the additive blind-spot challenge file remain intentionally ignored, but the durable evidence and findings files must become naturally visible to ordinary git workflows without force-add.
+
+### Task 151. Make Review Pass `0000055-20260415T181123Z-5c5b80b1` Durable Artifacts Naturally Visible
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `150`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T181123Z-5c5b80b1` to repair the current pass durable-review-artifact visibility boundary without widening scope beyond allowed support-file hygiene.
+
+#### Overview
+
+This support-file-only task repairs the `.gitignore` review-artifact stanza so the current pass durable evidence and findings artifacts become naturally visible to normal git workflows, while the transient current-review handoff, transient reviewer-input handoff, and additive blind-spot challenge artifact remain intentionally ignored.
+
+#### Task Exit Criteria
+
+- `R1.` `.gitignore` explicitly unignores `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md` and `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`.
+- `R2.` `.gitignore` continues to ignore `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`.
+- `R3.` Ordinary git workflows show the current pass durable evidence and findings artifacts without requiring force-add.
+- `R4.` The repair stays limited to `.gitignore`, direct git validation, and plan maintenance; no runtime files, wrappers, or review-artifact contents are rewritten in this task.
+- `R5.` The task does not delete, recreate, or reset any current-pass review artifact because cleanup ownership remains with the existing review workflow.
+
+#### Proof Mapping
+
+- `P1.` Requirement: the current pass durable evidence and findings artifacts exist and are naturally visible after the ignore-boundary repair. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`. Proof homes: subtasks 1 through 6, 10 through 11, and 15 through 16; Testing 1 through 3.
+- `P2.` Requirement: the transient current-review handoff, reviewer-input handoff, and additive blind-spot challenge artifact remain ignored after the repair. Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`. Proof homes: subtasks 7 through 9, 12 through 14, and 17 through 19; Testing 1 through 2.
+- `P3.` Requirement: support-file-only scope and cleanup ownership remain explicit. Owners: `.gitignore`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 20 through 21; Testing 3 through 4.
+
+#### Documentation Locations
+
+- `.gitignore`
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`
+- `codeInfoStatus/reviews/0000055-current-review.json`
+- `codeInfoStatus/reviews/0000055-external-review-input.md`
+- `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`. Purpose: keep the repair anchored to the exact current-pass artifact-visibility defect endorsed by the review.
+2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`. Purpose: keep the repair anchored to the exact durable evidence artifact this task must make naturally visible.
+3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`. Purpose: preserve the additive-context boundary for this pass while the ignore rule is repaired.
+4. [ ] Re-read the `.gitignore` review-artifact stanza that begins with `codeInfoStatus/reviews/*` and currently unignores only earlier Story 55 durable review artifacts. Purpose: anchor the edit to the exact block that currently hides the current pass durable artifacts.
+5. [ ] Update that exact `.gitignore` review-artifact stanza so `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md` is explicitly unignored. Purpose: make the current pass evidence artifact naturally visible to normal git workflows.
+6. [ ] Update that same `.gitignore` review-artifact stanza so `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md` is explicitly unignored. Purpose: make the current pass findings artifact naturally visible to normal git workflows.
+7. [ ] Preserve the existing ignore coverage for `codeInfoStatus/reviews/0000055-current-review.json` in that same `.gitignore` block. Purpose: keep the transient review handoff out of durable tracked history.
+8. [ ] Preserve the existing ignore coverage for `codeInfoStatus/reviews/0000055-external-review-input.md` in that same `.gitignore` block. Purpose: keep the transient reviewer-input handoff out of durable tracked history.
+9. [ ] Preserve the existing ignore coverage for `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md` in that same `.gitignore` block. Purpose: keep the additive blind-spot challenge artifact intentionally ignored.
+10. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`. Description: Requirement `R1`. Confirm the current pass durable evidence artifact exists on disk before and after the ignore-boundary repair. Purpose: prevent the visibility proof from relying on a missing evidence path.
+11. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`. Description: Requirement `R1`. Confirm the current pass durable findings artifact exists on disk before and after the ignore-boundary repair. Purpose: prevent the visibility proof from relying on a missing findings path.
+12. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-current-review.json`. Description: Requirement `R2`. Confirm the transient current-review handoff still exists on disk while remaining ignored. Purpose: keep the transient-versus-durable boundary honest instead of implied.
+13. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-external-review-input.md`. Description: Requirement `R2`. Confirm the transient reviewer-input handoff still exists on disk while remaining ignored. Purpose: keep the transient-versus-durable boundary honest instead of implied.
+14. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`. Description: Requirement `R2`. Confirm the additive blind-spot challenge artifact still exists on disk while remaining ignored. Purpose: keep the additive-context boundary honest instead of implied.
+15. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R3`. Prove `git check-ignore -v` no longer reports the current pass durable evidence artifact as ignored. Purpose: make the durable visibility contract explicit instead of relying on a force-add workaround.
+16. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R3`. Prove `git check-ignore -v` no longer reports the current pass durable findings artifact as ignored. Purpose: make the durable visibility contract explicit instead of relying on a force-add workaround.
+17. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R2`. Prove `git check-ignore -v` still reports `codeInfoStatus/reviews/0000055-current-review.json` as ignored. Purpose: keep the transient handoff boundary explicit on current disk.
+18. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R2`. Prove `git check-ignore -v` still reports `codeInfoStatus/reviews/0000055-external-review-input.md` as ignored. Purpose: keep the transient reviewer-input boundary explicit on current disk.
+19. [ ] Proof type: direct git validation. Location: `.gitignore`. Description: Requirement `R2`. Prove `git check-ignore -v` still reports `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md` as ignored. Purpose: keep the additive blind-spot boundary explicit on current disk.
+20. [ ] Proof type: support-file scope guard. Location: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Description: Requirement `R4`. Keep this task limited to `.gitignore`, direct git validation, and plan maintenance. Purpose: prevent this review-hygiene repair from reopening runtime code or wrapper surfaces.
+21. [ ] Proof type: cleanup-ownership guard. Location: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Description: Requirement `R5`. Do not delete, recreate, or reset any current-pass review artifact while repairing the ignore boundary. Purpose: keep cleanup ownership with the review workflow instead of hiding it inside this task.
+
+#### Testing
+
+1. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md && test -f codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md && test -f codeInfoStatus/reviews/0000055-current-review.json && test -f codeInfoStatus/reviews/0000055-external-review-input.md && test -f codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md` and record the file-inventory proof against subtasks 10 through 14; if any file is missing, stop on that partial state instead of closing the story with replacement or inferred evidence.
+2. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules, recording that proof against subtasks 15 through 19.
+3. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm the current pass durable artifacts plus the support-file updates are naturally visible to normal git workflows, while tolerating any earlier intentionally visible durable review artifacts that already share the same review-artifact path, recording that proof against subtasks 20 through 21.
+4. [ ] Not applicable: do not rerun fresh build, test, compose, smoke, lint, or format wrappers for this task because the changed files are limited to `.gitignore` plus plan maintenance around review-artifact hygiene. Purpose: keep proof proportional to the support-file-only change surface instead of inventing duplicate runtime evidence.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T181123Z-5c5b80b1` to repair the current pass durable review-artifact visibility boundary without widening scope beyond allowed support-file hygiene.
+
+### Task 152. Re-Validate Story 55 After Review Pass `0000055-20260415T181123Z-5c5b80b1`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `151`
+- Task Status: `__to_do__`
+- Notes: Added from review pass `0000055-20260415T181123Z-5c5b80b1` as the required final validation task after the findings-driven artifact-hygiene repair lands.
+
+#### Overview
+
+This final review-follow-up task re-validates Story 55 after the current pass artifact-visibility repair lands, preserves the retained acceptance-proof chain from Task 150, and refreshes the maintained summary so the story can become honestly complete again without dropping the current pass rejected-risk and blind-spot reasoning.
+
+#### Task Exit Criteria
+
+- `R1.` Task 151 is `__done__`, and the current pass durable evidence and findings artifacts are naturally visible while the transient current-review, reviewer-input, and additive blind-spot challenge files remain ignored.
+- `R2.` `planning/0000055-pr-summary.md` carries forward the retained Task 150 acceptance-proof chain, explicitly including `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, `test-results/server-unit-tests-2026-04-15T09-57-34-003Z.log`, `test-results/server-cucumber-tests-2026-04-15T10-17-40-710Z.log`, `test-results/client-tests-2026-04-15T10-21-28-458Z.log`, `logs/test-summaries/e2e-tests-latest.log`, and the Task 150 direct-git proof homes preserved in the `0000055-20260415T170919Z-c22c790c` close-out section.
+- `R3.` `planning/0000055-pr-summary.md` carries forward the current pass rejected-risk notes, blind-spot challenge outcome, sibling UI-affordance parity weak-proof note, and any still-honest `AC30`, `AC32`, and `AC43` caveats without overstating the review as exhaustive.
+- `R4.` Story 55 final validation records the direct git proof that the repaired visibility boundary for pass `0000055-20260415T181123Z-5c5b80b1` now matches the review flow contract on current disk.
+- `R5.` No fresh build, test, compose, smoke, lint, or format wrapper rerun is required because this task only revalidates `.gitignore` plus maintained-summary support-file updates and intentionally retains the Task 150 proof chain instead of inventing a narrower or duplicate runtime proof path.
+- `R6.` The summary refresh does not delete, recreate, or silently replace any current-pass review artifact or retained Task 150 proof home; if the file-inventory proof or retained-proof checks fail, final validation stops on that partial state instead of fabricating replacement evidence.
+
+#### Proof Mapping
+
+- `P1.` Requirement: Task 151 is complete, and the current pass durable, transient, and additive review artifacts still exist for honest close-out. Owners: Task 151, `.gitignore`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 10, 18 through 24, and 32 through 33; Testing 1 through 5.
+- `P2.` Requirement: the retained Task 150 acceptance-proof chain remains cited honestly in the maintained summary after this support-file repair. Owners: `planning/0000055-pr-summary.md`. Proof homes: subtasks 11 through 17 and 32; Testing 5.
+- `P3.` Requirement: the maintained summary carries forward the current pass rejected-risk notes, blind-spot challenge outcome, sibling UI-affordance weak-proof note, and residual `AC30`/`AC32`/`AC43` areas without overstating coverage. Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`, `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`. Proof homes: subtasks 1 through 3 and 25 through 31; Testing 5.
+- `P4.` Requirement: final validation records the direct git proof for the repaired visibility boundary on current disk. Owners: `planning/0000055-pr-summary.md`, `.gitignore`. Proof homes: subtasks 18 through 24; Testing 3 through 5.
+- `P5.` Requirement: support-file-only scope stays honest, so fresh wrapper reruns remain out of scope and replacement evidence is forbidden. Owners: `planning/0000055-pr-summary.md`, `.gitignore`, `AGENTS.md`. Proof homes: subtasks 6, 11 through 17, and 32 through 33; Testing 1, 5, and 6.
+
+#### Documentation Locations
+
+- `AGENTS.md`
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `planning/0000055-pr-summary.md`
+- `.gitignore`
+- `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`
+- `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`
+- `codeInfoStatus/reviews/0000055-current-review.json`
+- `codeInfoStatus/reviews/0000055-external-review-input.md`
+- `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`
+
+#### Subtasks
+
+1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`. Purpose: keep the final close-out anchored to the exact stored evidence artifact for this pass.
+2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`. Purpose: keep the final close-out anchored to the exact stored findings artifact for this pass.
+3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`. Purpose: preserve the additive blind-spot reasoning explicitly while final validation closes out.
+4. [ ] Proof type: plan-state validation. Location: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Description: Requirement `R1`. Confirm Task 151 is `__done__` before final close-out starts. Purpose: keep prerequisite ownership explicit instead of assuming the visibility repair already landed.
+5. [ ] Proof type: plan-state validation. Location: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Description: Requirement `R1`. Confirm this task is the only remaining non-`__done__` owner before final close-out. Purpose: keep the last review-follow-up handoff unambiguous for the implementation loop.
+6. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md`. Description: Requirement `R1`. Confirm the current pass durable evidence artifact exists on disk during final validation. Purpose: prevent the later visibility and summary-refresh proofs from relying on a missing evidence path.
+7. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md`. Description: Requirement `R1`. Confirm the current pass durable findings artifact exists on disk during final validation. Purpose: prevent the later visibility and summary-refresh proofs from relying on a missing findings path.
+8. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-current-review.json`. Description: Requirement `R1`. Confirm the transient current-review handoff still exists during final validation. Purpose: keep the transient-versus-durable boundary honest instead of assuming the handoff file is present.
+9. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-external-review-input.md`. Description: Requirement `R1`. Confirm the transient reviewer-input handoff still exists during final validation. Purpose: keep the transient-versus-durable boundary honest instead of assuming the reviewer-input file is present.
+10. [ ] Proof type: file inventory. Location: `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md`. Description: Requirement `R1`. Confirm the additive blind-spot challenge artifact still exists during final validation. Purpose: keep the additive-context boundary honest instead of assuming the challenge file is present.
+11. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact inherited Task 150 proof home `logs/test-summaries/compose-build-latest.log` in the `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: keep the retained compose-build proof explicit instead of letting this support-file-only repair silently replace it.
+12. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact inherited Task 150 proof home `logs/test-summaries/build-server-latest.log` in the `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: keep the retained server-build proof explicit instead of letting this support-file-only repair silently replace it.
+13. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact inherited Task 150 proof home `logs/test-summaries/build-client-latest.log` in the `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: keep the retained client-build proof explicit instead of letting this support-file-only repair silently replace it.
+14. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact inherited Task 150 proof home `test-results/server-unit-tests-2026-04-15T09-57-34-003Z.log` in the `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: keep the retained server-unit proof explicit instead of letting this support-file-only repair silently replace it.
+15. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact inherited Task 150 proof home `test-results/server-cucumber-tests-2026-04-15T10-17-40-710Z.log` in the `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: keep the retained server-cucumber proof explicit instead of letting this support-file-only repair silently replace it.
+16. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact inherited Task 150 proof home `test-results/client-tests-2026-04-15T10-21-28-458Z.log` in the `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: keep the retained client-test proof explicit instead of letting this support-file-only repair silently replace it.
+17. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Retain the exact inherited Task 150 proof home `logs/test-summaries/e2e-tests-latest.log` in the `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: keep the retained e2e proof explicit instead of letting this support-file-only repair silently replace it.
+18. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T181123Z-5c5b80b1` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md` is visible after the `.gitignore` repair. Purpose: keep the evidence-artifact visibility contract explicit in the maintained summary.
+19. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T181123Z-5c5b80b1` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md` is visible after the `.gitignore` repair. Purpose: keep the findings-artifact visibility contract explicit in the maintained summary.
+20. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T181123Z-5c5b80b1` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-current-review.json` remains ignored after the visibility repair. Purpose: keep the transient current-review boundary explicit instead of implied.
+21. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T181123Z-5c5b80b1` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-external-review-input.md` remains ignored after the visibility repair. Purpose: keep the transient reviewer-input boundary explicit instead of implied.
+22. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R1`. Under the `0000055-20260415T181123Z-5c5b80b1` close-out section in `planning/0000055-pr-summary.md`, record the direct proof home showing `codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md` remains ignored after the visibility repair. Purpose: keep the additive blind-spot boundary explicit instead of implied.
+23. [ ] Proof type: direct git validation. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R4`. Under the `0000055-20260415T181123Z-5c5b80b1` close-out section in `planning/0000055-pr-summary.md`, record the exact `git check-ignore -v` proof home used for the repaired visibility boundary on current disk. Purpose: preserve the final validation path for the current support-file hygiene repair.
+24. [ ] Proof type: direct git validation. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R4`. Under the `0000055-20260415T181123Z-5c5b80b1` close-out section in `planning/0000055-pr-summary.md`, record the exact `git status --short` proof home used to show the durable artifacts and support-file updates are naturally visible to normal git workflows. Purpose: preserve the final validation path for the current support-file hygiene repair.
+25. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. In the `0000055-20260415T181123Z-5c5b80b1` close-out section, carry forward the rejected-risk note for `enqueueOrReuseIngestRequest()`. Purpose: preserve the strengthened duplicate-admission reasoning from the stored findings artifact instead of silently dropping it during final close-out.
+26. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. In the `0000055-20260415T181123Z-5c5b80b1` close-out section, carry forward the rejected-risk note for `recoverIngestQueueOnStartup()`. Purpose: preserve the strengthened startup-recovery reasoning from the stored findings artifact instead of silently dropping it during final close-out.
+27. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. In the `0000055-20260415T181123Z-5c5b80b1` close-out section, carry forward the rejected-risk note for `applyQueueOverlay()`. Purpose: preserve the strengthened queue-overlay reasoning from the stored findings artifact instead of silently dropping it during final close-out.
+28. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. In the `0000055-20260415T181123Z-5c5b80b1` close-out section, carry forward the blind-spot challenge outcome that no new findings were generated for this pass. Purpose: keep the additive challenge conclusion explicit instead of leaving it implied.
+29. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. In the `0000055-20260415T181123Z-5c5b80b1` close-out section, carry forward the residual weak-proof note around sibling UI-affordance parity for blocked row-level `Remove` behavior. Purpose: keep the challenge’s honest UI-parity caveat explicit instead of silently upgrading it to exhaustive proof.
+30. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R3`. In the `0000055-20260415T181123Z-5c5b80b1` close-out section, carry forward the still-honest weak-proof areas for `AC30`, `AC32`, and `AC43`. Purpose: keep the retained proof caveats explicit instead of silently upgrading them to exhaustive proof.
+31. [ ] Proof type: retained-runtime-scope guard. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R5`. Keep the summary refresh anchored to the retained Task 150 wrapper and direct-git proof chain rather than inventing new runtime proof. Purpose: make the final support-file-only validation boundary explicit instead of leaving it implied.
+32. [ ] Proof type: no-replacement-evidence guard. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R6`. Do not delete, recreate, or paraphrase away missing current-pass review artifacts or retained proof homes because cleanup and regeneration ownership stay outside this task. Purpose: make the no-replacement-evidence boundary explicit instead of leaving it implied.
+33. [ ] Proof type: proof-home continuity. Location: `planning/0000055-pr-summary.md`. Description: Requirement `R2`. Keep the `0000055-20260415T170919Z-c22c790c` close-out section as the retained prior-pass proof owner while adding the new `0000055-20260415T181123Z-5c5b80b1` close-out section. Purpose: preserve the proof chain across review passes instead of overwriting it.
+
+#### Testing
+
+1. [ ] Run `test -f codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md && test -f codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md && test -f codeInfoStatus/reviews/0000055-current-review.json && test -f codeInfoStatus/reviews/0000055-external-review-input.md && test -f codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md` and record the resulting file-inventory proof against subtasks 6 through 10; if any file is missing, stop on that partial state instead of closing the story with replacement or inferred evidence.
+2. [ ] Run `python3 scripts/plan_status.py` and record the plan-state proof against subtasks 4 through 5 while confirming Task 151 is `__done__`, no later task has reopened ahead of this close-out, and Task 152 is the only remaining non-`__done__` owner before final completion is recorded.
+3. [ ] Run `git check-ignore -v codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-evidence.md codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-findings.md codeInfoStatus/reviews/0000055-current-review.json codeInfoStatus/reviews/0000055-external-review-input.md codeInfoStatus/reviews/0000055-20260415T181123Z-5c5b80b1-blind-spot-challenge.md` and confirm only the transient or additive files still match ignore rules, recording that proof against subtasks 18 through 24.
+4. [ ] Run `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md` and confirm the current pass durable artifacts plus the maintained plan and summary updates are naturally visible to normal git workflows, while tolerating any earlier intentionally visible durable review artifacts that already share the same review-artifact path, recording that proof against subtask 24.
+5. [ ] Run `sed -n '/0000055-20260415T181123Z-5c5b80b1/,/^## /p' planning/0000055-pr-summary.md | rg -n "compose-build-latest.log|build-server-latest.log|build-client-latest.log|server-unit-tests-2026-04-15T09-57-34-003Z.log|server-cucumber-tests-2026-04-15T10-17-40-710Z.log|client-tests-2026-04-15T10-21-28-458Z.log|e2e-tests-latest.log|enqueueOrReuseIngestRequest\\(\\)|recoverIngestQueueOnStartup\\(\\)|applyQueueOverlay\\(\\)|no new findings|row-level `Remove`|AC30|AC32|AC43|git check-ignore -v|git status --short"` and confirm that exact current-pass close-out section retains the Task 150 proof homes, the current-pass direct-git proof references, the carried-forward rejected-risk notes, the blind-spot conclusion, the sibling UI-parity weak-proof note, and the `AC30`/`AC32`/`AC43` caveats on disk; if any retained proof home or review note is missing from that section, stop on that partial state instead of paraphrasing or silently replacing the missing evidence.
+6. [ ] Not applicable: do not rerun fresh build, test, compose, smoke, lint, or format wrappers for this task because the changed files are limited to `.gitignore` plus `planning/0000055-pr-summary.md`, and the retained Task 150 proof chain remains the realistic runtime evidence owner. Purpose: keep final validation proportional to the support-file-only change surface instead of inventing duplicate runtime proof.
+
+#### Implementation notes
+
+- Added from review pass `0000055-20260415T181123Z-5c5b80b1` as the final validation task required after the findings-driven artifact-hygiene repair lands.

@@ -10935,7 +10935,7 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `139`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T103448Z-0a37b558` as the required final validation task after the findings-driven artifact-hygiene repair lands.
 
 #### Overview
@@ -11008,3 +11008,4 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 - Testing 2 passed via `git check-ignore -v ...`; Git still matches only `0000055-current-review.json`, `0000055-external-review-input.md`, and `0000055-20260415T103448Z-0a37b558-blind-spot-challenge.md`, leaving the current pass evidence and findings paths off the ignored side of the boundary.
 - Testing 3 passed via `git status --short codeInfoStatus/reviews .gitignore planning/0000055-users-can-queue-ingest-and-re-embed-requests.md planning/0000055-pr-summary.md`; normal git status remained consistent with the repaired visibility boundary while tolerating earlier intentionally visible durable artifacts from pass `2aaab374`.
 - Testing 4 is honestly not applicable on current disk: Task 140 revalidates only `.gitignore` plus maintained summary support files, so this automated-proof step did not invent duplicate build, test, compose, smoke, lint, or format reruns beyond the direct git and file-inventory proof already recorded above.
+- Automated-proof audit closed Task 140 after confirming all 23 subtasks and all 4 testing gates are complete on disk, `python3 scripts/plan_status.py --task-number 140` reports `selected_task.live_blockers: []`, and no prose-only remainder survives as an honest open gate.

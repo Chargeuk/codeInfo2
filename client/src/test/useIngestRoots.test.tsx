@@ -1,12 +1,56 @@
 import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import useIngestRoots from '../hooks/useIngestRoots';
-import { getFetchMock, mockJsonResponse } from './support/fetchMock';
+import {
+  asFetchImplementation,
+  getFetchMock,
+  mockJsonResponse,
+} from './support/fetchMock';
 
 const mockFetch = getFetchMock();
 
 function mockRootsResponse(payload: unknown) {
   mockFetch.mockResolvedValueOnce(mockJsonResponse(payload));
+}
+
+function createDeferredRootsRequest() {
+  let resolveResponse: ((value: Response) => void) | undefined;
+  let rejectResponse: ((reason?: unknown) => void) | undefined;
+  let resolveAborted: (() => void) | undefined;
+  const aborted = new Promise<void>((resolve) => {
+    resolveAborted = resolve;
+  });
+
+  return {
+    request: (_input: unknown, init?: RequestInit) =>
+      new Promise<Response>((resolve, reject) => {
+        resolveResponse = resolve;
+        rejectResponse = reject;
+        const signal = init?.signal;
+        const rejectAbort = () => {
+          resolveAborted?.();
+          reject(
+            Object.assign(new Error('Aborted'), {
+              name: 'AbortError',
+            }),
+          );
+        };
+
+        if (signal?.aborted) {
+          rejectAbort();
+          return;
+        }
+
+        signal?.addEventListener('abort', rejectAbort, { once: true });
+      }),
+    resolveJson(payload: unknown) {
+      resolveResponse?.(mockJsonResponse(payload));
+    },
+    reject(error: Error) {
+      rejectResponse?.(error);
+    },
+    aborted,
+  };
 }
 
 describe('useIngestRoots', () => {
@@ -650,6 +694,228 @@ describe('useIngestRoots', () => {
       ]),
     );
     expect(result.current.roots).toHaveLength(1);
+  });
+
+  it('keeps loading owned by the newest overlapping ingest-roots refetch until that request settles', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'completed',
+          model: 'embed-model-a',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const olderRefresh = createDeferredRootsRequest();
+    const newerRefresh = createDeferredRootsRequest();
+    mockFetch.mockImplementationOnce(asFetchImplementation(olderRefresh.request));
+    mockFetch.mockImplementationOnce(asFetchImplementation(newerRefresh.request));
+
+    await act(async () => {
+      void result.current.refetch();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+
+    await act(async () => {
+      void result.current.refetch();
+    });
+
+    await olderRefresh.aborted;
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/stable-repo',
+        model: 'embed-model-a',
+      },
+    ]);
+
+    newerRefresh.resolveJson({
+      roots: [
+        {
+          id: '/fresh-repo',
+          name: 'fresh-repo',
+          path: '/fresh-repo',
+          status: 'completed',
+          model: 'embed-model-b',
+          lastError: null,
+        },
+      ],
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/fresh-repo',
+        model: 'embed-model-b',
+      },
+    ]);
+  });
+
+  it('keeps the previously settled repo list locally visible until the newest successful refetch replaces it', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'completed',
+          model: 'embed-model-a',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const refresh = createDeferredRootsRequest();
+    mockFetch.mockImplementationOnce(asFetchImplementation(refresh.request));
+
+    await act(async () => {
+      void result.current.refetch();
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/stable-repo',
+        model: 'embed-model-a',
+      },
+    ]);
+
+    refresh.resolveJson({
+      roots: [
+        {
+          id: '/replacement-repo',
+          name: 'replacement-repo',
+          path: '/replacement-repo',
+          status: 'completed',
+          model: 'embed-model-b',
+          lastError: null,
+        },
+      ],
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/replacement-repo',
+        model: 'embed-model-b',
+      },
+    ]);
+  });
+
+  it('keeps the previously settled repo list locally visible while the newest refetch fails', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'completed',
+          model: 'embed-model-a',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const refresh = createDeferredRootsRequest();
+    mockFetch.mockImplementationOnce(asFetchImplementation(refresh.request));
+
+    await act(async () => {
+      void result.current.refetch();
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/stable-repo',
+        model: 'embed-model-a',
+      },
+    ]);
+
+    refresh.reject(new Error('Failed to load ingest roots (500)'));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(true);
+    expect(result.current.error).toBe('Failed to load ingest roots (500)');
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/stable-repo',
+        model: 'embed-model-a',
+      },
+    ]);
+  });
+
+  it('excludes stale aborted ingest-roots refetch completions from the visible retained repo list', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          id: '/stable-repo',
+          name: 'stable-repo',
+          path: '/stable-repo',
+          status: 'completed',
+          model: 'embed-model-a',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const olderRefresh = createDeferredRootsRequest();
+    const newerRefresh = createDeferredRootsRequest();
+    mockFetch.mockImplementationOnce(asFetchImplementation(olderRefresh.request));
+    mockFetch.mockImplementationOnce(asFetchImplementation(newerRefresh.request));
+
+    await act(async () => {
+      void result.current.refetch();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+
+    await act(async () => {
+      void result.current.refetch();
+    });
+
+    await olderRefresh.aborted;
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/stable-repo',
+        model: 'embed-model-a',
+      },
+    ]);
+
+    newerRefresh.resolveJson({
+      roots: [
+        {
+          id: '/replacement-repo',
+          name: 'replacement-repo',
+          path: '/replacement-repo',
+          status: 'completed',
+          model: 'embed-model-b',
+          lastError: null,
+        },
+      ],
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.roots).toMatchObject([
+      {
+        id: '/replacement-repo',
+        model: 'embed-model-b',
+      },
+    ]);
   });
 
   it('accepts and exposes the shared ingest roots schemaVersion constant', async () => {

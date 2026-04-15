@@ -336,11 +336,14 @@ export function useIngestRoots(): State {
   const [error, setError] = useState<string | undefined>();
 
   const controllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef(0);
 
   const fetchRoots = useCallback(async () => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
     setIsLoading(true);
     try {
       const res = await fetch(new URL('/ingest/roots', serverBase).toString(), {
@@ -381,6 +384,10 @@ export function useIngestRoots(): State {
       );
       const aliasFallbackUsed = !lockModelCanonical && Boolean(lockModelAlias);
 
+      if (activeRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setRoots(normalizedRoots);
       setSchemaVersion(normalizedSchemaVersion);
       setLockedModelId(resolvedLockModel);
@@ -398,13 +405,18 @@ export function useIngestRoots(): State {
       setError(undefined);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
+      if (activeRequestIdRef.current !== requestId) {
+        return;
+      }
       setIsError(true);
       setError((err as Error).message);
     } finally {
       if (controllerRef.current === controller) {
         controllerRef.current = null;
       }
-      setIsLoading(false);
+      if (activeRequestIdRef.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }, [log]);
 

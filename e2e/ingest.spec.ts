@@ -6,6 +6,7 @@ import {
   request,
   test,
   type APIRequestContext,
+  type Route,
 } from '@playwright/test';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
@@ -27,8 +28,8 @@ let skipReason: string | undefined;
 let ingestSkip: string | undefined;
 let chosenModelId: string | undefined;
 
-const staleDiagnosticsRecoveryScenario =
-  'previously errored queued ingest rows recover into healthy state without stale diagnostics through refresh';
+const overlappingRefreshRetainsVisibleRowsScenario =
+  'overlapping ingest-roots refresh keeps retained rows visible while the newest request owns loading';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -514,7 +515,7 @@ test.describe.serial('Ingest flows', () => {
   test.beforeEach(async ({}, testInfo) => {
     test.skip(Boolean(skipReason), skipReason ?? 'prerequisites missing');
     const requiresLiveIngestPrereqs =
-      testInfo.title !== staleDiagnosticsRecoveryScenario;
+      testInfo.title !== overlappingRefreshRetainsVisibleRowsScenario;
     test.skip(
       requiresLiveIngestPrereqs && Boolean(ingestSkip),
       ingestSkip ?? 'ingest unavailable',
@@ -781,33 +782,68 @@ test.describe.serial('Ingest flows', () => {
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
-  test(staleDiagnosticsRecoveryScenario, async ({
+  test(overlappingRefreshRetainsVisibleRowsScenario, async ({
     page,
   }) => {
     let rootsRequestCount = 0;
-
-    await page.route('**/ingest/roots*', async (route) => {
+    let releaseRefreshResponse: (() => void) | undefined;
+    let observedRefreshRequest: (() => void) | undefined;
+    const refreshRequestObserved = new Promise<void>((resolve) => {
+      observedRefreshRequest = resolve;
+    });
+    const routePattern = '**/ingest/roots*';
+    const rootsRoute = async (route: Route) => {
       rootsRequestCount += 1;
+      if (rootsRequestCount === 1) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            roots: [
+              {
+                id: '/data/stable-repo',
+                requestId: 'queue-request-stable',
+                runId: null,
+                name: 'stable-before-refresh',
+                path: '/data/stable-repo',
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-small',
+                model: 'text-embedding-3-small',
+                modelId: 'text-embedding-3-small',
+                status: 'ingesting',
+                phase: 'queued',
+                queueState: 'waiting',
+                queuePosition: 1,
+                lastIngestAt: '2025-01-01T00:00:00.000Z',
+                counts: { files: 2, chunks: 4, embedded: 4 },
+                lastError: null,
+              },
+            ],
+            schemaVersion: '0000055-queued-repo-list-v1',
+            lockedModelId: 'text-embedding-3-small',
+          }),
+        });
+        return;
+      }
+
+      observedRefreshRequest?.();
+      await new Promise<void>((resolve) => {
+        releaseRefreshResponse = resolve;
+      });
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           roots: [
             {
-              ...(rootsRequestCount > 1
-                ? { id: '/data/stable-repo' }
-                : { id: 'display-derived-stale-id' }),
-              requestId: 'queue-request-fresh',
+              id: '/data/stable-repo',
+              requestId: 'queue-request-stable',
               runId: null,
-              name: 'stable-repo',
-              description:
-                rootsRequestCount > 1
-                  ? 'canonical id restored'
-                  : 'fallback identity only',
+              name: 'stable-after-refresh',
               path: '/data/stable-repo',
               embeddingProvider: 'openai',
               embeddingModel: 'text-embedding-3-small',
-              model: 'stale-persisted-model',
+              model: 'text-embedding-3-small',
               modelId: 'text-embedding-3-small',
               status: 'ingesting',
               phase: 'queued',
@@ -815,53 +851,50 @@ test.describe.serial('Ingest flows', () => {
               queuePosition: 1,
               lastIngestAt: '2025-01-01T00:00:00.000Z',
               counts: { files: 2, chunks: 4, embedded: 4 },
-              lastError: 'Stale persisted error',
+              lastError: null,
             },
           ],
           schemaVersion: '0000055-queued-repo-list-v1',
           lockedModelId: 'text-embedding-3-small',
         }),
       });
-    });
+    };
 
-    await page.goto(`${baseUrl}/ingest`);
+    await page.route(routePattern, rootsRoute);
 
-    const rows = page.getByRole('row', { name: /stable-repo/i });
-    const row = rows.first();
-    await expect(row).toBeVisible();
-    await expect(rows).toHaveCount(1);
-    await expect(
-      row.getByText('openai / text-embedding-3-small'),
-    ).toBeVisible();
-    await expect(row.getByText(/queued \(#1\)/i)).toBeVisible();
-    await expect(row.getByText('stale-persisted-model')).toHaveCount(0);
-    await expect(row.getByText('Stale persisted error')).toHaveCount(0);
+    try {
+      await page.goto(`${baseUrl}/ingest`);
 
-    await page.getByRole('button', { name: /^refresh$/i }).click();
+      const oldRow = page.getByRole('row', { name: /stable-before-refresh/i });
+      const newRow = page.getByRole('row', { name: /stable-after-refresh/i });
+      const refreshButton = page.getByRole('button', { name: /^refresh$/i });
 
-    await expect
-      .poll(() => rootsRequestCount, {
-        timeout: 10_000,
-        message: 'waiting for the refresh to re-fetch /ingest/roots',
-      })
-      .toBeGreaterThan(1);
+      await expect(oldRow).toBeVisible();
+      await expect(newRow).toHaveCount(0);
+      await expect(
+        oldRow.getByText('openai / text-embedding-3-small'),
+      ).toBeVisible();
 
-    await expect(rows).toHaveCount(1);
-    await row.getByRole('button', { name: /details/i }).click();
-    await expect(page.getByText(/Request ID/i)).toBeVisible();
-    await expect(page.getByText(/Pending queue start/i)).toBeVisible();
-    await expect(page.getByText('canonical id restored')).toBeVisible();
-    await expect(
-      page
-        .getByTestId('root-details')
-        .getByText('openai / text-embedding-3-small', { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByText('stale-persisted-model')).toHaveCount(0);
-    await expect(page.getByText('Stale persisted error')).toHaveCount(0);
-    await saveStableScreenshot(
-      page,
-      '0000055-stale-diagnostics-recovered.png',
-    );
+      await refreshButton.click();
+      await refreshRequestObserved;
+
+      await expect(refreshButton).toBeDisabled();
+      await expect(oldRow).toBeVisible();
+      await expect(newRow).toHaveCount(0);
+      await saveStableScreenshot(
+        page,
+        '0000055-overlapping-refetch-retained-rows.png',
+      );
+
+      releaseRefreshResponse?.();
+
+      await expect(refreshButton).toBeEnabled();
+      await expect(newRow).toBeVisible();
+      await expect(oldRow).toHaveCount(0);
+    } finally {
+      releaseRefreshResponse?.();
+      await page.unroute(routePattern, rootsRoute);
+    }
   });
 
   test('queued ingest rows keep one stable identity while queue ownership resumes after the current head finishes', async ({

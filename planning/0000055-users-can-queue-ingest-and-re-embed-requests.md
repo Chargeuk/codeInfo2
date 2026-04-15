@@ -10293,16 +10293,16 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`. Purpose: keep the ignore-boundary repair anchored to the exact durable evidence artifact named by the stored review pass.
-2. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`. Purpose: keep the ignore-boundary repair anchored to the exact durable findings artifact named by the stored review pass.
-3. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Purpose: preserve the additive challenge context while repairing only the durable artifact boundary.
-4. [ ] Update `.gitignore` so `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md` moves onto the naturally visible side of the boundary. Purpose: make the current pass durable evidence artifact commit-visible without broadening unrelated review paths.
-5. [ ] Update `.gitignore` so `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md` moves onto the naturally visible side of the boundary. Purpose: make the current pass durable findings artifact commit-visible without broadening unrelated review paths.
-6. [ ] Re-check the exact ignore treatment for `codeInfoStatus/reviews/0000055-current-review.json` after the `.gitignore` edit and keep it ignored if any broader pattern change would expose it. Purpose: preserve the workflow handoff as transient state.
-7. [ ] Re-check the exact ignore treatment for `codeInfoStatus/reviews/0000055-external-review-input.md` after the `.gitignore` edit and keep it ignored if any broader pattern change would expose it. Purpose: preserve reviewer input as transient state.
-8. [ ] Re-check the exact ignore treatment for `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` after the `.gitignore` edit and keep it ignored if any broader pattern change would expose it. Purpose: preserve the additive challenge file as optional context instead of upgrading it into a durable artifact.
-9. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for the current pass durable evidence and findings artifacts after the ignore-boundary repair. Purpose: keep the maintained summary aligned with the new durable artifact boundary.
-10. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the direct git boundary checks that confirm the transient handoff, reviewer-input, and optional challenge files stayed excluded. Purpose: make the final artifact-boundary proof bundle explicit for later reviewers.
+1. [x] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`. Purpose: keep the ignore-boundary repair anchored to the exact durable evidence artifact named by the stored review pass.
+2. [x] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`. Purpose: keep the ignore-boundary repair anchored to the exact durable findings artifact named by the stored review pass.
+3. [x] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Purpose: preserve the additive challenge context while repairing only the durable artifact boundary.
+4. [x] Update `.gitignore` so `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md` moves onto the naturally visible side of the boundary. Purpose: make the current pass durable evidence artifact commit-visible without broadening unrelated review paths.
+5. [x] Update `.gitignore` so `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md` moves onto the naturally visible side of the boundary. Purpose: make the current pass durable findings artifact commit-visible without broadening unrelated review paths.
+6. [x] Re-check the exact ignore treatment for `codeInfoStatus/reviews/0000055-current-review.json` after the `.gitignore` edit and keep it ignored if any broader pattern change would expose it. Purpose: preserve the workflow handoff as transient state.
+7. [x] Re-check the exact ignore treatment for `codeInfoStatus/reviews/0000055-external-review-input.md` after the `.gitignore` edit and keep it ignored if any broader pattern change would expose it. Purpose: preserve reviewer input as transient state.
+8. [x] Re-check the exact ignore treatment for `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` after the `.gitignore` edit and keep it ignored if any broader pattern change would expose it. Purpose: preserve the additive challenge file as optional context instead of upgrading it into a durable artifact.
+9. [x] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the exact proof homes for the current pass durable evidence and findings artifacts after the ignore-boundary repair. Purpose: keep the maintained summary aligned with the new durable artifact boundary.
+10. [x] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: record the direct git boundary checks that confirm the transient handoff, reviewer-input, and optional challenge files stayed excluded. Purpose: make the final artifact-boundary proof bundle explicit for later reviewers.
 
 #### Testing
 
@@ -10312,6 +10312,9 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 #### Implementation notes
 
 - Added from review pass `0000055-20260415T004532Z-74f062c7` to repair the current pass durable review-artifact visibility boundary.
+- Subtasks 1 through 3: re-read the current pass evidence, findings, and blind-spot challenge from disk before editing. That kept the repair scoped to the new durable-artifact boundary and confirmed the blind-spot file should remain additive-only.
+- Subtasks 4 through 8: added pass-specific `.gitignore` exceptions for the new durable evidence and findings files only, then re-checked the adjacent ignore rules in the file so `0000055-current-review.json`, `0000055-external-review-input.md`, and the current blind-spot challenge stay on the ignored side of the boundary.
+- Subtasks 9 through 10: extended `planning/0000055-pr-summary.md` with a new review-follow-up section for pass `0000055-20260415T004532Z-74f062c7`, recording the durable artifact anchors plus the exact future `git check-ignore -v` and `git status --short` proof homes that Task 131's automated-proof step must run.
 
 ### Task 132. Re-Validate Persisted Re-Embed Paths At Replay Time Before Discovery Runs
 

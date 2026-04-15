@@ -10272,6 +10272,12 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 - `R2.` `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` remain ignored.
 - `R3.` `planning/0000055-pr-summary.md` records the repaired proof homes and keeps the current pass durable artifacts commit-visible in the maintained summary.
 
+#### Proof Mapping
+
+- `R1.` Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`. Proof homes: subtasks 2 through 4, Testing 1 through 2.
+- `R2.` Owners: `.gitignore`, `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Proof homes: subtasks 2 through 3, Testing 1.
+- `R3.` Owner: `planning/0000055-pr-summary.md`. Proof homes: subtask 4, Testing 2, Task 138 revalidation notes.
+
 #### Documentation Locations
 
 - `.gitignore`
@@ -10285,9 +10291,9 @@ Repair the review-artifact ignore boundary for this exact pass so its durable ev
 #### Subtasks
 
 1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` before changing `.gitignore`. Purpose: keep the ignore-boundary repair anchored to the exact stored review pass.
-2. [ ] Update `.gitignore` so this pass's `evidence.md` and `findings.md` paths become naturally visible to ordinary `git status` and `git add` flows without broadening visibility for unrelated review artifacts. Purpose: make the current durable review artifacts commit-visible.
-3. [ ] Preserve the existing ignore treatment for `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Purpose: keep the workflow handoff, transient reviewer input, and additive challenge file off the durable side of the boundary.
-4. [ ] Refresh `planning/0000055-pr-summary.md` with the repaired proof homes for this exact review pass. Purpose: keep the maintained summary aligned with the new durable artifact boundary.
+2. [ ] Update `.gitignore` so only `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md` and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md` move onto the naturally visible side of the boundary. Purpose: make the current durable review artifacts commit-visible without reopening older review paths or unrelated stories.
+3. [ ] Re-check the exact transient paths `codeInfoStatus/reviews/0000055-current-review.json`, `codeInfoStatus/reviews/0000055-external-review-input.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` after the `.gitignore` edit and keep them ignored if any broader pattern change would expose them. Purpose: preserve the workflow handoff, transient reviewer input, and additive challenge file as non-durable artifacts.
+4. [ ] Refresh `planning/0000055-pr-summary.md` with the repaired proof homes for this exact review pass, including the direct git boundary checks and the transient-file exclusions that remained intact. Purpose: keep the maintained summary aligned with the new durable artifact boundary.
 
 #### Testing
 
@@ -10315,6 +10321,12 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 - `R2.` A stale or tampered persisted `reembed` path cannot broaden execution beyond the canonical queued repository root.
 - `R3.` Direct server proof covers both the valid replay path and the mismatched persisted-path rejection path.
 
+#### Proof Mapping
+
+- `R1.` Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 2 through 4, Testing 1 through 2.
+- `R2.` Owners: `server/src/ingest/ingestJob.ts`, queue replay state derived from the canonical repository target. Proof homes: subtasks 2 through 4, Testing 1.
+- `R3.` Owner: `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtask 4, Testing 1, Task 138 retained proof summary.
+
 #### Documentation Locations
 
 - `server/src/ingest/ingestJob.ts`
@@ -10325,10 +10337,10 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 #### Subtasks
 
 1. [ ] Re-read the finding entry in `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md` and the current `reembed` replay path in `server/src/ingest/ingestJob.ts`. Purpose: keep the fix anchored to the exact persisted-path authority gap endorsed by the review.
-2. [ ] Update queued `reembed` execution so it validates or re-derives the executable repository root from the canonical queued target before any discovery or provider work begins. Purpose: remove the replay-time trust in stale persisted absolute paths.
-3. [ ] Preserve the existing canonical target bookkeeping and queue cleanup ownership while applying the replay-time root guard. Purpose: fix the authority boundary without widening the task into unrelated queue lifecycle changes.
-4. [ ] Add direct unit coverage for deferred and startup-recovered `reembed` work with both valid and mismatched persisted paths. Purpose: prove the corrected replay-time boundary instead of relying on adjacent `start`-only guards.
-5. [ ] Refresh `planning/0000055-pr-summary.md` with the new proof homes and any remaining residual caveat, if one survives. Purpose: keep the maintained summary aligned with the repaired replay path.
+2. [ ] Change the queued `reembed` execution path so it derives the executable repository root from the canonical queued target before `discoverFiles(...)` or any equivalent discovery setup runs. Purpose: remove replay-time trust in stale persisted absolute paths at the exact filesystem boundary the review identified.
+3. [ ] Apply the same root-authority rule to both freshly promoted waiting `reembed` work and startup-recovered `running` `reembed` work without weakening the existing `start`-path validation or queue cleanup ownership. Purpose: keep the repaired boundary consistent across the two replay entrypoints that can still reach discovery.
+4. [ ] Add direct unit proof for four concrete cases in `server/src/test/unit/ingest-queue-runtime.test.ts`: valid deferred `reembed`, mismatched deferred `reembed`, valid recovered `reembed`, and mismatched recovered `reembed`. Purpose: prove the corrected replay-time boundary instead of relying on adjacent `start`-only guards.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes for the valid and rejected replay paths and note any surviving caveat only if the new tests still leave one honestly indirect. Purpose: keep the maintained summary aligned with the repaired replay path.
 
 #### Testing
 
@@ -10356,6 +10368,12 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - `R2.` Recovery no longer replays logically finished work simply because the terminal marker write failed after the side effects committed.
 - `R3.` Direct server proof covers the barrier-write-failure branch and the resulting recovery behavior.
 
+#### Proof Mapping
+
+- `R1.` Owners: `server/src/ingest/ingestJob.ts`, the persisted queue-request state consumed during recovery. Proof homes: subtasks 2 through 4, Testing 1 through 2.
+- `R2.` Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`. Proof homes: subtasks 2 through 4, Testing 1.
+- `R3.` Owner: `server/src/test/unit/ingest-queue-runtime.test.ts`. Proof homes: subtask 4, Testing 1, Task 138 retained proof summary.
+
 #### Documentation Locations
 
 - `server/src/ingest/ingestJob.ts`
@@ -10366,10 +10384,10 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 #### Subtasks
 
 1. [ ] Re-read the stored finding for the post-commit replay barrier failure and the current finalization plus recovery paths in `server/src/ingest/ingestJob.ts`. Purpose: keep the repair bounded to the exact replay window endorsed by the review.
-2. [ ] Introduce a durable barrier path that survives terminal-marker write failure and still lets later cleanup finish without replaying committed work. Purpose: preserve side-effect idempotence across restart recovery.
-3. [ ] Update recovery or cleanup handling so the new barrier state is consumed deterministically before any waiting work is promoted. Purpose: keep startup ordering honest after the barrier repair lands.
-4. [ ] Add direct unit coverage for the barrier-write-failure path and its recovery outcome. Purpose: prove the repaired replay boundary rather than relying on the existing happy-path skip coverage alone.
-5. [ ] Refresh `planning/0000055-pr-summary.md` with the new barrier proof home and any honest residual caveat. Purpose: keep the maintained summary aligned with the repaired replay semantics.
+2. [ ] Add the smallest durable post-commit barrier the existing queue row can carry so a run that already committed its side effects is recognizable as non-replayable even if `markQueueRequestTerminalPublished()` fails. Purpose: preserve side-effect idempotence across restart recovery without widening the task into a new queue model redesign.
+3. [ ] Update recovery and cleanup ordering so the new barrier state is checked before replay promotion and still allows later cleanup ownership to finish deterministically. Purpose: keep startup ordering honest after the barrier repair lands.
+4. [ ] Add direct unit proof in `server/src/test/unit/ingest-queue-runtime.test.ts` for the concrete barrier-failure branch, the subsequent recovery skip behavior, and the remaining cleanup continuation path if cleanup still needs to run. Purpose: prove the repaired replay boundary rather than relying on the existing happy-path skip coverage alone.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new barrier proof homes and note any surviving caveat only if the repaired branch still has indirect proof. Purpose: keep the maintained summary aligned with the repaired replay semantics.
 
 #### Testing
 
@@ -10397,6 +10415,12 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - `R2.` The client continues to abort superseded requests without regressing the latest successful state adoption.
 - `R3.` Direct client proof covers the overlapping abort-and-restart loading lifecycle.
 
+#### Proof Mapping
+
+- `R1.` Owner: `client/src/hooks/useIngestRoots.ts`. Proof homes: subtasks 2 through 4, Testing 1 through 2.
+- `R2.` Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 2 through 4, Testing 1.
+- `R3.` Owner: `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtask 4, Testing 1, Task 138 retained proof summary.
+
 #### Documentation Locations
 
 - `client/src/hooks/useIngestRoots.ts`
@@ -10406,10 +10430,10 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 #### Subtasks
 
 1. [ ] Re-read the stored finding for overlapping `/ingest/roots` refetches and the current loading-state ownership in `client/src/hooks/useIngestRoots.ts`. Purpose: keep the repair bounded to the exact lifecycle bug endorsed by the review.
-2. [ ] Update `useIngestRoots` so only the newest request can clear the loading state it owns. Purpose: prevent the default UI path from briefly looking idle while the latest refetch is still pending.
-3. [ ] Preserve the existing abort-and-restart fetch behavior and data adoption semantics for the latest successful response. Purpose: keep the hook repair localized to loading ownership instead of widening it into unrelated fetch policy changes.
-4. [ ] Add direct client proof for overlapping abort-and-restart refetches. Purpose: replace the current indirect coverage with an honest lifecycle assertion.
-5. [ ] Refresh `planning/0000055-pr-summary.md` with the new loading-ownership proof home. Purpose: keep the maintained summary aligned with the repaired client lifecycle behavior.
+2. [ ] Update `useIngestRoots` so the loading reset is owned by the same request token, controller, or equivalent latest-request discriminator that owns the fetch start. Purpose: prevent an older aborted refetch from briefly making the UI look idle while a newer fetch is still pending.
+3. [ ] Preserve the existing abort-and-restart behavior for superseded requests and keep the latest successful response as the only state that can win the final data adoption path. Purpose: keep the hook repair localized to loading ownership instead of widening it into unrelated fetch policy changes.
+4. [ ] Add direct client proof for one overlapping abort-and-restart success path and one overlapping abort-and-restart failure path, both asserting that `isLoading` stays true until the newest request settles. Purpose: replace the current indirect coverage with an honest lifecycle assertion.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes for the overlapping refetch lifecycle. Purpose: keep the maintained summary aligned with the repaired client loading ownership.
 
 #### Testing
 
@@ -10437,6 +10461,12 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 - `R2.` Mixed-shape waiting payloads either stay canonical or degrade to an honestly blank or legacy-free emitted state instead of emitting contradictory identity.
 - `R3.` Direct server proof covers the partial-canonical waiting-overlay path.
 
+#### Proof Mapping
+
+- `R1.` Owners: `server/src/lmstudio/toolService.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 2 through 4, Testing 1 through 2.
+- `R2.` Owners: `server/src/lmstudio/toolService.ts`, `common` queue-aware repo-list contract already consumed by the client. Proof homes: subtasks 2 through 4, Testing 1.
+- `R3.` Owner: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtask 4, Testing 1, Task 138 retained proof summary.
+
 #### Documentation Locations
 
 - `server/src/lmstudio/toolService.ts`
@@ -10447,10 +10477,10 @@ The waiting queue overlay must not synthesize an impossible provider/model pair 
 #### Subtasks
 
 1. [ ] Re-read the stored waiting-overlay finding and the current `applyWaitingQueueRequestMetadata()` logic in `server/src/lmstudio/toolService.ts`. Purpose: keep the repair anchored to the exact mixed canonical-plus-legacy contradiction endorsed by the review.
-2. [ ] Update waiting-overlay field precedence so canonical provider/model data is emitted consistently and incompatible legacy fallbacks cannot synthesize a contradictory pair. Purpose: restore the shared `/ingest/roots` contract for waiting rows.
-3. [ ] Preserve the existing compatibility behavior for fully legacy or fully canonical payloads. Purpose: keep the repair localized to the mixed-shape seam rather than widening it into a broader contract redesign.
-4. [ ] Add direct server proof for the partial-canonical waiting-overlay case. Purpose: replace the current missing proof with an honest assertion of the corrected emitted contract.
-5. [ ] Refresh `planning/0000055-pr-summary.md` with the new waiting-overlay proof home. Purpose: keep the maintained summary aligned with the repaired shared-contract behavior.
+2. [ ] Update waiting-overlay field precedence so any row that already carries canonical queue fields emits a canonical-consistent provider/model pair and blanks or drops incompatible legacy fallbacks instead of mixing them. Purpose: restore the shared `/ingest/roots` contract for waiting rows at the exact mixed-shape seam the review endorsed.
+3. [ ] Preserve the current output for fully legacy rows and fully canonical rows. Purpose: keep the repair localized to partial-canonical contradictions instead of widening it into a broader contract redesign.
+4. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for a partial-canonical waiting row plus one adjacent fully canonical or fully legacy control case. Purpose: replace the current missing proof with an honest assertion of the corrected emitted contract.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new waiting-overlay proof homes and note any surviving caveat only if one still remains honestly indirect. Purpose: keep the maintained summary aligned with the repaired shared-contract behavior.
 
 #### Testing
 
@@ -10478,6 +10508,12 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 - `R2.` Older persisted `error` or `lastError` values no longer survive when newer runtime diagnostics exist.
 - `R3.` Direct server proof covers the runtime-backed queue-error overlay branch.
 
+#### Proof Mapping
+
+- `R1.` Owners: `server/src/lmstudio/toolService.ts`, runtime queue-status overlay data consumed by `/ingest/roots`. Proof homes: subtasks 2 through 4, Testing 1 through 2.
+- `R2.` Owners: `server/src/lmstudio/toolService.ts`, existing persisted repo metadata and runtime overlay precedence. Proof homes: subtasks 2 through 4, Testing 1.
+- `R3.` Owner: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtask 4, Testing 1, Task 138 retained proof summary.
+
 #### Documentation Locations
 
 - `server/src/lmstudio/toolService.ts`
@@ -10487,10 +10523,10 @@ The `/ingest/roots` queue overlay must keep the freshest runtime diagnostic stat
 #### Subtasks
 
 1. [ ] Re-read the stored runtime-diagnostic finding and the current runtime-status overlay branch in `server/src/lmstudio/toolService.ts`. Purpose: keep the repair bounded to the fresh-runtime versus stale-persisted diagnostic gap endorsed by the review.
-2. [ ] Update the runtime overlay branch so it copies the freshest structured `error` object and keeps `lastError` precedence aligned with the current runtime state. Purpose: prevent queue-backed runtime errors from being flattened or hidden behind stale persisted diagnostics.
-3. [ ] Preserve the existing healthy waiting and running stale-diagnostic clearing behavior. Purpose: keep the repair localized to the runtime-error branch instead of reopening already-proved healthy overlay cleanup.
-4. [ ] Add direct server proof for the runtime-backed queue-error overlay path. Purpose: replace the current missing proof with an honest assertion of the repaired diagnostics contract.
-5. [ ] Refresh `planning/0000055-pr-summary.md` with the new runtime-diagnostics proof home. Purpose: keep the maintained summary aligned with the repaired shared payload behavior.
+2. [ ] Update the runtime overlay branch so it copies the freshest structured `runtimeStatus.error` payload into `repo.error` and derives `lastError` from the same freshest runtime signal when one exists. Purpose: prevent queue-backed runtime errors from being flattened or hidden behind stale persisted diagnostics.
+3. [ ] Preserve the existing healthy waiting and running stale-diagnostic clearing behavior and make sure stale persisted `error` or `lastError` fields are actively displaced when fresher runtime diagnostics exist. Purpose: keep the repair localized to the runtime-error branch instead of reopening already-proved healthy overlay cleanup.
+4. [ ] Add direct server proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for a runtime-backed error row that carries structured metadata plus one stale persisted diagnostic that must be replaced. Purpose: replace the current missing proof with an honest assertion of the repaired diagnostics contract.
+5. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new runtime-diagnostics proof homes and note any surviving caveat only if one still remains honestly indirect. Purpose: keep the maintained summary aligned with the repaired shared payload behavior.
 
 #### Testing
 
@@ -10518,6 +10554,12 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 - `R2.` Controlled embedding cancellation tests no longer treat an already-aborted embed request as live work.
 - `R3.` Direct proof covers the mock's pre-aborted `embed()` behavior.
 
+#### Proof Mapping
+
+- `R1.` Owner: `server/src/test/support/mockLmStudioSdk.ts`. Proof homes: subtasks 2 through 3, Testing 1 through 2.
+- `R2.` Owners: `server/src/test/support/mockLmStudioSdk.ts`, the focused proof file chosen in subtask 3. Proof homes: subtasks 2 through 3, Testing 1.
+- `R3.` Owner: `server/src/test/unit/mockLmStudioSdk.test.ts` or the smallest adjacent focused proof file created in subtask 3. Proof homes: subtask 3, Testing 1, Task 138 retained proof summary.
+
 #### Documentation Locations
 
 - `server/src/test/support/mockLmStudioSdk.ts`
@@ -10527,9 +10569,9 @@ The changed controlled-embedding mock helper should treat a pre-aborted `embed()
 #### Subtasks
 
 1. [ ] Re-read the optional simplification finding and the current controlled-embedding helper in `server/src/test/support/mockLmStudioSdk.ts`. Purpose: keep the cleanup anchored to the exact pre-abort mismatch endorsed by the review.
-2. [ ] Update the controlled `embed()` helper so pre-aborted requests short-circuit consistently instead of registering live work. Purpose: align mock behavior with the same file's existing prediction-path cancellation semantics.
-3. [ ] Add direct proof for the helper's pre-aborted `embed()` path. Purpose: make the localized simplification objectively testable and durable.
-4. [ ] Refresh `planning/0000055-pr-summary.md` with the new proof home. Purpose: keep the maintained summary aligned with the repaired helper semantics.
+2. [ ] Update the controlled `embed()` helper so a pre-aborted request returns through the same short-circuit path shape as the prediction helper and does not register live controlled embedding work. Purpose: align the mock's cancellation semantics without widening the change into unrelated queue or provider behavior.
+3. [ ] Add the smallest direct proof for the pre-aborted `embed()` path. Purpose: make the localized simplification objectively testable; if no existing server-unit suite can assert the helper directly without dragging unrelated queue runtime setup into the test, create `server/src/test/unit/mockLmStudioSdk.test.ts` for that one focused assertion.
+4. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof home chosen in subtask 3. Purpose: keep the maintained summary aligned with the repaired helper semantics.
 
 #### Testing
 
@@ -10559,6 +10601,14 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 - `R4.` Story 55 final validation reruns the full relevant build and test wrappers and preserves the retained acceptance-evidence chain honestly.
 - `R5.` `planning/0000055-pr-summary.md` carries forward the current pass rejected-risk notes and the blind-spot challenge outcome without overstating the review as exhaustive.
 
+#### Proof Mapping
+
+- `R1.` Owners: this plan, Tasks 131 through 137. Proof homes: subtask 4, Testing 1 through 8.
+- `R2.` Owners: `.gitignore`, the current pass durable artifacts, and the transient review handoff files. Proof homes: subtask 2, Testing 7 through 8.
+- `R3.` Owners: `planning/0000055-pr-summary.md`, the server queue-runtime fixes, the `/ingest/roots` overlay fixes, and the client loading-lifecycle fix. Proof homes: subtasks 2 through 3, Testing 1 through 6.
+- `R4.` Owners: retained Story 55 proof homes plus the new wrapper outputs from this review-fix pass. Proof homes: subtask 2, Testing 1 through 6.
+- `R5.` Owners: `planning/0000055-pr-summary.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md`. Proof homes: subtasks 1 through 3, Task 138 Testing 7 through 8.
+
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
@@ -10570,9 +10620,9 @@ This final review-follow-up task re-validates the reopened Story 55 work after t
 #### Subtasks
 
 1. [ ] Re-read `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-evidence.md`, `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-findings.md`, and `codeInfoStatus/reviews/0000055-20260415T004532Z-74f062c7-blind-spot-challenge.md` before final validation begins. Purpose: keep the close-out anchored to the exact stored review outcome for this pass.
-2. [ ] Refresh `planning/0000055-pr-summary.md` with the new proof homes for Tasks 131 through 137 while retaining the earlier Story 55 acceptance-evidence chain for unchanged areas. Purpose: keep the maintained summary aligned with the repaired review-follow-up surface.
-3. [ ] Confirm the current pass rejected-risk notes, blind-spot challenge outcome, and any surviving weak-proof caveats remain explicit in the maintained summary after the revalidation lands. Purpose: keep final close-out honest instead of implying the review was exhaustive.
-4. [ ] Refresh this plan's implementation notes or review-created task notes as needed so the repaired review pass and its final validation path are discoverable from the canonical plan. Purpose: keep the reopened story executable and auditable for later loops.
+2. [ ] Refresh `planning/0000055-pr-summary.md` with the exact new proof homes from Tasks 131 through 137, then retain the earlier Story 55 acceptance-evidence chain only for unchanged areas that were not re-proved in this pass. Purpose: keep the maintained summary aligned with the repaired review-follow-up surface without collapsing new and retained proof into one vague bundle.
+3. [ ] Re-state the current pass rejected-risk notes, the blind-spot challenge outcome, and any still-honest weak-proof caveats such as retained indirect acceptance seams inside `planning/0000055-pr-summary.md`. Purpose: keep final close-out honest instead of implying the review was exhaustive.
+4. [ ] Refresh this plan's review-created task notes or close-out notes only where needed so the next implementation loop can see that Task 131 is the first real owner and Task 138 is the final revalidation gate. Purpose: keep the reopened story executable and auditable for later loops without reopening older completed tasks.
 
 #### Testing
 

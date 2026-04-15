@@ -10470,7 +10470,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `133`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Notes: Added from review pass `0000055-20260415T004532Z-74f062c7` to address finding 4.
 
 #### Overview
@@ -10536,6 +10536,7 @@ Queue-managed runs need a durable post-commit replay barrier even when `markQueu
 - Testing 1: `npm run build:summary:client` passed cleanly with `warning_count: 0` and `agent_action: skip_log`; the retained wrapper proof home is `logs/test-summaries/build-client-latest.log`.
 - Testing 2: `npm run test:summary:client` passed cleanly with `tests run: 695`, `passed: 695`, `failed: 0`, and `agent_action: skip_log`; the retained wrapper proof home is `test-results/client-tests-2026-04-15T07-12-38-726Z.log`.
 - Testing 3: `npm run test:summary:e2e` passed cleanly with `DEV-0000050:T13:e2e_host_network_config_verified`, `tests run: 49`, `passed: 49`, `failed: 0`, and `agent_action: skip_log`; the retained wrapper proof home is `logs/test-summaries/e2e-tests-latest.log`, and the refreshed browser artifact remains `artifacts/story-0000055-screenshots/0000055-overlapping-refetch-retained-rows.png`.
+- Automated-proof audit: closed Task 134 after confirming all subtasks and testing are complete on disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest open gate.
 
 ### Task 135. Keep Waiting Queue Overlays Canonical When Legacy Model Fields Coexist
 

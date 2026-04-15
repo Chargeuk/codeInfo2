@@ -18,6 +18,8 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
   - realistic wrapper-first testing steps;
   - honest proof homes for the acceptance path, meaningful edge cases, and important review hotspot invariants that task owns;
   - wording that a junior implementer can follow without hidden decomposition work.
+- Confirm that each eligible review-created task keeps `Testing` automated-only and uses `Manual Testing Guidance` only as optional, non-blocking guidance.
+- Confirm that no eligible review-created task still contains manual testing checklist items or subtasks that depend on future automated or manual proof output.
 - Confirm that vague review-task wording such as “investigate,” “fix issue,” or “address review comment” was either rewritten concretely or converted into a bounded diagnostic task with an explicit stopping rule.
 - Confirm that prerequisite review-created tasks are ordered and statused so the implementation loop will pick the next real task directly.
 - Confirm that any older-task edits were limited to minimal numbering, dependency, testing-alignment, or cross-reference changes required to keep the plan honest.
@@ -31,6 +33,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Check that no older unrelated tasks were rewritten for convenience.
 - Check that the final task sequence remains executable in order without hidden blocker prose.
 - Check that the plan file now reflects the true next executable work after review.
+- Check that no enhanced review-created task still relies on manual testing checklist items or future proof-output dependencies.
 
 </verification_loop>
 

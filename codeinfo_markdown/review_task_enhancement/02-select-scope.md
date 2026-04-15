@@ -23,6 +23,7 @@ Identify exactly which newly added review-created `__to_do__` tasks are eligible
 - If review disposition inserted a prerequisite task between older tasks, that inserted `__to_do__` task is eligible even if it is not the highest-numbered task.
 - Do not select pre-existing tasks solely because they are related to the same seam.
 - Do not select tasks already `__in_progress__` or `__done__`.
+- Newly added review-created tasks remain eligible for enhancement when they still contain legacy manual-testing checklist items or subtasks that depend on future automated or manual proof output.
 
 </selection_rules>
 
@@ -37,6 +38,7 @@ Identify exactly which newly added review-created `__to_do__` tasks are eligible
 <handoff_rules>
 
 - Before the next pass, establish a clear internal set of eligible task numbers and keep later edits limited to them except for minimal cross-reference or dependency corrections.
+- Keep later enhancement work focused on normalizing those eligible tasks to the current section contract rather than broadening scope.
 - If no eligible tasks exist, stop without changing the plan.
 
 </handoff_rules>

@@ -10392,6 +10392,7 @@ Queued `reembed` execution must not trust the persisted `requestPayload.path` at
 - Testing 2: `npm run test:summary:server:unit` passed cleanly on the full suite with `tests run: 1686`, `passed: 1686`, `failed: 0`, and `agent_action: skip_log`. The retained unit proof home is `test-results/server-unit-tests-2026-04-15T03-27-05-836Z.log`, with the repaired replay-boundary assertions owned by `server/src/test/unit/ingest-queue-runtime.test.ts`.
 - Testing 3: the first `npm run test:summary:server:cucumber` rerun failed because the new mismatch scenario used `/tmp/...`, so the existing allowed-root guard fired before the task-owned mismatch check. After moving that scenario to `/home/d_a_s/code/...` paths inside the current workdir boundary, the original full cucumber wrapper passed with `tests run: 93`, `passed: 93`, `failed: 0`, and `agent_action: skip_log`, retaining the replay-boundary feature proof home at `test-results/server-cucumber-tests-2026-04-15T03-49-58-164Z.log`.
 - Automated-proof audit: Task 132 is now `__done__` because all subtasks and testing checks are complete on current disk, `selected_task.live_blockers` is empty, and no prose-only remainder survives as an honest gate.
+- 2026-04-15 Manual testing skipped: the stored handoff still resolves Task 132 as `__in_progress__`, so this loop did not start task-scoped manual proof before the latest task is honestly complete.
 
 ### Task 133. Persist A Durable Replay Barrier When Terminal Marker Writes Fail
 

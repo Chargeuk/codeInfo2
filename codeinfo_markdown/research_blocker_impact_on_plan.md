@@ -73,6 +73,19 @@ If there is or was a blocker, decide whether it reveals any of the following:
 
 </execution_handoff_rules>
 
+<section_ownership_rules>
+
+- Any task, subtask, testing step, or guidance section created or rewritten by this step MUST follow this section contract:
+  - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that can be completed before formal proof runs;
+  - `Testing` for automated proof execution only;
+  - `Manual Testing Guidance` for optional, non-blocking human-followed validation only when useful.
+- Do not create manual testing checklist items in `Subtasks` or `Testing`.
+- Do not create subtasks that depend on future automated or manual proof output in order to become complete.
+- Do not place automated test execution commands in `Subtasks` unless the task is specifically creating, repairing, or proving a harness or wrapper itself.
+- If browser-visible, runtime-visible, or externally observable follow-up would help after the repair, place it only in `Manual Testing Guidance`.
+
+</section_ownership_rules>
+
 <repair_rules>
 
 If any of those are true, you MUST repair the story before continuing:
@@ -88,12 +101,20 @@ If any of those are true, you MUST repair the story before continuing:
 - If the blocker exists because repeated implementation passes did not close the remaining subtasks, you MUST repair the task shape before work continues.
 - Rewrite, split, or re-own the task so the next implementation pass has a concrete stopping point and does not depend on indefinite narrowing.
 - Replace open-ended `keep narrowing until you find the owner` style subtasks with bounded subtasks that have a clear success or blocker threshold.
+- A bounded diagnostic task may name:
+  - the exact files, logs, fixtures, markers, harnesses, or runtime surfaces to inspect;
+  - the exact supported repro surface to use;
+  - the exact stopping threshold;
+  - the exact exhausted-branch outcome.
+- Keep executable automated repro commands in `Testing` unless the diagnostic task is specifically creating, repairing, or proving a harness or wrapper.
 - If the same task has already been blocker-repaired once and the next bounded strategy also exhausts cleanly, prefer closing that task on its exhausted branch and creating a fresh successor task rather than narrowing the same task in place again.
 - Use in-place repair only when the task still has the same concrete owner and the rewrite is minor.
 - If a blocker came from manual testing and the manual tester could not identify a concrete next fix, do not return the task to implementation with vague investigative subtasks.
 - In that manual-testing blocker case, either:
-  - convert the blocker evidence into concrete bounded implementation subtasks with explicit owners and proof steps; or
-  - create a bounded diagnostic task with exact files or surfaces to inspect, the exact commands or repro path to use, an explicit stopping threshold, and an explicit exhausted-branch outcome.
+  - convert the blocker evidence into concrete bounded implementation subtasks plus proof-authoring subtasks with explicit owners, exact file or surface targets, and clear stopping rules; or
+  - create a bounded diagnostic task with exact files or surfaces to inspect, an explicit stopping threshold, and an explicit exhausted-branch outcome.
+- Do not encode manual testing itself as a required subtask or testing checklist item.
+- If human-followed browser or runtime validation would still help after the repair, place it only in `Manual Testing Guidance`.
 - Do not keep or create open-ended subtasks like `investigate X until the cause is found` after manual-testing blocker repair.
 - When repairing a blocker that originated from a manual-testing failure, add a separate automated proof-authoring subtask for that failed manual scenario whenever realistic in the affected repository and harness.
 - If realistic automated proof is not possible for that manual-testing failure, record that limitation explicitly in the implementation notes instead of silently omitting it.
@@ -151,6 +172,10 @@ Before finishing:
 - confirm any missing prerequisite, task split, renumbering, or testing-gate changes were applied consistently;
 - confirm any prerequisite handoff was encoded in task status so the next real owner is the one the implementation loop will actually pick;
 - confirm the updated plan is runnable and honest at each task boundary after your edits;
+- confirm any repaired or newly added task keeps `Testing` automated-only;
+- confirm you did not create manual testing checklist items in `Subtasks` or `Testing`;
+- confirm you did not create subtasks that depend on future automated or manual proof output;
+- confirm any optional human-followed validation was placed only in `Manual Testing Guidance`;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

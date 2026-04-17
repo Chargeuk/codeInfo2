@@ -31,11 +31,13 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that each task ends with separate lint and prettier or format-check subtasks in that order.
 - Check that each `Testing` section ends with separate lint and prettier or format-check steps in that order.
 - Check the final task in the story.
+- Check that any non-final-task manual-testing proof guidance uses `codeinfoTmp/manual-testing/<story-number>/` and states that those artifacts must not be committed.
 - If it has a runnable, browser-visible, or otherwise externally observable manual-proof surface, verify that its `Manual Testing Guidance` includes:
   - required prerequisite services;
   - startup order where relevant;
   - any needed login, seed, or setup path;
   - where credentials or access come from without inlining secrets.
+- Verify that the final task's manual-testing proof guidance uses `codeinfoStatus/manual-testing/<story-number>/` and states that those artifacts should be committed as durable final story proof.
 - Verify that manual-testing guidance prefers the unmodified human Docker stack whenever repository evidence shows it is runnable, and only falls back to minimal test-only enablement when the normal stack is not enough.
 - Check that any planned screenshot or browser-artifact output path points only to ignored artifact storage rather than tracked repository files.
 - Check that no actual secrets, passwords, or tokens were written into the plan.

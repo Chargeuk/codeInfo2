@@ -16,9 +16,11 @@ This is the baseline task structure to follow once the story sections above are 
 8. Once all subtasks are complete, run the automated `Testing` section in order and mark each item complete immediately after it passes.
 9. If helpful, add a `Manual Testing Guidance` section after `Testing` with optional suggestions for the manual testing agent. Do not use checkboxes or blocking language there.
 10. Never write full absolute filesystem paths into the plan. Use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead.
-11. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
-12. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
-13. Repeat for the next task.
+11. For any non-final task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeinfoTmp/manual-testing/<story-number>/` and do not commit them.
+12. For the final task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeinfoStatus/manual-testing/<story-number>/` and commit them as durable final story proof.
+13. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
+14. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
+15. Repeat for the next task.
 
 ## Additional Repositories
 
@@ -141,11 +143,13 @@ Optional guidance for the manual testing agent only.
 
 - Describe the most useful browser-visible, runtime-visible, or externally observable scenarios to check manually when this task reaches manual validation.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help manual validation.
+- For tasks other than the final task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeinfoTmp/manual-testing/<story-number>/` and state that they must not be committed because `codeinfoTmp` is ignored.
 - For the final task, when the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, include enough guidance for the `manual_testing_agent` to:
   - identify which services or surfaces must be started;
   - know any prerequisites that must already be running;
   - follow the required startup order when more than one service or surface matters;
   - know where credentials, seeded accounts, helper scripts, fixture data, or env-backed access come from without inlining secrets.
+- For the final task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeinfoStatus/manual-testing/<story-number>/` and state that they should be committed as durable final story proof.
 - Prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access already exists for that normal stack.
 - Only if the normal human Docker stack is not enough should the plan describe the absolute minimum test-only harness or configuration needed for the `manual_testing_agent`.
 - Do not use checkboxes.
@@ -242,6 +246,7 @@ Optional guidance for the manual testing agent only.
 
 - Describe the most useful final browser-visible, runtime-visible, or externally observable scenarios to check manually after automated proof has completed.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help final manual validation.
+- Direct any final-task manual-testing screenshots, logs, or similar proof artifacts to `codeinfoStatus/manual-testing/<story-number>/` and state that they should be committed as durable final story proof.
 - Prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access already exists for that normal stack.
 - Only if the normal human Docker stack is not enough should this section describe the absolute minimum test-only harness or configuration needed for the `manual_testing_agent`.
 - Do not use checkboxes.

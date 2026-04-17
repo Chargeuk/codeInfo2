@@ -47,6 +47,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - proof-authoring subtasks for the code, tests, markers, or harness changes that make those signals available; and
   - automated `Testing` steps or optional `Manual Testing Guidance` entries that describe how those signals will later be observed.
 - Automated screenshots, browser captures, and similar generated proof artifacts must be saved only under an ignored artifact location and must never be planned as checked-in repository files.
+- When a non-final task needs manual-testing proof guidance, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeinfoTmp/manual-testing/<story-number>/` and state that those artifacts must not be committed because `codeinfoTmp` is ignored.
 - End each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
   - a prettier or format-check step that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
@@ -58,6 +59,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - the required startup order when multiple surfaces matter;
   - the supported login, seed, or setup path if one is needed for proof;
   - where credentials, seeded accounts, helper scripts, or env-backed access come from without inlining secrets.
+- For the final task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeinfoStatus/manual-testing/<story-number>/` and state that those artifacts should be committed as durable final story proof.
 - When manual testing is applicable, prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access or credentials already exist for that normal stack.
 - Only if the normal human Docker stack is not enough should the plan introduce the absolute minimum test-only harness or configuration needed for the `manual_testing_agent` to log on and prove the behavior, and that enablement must stay out of the shipped production code path.
   </proof_and_testing_rules>
@@ -108,7 +110,9 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether each `Testing` section ends with explicit separate lint and prettier or format-check steps in that order.
 - Check whether any planned auth or login test-enablement seam stays in test-owned harnesses or configuration rather than in the shipped production path.
 - Check whether any automated screenshot or browser artifact path points only to ignored artifact storage rather than tracked repository files.
+- Check whether any non-final-task manual-testing proof guidance uses `codeinfoTmp/manual-testing/<story-number>/` and states that those artifacts must not be committed.
 - Check whether manual-testing guidance prefers the normal human Docker stack whenever repository evidence supports it.
+- Check whether the final task's manual-testing proof guidance uses `codeinfoStatus/manual-testing/<story-number>/` and states that those artifacts should be committed.
   </verification_loop>
 
 <output_contract>

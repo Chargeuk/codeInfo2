@@ -19,6 +19,8 @@ When tasks are later added to this story, use this section contract:
 - Keep test-enablement seams such as auth bypasses, seeded identities, mocked providers, or alternate login helpers in test-only harnesses, fixtures, or test configuration rather than in shipped production behavior.
 - Prefer the unmodified human Docker stack for manual testing whenever repository evidence shows it is runnable, and only fall back to minimal test-only enablement when the normal stack is not enough.
 - Keep automated screenshots and similar generated proof artifacts in ignored artifact locations rather than tracked repository files.
+- For any non-final task, put manual-testing screenshots, logs, and similar proof artifacts in `codeinfoTmp/manual-testing/<story-number>/` and do not commit them.
+- For the final task, put manual-testing screenshots, logs, and similar proof artifacts in `codeinfoStatus/manual-testing/<story-number>/` and commit them as durable final story proof.
 
 ### Description
 

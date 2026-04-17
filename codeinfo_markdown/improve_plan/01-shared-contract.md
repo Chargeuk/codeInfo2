@@ -19,6 +19,13 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 - Preserve the current plan's functionality, structure, and scope unless evidence shows a concrete improvement is required.
   </workflow_contract>
 
+<portability_and_safety_contract>
+
+- Never write full absolute filesystem paths into the plan.
+- Use repository-relative paths, workspace-relative paths, logical repository locations, command names, environment-variable names, or documented lookup locations instead.
+- Never copy machine-specific checkout roots, usernames, home-directory paths, or other developer-specific path material into checked-in planning text.
+  </portability_and_safety_contract>
+
 <completeness_contract>
 
 - Treat the workflow as incomplete until the selected plan is specific enough for a later tasking pass without hidden senior knowledge.

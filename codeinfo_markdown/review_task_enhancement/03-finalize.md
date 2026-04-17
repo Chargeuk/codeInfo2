@@ -20,6 +20,9 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
   - wording that a junior implementer can follow without hidden decomposition work.
 - Confirm that each eligible review-created task keeps `Testing` automated-only and uses `Manual Testing Guidance` only as optional, non-blocking guidance.
 - Confirm that no eligible review-created task still contains manual testing checklist items or subtasks that depend on future automated or manual proof output.
+- Confirm that no eligible review-created task still contains absolute filesystem paths, usernames, or machine-specific checkout roots.
+- Confirm that any test-enablement seam such as alternate auth, seeded identities, mocked providers, or bypassed 2FA remains test-owned rather than shipped in the production path.
+- Confirm that any automated screenshot or browser-artifact path points only to ignored artifact storage.
 - Confirm that vague review-task wording such as “investigate,” “fix issue,” or “address review comment” was either rewritten concretely or converted into a bounded diagnostic task with an explicit stopping rule.
 - Confirm that prerequisite review-created tasks are ordered and statused so the implementation loop will pick the next real task directly.
 - Confirm that the latest `Code Review Findings` section is still at the end of the plan file except for the newly appended review-fix task block and the fresh final revalidation task that follow it.
@@ -36,6 +39,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Check that the final task sequence remains executable in order without hidden blocker prose.
 - Check that the plan file now reflects the true next executable work after review.
 - Check that no enhanced review-created task still relies on manual testing checklist items or future proof-output dependencies.
+- Check that no enhanced review-created task still relies on absolute paths or production-owned test bypasses.
 - Check that the latest `Code Review Findings` section plus its review-fix tasks and fresh revalidation task now occupy one contiguous end-of-file block.
 
 </verification_loop>

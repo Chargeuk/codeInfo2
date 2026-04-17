@@ -35,6 +35,10 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Keep `Testing` automated-only and place any optional manual-testing-agent scenarios only in `Manual Testing Guidance`.
 - Do not create manual testing subtasks or testing checklist items in these review-created tasks.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
+- Do not write absolute filesystem paths, usernames, or machine-specific checkout roots into these review-created tasks.
+- Do not plan production-code changes whose only purpose is to disable, bypass, mock, or weaken real production behavior for tests.
+- Keep alternate auth, seeded identities, mocked providers, bypassed 2FA, and similar test-enablement seams in test-only harnesses, fixtures, support code, or test configuration.
+- Keep automated screenshots and similar generated proof artifacts in ignored artifact locations rather than tracked repository files.
 - Subtasks may name proof-owning files, markers, fixtures, harness surfaces, or screenshot path conventions to prepare, but they must not require the later generated artifact itself for completion.
 - Do not encode `Implementation notes` refreshes after testing as standalone subtasks.
 - If final close-out needs retained proof homes, adjudication notes, or artifact-existence confirmations, place those expectations in `Task Exit Criteria`, `Testing`, or a bounded final validation task description rather than as post-testing subtasks.

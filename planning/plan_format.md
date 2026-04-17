@@ -15,13 +15,14 @@ This is the baseline task structure to follow once the story sections above are 
 7. `Subtasks` must stay executable before formal proof runs. Put automated proof execution in `Testing`, not in `Subtasks`, unless the task is specifically creating or repairing a harness or wrapper.
 8. Once all subtasks are complete, run the automated `Testing` section in order and mark each item complete immediately after it passes.
 9. If helpful, add a `Manual Testing Guidance` section after `Testing` with optional suggestions for the manual testing agent. Do not use checkboxes or blocking language there.
-10. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
-11. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
-12. Repeat for the next task.
+10. Never write full absolute filesystem paths into the plan. Use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead.
+11. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
+12. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
+13. Repeat for the next task.
 
 ## Additional Repositories
 
-- If this story needs work outside the current repository, list each additional repository as `- <alias>: /abs/path/to/repository`.
+- If this story needs work outside the current repository, list each additional repository as `- <alias>: <portable repository identifier or agreed lookup location>`.
 - The current repository is always implicit. If it is also listed here, treat that as redundant and remove or ignore it when the plan is updated.
 - If no extra repositories are needed, write exactly `- No Additional Repositories`.
 
@@ -89,8 +90,8 @@ Two or three concise sentences describing what this task achieves, why it is nee
 2. [ ] Implement the required code, config, contract, migration, deployment, or runtime changes. Name the exact local files or areas to update.
 3. [ ] Add or update the implementation-side proof files for this task, such as unit tests, integration tests, fixtures, schemas, or harness code, naming the exact files to create or change.
 4. [ ] Update each required documentation file in its own subtask, naming the exact file and what must change.
-5. [ ] Run the first required lint, format, or static-analysis command for the files changed by this task when the repository workflow expects these checks as final subtasks. State the exact command, the expected pass condition, and any available auto-fix command to try first.
-6. [ ] Run the next required lint, format, or static-analysis command, again naming the exact command, expected pass condition, and any available auto-fix command to try first. Repeat with additional separate final subtasks if the repository requires more checks.
+5. [ ] Run the repository-supported lint command for the files changed by this task and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+6. [ ] Run the repository-supported prettier or format-check command for the files changed by this task and fix any issues found, using any available auto-fix command before manual cleanup when possible.
 
 Rules:
 
@@ -102,8 +103,11 @@ Rules:
 - Keep build and test execution commands in the `Testing` section unless the task is specifically creating or fixing a harness or wrapper.
 - Do not create manual testing subtasks.
 - Do not create subtasks that depend on future automated testing output or future manual testing output in order to become complete.
+- Do not plan production-code changes whose only purpose is to disable, bypass, mock, or weaken real production behavior for tests.
+- When tests need alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar enablement, keep that enablement in test-only harnesses, fixtures, or test configuration.
 - Subtasks may name the exact proof-owning files, log markers, fixtures, screenshot paths, or harness surfaces that must be prepared, but the generated proof output itself belongs to later automated `Testing` or to optional `Manual Testing Guidance`.
-- When lint, format, or static-analysis checks are required as subtasks, keep them as separate final subtasks with one explicit command per subtask. If an auto-fix command exists, instruct the implementer to try it before making manual fixes.
+- Keep lint and prettier or format-check work as separate final subtasks in that order.
+- Lint or prettier fixes may go beyond the narrow story scope when they are required to leave the repository honestly passing.
 
 #### Testing
 
@@ -113,6 +117,8 @@ Plan the task's proof in this order when applicable:
 2. [ ] Run the relevant automated tests using the repository's wrapper-first workflow from `AGENTS.md`, or the highest-level safe commands discoverable from the repository if no wrapper guidance exists.
 3. [ ] Start the runnable system or required services only if this task's proof needs them.
 4. [ ] Stop any system or services started for automated validation.
+5. [ ] Run the repository-supported lint command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+6. [ ] Run the repository-supported prettier or format-check command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
 
 Rules:
 
@@ -121,11 +127,13 @@ Rules:
 - Prefer wrapper scripts over low-level direct commands where possible.
 - When the repository's primary build mechanism is Docker or Compose, keep that as the first build proof rather than replacing it with ad hoc local build commands.
 - Back-end systems should plan unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path unless the repository's instructions explicitly define a different standard.
-- Front-end systems should plan automated unit tests plus automated Playwright end-to-end tests where supported, and may name expected automated screenshot artifacts when those artifacts are part of the automated proof.
+- Front-end systems should plan automated unit tests plus automated Playwright end-to-end tests where supported, and may name expected automated screenshot artifacts only when those artifacts are saved to ignored artifact locations rather than tracked repository files.
 - Systems where a back end is paired with a front end should keep automated browser proof in `Testing` and place any optional manual-testing-agent browser scenarios in `Manual Testing Guidance`.
 - If expected harnesses are missing for the system being changed, add prerequisite harness work earlier in the story before later tasks rely on it.
 - If a proof step is not applicable, omit it and explain why in the task wording or implementation notes rather than inventing it.
 - If the task depends on a new harness, wrapper, or runtime seam, that prerequisite should be created in an earlier task.
+- Keep lint and prettier or format-check work as the final two testing steps in that order.
+- Lint or prettier fixes may go beyond the narrow story scope when they are required to leave the repository honestly passing.
 
 #### Manual Testing Guidance
 
@@ -138,6 +146,8 @@ Optional guidance for the manual testing agent only.
   - know any prerequisites that must already be running;
   - follow the required startup order when more than one service or surface matters;
   - know where credentials, seeded accounts, helper scripts, fixture data, or env-backed access come from without inlining secrets.
+- Prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access already exists for that normal stack.
+- Only if the normal human Docker stack is not enough should the plan describe the absolute minimum test-only harness or configuration needed for the `manual_testing_agent`.
 - Do not use checkboxes.
 - Do not make this section a completion gate.
 - Do not require the coding agent to perform any item in this section.
@@ -173,10 +183,14 @@ Optional guidance for the manual testing agent only.
 #### Subtasks
 
 1. [ ] [Detailed subtask.]
+2. [ ] Run the repository-supported lint command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+3. [ ] Run the repository-supported prettier or format-check command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
 
 #### Testing
 
 1. [ ] [Relevant proof step.]
+2. [ ] Run the repository-supported lint command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+3. [ ] Run the repository-supported prettier or format-check command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -210,6 +224,8 @@ The final task must validate the full story rather than only isolated task-level
 1. [ ] Re-read the full story and trace the Acceptance Criteria, key Description requirements, and explicit Out Of Scope boundaries against the final task list.
 2. [ ] Update final documentation files that the story truly changed, such as `README.md`, `design.md`, `projectStructure.md`, or equivalent repository docs, using one subtask per document.
 3. [ ] Produce any required summary or close-out artifact that the repository workflow expects, such as a PR summary, review note, or final evidence summary.
+4. [ ] Run the repository-supported lint command for the final validation surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+5. [ ] Run the repository-supported prettier or format-check command for the final validation surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
 
 #### Testing
 
@@ -217,6 +233,8 @@ The final task must validate the full story rather than only isolated task-level
 2. [ ] Run the full relevant automated test wrappers or highest-level safe automated test commands for every affected project or repository.
 3. [ ] Start the full runnable system if final story validation requires runtime proof.
 4. [ ] Stop any system or services started for automated final validation.
+5. [ ] Run the repository-supported lint command for the final validation surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+6. [ ] Run the repository-supported prettier or format-check command for the final validation surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -224,6 +242,8 @@ Optional guidance for the manual testing agent only.
 
 - Describe the most useful final browser-visible, runtime-visible, or externally observable scenarios to check manually after automated proof has completed.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help final manual validation.
+- Prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access already exists for that normal stack.
+- Only if the normal human Docker stack is not enough should this section describe the absolute minimum test-only harness or configuration needed for the `manual_testing_agent`.
 - Do not use checkboxes.
 - Do not make this section a completion gate.
 - Do not require the coding agent to perform any item in this section.

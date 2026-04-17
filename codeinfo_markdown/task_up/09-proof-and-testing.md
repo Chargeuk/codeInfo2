@@ -25,6 +25,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Manual Playwright, browser, or agent-driven validation does not belong in `Testing`; place optional later guidance in `Manual Testing Guidance` instead.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
+- When automated proof needs alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams, keep that enablement in test-only harnesses, fixtures, support code, or test configuration rather than in shipped production behavior.
 - For each affected repository or project, define proof in this order when applicable:
   1. build the relevant project or projects using the repository's primary Docker or Compose build path when the repository supports containerized builds;
   2. run the relevant automated tests;
@@ -45,6 +46,11 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add:
   - proof-authoring subtasks for the code, tests, markers, or harness changes that make those signals available; and
   - automated `Testing` steps or optional `Manual Testing Guidance` entries that describe how those signals will later be observed.
+- Automated screenshots, browser captures, and similar generated proof artifacts must be saved only under an ignored artifact location and must never be planned as checked-in repository files.
+- End each task's `Testing` section with these two separate final steps in this order:
+  - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
+  - a prettier or format-check step that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
+- Lint or prettier fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
 - When the final task in the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, its `Manual Testing Guidance` must include story-specific startup and access guidance for the later `manual_testing_agent` pass.
 - That guidance should name:
   - which system surfaces to start or use;
@@ -52,6 +58,8 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - the required startup order when multiple surfaces matter;
   - the supported login, seed, or setup path if one is needed for proof;
   - where credentials, seeded accounts, helper scripts, or env-backed access come from without inlining secrets.
+- When manual testing is applicable, prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access or credentials already exist for that normal stack.
+- Only if the normal human Docker stack is not enough should the plan introduce the absolute minimum test-only harness or configuration needed for the `manual_testing_agent` to log on and prove the behavior, and that enablement must stay out of the shipped production code path.
   </proof_and_testing_rules>
 
 <coverage_rules>
@@ -97,6 +105,10 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether each subtask is specific enough for a weak developer to execute without guessing file targets, commands, documentation, or expected outcomes.
 - Check whether mode-specific or stateful UI behavior has explicit proof for contradictory mixed states such as create-vs-reuse, run-vs-resume, and disabled or hidden field submission.
 - Check whether required lint, format, and static-analysis subtasks are explicit, separate, and placed at the end of the subtask list when the repository workflow expects them there.
+- Check whether each `Testing` section ends with explicit separate lint and prettier or format-check steps in that order.
+- Check whether any planned auth or login test-enablement seam stays in test-owned harnesses or configuration rather than in the shipped production path.
+- Check whether any automated screenshot or browser artifact path points only to ignored artifact storage rather than tracked repository files.
+- Check whether manual-testing guidance prefers the normal human Docker stack whenever repository evidence supports it.
   </verification_loop>
 
 <output_contract>

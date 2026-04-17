@@ -39,6 +39,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Add explicit implementation and proof-authoring work when changed tests or harness code depend on deterministic boundaries, teardown ordering, or shared-state safety.
 - Add observability or diagnosability work when the story would be difficult to prove or debug without it.
 - Add documentation tasks only when the story actually changes documentation-relevant behavior, files, architecture, commands, contracts, or screenshots.
+- When the story needs auth bypasses, seeded identities, mocked providers, alternate login flows, or similar test-enablement seams, generate that work as test-only harness, fixture, support-code, or test-configuration changes rather than as shipped production-code behavior changes.
   </task_generation_rules>
 
 <task_shape_rules>
@@ -60,7 +61,10 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Do not put build or test execution commands in Subtasks unless the task is specifically creating or repairing a harness or wrapper.
 - Do not put automated test execution commands in `Subtasks`.
 - Do not put manual testing work in `Subtasks`.
-- When the repository workflow expects lint, format, or static-analysis checks as subtasks, add them as separate final subtasks with one explicit command per subtask. Each such subtask should state the exact command, the expected pass condition, and that any available auto-fix command should be tried before manual fixes.
+- End each task's `Subtasks` section with these two separate final subtasks in this order:
+  - a lint subtask that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
+  - a prettier or format-check subtask that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
+- Lint or prettier fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
   </task_shape_rules>
 
 <verification_loop>

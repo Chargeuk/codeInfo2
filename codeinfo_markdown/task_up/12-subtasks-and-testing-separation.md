@@ -23,8 +23,11 @@ Ensure `Subtasks` and `Testing` stay separated so implementation and proof-autho
 - Keep exact proof-file and proof-artifact references in `Subtasks`.
 - Keep runnable wrapper commands in `Testing`.
 - Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
+- Also allow the required final lint subtask and final prettier or format-check subtask to remain in `Subtasks`, but keep them as the last two subtasks in that order and do not let them pull other testing commands earlier into the subtask list.
 - When one testing step later produces outputs used for validation, keep the execution command in `Testing` and do not make any subtask depend on those later outputs in order to become executable.
 - A subtask may name a proof-owning file, marker, harness surface, or screenshot path convention to prepare, but it must not require the later generated artifact itself for completion.
+- If a task needs alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams, keep those seams in test-owned code, fixtures, harnesses, or test configuration rather than in the shipped production path.
+- When subtasks or testing mention screenshot output, ensure the planned path is an ignored artifact location rather than a tracked repository file.
 - If proof traceability after testing matters, express that in the `Testing` step wording or in `Manual Testing Guidance`, not as a later-dependent subtask.
 - Do not leave hybrid instructions such as “run wrapper X and update note Y” in one subtask when the same behavior can be separated cleanly.
 - Preserve task order and dependencies while rewriting. Do not move proof work into a later task unless the current task can no longer complete honestly.

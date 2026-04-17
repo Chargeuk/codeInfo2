@@ -15,6 +15,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - The runtime research file may legitimately be absent between regeneration steps because it is live local research rather than a durable tracked handoff artifact.
 - Use that information to choose the best supported proof path for the candidate task, but re-check that the selected paths still exist on disk before using them.
 - If the runtime research file is missing, unreadable, or obviously stale for the relevant repository or surface, state that the manual testing runtime research must be regenerated and do not invent a startup path.
+- Read the bound task's `Manual Testing Guidance` section when it exists and use it as task-scoped execution input, as long as it does not conflict with fresher repository evidence or the stored runtime research.
 
 </critical_rules>
 
@@ -110,6 +111,25 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - If screenshot or log capture is blocked, record the intended artifact destination in the implementation notes instead of inventing another storage location.
 
 </manual_proof_artifact_rules>
+
+<bound_task_guidance_rules>
+
+- Before executing manual proof, read the bound task's `Manual Testing Guidance` section when it exists.
+- Use that guidance to shape:
+  - which surfaces to test;
+  - startup order;
+  - prerequisite services;
+  - login, seed, or setup path;
+  - credential-source lookup;
+  - manual-proof artifact destination.
+- Apply task guidance in this precedence order:
+  1. repository truth and safety from `AGENTS.md`, current repository evidence, and the stored runtime research;
+  2. the bound task's `Manual Testing Guidance` as the task-scoped execution overlay;
+  3. no invention beyond those sources.
+- If the bound task's `Manual Testing Guidance` is missing, incomplete, or stale for the proof surface, continue with the best supported repository and runtime evidence rather than guessing.
+- If the bound task's `Manual Testing Guidance` conflicts with fresher repository evidence or the stored runtime research, prefer the fresher evidence and record the conflict honestly in the implementation notes instead of silently following or ignoring the task guidance.
+
+</bound_task_guidance_rules>
 
 <manual_proof_scope_rules>
 
@@ -279,6 +299,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - Confirm you used only the stored handoff and runtime-research scope.
 - Confirm you used the task already resolved into `current-task.json`.
+- Confirm you read the bound task's `Manual Testing Guidance` when it was present.
 - Confirm candidate eligibility was determined from checklist and blocker state rather than `Task Status` alone.
 - Confirm you did not require later-task-owned surfaces unless the candidate task explicitly depended on them.
 - Confirm any failure-triggered follow-up work came after a bounded diagnosis pass rather than from first-guess speculation.
@@ -293,6 +314,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Confirm the task was set to `__done__` when manual testing succeeded or was honestly not applicable and no further work remained.
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
 - Confirm non-final-task manual-proof artifacts were routed to `codeinfoTmp/manual-testing/<story-number>/` and final-task manual-proof artifacts were routed to `codeinfoStatus/manual-testing/<story-number>/`.
+- Confirm any conflict between bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
 
 </verification_loop>

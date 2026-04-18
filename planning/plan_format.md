@@ -15,7 +15,7 @@ This is the baseline task structure to follow once the story sections above are 
 7. `Subtasks` must stay executable before formal proof runs. Put automated proof execution in `Testing`, not in `Subtasks`, unless the task is specifically creating or repairing a harness or wrapper.
 8. Once all subtasks are complete, run the automated `Testing` section in order and mark each item complete immediately after it passes.
 9. If helpful, add a `Manual Testing Guidance` section after `Testing` with optional suggestions for the manual testing agent. Do not use checkboxes or blocking language there.
-10. Never write full absolute filesystem paths into the plan. Use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead.
+10. Outside the `Additional Repositories` section, never write full absolute filesystem paths into the plan. Use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead.
 11. For any non-final task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/` and do not commit them.
 12. If a story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, add or update that ignore rule before later proof depends on the scratch path.
 13. For the final task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeInfoStatus/manual-testing/<story-number>/` and commit them as durable final story proof.
@@ -25,7 +25,7 @@ This is the baseline task structure to follow once the story sections above are 
 
 ## Additional Repositories
 
-- If this story needs work outside the current repository, list each additional repository as `- <alias>: <portable repository identifier or agreed lookup location>`.
+- If this story needs work outside the current repository, list each additional repository as `- <alias>: /abs/path/to/repository`.
 - The current repository is always implicit. If it is also listed here, treat that as redundant and remove or ignore it when the plan is updated.
 - If no extra repositories are needed, write exactly `- No Additional Repositories`.
 

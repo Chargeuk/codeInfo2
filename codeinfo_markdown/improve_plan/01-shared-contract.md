@@ -21,8 +21,9 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 
 <portability_and_safety_contract>
 
-- Never write full absolute filesystem paths into the plan.
+- Outside the plan's `Additional Repositories` section, never write full absolute filesystem paths into the plan.
 - Use repository-relative paths, workspace-relative paths, logical repository locations, command names, environment-variable names, or documented lookup locations instead.
+- When the story truly spans more than one local repository, keep each `Additional Repositories` entry as a concrete local repository path so downstream branch and handoff automation can resolve it from disk.
 - Never copy machine-specific checkout roots, usernames, home-directory paths, or other developer-specific path material into checked-in planning text.
   </portability_and_safety_contract>
 

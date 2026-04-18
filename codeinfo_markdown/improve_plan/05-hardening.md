@@ -19,7 +19,7 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 - If it is still not available, use `code_info` to find the best matching planning template in another repository.
 - Do not add unnecessary multi-repository structure to single-repository stories.
 - If the story is multi-repository, make repository ownership explicit throughout the plan.
-- Keep all file references and operator instructions portable; use repository-relative paths, workspace-relative paths, logical lookup locations, or command names instead of absolute filesystem paths.
+- Keep file references and operator instructions portable throughout the plan, but preserve concrete local repository paths inside `Additional Repositories` when the story spans more than one repository because downstream branch and handoff automation resolves those entries from disk.
   </editing_rules>
 
 <required_plan_updates>

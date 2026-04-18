@@ -14,7 +14,7 @@ When tasks are later added to this story, use this section contract:
 - `Subtasks` are for implementation and proof-authoring work that can be completed before formal proof runs.
 - `Testing` is for automated proof execution only.
 - `Manual Testing Guidance` is optional, non-blocking guidance for the manual testing agent and must not contain checkboxes.
-- Use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead of absolute filesystem paths.
+- Outside `Additional Repositories`, use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead of absolute filesystem paths.
 - End each task's `Subtasks` section with separate lint and prettier or format-check subtasks in that order, and end each `Testing` section with separate lint and prettier or format-check steps in that order.
 - Keep test-enablement seams such as auth bypasses, seeded identities, mocked providers, or alternate login helpers in test-only harnesses, fixtures, or test configuration rather than in shipped production behavior.
 - Prefer the unmodified human Docker stack for manual testing whenever repository evidence shows it is runnable, and only fall back to minimal test-only enablement when the normal stack is not enough.
@@ -37,7 +37,7 @@ Overview of where we are now, and where we would like to be once this phase has 
 
 ### Additional Repositories
 
-- If this story needs work outside the current repository, list each additional repository as `- <alias>: <portable repository identifier or agreed lookup location>`.
+- If this story needs work outside the current repository, list each additional repository as `- <alias>: /abs/path/to/repository`.
 - The current repository is always implicit. If it is also listed here, treat that as redundant and remove or ignore it when the plan is updated.
 - If no extra repositories are needed, write exactly `- No Additional Repositories`.
 

@@ -14,6 +14,14 @@ When tasks are later added to this story, use this section contract:
 - `Subtasks` are for implementation and proof-authoring work that can be completed before formal proof runs.
 - `Testing` is for automated proof execution only.
 - `Manual Testing Guidance` is optional, non-blocking guidance for the manual testing agent and must not contain checkboxes.
+- Outside `Additional Repositories`, use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead of absolute filesystem paths.
+- End each task's `Subtasks` section with separate lint and prettier or format-check subtasks in that order, and end each `Testing` section with separate lint and prettier or format-check steps in that order.
+- Keep test-enablement seams such as auth bypasses, seeded identities, mocked providers, or alternate login helpers in test-only harnesses, fixtures, or test configuration rather than in shipped production behavior.
+- Prefer the unmodified human Docker stack for manual testing whenever repository evidence shows it is runnable, and only fall back to minimal test-only enablement when the normal stack is not enough.
+- Keep automated screenshots and similar generated proof artifacts in ignored artifact locations rather than tracked repository files.
+- For any non-final task, put manual-testing screenshots, logs, and similar proof artifacts in `codeInfoTmp/manual-testing/<story-number>/` and do not commit them.
+- If a story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, add or update that ignore rule before later proof depends on the scratch path.
+- For the final task, put manual-testing screenshots, logs, and similar proof artifacts in `codeInfoStatus/manual-testing/<story-number>/` and commit them as durable final story proof.
 
 ### Description
 

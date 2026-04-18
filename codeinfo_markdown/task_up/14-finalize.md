@@ -1,6 +1,6 @@
 # Goal
 
-Perform the final tasking audit, synchronize repository ownership, and create one coherent commit if the command changed files.
+Perform the final tasking audit and synchronize repository ownership before the final simple-story update and command commit.
 
 <instruction_priority>
 
@@ -20,18 +20,27 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 - Check that every task is specific enough for a junior developer and does not depend on hidden senior knowledge.
 - Check that every subtask is understandable in isolation for a weak, junior, forgetful developer and does not require them to infer missing instructions from elsewhere in the story.
 - Check that each task has realistic exit criteria, dependencies, proof steps, and runnable validation.
+- Check that no absolute filesystem paths, usernames, or machine-specific checkout roots were written into tasks, subtasks, testing steps, or manual-testing guidance.
 - Check that the final validation task proves the whole story rather than only isolated task-level behavior.
 - Check that the applicable categories from `shared/review-preemption-checklist.md` are represented honestly in the final task list or explicitly not applicable.
 - Check that `Testing` is automated-only in every task.
 - Check that any `Manual Testing Guidance` section is optional, non-blocking, and checkbox-free.
 - Check that no subtask depends on future automated or manual proof output.
 - Check that no manual testing checklist items remain in `Subtasks` or `Testing`.
+- Check that no task plans production-code changes whose only purpose is to disable, bypass, mock, or weaken real production behavior for tests.
+- Check that each task ends with separate lint and prettier or format-check subtasks in that order.
+- Check that each `Testing` section ends with separate lint and prettier or format-check steps in that order.
 - Check the final task in the story.
+- Check that any task relying on non-final manual-proof artifacts also adds the required `.gitignore` update when `codeInfoTmp/` was not already ignored.
+- Check that any non-final-task manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/` and states that those artifacts must not be committed.
 - If it has a runnable, browser-visible, or otherwise externally observable manual-proof surface, verify that its `Manual Testing Guidance` includes:
   - required prerequisite services;
   - startup order where relevant;
   - any needed login, seed, or setup path;
   - where credentials or access come from without inlining secrets.
+- Verify that the final task's manual-testing proof guidance uses `codeInfoStatus/manual-testing/<story-number>/` and states that those artifacts should be committed as durable final story proof.
+- Verify that manual-testing guidance prefers the unmodified human Docker stack whenever repository evidence shows it is runnable, and only falls back to minimal test-only enablement when the normal stack is not enough.
+- Check that any planned screenshot or browser-artifact output path points only to ignored artifact storage rather than tracked repository files.
 - Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>
 
@@ -46,15 +55,7 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 - Do not leave TODO placeholders or open review comments in the task list.
   </final_edit_rules>
 
-<commit_policy>
-
-- If this command changed files, create one commit after the final verification pass.
-- Follow the repository's commit-message and branch conventions from `AGENTS.md` or other repository-specific instructions when they exist.
-- If no repository-specific commit convention exists, use a concise commit subject and a short explanatory body.
-- If nothing changed, do not create an empty commit.
-  </commit_policy>
-
 <output_contract>
 
-- Report briefly what changed, what was verified, and whether a commit was created.
+- Report briefly what changed and what was verified, then leave any final commit creation to the dedicated simple-story step that follows this pass.
   </output_contract>

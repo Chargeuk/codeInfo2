@@ -80,6 +80,13 @@
     },
     {
       "type": "llm",
+      "label": "Create Or Update Simple Story",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "task_up/15-create-or-update-simple-story.md"
+    },
+    {
+      "type": "llm",
       "label": "Push",
       "agentType": "planning_agent",
       "identifier": "planner",

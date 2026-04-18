@@ -39,6 +39,9 @@ Lock the active story, repository scope, and tasking format before generating or
 - If any of those checks fail, stop and report that the current-plan handoff is stale or branch setup is blocked. Do not continue.
 - Determine whether the story is single-repository or multi-repository before tasking.
 - Determine whether the selected plan already contains tasks, and if so, whether those tasks already follow the current tasking format and repository-ownership rules.
+- Determine whether the selected plan already uses the current section contract of `Subtasks`, automated-only `Testing`, and optional `Manual Testing Guidance`.
+- If the selected plan contains manual testing checklist items inside `Subtasks` or `Testing`, treat that as a tasking-format defect to be repaired later in this workflow.
+- If the selected plan contains subtasks that depend on later automated or manual proof outputs, treat that as a tasking-format defect to be repaired later in this workflow.
   </required_checks>
 
 <verification_loop>

@@ -19,6 +19,24 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Preserve existing valid task structure and detail when rewriting; improve it rather than flattening it.
   </workflow_contract>
 
+<section_ownership_contract>
+
+- Use this section contract everywhere in this workflow:
+  - `Subtasks` contain only implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - `Testing` contains only automated proof execution steps that the coding agent can run with repository-supported wrappers, commands, or harnesses.
+  - `Manual Testing Guidance` contains optional, non-blocking guidance for the manual testing agent. It must not contain checkboxes, pass/fail gating language, or any requirement that blocks task completion.
+
+</section_ownership_contract>
+
+<phase_dependency_contract>
+
+- Never create a subtask or testing step that requires manual testing to have already happened.
+- Never create a subtask that requires automated test execution results to become complete.
+- Subtasks may name the exact proof-owning files, log markers, fixtures, screenshot paths, or harness surfaces that must be prepared, but the generated proof output itself belongs to the later `Testing` phase or to optional `Manual Testing Guidance`.
+- Do not create subtasks that say or imply `run automated tests`, `after Testing step N`, or `capture proof from the later test run`.
+
+</phase_dependency_contract>
+
 <completeness_contract>
 
 - Treat the workflow as incomplete until every Acceptance Criterion, important Description requirement, and meaningful failure mode has a clear place in the task list or is explicitly kept out of scope by the story.
@@ -43,4 +61,6 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 
 - Good: “Subtask: Update `server/src/ingest/ingestJob.ts` to defer provider initialization until embedding work exists. Purpose: preserve metadata-only fast paths when provider bootstrap fails.”
 - Bad: “Subtask: Fix ingest job behavior.”
+- Good: “Subtask: Extend `client/src/test/...` and the related proof marker wiring so later automated or manual validation can prove the stale-state fix.”
+- Bad: “Subtask: Run Playwright and attach screenshots for the stale-state fix.”
   </mini_example>

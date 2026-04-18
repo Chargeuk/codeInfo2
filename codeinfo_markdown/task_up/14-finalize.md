@@ -22,6 +22,17 @@ Perform the final tasking audit, synchronize repository ownership, and create on
 - Check that each task has realistic exit criteria, dependencies, proof steps, and runnable validation.
 - Check that the final validation task proves the whole story rather than only isolated task-level behavior.
 - Check that the applicable categories from `shared/review-preemption-checklist.md` are represented honestly in the final task list or explicitly not applicable.
+- Check that `Testing` is automated-only in every task.
+- Check that any `Manual Testing Guidance` section is optional, non-blocking, and checkbox-free.
+- Check that no subtask depends on future automated or manual proof output.
+- Check that no manual testing checklist items remain in `Subtasks` or `Testing`.
+- Check the final task in the story.
+- If it has a runnable, browser-visible, or otherwise externally observable manual-proof surface, verify that its `Manual Testing Guidance` includes:
+  - required prerequisite services;
+  - startup order where relevant;
+  - any needed login, seed, or setup path;
+  - where credentials or access come from without inlining secrets.
+- Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>
 
 <final_edit_rules>

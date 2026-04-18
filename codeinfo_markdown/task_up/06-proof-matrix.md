@@ -25,10 +25,11 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 - Rewrite or add subtasks so each proof obligation names:
   1. the requirement or invariant being proved;
   2. the implementation files that own the behavior;
-  3. the exact existing or new test files, proof artifacts, screenshots, or logs that must be created or updated.
+  3. the exact existing or new proof-owning files, log markers, fixtures, harness files, or prepared proof surfaces that must be created or updated.
 - Do not allow grouped proof instructions like “update these tests” unless each file and invariant is still listed separately in the task.
 - When one task changes multiple proof files, use separate numbered subtasks or clearly separated proof bullets so a reviewer can see which file proves which invariant.
 - Keep wrapper commands in the `Testing` section. Keep exact test-file references in subtasks.
+- Do not name manual-test-only outputs or later executed artifacts as required subtask deliverables.
   </proof_matrix_rules>
 
 <verification_loop>

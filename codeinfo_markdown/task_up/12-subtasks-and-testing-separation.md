@@ -17,17 +17,18 @@ Ensure `Subtasks` and `Testing` stay separated so implementation and proof-autho
 - For each task, check whether any `Subtasks` bullet directly tells the implementer to run a build, test, compose, browser, or wrapper command.
 - If a subtask mixes execution and proof-authoring, rewrite it so:
   - the execution command lives in `Testing`;
-  - the subtask names the exact file, note, proof artifact, screenshot, or retained proof-home path that must be created, refreshed, or cited after that execution finishes.
+  - the subtask names the exact file, fixture, marker, harness file, or prepared proof surface that must be created or updated before testing runs.
 - Do not create a subtask whose only purpose is to say "after Testing X, update `Implementation notes`".
 - Treat `Implementation notes` refreshes as plan-maintenance that happens immediately after the related subtask or testing step is completed, following `AGENTS.md`; do not model that maintenance as a separate future-gated subtask.
 - Keep exact proof-file and proof-artifact references in `Subtasks`.
 - Keep runnable wrapper commands in `Testing`.
 - Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
-- When one testing step produces outputs used by multiple subtasks, keep the single execution command in `Testing` and let each subtask describe the distinct proof-authoring or note-refresh work that depends on those outputs.
-- A subtask may name a proof artifact, screenshot, or file that must exist by the time the task is complete, but it must not depend on a later testing step in order to become executable.
-- If proof traceability after testing matters, put that expectation in the `Testing` step wording or in the task exit criteria, not as a later-dependent subtask.
+- When one testing step later produces outputs used for validation, keep the execution command in `Testing` and do not make any subtask depend on those later outputs in order to become executable.
+- A subtask may name a proof-owning file, marker, harness surface, or screenshot path convention to prepare, but it must not require the later generated artifact itself for completion.
+- If proof traceability after testing matters, express that in the `Testing` step wording or in `Manual Testing Guidance`, not as a later-dependent subtask.
 - Do not leave hybrid instructions such as “run wrapper X and update note Y” in one subtask when the same behavior can be separated cleanly.
 - Preserve task order and dependencies while rewriting. Do not move proof work into a later task unless the current task can no longer complete honestly.
+- Do not create manual testing checklist items in either `Subtasks` or `Testing`.
   </subtask_testing_separation_rules>
 
 <verification_loop>

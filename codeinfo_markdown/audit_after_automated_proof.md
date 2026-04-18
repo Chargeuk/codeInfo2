@@ -46,7 +46,14 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - If prose notes, exit-criteria text, or other non-checklist text still claim remaining work after all subtasks and testing are checked and no live standalone `**BLOCKER**` remains, treat that as invalid task shape rather than as a reason to keep the task open.
 - In that invalid task-shape case, either:
   - mark the task `__done__` if current repository evidence shows the prose-only remainder is already satisfied or is not an honest remaining gate; or
-  - convert the real remaining work into an unchecked subtask, unchecked testing step, or live standalone `**BLOCKER**` note before leaving the task `__in_progress__`.
+  - convert the real remaining work into one or more of:
+    - an unchecked implementation or proof-authoring subtask;
+    - an unchecked automated-only testing step;
+    - a live standalone `**BLOCKER**` note
+    before leaving the task `__in_progress__`.
+- You may also add optional `Manual Testing Guidance` when later manual-testing-agent validation would help for an externally observable surface, but that guidance is not by itself a reason to keep the task `__in_progress__`.
+- Do not convert prose about manual/browser follow-up into a manual-testing checklist item.
+- Do not create subtasks that depend on later proof outputs in order to become complete.
 - Before appending an audit note, re-read the latest existing audit or implementation note for this task.
 - If the latest audit outcome is materially unchanged, do not append another audit note just to restate the same state.
 - Treat the outcome as materially unchanged when no subtask status changed, no testing status changed, no blocker state changed, no task status changed, and no new proof or owner conclusion was reached.
@@ -93,6 +100,11 @@ Before finishing:
 - confirm task, subtask, and testing status were normalized to match evidence;
 - confirm the task was set to `__done__` only when both subtasks and testing were honestly complete and no blocker remained;
 - confirm any prose-only remaining-work note was either converted into an unchecked checklist item or blocker, or ignored for completion because it was not an honest remaining gate;
+- confirm any newly created subtasks stayed within implementation or proof-authoring work;
+- confirm any newly created `Testing` items remain automated-only;
+- confirm you did not create manual-testing checklist items in `Subtasks` or `Testing`;
+- confirm you did not create subtasks that depend on future manual-testing-agent or automated-proof outputs;
+- confirm any added `Manual Testing Guidance` is optional, non-blocking, and checkbox-free;
 - confirm you did not append a duplicate audit note when the task state was materially unchanged;
 - confirm any blocker was preserved and made visible in the plan;
 - confirm tracked changes were committed if any were made.

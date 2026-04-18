@@ -7,6 +7,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Rework task testing sections to match the current proof contract.
 - Keep the testing guidance repository-aware and wrapper-first.
 - Do not add manual testing steps here; manual testing is handled separately by the implementation flows.
+- Keep `Testing` automated-only and place any optional manual-testing-agent scenarios in `Manual Testing Guidance`.
 - Keep testing proportional to the actual change surface.
 - Prefer updating review-created `__to_do__` tasks and newly added revalidation tasks first.
 - Only update older `__done__` or `__in_progress__` tasks when a minimal testing-ownership, proof-path, dependency, or sequencing correction is required to keep the plan honest.
@@ -52,14 +53,15 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - If a new harness is required, create or preserve earlier prerequisite work for that harness and include at least one proof step that demonstrates the harness itself is runnable.
 - If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add those proof expectations.
 - Do not add manual Playwright, browser, or agent-driven validation steps here.
+- Do not create subtasks that depend on future automated or manual proof output in order to become complete.
 
 </proof_and_testing_rules>
 
 <coverage_rules>
 
 - For back-end systems, require unit tests plus Cucumber integration tests using Testcontainers as the primary integration-test path.
-- For front-end systems, require unit tests plus Playwright end-to-end tests, and include screenshot evidence where the UI can be checked visually.
-- For systems where a back end is paired with a front end, include the Playwright end-to-end path plus any automated browser-proof artifacts, such as screenshots, that are needed to show the changed behaviour clearly.
+- For front-end systems, require automated unit tests plus automated Playwright end-to-end tests, and include expected automated screenshot artifacts only when those artifacts are part of the automated proof.
+- For systems where a back end is paired with a front end, keep automated browser proof in `Testing` and put any optional manual-testing-agent browser scenarios in `Manual Testing Guidance`.
 - If any expected automated harnesses are missing for the system being changed, add or preserve prerequisite work for them before later tasks rely on them.
 - Ensure the task list covers the happy path, error paths, recovery behavior, and meaningful corner cases where the story requires them.
 - When a task changes constrained env/config parsing, ensure the proof covers valid input, blank or whitespace-only input, and out-of-range input where those cases affect runtime safety or correctness.
@@ -99,6 +101,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Check whether the necessary runtime, harnesses, dependencies, scripts, and repos will exist by the point each proof step is reached.
 - Check whether each task's implementation subtasks name the exact proof files that must be added or updated, instead of leaving the proof implied by only wrapper commands.
 - Check whether manual testing steps were avoided here so that manual validation remains owned by the implementation flows.
+- Check whether no subtask now depends on future automated or manual proof output.
 
 </verification_loop>
 

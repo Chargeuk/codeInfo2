@@ -7,6 +7,7 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 - Keep wrapper-first validation in `Testing`.
 - Make proof-authoring work explicit in `Subtasks`.
 - Prefer one proof obligation per proof subtask when that keeps the work honest and reviewable.
+- Keep proof-authoring work explicit in `Subtasks`, but do not require executed proof output for subtask completion.
   </instruction_priority>
 
 <test_case_expansion_rules>
@@ -31,6 +32,7 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 - When a changed test touches shared state, ports, files, caches, or retries, require the proof subtask to state the teardown or isolation expectation explicitly.
 - When a changed test title or description would become misleading, add a separate proof-maintenance subtask to rename, split, or rewrite the test so its stated invariant still matches its assertions.
 - When a story changes error wrapping, normalization, retry helpers, provider adapters, or cancellation handling, add proof-authoring subtasks that explicitly cover both raw and wrapped error paths whenever caller behavior depends on that distinction.
+- A proof subtask should describe the file, scenario, and invariant to author or update, not the later artifact that the test run will emit.
   </test_case_expansion_rules>
 
 <verification_loop>
@@ -46,6 +48,8 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 - After:
   - “Test type: server unit. Location: `server/src/test/unit/openai-provider.test.ts`. Description: prove provider batching uses the canonical max-input constant. Purpose: prevent drift between the effective batch size and the provider guardrail.”
   - “Test type: server unit. Location: `server/src/test/unit/openai-provider.test.ts`. Description: prove overflow inputs still split into multiple provider calls. Purpose: preserve batching behavior while the constant source changes.”
+- Bad: “Run the browser proof and save the screenshot for the disabled-state case.”
+- Good: “Extend the relevant Playwright proof and screenshot naming so the disabled-state case can be captured during later automated or manual validation.”
     </mini_example>
 
 <output_contract>

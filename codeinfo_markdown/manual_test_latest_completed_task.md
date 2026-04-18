@@ -74,10 +74,11 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <candidate_selection_rules>
 
 - Use the task already resolved into `current-task.json` as the candidate task for this loop iteration.
-- If the candidate task is `__in_progress__`, or its implementation notes contain a standalone implementation-note entry whose first token is exactly `**BLOCKER**`, or it otherwise is not honestly complete yet, do not perform manual testing.
+- Determine candidate eligibility from honest checklist and blocker state, not from `Task Status` alone.
 - Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**` when deciding whether the task is still blocked.
-- Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not complete yet.
-- Only if the candidate task is `__done__` should you continue with manual testing consideration.
+- If the parser-selected task still has unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`, do not perform manual testing.
+- Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not honestly complete yet.
+- If the parser-selected task has no unchecked subtasks, no unchecked testing steps, and no live standalone `**BLOCKER**`, it is eligible for manual testing whether its `Task Status` is `__in_progress__` or `__done__`.
 - Before adding a manual-testing implementation note for any outcome, re-read that task's existing implementation notes and avoid adding a duplicate note if the same manual-testing outcome is already recorded from the latest loop pass.
 
 </candidate_selection_rules>
@@ -86,11 +87,13 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - After selecting the candidate task, determine whether it is the highest-numbered real task in the story.
 - If the candidate task is not the final task in the story, keep manual proof task-scoped.
-- If the candidate task is the final task in the story and it is `__done__`, expand manual proof to full-story scope.
+- If the candidate task is the final task in the story and it is eligible for manual testing, expand manual proof to full-story scope.
 - In that final-task case:
   - first prove the final task's own acceptance-relevant behavior;
   - then run a concise end-to-end manual validation of the story's visible or externally observable outcomes across the earlier completed tasks that matter to the user-facing or externally observable story result;
   - use the story Overview, the final task's Task Exit Criteria, and the completed task sequence as the scope for that broader proof;
+  - when the story acceptance criteria can be proved more durably with artifacts, generate them where possible, such as Playwright MCP screenshots for visible states, browser console or network evidence for browser proof, and log lines or other observable runtime markers for backend-facing acceptance criteria;
+  - tie each generated artifact back to the specific story acceptance criterion or externally observable outcome it proves;
   - keep follow-up work on the final task unless the failure clearly requires planner repair because the plan boundary is now wrong.
 - Record in the implementation notes whether the pass stayed task-scoped or expanded to full-story proof because the candidate task was the final task in the story.
 
@@ -142,6 +145,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - If screenshot capture is blocked, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.
 - When the candidate task is the final task in the story, extend that manual proof into the smallest honest full-story validation that still proves the story's end-to-end observable outcomes.
+- When the candidate task is the final task in the story, prefer saving durable proof artifacts where the surface supports them, including screenshots, console or network captures, and runtime log evidence that map back to the story acceptance criteria.
 - If one proof path contaminates later runtime state and a smaller supported proof path already demonstrated the candidate task's required behavior, stop at the smaller successful proof and record the later-task limitation as a concise implementation note rather than escalating it into a blocker.
 
 </execution_rules>
@@ -151,7 +155,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - When manual testing cannot proceed normally, classify the reason into exactly one of these buckets before deciding what to do:
   - `not_applicable`:
     - the candidate task has no relevant runnable, browser-visible, network-visible, or otherwise externally observable proof surface that its own exit criteria require;
-    - in this case, record that manual testing was assessed as not applicable and continue without blocker.
+    - in this case, record that manual testing was assessed as not applicable and continue without blocker;
+    - if the candidate task has no unchecked subtasks, no unchecked testing steps, and no live standalone `**BLOCKER**`, set its `Task Status` to `__done__` before finishing.
   - `recoverable_runtime_trouble`:
     - the required proof surface should already exist, but the current runtime instance is stale, the documented startup path was not followed yet, readiness is not yet established, or a narrow in-scope startup or environment issue still looks credibly repairable in this step;
     - in this case, do one bounded recovery pass before considering a blocker.
@@ -175,19 +180,31 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Remove purely temporary diagnostic instrumentation before finishing this step unless it is genuinely useful production or test logging.
 - Do not add speculative follow-up subtasks before that diagnosis pass is complete.
 
+<section_ownership_rules>
+
+- Any task structure added or rewritten by this step MUST follow this section contract:
+  - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - `Testing` for automated proof execution only.
+  - `Manual Testing Guidance` for optional, non-blocking, checkbox-free guidance for the later `manual_testing_agent` pass only when useful.
+- Do not add manual-testing work to `Subtasks`.
+- Do not add manual-testing checklist items in `Subtasks` or `Testing`.
+- Do not add subtasks that depend on future screenshots, logs, later manual-testing-agent reruns, or later automated-proof outputs in order to become complete.
+
+</section_ownership_rules>
+
 - If manual testing reveals issues that require more implementation work:
   - only add new subtasks if the diagnosis pass identified a concrete failing seam, owner, or contract mismatch;
-  - update that same candidate task by adding new unchecked subtasks for the required follow-up work;
+  - update that same candidate task by adding new unchecked implementation or proof-authoring subtasks for the required follow-up work;
   - write every newly added subtask with the same level of detail and local context as the existing tasking;
-  - make every newly added subtask name the exact file, harness, route, component, test file, or proof artifact to change and the exact behavior to fix or prove;
+  - make every newly added subtask name the exact file, harness, route, component, test file, marker, fixture, screenshot-path convention, or other prepared proof surface to change and the exact behavior to fix or prove;
   - do not add vague subtasks such as `investigate X`, `debug Y`, or `look into Z` unless the task is explicitly being reshaped into a bounded diagnostic task by planner repair;
   - when an issue can realistically be covered by automated proof, add a separate new unchecked proof-authoring subtask for that one automated test change;
-  - each new automated proof-authoring subtask must cover exactly one automated proof addition or update, name the exact test file, harness, or proof artifact to create or edit, and explain what behavior it must prove;
+  - each new automated proof-authoring subtask must cover exactly one automated proof addition or update, name the exact test file, harness, marker, fixture, screenshot-path convention, or other prepared proof surface to create or edit, and explain what behavior it must prove;
   - if a suitable automated proof addition is not realistically possible, do not invent one; instead add an implementation note stating why automated proof could not honestly be added for that manual finding;
   - update the task's `Testing` section only when the existing harness-level testing steps would not already run the new automated proof;
   - keep any added or updated `Testing` section steps at the harness or wrapper level only and never add narrow individual-test execution steps there;
   - do not add manual testing, Playwright MCP, browser-driven agent validation, screenshot review, or any other manual-proof step to the task's `Testing` section;
-  - if extra manual validation will still be needed after the fix, mention that only in implementation notes and not as a task testing step;
+  - if extra later manual-testing-agent validation will still be useful after the fix, add optional `Manual Testing Guidance` instead of a blocking checklist item, and keep any supporting narrative concise in implementation notes;
   - when the repository workflow expects lint, format, or static-analysis checks as subtasks, add separate final unchecked subtasks for those code-hygiene commands;
   - set that candidate task's `Task Status` back to `__in_progress__`;
   - do not leave the candidate task `__done__` once any new unchecked subtask or testing step has been added;
@@ -206,7 +223,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - set that candidate task's `Task Status` to `__in_progress__`.
 
 - If manual testing succeeds without finding further work:
-  - leave the candidate task as `__done__`;
+  - set the candidate task's `Task Status` to `__done__`;
   - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the screenshot artifacts were saved, and that no additional subtasks were needed.
 
 - If the non-run reason is `recoverable_runtime_trouble`:
@@ -237,8 +254,9 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Report which candidate task you evaluated.
 - Report whether manual testing was skipped, assessed as not applicable, run successfully, or blocked.
 - Report whether the pass stayed task-scoped or expanded to full-story proof.
+- Report whether the task was eligible for manual testing because it was fully checked and unblocked.
 - Report whether new subtasks or testing steps were added.
-- Report whether the task status changed back to `__in_progress__`.
+- Report whether the task status changed back to `__in_progress__` or forward to `__done__`.
 
 </output_contract>
 
@@ -246,12 +264,18 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - Confirm you used only the stored handoff and runtime-research scope.
 - Confirm you used the task already resolved into `current-task.json`.
+- Confirm candidate eligibility was determined from checklist and blocker state rather than `Task Status` alone.
 - Confirm you did not require later-task-owned surfaces unless the candidate task explicitly depended on them.
 - Confirm any failure-triggered follow-up work came after a bounded diagnosis pass rather than from first-guess speculation.
 - Confirm any non-run outcome was classified as `not_applicable`, `recoverable_runtime_trouble`, or `structural_proof_gap` before finalizing.
 - Confirm any new subtasks and proof-authoring subtasks are detailed enough for a weak junior agent to follow.
 - Confirm no vague `investigate` or `debug` subtasks were added unless planner repair explicitly turned the work into a bounded diagnostic task.
+- Confirm no manual-testing work was added to `Subtasks`.
 - Confirm no manual-testing step was added to the task's `Testing` section.
+- Confirm no newly added subtask depends on future manual-testing-agent or automated-proof outputs.
+- Confirm any added `Manual Testing Guidance` is optional, non-blocking, and checkbox-free.
+- Confirm a fully checked unblocked `__in_progress__` task was not incorrectly skipped.
+- Confirm the task was set to `__done__` when manual testing succeeded or was honestly not applicable and no further work remained.
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
 

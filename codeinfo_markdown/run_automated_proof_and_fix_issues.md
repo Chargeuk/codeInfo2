@@ -74,10 +74,23 @@ Do not perform manual testing in this step.
 
 </proof_rules>
 
+<section_ownership_rules>
+
+- Any task structure added or rewritten by this step MUST follow this section contract:
+  - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - `Testing` for automated proof execution only.
+  - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
+- Do not add manual-testing work to `Subtasks` or `Testing`.
+- Do not add subtasks that depend on later screenshots, logs, manual-testing-agent reruns, or other future proof outputs in order to become complete.
+
+</section_ownership_rules>
+
 <fix_rules>
 
 - You may fix code, tests, config, wrappers, or task-owned proof files as needed to make the candidate task's automated proof pass honestly.
-- If automated proof reveals additional in-scope work that should be tracked explicitly, you may add concise new unchecked subtasks or testing steps to the same task before continuing.
+- If automated proof reveals additional in-scope work that should be tracked explicitly, you may add:
+  - concise new unchecked implementation or proof-authoring subtasks; or
+  - concise new unchecked automated-only testing steps.
 - If you add new unchecked subtasks or testing steps to a task that was somehow already marked `__done__`, reopen that task to `__in_progress__` immediately before continuing. A task must not remain `__done__` while new unchecked work has been added to it.
 - Do not invent fake proof, fake passing output, fake runtime seams, fake containers, or fake harnesses.
 
@@ -136,9 +149,13 @@ Before finishing:
 - confirm you ran only the `Testing` section or honestly skipped it;
 - confirm each completed testing step was marked immediately;
 - confirm any proof-owned subtasks closed by a testing step were marked immediately instead of being deferred until the end of the rerun chain;
+- confirm any newly added subtasks stayed within implementation, proof-authoring, documentation, config, or explicitly allowed code-hygiene work;
+- confirm any newly added `Testing` steps remain automated-only and wrapper-level when repository guidance expects that;
 - confirm you did not raise a blocker for an ordinary failing test without first inspecting the failure evidence, attempting at least one concrete in-scope repair when appropriate, and rerunning the affected proof;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;
+- confirm you did not add manual-testing work to `Subtasks` or `Testing`;
+- confirm you did not add subtasks that depend on future manual-testing-agent or automated-proof outputs;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

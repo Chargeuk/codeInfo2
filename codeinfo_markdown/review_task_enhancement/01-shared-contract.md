@@ -32,6 +32,10 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Make every eligible review-created task concrete enough for a weak, junior, forgetful implementer who may read one subtask at a time.
 - Ensure each eligible task has explicit ownership, clear subtasks, honest proof homes, and realistic wrapper-first testing.
 - Keep review-created tasks executable in order: no subtask may depend on a later `Testing` step to become runnable.
+- Keep `Testing` automated-only and place any optional manual-testing-agent scenarios only in `Manual Testing Guidance`.
+- Do not create manual testing subtasks or testing checklist items in these review-created tasks.
+- Do not create subtasks that depend on future automated or manual proof output in order to become complete.
+- Subtasks may name proof-owning files, markers, fixtures, harness surfaces, or screenshot path conventions to prepare, but they must not require the later generated artifact itself for completion.
 - Do not encode `Implementation notes` refreshes after testing as standalone subtasks.
 - If final close-out needs retained proof homes, adjudication notes, or artifact-existence confirmations, place those expectations in `Task Exit Criteria`, `Testing`, or a bounded final validation task description rather than as post-testing subtasks.
 - Treat vague review-fix wording as a defect to rewrite, not something to leave for later.
@@ -52,5 +56,6 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Check that you are still enhancing only the selected eligible review-created `__to_do__` tasks.
 - Check that any edits to older tasks are minimal dependency or reference updates rather than opportunistic rewrites.
 - Check that the resulting task order still matches the next real executable work.
+- Check that the selected review-created tasks now follow the same `Subtasks` / automated-only `Testing` / optional `Manual Testing Guidance` contract as the main `task_up2` workflow.
 
 </verification_loop>

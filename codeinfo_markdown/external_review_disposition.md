@@ -1,4 +1,4 @@
-Read and follow `codeinfo_markdown/review_disposition.md` first as the base disposition contract for this step.
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/review_disposition.md` first as the base disposition contract for this step.
 
 Then apply these external-review-specific additions:
 

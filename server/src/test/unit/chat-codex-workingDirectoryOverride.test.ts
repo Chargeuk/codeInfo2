@@ -60,4 +60,54 @@ describe('ChatInterfaceCodex workingDirectoryOverride', () => {
     assert(captured.start);
     assert.equal(captured.start.workingDirectory, '/tmp/override');
   });
+
+  it('merges envOverrides into the codex environment', async () => {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    const captured: { options?: unknown } = {};
+
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-env' };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: 'ok' },
+      };
+      yield { type: 'turn.completed' };
+    };
+
+    const thread = {
+      id: 'tid-env',
+      runStreamed: async () => ({ events: events() }),
+    };
+
+    const chat = new ChatInterfaceCodex((options) => {
+      captured.options = options ?? {};
+      return {
+        startThread: () => thread,
+        resumeThread: () => thread,
+      };
+    });
+
+    await chat.run(
+      'Hello',
+      {
+        threadId: null,
+        useConfigDefaults: true,
+        envOverrides: { CODEINFO_ROOT: '/tmp/codeinfo-root' },
+        skipPersistence: true,
+      },
+      'conv-env',
+      'gpt-5.1-codex-max',
+    );
+
+    assert(captured.options);
+    assert.equal(
+      (captured.options as { env?: NodeJS.ProcessEnv }).env?.CODEINFO_ROOT,
+      '/tmp/codeinfo-root',
+    );
+  });
 });

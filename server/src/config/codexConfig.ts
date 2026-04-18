@@ -222,6 +222,7 @@ export async function ensureCodexAuthFileStore(configPath: string): Promise<{
 export function buildCodexOptions(params?: {
   codexHome?: string;
   runtimeConfig?: CodexOptions['config'];
+  envOverrides?: NodeJS.ProcessEnv;
 }): CodexOptions | undefined {
   const home = resolveCodexHome(params?.codexHome);
   return {
@@ -229,6 +230,7 @@ export function buildCodexOptions(params?: {
     env: {
       // ensure we give the full environment so MCP servers work
       ...process.env,
+      ...(params?.envOverrides ?? {}),
       CODEX_HOME: home,
     },
   } satisfies CodexOptions;

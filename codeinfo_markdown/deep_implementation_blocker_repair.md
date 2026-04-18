@@ -4,7 +4,7 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 
 <critical_rules>
 
-- Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+- Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
 - Re-open the exact relative `plan_path` from disk before doing anything else, using explicit shell reads such as `sed`, `cat`, or `rg`.
@@ -20,7 +20,7 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 1. Read `current-plan.json` from disk.
 2. Read `current-task.json` from disk and determine the exact bound task.
 3. Re-open the exact `plan_path` from disk and re-read the bound task's full text, especially `Subtasks`, `Task Exit Criteria`, and `Implementation Notes`.
-4. Run `python3 scripts/plan_status.py --task-number <bound-task-number>`.
+4. Run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <bound-task-number>`.
 5. If there is no live blocker for that bound task, stop immediately, make no edits, and do not append any implementation note.
 6. If there is a live blocker but it is clearly not an implementation-local blocker for the bound task, stop immediately, preserve the blocker unchanged, and do not append a no-op note.
 7. If there is an applicable implementation blocker, perform a bounded deeper diagnose-fix-verify pass on the bound task only.
@@ -50,8 +50,8 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 
 <repair_rules>
 
-- Before deciding whether the blocker is real, read `codeinfo_markdown/shared/blocker-detection.md`.
-- Use `python3 scripts/plan_status.py --task-number <bound-task-number>` as the source of truth for blocker state.
+- Before deciding whether the blocker is real, read `$CODEINFO_ROOT/codeinfo_markdown/shared/blocker-detection.md`.
+- Use `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <bound-task-number>` as the source of truth for blocker state.
 - Treat only `selected_task.live_blockers` as active blockers for this step.
 - If `selected_task` is null or `selected_task.live_blockers` is empty, this step is a no-op: make no edits and append no note.
 - Inspect the concrete blocker evidence first: the exact blocker text, recent implementation notes, relevant code, wrapper output, or local command evidence.

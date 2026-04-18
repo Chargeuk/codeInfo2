@@ -4,7 +4,7 @@ Perform a deep repair pass only for a live blocker caused by automated-proof tes
 
 <task>
 
-Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
 Re-open the exact plan file from disk before doing anything else.
@@ -27,8 +27,8 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the f
 
 <blocker_detection_rules>
 
-- Before deciding whether this step applies, read `codeinfo_markdown/shared/blocker-detection.md`.
-- Determine the bound task number from `current-task.json`, then run `python3 scripts/plan_status.py --task-number <that-number>`.
+- Before deciding whether this step applies, read `$CODEINFO_ROOT/codeinfo_markdown/shared/blocker-detection.md`.
+- Determine the bound task number from `current-task.json`, then run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <that-number>`.
 - Use the parser output, not visual scanning, as the source of truth for live blocker state.
 - Treat only `selected_task.live_blockers` as active blockers for this step.
 - If `selected_task` is null or `selected_task.live_blockers` is empty, this step is a no-op: state that no live blocker is present, make no edits, and do not append any implementation note.

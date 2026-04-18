@@ -93,8 +93,8 @@ Two or three concise sentences describing what this task achieves, why it is nee
 2. [ ] Implement the required code, config, contract, migration, deployment, or runtime changes. Name the exact local files or areas to update.
 3. [ ] Add or update the implementation-side proof files for this task, such as unit tests, integration tests, fixtures, schemas, or harness code, naming the exact files to create or change.
 4. [ ] Update each required documentation file in its own subtask, naming the exact file and what must change.
-5. [ ] Run the repository-supported lint command for the files changed by this task and fix any issues found, using any available auto-fix command before manual cleanup when possible.
-6. [ ] Run the repository-supported prettier or format-check command for the files changed by this task and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+5. [ ] Run the exact repository-supported lint command for the files changed by this task, write that exact command in this checklist item, and fix any issues found using any available auto-fix command before manual cleanup when possible.
+6. [ ] Run the exact repository-supported prettier or format-check command for the files changed by this task, write that exact command in this checklist item, and fix any issues found using any available auto-fix command before manual cleanup when possible.
 
 Rules:
 
@@ -120,8 +120,8 @@ Plan the task's proof in this order when applicable:
 2. [ ] Run the relevant automated tests using the repository's wrapper-first workflow from `AGENTS.md`, or the highest-level safe commands discoverable from the repository if no wrapper guidance exists.
 3. [ ] Start the runnable system or required services only if this task's proof needs them.
 4. [ ] Stop any system or services started for automated validation.
-5. [ ] Run the repository-supported lint command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
-6. [ ] Run the repository-supported prettier or format-check command for this task's surface and fix any issues found, using any available auto-fix command before manual cleanup when possible.
+5. [ ] Run the exact repository-supported lint command for this task's surface, write that exact command in this checklist item, and fix any issues found using any available auto-fix command before manual cleanup when possible.
+6. [ ] Run the exact repository-supported prettier or format-check command for this task's surface, write that exact command in this checklist item, and fix any issues found using any available auto-fix command before manual cleanup when possible.
 
 Rules:
 

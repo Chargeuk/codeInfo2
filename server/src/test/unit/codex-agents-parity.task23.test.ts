@@ -28,9 +28,9 @@ test('Task 23 parity checker emits deterministic success log when no delete/rena
   try {
     assertNoDeleteOrRename([
       'M\tcodex_agents/planning_agent/commands/improve_plan.json',
+      'M\tcodex_agents/planning_agent/commands/task_up_review_tasks.json',
       'A\tcodex_agents/planning_agent/commands/kadshow_improve_plan.json',
-      'M\tcodex_agents/tasking_agent/commands/task_up.json',
-      'A\tcodex_agents/tasking_agent/commands/kadshow_task_up.json',
+      'M\tcodex_agents/tasking_agent/commands/task_up2.json',
     ]);
     console.info(T23_SUCCESS);
     assert.ok(
@@ -52,7 +52,7 @@ test('Task 23 parity checker emits deterministic error log on intentional delete
     assert.throws(() =>
       assertNoDeleteOrRename([
         'M\tcodex_agents/planning_agent/commands/improve_plan.json',
-        'D\tcodex_agents/planning_agent/commands/kadshow_improve_plan.json',
+        'D\tcodex_agents/tasking_agent/commands/task_up2.json',
       ]),
     );
     console.info(T23_ERROR);

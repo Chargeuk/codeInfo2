@@ -60,6 +60,11 @@
       "type": "message",
       "role": "user",
       "markdownFile": "review_task_enhancement/03-finalize.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/15-create-or-update-simple-story.md"
     }
   ]
 }

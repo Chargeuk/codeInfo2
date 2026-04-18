@@ -28,7 +28,7 @@ Ensure `Subtasks` and `Testing` stay separated so implementation and proof-autho
 - A subtask may name a proof-owning file, marker, harness surface, or screenshot path convention to prepare, but it must not require the later generated artifact itself for completion.
 - If a task needs alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams, keep those seams in test-owned code, fixtures, harnesses, or test configuration rather than in the shipped production path.
 - When subtasks or testing mention screenshot output, ensure the planned path is an ignored artifact location rather than a tracked repository file.
-- When manual-testing guidance or related proof notes mention manual-proof artifact locations, keep non-final-task artifacts in `codeinfoTmp/manual-testing/<story-number>/` as non-committed proof and keep final-task artifacts in `codeinfoStatus/manual-testing/<story-number>/` as committed proof.
+- When manual-testing guidance or related proof notes mention manual-proof artifact locations, keep non-final-task artifacts in `codeInfoTmp/manual-testing/<story-number>/` as non-committed proof and keep final-task artifacts in `codeInfoStatus/manual-testing/<story-number>/` as committed proof.
 - If proof traceability after testing matters, express that in the `Testing` step wording or in `Manual Testing Guidance`, not as a later-dependent subtask.
 - Do not leave hybrid instructions such as “run wrapper X and update note Y” in one subtask when the same behavior can be separated cleanly.
 - Preserve task order and dependencies while rewriting. Do not move proof work into a later task unless the current task can no longer complete honestly.

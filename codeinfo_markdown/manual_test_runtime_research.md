@@ -205,7 +205,7 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
           "notes": "Use the paired frontend for browser proof.",
           "task_guidance": {
             "consulted": true,
-            "artifact_destination": "codeinfoTmp/manual-testing/0000059/",
+            "artifact_destination": "codeInfoTmp/manual-testing/0000059/",
             "notes": "Bound task Manual Testing Guidance requested frontend proof through the paired UI and non-final-task scratch artifact storage."
           }
         }

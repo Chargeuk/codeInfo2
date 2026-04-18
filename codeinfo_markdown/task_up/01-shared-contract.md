@@ -26,9 +26,10 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Never plan production-code changes whose only purpose is to disable, bypass, mock, or weaken real production behavior so automated or manual tests can run.
 - When tests need alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams, keep that enablement in test-only code, fixtures, harnesses, or test configuration rather than in the shipped production code path.
 - Automated-test screenshots and similar generated proof artifacts must be written only to ignored artifact locations and must never be planned as checked-in repository files.
+- If the story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, plan the minimal `.gitignore` update needed before later proof depends on that scratch path.
 - Manual-testing proof paths must stay repository-relative and use this split:
-  - for any non-final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeinfoTmp/manual-testing/<story-number>/` and must not be committed;
-  - for the final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeinfoStatus/manual-testing/<story-number>/` and should be committed as durable story-closeout proof.
+  - for any non-final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeInfoTmp/manual-testing/<story-number>/` and must not be committed;
+  - for the final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeInfoStatus/manual-testing/<story-number>/` and should be committed as durable story-closeout proof.
 
 </portability_and_test_boundary_contract>
 

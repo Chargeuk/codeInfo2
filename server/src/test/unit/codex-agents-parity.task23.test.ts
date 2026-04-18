@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const T23_SUCCESS =
-  '[DEV-0000037][T23] event=codex_agents_tree_parity_restored result=success';
-const T23_ERROR =
-  '[DEV-0000037][T23] event=codex_agents_tree_parity_restored result=error';
+const T23_COMMAND_TREE_SUCCESS =
+  '[DEV-0000037][T23] event=codex_agents_command_tree_verified result=success';
+const T23_COMMAND_TREE_ERROR =
+  '[DEV-0000037][T23] event=codex_agents_command_tree_verified result=error';
 
 function assertNoDeleteOrRename(entries: string[]): void {
   for (const entry of entries) {
@@ -19,7 +19,7 @@ function assertNoDeleteOrRename(entries: string[]): void {
   }
 }
 
-test('Task 23 parity checker emits deterministic success log when no delete/rename statuses exist', () => {
+test('Task 23 command-tree checker emits deterministic success log for accepted diffs', () => {
   const infoCalls: string[] = [];
   const originalInfo = console.info;
   console.info = (message?: unknown, ...optional: unknown[]) => {
@@ -32,9 +32,9 @@ test('Task 23 parity checker emits deterministic success log when no delete/rena
       'A\tcodex_agents/planning_agent/commands/kadshow_improve_plan.json',
       'M\tcodex_agents/tasking_agent/commands/task_up2.json',
     ]);
-    console.info(T23_SUCCESS);
+    console.info(T23_COMMAND_TREE_SUCCESS);
     assert.ok(
-      infoCalls.some((line) => line.includes(T23_SUCCESS)),
+      infoCalls.some((line) => line.includes(T23_COMMAND_TREE_SUCCESS)),
       'expected deterministic T23 success log line',
     );
   } finally {
@@ -42,7 +42,7 @@ test('Task 23 parity checker emits deterministic success log when no delete/rena
   }
 });
 
-test('Task 23 parity checker emits deterministic error log on intentional delete/rename failure-path', () => {
+test('Task 23 command-tree checker emits deterministic error log for disallowed delete or rename diffs', () => {
   const infoCalls: string[] = [];
   const originalInfo = console.info;
   console.info = (message?: unknown, ...optional: unknown[]) => {
@@ -55,9 +55,9 @@ test('Task 23 parity checker emits deterministic error log on intentional delete
         'D\tcodex_agents/tasking_agent/commands/task_up2.json',
       ]),
     );
-    console.info(T23_ERROR);
+    console.info(T23_COMMAND_TREE_ERROR);
     assert.ok(
-      infoCalls.some((line) => line.includes(T23_ERROR)),
+      infoCalls.some((line) => line.includes(T23_COMMAND_TREE_ERROR)),
       'expected deterministic T23 error log line',
     );
   } finally {

@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { parseFlowFile } from '../../flows/flowSchema.js';
 import { query, resetStore } from '../../logStore.js';
 
 describe('flow schema (v1)', () => {
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+
   test('does not emit Story 45 parse logs unless explicitly requested', () => {
     resetStore();
     const json = JSON.stringify({
@@ -65,6 +73,24 @@ describe('flow schema (v1)', () => {
   test('invalid JSON returns ok: false', () => {
     const parsed = parseFlowFile('{ not valid json');
     assert.equal(parsed.ok, false);
+  });
+
+  test('production implementation-loop flows remain valid JSON and schema', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/task_and_implement_plan.json',
+    ] as const;
+
+    for (const relativePath of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      assert.doesNotThrow(() => JSON.parse(raw), relativePath);
+
+      const parsed = parseFlowFile(raw, {
+        flowName: path.basename(relativePath),
+      });
+      assert.equal(parsed.ok, true, relativePath);
+    }
   });
 
   test('unknown keys are rejected (strict), including reingest extras', () => {

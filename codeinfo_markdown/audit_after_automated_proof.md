@@ -14,7 +14,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 <scope_rules>
 
-- Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+- Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
@@ -27,8 +27,8 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 <blocker_detection_rules>
 
-- Before deciding whether the current task has a live blocker, read `codeinfo_markdown/shared/blocker-detection.md`.
-- Determine the bound task number from `current-task.json`, then run `python3 scripts/plan_status.py --task-number <that-number>`.
+- Before deciding whether the current task has a live blocker, read `$CODEINFO_ROOT/codeinfo_markdown/shared/blocker-detection.md`.
+- Determine the bound task number from `current-task.json`, then run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <that-number>`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for this audit.
 - If you add or retire a live blocker during this step, rerun the parser before finalizing your answer so blocker state and task status match current disk state.

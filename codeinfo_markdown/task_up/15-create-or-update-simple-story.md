@@ -17,7 +17,7 @@ Create or update the simple-story companion document so business readers have a 
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope.
 - Re-open the exact relative `plan_path` from disk after the final tasking pass has completed.
 - Inspect the final task list directly from the updated plan rather than relying on memory or earlier drafts.
-- Reuse the structure and intent from `codeinfo_markdown/create_simple_story.md`, but keep this pass aligned to the final tasked plan and current command ownership.
+- Reuse the structure and intent from `$CODEINFO_ROOT/codeinfo_markdown/create_simple_story.md`, but keep this pass aligned to the final tasked plan and current command ownership.
 
 </source_priority>
 

@@ -1094,6 +1094,7 @@ const runFlowInstruction = async (params: {
   onThreadId: (threadId: string) => void;
   command?: TurnCommandMetadata;
   runtime?: TurnRuntimeMetadata;
+  envOverrides?: NodeJS.ProcessEnv;
   runToken?: string;
   cleanupInflightFn?: typeof cleanupInflight;
 }): Promise<FlowInstructionResult> => {
@@ -1215,6 +1216,7 @@ const runFlowInstruction = async (params: {
         ...(params.workingDirectoryOverride !== undefined
           ? { workingDirectoryOverride: params.workingDirectoryOverride }
           : {}),
+        ...(params.envOverrides ? { envOverrides: params.envOverrides } : {}),
         disableSystemContext: true,
         systemPrompt: params.systemPrompt,
         deferInflightCleanup: true,
@@ -2357,6 +2359,9 @@ async function runFlowUnlocked(params: {
   const cleanupInflightFn = params.cleanupInflightFn ?? cleanupInflight;
   const releaseConversationLockFn =
     params.releaseConversationLockFn ?? releaseConversationLock;
+  const flowEnvOverrides: NodeJS.ProcessEnv = {
+    CODEINFO_ROOT: params.repositoryContext.codeInfo2Root,
+  };
 
   const finalizeFlowRuntime = () => {
     if (finalizedFlowRuntime) return;
@@ -2510,6 +2515,7 @@ async function runFlowUnlocked(params: {
         threadId: agentState.threadId,
         systemPrompt,
         workingDirectoryOverride: params.workingDirectoryOverride,
+        envOverrides: flowEnvOverrides,
         source: params.source,
         chatFactory: params.chatFactory,
         deferFinal: true,

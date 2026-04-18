@@ -4,7 +4,7 @@ Research the current blocker, prove the best technical solution, and record that
 
 <task>
 
-Before doing anything else, read `codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
 Re-open the exact plan file from disk before checking for blockers.
@@ -26,10 +26,10 @@ Write the proven blocker answer into the implementation notes marked as `**BLOCK
 
 <blocker_detection_rules>
 
-- Before deciding whether the current implementation contains a blocker, read `codeinfo_markdown/shared/blocker-detection.md`.
-- If `current-task.json` clearly resolves a bound task, determine that task number from its contents and run `python3 scripts/plan_status.py --task-number <that-number>`.
+- Before deciding whether the current implementation contains a blocker, read `$CODEINFO_ROOT/codeinfo_markdown/shared/blocker-detection.md`.
+- If `current-task.json` clearly resolves a bound task, determine that task number from its contents and run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <that-number>`.
 - If `current-task.json` instead says plan repair is still needed and does not clearly resolve one task, say that explicitly and use the current repaired plan state on disk only as a fallback to understand whether a single blocker owner now exists.
-- Only when that fallback is necessary may you run `python3 scripts/plan_status.py --selector active_or_done`.
+- Only when that fallback is necessary may you run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --selector active_or_done`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as the current live blocker state for this step.
 - If the parser reports no live blocker lines for the selected task, state that no current blocker is present and stop.

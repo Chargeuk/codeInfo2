@@ -40,6 +40,28 @@ class CapturingChat extends ChatInterface {
   }
 }
 
+class FlagsCapturingChat extends ChatInterface {
+  constructor(
+    private readonly capture: (flags: Record<string, unknown>) => void,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _model;
+    this.capture({ ...flags });
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
@@ -180,6 +202,73 @@ test('runAgentCommand executes local markdown-backed direct commands', async () 
     });
 
     assert.deepEqual(messages, ['# Local markdown\n\nBody']);
+  } finally {
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('runAgentCommand passes CODEINFO_ROOT into direct markdown-backed command runs', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-markdown-file-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  const conversationId = 'commands-markdown-codeinfo-root';
+  let capturedFlags: Record<string, unknown> | null = null;
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(agentHome, 'commands'),
+      commandName: 'local-markdown-flags',
+      items: [{ type: 'message', role: 'user', markdownFile: 'local.md' }],
+    });
+    await writeMarkdownFile({
+      repoRoot: codeInfo2Root,
+      relativePath: 'local.md',
+      content: '# Local markdown\n\nBody',
+    });
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () => ({ repos: [] }) as never,
+    });
+
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'local-markdown-flags',
+      conversationId,
+      source: 'REST',
+      chatFactory: () =>
+        new FlagsCapturingChat((flags) => {
+          capturedFlags = flags;
+        }),
+    });
+
+    assert(capturedFlags);
+    const envOverrides = capturedFlags['envOverrides'] as
+      | NodeJS.ProcessEnv
+      | undefined;
+    assert.deepEqual(
+      envOverrides ?? {},
+      {
+        CODEINFO_ROOT: codeInfo2Root,
+      },
+    );
   } finally {
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();

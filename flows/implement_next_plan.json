@@ -23,13 +23,6 @@
       "markdownFile": "use_current_plan_handoff.md"
     },
     {
-      "type": "llm",
-      "label": "Manual Tester Research Runtime Paths",
-      "agentType": "manual_testing_agent",
-      "identifier": "manual_tester",
-      "markdownFile": "manual_test_runtime_research.md"
-    },
-    {
       "type": "startLoop",
       "label": "Story Execution And Review Loop",
       "steps": [
@@ -289,6 +282,13 @@
           "agentType": "planning_agent",
           "identifier": "planner",
           "markdownFile": "ensure_task_testing_matches_current_contract.md"
+        },
+        {
+          "type": "llm",
+          "label": "Create Or Update Simple Story",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "task_up/15-create-or-update-simple-story.md"
         },
         {
           "type": "break",

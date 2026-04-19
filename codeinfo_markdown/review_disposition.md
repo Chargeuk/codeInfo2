@@ -36,11 +36,14 @@ Finish the current story review using ONLY the stored review handoff and the art
   - `review_pass_id`
   - `evidence_file`
   - `findings_file`
+  - optional `saturation_file`
   - `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, and `head_commit`
     still match the normalized review scope and current repository state for every selected repository.
 - Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
+- If the review handoff includes `saturation_file`, treat it as optional additive context for this pass. Read it when present.
 - If the review handoff includes `challenge_file`, treat it as optional additive context for this pass. Read it when present.
 - If `challenge_file` is absent, derive the same reasoning directly from the evidence and findings artifacts instead of failing or asking for a rerun.
+- If `saturation_file` is absent because an older flow snapshot is still running, continue using the findings artifact as the canonical endorsed-findings source instead of failing or asking for a rerun.
 
 </scope_rules>
 
@@ -69,9 +72,9 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 6. Every new review-fix task MUST name exactly one repository using `Repository Name`.
 7. For cross-repository findings, keep the work in the one canonical plan but split it into repository-specific tasks and make sequencing explicit.
 8. Every new review-fix task MUST use the canonical section contract:
-    - `Subtasks` for implementation and proof-authoring work only;
-    - automated-only `Testing`;
-    - optional, non-blocking `Manual Testing Guidance` only when useful.
+   - `Subtasks` for implementation and proof-authoring work only;
+   - automated-only `Testing`;
+   - optional, non-blocking `Manual Testing Guidance` only when useful.
 9. Never create a review-fix subtask or testing step that requires manual testing to have already happened.
 10. Never create a review-fix subtask that requires automated test execution results to become complete.
 11. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, wording, or the explicit hygiene/security cleanup needed to remove the secret or artifact problem.
@@ -97,16 +100,17 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - lifecycle ordering;
     - test isolation.
 20. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
-21. The current pass `evidence_file`, `findings_file`, and optional `challenge_file` are high-quality local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
-22. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
-23. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
+21. The current pass `evidence_file`, `findings_file`, optional `saturation_file`, and optional `challenge_file` are high-quality local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
+22. When the saturation step exists, treat its artifact as additive context for the reopen or no-findings decision. When the saturation step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Finding Saturation Seeds`, `Checked Defect Families`, and endorsed findings as the fallback source of that reasoning.
+23. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
+24. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
     - a new `Code Review Findings` section for the current `review_pass_id`;
     - at least one new review-created `Task Status: __to_do__` task that responds to the endorsed findings;
     - a fresh final re-test or revalidation task after those new review-fix tasks.
-24. Do not insert new review-created tasks into the middle or top of the plan file, even when they describe a prerequisite. Keep them appended at the end of the file and express any prerequisite relationship through task wording, dependencies, sequencing notes, and task status rather than insertion position.
-25. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
-26. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
-27. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
+25. Do not insert new review-created tasks into the middle or top of the plan file, even when they describe a prerequisite. Keep them appended at the end of the plan file and express any prerequisite relationship through task wording, dependencies, sequencing notes, and task status rather than insertion position.
+26. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
+27. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
+28. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 
 </disposition_rules>
 
@@ -151,6 +155,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 - Confirm no allowed support file was reopened for anything other than spelling, grammar, wording, or an explicit secret/artifact-hygiene correction.
 - Confirm the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope.
 - Confirm the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope.
+- Confirm the no-findings path, if used, carried forward sibling-scan or checked-defect-family reasoning from the saturation artifact when present, or from the findings artifact when the saturation artifact was absent.
 - Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.
 - Confirm scratch review artifacts are treated as local-only workflow files, the current-plan handoff is not mistaken for the review handoff, and the review handoff remains transient workflow state rather than a commit-worthy repository artifact.
 - Confirm that a findings-present pass left new review-created `__to_do__` tasks plus a final revalidation task in the plan, or that a no-findings pass left the required `Post-Implementation Code Review` section for the current `review_pass_id`.

@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { parseAgentCommandFile } from '../../agents/commandsSchema.js';
 import { query, resetStore } from '../../logStore.js';
 
 describe('agent command schema (v1)', () => {
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+
   test('does not emit Story 45 parse logs unless explicitly requested', () => {
     resetStore();
     const json = JSON.stringify({
@@ -387,5 +395,28 @@ describe('agent command schema (v1)', () => {
     assert.equal(logs[1]?.context?.definitionIndex, 0);
     assert.equal(logs[1]?.context?.outcome, 'rejected_removed_target');
     assert.equal(logs[1]?.context?.removedTarget, 'current');
+  });
+
+  test('production review-agent commands remain valid JSON and schema', async () => {
+    const commandFiles = [
+      'codex_agents/review_agent/commands/code_review_findings.json',
+      'codex_agents/review_agent/commands/external_review_blind_spot_challenge.json',
+      'codex_agents/review_agent/commands/external_review_evidence_gate.json',
+      'codex_agents/review_agent/commands/external_review_findings.json',
+      'codex_agents/review_agent/commands/external_review_findings_saturation.json',
+      'codex_agents/review_agent/commands/review_blind_spot_challenge.json',
+      'codex_agents/review_agent/commands/review_evidence_gate.json',
+      'codex_agents/review_agent/commands/review_findings_saturation.json',
+    ] as const;
+
+    for (const relativePath of commandFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      assert.doesNotThrow(() => JSON.parse(raw), relativePath);
+
+      const parsed = parseAgentCommandFile(raw, {
+        commandName: path.basename(relativePath),
+      });
+      assert.equal(parsed.ok, true, relativePath);
+    }
   });
 });

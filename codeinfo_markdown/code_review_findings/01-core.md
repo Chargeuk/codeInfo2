@@ -68,6 +68,9 @@ The findings file MUST:
 - classify each finding as `must_fix`, `should_fix`, or `optional_simplification`;
 - state for each finding whether it is a `plan_contract_issue` or a `generic_engineering_issue`;
 - identify the affected repository scope for every finding using the reviewed repository roots or aliases.
+- for every `must_fix` or `should_fix` finding, name the defect class and the most likely same-class sibling surfaces that should be checked next, or state explicitly why no meaningful sibling surface exists for that finding;
+- include a short `Finding Saturation Seeds` section that records the likely same-class sibling files, mirrored producers or consumers, lifecycle-adjacent seams, proof-owner chains, or support-file families that a later bounded saturation pass should check before disposition;
+- when no actionable findings exist, include a `Checked Defect Families` section that lists the main same-class defect families actively ruled out during the findings pass rather than implying they were never considered.
 
 Cross-repository findings are valid when the issue only becomes visible when comparing two or more repositories together, even if each repository looks individually plausible.
 
@@ -94,6 +97,8 @@ This findings file is a high-quality local review artifact for the active flow r
 - Confirm the top 3 risky helpers/functions from the evidence artifact were inspected.
 - Confirm the findings artifact includes `Rejected Risk Notes` for those risky helpers/functions.
 - Confirm all findings include severity, issue type, and affected repository scope.
+- Confirm every actionable finding includes a defect class plus likely same-class sibling surfaces, or an explicit reason no meaningful sibling surface exists.
+- Confirm the findings artifact includes `Finding Saturation Seeds`, or `Checked Defect Families` when no actionable findings exist.
 - Confirm any finding raised against allowed support files was either a wording issue or an explicit secret/artifact-hygiene issue.
 - Confirm the findings file path and the handoff `findings_file` field match.
 

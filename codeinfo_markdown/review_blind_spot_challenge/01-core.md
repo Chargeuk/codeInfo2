@@ -22,8 +22,9 @@ Read all of the following from disk:
 - the current review handoff;
 - the evidence artifact referenced by that handoff;
 - the findings artifact referenced by that handoff.
+- the saturation artifact referenced by that handoff when `saturation_file` is present.
 
-Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact's `Rejected Risk Notes` as the primary input set for this challenge.
+Treat the evidence artifact's `Risk-Invariant Matrix`, the findings artifact's `Rejected Risk Notes`, and any saturation artifact's sibling-scan outcome as the primary input set for this challenge.
 
 </scope_rules>
 
@@ -62,6 +63,7 @@ This artifact is additive context for disposition. Downstream steps must still w
 
 - Confirm the current-plan handoff still matches the canonical plan and story branch.
 - Confirm the review handoff still matches the current scope and referenced artifacts.
+- Confirm the challenge consumed the saturation artifact when it was present, and still remained backward-compatible when it was absent.
 - Confirm the challenge inspected the top-risk helpers/functions rather than restarting the entire review.
 - Confirm the challenge artifact path matches the `challenge_file` value written into the handoff.
 - Confirm the artifact explicitly says whether any new finding was generated.

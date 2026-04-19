@@ -13,6 +13,24 @@ describe('flow schema (v1)', () => {
     '../../../../',
   );
 
+  type FlowStep = {
+    type: string;
+    steps?: FlowStep[];
+    commandName?: string;
+    markdownFile?: string;
+  };
+
+  const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
+    const flattened: FlowStep[] = [];
+    for (const step of steps) {
+      flattened.push(step);
+      if (Array.isArray(step.steps)) {
+        flattened.push(...flattenSteps(step.steps));
+      }
+    }
+    return flattened;
+  };
+
   test('does not emit Story 45 parse logs unless explicitly requested', () => {
     resetStore();
     const json = JSON.stringify({
@@ -129,23 +147,6 @@ describe('flow schema (v1)', () => {
       },
     ] as const;
 
-    type FlowStep = {
-      type: string;
-      steps?: FlowStep[];
-      commandName?: string;
-    };
-
-    const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
-      const flattened: FlowStep[] = [];
-      for (const step of steps) {
-        flattened.push(step);
-        if (Array.isArray(step.steps)) {
-          flattened.push(...flattenSteps(step.steps));
-        }
-      }
-      return flattened;
-    };
-
     for (const flowFile of flowFiles) {
       const raw = await fs.readFile(
         path.join(repoRoot, flowFile.relativePath),
@@ -186,6 +187,79 @@ describe('flow schema (v1)', () => {
       assert.ok(
         findingsIndex < saturationIndex && saturationIndex < challengeIndex,
         `${flowFile.relativePath} should run findings, then saturation, then challenge`,
+      );
+    }
+  });
+
+  test('review flows repair findings task blocks before scoped task-up', async () => {
+    const flowFiles = [
+      {
+        relativePath: 'flows/review_plan.json',
+        dispositionMarkdown: 'review_disposition.md',
+      },
+      {
+        relativePath: 'flows/implement_next_plan.json',
+        dispositionMarkdown: 'review_disposition.md',
+      },
+      {
+        relativePath: 'flows/task_and_implement_plan.json',
+        dispositionMarkdown: 'review_disposition.md',
+      },
+      {
+        relativePath: 'flows/improve_task_implement_plan.json',
+        dispositionMarkdown: 'review_disposition.md',
+      },
+      {
+        relativePath: 'flows/ingest_external_review_plan.json',
+        dispositionMarkdown: 'external_review_disposition.md',
+      },
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(
+        path.join(repoRoot, flowFile.relativePath),
+        'utf8',
+      );
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      assert.ok(
+        Array.isArray(parsed.steps),
+        `${flowFile.relativePath} should define steps`,
+      );
+
+      const markers = flattenSteps(parsed.steps ?? []).map((step) => {
+        if (step.type === 'llm') {
+          return step.markdownFile;
+        }
+        if (step.type === 'command') {
+          return step.commandName;
+        }
+        return undefined;
+      });
+
+      const dispositionIndex = markers.indexOf(flowFile.dispositionMarkdown);
+      const ensureIndex = markers.indexOf(
+        'ensure_review_findings_became_tasks.md',
+      );
+      const taskUpIndex = markers.indexOf('task_up_review_tasks');
+
+      assert.notEqual(
+        dispositionIndex,
+        -1,
+        `${flowFile.relativePath} should include review disposition`,
+      );
+      assert.notEqual(
+        ensureIndex,
+        -1,
+        `${flowFile.relativePath} should include review findings repair`,
+      );
+      assert.notEqual(
+        taskUpIndex,
+        -1,
+        `${flowFile.relativePath} should include scoped review task-up`,
+      );
+      assert.ok(
+        dispositionIndex < ensureIndex && ensureIndex < taskUpIndex,
+        `${flowFile.relativePath} should run disposition, then repair findings tasks, then scoped task-up`,
       );
     }
   });

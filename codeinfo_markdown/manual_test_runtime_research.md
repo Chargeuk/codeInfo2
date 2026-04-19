@@ -18,10 +18,22 @@ Treat it as a live local runtime-research artifact rather than durable tracked r
 <input_scope>
 
 Read `codeInfoStatus/flow-state/current-plan.json` first.
+Read `codeInfoStatus/flow-state/current-task.json` after `current-plan.json`.
 Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 Treat the current repository as always in scope even if it is not listed in `additional_repositories`.
+Resolve the same bound task that the loop is preparing to manual-test from `current-task.json` when possible.
 
 </input_scope>
+
+<bound_task_guidance_rules>
+
+- If the bound task can be resolved and it has a `Manual Testing Guidance` section, read that section before finishing this runtime-research pass.
+- Use the bound task's `Manual Testing Guidance` as task-specific input for startup order, prerequisite services, target proof surfaces, credential-source pointers, and expected manual-proof artifact destinations.
+- Treat task guidance as a task-scoped overlay on top of repository evidence, not as permission to invent unsupported startup paths or variants.
+- If the bound task's `Manual Testing Guidance` conflicts with `AGENTS.md`, `README.md`, `codeinfo_markdown/repository_information.md`, or fresher repository evidence, prefer the repository evidence and record the conflict honestly in the runtime research output instead of silently following or ignoring the task guidance.
+- If the bound task has no `Manual Testing Guidance`, or it is incomplete for the current proof surface, continue with the best supported repository evidence rather than guessing.
+
+</bound_task_guidance_rules>
 
 <source_priority>
 
@@ -125,6 +137,9 @@ For every recorded startup path, identify:
 - where that access comes from, such as env vars, env files, README guidance, helper scripts, or seed data
 - do not inline the actual credential or access values; record only the source
 - whether the path is for the edited repository itself or for a connected or paired proof surface
+- whether bound-task `Manual Testing Guidance` was consulted
+- what startup, access, proof-surface, or artifact-destination directions came from that bound task guidance
+- whether any part of the bound task guidance was ignored because it conflicted with fresher repository evidence
 
 If the best supported proof surface for a task would actually live in a connected repository, record that linked proof surface explicitly.
 
@@ -187,7 +202,12 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
             "notes": "Use the repository-documented seeded account source; never store credential values here."
           },
           "prerequisites": ["docker running"],
-          "notes": "Use the paired frontend for browser proof."
+          "notes": "Use the paired frontend for browser proof.",
+          "task_guidance": {
+            "consulted": true,
+            "artifact_destination": "codeInfoTmp/manual-testing/0000059/",
+            "notes": "Bound task Manual Testing Guidance requested frontend proof through the paired UI and non-final-task scratch artifact storage."
+          }
         }
       ]
     }
@@ -223,6 +243,8 @@ Before finishing:
 - confirm no actual credential values were written into the runtime research file
 - confirm any required access information was recorded only as a source pointer
 - confirm undiscoverable credential sources were recorded as unknown rather than guessed
+- confirm bound-task `Manual Testing Guidance` was consulted when present
+- confirm any task-guidance conflict with fresher repository evidence was recorded honestly rather than silently followed or ignored
 
 </verification_loop>
 
@@ -235,6 +257,7 @@ Return a concise summary that includes:
 3. which surfaces require local fallback
 4. which surfaces are `not_yet_available`
 5. whether any connected or paired proof surfaces must be used later
+6. whether bound-task `Manual Testing Guidance` added any startup, access, or artifact-destination constraints
 
 Do not perform manual testing in this step.
 Do not start or stop systems in this step.

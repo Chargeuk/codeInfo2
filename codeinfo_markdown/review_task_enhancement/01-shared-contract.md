@@ -24,6 +24,11 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Keep review-created tasks in the story's normal execution order.
 - If a review-created task depends on another new review-created task, make that dependency explicit in numbering, ordering, status, or wording so the implementation loop can execute it straight through.
 - Do not leave a blocked or dependent older task active ahead of a newly inserted prerequisite review-created task.
+- Preserve coherent bundled review-created tasks instead of splitting them merely for cosmetic symmetry, but do not repackage the selected task set during scoped enhancement.
+- After selection, treat the eligible newly added review-created task identities as fixed for this enhancement pass.
+- Do not merge, delete, absorb, or renumber selected review-created tasks in a way that changes which tasks are in scope for later enhancement passes.
+- Do not absorb selected review-created work into older pre-existing story tasks.
+- Preserve and improve any existing `Addresses Findings` coverage in the selected review-created tasks instead of removing or weakening it.
 
 </scope_contract>
 
@@ -35,6 +40,10 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Keep `Testing` automated-only and place any optional manual-testing-agent scenarios only in `Manual Testing Guidance`.
 - Do not create manual testing subtasks or testing checklist items in these review-created tasks.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
+- Do not write absolute filesystem paths, usernames, or machine-specific checkout roots into these review-created tasks.
+- Do not plan production-code changes whose only purpose is to disable, bypass, mock, or weaken real production behavior for tests.
+- Keep alternate auth, seeded identities, mocked providers, bypassed 2FA, and similar test-enablement seams in test-only harnesses, fixtures, support code, or test configuration.
+- Keep automated screenshots and similar generated proof artifacts in ignored artifact locations rather than tracked repository files.
 - Subtasks may name proof-owning files, markers, fixtures, harness surfaces, or screenshot path conventions to prepare, but they must not require the later generated artifact itself for completion.
 - Do not encode `Implementation notes` refreshes after testing as standalone subtasks.
 - If final close-out needs retained proof homes, adjudication notes, or artifact-existence confirmations, place those expectations in `Task Exit Criteria`, `Testing`, or a bounded final validation task description rather than as post-testing subtasks.
@@ -57,5 +66,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Check that any edits to older tasks are minimal dependency or reference updates rather than opportunistic rewrites.
 - Check that the resulting task order still matches the next real executable work.
 - Check that the selected review-created tasks now follow the same `Subtasks` / automated-only `Testing` / optional `Manual Testing Guidance` contract as the main `task_up2` workflow.
+- Check that the selected review-created task identities remained stable throughout the enhancement pass.
+- Check that any existing `Addresses Findings` coverage still remains clear and durable in the plan.
 
 </verification_loop>

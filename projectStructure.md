@@ -1,11 +1,16 @@
 ﻿# Project Structure (full tree)
 
+## Reviewer summary artifact note
+
+Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
+The migrated story ledgers below now reference that durable location consistently.
+
 ## Story 0000053 structural change ledger
 
 Added files:
 
 - `e2e/flows-execution-runs.spec.ts`
-- `planning/0000053-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000053-pr-summary.md`
 - `server/src/test/features/flows-execution-runs.feature`
 - `server/src/test/steps/flows-execution-runs.steps.ts`
 
@@ -134,7 +139,7 @@ Story notes:
 
 Added files:
 
-- `planning/0000051-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000051-pr-summary.md`
 
 Removed files:
 
@@ -595,7 +600,7 @@ Story notes:
 
 Added files:
 
-- `planning/0000050-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000050-pr-summary.md`
 
 Removed files:
 
@@ -615,7 +620,7 @@ Modified files (implementation traceability):
 
 Story notes:
 
-- Task 16 lands the final Story 50 close-out in the shared documentation set and adds `planning/0000050-pr-summary.md` as the reviewer-facing summary artifact for the completed story.
+- Task 16 lands the final Story 50 close-out in the shared documentation set and adds `codeInfoStatus/pr-summaries/0000050-pr-summary.md` as the reviewer-facing summary artifact for the completed story.
 - The README and developer reference now document the validated host-network runtime, wrapper-first proof path, evidence locations, and the `DEV-0000050:T01` through `DEV-0000050:T14` manual-proof marker checklist.
 - The design close-out adds one consolidated Story 50 contract section so reviewers can see the final re-ingest, transcript, blank-markdown, host-network, and proof-wrapper model in one place instead of reconstructing it from task-by-task notes.
 
@@ -1193,7 +1198,7 @@ Added files:
 - `client/src/test/chatPage.workingFolder.test.tsx`
 - `client/src/test/conversationsApi.workingFolder.test.ts`
 - `e2e/env-runtime-config.spec.ts`
-- `planning/0000048-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000048-pr-summary.md`
 - `server/src/flows/repositoryCandidateOrder.ts`
 - `server/src/ingest/providers/openaiTokenizer.ts`
 - `server/src/test/unit/repositoryCandidateOrder.test.ts`
@@ -3020,13 +3025,18 @@ web_search = "live"
 - Emission/storage rule:
   - aliases are accepted for compatibility input only and are not emitted as canonical output
 
-## Story 0000037 Task 23 codex_agents parity corrections
+## Story 0000037 Task 23 codex_agents command-family status
 
-- Restored to match `main` (file-set parity fix):
-  - `codex_agents/planning_agent/commands/kadshow_improve_plan.json`
+- Current local tasking-agent command files:
+  - `codex_agents/tasking_agent/commands/reingest_plan_scope.json`
+  - `codex_agents/tasking_agent/commands/reingest_working.json`
+  - `codex_agents/tasking_agent/commands/smoke.json`
+  - `codex_agents/tasking_agent/commands/task_up2.json`
+- Retired local tasking-agent command files:
+  - `codex_agents/tasking_agent/commands/task_up.json`
   - `codex_agents/tasking_agent/commands/kadshow_task_up.json`
-- Task 23 verification target:
-  - `git diff --name-status main...HEAD -- codex_agents` must contain no `D`/`R` entries after the parity-fix commit.
+- Verification target:
+  - the local tasking-agent command tree should reflect the supported file set above, and command discovery should list only the remaining JSON command files.
 
 ## Story 0000039 Task 5 structural change ledger
 
@@ -3372,7 +3382,7 @@ Task notes:
 
 Added files:
 
-- `planning/0000047-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000047-pr-summary.md`
 
 Removed files:
 

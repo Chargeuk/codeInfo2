@@ -23,6 +23,7 @@ Split bundled subtasks into smaller, more detailed units so each subtask express
 - Name the exact local file, folder, function, class, config, runtime asset, or proof artifact to update in each subtask.
 - Add a short `Purpose` sentence wherever omitting it would force the implementer to infer why the step exists.
 - Keep build and test execution commands in `Testing`, not in `Subtasks`, unless the task is specifically creating or repairing a harness or wrapper.
+- Treat the required final lint subtask and final prettier or format-check subtask as explicit allowed exceptions to the general no-execution-in-subtasks rule, and keep them as the last two subtasks in that order.
   </subtask_granularity_rules>
 
 <verification_loop>

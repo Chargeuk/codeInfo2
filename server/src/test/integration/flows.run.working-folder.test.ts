@@ -50,6 +50,36 @@ class MinimalChat extends ChatInterface {
   }
 }
 
+class CapturingFlowChat extends ChatInterface {
+  constructor(
+    private readonly calls: Array<{
+      message: string;
+      flags: Record<string, unknown>;
+      conversationId: string;
+    }>,
+  ) {
+    super();
+  }
+
+  async execute(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    this.calls.push({ message, flags, conversationId });
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', {
+      type: 'final',
+      content: message.includes('Answer with JSON only:')
+        ? '{"answer":"yes"}'
+        : 'ok',
+    });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
@@ -525,6 +555,153 @@ test('validated working_folder also drives dedicated flow reingest target workin
     __resetFlowServiceDepsForTests();
     memoryConversations.delete('flow-working-folder-reingest');
     memoryTurns.delete('flow-working-folder-reingest');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', async () => {
+  resetStore();
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-workdir-codeinfo-root-'),
+  );
+  const workingFolder = path.join(tmpDir, 'working-root');
+  const calls: Array<{
+    message: string;
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  await fs.mkdir(workingFolder, { recursive: true });
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new CapturingFlowChat(calls),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: 'flow-codeinfo-root-markdown',
+        working_folder: workingFolder,
+      })
+      .expect(202);
+
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      if (calls.length >= 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.message, 'Say hello from a flow step.');
+    assert.equal(calls[0]?.flags.workingDirectoryOverride, workingFolder);
+    assert.deepEqual(calls[0]?.flags.envOverrides, {
+      CODEINFO_ROOT: repoRoot,
+    });
+  } finally {
+    memoryConversations.delete('flow-codeinfo-root-markdown');
+    memoryTurns.delete('flow-codeinfo-root-markdown');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('break steps inherit CODEINFO_ROOT and the selected working_folder', async () => {
+  resetStore();
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-workdir-break-root-'),
+  );
+  const workingFolder = path.join(tmpDir, 'working-root');
+  const calls: Array<{
+    message: string;
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  await fs.mkdir(workingFolder, { recursive: true });
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new CapturingFlowChat(calls),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/loop-break/run')
+      .send({
+        conversationId: 'flow-break-working-folder',
+        working_folder: workingFolder,
+      })
+      .expect(202);
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const breakCalls = calls.filter((call) =>
+        call.message.includes('Answer with JSON only:'),
+      );
+      if (breakCalls.length >= 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    const breakCalls = calls.filter((call) =>
+      call.message.includes('Answer with JSON only:'),
+    );
+    assert.equal(breakCalls.length, 2);
+    breakCalls.forEach((call) => {
+      assert.equal(call.flags.workingDirectoryOverride, workingFolder);
+      assert.deepEqual(call.flags.envOverrides, {
+        CODEINFO_ROOT: repoRoot,
+      });
+    });
+  } finally {
+    memoryConversations.delete('flow-break-working-folder');
+    memoryTurns.delete('flow-break-working-folder');
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

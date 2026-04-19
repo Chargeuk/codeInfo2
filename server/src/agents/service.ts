@@ -1377,6 +1377,7 @@ export async function runAgentInstructionUnlocked(params: {
   mustExist?: boolean;
   command?: TurnCommandMetadata;
   runtime?: TurnRuntimeMetadata;
+  envOverrides?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
   inflightId?: string;
@@ -1578,6 +1579,10 @@ export async function runAgentInstructionUnlocked(params: {
     const workingDirectoryOverride = await resolveWorkingFolderWorkingDirectory(
       params.working_folder,
     );
+    const envOverrides: NodeJS.ProcessEnv = {
+      CODEINFO_ROOT: codeInfo2RootForAgent(agent.home),
+      ...(params.envOverrides ?? {}),
+    };
 
     const inflightId = params.inflightId ?? crypto.randomUUID();
     activeInflightId = inflightId;
@@ -1674,6 +1679,7 @@ export async function runAgentInstructionUnlocked(params: {
           ...(workingDirectoryOverride !== undefined
             ? { workingDirectoryOverride }
             : {}),
+          envOverrides,
           disableSystemContext: true,
           systemPrompt,
           ...(managesInstructionLifecycle

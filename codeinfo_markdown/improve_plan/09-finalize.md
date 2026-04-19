@@ -19,6 +19,9 @@ Perform a final verification pass, then make one coherent commit if the command 
 - Check evidence alignment: are plan changes supported by repository evidence or official documentation?
 - Check tasking readiness: is the plan detailed enough for a later tasking pass without relying on hidden senior knowledge?
 - Check proof realism: will the planned validation steps be runnable at the point they are supposed to happen?
+- Check portability: outside `Additional Repositories`, did the plan avoid absolute filesystem paths, usernames, or machine-specific checkout roots in favor of portable relative or logical locations, while keeping any multi-repository entries concrete enough for local branch and handoff automation to resolve from disk?
+- Check test-boundary safety: does the plan avoid production-code changes whose only purpose is to disable, bypass, or weaken real behavior for tests?
+- Check manual-testing realism: does the plan prefer the unmodified human Docker stack when feasible, and only require minimal test-only enablement when the normal stack is not enough?
 - Check whether the applicable categories from `shared/review-preemption-checklist.md` are either explicitly handled in the plan or explicitly not applicable.
   </verification_loop>
 

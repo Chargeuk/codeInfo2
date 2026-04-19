@@ -19,6 +19,21 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Preserve existing valid task structure and detail when rewriting; improve it rather than flattening it.
   </workflow_contract>
 
+<portability_and_test_boundary_contract>
+
+- Never write full absolute filesystem paths into tasks, subtasks, testing steps, manual-testing guidance, or documentation references.
+- Use repository-relative paths, workspace-relative paths, repository aliases, command names, environment-variable names, or other portable lookup directions instead.
+- Never plan production-code changes whose only purpose is to disable, bypass, mock, or weaken real production behavior so automated or manual tests can run.
+- When tests need alternate auth, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams, keep that enablement in test-only code, fixtures, harnesses, or test configuration rather than in the shipped production code path.
+- Automated-test screenshots and similar generated proof artifacts must be written only to ignored artifact locations and must never be planned as checked-in repository files.
+- If the story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, plan the minimal `.gitignore` update needed before later proof depends on that scratch path.
+- Manual-testing proof paths must stay repository-relative and use this split:
+  - for any non-final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeInfoTmp/manual-testing/<story-number>/` and must not be committed;
+  - for the final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeInfoStatus/manual-testing/<story-number>/` and should be committed as durable story-closeout proof.
+- If the story needs a durable reviewer-facing PR summary artifact, place it at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md` rather than under `planning/`. The executable plan remains the source of truth; the PR summary is a derived close-out artifact.
+
+</portability_and_test_boundary_contract>
+
 <section_ownership_contract>
 
 - Use this section contract everywhere in this workflow:

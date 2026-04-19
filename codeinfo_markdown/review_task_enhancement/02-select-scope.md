@@ -24,6 +24,7 @@ Identify exactly which newly added review-created `__to_do__` tasks are eligible
 - Do not select pre-existing tasks solely because they are related to the same seam.
 - Do not select tasks already `__in_progress__` or `__done__`.
 - Newly added review-created tasks remain eligible for enhancement when they still contain legacy manual-testing checklist items or subtasks that depend on future automated or manual proof output.
+- If the selected review-created block is so malformed that stable enhancement would require deleting, merging away, or absorbing selected tasks into older tasks, treat that as an upstream packaging defect rather than silently broadening scope.
 
 </selection_rules>
 
@@ -39,6 +40,7 @@ Identify exactly which newly added review-created `__to_do__` tasks are eligible
 <handoff_rules>
 
 - Before the next pass, establish a clear internal set of eligible task numbers and keep later edits limited to them except for minimal cross-reference or dependency corrections.
+- Treat that selected eligible task set as stable for later enhancement passes. Later passes may rewrite the selected tasks in place, but they must not delete, absorb, or identity-shift the selected tasks.
 - Keep later enhancement work focused on normalizing those eligible tasks to the current section contract rather than broadening scope.
 - If no eligible tasks exist, stop without changing the plan.
 

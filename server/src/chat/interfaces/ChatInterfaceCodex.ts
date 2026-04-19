@@ -16,6 +16,7 @@ import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
 type CodexRunFlags = {
   workingDirectoryOverride?: string;
+  envOverrides?: NodeJS.ProcessEnv;
   threadId?: string | null;
   codexFlags?: Partial<CodexThreadOptions>;
   codexHome?: string;
@@ -124,6 +125,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       systemPrompt,
       useConfigDefaults,
       workingDirectoryOverride,
+      envOverrides,
       runtimeConfig,
     } = (flags ?? {}) as CodexRunFlags;
     const detection = codexHome
@@ -179,7 +181,7 @@ export class ChatInterfaceCodex extends ChatInterface {
     );
 
     const codex = this.codexFactory(
-      buildCodexOptions({ codexHome, runtimeConfig }),
+      buildCodexOptions({ codexHome, runtimeConfig, envOverrides }),
     );
 
     const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT;

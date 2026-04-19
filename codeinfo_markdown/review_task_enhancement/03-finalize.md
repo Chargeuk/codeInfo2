@@ -27,6 +27,9 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Confirm that prerequisite review-created tasks are ordered and statused so the implementation loop will pick the next real task directly.
 - Confirm that the latest `Code Review Findings` section is still at the end of the plan file except for the newly appended review-fix task block and the fresh final revalidation task that follow it.
 - Confirm that the new review-created tasks form one contiguous appended block rather than being inserted into older parts of the plan.
+- Confirm that no two adjacent eligible review-created tasks should obviously be one repository-owned repair seam with one proof story.
+- Confirm that no run of tiny cleanup-only tasks remains when one cleanup task or task-local absorption would be clearer and equally honest.
+- Confirm that no merged cleanup or review-fix task has become an unfocused miscellaneous bucket.
 - Confirm that any older-task edits were limited to minimal numbering, dependency, testing-alignment, or cross-reference changes required to keep the plan honest.
 - If the enhancement pass reveals that a selected review-created task cannot be made concrete honestly, replace it with a bounded diagnostic task rather than leaving a vague repair task in the plan.
 
@@ -40,6 +43,8 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Check that the plan file now reflects the true next executable work after review.
 - Check that no enhanced review-created task still relies on manual testing checklist items or future proof-output dependencies.
 - Check that no enhanced review-created task still relies on absolute paths or production-owned test bypasses.
+- Check that the appended review-fix block represents the minimum honest task count, not merely a valid task count.
+- Check that the review-fix block is neither over-split nor over-merged.
 - Check that the latest `Code Review Findings` section plus its review-fix tasks and fresh revalidation task now occupy one contiguous end-of-file block.
 
 </verification_loop>

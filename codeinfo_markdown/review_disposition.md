@@ -77,21 +77,26 @@ If the review handoff is stale or incomplete, stop and say the review must be re
    - optional, non-blocking `Manual Testing Guidance` only when useful.
 9. Never create a review-fix subtask or testing step that requires manual testing to have already happened.
 10. Never create a review-fix subtask that requires automated test execution results to become complete.
-11. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, wording, or the explicit hygiene/security cleanup needed to remove the secret or artifact problem.
-12. If only `optional_simplification` findings exist, reopen the canonical plan when the simplification is localized to files already changed by the story, low-risk, objectively testable, and improves a shared contract such as logging vocabulary, marker schema, configuration consistency, or cross-repository compatibility.
-13. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
-14. If an `optional_simplification` is deferred, record it in a short review note instead of reopening.
-15. This `optional_simplification` rule does not permit reopening an allowed support file for anything other than spelling, grammar, or wording corrections.
-16. If there are no findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
+11. Default to one review-fix task per shared `Repository Name` + repair seam/root cause + proof surface. Do not create one task per endorsed finding when multiple findings can be repaired and validated together honestly.
+12. When several endorsed findings in the same repository affect the same implementation seam, state contract, lifecycle, proof home, or closely adjacent support surface, merge them into one substantive review-fix task unless a split is required for clarity, ownership, sequencing, or proof honesty.
+13. Tiny unrelated low-risk findings in the same repository may be absorbed into a nearby substantive review-fix task when they do not require materially different ownership or proof and do not make that task vague, bloated, or difficult to execute.
+14. If several tiny unrelated low-risk findings have no natural parent task, group them into one small cleanup task instead of creating one task per finding.
+15. Never use minor-fix absorption or cleanup grouping to create a junk-drawer task. If the combined task loses a clear stopping point, seam, or proof story, split it back apart.
+16. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, wording, or the explicit hygiene/security cleanup needed to remove the secret or artifact problem.
+17. If only `optional_simplification` findings exist, reopen the canonical plan when the simplification is localized to files already changed by the story, low-risk, objectively testable, and improves a shared contract such as logging vocabulary, marker schema, configuration consistency, or cross-repository compatibility.
+18. Only defer an `optional_simplification` when the cleanup is speculative, broad, or not worth the churn.
+19. If an `optional_simplification` is deferred, record it in a short review note instead of reopening.
+20. This `optional_simplification` rule does not permit reopening an allowed support file for anything other than spelling, grammar, or wording corrections.
+21. If there are no findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
     - the branch-vs-base checks performed across all repositories in scope;
     - the acceptance-evidence checks performed;
     - the files inspected;
     - why each repository in scope remains complete;
     - why the story remains complete;
     - the rejected-risk notes carried forward from the findings artifact, plus any blind-spot challenge follow-up when that extra artifact exists.
-17. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
-18. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
-19. Even when there are no findings, the `Post-Implementation Code Review` section MUST state whether the generic adversarial checklist had direct proof, indirect proof, or missing proof for:
+22. For multi-repository stories with no findings, also record why the cross-repository integration evidence was sufficient.
+23. When the review is assessing the planned work, it MUST explicitly state whether each acceptance criterion has direct proof, indirect proof, or missing proof, and whether the implemented code is appropriately succinct for the required behavior or contains simplification opportunities.
+24. Even when there are no findings, the `Post-Implementation Code Review` section MUST state whether the generic adversarial checklist had direct proof, indirect proof, or missing proof for:
     - execution-routing or harness dependence;
     - default launcher, wrapper, dispatcher, CI, or startup-path inclusion;
     - shared-state or concurrency safety;
@@ -99,18 +104,19 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - cleanup ownership or stale-state safety;
     - lifecycle ordering;
     - test isolation.
-20. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
-21. The current pass `evidence_file`, `findings_file`, optional `saturation_file`, and optional `challenge_file` are high-quality local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
-22. When the saturation step exists, treat its artifact as additive context for the reopen or no-findings decision. When the saturation step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's endorsed findings and, when present, its `Finding Saturation Seeds` and `Checked Defect Families` sections as the fallback source of that reasoning. Treat those named sections as optional for backward compatibility with older findings artifacts; if they are absent, derive equivalent sibling-scan reasoning from the endorsed findings when possible, or proceed without those sections when that reasoning is not explicitly available.
-23. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
-24. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
+25. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
+26. The current pass `evidence_file`, `findings_file`, optional `saturation_file`, and optional `challenge_file` are high-quality local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
+27. When the saturation step exists, treat its artifact as additive context for the reopen or no-findings decision. When the saturation step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's endorsed findings and, when present, its `Finding Saturation Seeds` and `Checked Defect Families` sections as the fallback source of that reasoning. Treat those named sections as optional for backward compatibility with older findings artifacts; if they are absent, derive equivalent sibling-scan reasoning from the endorsed findings when possible, or proceed without those sections when that reasoning is not explicitly available.
+28. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
+29. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
     - a new `Code Review Findings` section for the current `review_pass_id`;
     - at least one new review-created `Task Status: __to_do__` task that responds to the endorsed findings;
     - a fresh final re-test or revalidation task after those new review-fix tasks.
-25. Do not insert new review-created tasks into the middle or top of the plan file, even when they describe a prerequisite. Keep them appended at the end of the plan file and express any prerequisite relationship through task wording, dependencies, sequencing notes, and task status rather than insertion position.
-26. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
-27. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
-28. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
+30. Do not insert new review-created tasks into the middle or top of the plan file, even when they describe a prerequisite. Keep them appended at the end of the plan file and express any prerequisite relationship through task wording, dependencies, sequencing notes, and task status rather than insertion position.
+31. Before finalizing a findings-present plan, explicitly check whether any adjacent new review-created tasks should be merged because they share repository ownership, repair seam, and proof. Also check whether any tiny low-risk cleanup-only tasks should be absorbed into a nearby substantive task or grouped into one cleanup task instead of remaining separate.
+32. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
+33. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
+34. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 
 </disposition_rules>
 

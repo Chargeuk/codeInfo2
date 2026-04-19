@@ -24,10 +24,15 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - If a selected task would benefit from manual-testing-agent browser or runtime checks, express those only in `Manual Testing Guidance`, not as manual testing checklist items.
 - If a selected task plans auth bypasses, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams in shipped production behavior, rewrite that work so it lives in test-only harnesses, fixtures, support code, or test configuration.
 - Do not let the final revalidation task become the excuse for omitting task-local suites that original story tasks of the same kind would normally carry.
+- If adjacent selected review-created tasks could honestly be one repository-owned repair seam with one proof story, merge them now instead of only polishing their wording separately.
+- If a tiny unrelated low-risk selected task would ride cleanly inside a nearby substantive task in the same repository, absorb it instead of preserving it as a standalone micro-task.
+- If several tiny unrelated low-risk cleanup tasks have no natural parent task, collapse them into one small cleanup task rather than keeping a trail of trivial standalone tasks.
 - If a selected task still feels materially weaker than the story's earlier well-tasked tasks, continue editing it in this same step until the gap is closed or the task is explicitly rewritten as a bounded diagnostic task with an honest stopping rule.
 - Do not allow a selected task to add manual testing checklist items or subtasks that depend on future automated or manual proof output.
 - Do not allow a selected task to route automated screenshots or browser artifacts into tracked repository paths; keep them in ignored artifact storage.
 - Do not allow the latest `Code Review Findings` section or its review-created tasks to remain inserted into older parts of the plan; they must be normalized into one contiguous appended end-of-file block.
+- Do not preserve multiple trivial sibling tasks just because each one is individually concrete.
+- Do not merge tasks so aggressively that repository ownership, proof ownership, or the stopping rule becomes vague.
 
 </quality_check_rules>
 
@@ -40,6 +45,8 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Check that no selected task still contains manual testing checklist items or subtasks gated on future proof output.
 - Check that no selected task still contains absolute filesystem paths or production-owned test bypasses.
 - Check that any automated screenshot or browser-artifact path points only to ignored artifact storage.
+- Check that the selected review-created tasks now reflect the minimum honest task count rather than an over-split micro-task list.
+- Check that no cleanup bundle has become vague or catch-all.
 - Check that the latest `Code Review Findings` section and its review-created tasks now sit in one contiguous end-of-file block with the fresh final revalidation task after them.
 - Check that any edits outside the selected tasks were minimal and only to keep the plan executable and truthful.
 

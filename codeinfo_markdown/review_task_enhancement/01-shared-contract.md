@@ -24,6 +24,12 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Keep review-created tasks in the story's normal execution order.
 - If a review-created task depends on another new review-created task, make that dependency explicit in numbering, ordering, status, or wording so the implementation loop can execute it straight through.
 - Do not leave a blocked or dependent older task active ahead of a newly inserted prerequisite review-created task.
+- Preserve coherent bundled review-created tasks instead of splitting them merely for cosmetic symmetry.
+- You may merge newly added review-created tasks when they clearly describe one repository-owned repair seam with one proof story.
+- You may absorb a tiny unrelated low-risk fix into a nearby substantive review-created task in the same repository when that keeps the plan clearer and does not materially change ownership or proof.
+- If several tiny unrelated low-risk fixes have no natural parent task, you may combine them into one small cleanup task rather than preserving one task per trivial fix.
+- Do not preserve over-fragmented review-created tasks just because they already exist.
+- Do not create a miscellaneous junk-drawer task; if a merged task loses a clear seam, stopping point, or proof story, split it back apart.
 
 </scope_contract>
 
@@ -61,5 +67,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Check that any edits to older tasks are minimal dependency or reference updates rather than opportunistic rewrites.
 - Check that the resulting task order still matches the next real executable work.
 - Check that the selected review-created tasks now follow the same `Subtasks` / automated-only `Testing` / optional `Manual Testing Guidance` contract as the main `task_up2` workflow.
+- Check that any merged review-created task still has a clear seam, ownership boundary, and proof story.
+- Check that the selected review-created tasks are not being preserved in an obviously over-fragmented shape.
 
 </verification_loop>

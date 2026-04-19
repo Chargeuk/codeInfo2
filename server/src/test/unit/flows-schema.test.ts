@@ -75,7 +75,7 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('production implementation-loop flows remain valid JSON and schema', async () => {
+  test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/review_plan.json',
       'flows/implement_next_plan.json',

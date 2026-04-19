@@ -168,6 +168,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 - Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.
 - Confirm scratch review artifacts are treated as local-only workflow files, the current-plan handoff is not mistaken for the review handoff, and the review handoff remains transient workflow state rather than a commit-worthy repository artifact.
 - Confirm that a findings-present pass left new review-created `__to_do__` tasks plus a final revalidation task in the plan, or that a no-findings pass left the required `Post-Implementation Code Review` section for the current `review_pass_id`.
+- Confirm that the fresh final revalidation task explicitly states that it revalidates the current review-created findings block for this `review_pass_id`.
 - Confirm that any findings-present pass kept `Testing` automated-only, used `Manual Testing Guidance` only as optional non-blocking guidance, and did not create subtasks that depend on future automated or manual proof output.
 
 </verification_loop>

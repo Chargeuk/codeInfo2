@@ -30,7 +30,8 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Do not allow the latest `Code Review Findings` section or its review-created tasks to remain inserted into older parts of the plan; they must be normalized into one contiguous appended end-of-file block.
 - Do not merge, delete, absorb, or otherwise identity-shift the selected review-created tasks during this scoped quality pass.
 - Do not absorb selected work into older pre-existing story tasks.
-- Preserve and improve any existing `Addresses Findings` coverage in the selected tasks and the fresh final revalidation task rather than removing or weakening it.
+- Preserve and improve any existing `Addresses Findings` coverage in the selected tasks.
+- If the fresh final revalidation task is missing explicit coverage of the current review-created findings block for this `review_pass_id`, add or repair that wording now instead of only preserving what is already there.
 
 </quality_check_rules>
 
@@ -44,7 +45,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Check that no selected task still contains absolute filesystem paths or production-owned test bypasses.
 - Check that any automated screenshot or browser-artifact path points only to ignored artifact storage.
 - Check that the selected review-created task identities remain the same ones chosen by the scoped review-task-up command.
-- Check that each selected task still carries clear `Addresses Findings` coverage, and that the fresh final revalidation task still clearly covers the current review-created findings block.
+- Check that each selected task still carries clear `Addresses Findings` coverage, and that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`.
 - Check that the latest `Code Review Findings` section and its review-created tasks now sit in one contiguous end-of-file block with the fresh final revalidation task after them.
 - Check that any edits outside the selected tasks were minimal and only to keep the plan executable and truthful.
 

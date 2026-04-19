@@ -30,8 +30,9 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - the plan contains a new `Code Review Findings` section for the current `review_pass_id`;
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
-   - each new task names exactly one repository and follows the existing task structure;
+   - each newly added review-created repair task names exactly one repository and follows the existing task structure;
    - each new review-created task records durable finding coverage in the plan itself, such as an `Addresses Findings` section or equivalent inline wording;
+   - the fresh final revalidation task explicitly states that it revalidates the current review-created findings block for this `review_pass_id`, and it may remain cross-repository when that is the honest story-wide validation scope;
    - no newly added review-created task hides runnable build, test, compose, browser, or wrapper commands inside `Subtasks`, unless that task is specifically creating, repairing, or proving a harness or wrapper.
    - the new review-created task block is not unnecessarily fragmented across the same repository, repair seam, or proof surface;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
@@ -86,6 +87,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm you read the stored review handoff and findings artifact for the same story.
 - Confirm that a findings-present handoff did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
+- Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id` and was not forced into bogus single-repository ownership.
 - Confirm that newly added review-created tasks do not hide runnable wrapper or test commands in `Subtasks`, except for harness or wrapper tasks.
 - Confirm that newly added review-created tasks do not encode routine `Implementation Notes` refreshes as standalone or future-dependent subtasks.
 - Confirm that no obvious same-seam cluster of adjacent micro-tasks remains in the new review-created block.

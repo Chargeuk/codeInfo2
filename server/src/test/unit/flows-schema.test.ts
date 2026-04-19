@@ -13,6 +13,24 @@ describe('flow schema (v1)', () => {
     '../../../../',
   );
 
+  type FlowStep = {
+    type: string;
+    steps?: FlowStep[];
+    commandName?: string;
+    markdownFile?: string;
+  };
+
+  const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
+    const flattened: FlowStep[] = [];
+    for (const step of steps) {
+      flattened.push(step);
+      if (Array.isArray(step.steps)) {
+        flattened.push(...flattenSteps(step.steps));
+      }
+    }
+    return flattened;
+  };
+
   test('does not emit Story 45 parse logs unless explicitly requested', () => {
     resetStore();
     const json = JSON.stringify({
@@ -129,24 +147,6 @@ describe('flow schema (v1)', () => {
       },
     ] as const;
 
-    type FlowStep = {
-      type: string;
-      steps?: FlowStep[];
-      commandName?: string;
-      markdownFile?: string;
-    };
-
-    const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
-      const flattened: FlowStep[] = [];
-      for (const step of steps) {
-        flattened.push(step);
-        if (Array.isArray(step.steps)) {
-          flattened.push(...flattenSteps(step.steps));
-        }
-      }
-      return flattened;
-    };
-
     for (const flowFile of flowFiles) {
       const raw = await fs.readFile(
         path.join(repoRoot, flowFile.relativePath),
@@ -214,24 +214,6 @@ describe('flow schema (v1)', () => {
         dispositionMarkdown: 'external_review_disposition.md',
       },
     ] as const;
-
-    type FlowStep = {
-      type: string;
-      steps?: FlowStep[];
-      commandName?: string;
-      markdownFile?: string;
-    };
-
-    const flattenSteps = (steps: FlowStep[]): FlowStep[] => {
-      const flattened: FlowStep[] = [];
-      for (const step of steps) {
-        flattened.push(step);
-        if (Array.isArray(step.steps)) {
-          flattened.push(...flattenSteps(step.steps));
-        }
-      }
-      return flattened;
-    };
 
     for (const flowFile of flowFiles) {
       const raw = await fs.readFile(

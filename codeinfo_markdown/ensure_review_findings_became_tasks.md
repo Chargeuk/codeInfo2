@@ -6,7 +6,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Re-open the exact canonical plan from disk before making any decision.
-- Derive the story number from the stored `plan_path`, then read `codeInfoStatus/reviews/<story-number>-current-review.json`.
+- Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Use the stored review handoff plus the artifacts it references as the sole source of review outcome for this step.
 - Do not fail this step because a previous disposition pass underperformed. Repair the plan instead.
 - Do not rediscover the story, review pass, or review comments independently.

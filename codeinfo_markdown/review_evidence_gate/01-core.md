@@ -23,6 +23,7 @@ Start the multi-step review sequence for the current story by gathering evidence
 - Do NOT review them for workflow-contract correctness, instruction/runtime safety, plan-selection rules, or story-scope alignment unless the changed file itself is the direct owner of the issue being reported.
 - Do not edit any plan in this step unless a tiny note is absolutely required to unblock the review.
 - Do not commit in this step unless you had to make tracked changes for that unblock.
+- Before writing any review artifact under `codeInfoTmp/reviews/`, verify that the repository ignores `codeInfoTmp/`. If it does not, add or update `.gitignore` before later review steps rely on that scratch directory. Do not commit the scratch review artifacts themselves.
 
 </critical_rules>
 
@@ -96,10 +97,14 @@ Record the final per-repository resolved base branch and the reason it was chose
 
 You MUST produce both of these artifacts:
 
-1. Write the evidence summary to `codeInfoStatus/reviews/<review_pass_id>-evidence.md`.
-2. Write or overwrite a handoff file at `codeInfoStatus/reviews/<story-number>-current-review.json`.
+1. Write the evidence summary to `codeInfoTmp/reviews/<review_pass_id>-evidence.md`.
+2. Write or overwrite a handoff file at `codeInfoTmp/reviews/<story-number>-current-review.json`.
 
-The evidence file is a durable review artifact that MUST be committed later so a human can inspect it after the story completes.
+These review files are high-quality local working artifacts for the active review flow. They should be thorough enough to support later review steps in the current run.
+
+These files are scratch workflow artifacts and MUST NOT be committed.
+
+The durable repository outcome of review is the resulting plan and code mutation, not these temporary review files.
 
 The handoff file MUST contain at least:
 
@@ -117,7 +122,7 @@ The handoff file MUST contain at least:
 
 Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the canonical plan already defines a clearer repository name.
 
-This handoff file is the ONLY review file the next step may use. Do not rely on timestamps or `latest file` discovery. Treat the handoff file as transient workflow state, not as the durable review artifact.
+This handoff file is the ONLY review file the next step may use. Do not rely on timestamps or `latest file` discovery. Treat the handoff file as transient workflow state, not as a repository deliverable.
 
 - Report the evidence summary path and the exact handoff file path when done.
 

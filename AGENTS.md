@@ -42,6 +42,12 @@ Perform this onboarding only when you are first working in this folder structure
 - When working in React, use the MUI MCP tool for all Material UI references.
 - For any other API or SDK, consult current documentation via the Context7 MCP tool.
 
+## Harness Path Contract
+
+- `CODEINFO_ROOT` always means the harness repository root for this workflow, not the target repository root and not the current `working_folder`.
+- Use `"$CODEINFO_ROOT/..."` only for harness-owned assets such as `scripts/**`, `codeinfo_markdown/**`, `flows/**`, and similar workflow support files.
+- When you need files from the target repository being worked on, use the selected repository path, `working_folder`, repo-relative paths, or explicit absolute paths instead of `CODEINFO_ROOT`.
+
 ## Research And Documentation Order
 
 - For questions about this local repository, use the `code_info` MCP tool first.

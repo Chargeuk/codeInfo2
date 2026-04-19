@@ -12184,11 +12184,14 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-startup.test.ts`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-startup.test.ts`.
+6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+7. [ ] Run `npm --workspace server run lint -- src/ingest/ingestJob.ts src/ingest/reingestService.ts src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts src/test/unit/ingest-queue-runtime-pump.test.ts src/test/unit/ingest-queue-runtime-recovery.test.ts src/test/unit/ingest-queue-runtime-startup.test.ts src/test/integration/ingest-reembed-invalid-state.test.ts`; if issues are found, run `npm --workspace server run lint:fix -- src/ingest/ingestJob.ts src/ingest/reingestService.ts src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts src/test/unit/ingest-queue-runtime-pump.test.ts src/test/unit/ingest-queue-runtime-recovery.test.ts src/test/unit/ingest-queue-runtime-startup.test.ts src/test/integration/ingest-reembed-invalid-state.test.ts` before any narrow manual cleanup, then rerun the lint command.
+8. [ ] Run `npm --workspace server run format:check -- src/ingest/ingestJob.ts src/ingest/reingestService.ts src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts src/test/unit/ingest-queue-runtime-pump.test.ts src/test/unit/ingest-queue-runtime-recovery.test.ts src/test/unit/ingest-queue-runtime-startup.test.ts src/test/integration/ingest-reembed-invalid-state.test.ts`; if issues are found, run `npm --workspace server run format -- src/ingest/ingestJob.ts src/ingest/reingestService.ts src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts src/test/unit/ingest-queue-runtime-pump.test.ts src/test/unit/ingest-queue-runtime-recovery.test.ts src/test/unit/ingest-queue-runtime-startup.test.ts src/test/integration/ingest-reembed-invalid-state.test.ts` before any narrow manual cleanup, then rerun the format-check command.
 
 #### Implementation notes
 
@@ -12256,9 +12259,12 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts`.
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts`.
+5. [ ] Run `npm --workspace server run lint -- src/ingest/requestContracts.ts src/lmstudio/toolService.ts src/mcp/server.ts src/routes/ingestRoots.ts src/routes/toolsIngestedRepos.ts src/test/unit/ingest-roots-dedupe.test.ts src/test/unit/tools-ingested-repos.test.ts src/test/unit/mcp-ingested-repositories.test.ts`; if issues are found, run `npm --workspace server run lint:fix -- src/ingest/requestContracts.ts src/lmstudio/toolService.ts src/mcp/server.ts src/routes/ingestRoots.ts src/routes/toolsIngestedRepos.ts src/test/unit/ingest-roots-dedupe.test.ts src/test/unit/tools-ingested-repos.test.ts src/test/unit/mcp-ingested-repositories.test.ts` before any narrow manual cleanup, then rerun the lint command.
+6. [ ] Run `npm --workspace server run format:check -- src/ingest/requestContracts.ts src/lmstudio/toolService.ts src/mcp/server.ts src/routes/ingestRoots.ts src/routes/toolsIngestedRepos.ts src/test/unit/ingest-roots-dedupe.test.ts src/test/unit/tools-ingested-repos.test.ts src/test/unit/mcp-ingested-repositories.test.ts`; if issues are found, run `npm --workspace server run format -- src/ingest/requestContracts.ts src/lmstudio/toolService.ts src/mcp/server.ts src/routes/ingestRoots.ts src/routes/toolsIngestedRepos.ts src/test/unit/ingest-roots-dedupe.test.ts src/test/unit/tools-ingested-repos.test.ts src/test/unit/mcp-ingested-repositories.test.ts` before any narrow manual cleanup, then rerun the format-check command.
 
 #### Implementation notes
 
@@ -12326,9 +12332,12 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed.test.ts`.
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed.test.ts`.
+5. [ ] Run `npm --workspace server run lint -- src/routes/ingestReembed.ts src/ingest/reingestService.ts src/ingest/requestContracts.ts src/ingest/ingestJob.ts src/test/unit/ingest-reembed.test.ts src/test/integration/ingest-reembed.test.ts src/test/unit/ingest-start.test.ts`; if issues are found, run `npm --workspace server run lint:fix -- src/routes/ingestReembed.ts src/ingest/reingestService.ts src/ingest/requestContracts.ts src/ingest/ingestJob.ts src/test/unit/ingest-reembed.test.ts src/test/integration/ingest-reembed.test.ts src/test/unit/ingest-start.test.ts` before any narrow manual cleanup, then rerun the lint command.
+6. [ ] Run `npm --workspace server run format:check -- src/routes/ingestReembed.ts src/ingest/reingestService.ts src/ingest/requestContracts.ts src/ingest/ingestJob.ts src/test/unit/ingest-reembed.test.ts src/test/integration/ingest-reembed.test.ts src/test/unit/ingest-start.test.ts`; if issues are found, run `npm --workspace server run format -- src/routes/ingestReembed.ts src/ingest/reingestService.ts src/ingest/requestContracts.ts src/ingest/ingestJob.ts src/test/unit/ingest-reembed.test.ts src/test/integration/ingest-reembed.test.ts src/test/unit/ingest-start.test.ts` before any narrow manual cleanup, then rerun the format-check command.
 
 #### Implementation notes
 
@@ -12388,9 +12397,12 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-files-repo-guards.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
-3. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature`.
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-files-repo-guards.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature`.
+5. [ ] Run `npm --workspace server run lint -- src/ingest/ingestJob.ts src/mongo/repo.ts src/test/unit/ingest-files-repo-guards.test.ts src/test/unit/ingest-reembed.test.ts src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run `npm --workspace server run lint:fix -- src/ingest/ingestJob.ts src/mongo/repo.ts src/test/unit/ingest-files-repo-guards.test.ts src/test/unit/ingest-reembed.test.ts src/test/steps/ingest-delta-reembed.steps.ts` before any narrow manual cleanup, then rerun the lint command.
+6. [ ] Run `npm --workspace server run format:check -- src/ingest/ingestJob.ts src/mongo/repo.ts src/test/unit/ingest-files-repo-guards.test.ts src/test/unit/ingest-reembed.test.ts src/test/features/ingest-delta-reembed.feature src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run `npm --workspace server run format -- src/ingest/ingestJob.ts src/mongo/repo.ts src/test/unit/ingest-files-repo-guards.test.ts src/test/unit/ingest-reembed.test.ts src/test/features/ingest-delta-reembed.feature src/test/steps/ingest-delta-reembed.steps.ts` before any narrow manual cleanup, then rerun the format-check command.
 
 #### Implementation notes
 
@@ -12442,7 +12454,10 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature`.
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature`.
+3. [ ] Run `npm --workspace server run lint -- src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run `npm --workspace server run lint:fix -- src/test/steps/ingest-delta-reembed.steps.ts` before any narrow manual cleanup, then rerun the lint command.
+4. [ ] Run `npm --workspace server run format:check -- src/test/features/ingest-delta-reembed.feature src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run `npm --workspace server run format -- src/test/features/ingest-delta-reembed.feature src/test/steps/ingest-delta-reembed.steps.ts` before any narrow manual cleanup, then rerun the format-check command.
 
 #### Implementation notes
 
@@ -12466,20 +12481,27 @@ This task re-validates Story 55 after the current review-created findings block 
 - `R1.` Tasks `153` through `157` are `__done__`, and no endorsed finding from review pass `0000055-20260419T200440Z-d67f1ccc` remains without an on-disk proof owner.
 - `R2.` This exact review-created findings block for review pass `0000055-20260419T200440Z-d67f1ccc` is revalidated against the repaired seams rather than being left as artifact-only intent.
 - `R3.` Fresh server validation reruns the relevant build and automated test wrappers for the repaired runtime and proof-owner seams.
-- `R4.` `planning/0000055-pr-summary.md` is refreshed to cite the new proof homes for this pass, carry forward any still-honest weak-proof notes, and distinguish newly rerun server proof from retained earlier client, browser, and broader acceptance evidence that was not reopened by this review.
+- `R4.` `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is created or refreshed to cite the new proof homes for this pass, carry forward any still-honest weak-proof notes, and distinguish newly rerun server proof from retained earlier client, browser, and broader acceptance evidence that was not reopened by this review.
 - `R5.` If any endorsed finding remains only partially repaired or weakly proven after the reruns, the story stops in that partial state instead of being re-closed with unstated residual risk.
+- `R6.` The supported main-stack smoke path still starts, probes, and shuts down cleanly through the repository-supported compose and host-network wrappers after the repaired server seams land.
 
 #### Proof Mapping
 
 - `P1.` Requirement: Tasks `153` through `157` are all complete, and every endorsed finding from review pass `0000055-20260419T200440Z-d67f1ccc` has a repaired proof owner on disk. Owners: Tasks `153` through `157`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 through 10 and 22; Testing 2 and 3.
-- `P2.` Requirement: the maintained close-out for this review pass cites the repaired proof homes and clearly separates newly rerun server proof from retained earlier client or browser evidence that was not reopened. Owners: `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 21; Testing 1 through 3.
-- `P3.` Requirement: the current review-created findings block is re-opened and verified on disk after the summary refresh rather than left as unchecked task text alone. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 11 through 22; Testing 1 through 3.
-- `P4.` Requirement: if reruns expose a partially repaired finding or still-weak proof, final validation records a bounded non-closing state instead of restating the story as complete. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 17 through 21; Testing 1 through 3.
+- `P2.` Requirement: the maintained close-out for this review pass cites the repaired proof homes and clearly separates newly rerun server proof from retained earlier client or browser evidence that was not reopened. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 1 through 21; Testing 1 through 3.
+- `P3.` Requirement: the current review-created findings block is re-opened and verified on disk after the summary refresh rather than left as unchecked task text alone. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 11 through 22; Testing 1 through 3.
+- `P4.` Requirement: if reruns expose a partially repaired finding or still-weak proof, final validation records a bounded non-closing state instead of restating the story as complete. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 17 through 21; Testing 1 through 3.
+- `P5.` Requirement: the supported main stack still builds, starts, probes, and shuts down cleanly through the repository-supported compose and host-network wrappers. Owners: `README.md`, `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: subtasks 16 through 22; Testing 4 through 7.
 
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
 - `planning/0000055-pr-summary.md`
+- `README.md`
+- `docker-compose.yml`
+- `scripts/docker-compose-with-env.sh`
+- `scripts/test-summary-host-network-main.mjs`
 - `codeInfoTmp/reviews/0000055-current-review.json`
 - `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`
 - `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`
@@ -12498,18 +12520,18 @@ This task re-validates Story 55 after the current review-created findings block 
 8. [ ] Re-read the completed implementation notes and proof owners for Task 155 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact trust-boundary proof homes that the close-out must cite.
 9. [ ] Re-read the completed implementation notes and proof owners for Task 156 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact bounded delete-path proof homes that the close-out must cite.
 10. [ ] Re-read the completed implementation notes and proof owners for Task 157 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact BDD phase-boundary proof homes that the close-out must cite.
-11. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 153. Purpose: keep deferred replay validation proof explicit in the maintained summary.
-12. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 154. Purpose: keep shared repo-list compatibility and diagnostics proof explicit in the maintained summary.
-13. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 155. Purpose: keep selector and configured-workdir trust-boundary proof explicit in the maintained summary.
-14. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 156. Purpose: keep bounded delete-selector proof explicit in the maintained summary.
-15. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 157. Purpose: keep BDD phase-boundary proof explicit in the maintained summary.
-16. [ ] Update `planning/0000055-pr-summary.md` so the rerun server build, unit, and cucumber wrappers for this pass are listed separately from retained earlier proof. Purpose: avoid implying fresh client, browser, or unaffected acceptance reruns that did not happen in this review pass.
-17. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: author the residual weak-proof note updates for any repaired seam that still relies on indirect proof after this pass. Purpose: keep the close-out honest where proof remains weaker than the primary wrapper reruns.
-18. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: author the rejected-risk note updates for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the pass-specific adjudication record instead of leaving rejected risks implied.
-19. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: author the saturation reasoning updates that explain why adjacent defect families remain sufficiently checked after Tasks 153 through 157. Purpose: keep the sibling-scan or defect-family coverage explicit in the final close-out.
-20. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: author the blind-spot challenge outcome for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the additive challenge result as part of the final review narrative.
-21. [ ] Proof type: maintained summary. Location: `planning/0000055-pr-summary.md`. Description: author the bounded residual-risk slot that will be used if reruns surface a partially repaired finding. Purpose: give final wrapper validation an honest non-closing destination without improvising summary structure after execution.
-22. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh. Purpose: verify the appended `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc` still matches the final on-disk disposition.
+11. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 153, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep deferred replay validation proof explicit in the canonical durable reviewer summary.
+12. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 154, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep shared repo-list compatibility and diagnostics proof explicit in the canonical durable reviewer summary.
+13. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 155, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep selector and configured-workdir trust-boundary proof explicit in the canonical durable reviewer summary.
+14. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 156, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep bounded delete-selector proof explicit in the canonical durable reviewer summary.
+15. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 157, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep BDD phase-boundary proof explicit in the canonical durable reviewer summary.
+16. [ ] Update `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the rerun server build, unit, and cucumber wrappers for this pass are listed separately from retained earlier proof. Purpose: avoid implying fresh client, browser, or unaffected acceptance reruns that did not happen in this review pass.
+17. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the residual weak-proof note updates for any repaired seam that still relies on indirect proof after this pass. Purpose: keep the close-out honest where proof remains weaker than the primary wrapper reruns.
+18. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the rejected-risk note updates for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the pass-specific adjudication record instead of leaving rejected risks implied.
+19. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the saturation reasoning updates that explain why adjacent defect families remain sufficiently checked after Tasks 153 through 157. Purpose: keep the sibling-scan or defect-family coverage explicit in the final close-out.
+20. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the blind-spot challenge outcome for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the additive challenge result as part of the final review narrative.
+21. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the bounded residual-risk slot that will be used if reruns surface a partially repaired finding. Purpose: give final wrapper validation an honest non-closing destination without improvising summary structure after execution.
+22. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the canonical summary refresh. Purpose: verify the appended `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc` still matches the final on-disk disposition.
 23. [ ] Run `npm run lint`. Purpose: catch final cross-workspace lint regressions after Tasks 153 through 157 land and before wrapper revalidation closes the review-created block.
 24. [ ] Run `npm run format:check`. Purpose: confirm the repaired review-created block and maintained summary stay formatting-clean before final wrapper revalidation.
 
@@ -12518,6 +12540,12 @@ This task re-validates Story 55 after the current review-created findings block 
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit`.
 3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run `npm run compose:up`.
+6. [ ] Run `npm run test:summary:host-network:main`.
+7. [ ] Run `npm run compose:down`.
+8. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+9. [ ] Run `npm run format:check`; if issues are found, run `npm run format` before any narrow manual cleanup, then rerun `npm run format:check`.
 
 #### Implementation notes
 

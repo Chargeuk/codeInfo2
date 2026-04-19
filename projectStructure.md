@@ -1,5 +1,10 @@
 ﻿# Project Structure (full tree)
 
+## Reviewer summary artifact note
+
+Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
+Older story ledgers in this document may still reference historical `planning/*-pr-summary.md` files because that was the legacy location when those stories were completed.
+
 ## Story 0000053 structural change ledger
 
 Added files:

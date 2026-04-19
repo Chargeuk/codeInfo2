@@ -309,6 +309,13 @@
     },
     {
       "type": "llm",
+      "label": "Create PR Summary",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "create_pr_summary.md"
+    },
+    {
+      "type": "llm",
       "label": "Push",
       "agentType": "planning_agent",
       "identifier": "planner",

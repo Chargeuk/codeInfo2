@@ -12145,9 +12145,9 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 #### Proof Mapping
 
-- `P1.` Requirement: deferred queued and startup-recovered re-embeds fail closed when the live root-state read cannot prove the root is still allowed. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts`, `server/src/test/unit/ingest-queue-runtime-startup.test.ts`, `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Proof homes: subtasks 1 through 7; Testing 1, 4, and 5.
-- `P2.` Requirement: malformed persisted canonical embedding fields are rejected during replay instead of being normalized away into legacy-model fallback. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-queue-runtime-pump.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`. Proof homes: subtasks 1 through 8; Testing 2 through 4.
-- `P3.` Requirement: waiting promotion and startup recovery remain on one shared corrected replay seam. Owners: `server/src/ingest/ingestJob.ts`. Proof homes: subtasks 2 through 5; Testing 1 through 4.
+- `P1.` Requirement: deferred queued and startup-recovered re-embeds fail closed when the live root-state read cannot prove the root is still allowed. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts`, `server/src/test/unit/ingest-queue-runtime-startup.test.ts`, `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Proof homes: subtasks 1 through 15; Testing 1, 4, and 5.
+- `P2.` Requirement: malformed persisted canonical embedding fields are rejected during replay instead of being normalized away into legacy-model fallback. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-queue-runtime-pump.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`. Proof homes: subtasks 1 through 14; Testing 2 through 4.
+- `P3.` Requirement: waiting promotion and startup recovery remain on one shared corrected replay seam. Owners: `server/src/ingest/ingestJob.ts`. Proof homes: subtasks 3 through 10; Testing 1 through 4.
 
 #### Documentation Locations
 
@@ -12161,14 +12161,23 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 #### Subtasks
 
-1. [ ] Re-read the stored findings and evidence for `deferred_execution_validation_drift` and `malformed_input_normalized_before_validation` so the repair stays anchored to the endorsed replay defects instead of broadening into unrelated queue-runtime cleanup.
-2. [ ] Re-read the immediate invalid-state contract owners in `server/src/ingest/reingestService.ts` and `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so the deferred replay path is repaired back to the same barrier the immediate path already enforces.
-3. [ ] Update the deferred re-embed execution path in `server/src/ingest/ingestJob.ts` so a live root-state read failure becomes a deterministic failed replay barrier instead of degrading open and continuing past `assertReembedRootStateAllowed(...)`.
-4. [ ] Update queued-input rehydration so persisted canonical `embeddingProvider` and `embeddingModel` values remain available to shared validation whenever they are present, and legacy `model` fallback is used only when canonical fields are absent rather than malformed.
-5. [ ] Keep waiting-item promotion and startup recovery on the same corrected replay helper or validation seam instead of introducing recovery-only branching that could drift again later.
-6. [ ] Add or extend targeted unit proof in `server/src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts` and `server/src/test/unit/ingest-queue-runtime-startup.test.ts` for the degraded root-state read failure path during deferred and startup-recovered re-embed execution.
-7. [ ] Add or extend targeted unit proof in `server/src/test/unit/ingest-queue-runtime-pump.test.ts` and `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` for non-string persisted canonical embedding fields during queued promotion and startup recovery.
-8. [ ] Keep the immediate-path invalid-state integration proof in sync with the repaired deferred contract so later reviewers can compare both seams without inferring parity from implementation alone.
+1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `deferred_execution_validation_drift` and `malformed_input_normalized_before_validation` defects instead of broadening into unrelated queue-runtime cleanup.
+2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the replay repair anchored to the exact deferred-execution evidence the review endorsed for this pass.
+3. [ ] Re-read the immediate invalid-state contract owner in `server/src/ingest/reingestService.ts`. Purpose: mirror the same fail-closed invalid-state barrier the immediate admission path already enforces.
+4. [ ] Re-read the immediate-path proof owner in `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Purpose: keep deferred replay parity tied to an existing proof owner instead of implementation inference alone.
+5. [ ] Update the live root-state read handling in `server/src/ingest/ingestJob.ts` so deferred replay stops on read failure before `assertReembedRootStateAllowed(...)` can be bypassed. Purpose: make queued promotion fail closed when the root state cannot be proven valid.
+6. [ ] Update the startup recovery replay path in `server/src/ingest/ingestJob.ts` to reuse that same failed replay barrier. Purpose: keep queued promotion and startup recovery on one corrected invalid-state seam.
+7. [ ] Update queued request rehydration in `server/src/ingest/ingestJob.ts` so persisted canonical `embeddingProvider` values remain visible to shared validation whenever they are present. Purpose: stop malformed canonical provider data from being normalized away before replay-time rejection.
+8. [ ] Update queued request rehydration in `server/src/ingest/ingestJob.ts` so persisted canonical `embeddingModel` values remain visible to shared validation whenever they are present. Purpose: stop malformed canonical model data from being normalized away before replay-time rejection.
+9. [ ] Keep legacy `model` fallback in `server/src/ingest/ingestJob.ts` limited to requests where canonical embedding fields are absent rather than malformed. Purpose: preserve backward compatibility without hiding invalid persisted canonical data.
+10. [ ] Keep the shared replay validation helper in `server/src/ingest/ingestJob.ts` as the single owner for waiting-item promotion and startup recovery. Purpose: avoid a recovery-only branch that could drift from queued promotion later.
+11. [ ] Extend `server/src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts` with a deferred-promotion proof for live root-state read failure. Purpose: prove the repaired waiting-item replay path fails closed.
+12. [ ] Extend `server/src/test/unit/ingest-queue-runtime-startup.test.ts` with a startup-recovery proof for live root-state read failure. Purpose: prove startup recovery stays on the same fail-closed barrier.
+13. [ ] Extend `server/src/test/unit/ingest-queue-runtime-pump.test.ts` with a proof for malformed persisted canonical embedding fields during queued promotion. Purpose: prove replay-time validation still sees invalid canonical fields instead of silently falling back.
+14. [ ] Extend `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` with a proof for malformed persisted canonical embedding fields during startup recovery. Purpose: prove recovery rehydration uses the same corrected validation seam.
+15. [ ] Keep `server/src/test/integration/ingest-reembed-invalid-state.test.ts` aligned with the repaired deferred contract. Purpose: preserve an immediate-versus-deferred parity proof owner on current disk.
+16. [ ] Run `npm --workspace server run lint -- src/ingest/ingestJob.ts src/ingest/reingestService.ts src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts src/test/unit/ingest-queue-runtime-pump.test.ts src/test/unit/ingest-queue-runtime-recovery.test.ts src/test/unit/ingest-queue-runtime-startup.test.ts src/test/integration/ingest-reembed-invalid-state.test.ts`. Purpose: catch local server TypeScript and lint regressions before the formal wrapper proof begins.
+17. [ ] Run `npm --workspace server run format:check -- src/ingest/ingestJob.ts src/ingest/reingestService.ts src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts src/test/unit/ingest-queue-runtime-pump.test.ts src/test/unit/ingest-queue-runtime-recovery.test.ts src/test/unit/ingest-queue-runtime-startup.test.ts src/test/integration/ingest-reembed-invalid-state.test.ts`. Purpose: keep the repaired replay seam and proof owners formatting-clean before wrapper validation.
 
 #### Testing
 
@@ -12206,9 +12215,9 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 
 #### Proof Mapping
 
-- `P1.` Requirement: queued-only waiting rows preserve the same provider and model identity the admission path already normalizes for legacy provider-qualified `model` values. Owners: `server/src/lmstudio/toolService.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`. Proof homes: subtasks 1 through 6; Testing 1 through 3.
-- `P2.` Requirement: ingest-origin normalized errors remain structured through shared repo-list overlays instead of collapsing to plain `lastError` strings. Owners: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`. Proof homes: subtasks 1 through 7; Testing 1 through 3.
-- `P3.` Requirement: `/ingest/roots`, tools-ingested-repos, and the MCP mirror keep one shared corrected `RepoEntry` contract instead of route-specific compatibility patches. Owners: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`. Proof homes: subtasks 3 through 5; Testing 1 through 3.
+- `P1.` Requirement: queued-only waiting rows preserve the same provider and model identity the admission path already normalizes for legacy provider-qualified `model` values. Owners: `server/src/lmstudio/toolService.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`. Proof homes: subtasks 1 through 10; Testing 1 through 3.
+- `P2.` Requirement: ingest-origin normalized errors remain structured through shared repo-list overlays instead of collapsing to plain `lastError` strings. Owners: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`. Proof homes: subtasks 1 through 13; Testing 1 through 3.
+- `P3.` Requirement: `/ingest/roots`, tools-ingested-repos, and the MCP mirror keep one shared corrected `RepoEntry` contract instead of route-specific compatibility patches. Owners: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`. Proof homes: subtasks 4 through 9; Testing 1 through 3.
 
 #### Documentation Locations
 
@@ -12223,13 +12232,21 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 
 #### Subtasks
 
-1. [ ] Re-read the stored findings and evidence for the queued-only legacy model compatibility defect and the ingest-origin normalized-error mismatch so the repair stays anchored to the endorsed shared-reader defects.
-2. [ ] Re-read the admission-side normalization owner in `server/src/ingest/requestContracts.ts` and the queued-only reader in `server/src/lmstudio/toolService.ts` so the repaired waiting-row reader clearly targets the same provider and model contract as the write path.
-3. [ ] Update `buildRepoFromQueueRequest()` or its adjacent shared helpers so queued-only waiting rows normalize legacy provider-qualified `model` values the same way the admission path already does, without relying on persisted-row overlays to repair the identity later.
-4. [ ] Update the shared normalized-error parsing and overlay application so ingest-origin structured errors remain structured through the shared repo-list path, including `provider`, `error`, and `retryable`, instead of degrading to plain string diagnostics.
-5. [ ] Keep `/ingest/roots`, tools-ingested-repos, and the MCP mirror on one corrected shared `RepoEntry` contract, updating shared types only where necessary to keep that single contract honest.
-6. [ ] Add or extend targeted proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` for queued-only legacy OpenAI waiting rows through the shared repo-list path.
-7. [ ] Add or extend targeted proof in `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts` for structured `provider: 'ingest'` normalized errors through the shared repo-list path.
+1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `backward_compatibility_reader_writer_mismatch` and `normalized_error_shape_consumer_mismatch` defects.
+2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the shared-reader repair tied to the current-pass queue overlay evidence.
+3. [ ] Re-read the admission-side normalization owner in `server/src/ingest/requestContracts.ts`. Purpose: target the same provider and model contract the queue write path already enforces.
+4. [ ] Re-read the queued-only reader in `server/src/lmstudio/toolService.ts`. Purpose: locate the single shared repo-list seam that needs the compatibility repair.
+5. [ ] Update `buildRepoFromQueueRequest()` in `server/src/lmstudio/toolService.ts` so queued-only waiting rows normalize legacy provider-qualified `model` values the same way admission already does. Purpose: keep queued-only rows on the same provider and model identity contract as written rows.
+6. [ ] Update any adjacent helper in `server/src/lmstudio/toolService.ts` that overlays persisted queue metadata onto `RepoEntry` output. Purpose: ensure later overlays do not have to repair a reader mismatch that should already be fixed at construction time.
+7. [ ] Update shared normalized-error parsing in `server/src/lmstudio/toolService.ts` so ingest-origin errors keep their structured fields, including `provider`, `error`, and `retryable`. Purpose: stop shared repo-list reads from collapsing normalized ingest errors to plain strings.
+8. [ ] Update shared overlay application in `server/src/lmstudio/toolService.ts` so structured ingest-origin errors survive merge order and route reuse. Purpose: keep `/ingest/roots`, tools-ingested-repos, and the MCP mirror on one corrected error contract.
+9. [ ] Update shared route or mirror type usage in `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, and `server/src/mcp/server.ts` only where needed to keep one corrected `RepoEntry` contract honest. Purpose: avoid route-specific compatibility forks.
+10. [ ] Extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with a queued-only legacy OpenAI waiting-row proof. Purpose: prove the shared reader now preserves the same normalized provider and model identity as admission.
+11. [ ] Extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with a structured ingest-origin normalized-error proof. Purpose: prove the shared reader keeps structured error fields through the base repo-list seam.
+12. [ ] Extend `server/src/test/unit/tools-ingested-repos.test.ts` with a structured ingest-origin normalized-error proof. Purpose: prove the tools mirror keeps the same shared overlay contract.
+13. [ ] Extend `server/src/test/unit/mcp-ingested-repositories.test.ts` with a structured ingest-origin normalized-error proof. Purpose: prove the MCP mirror keeps the same shared overlay contract.
+14. [ ] Run `npm --workspace server run lint -- src/ingest/requestContracts.ts src/lmstudio/toolService.ts src/mcp/server.ts src/routes/ingestRoots.ts src/routes/toolsIngestedRepos.ts src/test/unit/ingest-roots-dedupe.test.ts src/test/unit/tools-ingested-repos.test.ts src/test/unit/mcp-ingested-repositories.test.ts`. Purpose: catch local server lint regressions in the shared repo-list seam before wrapper proof begins.
+15. [ ] Run `npm --workspace server run format:check -- src/ingest/requestContracts.ts src/lmstudio/toolService.ts src/mcp/server.ts src/routes/ingestRoots.ts src/routes/toolsIngestedRepos.ts src/test/unit/ingest-roots-dedupe.test.ts src/test/unit/tools-ingested-repos.test.ts src/test/unit/mcp-ingested-repositories.test.ts`. Purpose: keep the shared repo-list repair and proof owners formatting-clean before wrapper validation.
 
 #### Testing
 
@@ -12265,9 +12282,9 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 #### Proof Mapping
 
-- `P1.` Requirement: the REST re-embed route rejects non-canonical selector aliases instead of normalizing them into exact-root matches. Owners: `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`. Proof homes: subtasks 1 through 6; Testing 1 and 3.
-- `P2.` Requirement: malformed non-placeholder `CODEINFO_CODEX_WORKDIR` values do not silently disable the shared queueable-root guard. Owners: `server/src/ingest/requestContracts.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-start.test.ts`. Proof homes: subtasks 1 through 7; Testing 2.
-- `P3.` Requirement: the placeholder-root exception stays narrow while REST, MCP/tool, and queued replay validation semantics remain aligned. Owners: `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, `server/src/ingest/requestContracts.ts`, `server/src/ingest/ingestJob.ts`. Proof homes: subtasks 2 through 7; Testing 1 through 3.
+- `P1.` Requirement: the REST re-embed route rejects non-canonical selector aliases instead of normalizing them into exact-root matches. Owners: `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`. Proof homes: subtasks 1 through 11; Testing 1 and 3.
+- `P2.` Requirement: malformed non-placeholder `CODEINFO_CODEX_WORKDIR` values do not silently disable the shared queueable-root guard. Owners: `server/src/ingest/requestContracts.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-start.test.ts`. Proof homes: subtasks 1 through 12; Testing 2.
+- `P3.` Requirement: the placeholder-root exception stays narrow while REST, MCP/tool, and queued replay validation semantics remain aligned. Owners: `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, `server/src/ingest/requestContracts.ts`, `server/src/ingest/ingestJob.ts`. Proof homes: subtasks 3 through 12; Testing 1 through 3.
 
 #### Documentation Locations
 
@@ -12282,13 +12299,20 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 #### Subtasks
 
-1. [ ] Re-read the stored findings and evidence for the selector-alias and malformed-workdir defects so the repair stays anchored to the endorsed trust-boundary seams.
-2. [ ] Re-read the strict selector owner in `server/src/ingest/reingestService.ts` and the shared queueable-root validator in `server/src/ingest/requestContracts.ts` so the repaired REST route and workdir guard target the same intended contract.
-3. [ ] Update the REST re-embed selector path so non-canonical aliases are rejected before exact-root lookup instead of being normalized into an authority-sensitive match.
-4. [ ] Tighten `validateQueueableRepositoryRootPath()` so malformed non-placeholder `CODEINFO_CODEX_WORKDIR` values fail closed or surface a deterministic configuration error instead of bypassing the shared guard.
-5. [ ] Keep queued replay on the same corrected queueable-root validator and keep the placeholder-root exception as the only intentional relaxation in this seam.
-6. [ ] Add or extend targeted proof in `server/src/test/unit/ingest-reembed.test.ts` and `server/src/test/integration/ingest-reembed.test.ts` for trailing-slash, dot-segment, or equivalent non-canonical alias rejection through the REST surface.
-7. [ ] Add or extend targeted proof in `server/src/test/unit/ingest-start.test.ts` for malformed non-placeholder configured-workdir handling so later readers do not infer this contract from the valid-root or placeholder-only cases.
+1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `non_canonical_selector_alias_accepted` and `config_domain_fail_open` trust-boundary defects.
+2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the selector and configured-workdir repairs tied to the current-pass review evidence.
+3. [ ] Re-read the strict selector owner in `server/src/ingest/reingestService.ts`. Purpose: align the REST route with the exact-root contract already enforced in the shared re-embed seam.
+4. [ ] Re-read the shared queueable-root validator in `server/src/ingest/requestContracts.ts`. Purpose: anchor the configured-workdir repair to the existing queueable-root validation owner.
+5. [ ] Update `server/src/routes/ingestReembed.ts` so non-canonical root aliases are rejected before exact-root lookup. Purpose: stop trailing-slash, dot-segment, and equivalent aliases from becoming accepted authority-sensitive matches.
+6. [ ] Update any selector-normalization call site in `server/src/ingest/reingestService.ts` that still tolerates non-canonical exact-root aliases through the REST path. Purpose: keep REST, MCP/tool, and queued replay selector semantics aligned.
+7. [ ] Tighten `validateQueueableRepositoryRootPath()` in `server/src/ingest/requestContracts.ts` so malformed non-placeholder `CODEINFO_CODEX_WORKDIR` values fail closed or raise a deterministic configuration error. Purpose: stop malformed configured workdirs from bypassing the shared queueable-root guard.
+8. [ ] Keep the placeholder-root exception in `server/src/ingest/requestContracts.ts` as the only intentional relaxation in this seam. Purpose: preserve the narrow placeholder contract without widening malformed-config acceptance.
+9. [ ] Keep queued replay in `server/src/ingest/ingestJob.ts` on that same corrected queueable-root validator. Purpose: avoid replay-only drift after the configured-workdir guard is retightened.
+10. [ ] Extend `server/src/test/unit/ingest-reembed.test.ts` with a unit proof for trailing-slash or dot-segment alias rejection. Purpose: prove the REST re-embed owner rejects non-canonical aliases before exact-root matching.
+11. [ ] Extend `server/src/test/integration/ingest-reembed.test.ts` with an integration proof for trailing-slash or dot-segment alias rejection. Purpose: prove the public REST surface keeps the tightened selector contract end to end.
+12. [ ] Extend `server/src/test/unit/ingest-start.test.ts` with a proof for malformed non-placeholder `CODEINFO_CODEX_WORKDIR` handling. Purpose: prove the shared queueable-root validator fails closed outside the placeholder-only case.
+13. [ ] Run `npm --workspace server run lint -- src/routes/ingestReembed.ts src/ingest/reingestService.ts src/ingest/requestContracts.ts src/ingest/ingestJob.ts src/test/unit/ingest-reembed.test.ts src/test/integration/ingest-reembed.test.ts src/test/unit/ingest-start.test.ts`. Purpose: catch local server lint regressions in the trust-boundary seams before wrapper proof begins.
+14. [ ] Run `npm --workspace server run format:check -- src/routes/ingestReembed.ts src/ingest/reingestService.ts src/ingest/requestContracts.ts src/ingest/ingestJob.ts src/test/unit/ingest-reembed.test.ts src/test/integration/ingest-reembed.test.ts src/test/unit/ingest-start.test.ts`. Purpose: keep the tightened selector and configured-workdir seams formatting-clean before wrapper validation.
 
 #### Testing
 
@@ -12323,8 +12347,8 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 
 #### Proof Mapping
 
-- `P1.` Requirement: the changed delta re-embed cleanup seam no longer feeds one unbounded deleted-file set into a single Mongo `$in` selector. Owners: `server/src/ingest/ingestJob.ts`, `server/src/mongo/repo.ts`, `server/src/test/unit/ingest-files-repo-guards.test.ts`. Proof homes: subtasks 1 through 5; Testing 1 and 2.
-- `P2.` Requirement: the bounded delete path still covers the full deleted-file set and leaves small delete behavior intact. Owners: `server/src/ingest/ingestJob.ts`, `server/src/mongo/repo.ts`, `server/src/test/unit/ingest-files-repo-guards.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof homes: subtasks 2 through 6; Testing 1 and 2.
+- `P1.` Requirement: the changed delta re-embed cleanup seam no longer feeds one unbounded deleted-file set into a single Mongo `$in` selector. Owners: `server/src/ingest/ingestJob.ts`, `server/src/mongo/repo.ts`, `server/src/test/unit/ingest-files-repo-guards.test.ts`. Proof homes: subtasks 1 through 7; Testing 1 and 2.
+- `P2.` Requirement: the bounded delete path still covers the full deleted-file set and leaves small delete behavior intact. Owners: `server/src/ingest/ingestJob.ts`, `server/src/mongo/repo.ts`, `server/src/test/unit/ingest-files-repo-guards.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof homes: subtasks 3 through 10; Testing 1 through 3.
 
 #### Documentation Locations
 
@@ -12336,12 +12360,18 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 
 #### Subtasks
 
-1. [ ] Re-read the stored finding and evidence for the unbounded delete-selector defect so the repair stays local to the changed delta re-embed cleanup seam.
-2. [ ] Re-read the existing bounded AST rel-path delete precedent in `server/src/mongo/repo.ts` so the new ingest-file delete bound uses one explicit size rule instead of inventing a second vague batching pattern.
-3. [ ] Update the story-owned delete helper or its immediate caller so rel-path deletes use a concrete bounded batching rule instead of one unbounded `$in` selector.
-4. [ ] Keep the changed delta re-embed cleanup path on one bounded helper rather than duplicating batching logic across multiple callers or spreading raw `$in` arrays through the runtime.
-5. [ ] Add or extend targeted lower-level proof in `server/src/test/unit/ingest-files-repo-guards.test.ts` that a large rel-path set is split or bounded deterministically and still deletes the intended rows.
-6. [ ] Prepare or extend the delta re-embed feature-owned proof data only as needed so the cucumber seam still exercises the repaired delete path without depending on tracked runtime artifacts or machine-local paths.
+1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `unbounded_bulk_selector_growth` defect.
+2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the delete-selector repair tied to the current-pass scale-shaped evidence.
+3. [ ] Re-read the existing bounded rel-path delete precedent in `server/src/mongo/repo.ts`. Purpose: reuse one explicit batching rule instead of inventing a second vague delete-size contract.
+4. [ ] Update the story-owned delete helper in `server/src/mongo/repo.ts` so rel-path deletes use a concrete bounded batching rule instead of one unbounded `$in` selector. Purpose: bound the Mongo delete selector at the helper seam.
+5. [ ] Update the changed delta re-embed cleanup caller in `server/src/ingest/ingestJob.ts` to use that bounded helper. Purpose: keep large delete sets on one bounded runtime seam instead of duplicating batching logic.
+6. [ ] Keep any helper constants or batching documentation adjacent to the bounded delete owner in `server/src/mongo/repo.ts`. Purpose: make the delete-size rule explicit for later maintenance and review.
+7. [ ] Extend `server/src/test/unit/ingest-files-repo-guards.test.ts` with a proof that a large rel-path set is split or bounded deterministically. Purpose: prove the bounded helper does not send one unbounded selector.
+8. [ ] Extend `server/src/test/unit/ingest-files-repo-guards.test.ts` with a proof that the full large rel-path set is still deleted after batching. Purpose: prove the bounded helper preserves deletion coverage instead of dropping rel paths.
+9. [ ] Extend the delta re-embed proof owner in `server/src/test/features/ingest-delta-reembed.feature` only as needed to keep the repaired delete path observable. Purpose: preserve feature-level proof without widening into unrelated cucumber churn.
+10. [ ] Extend the matching step bindings in `server/src/test/steps/ingest-delta-reembed.steps.ts` only as needed to support that repaired delete-path proof. Purpose: keep the cucumber seam aligned with the bounded helper without depending on tracked runtime artifacts.
+11. [ ] Run `npm --workspace server run lint -- src/ingest/ingestJob.ts src/mongo/repo.ts src/test/unit/ingest-files-repo-guards.test.ts src/test/steps/ingest-delta-reembed.steps.ts`. Purpose: catch local server lint regressions in the bounded delete seam before wrapper proof begins.
+12. [ ] Run `npm --workspace server run format:check -- src/ingest/ingestJob.ts src/mongo/repo.ts src/test/unit/ingest-files-repo-guards.test.ts src/test/features/ingest-delta-reembed.feature src/test/steps/ingest-delta-reembed.steps.ts`. Purpose: keep the bounded delete seam and its proof owners formatting-clean before wrapper validation.
 
 #### Testing
 
@@ -12375,8 +12405,8 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 #### Proof Mapping
 
-- `P1.` Requirement: the state-mutating delete step no longer lives under `Then`, and the changed feature wording now reflects an honest setup/action/assert boundary. Owners: `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof homes: subtasks 1 through 4; Testing 1.
-- `P2.` Requirement: the repaired scenario still proves the intended missing-`ingest_files` delta re-embed behavior without widening the proof rewrite into unrelated cucumber surfaces. Owners: `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof homes: subtasks 2 through 5; Testing 1.
+- `P1.` Requirement: the state-mutating delete step no longer lives under `Then`, and the changed feature wording now reflects an honest setup/action/assert boundary. Owners: `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof homes: subtasks 1 through 6; Testing 1.
+- `P2.` Requirement: the repaired scenario still proves the intended missing-`ingest_files` delta re-embed behavior without widening the proof rewrite into unrelated cucumber surfaces. Owners: `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`. Proof homes: subtasks 3 through 7; Testing 1.
 
 #### Documentation Locations
 
@@ -12385,11 +12415,15 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 #### Subtasks
 
-1. [ ] Re-read the stored finding and evidence for the BDD phase-boundary defect so the repair stays anchored to the changed proof-owning scenario.
-2. [ ] Move or rename the state-mutating delete step so the setup mutation lives under `Given` or `When` instead of `Then`.
-3. [ ] Update the feature wording and the step registration together so the repaired scenario still reads in setup, action, and assertion order on current disk.
-4. [ ] Keep the scenario’s assertion-only steps under `Then` and avoid broad wording churn in unrelated step libraries or feature files.
-5. [ ] Preserve the same runtime condition under test after the step-phase repair so the feature still owns proof for the missing-`ingest_files` delta re-embed behavior rather than turning into a wording-only cleanup.
+1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `bdd_assertion_step_mutates_state` defect.
+2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the phase-boundary repair tied to the exact scenario the review challenged.
+3. [ ] Move the state-mutating delete step registration in `server/src/test/steps/ingest-delta-reembed.steps.ts` under `Given` or `When`. Purpose: put the mutation on an honest setup or action phase instead of `Then`.
+4. [ ] Rename that step text in `server/src/test/steps/ingest-delta-reembed.steps.ts` only if the current wording still reads like an assertion. Purpose: keep the step registration semantically aligned with its phase.
+5. [ ] Update the matching scenario wording in `server/src/test/features/ingest-delta-reembed.feature` so setup, action, and assertion read in order on current disk. Purpose: make the proof-owning feature honest without widening into unrelated phrasing churn.
+6. [ ] Keep assertion-only steps in `server/src/test/features/ingest-delta-reembed.feature` and `server/src/test/steps/ingest-delta-reembed.steps.ts` under `Then`. Purpose: preserve a clean setup or action versus assertion boundary.
+7. [ ] Confirm the repaired scenario still targets the missing-`ingest_files` delta re-embed behavior in `server/src/test/features/ingest-delta-reembed.feature`. Purpose: keep this task focused on proof honesty rather than wording-only cleanup.
+8. [ ] Run `npm --workspace server run lint -- src/test/steps/ingest-delta-reembed.steps.ts`. Purpose: catch local step-library lint regressions before cucumber proof runs.
+9. [ ] Run `npm --workspace server run format:check -- src/test/features/ingest-delta-reembed.feature src/test/steps/ingest-delta-reembed.steps.ts`. Purpose: keep the repaired BDD proof owners formatting-clean before wrapper validation.
 
 #### Testing
 
@@ -12422,9 +12456,9 @@ This task re-validates Story 55 after the current review-created findings block 
 
 #### Proof Mapping
 
-- `P1.` Requirement: Tasks `153` through `157` are all complete, and every endorsed finding from review pass `0000055-20260419T200440Z-d67f1ccc` has a repaired proof owner on disk. Owners: Tasks `153` through `157`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 through 5; Testing 2 and 3.
-- `P2.` Requirement: the maintained close-out for this review pass cites the repaired proof homes and clearly separates newly rerun server proof from retained earlier client or browser evidence that was not reopened. Owners: `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 4; Testing 1 through 3.
-- `P3.` Requirement: the current review-created findings block is re-opened and verified on disk after the summary refresh rather than left as unchecked task text alone. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 3 through 6; Testing 1 through 3.
+- `P1.` Requirement: Tasks `153` through `157` are all complete, and every endorsed finding from review pass `0000055-20260419T200440Z-d67f1ccc` has a repaired proof owner on disk. Owners: Tasks `153` through `157`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 through 10 and 18; Testing 2 and 3.
+- `P2.` Requirement: the maintained close-out for this review pass cites the repaired proof homes and clearly separates newly rerun server proof from retained earlier client or browser evidence that was not reopened. Owners: `planning/0000055-pr-summary.md`. Proof homes: subtasks 1 through 17 and 19; Testing 1 through 3.
+- `P3.` Requirement: the current review-created findings block is re-opened and verified on disk after the summary refresh rather than left as unchecked task text alone. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `planning/0000055-pr-summary.md`. Proof homes: subtasks 11 through 19; Testing 1 through 3.
 
 #### Documentation Locations
 
@@ -12438,12 +12472,27 @@ This task re-validates Story 55 after the current review-created findings block 
 
 #### Subtasks
 
-1. [ ] Re-read the current review handoff plus the stored evidence, findings, saturation, and blind-spot challenge artifacts for pass `0000055-20260419T200440Z-d67f1ccc` before closing the review-created block.
-2. [ ] Re-read the completed implementations for Tasks `153` through `157` and note the exact proof-owning files, wrappers, and retained evidence that must be cited for this pass.
-3. [ ] Refresh `planning/0000055-pr-summary.md` so it records the repaired proof homes for Tasks `153` through `157`, the rerun server validation for this pass, and any still-honest residual weak-proof notes carried forward after the repair.
-4. [ ] Keep retained earlier client, browser, and broader acceptance evidence explicit in that summary only where this review pass did not reopen those surfaces, so the close-out does not imply fresh proof that was not rerun.
-5. [ ] Re-open this canonical plan after the validation updates and confirm the appended `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc` now matches the final on-disk disposition.
-6. [ ] If any endorsed finding from this review pass remains partially repaired after reruns, stop and record that bounded partial state instead of marking the story complete.
+1. [ ] Re-read `codeInfoTmp/reviews/0000055-current-review.json`. Purpose: anchor final validation to the current review handoff for pass `0000055-20260419T200440Z-d67f1ccc`.
+2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep final validation tied to the exact accepted evidence for this review pass.
+3. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the final summary aligned with the exact endorsed finding labels and severities.
+4. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings-saturation.md`. Purpose: carry forward the sibling-scan or checked-defect-family reasoning this pass recorded.
+5. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-blind-spot-challenge.md`. Purpose: carry forward the additive challenge reasoning this pass recorded.
+6. [ ] Re-read the completed implementation notes and proof owners for Task 153 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact replay-validation proof homes that the close-out must cite.
+7. [ ] Re-read the completed implementation notes and proof owners for Task 154 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact shared repo-list compatibility proof homes that the close-out must cite.
+8. [ ] Re-read the completed implementation notes and proof owners for Task 155 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact trust-boundary proof homes that the close-out must cite.
+9. [ ] Re-read the completed implementation notes and proof owners for Task 156 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact bounded delete-path proof homes that the close-out must cite.
+10. [ ] Re-read the completed implementation notes and proof owners for Task 157 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact BDD phase-boundary proof homes that the close-out must cite.
+11. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 153. Purpose: keep deferred replay validation proof explicit in the maintained summary.
+12. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 154. Purpose: keep shared repo-list compatibility and diagnostics proof explicit in the maintained summary.
+13. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 155. Purpose: keep selector and configured-workdir trust-boundary proof explicit in the maintained summary.
+14. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 156. Purpose: keep bounded delete-selector proof explicit in the maintained summary.
+15. [ ] Update the Story 55 review-pass close-out section in `planning/0000055-pr-summary.md` with the repaired proof homes from Task 157. Purpose: keep BDD phase-boundary proof explicit in the maintained summary.
+16. [ ] Update `planning/0000055-pr-summary.md` so the rerun server build, unit, and cucumber wrappers for this pass are listed separately from retained earlier proof. Purpose: avoid implying fresh client, browser, or unaffected acceptance reruns that did not happen in this review pass.
+17. [ ] Update `planning/0000055-pr-summary.md` so any still-honest residual weak-proof notes, rejected-risk notes, saturation reasoning, and blind-spot challenge outcome for pass `0000055-20260419T200440Z-d67f1ccc` remain explicit. Purpose: keep the close-out honest if any area remains only indirectly proven.
+18. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh. Purpose: verify the appended `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc` still matches the final on-disk disposition.
+19. [ ] Update `planning/0000055-pr-summary.md` so the review-pass close-out includes a bounded residual-risk slot for partially repaired findings if reruns later surface one. Purpose: give final wrapper validation an honest on-disk place to record a non-closing outcome without improvising summary structure after the fact.
+20. [ ] Run `npm run lint`. Purpose: catch final cross-workspace lint regressions after Tasks 153 through 157 land and before wrapper revalidation closes the review-created block.
+21. [ ] Run `npm run format:check`. Purpose: confirm the repaired review-created block and maintained summary stay formatting-clean before final wrapper revalidation.
 
 #### Testing
 

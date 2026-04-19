@@ -498,7 +498,7 @@ Evidence locations:
 - manual Playwright screenshots: `playwright-output-local/0000050-14-chat-ready.png` and `playwright-output-local/0000050-14-logs-proof.png`
 - final validation marker helper: `scripts/emit-task14-validation-marker.mjs`
 - current canonical reviewer summaries: `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`
-- legacy Story 50 reviewer-facing summary: `planning/0000050-pr-summary.md`
+- migrated Story 50 reviewer-facing summary: `codeInfoStatus/pr-summaries/0000050-pr-summary.md`
 
 Wrapper log review rule:
 
@@ -540,7 +540,7 @@ During the manual proof pass, use the running UI at `http://host.docker.internal
 
 - Developer reference (APIs, MCP surfaces, runtime details): [docs/developer-reference.md](docs/developer-reference.md)
 - Current reviewer-summary artifact location: `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`
-- Legacy Story 50 PR summary: [planning/0000050-pr-summary.md](planning/0000050-pr-summary.md)
+- Story 50 PR summary: [codeInfoStatus/pr-summaries/0000050-pr-summary.md](codeInfoStatus/pr-summaries/0000050-pr-summary.md)
 - Repository map and file purpose reference: [projectStructure.md](projectStructure.md)
 
 ## Environment Policy

@@ -32,7 +32,7 @@ Do not create or update any reviewer summary under `planning/` in this step.
 - Do not invent test results, review outcomes, or repository scope details that are not present on disk.
 - Keep repository references portable and repository-relative where possible.
 - If the artifact already exists and the final plan state has not materially changed its content, leave it unchanged.
-- If an older legacy file exists at `planning/<story-number>-pr-summary.md`, leave it untouched in this step rather than maintaining two canonical locations.
+- Do not recreate, update, or retain a second reviewer-summary artifact under `planning/`; the canonical repository-owned location is `codeInfoStatus/pr-summaries/`.
 
 </content_rules>
 
@@ -69,7 +69,7 @@ You may adjust the headings slightly if the final result is clearer, but keep th
 - confirm the artifact was written under `codeInfoStatus/pr-summaries/` and not under `planning/`;
 - confirm the content reflects the latest final-summary and review state present in the plan;
 - confirm multi-repository scope is covered when applicable;
-- confirm you did not create or update a second reviewer-summary artifact in the legacy planning location.
+- confirm you did not create or update a second reviewer-summary artifact in `planning/`.
 
 </verification_loop>
 

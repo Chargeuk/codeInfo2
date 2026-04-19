@@ -3,14 +3,14 @@
 ## Reviewer summary artifact note
 
 Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
-Older story ledgers in this document may still reference historical `planning/*-pr-summary.md` files because that was the legacy location when those stories were completed.
+The migrated story ledgers below now reference that durable location consistently.
 
 ## Story 0000053 structural change ledger
 
 Added files:
 
 - `e2e/flows-execution-runs.spec.ts`
-- `planning/0000053-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000053-pr-summary.md`
 - `server/src/test/features/flows-execution-runs.feature`
 - `server/src/test/steps/flows-execution-runs.steps.ts`
 
@@ -139,7 +139,7 @@ Story notes:
 
 Added files:
 
-- `planning/0000051-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000051-pr-summary.md`
 
 Removed files:
 
@@ -600,7 +600,7 @@ Story notes:
 
 Added files:
 
-- `planning/0000050-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000050-pr-summary.md`
 
 Removed files:
 
@@ -620,7 +620,7 @@ Modified files (implementation traceability):
 
 Story notes:
 
-- Task 16 lands the final Story 50 close-out in the shared documentation set and adds `planning/0000050-pr-summary.md` as the reviewer-facing summary artifact for the completed story.
+- Task 16 lands the final Story 50 close-out in the shared documentation set and adds `codeInfoStatus/pr-summaries/0000050-pr-summary.md` as the reviewer-facing summary artifact for the completed story.
 - The README and developer reference now document the validated host-network runtime, wrapper-first proof path, evidence locations, and the `DEV-0000050:T01` through `DEV-0000050:T14` manual-proof marker checklist.
 - The design close-out adds one consolidated Story 50 contract section so reviewers can see the final re-ingest, transcript, blank-markdown, host-network, and proof-wrapper model in one place instead of reconstructing it from task-by-task notes.
 
@@ -1198,7 +1198,7 @@ Added files:
 - `client/src/test/chatPage.workingFolder.test.tsx`
 - `client/src/test/conversationsApi.workingFolder.test.ts`
 - `e2e/env-runtime-config.spec.ts`
-- `planning/0000048-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000048-pr-summary.md`
 - `server/src/flows/repositoryCandidateOrder.ts`
 - `server/src/ingest/providers/openaiTokenizer.ts`
 - `server/src/test/unit/repositoryCandidateOrder.test.ts`
@@ -3382,7 +3382,7 @@ Task notes:
 
 Added files:
 
-- `planning/0000047-pr-summary.md`
+- `codeInfoStatus/pr-summaries/0000047-pr-summary.md`
 
 Removed files:
 

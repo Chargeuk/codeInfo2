@@ -2,11 +2,11 @@ The base `review_evidence_gate` command sequence has already been applied for th
 
 Apply these external-review-specific additions after that shared base sequence:
 
-1. Before doing evidence work, derive and read the sole external review input file at `codeInfoTmp/reviews/<story-number>-external-review-input.md` using the canonical plan story number from `codeInfoStatus/flow-state/current-plan.json`.
-2. If that file is missing, stop and say the external review input file is missing and must be created before this flow can continue.
-3. Treat that markdown file as the sole source of raw external review comments for artifact generation. Do not discover external review comments anywhere else and do not use timestamp or latest-file discovery.
-4. Treat the external review input file, evidence file, findings file, challenge file, and review handoff as high-quality local review scratch files for the active run only. They must not be committed.
-5. Before relying on `codeInfoTmp/reviews/`, verify that the repository ignores `codeInfoTmp/`. If it does not, add or update `.gitignore` before later steps depend on that scratch directory.
+1. Before relying on any file under `codeInfoTmp/reviews/`, verify that the repository ignores `codeInfoTmp/`. If it does not, add or update `.gitignore` before this command continues.
+2. Then derive and read the sole external review input file at `codeInfoTmp/reviews/<story-number>-external-review-input.md` using the canonical plan story number from `codeInfoStatus/flow-state/current-plan.json`.
+3. If that file is missing, stop and say the external review input file is missing and must be created only after `codeInfoTmp/` is ignored.
+4. Treat that markdown file as the sole source of raw external review comments for artifact generation. Do not discover external review comments anywhere else and do not use timestamp or latest-file discovery.
+5. Treat the external review input file, evidence file, findings file, challenge file, and review handoff as high-quality local review scratch files for the active run only. They must not be committed.
 6. While gathering evidence, extract and summarize the raw external review comments grouped by file and reviewer, and carry them forward as candidate findings that still need validation in the next step.
 7. When writing the evidence summary, include a dedicated section that records:
    - the exact external review input file path;

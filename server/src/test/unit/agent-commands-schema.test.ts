@@ -414,7 +414,7 @@ describe('agent command schema (v1)', () => {
       assert.doesNotThrow(() => JSON.parse(raw), relativePath);
 
       const parsed = parseAgentCommandFile(raw, {
-        commandName: path.basename(relativePath),
+        commandName: path.parse(relativePath).name,
       });
       assert.equal(parsed.ok, true, relativePath);
     }

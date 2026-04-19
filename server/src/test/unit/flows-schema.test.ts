@@ -158,8 +158,11 @@ describe('flow schema (v1)', () => {
       );
 
       const commands = flattenSteps(parsed.steps ?? [])
-        .filter((step) => step.type === 'command')
-        .map((step) => step.commandName);
+        .map((step) => (step.type === 'command' ? step.commandName : undefined))
+        .filter(
+          (commandName): commandName is string =>
+            typeof commandName === 'string',
+        );
 
       const findingsIndex = commands.indexOf(flowFile.findingsCommand);
       const saturationIndex = commands.indexOf(flowFile.saturationCommand);

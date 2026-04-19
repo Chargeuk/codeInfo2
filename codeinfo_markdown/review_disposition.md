@@ -7,7 +7,7 @@ Finish the current story review using ONLY the stored review handoff and the art
 - Do NOT rediscover review artifacts by timestamp.
 - First read `codeInfoStatus/flow-state/current-plan.json` and determine the canonical `plan_path`, then extract repository paths from `additional_repositories`.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
-- Then read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number.
+- Then read `codeInfoTmp/reviews/<story-number>-current-review.json`, derived from the shared story number.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit any plan.
 - If the review handoff is stale or incomplete, stop and say the review must be rerun. Do not edit any plan.
 - Treat `flows/**` as approved workflow configuration. Do not reopen the story or record scope-creep findings solely because those files changed without being named in the active plan.
@@ -30,7 +30,7 @@ Finish the current story review using ONLY the stored review handoff and the art
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
-- Read `codeInfoStatus/reviews/<story-number>-current-review.json`, derived from the shared story number, and verify that its:
+- Read `codeInfoTmp/reviews/<story-number>-current-review.json`, derived from the shared story number, and verify that its:
   - `story_id`
   - `plan_path`
   - `review_pass_id`
@@ -97,7 +97,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
     - lifecycle ordering;
     - test isolation.
 20. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
-21. The current pass `evidence_file` and `findings_file` are durable review artifacts and MUST be added to the commit history alongside any plan changes so a human can inspect them later.
+21. The current pass `evidence_file`, `findings_file`, and optional `challenge_file` are high-quality local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
 22. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
 23. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
     - a new `Code Review Findings` section for the current `review_pass_id`;
@@ -138,7 +138,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
   - reopen the canonical plan and add review-fix tasks when `must_fix` or `should_fix` findings exist;
   - reopen or defer localized `optional_simplification` findings according to the rules above;
   - append `Post-Implementation Code Review` when there are no findings.
-- If this review mutates plans, include the durable review artifacts in the resulting commit history alongside those plan changes.
+- If this review mutates plans, commit only the resulting plan and code changes. Do not include the scratch review artifacts in the commit history.
 - Do not finish this step while the stored review handoff and the canonical plan disagree about whether actionable findings exist.
 
 </output_contract>
@@ -152,7 +152,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 - Confirm the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope.
 - Confirm the no-findings path, if used, explicitly recorded generic adversarial proof or residual risk across all repositories in scope.
 - Confirm the no-findings path, if used, carried forward rejected-risk reasoning from the findings artifact and challenge artifact when present.
-- Confirm durable artifacts are treated as commit-worthy, the current-plan handoff is not mistaken for the durable review artifact, and the review handoff remains transient workflow state rather than the durable artifact.
+- Confirm scratch review artifacts are treated as local-only workflow files, the current-plan handoff is not mistaken for the review handoff, and the review handoff remains transient workflow state rather than a commit-worthy repository artifact.
 - Confirm that a findings-present pass left new review-created `__to_do__` tasks plus a final revalidation task in the plan, or that a no-findings pass left the required `Post-Implementation Code Review` section for the current `review_pass_id`.
 - Confirm that any findings-present pass kept `Testing` automated-only, used `Manual Testing Guidance` only as optional non-blocking guidance, and did not create subtasks that depend on future automated or manual proof output.
 

@@ -3,7 +3,7 @@ Read and follow `$CODEINFO_ROOT/codeinfo_markdown/review_disposition.md` first a
 Then apply these external-review-specific additions:
 
 1. Preserve the external-review adjudication trail already written into the findings artifact, including the rejected or non-adopted external review comments section.
-2. Do not treat the external review input markdown as a durable review artifact. The durable artifacts for this flow remain the evidence file and findings file created during the current review pass.
+2. Do not treat the external review input markdown, evidence file, findings file, challenge file, or review handoff as commit-worthy repository artifacts. They are high-quality local review scratch files for the active run only.
 3. Preserve the same rejected-risk and blind-spot fallback contract as the base disposition prompt: use the optional challenge artifact when present, and otherwise derive the same reasoning from the evidence and findings artifacts without failing an in-progress older flow.
 4. If the plan is reopened because of findings, ensure the resulting plan changes still respond to the endorsed external review findings, not merely to the existence of external comments.
 5. When endorsed external review findings create or rewrite follow-up tasks, preserve the base review task-shape rules so `Subtasks` stay implementation- and proof-authoring-focused while runnable wrapper or test commands stay in `Testing`, except for harness or wrapper repair tasks.

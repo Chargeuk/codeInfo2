@@ -6,7 +6,7 @@ Run a focused blind-spot challenge after the findings pass and before dispositio
 
 - Use fresh disk reads and current git state, not conversational memory.
 - Re-read `codeInfoStatus/flow-state/current-plan.json` first, derive the canonical `plan_path`, and re-open that exact plan from disk.
-- Then read `codeInfoStatus/reviews/<story-number>-current-review.json` from disk and use only the artifacts referenced there.
+- Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and use only the artifacts referenced there.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
 - If the review handoff is stale or incomplete, stop and say the review handoff is stale and must be regenerated.
 - This step does not edit the canonical plan.
@@ -29,7 +29,7 @@ Treat the evidence artifact's `Risk-Invariant Matrix` and the findings artifact'
 
 <output_contract>
 
-Write the challenge result to `codeInfoStatus/reviews/<review_pass_id>-blind-spot-challenge.md`.
+Write the challenge result to `codeInfoTmp/reviews/<review_pass_id>-blind-spot-challenge.md`.
 
 The challenge artifact MUST include:
 

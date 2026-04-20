@@ -12821,7 +12821,7 @@ Review pass `0000055-20260420T140453Z-d9e38eba` found actionable follow-up work,
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `160`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Planner repair: repo-wide `npm run format:check` still scans committed `codeInfoStatus/manual-testing/0000055/` proof artifacts, blocking review-created tasks whose source-owned files are already formatting-clean
 
@@ -12866,6 +12866,7 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 - Subtask 3: re-read `package.json` and kept the supported repo-wide formatter command unchanged as `prettier . --check`, so the repair stays on the shared input boundary instead of replacing the repository gate with task-local fallback commands.
 - Testing 1: `npm run lint` passed cleanly after the repo-root ignore-path repair, so Task 161’s prerequisite change did not introduce any lint regressions before the repo-wide format gate rerun.
 - Testing 2: `npm run format:check` reached a clean terminal verdict after the `.prettierignore` repair, ending with `All matched files use Prettier code style!` under the supported repo-wide `prettier . --check` gate instead of the earlier durable-artifact blockage.
+- Automated-proof audit on 2026-04-20: re-read the bound task, confirmed both Testing items were already honestly checked on disk with matching implementation notes, and closed Task 161 as `__done__` because no unchecked checklist work or live blocker remained.
 
 ### Task 162. Repair Cross-Operation Waiting Queue Rewrite Parity
 

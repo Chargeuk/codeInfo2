@@ -12258,8 +12258,8 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `backward_compatibility_reader_writer_mismatch` and `normalized_error_shape_consumer_mismatch` defects.
-2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the shared-reader repair tied to the current-pass queue overlay evidence.
+1. [ ] Re-read the `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the repair anchored to the endorsed `backward_compatibility_reader_writer_mismatch` and `normalized_error_shape_consumer_mismatch` defects using the current on-disk review record for this pass.
+2. [ ] Re-read this task's `Notes`, `Overview`, and `Proof Mapping` immediately after that review block. Purpose: keep the shared-reader repair tied to the current-pass queue overlay evidence that is actually preserved on disk for Task 154.
 3. [ ] Re-read the admission-side normalization owner in `server/src/ingest/requestContracts.ts`. Purpose: target the same provider and model contract the queue write path already enforces.
 4. [ ] Re-read the queued-only reader in `server/src/lmstudio/toolService.ts`. Purpose: locate the single shared repo-list seam that needs the compatibility repair.
 5. [ ] Update `buildRepoFromQueueRequest()` in `server/src/lmstudio/toolService.ts` so queued-only waiting rows normalize legacy provider-qualified `model` values the same way admission already does. Purpose: keep queued-only rows on the same provider and model identity contract as written rows.
@@ -12291,8 +12291,9 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 #### Implementation notes
 
 - Added from review pass `0000055-20260419T200440Z-d67f1ccc` to keep the shared repo-list reader and overlay path aligned with the queue write contract and the newer ingest-origin normalized error shape.
-- **BLOCKER** Stopped at Subtask 1 while trying to re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. I checked the exact task-owned path and then searched the current repository for both required review artifacts (`...-findings.md` and `...-evidence.md`), but neither file exists anywhere readable in the current repo scope. The missing capability is the absent on-disk review artifact prerequisite for Subtasks 1 and 2, so this task should be reordered or rewritten to point at the current durable review location before implementation continues.
+- **RESOLVED ISSUE** Initial Subtasks 1 and 2 pointed at `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-{findings,evidence}.md`, but current disk evidence proved that `codeInfoTmp/reviews/` does not exist in this repository and there is no exact durable `d67f1ccc` evidence or findings pair under `codeInfoStatus/reviews/` either. Planner repair retargeted Tasks 154 through 158 to the current on-disk review sources so this task no longer depends on missing artifacts before implementation can begin.
 - **BLOCKING ANSWER** Repository precedents: Story 55's earlier review-created tasks consistently anchor durable review rereads to `codeInfoStatus/reviews/<pass>-evidence.md` and `codeInfoStatus/reviews/<pass>-findings.md`, and Task 43's review-artifact hygiene proof explicitly documents that `codeInfoStatus/reviews/` is the durable review home while `0000055-current-review.json` is only transient handoff state. Current disk evidence shows there is no `codeInfoTmp/reviews/` directory at all, and `find codeInfoStatus/reviews` shows no durable `0000055-20260419T200440Z-d67f1ccc-{evidence,findings}.md` pair on disk either. The exact current-pass durable evidence that does exist today is the appended `Code Review Findings` block in this plan, which names the `backward_compatibility_reader_writer_mismatch` and `normalized_error_shape_consumer_mismatch` findings that Task 154 owns. Chosen solution: planner repair must stop Tasks 154 through 158 from depending on nonexistent `codeInfoTmp/reviews/...` artifacts and retarget their initial review-reread ownership to current on-disk durable review sources, using `codeInfoStatus/reviews/...` only when the exact pass artifacts exist and otherwise the maintained `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc`. Rejected alternatives: blindly swapping these subtasks to an older `codeInfoStatus/reviews` pass would change the review basis, recreating missing `d67f1ccc` evidence or findings files from prose would fabricate artifacts, and leaving the current `codeInfoTmp/reviews/...` paths unchanged would guarantee repeated blocking on the next implementation loop. No external-library precedent applies because this blocker is repository workflow ownership rather than framework behavior, and the `code_info` MCP tool was attempted for precedent research in this session but returned `Method not found`, so the proof above is anchored to direct on-disk repo evidence instead.
+- Planner repair: rewrote Tasks 154 through 158 to use the current on-disk `Review Pass` and `Code Review Findings` blocks plus the maintained Story 55 summary context instead of missing `codeInfoTmp/reviews/...` artifacts, and removed those nonexistent review-file paths from Task 158's formatting ownership. Task 154 remains `__in_progress__` so implementation can resume on the shared repo-list seam through an honest prerequisite surface.
 
 ### Task 155. Re-Tighten Queueable Input Trust Boundaries
 
@@ -12341,8 +12342,8 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `non_canonical_selector_alias_accepted` and `config_domain_fail_open` trust-boundary defects.
-2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the selector and configured-workdir repairs tied to the current-pass review evidence.
+1. [ ] Re-read the `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the repair anchored to the endorsed `non_canonical_selector_alias_accepted` and `config_domain_fail_open` trust-boundary defects using the current on-disk review record for this pass.
+2. [ ] Re-read this task's `Notes`, `Overview`, and `Proof Mapping` immediately after that review block. Purpose: keep the selector and configured-workdir repairs tied to the current-pass trust-boundary evidence that is actually preserved on disk for Task 155.
 3. [ ] Re-read the strict selector owner in `server/src/ingest/reingestService.ts`. Purpose: align the REST route with the exact-root contract already enforced in the shared re-embed seam.
 4. [ ] Re-read the shared queueable-root validator in `server/src/ingest/requestContracts.ts`. Purpose: anchor the configured-workdir repair to the existing queueable-root validation owner.
 5. [ ] Update `server/src/routes/ingestReembed.ts` so non-canonical root aliases are rejected before exact-root lookup. Purpose: stop trailing-slash, dot-segment, and equivalent aliases from becoming accepted authority-sensitive matches.
@@ -12413,8 +12414,8 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `unbounded_bulk_selector_growth` defect.
-2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the delete-selector repair tied to the current-pass scale-shaped evidence.
+1. [ ] Re-read the `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the repair anchored to the endorsed `unbounded_bulk_selector_growth` defect using the current on-disk review record for this pass.
+2. [ ] Re-read this task's `Notes`, `Overview`, and `Proof Mapping` immediately after that review block. Purpose: keep the delete-selector repair tied to the current-pass scale-shaped evidence that is actually preserved on disk for Task 156.
 3. [ ] Re-read the existing bounded rel-path delete precedent in `server/src/mongo/repo.ts`. Purpose: reuse one explicit batching rule instead of inventing a second vague delete-size contract.
 4. [ ] Update the story-owned delete helper in `server/src/mongo/repo.ts` so rel-path deletes use a concrete bounded batching rule instead of one unbounded `$in` selector. Purpose: bound the Mongo delete selector at the helper seam.
 5. [ ] Update the delta-delete cleanup branch in `processRun()` inside `server/src/ingest/ingestJob.ts` so it calls the bounded `deleteIngestFilesByRelPaths()` seam instead of constructing one unbounded rel-path cleanup request. Purpose: keep large delete sets on one bounded runtime seam instead of duplicating batching logic.
@@ -12474,8 +12475,8 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the repair anchored to the endorsed `bdd_assertion_step_mutates_state` defect.
-2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep the phase-boundary repair tied to the exact scenario the review challenged.
+1. [ ] Re-read the `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the repair anchored to the endorsed `bdd_assertion_step_mutates_state` defect using the current on-disk review record for this pass.
+2. [ ] Re-read this task's `Notes`, `Overview`, and `Proof Mapping` immediately after that review block. Purpose: keep the phase-boundary repair tied to the exact proof-owning scenario evidence that is actually preserved on disk for Task 157.
 3. [ ] Move the state-mutating delete step registration in `server/src/test/steps/ingest-delta-reembed.steps.ts` under `Given` or `When`. Purpose: put the mutation on an honest setup or action phase instead of `Then`.
 4. [ ] Rename that step text in `server/src/test/steps/ingest-delta-reembed.steps.ts` only if the current wording still reads like an assertion. Purpose: keep the step registration semantically aligned with its phase.
 5. [ ] Proof type: cucumber feature. Location: `server/src/test/features/ingest-delta-reembed.feature`. Description: rewrite the proof-owning scenario text so the mutation step appears in setup or action order and the remaining assertions stay in `Then`. Purpose: make the feature text honest about phase boundaries instead of relying on misleading assertion phrasing.
@@ -12535,19 +12536,14 @@ This task re-validates Story 55 after the current review-created findings block 
 - `docker-compose.yml`
 - `scripts/docker-compose-with-env.sh`
 - `scripts/test-summary-host-network-main.mjs`
-- `codeInfoTmp/reviews/0000055-current-review.json`
-- `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`
-- `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`
-- `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings-saturation.md`
-- `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-blind-spot-challenge.md`
 
 #### Subtasks
 
-1. [ ] Re-read `codeInfoTmp/reviews/0000055-current-review.json`. Purpose: anchor final validation to the current review handoff for pass `0000055-20260419T200440Z-d67f1ccc`.
-2. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md`. Purpose: keep final validation tied to the exact accepted evidence for this review pass.
-3. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. Purpose: keep the final summary aligned with the exact endorsed finding labels and severities.
-4. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings-saturation.md`. Purpose: carry forward the sibling-scan or checked-defect-family reasoning this pass recorded.
-5. [ ] Re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-blind-spot-challenge.md`. Purpose: carry forward the additive challenge reasoning this pass recorded.
+1. [ ] Re-read the `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final validation to the current on-disk review-created block for this pass instead of missing transient artifacts.
+2. [ ] Re-read this task's `Overview`, `Task Exit Criteria`, and `Proof Mapping`. Purpose: keep final validation tied to the exact accepted evidence boundary that is actually maintained on disk for this pass.
+3. [ ] Re-read the `Addresses Findings` mappings on Tasks `153` through `157` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the final summary aligned with the exact endorsed finding labels, severities, and task ownership for this review-created block.
+4. [ ] Re-read the latest relevant close-out context in `planning/0000055-pr-summary.md`. Purpose: carry forward the sibling-scan or checked-defect-family reasoning that is already preserved on disk for Story 55.
+5. [ ] Re-read the still-relevant residual-risk and rejected-risk notes in `planning/0000055-pr-summary.md`. Purpose: carry forward additive challenge reasoning already preserved on disk for Story 55 without depending on missing review artifacts.
 6. [ ] Re-read the completed implementation notes and proof owners for Task 153 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact replay-validation proof homes that the close-out must cite.
 7. [ ] Re-read the completed implementation notes and proof owners for Task 154 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact shared repo-list compatibility proof homes that the close-out must cite.
 8. [ ] Re-read the completed implementation notes and proof owners for Task 155 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact trust-boundary proof homes that the close-out must cite.
@@ -12566,7 +12562,7 @@ This task re-validates Story 55 after the current review-created findings block 
 21. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the bounded residual-risk slot that will be used if reruns surface a partially repaired finding. Purpose: give final wrapper validation an honest non-closing destination without improvising summary structure after execution.
 22. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the canonical summary refresh. Purpose: verify the appended `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc` still matches the final on-disk disposition.
 23. [ ] Run `npm run lint`. Purpose: catch final cross-workspace lint regressions after Tasks 153 through 157 land and before wrapper revalidation closes the review-created block.
-24. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs codeInfoTmp/reviews/0000055-current-review.json codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings-saturation.md codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-blind-spot-challenge.md`. Purpose: confirm the repaired review-created block and maintained summary stay formatting-clean without blocking this task on unrelated repo-wide Prettier drift. If Prettier reports differences, run the same file list with `npx prettier --write` before making manual formatting edits.
+24. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs`. Purpose: confirm the repaired review-created block and maintained summary stay formatting-clean without blocking this task on unrelated repo-wide Prettier drift. If Prettier reports differences, run the same file list with `npx prettier --write` before making manual formatting edits.
 
 #### Testing
 
@@ -12578,7 +12574,7 @@ This task re-validates Story 55 after the current review-created findings block 
 6. [ ] Run `npm run test:summary:host-network:main`.
 7. [ ] Run `npm run compose:down`.
 8. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-9. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs codeInfoTmp/reviews/0000055-current-review.json codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-evidence.md codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings-saturation.md codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-blind-spot-challenge.md`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+9. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 

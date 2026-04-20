@@ -12838,9 +12838,10 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 
 #### Proof Mapping
 
-- `P1.` Requirement: a waiting `start` row can be rewritten in place by a later `reembed` request for the same canonical target while preserving queue identity. Owners: `server/src/ingest/requestQueue.ts`. Proof homes: subtasks 2 through 5; Testing 2.
-- `P2.` Requirement: the duplicate-key retry path applies the same cross-operation rewrite contract as the primary path. Owners: `server/src/ingest/requestQueue.ts`. Proof homes: subtasks 4 and 6; Testing 2.
-- `P3.` Requirement: route-owner proof still shows reused `requestId`, preserved queue position, and no duplicate queue row after the repaired rewrite. Owners: `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`. Proof homes: subtasks 7 and 8; Testing 3 and 4.
+- `P1.` Requirement: a waiting `start` row can be rewritten in place by a later `reembed` request for the same canonical target while preserving queue identity and replacing the stored normalized request settings. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof homes: subtasks 2, 3, and 5; Testing 2.
+- `P2.` Requirement: the repaired waiting-row rewrite refreshes `updatedAt` while preserving `requestId`, `createdAt`, and source provenance. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof homes: subtasks 3 and 5; Testing 2.
+- `P3.` Requirement: the duplicate-key retry path applies the same cross-operation rewrite contract as the primary path instead of reusing stale queued settings or creating a second row. Owners: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`. Proof homes: subtasks 4 and 6; Testing 2.
+- `P4.` Requirement: route-owner proof still shows reused `requestId`, preserved queue position, and no duplicate queue row after the repaired rewrite. Owners: `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`. Proof homes: subtasks 7 and 8; Testing 3 and 4.
 
 #### Documentation Locations
 
@@ -12855,8 +12856,8 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 2. [ ] Update `shouldRewriteWaitingRequest()` in `server/src/ingest/requestQueue.ts` so a waiting `start` row can be rewritten by a later `reembed` request for the same canonical target while a running row still remains immutable. Purpose: restore the latest-settings-wins rule without weakening active-run protection.
 3. [ ] Update the waiting-row rewrite path in `server/src/ingest/requestQueue.ts` so the repaired `reembed` rewrite replaces the stored normalized request settings while preserving `requestId`, `createdAt`, and source provenance. Purpose: keep queue identity and FIFO metadata stable while the payload changes.
 4. [ ] Update the duplicate-key retry branch in `server/src/ingest/requestQueue.ts` so it reuses the same repaired cross-operation rewrite rule instead of falling back to stale queued settings after a race. Purpose: keep the retry path honest under the same invariant as the main path.
-5. [ ] Extend `server/src/test/unit/ingest-request-queue.test.ts` with direct proof that a waiting `start` row is rewritten in place by a later `reembed` request and keeps the original queue identity. Purpose: prove the repaired main-path rewrite contract where queue rows are owned.
-6. [ ] Extend `server/src/test/unit/ingest-request-queue.test.ts` with duplicate-key retry proof that the repaired `start -> reembed` rewrite contract still holds after the retry path re-reads the queue row. Purpose: cover the race-shaped retry seam separately from the main path proof.
+5. [ ] Extend `server/src/test/unit/ingest-request-queue.test.ts` with direct proof that a waiting `start` row is rewritten in place by a later `reembed` request, keeps the original queue identity, refreshes `updatedAt`, and preserves `createdAt` plus source provenance while the normalized request settings change. Purpose: prove the repaired main-path rewrite contract where queue rows are owned.
+6. [ ] Extend `server/src/test/unit/ingest-request-queue.test.ts` with duplicate-key retry proof that the repaired `start -> reembed` rewrite contract still holds after the retry path re-reads the queue row and does not resurrect stale queued settings. Purpose: cover the race-shaped retry seam separately from the main path proof.
 7. [ ] Update `server/src/test/unit/ingest-start.test.ts` only where needed so route-owner assertions still match the repaired reused-row contract and do not encode the stale-settings behavior. Purpose: keep start-route proof aligned with the shared queue repair.
 8. [ ] Update `server/src/test/unit/ingest-reembed.test.ts` only where needed so route-owner assertions still match the repaired reused-row contract and reused `requestId` semantics. Purpose: keep re-embed route proof aligned with the shared queue repair.
 
@@ -12943,15 +12944,17 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 
 #### Proof Mapping
 
-- `P1.` Requirement: `/ingest/reembed` enforces the `OPENAI_MODEL_UNAVAILABLE` contract at the same admission boundary it claims to own. Owners: `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`. Proof homes: subtasks 2 and 3; Testing 2.
-- `P2.` Requirement: the repaired route-owner proof no longer depends on a mocked queue-admission throw to force the expected error. Owners: `server/src/test/integration/openai-model-unavailable-contract.test.ts`. Proof homes: subtask 4; Testing 2.
-- `P3.` Requirement: adjacent integration proof stays honest if the repaired error boundary changes shared logging or response-shape expectations. Owners: `server/src/test/integration/ingest-failure-logging-coverage.test.ts`. Proof homes: subtask 5; Testing 3.
+- `P1.` Requirement: `/ingest/reembed` enforces the `OPENAI_MODEL_UNAVAILABLE` contract at the same admission boundary it claims to own and rejects a disallowed locked model before queue acceptance. Owners: `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`. Proof homes: subtasks 2, 3, and 5; Testing 2.
+- `P2.` Requirement: the repaired route-owner proof no longer depends on a mocked queue-admission throw to force the expected error. Owners: `server/src/test/integration/openai-model-unavailable-contract.test.ts`. Proof homes: subtask 5; Testing 2.
+- `P3.` Requirement: valid `/ingest/reembed` requests still follow the current queue-aware acceptance contract after the repaired admission-time guard lands. Owners: `server/src/routes/ingestReembed.ts`, `server/src/test/integration/ingest-reembed.test.ts`. Proof homes: subtasks 3 and 7; Testing 4.
+- `P4.` Requirement: adjacent integration proof stays honest if the repaired error boundary changes shared logging or response-shape expectations. Owners: `server/src/test/integration/ingest-failure-logging-coverage.test.ts`. Proof homes: subtask 6; Testing 3.
 
 #### Documentation Locations
 
 - `server/src/routes/ingestReembed.ts`
 - `server/src/ingest/reingestService.ts`
 - `server/src/test/integration/openai-model-unavailable-contract.test.ts`
+- `server/src/test/integration/ingest-reembed.test.ts`
 - `server/src/test/integration/ingest-failure-logging-coverage.test.ts`
 
 #### Subtasks
@@ -12962,12 +12965,14 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 4. [ ] Keep the repaired admission-time validation aligned with the later execution-time validation path in `server/src/ingest/reingestService.ts`. Purpose: prevent route and runtime validation from drifting apart again after the admission fix lands.
 5. [ ] Replace the mocked queue-admission proof in `server/src/test/integration/openai-model-unavailable-contract.test.ts` with direct route-owner coverage for the repaired admission boundary. Purpose: prove the real boundary rather than a stubbed downstream throw.
 6. [ ] Re-read `server/src/test/integration/ingest-failure-logging-coverage.test.ts` and update only the assertions that consume the repaired admission error shape. Purpose: keep adjacent integration proof honest without widening this task into broader logging redesign.
+7. [ ] Update `server/src/test/integration/ingest-reembed.test.ts` only where needed so valid `/ingest/reembed` requests still prove queue-aware acceptance after the repaired admission-time guard lands. Purpose: keep the green admission path visible beside the repaired rejection proof.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/openai-model-unavailable-contract.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-failure-logging-coverage.test.ts`.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed.test.ts`.
 
 #### Implementation notes
 
@@ -12996,7 +13001,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 #### Proof Mapping
 
 - `P1.` Requirement: `/ingest/roots` duplicate-row selection keeps canonical row identity and queue metadata stable instead of letting `runId` decide the winner. Owners: `server/src/routes/ingestRoots.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 4; Testing 2.
-- `P2.` Requirement: the cucumber roots proof asserts the payload captured by the route action step instead of re-fetching inside `Then`. Owners: `server/src/test/steps/ingest-manage.steps.ts`, `server/src/test/features/ingest-roots.feature`. Proof homes: subtasks 5 through 7; Testing 3.
+- `P2.` Requirement: the cucumber roots proof asserts the payload captured by the route action step instead of re-fetching inside `Then`, while still proving queued-row visibility and cleanup-blocked visibility from that captured response. Owners: `server/src/test/steps/ingest-manage.steps.ts`, `server/src/test/features/ingest-roots.feature`. Proof homes: subtasks 5 through 7; Testing 3.
 - `P3.` Requirement: client normalization still treats `id` as canonical row identity after the repaired route response semantics. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtask 8; Testing 4.
 
 #### Documentation Locations
@@ -13016,7 +13021,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 4. [ ] Extend `server/src/test/unit/ingest-roots-dedupe.test.ts` with direct proof that waiting-row metadata such as `requestId` and queue state survives the repaired duplicate-row selection logic. Purpose: prove that the repaired winner selection keeps queue metadata intact.
 5. [ ] Refactor the `When I GET ingest manage roots` action step in `server/src/test/steps/ingest-manage.steps.ts` so it captures the route payload once at action time. Purpose: move the request execution boundary fully into the action step.
 6. [ ] Refactor the related `Then` steps in `server/src/test/steps/ingest-manage.steps.ts` so they assert the stored payload instead of re-fetching or polling. Purpose: keep the assertion phase limited to checking the captured response.
-7. [ ] Update `server/src/test/features/ingest-roots.feature` so the queued-roots and cleanup-blocked scenarios stay direct proof owners for the repaired action-versus-assertion boundary. Purpose: keep the feature wording aligned with the repaired step roles.
+7. [ ] Update `server/src/test/features/ingest-roots.feature` so the queued-roots and cleanup-blocked scenarios stay direct proof owners for the repaired action-versus-assertion boundary and keep asserting visibility from the captured response payload. Purpose: keep the feature wording aligned with the repaired step roles.
 8. [ ] Update `client/src/test/useIngestRoots.test.tsx` so the client-side proof still treats `id` as canonical row identity and does not silently re-encode the old `runId` winner behavior. Purpose: keep the client contract aligned with the repaired server response.
 
 #### Testing
@@ -13051,9 +13056,10 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 #### Proof Mapping
 
-- `P1.` Requirement: queue-runtime proof owners use a request-aware terminal wait helper instead of `runId` polling where the runtime already exposes that stronger boundary. Owners: `server/src/test/unit/ingest-queue-runtime.helpers.ts`, `server/src/ingest/ingestJob.ts`. Proof homes: subtasks 2 and 3; Testing 2.
-- `P2.` Requirement: the pump, startup, recovery, and deferred-mismatch unit proofs now assert request-scoped terminal ownership instead of eventual polling success. Owners: `server/src/test/unit/ingest-queue-runtime-pump.test.ts`, `server/src/test/unit/ingest-queue-runtime-startup.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`. Proof homes: subtasks 3 through 5; Testing 2 through 5.
-- `P3.` Requirement: integration proof for queue-managed invalid-state handling stays aligned with the repaired request-aware wait boundary. Owners: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Proof homes: subtask 6; Testing 6.
+- `P1.` Requirement: the shared request-aware terminal wait helper becomes the primary queue-managed completion boundary and keeps waiter cleanup honest on timeout, rejection, or early return. Owners: `server/src/test/unit/ingest-queue-runtime.helpers.ts`, `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Proof homes: subtasks 2 and 8; Testing 7.
+- `P2.` Requirement: the pump, startup, recovery, and deferred-mismatch unit proofs now assert request-scoped terminal ownership instead of eventual polling success. Owners: `server/src/test/unit/ingest-queue-runtime-pump.test.ts`, `server/src/test/unit/ingest-queue-runtime-startup.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`. Proof homes: subtasks 3 through 6; Testing 2 through 5.
+- `P3.` Requirement: integration proof for queue-managed invalid-state handling stays aligned with the repaired request-aware wait boundary. Owners: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Proof homes: subtask 7; Testing 6.
+- `P4.` Requirement: any retained timer fallback proof remains explicit about testing fallback behavior instead of silently standing in for the primary queue completion boundary. Owners: `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Proof homes: subtask 8; Testing 7.
 
 #### Documentation Locations
 
@@ -13063,6 +13069,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 - `server/src/test/unit/ingest-queue-runtime-startup.test.ts`
 - `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
 - `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`
 - `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
 
 #### Subtasks
@@ -13074,6 +13081,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 5. [ ] Update `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` to use the repaired request-aware wait seam where it currently relies on `runId` polling. Purpose: align recovery proof with request ownership.
 6. [ ] Update `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts` so its deferred replay proof uses the same request-aware terminal ownership boundary. Purpose: keep deferred replay proof on the same stronger wait seam.
 7. [ ] Update `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so the integration proof remains honest about request-scoped completion without widening into unrelated route or service behavior. Purpose: keep the integration owner aligned with the repaired wait boundary.
+8. [ ] Update `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` so any retained helper-only timer fallback coverage is explicit about fallback behavior and still proves waiter cleanup on timeout, rejection, or early return. Purpose: keep shared wait-helper cleanup proof visible without letting polling stand in for the primary boundary.
 
 #### Testing
 
@@ -13083,6 +13091,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
 5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`.
 6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
 
 #### Implementation notes
 

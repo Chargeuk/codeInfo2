@@ -12804,3 +12804,334 @@ This task re-validates Story 55 after the current review-created findings block 
 - Testing 9: the exact file-scoped `npx prettier --check` command reproduced the current parser gap on `scripts/docker-compose-with-env.sh`, and the immediate task-owned rerun with `--ignore-unknown` passed cleanly for the same file list, so the maintained summary and final-validation support files are formatting-clean on current disk without widening repo formatter setup in this proof pass.
 - Automated-proof audit: marked Task 160 `__done__` because all 28 subtasks and all 9 testing steps are now checked on disk and `plan_status.py --task-number 160` reports no live blocker or prose-only remaining gate.
 - Manual testing: this pass expanded to full-story proof because Task 160 is the final story task. I restarted the main compose stack from a freshness-unknown stopped baseline, re-proved startup with `npm run compose:build`, `npm run compose:up`, `npm run test:summary:host-network:main`, and `/health`, then used supported live API and UI surfaces to confirm queue-aware ingest and re-embed acceptance plus the paired browser view: `POST /ingest/start` returned an immediate `runId` for one root and queued `requestId` plus `queuePosition` for the second, `/ingest/roots` and `/tools/ingested-repos` exposed the shared `0000055-queued-repo-list-v1` waiting/running schema, the standalone proof roots completed and then `POST /ingest/reembed/:root` returned an immediate `runId` for one root plus queued acceptance for the second, and the `/ingest` page rendered the completed roots with no failed Playwright-observed network requests or browser-console errors. I hit one bounded recovery issue first when an oversized nested-repo scratch path expanded into repo-level ingest work and triggered an upstream OpenAI rate-limit crash; I restarted the stack, switched to standalone roots under `${HOME}/Documents/dev`, and used the supported cancel surface to clear that contaminated run because the smaller supported roots already proved the story-owned behavior honestly. Durable final-story proof artifacts were saved under `codeInfoStatus/manual-testing/0000055/` (including `compose-build.txt`, `compose-up-recovery.txt`, `host-network-main-wrapper-recovery.txt`, `health-recovery.json`, `ingest-roots-while-queued.json`, `tools-ingested-repos-while-queued.json`, `task160-start-root-a-recovery.json`, `task160-start-root-b-recovery.json`, `task160-reembed-root-a.json`, `task160-reembed-root-b.json`, `ingest-roots-after-cancel.json`, `tools-ingested-repos-after-cancel.json`, `status-reembed-root-a-initial.json`, `ingest-page-final.png`, and `compose-down-final.txt`), and no new subtasks or testing steps were needed.
+
+## Code Review Findings
+
+Review pass `0000055-20260420T140453Z-d9e38eba` found actionable follow-up work, so Story 55 is reopened with a new review-created block appended at the physical end of this plan.
+
+- `must_fix`: waiting-row dedupe parity still blocks later `reembed` settings from rewriting a queued `start` request for the same canonical target.
+- `must_fix`: the deletions-only delta re-embed fast path still reports success when persisted cleanup degrades under disconnected Mongo.
+- `should_fix`: `/ingest/reembed` does not yet prove or perform honest admission-time `OPENAI_MODEL_UNAVAILABLE` rejection.
+- `should_fix`: `/ingest/roots` queue-visibility proof re-fetches and polls inside `Then`, weakening direct route-response proof.
+- `should_fix`: queue-runtime proof owners still prefer `runId` polling instead of the request-aware terminal wait boundary the runtime now exposes.
+- `should_fix`: classic MCP `tools/call` still coerces malformed non-object `arguments` payloads to `{}` before validation.
+- `should_fix`: `/ingest/roots` dedupe still lets runtime-only `runId` override canonical row identity when stable row metadata is otherwise tied.
+
+### Task 161. Repair Cross-Operation Waiting Queue Rewrite Parity
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `160`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `must_fix` `plan_contract_issue`: cross-operation `start -> reembed` waiting-row updates still leave stale queued settings in place for the same canonical target
+
+#### Overview
+
+Repair the waiting-row dedupe contract so a later `reembed` request can rewrite a queued `start` request for the same canonical embed target without creating a second queue item or mutating active work. The repair must preserve the original queue identity and FIFO metadata while updating the stored request payload to the latest settings on both the main and duplicate-key retry paths.
+
+#### Task Exit Criteria
+
+- `R1.` A waiting `start` request for a canonical target can be rewritten in place by a later `reembed` request for that same target.
+- `R2.` The rewritten waiting row preserves `requestId`, `createdAt`, and source provenance while replacing the normalized stored request settings and refreshing `updatedAt`.
+- `R3.` The duplicate-key retry path applies the same cross-operation rewrite rule as the primary path instead of falling back to stale queued settings.
+- `R4.` Direct unit and route-owner proof covers the cross-operation waiting-row rewrite on current disk.
+
+#### Documentation Locations
+
+- `server/src/ingest/requestQueue.ts`
+- `server/src/test/unit/ingest-request-queue.test.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the Story 55 acceptance criteria and this review finding’s queue-dedupe contract so the repair preserves latest-settings-wins across `start` and `reembed` once they normalize to the same canonical target.
+2. [ ] Repair the waiting-row rewrite gate in `server/src/ingest/requestQueue.ts` so a later `reembed` request can update a queued `start` request in place while a running row still remains immutable.
+3. [ ] Repair the duplicate-key retry branch in `server/src/ingest/requestQueue.ts` so it reuses the same cross-operation rewrite rule and does not reintroduce stale queued settings after a race.
+4. [ ] Update `server/src/test/unit/ingest-request-queue.test.ts` to prove the repaired `start -> reembed` waiting-row rewrite contract, including preserved queue identity and duplicate-key retry behavior.
+5. [ ] Update `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` if their current route-owner assertions still encode the stale-settings behavior instead of the repaired shared queue contract.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 162. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `160`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `must_fix` `plan_contract_issue`: deletions-only delta re-embed currently reports terminal success even when persisted cleanup degrades under disconnected Mongo
+
+#### Overview
+
+Repair the deletions-only delta re-embed fast path so it honors persisted cleanup failure the same way the normal finalization path already does. A degraded `deleteIngestFilesByRelPaths()` result must block completion honestly instead of publishing a successful zero-work result that allows later queue work to advance.
+
+#### Task Exit Criteria
+
+- `R1.` The deletions-only delta re-embed fast path no longer reports successful completion when persisted `ingest_files` cleanup degrades.
+- `R2.` The repaired fast path surfaces the same cleanup-blocked contract the normal finalization path already uses for the shared helper.
+- `R3.` The repair stays local to the deletions-only cleanup path and its proof owners instead of widening into unrelated bootstrap or batching seams.
+- `R4.` Direct unit proof covers both the degraded cleanup result and the still-bounded delete-selector behavior after the repair.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/mongo/repo.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+- `server/src/test/unit/ingest-files-repo-guards.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the Story 55 cleanup-blocked acceptance criteria and this review finding so the fast-path repair matches the current queue-stall contract instead of introducing a parallel failure shape.
+2. [ ] Repair the deletions-only branch in `server/src/ingest/ingestJob.ts` so a degraded persisted cleanup result cannot fall through to `completeReembedFastPathWithFence()` as a false success.
+3. [ ] Keep the shared cleanup helper contract in `server/src/mongo/repo.ts` aligned with the repaired caller expectations so degraded `null` results remain distinguishable from successful deletes.
+4. [ ] Update `server/src/test/unit/ingest-reembed.test.ts` to prove the deletions-only path now blocks honestly when persisted cleanup degrades instead of completing green.
+5. [ ] Update `server/src/test/unit/ingest-files-repo-guards.test.ts` only where needed to keep the bounded delete-selector and degraded-helper proofs aligned with the repaired caller contract.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-files-repo-guards.test.ts`.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 163. Restore Honest Admission-Time `/ingest/reembed` Validation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `160`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `should_fix` `generic_engineering_issue`: `/ingest/reembed` currently proves immediate `OPENAI_MODEL_UNAVAILABLE` rejection only through a mocked queue-admission seam instead of the real admission path
+
+#### Overview
+
+Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist check before queue acceptance or rewrite the route-owned proof so it no longer claims immediate validation that production code does not perform. The repaired proof must be grounded in the real route-to-service boundary rather than a mocked downstream throw that bypasses the actual acceptance path.
+
+#### Task Exit Criteria
+
+- `R1.` The `/ingest/reembed` admission path now handles the `OPENAI_MODEL_UNAVAILABLE` contract honestly at the boundary it claims to own.
+- `R2.` The route-owner proof uses the real production validation seam rather than a mocked queue-admission exception to force the expected error.
+- `R3.` The repair preserves the current queue-aware acceptance contract for valid requests and does not widen into unrelated logging or terminal execution behavior.
+- `R4.` Direct route-owner proof on current disk demonstrates the repaired contract.
+
+#### Documentation Locations
+
+- `server/src/routes/ingestReembed.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/test/integration/openai-model-unavailable-contract.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the Story 55 queue-admission and retryable-error acceptance criteria plus this review finding so the route repair stays anchored to the real acceptance boundary.
+2. [ ] Repair `server/src/routes/ingestReembed.ts` and any shared validation seam it depends on so the route-owned `OPENAI_MODEL_UNAVAILABLE` contract is enforced honestly at admission time if that is still the intended boundary.
+3. [ ] If the real supported boundary is narrower than the current test claims, narrow the proof and route-owned contract wording so the story no longer claims immediate validation the code does not perform.
+4. [ ] Replace the mocked queue-admission proof in `server/src/test/integration/openai-model-unavailable-contract.test.ts` with direct route-owner coverage for the repaired validation boundary.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/openai-model-unavailable-contract.test.ts`.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 164. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `160`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `should_fix` `plan_contract_issue`: queued-roots acceptance proof re-fetches and polls inside `Then` instead of asserting the route response captured by the action step
+  - `should_fix` `generic_engineering_issue`: `/ingest/roots` dedupe lets runtime-only `runId` override canonical row identity when stable rows are otherwise tied
+
+#### Overview
+
+Repair the `/ingest/roots` contract and its proof owners together so the route keeps canonical row identity stable and the cucumber acceptance proof asserts the payload actually returned by the route call under test. The route must stop letting `runId` pick the surviving duplicate row when stable identity and queue metadata disagree, and the BDD proof must stop satisfying itself through extra fetches in `Then`.
+
+#### Task Exit Criteria
+
+- `R1.` `/ingest/roots` dedupe no longer allows a volatile `runId` to override the stable row identity that should win for a duplicated path.
+- `R2.` The route-owned unit proof covers the repaired canonical-row tie-break behavior directly.
+- `R3.` The cucumber roots proof asserts the payload captured by the `When I GET ingest manage roots` action instead of re-fetching or polling in `Then`.
+- `R4.` The repaired route and proof owners still cover queued-row visibility and cleanup-blocked visibility honestly on current disk.
+
+#### Documentation Locations
+
+- `server/src/routes/ingestRoots.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `server/src/test/features/ingest-roots.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-read the Story 55 repository-list acceptance criteria and this review finding so the route repair preserves queued visibility while restoring canonical row identity.
+2. [ ] Repair `server/src/routes/ingestRoots.ts` so duplicate row selection prefers stable canonical identity and queue metadata over a runtime-only `runId` tie-breaker.
+3. [ ] Update `server/src/test/unit/ingest-roots-dedupe.test.ts` to prove the repaired row-selection contract and reject the old `runId` winner behavior.
+4. [ ] Repair `server/src/test/steps/ingest-manage.steps.ts` so `Then` steps assert the payload captured by the earlier route fetch instead of issuing fresh polling requests inside the assertion phase.
+5. [ ] Update `server/src/test/features/ingest-roots.feature` so the queued-roots and cleanup-blocked scenarios remain direct proof owners for the repaired route-response boundary.
+6. [ ] Update `client/src/test/useIngestRoots.test.tsx` only if the repaired route contract needs refreshed client normalization proof to keep `id` as the canonical row identity surface.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
+3. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature`.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 165. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `160`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `should_fix` `generic_engineering_issue`: queue-runtime proof owners still rely on `runId` polling instead of the request-aware terminal wait boundary the runtime now exposes
+
+#### Overview
+
+Repair the queue-runtime proof owners so their primary completion boundary matches the runtime’s request-aware terminal wait helper instead of eventual `runId` polling. The task is about proof honesty and race reduction in the runtime-owner tests, not about reshaping queue behavior that already exists in production code.
+
+#### Task Exit Criteria
+
+- `R1.` The changed queue-runtime proof owners no longer use `waitForTerminalIngestStatus(..., { pollMs: 10 })` as their primary queue-managed completion boundary where request-aware waiting already exists.
+- `R2.` The repaired proof still covers the same queue-managed runtime outcomes but now ties them to request-scoped ownership and terminal-state publication.
+- `R3.` Any retained timer fallback proof is explicit about testing fallback behavior rather than silently standing in for the primary boundary.
+- `R4.` Direct unit or integration proof on current disk exercises the repaired request-aware wait path across the affected queue-runtime owners.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-queue-runtime-pump.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-startup.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`
+- `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the Story 55 blocking-wait acceptance criteria and this review finding so the proof repair stays anchored to the request-aware queue contract already exposed by the runtime.
+2. [ ] Add or repair a shared queue-runtime test helper, fixture, or assertion seam that waits on request-aware terminal ownership instead of `runId` polling where the runtime now provides that boundary.
+3. [ ] Update the affected queue-runtime unit proof owners to use the repaired request-aware wait boundary as their primary completion path.
+4. [ ] Update any affected integration proof owners to keep request-scoped terminal waiting and terminal-shape assertions honest without widening into unrelated route or service behavior.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 166. Reject Malformed Classic MCP Arguments Before Domain Validation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `160`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `should_fix` `generic_engineering_issue`: classic MCP `tools/call` currently coerces malformed non-object `arguments` payloads to `{}` before validation
+
+#### Overview
+
+Repair the classic MCP dispatcher so malformed non-object `arguments` payloads are rejected honestly as malformed request shape instead of being silently normalized into an empty object that later looks like a missing field. The repair should stay at the shared dispatcher boundary and refresh the classic proof owners accordingly.
+
+#### Task Exit Criteria
+
+- `R1.` Classic MCP `tools/call` rejects malformed non-object `arguments` payloads before tool-specific domain validation runs.
+- `R2.` Tool-specific validation still handles well-formed object payloads and preserves the existing domain-error mapping for legitimate object shapes.
+- `R3.` The repair stays local to the shared dispatcher and its proof owners instead of widening into unrelated MCP transport behavior.
+- `R4.` Direct classic MCP proof on current disk covers malformed `arguments` shape as well as retained domain-error behavior.
+
+#### Documentation Locations
+
+- `server/src/mcp/server.ts`
+- `server/src/test/unit/mcp.reingest.classic.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the Story 55 MCP retryable-error and request-shape acceptance criteria plus this review finding so the dispatcher repair keeps malformed-payload handling distinct from domain validation.
+2. [ ] Repair the shared `tools/call` argument normalization in `server/src/mcp/server.ts` so non-object `arguments` payloads are rejected honestly before tool-specific validation receives them.
+3. [ ] Update `server/src/test/unit/mcp.reingest.classic.test.ts` to cover malformed `arguments` shape directly while preserving the existing happy-path and domain-error expectations for well-formed object payloads.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`.
+
+#### Implementation notes
+
+- Pending.
+
+### Task 167. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `161, 162, 163, 164, 165, 166`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `161` through `166`
+
+#### Overview
+
+Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 161 through 166 close the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba`, refresh the durable close-out summary honestly, and confirm the story’s supported runtime, queue, and repository-list contracts still hold after the review repairs.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks `161` through `166` are `__done__`, and no actionable finding from review pass `0000055-20260420T140453Z-d9e38eba` remains without an on-disk proof owner.
+- `R2.` The exact review-created findings block for review pass `0000055-20260420T140453Z-d9e38eba` is revalidated on disk rather than left as artifact-only review intent.
+- `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes and any still-honest residual risk for this review-created block.
+- `R4.` Fresh automated validation reruns the supported build, test, and stack wrappers needed to revalidate the repaired seams and the story’s supported main runtime path.
+- `R5.` If any repaired seam remains partially proven, the close-out records that residual risk explicitly instead of silently reclosing the story.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `planning/0000055-pr-summary.md`
+- `README.md`
+- `docker-compose.yml`
+- `scripts/docker-compose-with-env.sh`
+- `scripts/test-summary-host-network-main.mjs`
+
+#### Subtasks
+
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260420T140453Z-d9e38eba` and the completed proof owners for Tasks `161` through `166` in this plan.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `166`, records any still-honest weak proof, and distinguishes fresh reruns from retained earlier evidence.
+3. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260420T140453Z-d9e38eba` matches the final on-disk disposition.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run compose:build:summary`.
+7. [ ] Run `npm run compose:up`.
+8. [ ] Run `npm run test:summary:host-network:main`.
+9. [ ] Run `npm run compose:down`.
+10. [ ] Run `npm run lint`.
+11. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs`.
+
+#### Manual Testing Guidance
+
+If the `/ingest/roots` or queued repo-list response shape changes during Tasks `164` through `166`, the later manual-testing pass should confirm the `/ingest` page still renders queued, running, and cleanup-blocked rows with stable identity after refresh and after a queued re-embed completes.
+
+#### Implementation notes
+
+- Pending.

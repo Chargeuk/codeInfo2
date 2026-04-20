@@ -12607,11 +12607,11 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/mongo/repo.ts server/src/test/unit/ingest-files-repo-guards.test.ts server/src/test/features/ingest-delta-reembed.feature server/src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+5. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/mongo/repo.ts server/src/test/unit/ingest-files-repo-guards.test.ts server/src/test/unit/ingest-reembed.test.ts server/src/test/features/ingest-delta-reembed.feature server/src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 
@@ -12623,6 +12623,11 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 - `npm run lint` passed cleanly after the bounded delete helper, runtime seam, and proof-owner updates, so the task-owned lint hygiene subtask is now complete without a follow-up `lint:fix` pass.
 - The file-scoped Prettier subtask first reported real formatting drift in the Task 158 TypeScript owners and the usual `.feature` parser seam, so I reran the same file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.
 - The newly added `ingest-reembed.test.ts` proof owner also needed its own Prettier pass, so I added a narrow hygiene subtask, ran `npx prettier --write` on that file, and reran `npx prettier --check` cleanly before closing it.
+- `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so Testing 1 is now complete without needing log inspection.
+- `npm run test:summary:server:unit` first failed only in the three new Task 158 runtime proofs because the test fixtures accidentally crossed into AST-rebuild ownership; I narrowed those proofs and the generated cucumber fixture helper back to non-AST files, corrected the partial-precleanup expectation to match the already-missing persisted row contract, reran targeted proof for each failure, and then reran the full wrapper cleanly with `1730/1730` passing in `test-results/server-unit-tests-2026-04-20T12-11-44-153Z.log`.
+- `npm run test:summary:server:cucumber` passed cleanly with `105/105` scenarios green in `test-results/server-cucumber-tests-2026-04-20T12-27-58-295Z.log`, so the deterministic generated-delete feature path is now proven at the cucumber layer as well.
+- The Testing 4 rerun of `npm run lint` passed cleanly after the proof-driven non-AST fixture repair, so no follow-up `lint:fix` pass was needed.
+- Testing 5 first reproduced the usual `.feature` parser gap and one real formatting drift in `ingest-reembed.test.ts`, so I reran the full Task 158 file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.
 
 ### Task 159. Restore Honest Delta Re-Embed BDD Phase Boundaries
 

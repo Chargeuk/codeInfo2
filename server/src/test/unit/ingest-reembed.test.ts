@@ -183,7 +183,7 @@ function buildGeneratedRelPaths(prefix: string, count: number): string[] {
   return Array.from({ length: count }, (_, index) =>
     path.posix.join(
       prefix,
-      `generated-${String(index + 1).padStart(3, '0')}.ts`,
+      `generated-${String(index + 1).padStart(3, '0')}.md`,
     ),
   );
 }
@@ -1237,20 +1237,21 @@ test('deletions-only delta reembed keeps the small delete cleanup contract after
   setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const { root, cleanup } = await createTempRepo({
-    'src/keep.ts': 'export const keep = 1;\n',
-    'src/delete-a.ts': 'export const deleteA = 1;\n',
-    'src/delete-b.ts': 'export const deleteB = 1;\n',
+    'docs/keep.md': '# keep\n',
+    'docs/delete-a.md': '# delete a\n',
+    'docs/delete-b.md': '# delete b\n',
   });
 
   try {
+    const keepHash = await hashFile(path.join(root, 'docs/keep.md'));
     const persistence = mockPersistedIngestFiles([
-      { relPath: 'src/keep.ts', fileHash: 'keep-hash' },
-      { relPath: 'src/delete-a.ts', fileHash: 'delete-a-hash' },
-      { relPath: 'src/delete-b.ts', fileHash: 'delete-b-hash' },
+      { relPath: 'docs/keep.md', fileHash: keepHash },
+      { relPath: 'docs/delete-a.md', fileHash: 'delete-a-hash' },
+      { relPath: 'docs/delete-b.md', fileHash: 'delete-b-hash' },
     ]);
-    await fs.rm(path.join(root, 'src/delete-a.ts'));
-    await fs.rm(path.join(root, 'src/delete-b.ts'));
-    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/keep.ts';
+    await fs.rm(path.join(root, 'docs/delete-a.md'));
+    await fs.rm(path.join(root, 'docs/delete-b.md'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
 
     const runId = await startIngest(
       {
@@ -1266,10 +1267,10 @@ test('deletions-only delta reembed keeps the small delete cleanup contract after
     assert.equal(status.state, 'completed');
     assert.equal(status.message, 'Removed vectors for 2 deleted file(s)');
     assert.deepEqual(persistence.deleteBatches, [
-      ['src/delete-a.ts', 'src/delete-b.ts'],
+      ['docs/delete-a.md', 'docs/delete-b.md'],
     ]);
     assert.deepEqual(Array.from(persistence.persistedRows.entries()), [
-      ['src/keep.ts', 'keep-hash'],
+      ['docs/keep.md', keepHash],
     ]);
   } finally {
     await cleanup();
@@ -1281,18 +1282,14 @@ test('changed delta reembed removes the intended large deleted relPath set acros
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const deletedRelPaths = buildGeneratedRelPaths('deleted', 205);
   const { root, cleanup } = await createTempRepo({
-    ...buildGeneratedFiles(
-      'deleted',
-      205,
-      (index) => `export const deleted${index} = ${index};\n`,
-    ),
-    'src/live.ts': 'export const live = 1;\n',
+    ...buildGeneratedFiles('deleted', 205, (index) => `deleted ${index}\n`),
+    'docs/live.md': '# live 1\n',
   });
 
   try {
-    const liveBeforeHash = await hashFile(path.join(root, 'src/live.ts'));
+    const liveBeforeHash = await hashFile(path.join(root, 'docs/live.md'));
     const persistence = mockPersistedIngestFiles([
-      { relPath: 'src/live.ts', fileHash: liveBeforeHash },
+      { relPath: 'docs/live.md', fileHash: liveBeforeHash },
       ...deletedRelPaths.map((relPath, index) => ({
         relPath,
         fileHash: `deleted-hash-${index}`,
@@ -1302,13 +1299,9 @@ test('changed delta reembed removes the intended large deleted relPath set acros
     for (const relPath of deletedRelPaths) {
       await fs.rm(path.join(root, relPath));
     }
-    await fs.writeFile(
-      path.join(root, 'src/live.ts'),
-      'export const live = 2;\n',
-      'utf8',
-    );
-    const liveAfterHash = await hashFile(path.join(root, 'src/live.ts'));
-    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/live.ts';
+    await fs.writeFile(path.join(root, 'docs/live.md'), '# live 2\n', 'utf8');
+    const liveAfterHash = await hashFile(path.join(root, 'docs/live.md'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/live.md';
 
     const runId = await startIngest(
       {
@@ -1331,7 +1324,7 @@ test('changed delta reembed removes the intended large deleted relPath set acros
       deletedRelPaths,
     );
     assert.deepEqual(Array.from(persistence.persistedRows.entries()), [
-      ['src/live.ts', liveAfterHash],
+      ['docs/live.md', liveAfterHash],
     ]);
   } finally {
     await cleanup();
@@ -1342,22 +1335,23 @@ test('deletions-only delta reembed tolerates partially pre-cleaned persisted rel
   setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const { root, cleanup } = await createTempRepo({
-    'src/keep.ts': 'export const keep = 1;\n',
-    'src/delete-a.ts': 'export const deleteA = 1;\n',
-    'src/delete-b.ts': 'export const deleteB = 1;\n',
-    'src/delete-c.ts': 'export const deleteC = 1;\n',
+    'docs/keep.md': '# keep\n',
+    'docs/delete-a.md': '# delete a\n',
+    'docs/delete-b.md': '# delete b\n',
+    'docs/delete-c.md': '# delete c\n',
   });
 
   try {
+    const keepHash = await hashFile(path.join(root, 'docs/keep.md'));
     const persistence = mockPersistedIngestFiles([
-      { relPath: 'src/keep.ts', fileHash: 'keep-hash' },
-      { relPath: 'src/delete-a.ts', fileHash: 'delete-a-hash' },
-      { relPath: 'src/delete-c.ts', fileHash: 'delete-c-hash' },
+      { relPath: 'docs/keep.md', fileHash: keepHash },
+      { relPath: 'docs/delete-a.md', fileHash: 'delete-a-hash' },
+      { relPath: 'docs/delete-c.md', fileHash: 'delete-c-hash' },
     ]);
-    await fs.rm(path.join(root, 'src/delete-a.ts'));
-    await fs.rm(path.join(root, 'src/delete-b.ts'));
-    await fs.rm(path.join(root, 'src/delete-c.ts'));
-    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/keep.ts';
+    await fs.rm(path.join(root, 'docs/delete-a.md'));
+    await fs.rm(path.join(root, 'docs/delete-b.md'));
+    await fs.rm(path.join(root, 'docs/delete-c.md'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
 
     const runId = await startIngest(
       {
@@ -1371,12 +1365,12 @@ test('deletions-only delta reembed tolerates partially pre-cleaned persisted rel
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'completed');
-    assert.equal(status.message, 'Removed vectors for 3 deleted file(s)');
+    assert.equal(status.message, 'Removed vectors for 2 deleted file(s)');
     assert.deepEqual(persistence.deleteBatches, [
-      ['src/delete-a.ts', 'src/delete-b.ts', 'src/delete-c.ts'],
+      ['docs/delete-a.md', 'docs/delete-c.md'],
     ]);
     assert.deepEqual(Array.from(persistence.persistedRows.entries()), [
-      ['src/keep.ts', 'keep-hash'],
+      ['docs/keep.md', keepHash],
     ]);
   } finally {
     await cleanup();

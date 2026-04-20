@@ -62,7 +62,7 @@ function buildGeneratedRelPaths(prefix: string, count: number): string[] {
   return Array.from({ length: count }, (_, index) =>
     path.posix.join(
       prefix,
-      `generated-${String(index + 1).padStart(3, '0')}.ts`,
+      `generated-${String(index + 1).padStart(3, '0')}.md`,
     ),
   );
 }

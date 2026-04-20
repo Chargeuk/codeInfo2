@@ -12868,6 +12868,8 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
 4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -12919,6 +12921,8 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-files-repo-guards.test.ts`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -12974,6 +12978,8 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/openai-model-unavailable-contract.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-failure-logging-coverage.test.ts`.
 4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed.test.ts`.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13033,9 +13039,12 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
-3. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature`.
-4. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
+4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature`.
+5. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx`.
+6. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+7. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13099,6 +13108,8 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`.
 6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
 7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
+8. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+9. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13146,6 +13157,8 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`.
+3. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+4. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13205,12 +13218,18 @@ Re-validate Story 55 after the current review-created findings block lands. This
 7. [ ] Run `npm run compose:up`.
 8. [ ] Run `npm run test:summary:host-network:main`.
 9. [ ] Run `npm run compose:down`.
-10. [ ] Run `npm run lint`.
-11. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+10. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+11. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
-If the `/ingest/roots` or queued repo-list response shape changes during Tasks `164` through `166`, the later manual-testing pass should confirm the `/ingest` page still renders queued, running, and cleanup-blocked rows with stable identity after refresh and after a queued re-embed completes.
+For the final manual-testing pass, use the normal human Docker stack rather than a test-only runtime: start with `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down` when proof is complete.
+
+Use the browser-visible client at `http://localhost:5001` after the compose stack is healthy. The required backing services for this proof are the compose-managed server, client, Mongo, and Chroma services that come up through the normal stack; no separate login helper or seeded account is required for the `/ingest` surface.
+
+Focus the manual proof on the `/ingest` page when Task `164` changes land: confirm queued, running, and cleanup-blocked rows keep stable identity after refresh, after a queued re-embed transitions into running work, and after a retried queued request replaces earlier request metadata.
+
+Save any final manual-testing screenshots, logs, or notes under `codeInfoStatus/manual-testing/0000055/` and commit them as durable final story proof.
 
 #### Implementation notes
 

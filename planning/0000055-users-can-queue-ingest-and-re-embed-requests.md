@@ -12334,15 +12334,17 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 
 1. [x] Run `npm run build:summary:server`.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:unit`.
 4. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+5. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 
 - Task-owned queue-wait code and targeted proof are already green; this task now waits only on earlier shared full-wrapper owners before its remaining Testing 3 and 5 confirmation can resume honestly.
 - **RESOLVED ISSUE** Testing 3 first stopped on `/ingest/roots` overlay failures in `server/src/test/unit/ingest-roots-dedupe.test.ts`, not in the queue-wait owner. Planner repair moved that blocker into Task 156 and returned this task behind it.
 - **RESOLVED ISSUE** After Task 156 completed, Testing 3 stopped again on `flow stop during a looped flow prevents later iterations from continuing` with `Timed out waiting for flow runtime cleanup`, not in the queue-wait owner. Planner repair moved that blocker into Task 154 and returned this task behind that earlier prerequisite.
+- `npm run test:summary:server:unit` passed with `tests run: 1719`, `passed: 1719`, `failed: 0` in `test-results/server-unit-tests-2026-04-20T06-29-58-700Z.log`, so the remaining Task 155 proof state is now down to the file-scoped Prettier confirmation only.
+- The file-scoped `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts` passed cleanly, so Task 155's automated proof is now fully recorded on disk for the later audit step.
 
 ### Task 156. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics
 

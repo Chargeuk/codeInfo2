@@ -36,7 +36,6 @@ import type {
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
-import * as repoModule from '../../mongo/repo.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE } from '../../startup/ingestQueueStartup.js';
 
@@ -1263,7 +1262,7 @@ test('deletions-only delta reembed returns a zero-count completed terminal resul
 });
 
 test('deletions-only delta reembed publishes cleanup-blocked instead of false success when persisted cleanup degrades', async () => {
-  setupIngestChromaMocks();
+  const { vectors } = setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const { root, cleanup } = await createTempRepo({
     'docs/keep.md': '# keep\n',
@@ -1271,6 +1270,9 @@ test('deletions-only delta reembed publishes cleanup-blocked instead of false su
   });
 
   try {
+    vectors.delete = mock.fn(async () => {
+      (mongoose.connection as unknown as { readyState: number }).readyState = 0;
+    });
     const keepHash = await hashFile(path.join(root, 'docs/keep.md'));
     mockPersistedIngestFiles([
       { relPath: 'docs/keep.md', fileHash: keepHash },
@@ -1278,7 +1280,6 @@ test('deletions-only delta reembed publishes cleanup-blocked instead of false su
     ]);
     await fs.rm(path.join(root, 'docs/delete-a.md'));
     process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
-    mock.method(repoModule, 'deleteIngestFilesByRelPaths', async () => null);
 
     const runId = await startIngest(
       {

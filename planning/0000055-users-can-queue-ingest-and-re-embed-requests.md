@@ -13043,11 +13043,11 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13059,7 +13059,12 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 - Testing 1: `npm run build:summary:server` is currently blocked by pre-existing dirty-worktree drift in `server/src/ingest/requestQueue.ts`, where fresh local edits outside Task 164 still call `shouldRewriteWaitingRequest(...)` with two arguments even though the current signature accepts one. I repaired the Task 164-owned compile issue in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and reran the wrapper honestly, but the build still fails only on those unrelated `requestQueue.ts` type errors.
 - **RESOLVED ISSUE** Testing 1 (`npm run build:summary:server`) originally stopped after I fixed and reran the Task 164-owned queue-runtime proof file because the remaining failure is an out-of-scope contradiction in dirty local edits to `server/src/ingest/requestQueue.ts` (`TS2554` at lines 258 and 306). I tried repairing the task-owned build break in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and rerunning the wrapper, but the build still failed before any Task 164 proof could continue. Planner repair inserted Task `163` as the explicit prerequisite owner for that request-queue compile drift, so this note is preserved as history rather than left as the live blocker on the cleanup-blocked task itself.
 - **BLOCKING ANSWER** Repository evidence shows the local fix is to update the two stale `shouldRewriteWaitingRequest(...)` call sites in `server/src/ingest/requestQueue.ts` (build log `TS2554` at lines 258 and 306) so they pass only the `waitingRequest`, then rerun `npm run build:summary:server`. The helper’s current signature at line 204 already accepts exactly one argument and only checks `waitingRequest.queueState === 'waiting'`; adjacent queue-rewrite helpers (`buildRewriteableWaitingRequestFilter`, `buildWaitingRequestUpdate`, and `rewriteWaitingQueueRequestIfAllowed`) already consume `input` directly, so there is no current repository contract that needs a second helper argument. Current TypeScript references agree: the official Functions handbook says the number of call arguments must match the declared parameters unless the API intentionally uses optional or rest parameters, and the declaration-file Do’s and Don’ts say to widen signatures only when extra parameters are genuinely part of the supported contract rather than adding unused optional arity. Targeted issue-resolution references reach the same conclusion in practice: engineers resolve `TS2554: Expected 1 arguments, but got 2` by aligning the call site with the documented one-argument API, not by keeping an unused extra argument alive. That makes the rejected alternatives clear here: reintroducing an unused `input` parameter, optional second parameter, overload, or rest parameter would only mask stale caller drift and misstate the helper API, while removing the two extra arguments is behavior-preserving because the helper does not read `input` at all.
+- Testing 1: `npm run build:summary:server` now passes cleanly with `agent_action: skip_log`, so the shared server build gate is no longer blocked for the repaired deletions-only cleanup path.
 - Planner repair on 2026-04-20: inserted new Task `163` to own the `requestQueue.ts` helper-arity prerequisite that blocks this task’s first automated proof gate. This deletions-only cleanup task returned to `__to_do__` behind that prerequisite with its completed implementation work preserved on disk.
+- Testing 2: `npm run test:summary:server:unit` initially failed on the new cleanup-blocked proofs because the task-owned tests tried to redefine `deleteIngestFilesByRelPaths` on the ESM repo module and the queue-runtime proof did not seed persisted `ingest_files`, so the run never exercised the true deletions-only branch. I repaired the tests to trigger degraded persisted cleanup through the real readiness seam after vector deletion, seeded the queue-runtime persisted rows explicitly, confirmed the narrowed two-file rerun passed, and then reran the full server unit wrapper cleanly with `tests run: 1734`, `passed: 1734`, and `failed: 0`.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0`, so the repaired deletions-only cleanup-blocked fast path does not regress the task-owned server feature coverage.
+- Testing 4: `npm run lint` initially reported one task-owned import-order warning in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` after the queue-runtime proof repair. I reordered the `hashFile` import to satisfy the repo lint contract and reran `npm run lint` cleanly.
+- Testing 5: `npm run format:check` narrowed the repo-wide Prettier gate to `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` after the queue-runtime proof repair. I ran `npx prettier --write server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and then reran the full repo-wide format check to a clean `All matched files use Prettier code style!` result.
 
 ### Task 165. Restore Honest Admission-Time `/ingest/reembed` Validation
 

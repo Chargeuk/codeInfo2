@@ -4,6 +4,7 @@ import test from 'node:test';
 import { mock } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import mongoose from 'mongoose';
+import { hashFile } from '../../ingest/hashing.js';
 import {
   __finalizeQueueRequestForRunForTest,
   __getQueueRequestTerminalStatusCountForTest,
@@ -21,7 +22,7 @@ import {
   startIngest,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
-import * as repoModule from '../../mongo/repo.js';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
   createQueueRequest,
   createTempRepo,
@@ -159,7 +160,7 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
   __setRunSchedulerForTest((task) => {
     scheduledTask = task;
   });
-  setupIngestChromaMocks();
+  const { vectors } = setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const { root, cleanup } = await createTempRepo({
     'docs/keep.md': '# keep\n',
@@ -168,11 +169,25 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
 
   let cleanupBlockedRequestId: string | null = null;
   let deletedDuringFinalize = false;
+  let promotedDuringCleanupBlocked = false;
 
   try {
+    vectors.delete = mock.fn(async () => {
+      (mongoose.connection as unknown as { readyState: number }).readyState = 0;
+    });
+    const keepHash = await hashFile(`${root}/docs/keep.md`);
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [
+            { relPath: 'docs/keep.md', fileHash: keepHash },
+            { relPath: 'docs/delete-a.md', fileHash: 'delete-a-hash' },
+          ],
+        }),
+      }),
+    }));
     await fs.rm(`${root}/docs/delete-a.md`);
     process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
-    mock.method(repoModule, 'deleteIngestFilesByRelPaths', async () => null);
 
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async () => {
@@ -198,7 +213,8 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
         });
       },
       promoteOldestWaitingQueueRequest: async () => {
-        throw new Error('cleanup-blocked rows must stall waiting work');
+        promotedDuringCleanupBlocked = true;
+        return null;
       },
     });
 
@@ -219,11 +235,19 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
     executeScheduledTask();
 
     const status = await waitForTerminal(runId);
+    for (
+      let attempt = 0;
+      attempt < 5 && cleanupBlockedRequestId === null;
+      attempt += 1
+    ) {
+      await waitForNextTurn();
+    }
     const stalled = await pumpIngestQueue();
 
     assert.equal(status.state, 'cleanup-blocked');
     assert.equal(cleanupBlockedRequestId, '11');
     assert.equal(deletedDuringFinalize, false);
+    assert.equal(promotedDuringCleanupBlocked, false);
     assert.equal(stalled.started, false);
     assert.equal(stalled.blockedByCleanup, true);
   } finally {

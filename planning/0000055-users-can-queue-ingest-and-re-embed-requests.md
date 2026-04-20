@@ -12263,8 +12263,8 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit`.
 4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
 5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
@@ -12277,6 +12277,9 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 - Added a shared microtask timeout mock helper in `server/src/test/unit/reingestService.test.ts` and applied it to the timeout-path queue-wait proofs so the listener-cleanup assertions keep deterministic timeout settlement support without widening beyond the task-owned proof cluster.
 - Ran `npm run lint` cleanly after the queue-wait repair so Task 154 reaches wrapper proof with the repo-supported lint gate already green.
 - Ran the file-scoped Prettier check for the Task 154 plan, waiter owner, service mapping, and queue-wait proof file; it passed without requiring any writeback formatting changes.
+- `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the server build wrapper is green before the queue-wait proof reruns.
+- The targeted queue-wait wrapper rerun `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` passed with 31 tests green, confirming the repaired owner before the full unit-suite rerun.
+- **BLOCKER** Testing 3 `npm run test:summary:server:unit` stopped on five `/ingest/roots` failures in `server/src/test/unit/ingest-roots-dedupe.test.ts`, not in the Task 154 queue-wait owner. I confirmed the exact failing assertions from `test-results/server-unit-tests-2026-04-20T03-28-46-598Z.log` after first getting the Task 154-owned targeted wrapper green; the remaining red tests are `GET /ingest/roots keeps a partial-canonical waiting overlay on one canonical provider/model pair`, `maps ingesting phase states and omits phase for terminal statuses`, `applies active overlay and synthesizes missing active roots`, `serializes one authoritative row when duplicate metadata and active overlay target the same path`, and `synthesizes active root with canonical repository identity when persisted metadata is missing`, which belong to downstream Task 155's shared repo-list overlay proof owner. The missing capability is now plan sequencing rather than another in-scope queue-wait repair, so this task should be reordered or normalized to hand off to Task 155 instead of staying blocked on downstream repo-list work.
 
 ### Task 155. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics
 

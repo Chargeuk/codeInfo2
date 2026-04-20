@@ -12555,7 +12555,7 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `unbounded_bulk_selector_growth`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` to put a concrete bound on the large deleted-file selector sent through the delta re-embed cleanup path.
@@ -12641,7 +12641,7 @@ If a later manual-testing pass wants a live sanity check, keep it limited to sup
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `bdd_assertion_step_mutates_state`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` to keep the changed delta re-embed proof-owning scenario honest about which step mutates state and which step asserts outcomes.

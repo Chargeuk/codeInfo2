@@ -12218,7 +12218,7 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `backward_compatibility_reader_writer_mismatch`
   - `should_fix` `normalized_error_shape_consumer_mismatch`

@@ -13072,7 +13072,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: `/ingest/reembed` currently proves immediate `OPENAI_MODEL_UNAVAILABLE` rejection only through a mocked queue-admission seam instead of the real admission path
 

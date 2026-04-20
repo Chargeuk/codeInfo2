@@ -3208,6 +3208,46 @@ export function __setRunProcessorForTest(
   runProcessor = processor;
 }
 
+export async function __validateQueueReplayStartForTest(input: IngestJobInput) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__validateQueueReplayStartForTest is only available in test mode',
+    );
+  }
+  if ((input.operation ?? 'start') !== 'reembed') {
+    return;
+  }
+
+  try {
+    resolveQueuedReembedExecutionPath(input);
+  } catch (error) {
+    if (
+      (error as { code?: unknown })?.code === 'VALIDATION' &&
+      error instanceof Error &&
+      /canonicalTargetPath must stay within /u.test(error.message)
+    ) {
+      return;
+    }
+    throw error;
+  }
+  resolveValidatedInputSelection(input);
+
+  try {
+    const latestRootSelection = await getLatestRootSelection(
+      input.canonicalTargetPath ?? input.path,
+    );
+    assertReembedRootStateAllowed(latestRootSelection?.meta.state);
+  } catch (error) {
+    if (
+      (error as { code?: unknown })?.code === 'INVALID_REEMBED_STATE' ||
+      (error as { code?: unknown })?.code === 'VALIDATION'
+    ) {
+      throw error;
+    }
+    throw createInvalidReembedStateError();
+  }
+}
+
 export function __setQueueCleanupRetryDelayForTest(delayMs: number | null) {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error(

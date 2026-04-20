@@ -12190,8 +12190,8 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 1. [x] Run `npm run build:summary:server`.
 2. [x] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
 5. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/test/features/ingest-reembed.feature server/src/test/integration/ingest-reembed-invalid-state.test.ts server/src/test/steps/ingest-delta-reembed.steps.ts server/src/test/steps/ingest-manage.steps.ts server/src/test/unit/ingest-queue-runtime-deferred-cancelled.test.ts server/src/test/unit/ingest-queue-runtime-pump.test.ts server/src/test/unit/ingest-queue-runtime-recovery.test.ts server/src/test/unit/ingest-queue-runtime-startup.test.ts server/src/test/unit/ingest-queue-runtime.helpers.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
@@ -12209,6 +12209,8 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 - Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the repaired replay seam still builds through the repo-supported server wrapper before the deeper proof reruns.
 - **RESOLVED ISSUE** Testing 2 (`npm run test:summary:server:unit`) was blocked by stale proof ownership rather than a fresh Task 153 runtime defect. I updated `server/src/test/unit/codexConfig.test.ts` to assert only against the current checked-in config files, then updated the two late-Chroma zero-work re-embed proofs in `server/src/test/unit/ingest-reembed.test.ts` to warm the root-selection dependency before injecting the simulated late bootstrap failure. After targeted reruns for the exact previously failing codex-config and late-Chroma cases passed, the original full wrapper step `npm run test:summary:server:unit` also passed cleanly on `test-results/server-unit-tests-2026-04-20T01-00-56-836Z.log`.
 - Audit: marked Testing 5 complete because the immediately preceding implementation pass already ran the same file-scoped `npx prettier --check` / `--write` flow that Subtask 21 required and recorded it in the task notes. Task 153 remains `__in_progress__` because wrapper proof steps 1 through 4 are still incomplete and this audit did not treat them as finished.
+- Testing 3: repaired the Task 153-owned cucumber seam by making the queue-runtime started-path step validate replay-start barriers before recording a start, by swapping the stale hard-coded mismatch scenario onto a temp-repo-backed persisted-path mismatch, and by polling the queue-runtime error assertions until the in-memory error status settled. The targeted `--feature server/src/test/features/ingest-reembed.feature` rerun passed first, then the original full wrapper `npm run test:summary:server:cucumber` passed cleanly on `test-results/server-cucumber-tests-2026-04-20T01-32-19-033Z.log`.
+- Testing 4: reran `npm run lint` after the cucumber-seam repair and it passed cleanly without needing `npm run lint:fix`, so Task 153 now has its full planned automated proof chain on disk for the later audit step.
 
 ### Task 154. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics
 

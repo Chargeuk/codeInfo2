@@ -29,6 +29,7 @@ import {
   __setStatusForTest,
   __setQueueRuntimeOpsForTest,
   __setRunProcessorForTest,
+  __validateQueueReplayStartForTest,
   getStatus,
   pumpIngestQueue,
   recoverIngestQueueOnStartup,
@@ -986,10 +987,54 @@ Given(
 Given('ingest manage queue runtime records started paths', () => {
   queueRuntimeStartedPaths = [];
   __setRunProcessorForTest(async (runId, input) => {
-    queueRuntimeStartedPaths.push(input.path);
-    release(runId);
+    try {
+      await __validateQueueReplayStartForTest(input);
+      queueRuntimeStartedPaths.push(input.path);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error ?? 'unknown');
+      const code =
+        typeof (error as { code?: unknown })?.code === 'string'
+          ? ((error as { code?: string }).code as string)
+          : 'VALIDATION';
+      const previousStatus = getStatus(runId);
+      __setStatusForTest(runId, {
+        runId,
+        state: 'error',
+        counts: previousStatus?.counts ?? { files: 0, chunks: 0, embedded: 0 },
+        message,
+        lastError: message,
+        error: {
+          error: code,
+          message,
+          retryable: false,
+          provider: 'ingest',
+        },
+      });
+    } finally {
+      release(runId);
+    }
   });
 });
+
+Given(
+  'ingest manage mongo queue has running request for the temp repo with run id {string} and mismatched persisted path',
+  async (runId: string) => {
+    assert(tempDir, 'temp dir missing');
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: tempDir,
+      operation: 'reembed',
+      queueState: 'running',
+      requestPayload: {
+        path: `${tempDir}-other`,
+        name: 'temp-repo',
+        model: 'embed-model',
+      },
+      sourceSurface: 'cucumber',
+      runId,
+    });
+  },
+);
 
 When('ingest manage startup recovery runs', async () => {
   await recoverIngestQueueOnStartup();
@@ -1019,8 +1064,19 @@ Then('ingest manage queue runtime started paths are empty', () => {
 
 Then(
   'ingest manage runtime status for the last queue run is error {string} with message {string}',
-  (expectedCode: string, expectedMessage: string) => {
+  async (expectedCode: string, expectedMessage: string) => {
     assert(lastQueuePumpResult?.runId, 'expected last queue run id');
+    for (let i = 0; i < 120; i += 1) {
+      const status = getStatus(lastQueuePumpResult.runId);
+      if (
+        status?.state === 'error' &&
+        status.error?.error === expectedCode &&
+        status.error?.message === expectedMessage
+      ) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     const status = getStatus(lastQueuePumpResult.runId);
     assert(status, 'expected runtime status');
     assert.equal(status.state, 'error');
@@ -1031,7 +1087,18 @@ Then(
 
 Then(
   'ingest manage runtime status for run {string} reports error {string} with message {string}',
-  (runId: string, expectedCode: string, expectedMessage: string) => {
+  async (runId: string, expectedCode: string, expectedMessage: string) => {
+    for (let i = 0; i < 120; i += 1) {
+      const status = getStatus(runId);
+      if (
+        status?.state === 'error' &&
+        status.error?.error === expectedCode &&
+        status.error?.message === expectedMessage
+      ) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     const status = getStatus(runId);
     assert(status, `expected runtime status for ${runId}`);
     assert.equal(status.state, 'error');

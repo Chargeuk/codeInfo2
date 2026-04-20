@@ -180,7 +180,7 @@ test('queue admission rejects when Mongo is unavailable before any write starts'
   assert.equal(createMock.mock.calls.length, 0);
 });
 
-test('canonical queue-target normalization rewrites a waiting start row in place for a later reembed request', async () => {
+test('canonical queue-target normalization still rewrites a waiting start row in place after the helper-arity fix', async () => {
   const canonicalStartTarget =
     normalizeCanonicalQueueTargetPath('/data/example/');
   const canonicalReembedTarget =
@@ -443,7 +443,7 @@ test('start duplicate sees current running semantics when a waiting row is promo
   assert.equal(countMock.mock.calls.length, 0);
 });
 
-test('ordinary matched-row update race keeps a raced-in waiting start row as start with updatedExisting false', async () => {
+test('ordinary matched-row update race still keeps a raced-in waiting start row as start after the helper-arity fix', async () => {
   const existing = createQueueRequest({
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:05:00.000Z'),

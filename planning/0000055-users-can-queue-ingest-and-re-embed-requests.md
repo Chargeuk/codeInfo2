@@ -12974,9 +12974,9 @@ Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `serve
 
 #### Subtasks
 
-1. [ ] Re-read the current Task `164` blocker answer, `logs/test-summaries/build-server-latest.log`, and the live `shouldRewriteWaitingRequest(...)` helper signature in `server/src/ingest/requestQueue.ts`. Purpose: keep this prerequisite anchored to the exact compile gate that is currently blocking downstream proof.
-2. [ ] Repair `server/src/ingest/requestQueue.ts` so the two stale `shouldRewriteWaitingRequest(..., input)` call sites follow the helper’s supported contract again, or only if direct local code evidence proves it necessary, restore an explicit second-argument helper contract with matching behavior. Purpose: eliminate the current `TS2554` build failure without widening into unrelated queue semantics.
-3. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: author or update direct proof that waiting-row reuse and waiting-row rewrite behavior still follow the repaired helper contract after the arity fix lands. Purpose: keep the prerequisite behavior-preserving instead of treating the compile fix as unowned churn.
+1. [x] Re-read the current Task `164` blocker answer, `logs/test-summaries/build-server-latest.log`, and the live `shouldRewriteWaitingRequest(...)` helper signature in `server/src/ingest/requestQueue.ts`. Purpose: keep this prerequisite anchored to the exact compile gate that is currently blocking downstream proof.
+2. [x] Repair `server/src/ingest/requestQueue.ts` so the two stale `shouldRewriteWaitingRequest(..., input)` call sites follow the helper’s supported contract again, or only if direct local code evidence proves it necessary, restore an explicit second-argument helper contract with matching behavior. Purpose: eliminate the current `TS2554` build failure without widening into unrelated queue semantics.
+3. [x] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: author or update direct proof that waiting-row reuse and waiting-row rewrite behavior still follow the repaired helper contract after the arity fix lands. Purpose: keep the prerequisite behavior-preserving instead of treating the compile fix as unowned churn.
 
 #### Testing
 
@@ -12986,6 +12986,9 @@ Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `serve
 #### Implementation notes
 
 - Planner repair on 2026-04-20: inserted this prerequisite after Task `164` proved its remaining proof gate is blocked by unowned `requestQueue.ts` caller-arity drift, not by more deletions-only cleanup-path work. This task now owns the compile-gate repair so the implementation loop has one honest active owner again.
+- Subtask 1: re-read Task `164`’s preserved blocker history, the current `logs/test-summaries/build-server-latest.log` failure, and the live one-argument `shouldRewriteWaitingRequest(...)` helper signature to confirm the prerequisite is just caller-arity drift at `requestQueue.ts` lines 258 and 306.
+- Subtask 2: repaired `server/src/ingest/requestQueue.ts` by removing the two stale extra `input` arguments from `shouldRewriteWaitingRequest(...)` call sites so the current helper contract and callers match again without widening queue semantics.
+- Subtask 3: updated the direct queue-owner proof titles in `server/src/test/unit/ingest-request-queue.test.ts` so waiting-row rewrite and race-preserved reuse remain explicit after the helper-arity repair lands.
 
 ### Task 164. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 

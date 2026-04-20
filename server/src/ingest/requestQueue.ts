@@ -58,9 +58,7 @@ let ingestQueueAvailability: IngestQueueAvailability = {
 function createQueueUnavailableError(
   message = 'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
 ): EnqueueQueueUnavailableError {
-  const error = new Error(
-    message,
-  ) as EnqueueQueueUnavailableError;
+  const error = new Error(message) as EnqueueQueueUnavailableError;
   error.code = 'QUEUE_UNAVAILABLE';
   error.status = 503;
   error.retryable = true;
@@ -257,7 +255,7 @@ export async function enqueueOrReuseIngestRequest(
 
   if (
     existingWaitingRequest &&
-    !shouldRewriteWaitingRequest(existingWaitingRequest, input)
+    !shouldRewriteWaitingRequest(existingWaitingRequest)
   ) {
     return buildCurrentQueueReuseResult(existingWaitingRequest);
   }
@@ -305,12 +303,13 @@ export async function enqueueOrReuseIngestRequest(
 
     if (
       racedExistingWaitingRequest &&
-      !shouldRewriteWaitingRequest(racedExistingWaitingRequest, input)
+      !shouldRewriteWaitingRequest(racedExistingWaitingRequest)
     ) {
       return buildCurrentQueueReuseResult(racedExistingWaitingRequest);
     }
 
-    const racedWaitingRequest = await rewriteWaitingQueueRequestIfAllowed(input);
+    const racedWaitingRequest =
+      await rewriteWaitingQueueRequestIfAllowed(input);
 
     if (racedWaitingRequest) {
       return buildUpdatedWaitingQueueResult(racedWaitingRequest);

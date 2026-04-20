@@ -12821,7 +12821,7 @@ Review pass `0000055-20260420T140453Z-d9e38eba` found actionable follow-up work,
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `160`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: cross-operation `start -> reembed` waiting-row updates still leave stale queued settings in place for the same canonical target
 

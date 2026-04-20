@@ -12998,7 +12998,7 @@ Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `serve
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161, 163`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: deletions-only delta re-embed currently reports terminal success even when persisted cleanup degrades under disconnected Mongo
 
@@ -13065,6 +13065,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0`, so the repaired deletions-only cleanup-blocked fast path does not regress the task-owned server feature coverage.
 - Testing 4: `npm run lint` initially reported one task-owned import-order warning in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` after the queue-runtime proof repair. I reordered the `hashFile` import to satisfy the repo lint contract and reran `npm run lint` cleanly.
 - Testing 5: `npm run format:check` narrowed the repo-wide Prettier gate to `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` after the queue-runtime proof repair. I ran `npx prettier --write server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and then reran the full repo-wide format check to a clean `All matched files use Prettier code style!` result.
+- Automated-proof audit: Task 164 now has all subtasks and automated Testing checked on disk, `plan_status.py --task-number 164` reports no live blocker, and the task was closed to `__done__` so the loop can move on to Task 165 honestly.
 
 ### Task 165. Restore Honest Admission-Time `/ingest/reembed` Validation
 

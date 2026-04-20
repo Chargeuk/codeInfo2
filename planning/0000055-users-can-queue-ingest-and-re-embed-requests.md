@@ -12549,6 +12549,7 @@ This task restores the stricter queueable input contract at the authority-sensit
 - The file-scoped Prettier checkpoint initially reported formatting drift in the trust-boundary files and needed `prettier-plugin-gherkin` to parse the `.feature` owners, so the same Task 157 file list was written and rechecked with that plugin before the subtask was closed.
 - `npm run build:summary:server` first failed on a TypeScript narrowing error in `reingestService.ts`; rewriting the invalid-source branch to return early fixed the compile issue and the rerun passed cleanly.
 - Automated-proof audit: marked Task 157 `__done__` because all 22 subtasks and all 5 testing steps are now checked on disk and `plan_status.py --task-number 157` reports no live blocker or prose-only remaining gate.
+- Manual proof (task-scoped): restarted the main compose stack because freshness was unprovable, verified startup with `npm run test:summary:host-network:main` plus `/health`, confirmed `POST /ingest/reembed/%2Ftmp%2Freembed-root%2F..%2Freembed-root` returns `404/NOT_FOUND` without changing `/ingest/roots` or `/tools/ingested-repos`, then restarted with malformed `CODEINFO_CODEX_WORKDIR=/allowed/workdir/` to confirm `POST /ingest/start` fails `400/CONFIGURATION` with the expected fail-closed message; saved scratch artifacts under `codeInfoTmp/manual-testing/0000055/task157-*`, returned the main stack to its prior stopped state, and needed no browser proof or follow-up subtasks.
 
 ### Task 158. Bound Large Delta Re-Embed Delete Selectors
 

@@ -1,19 +1,19 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
+import {
+  __setQueueRuntimeOpsForTest,
+  recoverIngestQueueOnStartup,
+  waitForTerminalIngestStatus,
+} from '../../ingest/ingestJob.js';
+import { getIngestQueueAvailability } from '../../ingest/requestQueue.js';
+import * as requestQueue from '../../ingest/requestQueue.js';
+import { query } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
   INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_EVENT,
   INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
   recoverIngestQueueForStartup,
 } from '../../startup/ingestQueueStartup.js';
-import { getIngestQueueAvailability } from '../../ingest/requestQueue.js';
-import { query } from '../../logStore.js';
-import {
-  __setQueueRuntimeOpsForTest,
-  recoverIngestQueueOnStartup,
-  waitForTerminalIngestStatus,
-} from '../../ingest/ingestJob.js';
-import * as requestQueue from '../../ingest/requestQueue.js';
 import {
   createQueueRequest,
   createTempRepo,
@@ -136,6 +136,51 @@ test('startup recovery preserves INVALID_REEMBED_STATE when persisted error root
     assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
     assert.equal(terminal.status?.error?.provider, 'ingest');
     assert.equal(terminal.status?.error?.retryable, false);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('startup recovery fails closed when the live root-state read degrades before replay validation can prove the root is allowed', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/recovery-read-failure.ts':
+      'export const recoveryReadFailure = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootMetadataReadError: new Error('roots metadata unavailable'),
+  });
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '25',
+    root,
+    queueState: 'running',
+    runId: 'run-recovered-read-failure',
+  });
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+
+    const result = await recoverIngestQueueOnStartup();
+    assert.equal(result.recovered, true);
+
+    const terminal = await waitForTerminalIngestStatus(
+      recoveryQueueRequest.runId!,
+      {
+        timeoutMs: 1_000,
+        pollMs: 10,
+      },
+    );
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.provider, 'ingest');
   } finally {
     await cleanup();
   }

@@ -5,6 +5,7 @@ import { afterEach, beforeEach } from 'node:test';
 import { mock } from 'node:test';
 import { ChromaClient } from 'chromadb';
 import mongoose from 'mongoose';
+import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import {
   __resetIngestJobsForTest,
   __setQueueRuntimeOpsForTest,
@@ -12,7 +13,6 @@ import {
   __setRunSchedulerForTest,
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
-import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import { release } from '../../ingest/lock.js';
 import { __resetIngestQueueAvailabilityForTest } from '../../ingest/requestQueue.js';
 import { resetStore } from '../../logStore.js';
@@ -78,6 +78,7 @@ export async function createTempRepo(files: Record<string, string>) {
 export function setupIngestChromaMocks(options?: {
   rootIds?: string[];
   rootMetadatas?: Record<string, unknown>[];
+  rootMetadataReadError?: Error;
 }) {
   const vectors = {
     metadata: {
@@ -105,6 +106,12 @@ export function setupIngestChromaMocks(options?: {
   const roots = {
     get: async (opts?: { include?: string[] }) => {
       const include = opts?.include ?? [];
+      if (
+        include.includes('metadatas') &&
+        options?.rootMetadataReadError instanceof Error
+      ) {
+        throw options.rootMetadataReadError;
+      }
       const result: {
         embeddings?: number[][];
         ids?: string[];

@@ -32,7 +32,6 @@ import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { AstCoverageModel } from '../../mongo/astCoverage.js';
 import { disconnectMongo, isMongoConnected } from '../../mongo/connection.js';
-import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -44,6 +43,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';

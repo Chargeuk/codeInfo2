@@ -72,3 +72,55 @@ test('queue-managed deferred reembed preserves INVALID_REEMBED_STATE when cancel
     await cleanup();
   }
 });
+
+test('queue-managed deferred reembed fails closed when the live root-state read degrades before replay validation can prove the root is allowed', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/deferred-read-failure.ts':
+      'export const deferredReadFailure = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootMetadataReadError: new Error('roots metadata unavailable'),
+  });
+
+  try {
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...createQueueRequest({
+            requestId: '23',
+            root,
+            queueState: 'running',
+            runId,
+          }),
+          runId,
+        };
+      },
+    });
+
+    const started = await pumpIngestQueue();
+    assert.equal(started.started, true);
+    assert.ok(started.runId);
+
+    const terminal = await waitForTerminalIngestStatus(started.runId!, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.provider, 'ingest');
+  } finally {
+    await cleanup();
+  }
+});

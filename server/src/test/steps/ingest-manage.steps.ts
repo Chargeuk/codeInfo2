@@ -29,6 +29,7 @@ import {
   __setStatusForTest,
   __setQueueRuntimeOpsForTest,
   __setRunProcessorForTest,
+  getStatus,
   pumpIngestQueue,
   recoverIngestQueueOnStartup,
   setIngestDeps,
@@ -62,6 +63,7 @@ let lastQueuePumpResult: {
   started: boolean;
   blockedByCleanup: boolean;
   requestId: string | null;
+  runId: string | null;
 } | null = null;
 
 function getRootsPayload() {
@@ -97,13 +99,11 @@ async function seedQueuedReembedRequest(params: {
   name?: string;
 }) {
   const requestPayload: Record<string, unknown> = {
-    name:
-      params.name ?? (path.posix.basename(params.rootPath) || 'repo'),
+    name: params.name ?? (path.posix.basename(params.rootPath) || 'repo'),
     model: 'embed-1',
   };
   if (params.requestPayloadPath !== null) {
-    requestPayload.path =
-      params.requestPayloadPath ?? params.rootPath;
+    requestPayload.path = params.requestPayloadPath ?? params.rootPath;
   }
 
   await IngestQueueRequestModel.create({
@@ -717,6 +717,32 @@ Given(
 );
 
 Given(
+  'ingest manage root metadata exists for the temp repo in state {string}',
+  async (state: string) => {
+    assert(tempDir, 'temp dir missing');
+    const roots = await getRootsCollection();
+    await roots.add({
+      ids: ['temp-root-state-run'],
+      embeddings: [[0]],
+      metadatas: [
+        {
+          runId: 'temp-root-state-run',
+          root: tempDir,
+          name: 'temp-repo',
+          model: 'embed-1',
+          files: 1,
+          chunks: 1,
+          embedded: 1,
+          state,
+          lastIngestAt: new Date().toISOString(),
+          ingestedAtMs: Date.now(),
+        },
+      ],
+    });
+  },
+);
+
+Given(
   'ingest manage lock is provider {string} model {string} dimensions {int}',
   async (provider: string, model: string, dimensions: number) => {
     await setLockedModel({
@@ -812,6 +838,27 @@ Given(
 );
 
 Given(
+  'ingest manage mongo queue has running request for the temp repo with run id {string} and canonical model value {int}',
+  async (runId: string, canonicalModelValue: number) => {
+    assert(tempDir, 'temp dir missing');
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: tempDir,
+      operation: 'reembed',
+      queueState: 'running',
+      requestPayload: {
+        path: tempDir,
+        name: path.posix.basename(tempDir) || 'repo',
+        model: 'embed-1',
+        embeddingProvider: 'lmstudio',
+        embeddingModel: canonicalModelValue,
+      },
+      sourceSurface: 'cucumber',
+      runId,
+    });
+  },
+);
+
+Given(
   'ingest manage mongo queue has barrier-backed running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
     await seedQueuedReembedRequest({
@@ -839,6 +886,17 @@ Given(
   async (rootPath: string) => {
     await seedQueuedReembedRequest({
       rootPath,
+      queueState: 'waiting',
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has waiting request for the temp repo',
+  async () => {
+    assert(tempDir, 'temp dir missing');
+    await seedQueuedReembedRequest({
+      rootPath: tempDir,
       queueState: 'waiting',
     });
   },
@@ -958,6 +1016,29 @@ Then(
 Then('ingest manage queue runtime started paths are empty', () => {
   assert.deepEqual(queueRuntimeStartedPaths, []);
 });
+
+Then(
+  'ingest manage runtime status for the last queue run is error {string} with message {string}',
+  (expectedCode: string, expectedMessage: string) => {
+    assert(lastQueuePumpResult?.runId, 'expected last queue run id');
+    const status = getStatus(lastQueuePumpResult.runId);
+    assert(status, 'expected runtime status');
+    assert.equal(status.state, 'error');
+    assert.equal(status.error?.error, expectedCode);
+    assert.equal(status.error?.message, expectedMessage);
+  },
+);
+
+Then(
+  'ingest manage runtime status for run {string} reports error {string} with message {string}',
+  (runId: string, expectedCode: string, expectedMessage: string) => {
+    const status = getStatus(runId);
+    assert(status, `expected runtime status for ${runId}`);
+    assert.equal(status.state, 'error');
+    assert.equal(status.error?.error, expectedCode);
+    assert.equal(status.error?.message, expectedMessage);
+  },
+);
 
 Then('ingest manage queue pump reports cleanup blocked', () => {
   assert(lastQueuePumpResult, 'expected queue pump result');

@@ -2,7 +2,21 @@ import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach, mock } from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import {
+  __setQueueRuntimeOpsForTest,
+  pumpIngestQueue,
+  waitForTerminalIngestStatus,
+} from '../../ingest/ingestJob.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
+import {
+  createQueueRequest,
+  createTempRepo,
+  installQueueRuntimeTestHooks,
+  setupIngestChromaMocks,
+  waitForNextTurn,
+} from '../unit/ingest-queue-runtime.helpers.js';
+
+installQueueRuntimeTestHooks();
 
 beforeEach(() => {
   mock.restoreAll();
@@ -80,4 +94,72 @@ test('POST /ingest/reembed keeps the immediate error-root INVALID_REEMBED_STATE 
   assert.equal(res.status, 409);
   assert.equal(res.body.code, 'INVALID_REEMBED_STATE');
   assert.equal(getEnqueueCalls(), 0);
+});
+
+test('deferred queue replay keeps the immediate INVALID_REEMBED_STATE contract when fresh live root-state checks reject a queued re-embed', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/integration-invalid-state.ts':
+      'export const integrationInvalidState = true;\n',
+  });
+  setupIngestChromaMocks({
+    rootIds: ['root-integration-invalid-state'],
+    rootMetadatas: [
+      {
+        root,
+        state: 'error',
+        lastIngestAt: '2026-01-06T00:00:00.000Z',
+      },
+    ],
+  });
+
+  try {
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...createQueueRequest({
+            requestId: '30',
+            root,
+            queueState: 'running',
+            runId,
+          }),
+          runId,
+          requestPayload: {
+            path: root,
+            name: 'integration-invalid-state',
+            model: 'embed-1',
+            operation: 'reembed',
+            staleQueuedState: 'completed',
+          },
+        };
+      },
+    });
+
+    const started = await pumpIngestQueue();
+    assert.equal(started.started, true);
+    assert.ok(started.runId);
+
+    const terminal = await waitForTerminalIngestStatus(started.runId!, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.status?.error?.provider, 'ingest');
+  } finally {
+    await cleanup();
+  }
 });

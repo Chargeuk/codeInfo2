@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 import { ChromaClient } from 'chromadb';
-import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
   __finalizeQueueRequestForRunForTest,
   __setQueueRuntimeOpsForTest,
@@ -122,7 +121,10 @@ test('cleanup continuation still runs after the durable replay barrier is record
     'cleanup-delete-attempted',
     'cleanup-blocked-persisted',
   ]);
-  assert.equal(getStatus('run-cleanup-after-barrier')?.state, 'cleanup-blocked');
+  assert.equal(
+    getStatus('run-cleanup-after-barrier')?.state,
+    'cleanup-blocked',
+  );
 });
 
 test('startup recovery still retries genuinely unfinished running work before newer waiting work', async () => {
@@ -302,16 +304,12 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
     runId: 'run-recovered-invalid-root',
   });
 
-  mock.method(
-    ChromaClient.prototype,
-    'getOrCreateCollection',
-    async () => {
-      getOrCreateCollectionCalls += 1;
-      return {
-        get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
-      } as never;
-    },
-  );
+  mock.method(ChromaClient.prototype, 'getOrCreateCollection', async () => {
+    getOrCreateCollectionCalls += 1;
+    return {
+      get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
+    } as never;
+  });
 
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
@@ -410,6 +408,142 @@ test('startup recovery rejects blank canonical model even when a legacy model is
     ]);
     await waitForNextTurn();
     await waitForNextTurn();
+
+    const afterRecovery = await pumpIngestQueue();
+    assert.equal(afterRecovery.started, false);
+    assert.equal(afterRecovery.blockedByCleanup, false);
+    assert.equal(afterRecovery.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('startup recovery rejects non-string canonical provider payloads and does not leave partial running state behind', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/recover-provider-invalid.ts':
+      'export const recoverProviderInvalid = true;\n',
+  });
+  const deletedRequestIds: string[] = [];
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '28',
+    root,
+    queueState: 'running',
+    runId: 'run-recovered-invalid-provider-type',
+  });
+  recoveryQueueRequest.requestPayload = {
+    ...recoveryQueueRequest.requestPayload,
+    path: root,
+    model: 'embed-1',
+    embeddingProvider: { provider: 'lmstudio' },
+    embeddingModel: 'embed-1',
+    operation: 'reembed',
+  };
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+
+    const result = await recoverIngestQueueOnStartup();
+    assert.equal(result.recovered, true);
+
+    const terminal = await waitForTerminalIngestStatus(
+      recoveryQueueRequest.runId!,
+      {
+        timeoutMs: 1_000,
+        pollMs: 10,
+      },
+    );
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(
+      terminal.status?.lastError,
+      'embeddingProvider and embeddingModel are required when canonical fields are present',
+    );
+    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.deepEqual(deletedRequestIds, [
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+    ]);
+
+    const afterRecovery = await pumpIngestQueue();
+    assert.equal(afterRecovery.started, false);
+    assert.equal(afterRecovery.blockedByCleanup, false);
+    assert.equal(afterRecovery.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('startup recovery rejects non-string canonical model payloads and does not leave partial running state behind', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/recover-model-invalid.ts':
+      'export const recoverModelInvalid = true;\n',
+  });
+  const deletedRequestIds: string[] = [];
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '29',
+    root,
+    queueState: 'running',
+    runId: 'run-recovered-invalid-model-type',
+  });
+  recoveryQueueRequest.requestPayload = {
+    ...recoveryQueueRequest.requestPayload,
+    path: root,
+    model: 'embed-1',
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 42,
+    operation: 'reembed',
+  };
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+
+    const result = await recoverIngestQueueOnStartup();
+    assert.equal(result.recovered, true);
+
+    const terminal = await waitForTerminalIngestStatus(
+      recoveryQueueRequest.runId!,
+      {
+        timeoutMs: 1_000,
+        pollMs: 10,
+      },
+    );
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(
+      terminal.status?.lastError,
+      'embeddingProvider and embeddingModel are required when canonical fields are present',
+    );
+    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.deepEqual(deletedRequestIds, [
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+    ]);
 
     const afterRecovery = await pumpIngestQueue();
     assert.equal(afterRecovery.started, false);

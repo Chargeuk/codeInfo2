@@ -1,17 +1,16 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
-import { IngestFileModel } from '../../mongo/ingestFile.js';
+import { getLockedEmbeddingModel } from '../../ingest/chromaClient.js';
 import {
   __setQueueRuntimeOpsForTest,
   __setRunProcessorForTest,
   getStatus,
   pumpIngestQueue,
-  validateExecutableIngestInput,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
-import { getLockedEmbeddingModel } from '../../ingest/chromaClient.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
+import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
   createQueueRequest,
   createTempRepo,
@@ -303,6 +302,150 @@ test('queue promotion rejects bogus canonical provider even when a legacy model 
   }
 });
 
+test('queue promotion rejects non-string canonical provider payloads instead of silently falling back to the legacy model and releases queue ownership cleanly', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/provider-invalid.ts': 'export const providerInvalid = true;\n',
+  });
+  const deletedRequestIds: string[] = [];
+
+  try {
+    const promoted = createQueueRequest({
+      requestId: '26',
+      root,
+      queueState: 'running',
+    });
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...promoted,
+          runId,
+          requestPayload: {
+            ...promoted.requestPayload,
+            path: root,
+            canonicalTargetPath: root,
+            operation: 'reembed',
+            model: 'embed-1',
+            embeddingProvider: { provider: 'lmstudio' },
+            embeddingModel: 'embed-1',
+          },
+        };
+      },
+    });
+
+    const result = await pumpIngestQueue();
+    assert.equal(result.started, true);
+    assert.ok(result.runId);
+
+    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(
+      terminal.status?.lastError,
+      'embeddingProvider and embeddingModel are required when canonical fields are present',
+    );
+    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.deepEqual(deletedRequestIds, ['000000000000000000000026']);
+
+    const afterTerminal = await pumpIngestQueue();
+    assert.equal(afterTerminal.started, false);
+    assert.equal(afterTerminal.blockedByCleanup, false);
+    assert.equal(afterTerminal.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue promotion rejects non-string canonical model payloads instead of falling back to the legacy model and releases queue ownership cleanly', async () => {
+  setupIngestChromaMocks();
+  const { root, cleanup } = await createTempRepo({
+    'src/model-invalid.ts': 'export const modelInvalid = true;\n',
+  });
+  const deletedRequestIds: string[] = [];
+
+  try {
+    const promoted = createQueueRequest({
+      requestId: '27',
+      root,
+      queueState: 'running',
+    });
+    let promotedOnce = false;
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...promoted,
+          runId,
+          requestPayload: {
+            ...promoted.requestPayload,
+            path: root,
+            canonicalTargetPath: root,
+            operation: 'reembed',
+            model: 'embed-1',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 42,
+          },
+        };
+      },
+    });
+
+    const result = await pumpIngestQueue();
+    assert.equal(result.started, true);
+    assert.ok(result.runId);
+
+    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    });
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(terminal.reason, 'terminal');
+    assert.equal(terminal.status?.state, 'error');
+    assert.equal(
+      terminal.status?.lastError,
+      'embeddingProvider and embeddingModel are required when canonical fields are present',
+    );
+    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.deepEqual(deletedRequestIds, ['000000000000000000000027']);
+
+    const afterTerminal = await pumpIngestQueue();
+    assert.equal(afterTerminal.started, false);
+    assert.equal(afterTerminal.blockedByCleanup, false);
+    assert.equal(afterTerminal.runId, null);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('queue-managed deferred reembed rejects cancelled root drift before delta work begins', async () => {
   const { root, cleanup } = await createTempRepo({
     'src/deferred-cancelled.ts': 'export const deferredCancelled = true;\n',
@@ -363,7 +506,9 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
     assert.equal(listRootCalls.mock.calls.length, 0);
     assert.ok(deletedRequestIds.length >= 1);
     assert.equal(
-      deletedRequestIds.every((requestId) => requestId === '000000000000000000000021'),
+      deletedRequestIds.every(
+        (requestId) => requestId === '000000000000000000000021',
+      ),
       true,
     );
   } finally {

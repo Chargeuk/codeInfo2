@@ -85,6 +85,8 @@ export type IngestJobInput = {
   path: string;
   canonicalTargetPath?: string;
   queuedRequestPayloadPath?: string;
+  queuedEmbeddingProviderRaw?: unknown;
+  queuedEmbeddingModelRaw?: unknown;
   name: string;
   description?: string;
   model: string;
@@ -314,7 +316,10 @@ function clearQueueRequestTerminalStatusRetention(requestId: string) {
 function evictExpiredQueueRequestTerminalStatuses(
   nowMs = getQueueRequestTerminalStatusNowMs(),
 ) {
-  for (const [requestId, expiresAtMs] of queueRequestTerminalStatusExpiresAtMs) {
+  for (const [
+    requestId,
+    expiresAtMs,
+  ] of queueRequestTerminalStatusExpiresAtMs) {
     if (expiresAtMs > nowMs) {
       continue;
     }
@@ -447,6 +452,14 @@ function toQueueManagedInput(queueRequest: {
   requestPayload: Record<string, unknown>;
 }): IngestJobInput {
   const payload = queueRequest.requestPayload;
+  const hasCanonicalEmbeddingProvider = Object.prototype.hasOwnProperty.call(
+    payload,
+    'embeddingProvider',
+  );
+  const hasCanonicalEmbeddingModel = Object.prototype.hasOwnProperty.call(
+    payload,
+    'embeddingModel',
+  );
   const canonicalTargetPath = queueRequest.canonicalTargetPath;
   const pathValue =
     queueRequest.operation === 'reembed'
@@ -466,9 +479,7 @@ function toQueueManagedInput(queueRequest: {
   return {
     canonicalTargetPath,
     path: pathValue,
-    ...(queuedRequestPayloadPath
-      ? { queuedRequestPayloadPath }
-      : {}),
+    ...(queuedRequestPayloadPath ? { queuedRequestPayloadPath } : {}),
     name: nameValue,
     ...(typeof payload.description === 'string'
       ? { description: payload.description }
@@ -479,6 +490,12 @@ function toQueueManagedInput(queueRequest: {
         : '',
     // Preserve raw canonical strings so shared validation can reject malformed
     // queued payloads instead of silently falling back to the legacy model.
+    ...(hasCanonicalEmbeddingProvider
+      ? { queuedEmbeddingProviderRaw: payload.embeddingProvider }
+      : {}),
+    ...(hasCanonicalEmbeddingModel
+      ? { queuedEmbeddingModelRaw: payload.embeddingModel }
+      : {}),
     ...(typeof payload.embeddingProvider === 'string'
       ? { embeddingProvider: payload.embeddingProvider }
       : {}),
@@ -643,7 +660,8 @@ async function persistQueueTerminalBarrier(runId: string): Promise<void> {
     logWarning('queue replay barrier persistence failed', {
       runId,
       requestId,
-      error: error instanceof Error ? error.message : String(error ?? 'unknown'),
+      error:
+        error instanceof Error ? error.message : String(error ?? 'unknown'),
     });
     return;
   }
@@ -730,13 +748,18 @@ async function embedText(modelKey: string, text: string): Promise<number[]> {
 }
 
 function resolveInputSelection(
-  input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
+  input: Pick<
+    IngestJobInput,
+    | 'model'
+    | 'embeddingProvider'
+    | 'embeddingModel'
+    | 'queuedEmbeddingProviderRaw'
+    | 'queuedEmbeddingModelRaw'
+  >,
 ): ResolvedEmbeddingModelSelection {
-  const resolved = resolveRequestEmbeddingSelection({
-    model: input.model,
-    embeddingProvider: input.embeddingProvider,
-    embeddingModel: input.embeddingModel,
-  });
+  const resolved = resolveRequestEmbeddingSelection(
+    toReplayRequestEmbeddingFields(input),
+  );
   if (!('status' in resolved)) {
     return resolved.selection;
   }
@@ -755,14 +778,37 @@ function createValidationError(message: string, code = 'VALIDATION') {
   return error;
 }
 
-function resolveValidatedInputSelection(
-  input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
-): ResolvedEmbeddingModelSelection {
-  const resolved = resolveRequestEmbeddingSelection({
+function toReplayRequestEmbeddingFields(
+  input: Pick<
+    IngestJobInput,
+    | 'model'
+    | 'embeddingProvider'
+    | 'embeddingModel'
+    | 'queuedEmbeddingProviderRaw'
+    | 'queuedEmbeddingModelRaw'
+  >,
+) {
+  return {
     model: input.model,
-    embeddingProvider: input.embeddingProvider,
-    embeddingModel: input.embeddingModel,
-  });
+    embeddingProvider:
+      input.queuedEmbeddingProviderRaw ?? input.embeddingProvider,
+    embeddingModel: input.queuedEmbeddingModelRaw ?? input.embeddingModel,
+  };
+}
+
+function resolveValidatedInputSelection(
+  input: Pick<
+    IngestJobInput,
+    | 'model'
+    | 'embeddingProvider'
+    | 'embeddingModel'
+    | 'queuedEmbeddingProviderRaw'
+    | 'queuedEmbeddingModelRaw'
+  >,
+): ResolvedEmbeddingModelSelection {
+  const resolved = resolveRequestEmbeddingSelection(
+    toReplayRequestEmbeddingFields(input),
+  );
   if ('status' in resolved) {
     throw createValidationError(resolved.message, resolved.code);
   }
@@ -770,7 +816,14 @@ function resolveValidatedInputSelection(
 }
 
 export async function validateExecutableIngestInput(
-  input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
+  input: Pick<
+    IngestJobInput,
+    | 'model'
+    | 'embeddingProvider'
+    | 'embeddingModel'
+    | 'queuedEmbeddingProviderRaw'
+    | 'queuedEmbeddingModelRaw'
+  >,
   options?: {
     getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
     selection?: ResolvedEmbeddingModelSelection;
@@ -1104,14 +1157,12 @@ async function processRun(runId: string, input: IngestJobInput) {
       operation === 'start' && queueRequestIdsByRunId.has(runId);
     const isQueueManagedReembed =
       operation === 'reembed' && queueRequestIdsByRunId.has(runId);
-    const validatedReembedPath =
-      isQueueManagedReembed
-        ? resolveQueuedReembedExecutionPath(input)
-        : null;
-    const validatedStartPath =
-      isQueueManagedStart
-        ? validateQueueableRepositoryRootPath(startPath)
-        : startPath;
+    const validatedReembedPath = isQueueManagedReembed
+      ? resolveQueuedReembedExecutionPath(input)
+      : null;
+    const validatedStartPath = isQueueManagedStart
+      ? validateQueueableRepositoryRootPath(startPath)
+      : startPath;
     const executionRootPath = validatedReembedPath ?? validatedStartPath;
     const requestedSelection = resolveValidatedInputSelection(input);
     const embeddingProvider = requestedSelection.providerId;
@@ -1156,6 +1207,7 @@ async function processRun(runId: string, input: IngestJobInput) {
               ? error.message.slice(0, 300)
               : String(error ?? 'unknown').slice(0, 300),
         });
+        throw createInvalidReembedStateError();
       }
       assertReembedRootStateAllowed(latestRootSelection?.meta.state);
     }
@@ -2763,9 +2815,7 @@ export async function recoverIngestQueueOnStartup() {
   const running = await queueRuntimeOps.findOldestRunningQueueRequest();
   if (running && deps) {
     const runningRequestId = queueRuntimeOps.getQueueRequestId(running);
-    const nonReplayableAt = parseQueueBarrierTimestamp(
-      running.nonReplayableAt,
-    );
+    const nonReplayableAt = parseQueueBarrierTimestamp(running.nonReplayableAt);
     const terminalPublishedAt = parseQueueBarrierTimestamp(
       running.terminalPublishedAt,
     );
@@ -2790,7 +2840,9 @@ export async function recoverIngestQueueOnStartup() {
         nonReplayableAt:
           nonReplayableAt?.toISOString?.() ?? nonReplayableAt ?? undefined,
         terminalPublishedAt:
-          terminalPublishedAt?.toISOString?.() ?? terminalPublishedAt ?? undefined,
+          terminalPublishedAt?.toISOString?.() ??
+          terminalPublishedAt ??
+          undefined,
       });
       return { recovered: true, blockedByActiveLock: false };
     }

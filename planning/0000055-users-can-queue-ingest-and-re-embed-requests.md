@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -12218,7 +12218,7 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152, 156`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Task `155` automated-proof prerequisite: shared loop-flow runtime cleanup release before queue-wait full-wrapper confirmation can resume
 - Notes: Added during planner repair after Task 155 completed and Task 154's full `server:unit` rerun proved the remaining red state belongs to the loop-flow runtime cleanup seam in `server/src/flows/service.ts` and `server/src/test/integration/flows.run.loop.test.ts`, not to the repaired queue-wait owner.
@@ -12290,7 +12290,7 @@ If a later manual-testing pass wants a live sanity check, keep it limited to the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152, 154, 156`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Task `156` automated-proof prerequisite: shared reingest queue-wait timeout settlement in `waitForQueueRequestTerminalStatus()`
 - Notes: Added during planner repair after Task 156's wrapper rerun proved the remaining red `server:unit` state belongs to the shared queue-wait timeout seam in `server/src/ingest/ingestJob.ts` and `server/src/test/unit/reingestService.test.ts`, not to the repaired repo-list overlay contract.

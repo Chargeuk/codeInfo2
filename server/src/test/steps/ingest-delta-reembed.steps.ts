@@ -553,7 +553,7 @@ Then('I remember the ingest delta runId', () => {
   rememberedRunId = lastRunId;
 });
 
-Then('I delete all ingest_files rows for the delta repo root', async () => {
+When('I delete all ingest_files rows for the delta repo root', async () => {
   assert(tempDir, 'temp dir missing');
   assert(isMongoConnected(), 'mongo should be connected for this step');
   await IngestFileModel.deleteMany({ root: tempDir }).exec();

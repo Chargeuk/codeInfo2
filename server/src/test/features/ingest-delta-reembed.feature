@@ -168,8 +168,8 @@ Feature: Ingest delta re-embed
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
     And I remember the ingest delta runId
-    And I delete all ingest_files rows for the delta repo root
-    When I POST ingest reembed for the delta repo
+    When I delete all ingest_files rows for the delta repo root
+    And I POST ingest reembed for the delta repo
     Then ingest delta status for the last run becomes "completed"
     And ingest delta vectors should not contain any vectors from the remembered runId
     And ingest delta ingest_files should be populated for all discovered files

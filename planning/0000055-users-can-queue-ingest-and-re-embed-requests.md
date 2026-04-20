@@ -12866,11 +12866,10 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
-5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -12926,11 +12925,10 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-files-repo-guards.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
-5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -12984,11 +12982,10 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/openai-model-unavailable-contract.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-failure-logging-coverage.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed.test.ts`.
-5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13053,10 +13050,10 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
-4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature`.
-5. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx`.
-6. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "queued ingest rows keep one stable identity while queue ownership resumes after the current head finishes"`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run test:summary:e2e`.
 7. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
 8. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
@@ -13117,14 +13114,10 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-startup.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`.
-6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
-8. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-9. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13175,9 +13168,10 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`.
-3. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-4. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 

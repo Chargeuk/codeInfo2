@@ -205,7 +205,6 @@ async function findWaitingQueueRequestForTarget(
 
 function shouldRewriteWaitingRequest(
   waitingRequest: IngestQueueRequest,
-  _input: EnqueueIngestRequestInput,
 ): boolean {
   return waitingRequest.queueState === 'waiting';
 }

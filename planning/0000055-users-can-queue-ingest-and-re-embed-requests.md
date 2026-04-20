@@ -12865,10 +12865,10 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
 5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
@@ -12877,6 +12877,11 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - Subtasks 2 through 4: repaired `server/src/ingest/requestQueue.ts` so waiting-row rewrites no longer block `start -> reembed` updates on the same canonical target, the update path still preserves queue identity and source provenance by only replacing `operation` plus normalized `requestPayload`, and the duplicate-key retry branch now reuses the same cross-operation rewrite filter.
 - Subtasks 5 through 7: rewrote the queue-owner unit proofs in `server/src/test/unit/ingest-request-queue.test.ts` so the old stale-settings `start -> reembed` coverage now asserts in-place rewrite semantics, refreshed `updatedAt` with preserved `createdAt` and `sourceSurface`, and matching duplicate-key retry behavior for the same waiting row.
 - Subtasks 8 and 9: added route-owner response proof in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` that updated-in-place queue reuse still returns the reused `requestId` plus preserved waiting `queuePosition` without inventing a second queue item.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so Task 161 now has a fresh server build proof home at `logs/test-summaries/build-server-latest.log`.
+- Testing 2: the first full `npm run test:summary:server:unit` rerun exposed one stale Task 161 race proof that still expected the old `start -> reembed` no-rewrite path, so I updated `server/src/test/unit/ingest-request-queue.test.ts`, verified the repaired case with a targeted `--file/--test-name` wrapper rerun, and then reran the full wrapper cleanly with `tests run: 1732`, `passed: 1732`, and `failed: 0` in `test-results/server-unit-tests-2026-04-20T16-42-13-581Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0` in `test-results/server-cucumber-tests-2026-04-20T17-00-12-301Z.log`, so the broader server cucumber proof stayed green after the Task 161 queue rewrite repair.
+- Testing 4: `npm run lint` first caught one Task 161-owned unused-parameter issue in `server/src/ingest/requestQueue.ts`; after removing that stale helper parameter, the rerun passed cleanly without needing `npm run lint:fix`.
+- **BLOCKER** Testing 5 (`npm run format:check`) is currently blocked by unrelated repo-wide formatting drift outside Task 161 scope. I first fixed the one in-scope formatting issue in `server/src/ingest/requestQueue.ts`, then reran a task-owned `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/requestQueue.ts server/src/test/unit/ingest-request-queue.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/unit/ingest-reembed.test.ts`, which passed cleanly. The required full `npm run format:check` still fails because 24 unrelated pre-existing files remain unformatted (including prior manual-testing JSON artifacts and broad client or server files), and I cannot honestly satisfy that repo-wide gate without reformatting out-of-scope local changes owned by other work. This task should be split from repo-wide formatting cleanup or the formatting drift should be normalized separately before Task 161 automated proof can fully close.
 
 ### Task 162. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 

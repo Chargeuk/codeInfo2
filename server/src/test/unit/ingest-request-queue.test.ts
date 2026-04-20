@@ -312,23 +312,16 @@ test('reembed duplicate sees current running semantics when a waiting start row 
 
       return {
         sort: () => ({
-          exec: async () => null,
+          exec: async () => promotedRunning,
         }),
       };
     },
   );
-  const findByIdMock = mock.method(IngestQueueRequestModel, 'findById', () => ({
-    exec: async () => promotedRunning,
-  }));
   const waitingUpdateMock = mock.method(
     IngestQueueRequestModel,
     'findOneAndUpdate',
     () => ({
-      exec: async () => {
-        throw new Error(
-          'reembed duplicate should not rewrite a waiting start row',
-        );
-      },
+      exec: async () => null,
     }),
   );
   const countMock = mock.method(
@@ -364,9 +357,8 @@ test('reembed duplicate sees current running semantics when a waiting start row 
     embeddingProvider: 'lmstudio',
     embeddingModel: 'queued-start-model',
   });
-  assert.equal(findOneMock.mock.calls.length, 1);
-  assert.equal(findByIdMock.mock.calls.length, 1);
-  assert.equal(waitingUpdateMock.mock.calls.length, 0);
+  assert.equal(findOneMock.mock.calls.length, 2);
+  assert.equal(waitingUpdateMock.mock.calls.length, 1);
   assert.equal(countMock.mock.calls.length, 0);
 });
 

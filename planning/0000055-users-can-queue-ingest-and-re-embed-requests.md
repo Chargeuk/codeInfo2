@@ -12775,15 +12775,15 @@ This task re-validates Story 55 after the current review-created findings block 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run compose:build:summary`.
-5. [ ] Run `npm run compose:up`.
-6. [ ] Run `npm run test:summary:host-network:main`.
-7. [ ] Run `npm run compose:down`.
-8. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-9. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run compose:build:summary`.
+5. [x] Run `npm run compose:up`.
+6. [x] Run `npm run test:summary:host-network:main`.
+7. [x] Run `npm run compose:down`.
+8. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+9. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 
@@ -12793,3 +12793,12 @@ This task re-validates Story 55 after the current review-created findings block 
 - Subtask 26: re-opened the maintained plan after the summary refresh and confirmed the current `Review Pass 0000055-20260419T200440Z-d67f1ccc` block still matches the repaired owner set now cited in the canonical summary.
 - Subtask 27: `npm run lint` passed cleanly after the canonical summary refresh, so the final task-owned lint checkpoint is complete without needing `npm run lint:fix`.
 - Subtask 28: `npx prettier --check` first hit the current Prettier parser gap on `scripts/docker-compose-with-env.sh`; the non-shell Task 160 file set was already clean, and rerunning the exact file list with `--ignore-unknown` passed cleanly so the maintained summary and final-validation support files stay formatting-clean without changing repo formatter setup in this task.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the final validation pass now has a fresh server build wrapper home at `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1730`, `passed: 1730`, and `failed: 0` in `test-results/server-unit-tests-2026-04-20T13-18-02-218Z.log`, so the repaired review-created server-unit owner chain is green again on current disk.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0` in `test-results/server-cucumber-tests-2026-04-20T13-34-10-325Z.log`, so the repaired review-created cucumber owner chain is green again on current disk.
+- Testing 4: `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker in `logs/test-summaries/compose-build-latest.log`, so the supported-stack image build path is fresh again on current disk.
+- Testing 5: `npm run compose:up` passed the supported preflight (`DEV-0000050:T09:compose_preflight_result {"result":"passed"...}`) and brought the main stack to healthy `mongo`, `server`, and `client` containers, so the host-network smoke path now has a live stack to probe.
+- Testing 6: `npm run test:summary:host-network:main` passed cleanly and recorded `DEV-0000050:T12:main_stack_probe_completed` in `logs/test-summaries/host-network-main-latest.log`, with the classic, chat, agents, and Playwright MCP endpoints all reachable on the supported stack.
+- Testing 7: `npm run compose:down` completed cleanly and removed the supported containers plus `codeinfo2_internal`, so the main stack returned to a stopped state after the smoke pass.
+- Testing 8: the final `npm run lint` rerun passed cleanly after the supported-stack proof chain, so no `npm run lint:fix` follow-up was needed in the automated-proof phase either.
+- Testing 9: the exact file-scoped `npx prettier --check` command reproduced the current parser gap on `scripts/docker-compose-with-env.sh`, and the immediate task-owned rerun with `--ignore-unknown` passed cleanly for the same file list, so the maintained summary and final-validation support files are formatting-clean on current disk without widening repo formatter setup in this proof pass.

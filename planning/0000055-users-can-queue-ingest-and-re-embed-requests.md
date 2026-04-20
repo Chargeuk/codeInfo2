@@ -12892,12 +12892,14 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 - `R1.` The deletions-only delta re-embed fast path no longer reports successful completion when persisted `ingest_files` cleanup degrades.
 - `R2.` The repaired fast path surfaces the same cleanup-blocked contract the normal finalization path already uses for the shared helper.
 - `R3.` The repair stays local to the deletions-only cleanup path and its proof owners instead of widening into unrelated bootstrap or batching seams.
-- `R4.` Direct unit proof covers both the degraded cleanup result and the still-bounded delete-selector behavior after the repair.
+- `R4.` Direct unit proof covers the degraded cleanup result, retained partial-state tolerance for partially pre-cleaned relPaths, and the still-bounded delete-selector behavior after the repair.
+- `R5.` The repaired deletions-only fast path publishes the same `cleanup-blocked` queue state later reader surfaces already consume instead of reporting a false completed terminal state.
 
 #### Proof Mapping
 
 - `P1.` Requirement: the deletions-only fast path no longer publishes terminal success when persisted cleanup degrades. Owners: `server/src/ingest/ingestJob.ts`. Proof homes: subtasks 2 through 5; Testing 2.
-- `P2.` Requirement: the repaired caller still aligns with the shared helper’s bounded delete-selector and degraded-return contract. Owners: `server/src/mongo/repo.ts`, `server/src/test/unit/ingest-files-repo-guards.test.ts`. Proof homes: subtasks 3, 6, and 7; Testing 3.
+- `P2.` Requirement: the repaired caller still aligns with the shared helper’s bounded delete-selector, degraded-return contract, and partial-state tolerance when some deleted relPaths were already cleaned earlier. Owners: `server/src/mongo/repo.ts`, `server/src/test/unit/ingest-files-repo-guards.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`. Proof homes: subtasks 3, 6, and 7; Testing 2 and 3.
+- `P3.` Requirement: the repaired deletions-only fast path publishes the same `cleanup-blocked` queue state that later queue-runtime readers and recovery paths already consume. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Proof homes: subtasks 3 and 8; Testing 4.
 
 #### Documentation Locations
 
@@ -12905,6 +12907,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 - `server/src/mongo/repo.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
 - `server/src/test/unit/ingest-files-repo-guards.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`
 
 #### Subtasks
 
@@ -12913,16 +12916,19 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 3. [ ] Keep the repaired deletions-only branch in `server/src/ingest/ingestJob.ts` aligned with the normal cleanup-blocked publication path instead of inventing a parallel terminal failure shape. Purpose: preserve one shared runtime contract for stalled cleanup ownership.
 4. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: author or update proof that a deletions-only delta re-embed now blocks honestly when persisted cleanup degrades instead of publishing terminal success. Purpose: give the cleanup-blocked failure path its own fast-path proof home.
 5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: author or update retained fast-path proof that a deletions-only delta re-embed still completes when persisted cleanup succeeds. Purpose: keep the green deletions-only path explicit beside the repaired degraded-cleanup proof.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`. Description: author or update proof that the shared helper still reports degraded `null` cleanup results in a form the repaired caller treats as cleanup-blocked work. Purpose: keep the degraded-return compatibility invariant explicit at the helper-owned proof file.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`. Description: author or update proof that the shared delete selector still uses bounded batching rather than one unbounded cleanup request after the caller repair lands. Purpose: keep the bounded bulk-selector invariant explicit for the large-delete path.
+6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-reembed.test.ts`. Description: author or update retained partial-state proof that deletions-only delta re-embed still tolerates partially pre-cleaned persisted relPaths and only treats an actual degraded cleanup result as cleanup-blocked work. Purpose: keep partial persisted cleanup state from being misclassified as a new cleanup failure.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`. Description: author or update proof that the shared helper still reports degraded `null` cleanup results in a form the repaired caller treats as cleanup-blocked work. Purpose: keep the degraded-return compatibility invariant explicit at the helper-owned proof file.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`. Description: author or update proof that the shared delete selector still uses bounded batching rather than one unbounded cleanup request after the caller repair lands. Purpose: keep the bounded bulk-selector invariant explicit for the large-delete path.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Description: author or update proof that a deletions-only cleanup degradation publishes the same `cleanup-blocked` queue state later runtime readers and startup recovery already consume, rather than reporting a false completed terminal state. Purpose: make writer and reader ownership explicit for the repaired cleanup-blocked publication path.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-files-repo-guards.test.ts`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13071,7 +13077,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 #### Proof Mapping
 
-- `P1.` Requirement: the shared request-aware terminal wait helper becomes the primary queue-managed completion boundary and keeps waiter cleanup honest on timeout, rejection, cancellation, or early return. Owners: `server/src/test/unit/ingest-queue-runtime.helpers.ts`, `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Proof homes: subtasks 2, 8, and 9; Testing 7.
+- `P1.` Requirement: the shared request-aware terminal wait helper becomes the primary queue-managed completion boundary and keeps waiter cleanup honest on timeout, rejection, cancellation, early return, and later test reuse with no leaked waiter state. Owners: `server/src/test/unit/ingest-queue-runtime.helpers.ts`, `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Proof homes: subtasks 2, 8, and 9; Testing 7.
 - `P2.` Requirement: the pump, startup, recovery, and deferred-mismatch unit proofs now assert request-scoped terminal ownership instead of eventual polling success. Owners: `server/src/test/unit/ingest-queue-runtime-pump.test.ts`, `server/src/test/unit/ingest-queue-runtime-startup.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`. Proof homes: subtasks 3 through 6; Testing 2 through 5.
 - `P3.` Requirement: integration proof for queue-managed invalid-state handling stays aligned with the repaired request-aware wait boundary. Owners: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Proof homes: subtask 7; Testing 6.
 - `P4.` Requirement: any retained timer fallback proof remains explicit about testing fallback behavior instead of silently standing in for the primary queue completion boundary. Owners: `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Proof homes: subtask 9; Testing 7.
@@ -13090,13 +13096,13 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 #### Subtasks
 
 1. [ ] Re-read the Story 55 blocking-wait acceptance criteria and this review finding so the proof repair stays anchored to the request-aware queue contract already exposed by the runtime. Purpose: keep this task scoped to proof-boundary honesty rather than runtime redesign.
-2. [ ] Add or repair the shared request-aware terminal wait seam in `server/src/test/unit/ingest-queue-runtime.helpers.ts` so queue-runtime proof owners can wait on request ownership instead of `runId` polling. Purpose: give the affected tests one stronger completion boundary to share.
+2. [ ] Add or repair the shared request-aware terminal wait seam in `server/src/test/unit/ingest-queue-runtime.helpers.ts` so queue-runtime proof owners can wait on request ownership instead of `runId` polling and can observe one deterministic completion boundary without fixed-delay negative assertions. Purpose: give the affected tests one stronger completion boundary to share.
 3. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-pump.test.ts`. Description: author or update proof that the queue-runtime pump now reaches terminal ownership through the shared request-aware wait seam instead of `runId` polling. Purpose: give the main queue-runtime owner a direct request-scoped completion proof.
 4. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-startup.test.ts`. Description: author or update proof that startup-owned queue recovery now reaches terminal ownership through the shared request-aware wait seam instead of `runId` polling. Purpose: keep startup recovery aligned with the repaired wait boundary.
 5. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`. Description: author or update proof that recovery-owned queue replay now reaches terminal ownership through the shared request-aware wait seam instead of `runId` polling. Purpose: keep recovery replay aligned with the repaired wait boundary.
 6. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`. Description: author or update proof that deferred replay mismatch handling now uses the same request-aware terminal ownership boundary instead of eventual polling success. Purpose: keep the mixed-state deferred replay path on the stronger wait seam.
 7. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-reembed-invalid-state.test.ts`. Description: author or update proof that queue-managed invalid-state handling still reaches a request-scoped terminal boundary without widening into unrelated route or service behavior. Purpose: keep the integration owner aligned with the repaired wait boundary.
-8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Description: author or update helper-focused proof that shared waiter registrations are cleaned up on timeout, rejection, cancellation, and early return when the request-aware terminal wait seam exits early. Purpose: give async-coordination cleanup its own explicit proof home.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Description: author or update helper-focused proof that shared waiter registrations are cleaned up on timeout, rejection, cancellation, and early return when the request-aware terminal wait seam exits early, and that later tests begin with no leaked waiter state from those exits. Purpose: give async-coordination cleanup and test-isolation expectations one explicit proof home.
 9. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`. Description: author or update any retained timer-based coverage so its title, assertions, and description state that it is fallback-only behavior rather than the primary queue completion boundary. Purpose: prevent residual polling proof from silently standing in for the stronger request-aware wait contract.
 
 #### Testing
@@ -13133,11 +13139,13 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 - `R2.` Tool-specific validation still handles well-formed object payloads and preserves the existing domain-error mapping for legitimate object shapes.
 - `R3.` The repair stays local to the shared dispatcher and its proof owners instead of widening into unrelated MCP transport behavior.
 - `R4.` Direct classic MCP proof on current disk covers malformed `arguments` shape as well as retained domain-error behavior.
+- `R5.` The malformed-shape repair keeps the classic dispatcher’s outward JSON-RPC error envelope distinct from the tool-owned domain-validation envelope.
 
 #### Proof Mapping
 
 - `P1.` Requirement: malformed non-object `arguments` payloads are rejected at the shared classic MCP dispatcher boundary before tool-specific validation runs. Owners: `server/src/mcp/server.ts`. Proof homes: subtasks 2 through 4; Testing 2.
-- `P2.` Requirement: existing well-formed-object happy-path and domain-error behavior remains intact after the malformed-shape guard is added. Owners: `server/src/test/unit/mcp.reingest.classic.test.ts`. Proof homes: subtasks 5 and 6; Testing 2.
+- `P2.` Requirement: malformed non-object `arguments` payloads still surface through the dispatcher-owned JSON-RPC error envelope rather than drifting into the tool-owned domain-validation envelope. Owners: `server/src/mcp/server.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`. Proof homes: subtasks 3 through 5; Testing 2.
+- `P3.` Requirement: existing well-formed-object happy-path and domain-error behavior remains intact after the malformed-shape guard is added. Owners: `server/src/test/unit/mcp.reingest.classic.test.ts`. Proof homes: subtasks 6 and 7; Testing 2.
 
 #### Documentation Locations
 
@@ -13150,8 +13158,9 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 2. [ ] Repair the shared `tools/call` argument normalization in `server/src/mcp/server.ts` so non-object `arguments` payloads are rejected honestly before tool-specific validation receives them. Purpose: stop malformed request shape from being silently coerced into `{}`.
 3. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that string-valued `arguments` are rejected as malformed request shape before tool-specific domain validation runs. Purpose: give one malformed non-object payload family its own explicit dispatcher proof home.
 4. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that array-valued `arguments` are rejected as malformed request shape before tool-specific domain validation runs. Purpose: give a second malformed non-object payload family its own explicit dispatcher proof home.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still follow the intended happy-path contract after the malformed-shape guard lands. Purpose: preserve the green object-shaped request path while tightening malformed-shape handling.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still reach the intended domain-error mapping after the malformed-shape guard lands. Purpose: preserve domain validation coverage for legitimate object payloads after the new guard lands.
+5. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that malformed non-object `arguments` still return the dispatcher-owned JSON-RPC error envelope and do not drift into the tool-owned `INVALID_PARAMS` field-error contract. Purpose: keep the producer and consumer error vocabulary explicit at the classic MCP boundary.
+6. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still follow the intended happy-path contract after the malformed-shape guard lands. Purpose: preserve the green object-shaped request path while tightening malformed-shape handling.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still reach the intended domain-error mapping after the malformed-shape guard lands. Purpose: preserve domain validation coverage for legitimate object payloads after the new guard lands.
 
 #### Testing
 

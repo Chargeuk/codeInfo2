@@ -18,6 +18,22 @@ import type { RepoEntry } from '../../lmstudio/toolService.js';
 
 const noopLog = () => undefined;
 
+function useMicrotaskTimeoutMock() {
+  mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
+    void Promise.resolve().then(callback);
+    return {
+      unref() {
+        return this;
+      },
+    } as ReturnType<typeof globalThis.setTimeout>;
+  }) as typeof globalThis.setTimeout);
+  mock.method(
+    globalThis,
+    'clearTimeout',
+    (() => undefined) as typeof globalThis.clearTimeout,
+  );
+}
+
 afterEach(() => {
   mock.restoreAll();
   mock.reset();
@@ -697,6 +713,7 @@ test('queue-aware wait cleanup uses the request identity and preserves timeout e
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () => null,
   });
+  useMicrotaskTimeoutMock();
 
   assert.equal(__getIngestEventListenerCountForTest(), 0);
   const result = await runReingestRepository(
@@ -719,19 +736,7 @@ test('queue-aware wait genuine timeout still settles as WAIT_TIMEOUT and unregis
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () => null,
   });
-  mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
-    void Promise.resolve().then(callback);
-    return {
-      unref() {
-        return this;
-      },
-    } as ReturnType<typeof globalThis.setTimeout>;
-  }) as typeof globalThis.setTimeout);
-  mock.method(
-    globalThis,
-    'clearTimeout',
-    (() => undefined) as typeof globalThis.clearTimeout,
-  );
+  useMicrotaskTimeoutMock();
 
   assert.equal(__getIngestEventListenerCountForTest(), 0);
   const result = await runReingestRepository(
@@ -761,19 +766,7 @@ test('queue-aware wait timeout-fallback read rejection settles as QUEUE_READ_FAI
       throw new Error('queue read failed during timeout fallback');
     },
   });
-  mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
-    void Promise.resolve().then(callback);
-    return {
-      unref() {
-        return this;
-      },
-    } as ReturnType<typeof globalThis.setTimeout>;
-  }) as typeof globalThis.setTimeout);
-  mock.method(
-    globalThis,
-    'clearTimeout',
-    (() => undefined) as typeof globalThis.clearTimeout,
-  );
+  useMicrotaskTimeoutMock();
 
   assert.equal(__getIngestEventListenerCountForTest(), 0);
   const result = await runReingestRepository(
@@ -804,19 +797,7 @@ test('queue-aware wait setup-read rejection settles as QUEUE_READ_FAILED and unr
       return null;
     },
   });
-  mock.method(globalThis, 'setTimeout', ((callback: () => void) => {
-    void Promise.resolve().then(callback);
-    return {
-      unref() {
-        return this;
-      },
-    } as ReturnType<typeof globalThis.setTimeout>;
-  }) as typeof globalThis.setTimeout);
-  mock.method(
-    globalThis,
-    'clearTimeout',
-    (() => undefined) as typeof globalThis.clearTimeout,
-  );
+  useMicrotaskTimeoutMock();
 
   assert.equal(__getIngestEventListenerCountForTest(), 0);
   const result = await runReingestRepository(

@@ -3090,7 +3090,6 @@ export async function waitForQueueRequestTerminalStatus(
     settleTimer = globalThis.setTimeout(() => {
       void settleFromTimeout();
     }, timeoutMs);
-    settleTimer.unref?.();
   });
 }
 

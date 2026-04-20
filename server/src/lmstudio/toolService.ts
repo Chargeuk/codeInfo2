@@ -376,7 +376,8 @@ function resolveQueueRequestEmbeddingIdentity(params: {
   if (
     currentRepo &&
     payload.embeddingProvider === undefined &&
-    payload.embeddingModel === undefined
+    payload.embeddingModel === undefined &&
+    payload.model === undefined
   ) {
     if (currentProvider && currentModel) {
       return {

@@ -12555,7 +12555,7 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `unbounded_bulk_selector_growth`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` to put a concrete bound on the large deleted-file selector sent through the delta re-embed cleanup path.

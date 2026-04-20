@@ -389,11 +389,12 @@ describe('useIngestRoots', () => {
     });
   });
 
-  it('uses the restored route-level id instead of weaker name or path fallbacks when both are present', async () => {
+  it('treats the restored route-level id as canonical row identity even when runtime-only runId is present', async () => {
     mockRootsResponse({
       roots: [
         {
           id: 'canonical-row-id',
+          runId: 'runtime-only-run',
           name: 'fallback-name',
           path: '/fallback-path',
           status: 'ingesting',
@@ -413,6 +414,7 @@ describe('useIngestRoots', () => {
 
     expect(result.current.roots[0]).toMatchObject({
       id: 'canonical-row-id',
+      runId: 'runtime-only-run',
       name: 'fallback-name',
       path: '/fallback-path',
     });
@@ -678,7 +680,7 @@ describe('useIngestRoots', () => {
     );
   });
 
-  it('queued-to-resumed refetches exclude stale display-derived identity from client row tracking', async () => {
+  it('queued-to-running refetches exclude stale display-derived identity from client row tracking', async () => {
     mockRootsResponse({
       roots: [
         {
@@ -732,7 +734,7 @@ describe('useIngestRoots', () => {
     expect(result.current.roots).toHaveLength(1);
   });
 
-  it('queued-to-retried refetches exclude stale display-derived identity from client row tracking', async () => {
+  it('queued-to-retried refetches exclude stale display-derived identity while tracking the retried row by canonical identity', async () => {
     mockRootsResponse({
       roots: [
         {

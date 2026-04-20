@@ -57,6 +57,7 @@ import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 let server: Server | null = null;
 let baseUrl = '';
 let response: { status: number; body: unknown } | null = null;
+let capturedRootsResponse: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
 let queueRuntimeStartedPaths: string[] = [];
@@ -67,13 +68,13 @@ let lastQueuePumpResult: {
   runId: string | null;
 } | null = null;
 
-function getRootsPayload() {
-  assert(response, 'expected response');
-  return (response.body as { roots?: unknown[] }).roots ?? [];
+function getCapturedRootsPayload() {
+  assert(capturedRootsResponse, 'expected captured roots response');
+  return (capturedRootsResponse.body as { roots?: unknown[] }).roots ?? [];
 }
 
-function findRootByPath(rootPath: string) {
-  const roots = getRootsPayload();
+function findCapturedRootByPath(rootPath: string) {
+  const roots = getCapturedRootsPayload();
   const entry = roots.find(
     (root) => (root as { path?: string }).path === rootPath,
   ) as
@@ -196,6 +197,7 @@ After(async () => {
     tempDir = null;
   }
   response = null;
+  capturedRootsResponse = null;
   lastRunId = null;
   queueRuntimeStartedPaths = [];
   lastQueuePumpResult = null;
@@ -364,31 +366,13 @@ Then(
 );
 
 Then('ingest manage roots first status is {string}', async (state: string) => {
-  assert(response, 'expected response');
-  let roots = (response.body as { roots?: unknown[] }).roots ?? [];
-  for (
-    let i = 0;
-    i < 20 &&
-    (roots.length === 0 || (roots[0] as { status?: string }).status !== state);
-    i += 1
-  ) {
-    await new Promise((r) => setTimeout(r, 50));
-    const res = await fetch(`${baseUrl}/ingest/roots`);
-    const body = await res.json();
-    roots = (body as { roots?: unknown[] }).roots ?? [];
-    console.log(
-      `[ingest-manage] roots poll ${i} count=${roots.length} statuses=${roots
-        .map((r) => (r as { status?: string }).status ?? 'unknown')
-        .join(',')}`,
-    );
-  }
+  const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
   assert.equal((roots[0] as { status?: string }).status, state);
 });
 
 Then('ingest manage roots first model is {string}', (model: string) => {
-  assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
   assert.equal((roots[0] as { model?: string }).model, model);
 });
@@ -396,8 +380,7 @@ Then('ingest manage roots first model is {string}', (model: string) => {
 Then(
   'ingest manage roots first embedding provider is {string}',
   (provider: string) => {
-    assert(response, 'expected response');
-    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    const roots = getCapturedRootsPayload();
     assert(roots.length > 0, 'no roots returned');
     assert.equal(
       (roots[0] as { embeddingProvider?: string }).embeddingProvider,
@@ -407,8 +390,7 @@ Then(
 );
 
 Then('ingest manage roots first request id is present', () => {
-  assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
   assert.equal(
     typeof (roots[0] as { requestId?: string | null }).requestId,
@@ -417,15 +399,13 @@ Then('ingest manage roots first request id is present', () => {
 });
 
 Then('ingest manage roots first id is {string}', (expectedId: string) => {
-  assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
   assert.equal((roots[0] as { id?: string }).id, expectedId);
 });
 
 Then('ingest manage roots first run id is null', () => {
-  assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
   assert.equal((roots[0] as { runId?: string | null }).runId, null);
 });
@@ -433,7 +413,7 @@ Then('ingest manage roots first run id is null', () => {
 Then(
   'ingest manage roots entry for {string} has id {string}',
   (rootPath: string, expectedId: string) => {
-    const root = findRootByPath(rootPath) as { id?: string };
+    const root = findCapturedRootByPath(rootPath) as { id?: string };
     assert.equal(root.id, expectedId);
   },
 );
@@ -441,7 +421,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has canonical id {string}',
   (rootPath: string, expectedId: string) => {
-    const root = findRootByPath(rootPath) as { id?: string };
+    const root = findCapturedRootByPath(rootPath) as { id?: string };
     assert.equal(root.id, expectedId);
   },
 );
@@ -449,7 +429,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} keeps canonical id {string} when resumed',
   (rootPath: string, expectedId: string) => {
-    const root = findRootByPath(rootPath) as { id?: string };
+    const root = findCapturedRootByPath(rootPath) as { id?: string };
     assert.equal(root.id, expectedId);
   },
 );
@@ -457,7 +437,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has name {string}',
   (rootPath: string, expectedName: string) => {
-    const root = findRootByPath(rootPath);
+    const root = findCapturedRootByPath(rootPath);
     assert.equal(root.name, expectedName);
   },
 );
@@ -465,7 +445,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has request id present',
   (rootPath: string) => {
-    const root = findRootByPath(rootPath);
+    const root = findCapturedRootByPath(rootPath);
     assert.equal(typeof root.requestId, 'string');
   },
 );
@@ -473,7 +453,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has run id null',
   (rootPath: string) => {
-    const root = findRootByPath(rootPath);
+    const root = findCapturedRootByPath(rootPath);
     assert.equal(root.runId, null);
   },
 );
@@ -481,7 +461,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has run id {string}',
   (rootPath: string, expectedRunId: string) => {
-    const root = findRootByPath(rootPath);
+    const root = findCapturedRootByPath(rootPath);
     assert.equal(root.runId, expectedRunId);
   },
 );
@@ -489,7 +469,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has queue state {string}',
   (rootPath: string, queueState: string) => {
-    const root = findRootByPath(rootPath);
+    const root = findCapturedRootByPath(rootPath);
     assert.equal(root.queueState, queueState);
   },
 );
@@ -497,7 +477,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has queue position {int}',
   (rootPath: string, queuePosition: number) => {
-    const root = findRootByPath(rootPath);
+    const root = findCapturedRootByPath(rootPath);
     assert.equal(root.queuePosition, queuePosition);
   },
 );
@@ -505,7 +485,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has embedding provider {string}',
   (rootPath: string, expectedProvider: string) => {
-    const root = findRootByPath(rootPath) as {
+    const root = findCapturedRootByPath(rootPath) as {
       embeddingProvider?: string;
     };
     assert.equal(root.embeddingProvider, expectedProvider);
@@ -515,7 +495,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has embedding model {string}',
   (rootPath: string, expectedModel: string) => {
-    const root = findRootByPath(rootPath) as {
+    const root = findCapturedRootByPath(rootPath) as {
       embeddingModel?: string;
       model?: string;
       modelId?: string;
@@ -529,7 +509,9 @@ Then(
 Then(
   'ingest manage roots entry for {string} has last error {string}',
   (rootPath: string, expectedError: string) => {
-    const root = findRootByPath(rootPath) as { lastError?: string | null };
+    const root = findCapturedRootByPath(rootPath) as {
+      lastError?: string | null;
+    };
     assert.equal(root.lastError, expectedError);
   },
 );
@@ -537,7 +519,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has no diagnostics',
   (rootPath: string) => {
-    const root = findRootByPath(rootPath) as {
+    const root = findCapturedRootByPath(rootPath) as {
       lastError?: string | null;
       error?: unknown;
     };
@@ -549,7 +531,7 @@ Then(
 Then(
   'ingest manage roots entry for {string} has runtime error {string} with message {string}',
   (rootPath: string, expectedCode: string, expectedMessage: string) => {
-    const root = findRootByPath(rootPath) as {
+    const root = findCapturedRootByPath(rootPath) as {
       error?: {
         error?: string;
         message?: string;
@@ -572,7 +554,7 @@ Then(
     expectedCode: string,
     expectedMessage: string,
   ) => {
-    const root = findRootByPath(rootPath) as {
+    const root = findCapturedRootByPath(rootPath) as {
       error?: {
         error?: string;
         message?: string;
@@ -589,8 +571,7 @@ Then(
 Then(
   'ingest manage roots first queue state is {string}',
   (queueState: string) => {
-    assert(response, 'expected response');
-    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    const roots = getCapturedRootsPayload();
     assert(roots.length > 0, 'no roots returned');
     assert.equal((roots[0] as { queueState?: string }).queueState, queueState);
   },
@@ -599,8 +580,7 @@ Then(
 Then(
   'ingest manage roots first queue position is {int}',
   (queuePosition: number) => {
-    assert(response, 'expected response');
-    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    const roots = getCapturedRootsPayload();
     assert(roots.length > 0, 'no roots returned');
     assert.equal(
       (roots[0] as { queuePosition?: number | null }).queuePosition,
@@ -609,15 +589,8 @@ Then(
   },
 );
 
-Then('ingest manage roots count is {int}', async (count: number) => {
-  assert(response, 'expected response');
-  let roots = (response.body as { roots?: unknown[] }).roots ?? [];
-  for (let i = 0; i < 5 && roots.length !== count; i += 1) {
-    await new Promise((r) => setTimeout(r, 50));
-    const res = await fetch(`${baseUrl}/ingest/roots`);
-    const body = await res.json();
-    roots = (body as { roots?: unknown[] }).roots ?? [];
-  }
+Then('ingest manage roots count is {int}', (count: number) => {
+  const roots = getCapturedRootsPayload();
   assert.equal(roots.length, count);
 });
 
@@ -663,12 +636,16 @@ Then(
 
 Then('ingest manage roots payload is fetched', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
-  response = { status: res.status, body: await res.json() };
+  const body = await res.json();
+  response = { status: res.status, body };
+  capturedRootsResponse = { status: res.status, body };
 });
 
 When('I GET ingest manage roots', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
-  response = { status: res.status, body: await res.json() };
+  const body = await res.json();
+  response = { status: res.status, body };
+  capturedRootsResponse = { status: res.status, body };
 });
 
 Then(

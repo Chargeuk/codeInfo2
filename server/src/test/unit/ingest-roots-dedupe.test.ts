@@ -112,7 +112,7 @@ test('dedupeRootsByPath: keeps newest by lastIngestAt when path duplicates', () 
   assert.equal(deduped[0]?.name, 'new');
 });
 
-test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () => {
+test('dedupeRootsByPath: keeps canonical id and waiting metadata ahead of runtime-only runId when timestamps tie', () => {
   const lock = {
     embeddingProvider: 'lmstudio' as const,
     embeddingModel: 'embed-1',
@@ -122,9 +122,12 @@ test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () =
   };
   const roots = [
     {
-      id: 'old',
-      runId: 'r1',
-      name: 'old',
+      id: '/data/repo',
+      requestId: 'queue-request-1',
+      runId: null,
+      queueState: 'waiting' as const,
+      queuePosition: 1,
+      name: 'stable',
       description: null,
       path: '/data/repo',
       embeddingProvider: 'lmstudio' as const,
@@ -139,9 +142,9 @@ test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () =
       lastError: null,
     },
     {
-      id: 'newer',
+      id: 'runtime-row',
       runId: 'r9',
-      name: 'newer',
+      name: 'runtime-row',
       description: null,
       path: '/data/repo',
       embeddingProvider: 'lmstudio' as const,
@@ -159,8 +162,73 @@ test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () =
 
   const deduped = dedupeRootsByPath(roots);
   assert.equal(deduped.length, 1);
-  assert.equal(deduped[0]?.runId, 'r9');
-  assert.equal(deduped[0]?.name, 'newer');
+  assert.equal(deduped[0]?.id, '/data/repo');
+  assert.equal(deduped[0]?.requestId, 'queue-request-1');
+  assert.equal(deduped[0]?.runId, null);
+  assert.equal(deduped[0]?.queueState, 'waiting');
+  assert.equal(deduped[0]?.queuePosition, 1);
+  assert.equal(deduped[0]?.name, 'stable');
+});
+
+test('dedupeRootsByPath: preserves waiting-row metadata when duplicate roots share one path', () => {
+  const lock = {
+    embeddingProvider: 'lmstudio' as const,
+    embeddingModel: 'embed-1',
+    embeddingDimensions: 0,
+    lockedModelId: 'embed-1',
+    modelId: 'embed-1',
+  };
+  const roots = [
+    {
+      id: '/data/repo',
+      requestId: 'queue-request-2',
+      runId: null,
+      queueState: 'waiting' as const,
+      queuePosition: 2,
+      name: 'queued',
+      description: 'queue overlay',
+      path: '/data/repo',
+      embeddingProvider: 'openai' as const,
+      embeddingModel: 'text-embedding-3-small',
+      embeddingDimensions: 1536,
+      model: 'text-embedding-3-small',
+      modelId: 'text-embedding-3-small',
+      lock,
+      status: 'ingesting',
+      phase: 'queued',
+      lastIngestAt: null,
+      counts: { files: 0, chunks: 0, embedded: 0 },
+      lastError: null,
+    },
+    {
+      id: 'stale-runtime-row',
+      runId: 'run-queued-2',
+      name: 'stale-runtime-row',
+      description: null,
+      path: '/data/repo',
+      embeddingProvider: 'lmstudio' as const,
+      embeddingModel: 'embed-1',
+      embeddingDimensions: 0,
+      model: 'embed-1',
+      modelId: 'embed-1',
+      lock,
+      status: 'ingesting',
+      phase: 'scanning',
+      lastIngestAt: null,
+      counts: { files: 1, chunks: 2, embedded: 1 },
+      lastError: null,
+    },
+  ];
+
+  const deduped = dedupeRootsByPath(roots);
+  assert.equal(deduped.length, 1);
+  assert.equal(deduped[0]?.id, '/data/repo');
+  assert.equal(deduped[0]?.requestId, 'queue-request-2');
+  assert.equal(deduped[0]?.queueState, 'waiting');
+  assert.equal(deduped[0]?.queuePosition, 2);
+  assert.equal(deduped[0]?.runId, null);
+  assert.equal(deduped[0]?.embeddingProvider, 'openai');
+  assert.equal(deduped[0]?.embeddingModel, 'text-embedding-3-small');
 });
 
 test('GET /ingest/roots returns canonical lock value from the unified resolver', async () => {

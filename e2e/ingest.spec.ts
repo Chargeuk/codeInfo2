@@ -959,9 +959,12 @@ test.describe.serial('Ingest flows', () => {
             if ((await queuedRows.count()) === 0) {
               return 'missing';
             }
-            return (
-              (await queuedRows.first().textContent())?.toLowerCase() ?? ''
-            );
+            const text =
+              ((await queuedRows.first().textContent())?.toLowerCase() ?? '');
+            return (await queuedRows.count()) === 1 &&
+              !text.includes('queued (#1)')
+              ? 'settled'
+              : `${await queuedRows.count()}:${text}`;
           },
           {
             timeout: 60_000,
@@ -969,7 +972,14 @@ test.describe.serial('Ingest flows', () => {
               'waiting for the queued row to stop showing queued (#1) after handoff',
           },
         )
-        .not.toContain('queued (#1)');
+        .toBe('settled');
+
+      await expect(
+        page.getByRole('row', { name: new RegExp(queuedName, 'i') }),
+      ).toHaveCount(1);
+      await expect(
+        page.getByRole('row', { name: new RegExp(queuedName, 'i') }).first(),
+      ).not.toContainText(/queued \(#1\)/i);
     } finally {
       await ctx.dispose();
     }

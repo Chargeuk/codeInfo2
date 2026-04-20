@@ -34,7 +34,7 @@ Feature: Ingest roots listing
     Then ingest manage roots count is 1
     And ingest manage roots first entry has canonical and alias lock parity
 
-  Scenario: brand-new queued roots expose canonical repository identity immediately
+  Scenario: brand-new queued roots expose canonical repository identity from the captured roots payload
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has waiting request for "/data/queued-root"
@@ -47,13 +47,15 @@ Feature: Ingest roots listing
     And ingest manage roots first queue state is "waiting"
     And ingest manage roots first queue position is 1
 
-  Scenario: cleanup-blocked rows stay visible in the ingest roots payload
+  Scenario: cleanup-blocked rows stay visible in the captured ingest roots payload
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has cleanup-blocked request for "/tmp/blocked-root" with run id "run-blocked"
     When I GET ingest manage roots
     Then ingest manage roots count is 1
-    And ingest manage roots first queue state is "cleanup-blocked"
+    And ingest manage roots entry for "/tmp/blocked-root" has run id "run-blocked"
+    And ingest manage roots entry for "/tmp/blocked-root" has queue state "cleanup-blocked"
+    And ingest manage roots entry for "/tmp/blocked-root" has last error "Queue cleanup blocked"
 
   Scenario: queued roots keep canonical repository identity while fresh waiting metadata updates in place
     Given ingest manage chroma stub is empty

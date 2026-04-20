@@ -181,6 +181,55 @@ function resolveRootModelId(
   return normalizeEmbeddingModel(repo.modelId) ?? embeddingModel;
 }
 
+function getStableIdentityScore(root: RootEntry): number {
+  if (root.id === root.path) return 2;
+  return normalizeEmbeddingModel(root.id) ? 1 : 0;
+}
+
+function getQueueMetadataScore(root: RootEntry): number {
+  let score = 0;
+  if (typeof root.requestId === 'string' && root.requestId.length > 0) score += 4;
+  if (root.queueState === 'cleanup-blocked') score += 3;
+  else if (root.queueState === 'running') score += 2;
+  else if (root.queueState === 'waiting') score += 1;
+  if (typeof root.queuePosition === 'number' && root.queuePosition > 0) score += 1;
+  return score;
+}
+
+function getCompletenessScore(root: RootEntry): number {
+  let score = 0;
+  if (root.name.length > 0) score += 1;
+  if (typeof root.description === 'string' && root.description.length > 0) score += 1;
+  if (root.embeddingProvider) score += 1;
+  if (root.embeddingModel.length > 0) score += 1;
+  if (root.model.length > 0) score += 1;
+  if (root.modelId.length > 0) score += 1;
+  if (root.counts.files > 0 || root.counts.chunks > 0 || root.counts.embedded > 0) {
+    score += 1;
+  }
+  if (typeof root.lastError === 'string' && root.lastError.length > 0) score += 1;
+  if (root.error) score += 1;
+  if (root.ast) score += 1;
+  return score;
+}
+
+function compareDuplicateRoots(a: RootEntry, b: RootEntry): number {
+  const aTs = toTimestamp(a.lastIngestAt);
+  const bTs = toTimestamp(b.lastIngestAt);
+  if (aTs !== bTs) return aTs - bTs;
+
+  const identityDelta = getStableIdentityScore(a) - getStableIdentityScore(b);
+  if (identityDelta !== 0) return identityDelta;
+
+  const queueDelta = getQueueMetadataScore(a) - getQueueMetadataScore(b);
+  if (queueDelta !== 0) return queueDelta;
+
+  const completenessDelta = getCompletenessScore(a) - getCompletenessScore(b);
+  if (completenessDelta !== 0) return completenessDelta;
+
+  return (a.runId ?? '').localeCompare(b.runId ?? '');
+}
+
 export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
   const bestByPath = new Map<string, RootEntry>();
   for (const root of roots) {
@@ -190,24 +239,13 @@ export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
       continue;
     }
 
-    const rootTs = toTimestamp(root.lastIngestAt);
-    const existingTs = toTimestamp(existing.lastIngestAt);
-    if (rootTs > existingTs) {
-      bestByPath.set(root.path, root);
-      continue;
-    }
-    const rootRunId = root.runId ?? '';
-    const existingRunId = existing.runId ?? '';
-    if (rootTs === existingTs && rootRunId > existingRunId) {
+    if (compareDuplicateRoots(root, existing) > 0) {
       bestByPath.set(root.path, root);
     }
   }
 
   return [...bestByPath.values()].sort((a, b) => {
-    const aTs = toTimestamp(a.lastIngestAt);
-    const bTs = toTimestamp(b.lastIngestAt);
-    if (aTs !== bTs) return bTs - aTs;
-    return (b.runId ?? '').localeCompare(a.runId ?? '');
+    return compareDuplicateRoots(b, a);
   });
 }
 
@@ -236,7 +274,8 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
       });
       const lock = payload.lock ?? null;
       logLockResolverState(requestId, 'ingest/roots', lock);
-      const roots: RootEntry[] = payload.repos.map((repo) => {
+      const roots = dedupeRootsByPath(
+        payload.repos.map((repo) => {
         const embeddingModel = resolveRootEmbeddingModel(repo, lock);
         const embeddingProvider = resolveRootEmbeddingProvider(
           repo,
@@ -281,7 +320,8 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
           error: repo.error,
           ast: repo.ast,
         };
-      });
+      }),
+      );
 
       res.json({
         roots,

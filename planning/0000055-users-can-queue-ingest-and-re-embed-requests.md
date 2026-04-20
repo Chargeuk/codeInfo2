@@ -12835,6 +12835,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - `R2.` The rewritten waiting row preserves `requestId`, `createdAt`, and source provenance while replacing the normalized stored request settings and refreshing `updatedAt`.
 - `R3.` The duplicate-key retry path applies the same cross-operation rewrite rule as the primary path instead of falling back to stale queued settings.
 - `R4.` Direct unit and route-owner proof covers the cross-operation waiting-row rewrite on current disk.
+- `R5.` This task stays on queue-owned helper and route-owner unit proof only because the changed seam is the waiting-row rewrite helper itself; broader feature-level revalidation remains final story work in Task `167`.
 
 #### Proof Mapping
 
@@ -12894,6 +12895,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 - `R3.` The repair stays local to the deletions-only cleanup path and its proof owners instead of widening into unrelated bootstrap or batching seams.
 - `R4.` Direct unit proof covers the degraded cleanup result, retained partial-state tolerance for partially pre-cleaned relPaths, and the still-bounded delete-selector behavior after the repair.
 - `R5.` The repaired deletions-only fast path publishes the same `cleanup-blocked` queue state later reader surfaces already consume instead of reporting a false completed terminal state.
+- `R6.` This task stays on runtime-owner unit proof only because the changed seam is the internal deletions-only fast path plus cleanup-blocked publication path; broader feature-level revalidation remains final story work in Task `167`.
 
 #### Proof Mapping
 
@@ -12952,6 +12954,7 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 - `R2.` The route-owner proof uses the real production validation seam rather than a mocked queue-admission exception to force the expected error.
 - `R3.` The repair preserves the current queue-aware acceptance contract for valid requests and does not widen into unrelated logging or terminal execution behavior.
 - `R4.` Direct route-owner proof on current disk demonstrates the repaired contract.
+- `R5.` This task stays on server integration proof because the changed seam is the REST admission boundary plus its shared service validation path, not a separate cucumber feature owner.
 
 #### Proof Mapping
 
@@ -13011,6 +13014,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - `R3.` The cucumber roots proof asserts the payload captured by the `When I GET ingest manage roots` action instead of re-fetching or polling in `Then`.
 - `R4.` The repaired route and proof owners still cover queued-row visibility and cleanup-blocked visibility honestly on current disk.
 - `R5.` Client row tracking excludes stale display-derived identity during queued-to-running and queued-to-retried refetches instead of retaining contradictory local row state.
+- `R6.` Browser-visible `/ingest` proof confirms the queued-to-running identity handoff still renders one canonical visible row through the supported e2e surface.
 
 #### Proof Mapping
 
@@ -13018,6 +13022,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - `P2.` Requirement: the cucumber roots proof asserts the payload captured by the route action step instead of re-fetching inside `Then`, while still proving queued-row visibility and cleanup-blocked visibility from that captured response. Owners: `server/src/test/steps/ingest-manage.steps.ts`, `server/src/test/features/ingest-roots.feature`. Proof homes: subtasks 5 through 8; Testing 3.
 - `P3.` Requirement: client normalization still treats `id` as canonical row identity after the repaired route response semantics instead of letting runtime-only `runId` pick the visible row identity. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtask 9; Testing 4.
 - `P4.` Requirement: queued-to-running and queued-to-retried refetches exclude stale display-derived identity from client row tracking rather than retaining contradictory local row state. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 10 and 11; Testing 4.
+- `P5.` Requirement: the browser-visible `/ingest` page keeps one canonical visible row when queued work hands off into running ownership after the current head finishes. Owners: `e2e/ingest.spec.ts`. Proof homes: subtask 12; Testing 6.
 
 #### Documentation Locations
 
@@ -13027,6 +13032,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - `server/src/test/steps/ingest-manage.steps.ts`
 - `client/src/hooks/useIngestRoots.ts`
 - `client/src/test/useIngestRoots.test.tsx`
+- `e2e/ingest.spec.ts`
 
 #### Subtasks
 
@@ -13041,6 +13047,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 9. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: author or update proof that client normalization still treats the restored route-level `id` as canonical row identity and does not let runtime-only `runId` choose the visible row identity. Purpose: keep the client contract aligned with the repaired server response.
 10. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: author or update mixed-state proof that a queued row refetching into a running or resumed row excludes stale display-derived identity from client row tracking and keeps one canonical visible row. Purpose: prevent queued-vs-running state transitions from duplicating or orphaning a visible UI row.
 11. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: author or update mixed-state proof that a queued row refetching into a retried waiting row excludes stale display-derived identity and tracks the retried row by canonical identity even when request metadata changes. Purpose: prevent new-request-vs-old-selection state from reviving stale local row identity.
+12. [ ] Test type: Playwright e2e. Location: `e2e/ingest.spec.ts`. Description: author or update browser proof that the `/ingest` page keeps one visible queued row identity when the current head finishes and that same repository row resumes as the running owner instead of rendering a second visible row. Purpose: give the browser-visible queued-to-running handoff contract its own automated proof home beyond hook-level normalization.
 
 #### Testing
 
@@ -13049,8 +13056,9 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
 4. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-roots.feature`.
 5. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx`.
-6. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-7. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+6. [ ] Run `npm run test:summary:e2e -- --file e2e/ingest.spec.ts --grep "queued ingest rows keep one stable identity while queue ownership resumes after the current head finishes"`.
+7. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+8. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13074,6 +13082,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 - `R2.` The repaired proof still covers the same queue-managed runtime outcomes but now ties them to request-scoped ownership and terminal-state publication.
 - `R3.` Any retained timer fallback proof is explicit about testing fallback behavior rather than silently standing in for the primary boundary.
 - `R4.` Direct unit or integration proof on current disk exercises the repaired request-aware wait path across the affected queue-runtime owners.
+- `R5.` This task stays on unit and integration proof because it changes only test-owned queue-runtime helpers and proof files, not a separate cucumber-owned product feature.
 
 #### Proof Mapping
 
@@ -13140,6 +13149,7 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 - `R3.` The repair stays local to the shared dispatcher and its proof owners instead of widening into unrelated MCP transport behavior.
 - `R4.` Direct classic MCP proof on current disk covers malformed `arguments` shape as well as retained domain-error behavior.
 - `R5.` The malformed-shape repair keeps the classic dispatcher’s outward JSON-RPC error envelope distinct from the tool-owned domain-validation envelope.
+- `R6.` This task stays on classic MCP unit proof because the changed seam is the dispatcher-owned JSON-RPC envelope and argument normalization path, which has no separate cucumber feature owner.
 
 #### Proof Mapping
 

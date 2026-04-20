@@ -12260,11 +12260,11 @@ This task repairs the shared flow-runtime stop cleanup seam so the full `node:te
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
+1. [x] Run `npm run build:summary:server`.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"`.
 3. [x] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/flows/service.ts server/src/test/integration/flows.run.loop.test.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+4. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+5. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/flows/service.ts server/src/test/integration/flows.run.loop.test.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 
@@ -12273,6 +12273,9 @@ This task repairs the shared flow-runtime stop cleanup seam so the full `node:te
 - Updated `server/src/flows/service.ts` so a preserved stop request is consumed at the loop boundary before the next iteration starts, allowing the run to unwind and release ownership instead of continuing after the stopped final was already observed.
 - Kept `server/src/test/integration/flows.run.loop.test.ts` unchanged because its existing `FLOW_LOOP_*` diagnostics already isolated the owner cleanly; the targeted wrapper rerun passed with `tests run: 1`, `passed: 1`, `failed: 0` in `test-results/server-unit-tests-2026-04-20T05-47-37-826Z.log`, so Subtasks 7 and 8 now rest on the repaired runtime seam rather than on proof rewrites.
 - The full wrapper rerun passed with `tests run: 1719`, `passed: 1719`, `failed: 0` in `test-results/server-unit-tests-2026-04-20T05-48-12-859Z.log`, so the loop-stop cleanup blocker is cleared and Task 155 can resume its own remaining confirmation path without inheriting this earlier suite owner.
+- `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the remaining Task 154 proof state is now down to lint and the file-scoped Prettier check.
+- `npm run lint` exited cleanly without needing `lint:fix`, so Task 154 now only needs the file-scoped Prettier confirmation in this automated-proof pass.
+- The file-scoped `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/flows/service.ts server/src/test/integration/flows.run.loop.test.ts` passed cleanly, so Task 154's remaining automated proof is now fully recorded on disk for the later audit step.
 
 ### Task 155. Repair Shared Reingest Queue-Wait Timeout Settlement
 

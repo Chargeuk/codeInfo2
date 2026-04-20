@@ -492,6 +492,34 @@ test('ingest-reembed logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTa
   );
 });
 
+test('ingest-reembed updated-in-place queue response preserves reused-row semantics without a duplicate queue item', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          reusedExisting: true,
+          updatedExisting: true,
+          requestId: 'queue-request-reused-reembed',
+          queuePosition: 2,
+        }),
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: 'other-run',
+      }),
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-reused-reembed',
+    queuePosition: 2,
+  });
+});
+
 test('ingest-reembed rejects a still-visible queued start row before queue admission starts', async () => {
   let enqueueCalls = 0;
   const response = await request(

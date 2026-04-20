@@ -985,3 +985,37 @@ test('fresh ingest with valid and blank files succeeds while embedding only vali
     await cleanup();
   }
 });
+test('ingest-start updated-in-place queue response preserves the reused requestId and queuePosition', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          reusedExisting: true,
+          updatedExisting: true,
+          requestId: 'queue-request-reused-start',
+          queuePosition: 4,
+        }),
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: 'other-run',
+      }),
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-reused-start',
+    queuePosition: 4,
+  });
+});
+

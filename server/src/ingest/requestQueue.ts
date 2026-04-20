@@ -205,25 +205,14 @@ async function findWaitingQueueRequestForTarget(
 
 function shouldRewriteWaitingRequest(
   waitingRequest: IngestQueueRequest,
-  input: EnqueueIngestRequestInput,
+  _input: EnqueueIngestRequestInput,
 ): boolean {
-  if (waitingRequest.operation === 'start' && input.operation === 'reembed') {
-    return false;
-  }
-  return true;
+  return waitingRequest.queueState === 'waiting';
 }
 
 function buildRewriteableWaitingRequestFilter(
   input: EnqueueIngestRequestInput,
 ): Record<string, unknown> {
-  if (input.operation === 'reembed') {
-    return {
-      canonicalTargetPath: input.canonicalTargetPath,
-      queueState: 'waiting',
-      operation: 'reembed',
-    };
-  }
-
   return {
     canonicalTargetPath: input.canonicalTargetPath,
     queueState: 'waiting',

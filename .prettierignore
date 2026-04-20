@@ -2,6 +2,7 @@ node_modules
 dist
 coverage
 .husky
+codeInfoStatus/manual-testing/
 # Intentional invalid test fixture; must remain syntactically broken.
 server/src/test/fixtures/flows/invalid-json.json
 server/tmp-flows-*/invalid-json.json

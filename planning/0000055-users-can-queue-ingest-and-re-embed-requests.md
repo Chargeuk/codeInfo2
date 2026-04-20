@@ -12849,9 +12849,9 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 
 #### Subtasks
 
-1. [ ] Re-read the current Task 162 blocker answer, `.prettierignore`, and the committed `codeInfoStatus/manual-testing/0000055/` artifact set so this formatter-owner repair stays anchored to the exact repo inputs that currently fail `npm run format:check`. Purpose: keep the prerequisite scoped to the proven blocker instead of widening into general formatting cleanup.
-2. [ ] Update `.prettierignore` so repo-wide Prettier excludes committed `codeInfoStatus/manual-testing/` durable proof artifacts while leaving actual source, plan, and proof-authoring files under normal formatter ownership. Purpose: remove the non-source artifact path from the shared formatting gate without weakening source-file coverage.
-3. [ ] Re-read `package.json` and keep the supported repo-wide formatter command as `prettier . --check` after the ignore-path repair rather than replacing it with a task-local fallback command. Purpose: preserve the normal repository proof gate while fixing its input set.
+1. [x] Re-read the current Task 162 blocker answer, `.prettierignore`, and the committed `codeInfoStatus/manual-testing/0000055/` artifact set so this formatter-owner repair stays anchored to the exact repo inputs that currently fail `npm run format:check`. Purpose: keep the prerequisite scoped to the proven blocker instead of widening into general formatting cleanup.
+2. [x] Update `.prettierignore` so repo-wide Prettier excludes committed `codeInfoStatus/manual-testing/` durable proof artifacts while leaving actual source, plan, and proof-authoring files under normal formatter ownership. Purpose: remove the non-source artifact path from the shared formatting gate without weakening source-file coverage.
+3. [x] Re-read `package.json` and keep the supported repo-wide formatter command as `prettier . --check` after the ignore-path repair rather than replacing it with a task-local fallback command. Purpose: preserve the normal repository proof gate while fixing its input set.
 
 #### Testing
 
@@ -12861,6 +12861,9 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 #### Implementation notes
 
 - Planner repair on 2026-04-20: inserted this prerequisite after Task 162's blocker answer proved the remaining format gate belongs to repo-root Prettier ownership for durable manual-testing artifacts, not to more queue-rewrite implementation. This task now owns the `.prettierignore` repair so the implementation loop can resume with one honest active owner.
+- Subtask 1: re-read the Task 162 blocker answer, the current `.prettierignore`, and the committed `codeInfoStatus/manual-testing/0000055/` artifact set so the prerequisite stayed anchored to the proven repo-wide Prettier input drift instead of widening into general formatting cleanup.
+- Subtask 2: updated `.prettierignore` to exclude `codeInfoStatus/manual-testing/` durable proof artifacts from repo-wide Prettier ownership while leaving source, plan, and proof-authoring files under the normal formatter gate.
+- Subtask 3: re-read `package.json` and kept the supported repo-wide formatter command unchanged as `prettier . --check`, so the repair stays on the shared input boundary instead of replacing the repository gate with task-local fallback commands.
 
 ### Task 162. Repair Cross-Operation Waiting Queue Rewrite Parity
 

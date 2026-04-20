@@ -373,6 +373,27 @@ function resolveQueueRequestEmbeddingIdentity(params: {
     payload.embeddingDimensions,
   );
 
+  if (
+    currentRepo &&
+    payload.embeddingProvider === undefined &&
+    payload.embeddingModel === undefined
+  ) {
+    if (currentProvider && currentModel) {
+      return {
+        embeddingProvider: currentProvider,
+        embeddingModel: currentModel,
+        embeddingDimensions: currentDimensions ?? 0,
+      };
+    }
+    if (fallbackProvider && fallbackModel) {
+      return {
+        embeddingProvider: fallbackProvider,
+        embeddingModel: fallbackModel,
+        embeddingDimensions: fallbackDimensions ?? 0,
+      };
+    }
+  }
+
   if (!('status' in requestedSelection)) {
     const provider = requestedSelection.selection.providerId;
     const model = requestedSelection.selection.modelKey;

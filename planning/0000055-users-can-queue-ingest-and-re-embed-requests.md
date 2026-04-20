@@ -12282,7 +12282,7 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
+1. [x] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit`.
 3. [ ] Run `npm run test:summary:server:cucumber`.
 4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
@@ -12299,6 +12299,9 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 - Added Task 154 proof owners for legacy provider-qualified waiting rows and ingest-origin structured diagnostics across `ingest-roots-dedupe.test.ts`, `tools-ingested-repos.test.ts`, `mcp-ingested-repositories.test.ts`, `ingest-roots.feature`, and `ingest-manage.steps.ts`, including title updates where older tests still described flat normalized-error payloads.
 - `npm run lint` passed cleanly after the shared queue overlay repair and proof-authoring edits, so Task 154 is clear to finish on the file-scoped formatting checkpoint instead of widening into unrelated lint cleanup.
 - File-scoped Prettier initially failed because `server/src/test/features/ingest-roots.feature` needed the Gherkin parser plugin and `server/src/lmstudio/toolService.ts` still needed formatting; rerunning the same file list with `prettier-plugin-gherkin --write` and then `--check` closed the final subtask without reopening repo-wide formatter drift.
+- `npm run build:summary:server` passed cleanly (`agent_action: skip_log`), so the shared repo-list overlay repair is ready for the task-owned unit and cucumber wrapper proof without a build blocker.
+- `npm run test:summary:server:unit` first exposed one Task 154-owned regression in the partial-canonical waiting overlay path; tightening the shared queue identity resolver to preserve an existing canonical pair when a waiting overlay carries no canonical fields fixed that in-scope break and justified the full wrapper rerun.
+- **BLOCKER** Stopped at Testing 2 (`npm run test:summary:server:unit`) after the honest rerun because the wrapper still fails on unrelated flow-runtime cleanup proof: `flow stop during a looped flow prevents later iterations from continuing` in `test-results/server-unit-tests-2026-04-20T02-37-21-732Z.log`, with `Timed out waiting for flow runtime cleanup...` instead of a Task 154 repo-list assertion. I inspected the failing log, repaired the Task 154-owned waiting-overlay regression, and reran the full unit wrapper, but the remaining failure depends on the out-of-scope flow stop/cleanup seam rather than the shared repo-list overlay contract. This task should stay blocked for automated proof until that external unit-suite regression is repaired or isolated by reordering the broader suite expectation away from Task 154.
 
 ### Task 155. Re-Tighten Queueable Input Trust Boundaries
 

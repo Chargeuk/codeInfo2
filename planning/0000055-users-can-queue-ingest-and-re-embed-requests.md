@@ -13200,6 +13200,7 @@ Repair the exact `flows.run.loop` stop-cleanup proof that is currently blocking 
 - Testing 4: `npm run lint` passed cleanly after the proof-owner checkpoint adjustment, so no Task 166 lint cleanup was needed.
 - Testing 5: `npm run format:check` first surfaced repo-wide Prettier drift in `e2e/ingest.spec.ts` and `server/src/routes/ingestRoots.ts`; after formatting just those named files, the same repo-wide check reran cleanly with `All matched files use Prettier code style!`.
 - Automated-proof audit on 2026-04-20: re-read the bound task from disk, confirmed all 4 subtasks and all 5 Testing items are now honestly complete with no live blocker remaining, and closed Task 166 to `__done__` so the loop can advance to Task 167 honestly.
+- Manual testing on 2026-04-20: assessed Task 166 as task-scoped `not_applicable` after re-reading the current runtime research and task exit criteria; this repair only owns the shared `server/src/test/integration/flows.run.loop.test.ts` proof seam and the `npm run test:summary:server:unit` wrapper gate, so no runnable browser, API, or other externally observable surface is required for its own acceptance.
 
 ### Task 167. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 

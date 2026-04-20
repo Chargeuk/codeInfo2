@@ -343,6 +343,19 @@ const waitForRuntimeCleanup = async (
   );
 };
 
+const waitForPredicate = async (
+  predicate: () => boolean,
+  timeoutMs: number,
+  message: string,
+) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return;
+    await delay(25);
+  }
+  throw new Error(message);
+};
+
 const expectNoTerminalFinal = async (
   ws: WebSocket,
   conversationId: string,
@@ -1269,6 +1282,22 @@ test('flow stop during a looped flow prevents later iterations from continuing',
       stopUnwindCheckpoints.shift();
     }
   };
+  const waitForStopUnwindCheckpoint = async (
+    checkpoint: string,
+    conversationId: string,
+    timeoutMs = 5000,
+  ) => {
+    await waitForPredicate(
+      () =>
+        stopUnwindCheckpoints.some(
+          (item) =>
+            item.checkpoint === checkpoint &&
+            item.conversationId === conversationId,
+        ),
+      timeoutMs,
+      `Timed out waiting for stop-unwind checkpoint ${checkpoint}`,
+    );
+  };
   const recordCleanupPhaseCheckpoint = (
     label: string,
     conversationId: string,
@@ -1356,12 +1385,19 @@ test('flow stop during a looped flow prevents later iterations from continuing',
           timeoutMs: 5000,
         });
 
-        await delay(250);
-        recordCleanupPhaseCheckpoint(
-          'after stopped final observed',
+        await waitForStopUnwindCheckpoint(
+          'runStartLoopStep.return.stop.pending_cancel',
           conversationId,
         );
-        recordCleanupEvent('after stopped final observed', conversationId);
+        await waitForStopUnwindCheckpoint(
+          'runFlowUnlocked.finalize.exit',
+          conversationId,
+        );
+        recordCleanupPhaseCheckpoint(
+          'after stop unwind finalized',
+          conversationId,
+        );
+        recordCleanupEvent('after stop unwind finalized', conversationId);
         const turns = memoryTurns.get(conversationId) ?? [];
         const outerBreakTurns = turns.filter(
           (turn) =>

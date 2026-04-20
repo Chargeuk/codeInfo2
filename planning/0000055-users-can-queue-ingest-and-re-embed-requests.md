@@ -13176,10 +13176,10 @@ Repair the exact `flows.run.loop` stop-cleanup proof that is currently blocking 
 
 #### Subtasks
 
-1. [ ] Re-read `test-results/server-unit-tests-2026-04-20T20-30-41-861Z.log`, the named `flow stop during a looped flow prevents later iterations from continuing` scenario, and the local `waitForRuntimeCleanup(...)` helper in `server/src/test/integration/flows.run.loop.test.ts`. Purpose: keep the prerequisite anchored to the exact failing cleanup boundary that is currently blocking downstream proof.
-2. [ ] Trace the named failure from the saved wrapper log through the scenario checkpoints and the local cleanup helper, and identify the minimum owner on current disk that must change to make the stop-cleanup proof deterministic again. Purpose: keep the repair bounded to the true blocker owner instead of widening into unrelated runtime seams.
-3. [ ] Repair the named scenario and any exact supporting seam it reaches so stop unwinding and runtime cleanup settle honestly without reopening later iterations or hiding timing drift behind fixed-delay sleeps. Purpose: restore the shared server-unit prerequisite without weakening the proof contract.
-4. [ ] Test type: server integration under `node:test`. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: author or update direct proof around the named stop-cleanup scenario so its assertions, helper usage, and checkpoint summaries reflect the repaired deterministic boundary explicitly. Purpose: keep the blocker repair owned by the proof file that currently fails in the full wrapper.
+1. [x] Re-read `test-results/server-unit-tests-2026-04-20T20-30-41-861Z.log`, the named `flow stop during a looped flow prevents later iterations from continuing` scenario, and the local `waitForRuntimeCleanup(...)` helper in `server/src/test/integration/flows.run.loop.test.ts`. Purpose: keep the prerequisite anchored to the exact failing cleanup boundary that is currently blocking downstream proof.
+2. [x] Trace the named failure from the saved wrapper log through the scenario checkpoints and the local cleanup helper, and identify the minimum owner on current disk that must change to make the stop-cleanup proof deterministic again. Purpose: keep the repair bounded to the true blocker owner instead of widening into unrelated runtime seams.
+3. [x] Repair the named scenario and any exact supporting seam it reaches so stop unwinding and runtime cleanup settle honestly without reopening later iterations or hiding timing drift behind fixed-delay sleeps. Purpose: restore the shared server-unit prerequisite without weakening the proof contract.
+4. [x] Test type: server integration under `node:test`. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: author or update direct proof around the named stop-cleanup scenario so its assertions, helper usage, and checkpoint summaries reflect the repaired deterministic boundary explicitly. Purpose: keep the blocker repair owned by the proof file that currently fails in the full wrapper.
 
 #### Testing
 
@@ -13192,6 +13192,8 @@ Repair the exact `flows.run.loop` stop-cleanup proof that is currently blocking 
 #### Implementation notes
 
 - Planner repair on 2026-04-20: inserted this prerequisite after Task `167` proved its remaining full `server:unit` gate is blocked by the unrelated `flows.run.loop.test.ts` stop-cleanup failure recorded in `test-results/server-unit-tests-2026-04-20T20-30-41-861Z.log`. This task now owns that shared wrapper blocker so the implementation loop selects the real next owner instead of repeatedly reopening `/ingest/roots` proof work.
+- Subtasks 1 and 2: re-read the saved `server:unit` failure log, the named loop-stop scenario, and the local cleanup helpers/checkpoints, then traced the blocker to proof drift inside `server/src/test/integration/flows.run.loop.test.ts`: the scenario treated the first `turn_final status=stopped` event as the end-of-run cleanup boundary even though the recorded stop-unwind checkpoints showed loop teardown could still be in flight after that event.
+- Subtasks 3 and 4: repaired `server/src/test/integration/flows.run.loop.test.ts` so the named scenario now waits for explicit stop-unwind checkpoints (`runStartLoopStep.return.stop.pending_cancel` and `runFlowUnlocked.finalize.exit`) before asserting that later iterations never continue and before falling into runtime-cleanup teardown, replacing the old fixed-delay assumption with a deterministic proof-owned boundary on current disk.
 
 ### Task 167. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 

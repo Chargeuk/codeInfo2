@@ -12641,7 +12641,7 @@ If a later manual-testing pass wants a live sanity check, keep it limited to sup
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `bdd_assertion_step_mutates_state`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` to keep the changed delta re-embed proof-owning scenario honest about which step mutates state and which step asserts outcomes.
@@ -12696,6 +12696,7 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 - `npm run lint` passed cleanly after the local feature and step phase-boundary repair, so the task-owned lint hygiene subtask is now complete without a follow-up `lint:fix` pass.
 - The file-scoped Prettier subtask only hit the known `.feature` parser seam, so I reran the same Task 159 file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.
 - `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so Testing 1 is now complete without needing log inspection.
+- Automated-proof audit: marked Task 159 `__done__` because all 10 subtasks and all 4 testing steps are now checked on disk and `plan_status.py --task-number 159` reports no live blocker or prose-only remaining gate.
 - `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` passed cleanly with `15/15` scenarios green in `test-results/server-cucumber-tests-2026-04-20T12-53-51-673Z.log`, so the proof-owning feature now has direct wrapper proof for the repaired phase boundary.
 - The Testing 3 rerun of `npm run lint` passed cleanly after the feature-scoped cucumber proof, so no `lint:fix` follow-up was needed during automated proof either.
 - Testing 4 first reproduced the expected `.feature` parser gap, so I reran the same Task 159 file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.

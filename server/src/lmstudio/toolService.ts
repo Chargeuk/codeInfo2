@@ -19,7 +19,10 @@ import {
   type ActiveIngestRunContext,
 } from '../ingest/ingestJob.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
-import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
+import {
+  normalizeCanonicalQueueTargetPath,
+  resolveRequestEmbeddingSelection,
+} from '../ingest/requestContracts.js';
 import { append } from '../logStore.js';
 import { baseLogger, parseNumber } from '../logger.js';
 import {
@@ -78,7 +81,7 @@ export type RepoEntry = {
     error: string;
     message: string;
     retryable: boolean;
-    provider: 'lmstudio' | 'openai';
+    provider: 'lmstudio' | 'openai' | 'ingest';
     upstreamStatus?: number;
     retryAfterMs?: number;
   } | null;
@@ -318,7 +321,9 @@ function parseNormalizedError(meta: Record<string, unknown>) {
   const message = candidate.message;
   const retryable = candidate.retryable;
   if (
-    (provider === 'openai' || provider === 'lmstudio') &&
+    (provider === 'openai' ||
+      provider === 'lmstudio' ||
+      provider === 'ingest') &&
     typeof error === 'string' &&
     typeof message === 'string' &&
     typeof retryable === 'boolean'
@@ -337,6 +342,104 @@ function parseNormalizedError(meta: Record<string, unknown>) {
     } as RepoEntry['error'];
   }
   return null;
+}
+
+function resolveQueueRequestEmbeddingIdentity(params: {
+  payload: Record<string, unknown>;
+  fallbackLock: ListReposResult['lock'] | RepoEntry['lock'] | null | undefined;
+  currentRepo?: RepoEntry;
+}) {
+  const { payload, fallbackLock, currentRepo } = params;
+  const requestedSelection = resolveRequestEmbeddingSelection({
+    embeddingProvider: payload.embeddingProvider,
+    embeddingModel: payload.embeddingModel,
+    model: payload.model,
+  });
+  const currentProvider = normalizeEmbeddingProvider(
+    currentRepo?.embeddingProvider,
+  );
+  const currentModel = normalizeEmbeddingModel(currentRepo?.embeddingModel);
+  const currentDimensions = normalizeEmbeddingDimensions(
+    currentRepo?.embeddingDimensions,
+  );
+  const fallbackProvider = normalizeEmbeddingProvider(
+    fallbackLock?.embeddingProvider,
+  );
+  const fallbackModel = normalizeEmbeddingModel(fallbackLock?.embeddingModel);
+  const fallbackDimensions = normalizeEmbeddingDimensions(
+    fallbackLock?.embeddingDimensions,
+  );
+  const payloadDimensions = normalizeEmbeddingDimensions(
+    payload.embeddingDimensions,
+  );
+
+  if (!('status' in requestedSelection)) {
+    const provider = requestedSelection.selection.providerId;
+    const model = requestedSelection.selection.modelKey;
+    const dimensions =
+      payloadDimensions ??
+      (currentProvider === provider && currentModel === model
+        ? currentDimensions
+        : fallbackProvider === provider && fallbackModel === model
+          ? fallbackDimensions
+          : null) ??
+      0;
+
+    return {
+      embeddingProvider: provider,
+      embeddingModel: model,
+      embeddingDimensions: dimensions,
+    };
+  }
+
+  const partialCanonicalProvider = normalizeEmbeddingProvider(
+    payload.embeddingProvider,
+  );
+  const partialCanonicalModel = normalizeEmbeddingModel(payload.embeddingModel);
+
+  if (
+    payload.embeddingProvider !== undefined ||
+    payload.embeddingModel !== undefined
+  ) {
+    const provider =
+      partialCanonicalProvider ??
+      currentProvider ??
+      fallbackProvider ??
+      'lmstudio';
+    const model = partialCanonicalModel ?? '';
+    const dimensions =
+      model.length > 0
+        ? (payloadDimensions ??
+          (currentProvider === provider && currentModel === model
+            ? currentDimensions
+            : fallbackProvider === provider && fallbackModel === model
+              ? fallbackDimensions
+              : null) ??
+          0)
+        : 0;
+    return {
+      embeddingProvider: provider,
+      embeddingModel: model,
+      embeddingDimensions: dimensions,
+    };
+  }
+
+  const provider = currentProvider ?? fallbackProvider ?? 'lmstudio';
+  const model = normalizeEmbeddingModel(payload.model) ?? '';
+  const dimensions =
+    payloadDimensions ??
+    (currentProvider === provider && currentModel === model
+      ? currentDimensions
+      : fallbackProvider === provider && fallbackModel === model
+        ? fallbackDimensions
+        : null) ??
+    0;
+
+  return {
+    embeddingProvider: provider,
+    embeddingModel: model,
+    embeddingDimensions: dimensions,
+  };
 }
 
 function normalizeEmbeddingProvider(
@@ -653,25 +756,11 @@ function buildRepoFromQueueRequest(params: {
       : queueRequest.canonicalTargetPath;
   const mapped = mapIngestPath(queuePath);
   const name = deriveQueuePayloadName(queueRequest);
-  const embeddingProvider =
-    payload.embeddingProvider === 'lmstudio' ||
-    payload.embeddingProvider === 'openai'
-      ? payload.embeddingProvider
-      : (lock?.embeddingProvider ?? 'lmstudio');
-  const embeddingModel =
-    typeof payload.embeddingModel === 'string' &&
-    payload.embeddingModel.length > 0
-      ? payload.embeddingModel
-      : typeof payload.model === 'string'
-        ? payload.model
-        : (lock?.embeddingModel ?? '');
-  const embeddingDimensions =
-    typeof payload.embeddingDimensions === 'number'
-      ? payload.embeddingDimensions
-      : lock?.embeddingProvider === embeddingProvider &&
-          lock.embeddingModel === embeddingModel
-        ? lock.embeddingDimensions
-        : 0;
+  const { embeddingProvider, embeddingModel, embeddingDimensions } =
+    resolveQueueRequestEmbeddingIdentity({
+      payload,
+      fallbackLock: lock,
+    });
   const repoLock = {
     embeddingProvider,
     embeddingModel,
@@ -710,81 +799,28 @@ function applyWaitingQueueRequestMetadata(
 ) {
   const payload = queueRequest.requestPayload;
   const name = deriveQueuePayloadName(queueRequest);
-  const payloadCanonicalProvider = normalizeEmbeddingProvider(
-    payload.embeddingProvider,
-  );
-  const payloadCanonicalModel = normalizeEmbeddingModel(payload.embeddingModel);
-  const payloadCanonicalDimensions = normalizeEmbeddingDimensions(
-    payload.embeddingDimensions,
-  );
-  const repoCanonicalProvider = normalizeEmbeddingProvider(repo.embeddingProvider);
-  const repoCanonicalModel = normalizeEmbeddingModel(repo.embeddingModel);
-  const lockCanonicalProvider = normalizeEmbeddingProvider(
-    repo.lock?.embeddingProvider,
-  );
-  const lockCanonicalModel = normalizeEmbeddingModel(repo.lock?.embeddingModel);
-
-  let provider: EmbeddingProviderId = 'lmstudio';
-  let model = '';
-  let dimensions = 0;
-
-  if (payloadCanonicalProvider && payloadCanonicalModel) {
-    provider = payloadCanonicalProvider;
-    model = payloadCanonicalModel;
-    dimensions =
-      payloadCanonicalDimensions ??
-      (repoCanonicalProvider === provider && repoCanonicalModel === model
-        ? repo.embeddingDimensions
-        : repo.lock?.embeddingProvider === provider &&
-            repo.lock.embeddingModel === model
-          ? repo.lock.embeddingDimensions
-          : 0);
-  } else if (payloadCanonicalProvider || payloadCanonicalModel) {
-    provider =
-      payloadCanonicalProvider ??
-      repoCanonicalProvider ??
-      lockCanonicalProvider ??
-      'lmstudio';
-  } else if (repoCanonicalProvider && repoCanonicalModel) {
-    provider = repoCanonicalProvider;
-    model = repoCanonicalModel;
-    dimensions = repo.embeddingDimensions;
-  } else if (lockCanonicalProvider && lockCanonicalModel) {
-    provider = lockCanonicalProvider;
-    model = lockCanonicalModel;
-    dimensions = repo.lock?.embeddingDimensions ?? 0;
-  } else {
-    provider =
-      repoCanonicalProvider ?? lockCanonicalProvider ?? 'lmstudio';
-    model =
-      normalizeEmbeddingModel(payload.model) ??
-      normalizeEmbeddingModel(repo.modelId) ??
-      normalizeEmbeddingModel(repo.model) ??
-      '';
-    dimensions =
-      repo.lock?.embeddingProvider === provider &&
-      repo.lock.embeddingModel === model
-        ? repo.lock.embeddingDimensions
-        : repo.embeddingProvider === provider && repo.embeddingModel === model
-          ? repo.embeddingDimensions
-          : 0;
-  }
+  const { embeddingProvider, embeddingModel, embeddingDimensions } =
+    resolveQueueRequestEmbeddingIdentity({
+      payload,
+      fallbackLock: repo.lock ?? null,
+      currentRepo: repo,
+    });
 
   repo.name = name;
   if (typeof payload.description === 'string') {
     repo.description = payload.description;
   }
-  repo.embeddingProvider = provider;
-  repo.embeddingModel = model;
-  repo.embeddingDimensions = dimensions;
-  repo.model = model;
-  repo.modelId = model;
+  repo.embeddingProvider = embeddingProvider;
+  repo.embeddingModel = embeddingModel;
+  repo.embeddingDimensions = embeddingDimensions;
+  repo.model = embeddingModel;
+  repo.modelId = embeddingModel;
   repo.lock = {
-    embeddingProvider: provider,
-    embeddingModel: model,
-    embeddingDimensions: dimensions,
-    lockedModelId: model,
-    modelId: model,
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    lockedModelId: embeddingModel,
+    modelId: embeddingModel,
   };
 }
 
@@ -805,7 +841,9 @@ function applyRuntimeOverlayDiagnostics(
       ? (runtimeStatus.error as Record<string, unknown>)
       : null;
   const normalizedProvider =
-    candidate?.provider === 'openai' || candidate?.provider === 'lmstudio'
+    candidate?.provider === 'openai' ||
+    candidate?.provider === 'lmstudio' ||
+    candidate?.provider === 'ingest'
       ? candidate.provider
       : null;
   const normalizedError: RepoEntry['error'] =
@@ -909,7 +947,10 @@ function applyQueueOverlay(params: {
     delete repo.phase;
     if (runtimeStatus) {
       repo.counts = { ...runtimeStatus.counts };
-      repo.lastError = runtimeStatus.lastError ?? 'Queue cleanup blocked';
+      applyRuntimeOverlayDiagnostics(repo, runtimeStatus);
+      if (!repo.lastError) {
+        repo.lastError = 'Queue cleanup blocked';
+      }
     } else if (!repo.lastError) {
       repo.lastError = 'Queue cleanup blocked';
     }

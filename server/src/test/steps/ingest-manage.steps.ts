@@ -563,6 +563,28 @@ Then(
 );
 
 Then(
+  'ingest manage roots entry for {string} has structured error provider {string} code {string} with message {string}',
+  (
+    rootPath: string,
+    expectedProvider: string,
+    expectedCode: string,
+    expectedMessage: string,
+  ) => {
+    const root = findRootByPath(rootPath) as {
+      error?: {
+        error?: string;
+        message?: string;
+        retryable?: boolean;
+        provider?: string;
+      } | null;
+    };
+    assert.equal(root.error?.provider, expectedProvider);
+    assert.equal(root.error?.error, expectedCode);
+    assert.equal(root.error?.message, expectedMessage);
+  },
+);
+
+Then(
   'ingest manage roots first queue state is {string}',
   (queueState: string) => {
     assert(response, 'expected response');
@@ -798,6 +820,24 @@ Given(
 );
 
 Given(
+  'ingest manage runtime status for run {string} is ingest error {string} with message {string}',
+  (runId: string, code: string, message: string) => {
+    __setStatusForTest(runId, {
+      runId,
+      state: 'error',
+      counts: { files: 1, chunks: 1, embedded: 0 },
+      lastError: message,
+      error: {
+        error: code,
+        message,
+        retryable: false,
+        provider: 'ingest',
+      },
+    });
+  },
+);
+
+Given(
   'ingest manage runtime status for run {string} is healthy {string}',
   (runId: string, state: string) => {
     assert(
@@ -953,6 +993,24 @@ Given(
         model: legacyModel,
         embeddingProvider: provider,
         embeddingModel: canonicalModel,
+      },
+      sourceSurface: 'cucumber',
+      runId: null,
+    });
+  },
+);
+
+Given(
+  'ingest manage mongo queue has waiting request for {string} named {string} with legacy provider-qualified model {string}',
+  async (rootPath: string, name: string, legacyModel: string) => {
+    await IngestQueueRequestModel.create({
+      canonicalTargetPath: rootPath,
+      operation: 'reembed',
+      queueState: 'waiting',
+      requestPayload: {
+        path: rootPath,
+        name,
+        model: legacyModel,
       },
       sourceSurface: 'cucumber',
       runId: null,

@@ -47,7 +47,7 @@ type RootEntry = {
     error: string;
     message: string;
     retryable: boolean;
-    provider: 'lmstudio' | 'openai';
+    provider: 'lmstudio' | 'openai' | 'ingest';
     upstreamStatus?: number;
     retryAfterMs?: number;
   } | null;
@@ -161,9 +161,7 @@ function resolveRootEmbeddingProvider(
 
   return (
     normalizeEmbeddingProvider(repo.embeddingProvider) ??
-    (lock &&
-    lock.embeddingModel === embeddingModel &&
-    embeddingModel.length > 0
+    (lock && lock.embeddingModel === embeddingModel && embeddingModel.length > 0
       ? lock.embeddingProvider
       : 'lmstudio')
   );

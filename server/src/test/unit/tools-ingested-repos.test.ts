@@ -237,6 +237,47 @@ test('preserves provider-qualified identity when providers share model ids', asy
   assert.equal(lmstudioRepo.modelId, 'shared-id');
 });
 
+test('preserves structured ingest-origin normalized errors through the shared repo-list payload', async () => {
+  const res = await request(
+    buildApp(
+      {
+        ids: ['ingest-error-run'],
+        metadatas: [
+          {
+            root: '/data/ingest-error-repo',
+            name: 'ingest-error-repo',
+            model: 'text-embedding-3-small',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-3-small',
+            embeddingDimensions: 1536,
+            files: 1,
+            chunks: 1,
+            embedded: 0,
+            state: 'error',
+            lastError: 'queue replay validation failed',
+            error: {
+              error: 'INVALID_REEMBED_STATE',
+              message: 'queue replay validation failed',
+              retryable: false,
+              provider: 'ingest',
+            },
+          },
+        ],
+      },
+      'text-embedding-3-small',
+    ),
+  ).get('/tools/ingested-repos');
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.repos.length, 1);
+  const repo = res.body.repos[0];
+  assert.equal(repo.lastError, 'queue replay validation failed');
+  assert.equal(repo.error.error, 'INVALID_REEMBED_STATE');
+  assert.equal(repo.error.message, 'queue replay validation failed');
+  assert.equal(repo.error.retryable, false);
+  assert.equal(repo.error.provider, 'ingest');
+});
+
 test('maps queued/scanning/embedding states to ingesting with matching phase', async () => {
   const res = await request(
     buildApp(

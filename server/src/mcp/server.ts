@@ -357,6 +357,22 @@ const baseToolDefinitions = [
                 },
               },
               lastError: { type: ['string', 'null'] },
+              error: {
+                type: ['object', 'null'],
+                required: ['error', 'message', 'retryable', 'provider'],
+                properties: {
+                  error: { type: 'string' },
+                  message: { type: 'string' },
+                  retryable: { type: 'boolean' },
+                  provider: {
+                    type: 'string',
+                    enum: ['lmstudio', 'openai', 'ingest'],
+                  },
+                  upstreamStatus: { type: 'integer' },
+                  retryAfterMs: { type: 'integer' },
+                },
+                additionalProperties: false,
+              },
             },
             additionalProperties: false,
           },

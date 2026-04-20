@@ -81,6 +81,16 @@ Feature: Ingest roots listing
     And ingest manage roots entry for "/data/queued-root" has embedding provider "openai"
     And ingest manage roots entry for "/data/queued-root" has embedding model "text-embedding-3-small"
 
+  Scenario: waiting roots normalize legacy provider-qualified model ids before the first repaired queue run starts
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/queued-root" with legacy model "legacy-lmstudio-model"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has waiting request for "/data/queued-root" named "legacy-repo" with legacy provider-qualified model "openai/text-embedding-3-small"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/queued-root" has embedding provider "openai"
+    And ingest manage roots entry for "/data/queued-root" has embedding model "text-embedding-3-small"
+
   Scenario: waiting roots blank incompatible legacy fallback identity when only a partial canonical provider survives
     Given ingest manage chroma stub is empty
     And ingest manage root metadata exists for "/data/queued-root" with legacy model "legacy-lmstudio-model"
@@ -113,6 +123,18 @@ Feature: Ingest roots listing
     And ingest manage roots entry for "/data/runtime-error-root" has queue state "running"
     And ingest manage roots entry for "/data/runtime-error-root" has last error "fresh runtime failure"
     And ingest manage roots entry for "/data/runtime-error-root" has runtime error "OPENAI_TIMEOUT" with message "fresh runtime failure"
+
+  Scenario: running roots preserve structured ingest-origin diagnostics when queue replay validation fails
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/data/runtime-error-root" with stale persisted error "stale persisted failure"
+    And ingest manage mongo queue is empty
+    And ingest manage mongo queue has running request for "/data/runtime-error-root" with run id "runtime-ingest-error-run"
+    And ingest manage runtime status for run "runtime-ingest-error-run" is ingest error "INVALID_REEMBED_STATE" with message "fresh runtime validation failure"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+    And ingest manage roots entry for "/data/runtime-error-root" has queue state "running"
+    And ingest manage roots entry for "/data/runtime-error-root" has last error "fresh runtime validation failure"
+    And ingest manage roots entry for "/data/runtime-error-root" has structured error provider "ingest" code "INVALID_REEMBED_STATE" with message "fresh runtime validation failure"
 
   Scenario: healthy running roots clear stale persisted diagnostics after the queue overlay recovers
     Given ingest manage chroma stub is empty

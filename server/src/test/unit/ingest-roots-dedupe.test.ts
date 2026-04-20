@@ -188,7 +188,7 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
 });
 
-test('GET /ingest/roots keeps genuine current error diagnostics visible while serializing the flat normalized error payload', async () => {
+test('GET /ingest/roots keeps genuine current structured error diagnostics visible while serializing the normalized error payload', async () => {
   const response = await request(
     createRootsApp(
       {
@@ -222,6 +222,148 @@ test('GET /ingest/roots keeps genuine current error diagnostics visible while se
   assert.equal(response.body.roots[0].error.provider, 'openai');
   assert.equal(response.body.roots[0].error.upstreamStatus, 429);
   assert.equal(response.body.roots[0].error.retryAfterMs, 1000);
+});
+
+test('GET /ingest/roots normalizes legacy provider-qualified waiting model ids the same way admission does', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId('000000000000000000000059'),
+                canonicalTargetPath: '/data/queued-root',
+                operation: 'reembed',
+                queueState: 'waiting',
+                requestPayload: {
+                  path: '/data/queued-root',
+                  name: 'legacy-repo',
+                  model: 'openai/text-embedding-3-small',
+                },
+                sourceSurface: 'rest:ingest/reembed',
+                runId: null,
+                createdAt: new Date('2026-04-02T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+
+    const response = await request(
+      createRootsApp(
+        {
+          ids: ['persisted-run'],
+          metadatas: [
+            {
+              name: 'legacy-repo',
+              root: '/data/queued-root',
+              model: 'legacy-lmstudio-model',
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'legacy-lmstudio-model',
+              state: 'completed',
+              lastIngestAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+        },
+        'legacy-lmstudio-model',
+      ),
+    ).get('/ingest/roots');
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.roots.length, 1);
+    const root = response.body.roots[0];
+    assert.equal(root.queueState, 'waiting');
+    assert.equal(root.embeddingProvider, 'openai');
+    assert.equal(root.embeddingModel, 'text-embedding-3-small');
+    assert.equal(root.model, 'text-embedding-3-small');
+    assert.equal(root.modelId, 'text-embedding-3-small');
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
+test('GET /ingest/roots keeps the current canonical waiting row contract unchanged while landing legacy compatibility', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId('000000000000000000000060'),
+                canonicalTargetPath: '/data/queued-root',
+                operation: 'reembed',
+                queueState: 'waiting',
+                requestPayload: {
+                  path: '/data/queued-root',
+                  name: 'legacy-repo',
+                  model: 'legacy-lmstudio-model',
+                  embeddingProvider: 'openai',
+                  embeddingModel: 'text-embedding-3-small',
+                },
+                sourceSurface: 'rest:ingest/reembed',
+                runId: null,
+                createdAt: new Date('2026-04-02T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+
+    const response = await request(
+      createRootsApp(
+        {
+          ids: ['persisted-run'],
+          metadatas: [
+            {
+              name: 'legacy-repo',
+              root: '/data/queued-root',
+              model: 'legacy-lmstudio-model',
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'legacy-lmstudio-model',
+              state: 'completed',
+              lastIngestAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+        },
+        'legacy-lmstudio-model',
+      ),
+    ).get('/ingest/roots');
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.roots.length, 1);
+    const root = response.body.roots[0];
+    assert.equal(root.queueState, 'waiting');
+    assert.equal(root.embeddingProvider, 'openai');
+    assert.equal(root.embeddingModel, 'text-embedding-3-small');
+    assert.equal(root.model, 'text-embedding-3-small');
+    assert.equal(root.modelId, 'text-embedding-3-small');
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
 });
 
 test('GET /ingest/roots keeps provider-qualified identity when model ids collide across providers', async () => {
@@ -1164,6 +1306,95 @@ test('GET /ingest/roots preserves the fresh structured runtime error when a runn
       message: 'fresh runtime failure',
       retryable: true,
       provider: 'openai',
+    });
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
+test('GET /ingest/roots preserves the fresh structured ingest-origin runtime error when a running queue overlay reports a validation failure', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId('000000000000000000000093'),
+                canonicalTargetPath: '/data/runtime-error',
+                operation: 'reembed',
+                queueState: 'running',
+                requestPayload: {
+                  path: '/data/runtime-error',
+                  name: 'runtime-error',
+                  model: 'openai/text-embedding-3-small',
+                },
+                sourceSurface: 'rest:ingest/reembed',
+                runId: 'run-runtime-ingest-error',
+                createdAt: new Date('2026-04-02T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+    __setStatusForTest('run-runtime-ingest-error', {
+      runId: 'run-runtime-ingest-error',
+      state: 'error',
+      counts: { files: 6, chunks: 12, embedded: 4 },
+      lastError: 'fresh runtime validation failure',
+      error: {
+        error: 'INVALID_REEMBED_STATE',
+        message: 'fresh runtime validation failure',
+        retryable: false,
+        provider: 'ingest',
+      },
+    });
+
+    const response = await request(
+      createRootsApp(
+        {
+          ids: ['persisted-run'],
+          metadatas: [
+            {
+              name: 'runtime-error',
+              root: '/data/runtime-error',
+              model: 'stale-model',
+              state: 'error',
+              lastError: 'stale persisted failure',
+              error: {
+                error: 'OPENAI_TIMEOUT',
+                message: 'stale persisted failure',
+                retryable: true,
+                provider: 'openai',
+              },
+            },
+          ],
+        },
+        'stale-model',
+      ),
+    ).get('/ingest/roots');
+
+    assert.equal(response.status, 200);
+    const root = response.body.roots[0];
+    assert.equal(root.queueState, 'running');
+    assert.equal(root.status, 'error');
+    assert.equal(root.lastError, 'fresh runtime validation failure');
+    assert.deepEqual(root.error, {
+      error: 'INVALID_REEMBED_STATE',
+      message: 'fresh runtime validation failure',
+      retryable: false,
+      provider: 'ingest',
     });
   } finally {
     Object.defineProperty(mongoose.connection, 'readyState', {

@@ -142,7 +142,7 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   assert.equal(parsed.repos[0].phase, undefined);
 });
 
-test('ListIngestedRepositories preserves the flat normalized error fields from the shared repo-list payload', async () => {
+test('ListIngestedRepositories preserves structured ingest-origin normalized error fields from the shared repo-list payload', async () => {
   const app = express();
   app.use(express.json());
   app.use(
@@ -170,14 +170,12 @@ test('ListIngestedRepositories preserves the flat normalized error fields from t
                 modelId: 'openai/text-embedding-3-small',
               },
               counts: { files: 0, chunks: 0, embedded: 0 },
-              lastError: 'rate limited',
+              lastError: 'queue replay validation failed',
               error: {
-                error: 'OPENAI_RATE_LIMITED',
-                message: 'rate limited',
-                retryable: true,
-                provider: 'openai',
-                upstreamStatus: 429,
-                retryAfterMs: 1000,
+                error: 'INVALID_REEMBED_STATE',
+                message: 'queue replay validation failed',
+                retryable: false,
+                provider: 'ingest',
               },
               status: 'error',
             },
@@ -217,13 +215,79 @@ test('ListIngestedRepositories preserves the flat normalized error fields from t
       lastError?: string | null;
     }>;
   };
-  assert.equal(parsed.repos[0]?.lastError, 'rate limited');
-  assert.equal(parsed.repos[0]?.error?.error, 'OPENAI_RATE_LIMITED');
-  assert.equal(parsed.repos[0]?.error?.message, 'rate limited');
-  assert.equal(parsed.repos[0]?.error?.retryable, true);
-  assert.equal(parsed.repos[0]?.error?.provider, 'openai');
-  assert.equal(parsed.repos[0]?.error?.upstreamStatus, 429);
-  assert.equal(parsed.repos[0]?.error?.retryAfterMs, 1000);
+  assert.equal(parsed.repos[0]?.lastError, 'queue replay validation failed');
+  assert.equal(parsed.repos[0]?.error?.error, 'INVALID_REEMBED_STATE');
+  assert.equal(
+    parsed.repos[0]?.error?.message,
+    'queue replay validation failed',
+  );
+  assert.equal(parsed.repos[0]?.error?.retryable, false);
+  assert.equal(parsed.repos[0]?.error?.provider, 'ingest');
+});
+
+test('ListIngestedRepositories preserves structured ingest-origin errors through the shared reader path', async () => {
+  const app = createMcpApp({
+    lockedModelId: 'text-embedding-3-small',
+    roots: {
+      ids: ['run-ingest-error'],
+      metadatas: [
+        {
+          name: 'repo',
+          root: '/data/repo',
+          model: 'text-embedding-3-small',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
+          files: 3,
+          chunks: 12,
+          embedded: 12,
+          lastIngestAt: '2026-01-01T00:00:00.000Z',
+          state: 'error',
+          description: 'sample',
+          lastError: 'queue replay validation failed',
+          error: {
+            error: 'INVALID_REEMBED_STATE',
+            message: 'queue replay validation failed',
+            retryable: false,
+            provider: 'ingest',
+          },
+        },
+      ],
+    },
+  });
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'structured-ingest-error',
+      method: 'tools/call',
+      params: {
+        name: 'ListIngestedRepositories',
+        arguments: {},
+      },
+    });
+
+  assert.equal(response.status, 200);
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<{
+      error?: {
+        error?: string;
+        message?: string;
+        retryable?: boolean;
+        provider?: string;
+      } | null;
+      lastError?: string | null;
+    }>;
+  };
+  assert.equal(parsed.repos[0]?.lastError, 'queue replay validation failed');
+  assert.equal(parsed.repos[0]?.error?.error, 'INVALID_REEMBED_STATE');
+  assert.equal(
+    parsed.repos[0]?.error?.message,
+    'queue replay validation failed',
+  );
+  assert.equal(parsed.repos[0]?.error?.retryable, false);
+  assert.equal(parsed.repos[0]?.error?.provider, 'ingest');
 });
 
 test('ListIngestedRepositories preserves the canonical queued row id alongside request metadata before execution starts', async () => {

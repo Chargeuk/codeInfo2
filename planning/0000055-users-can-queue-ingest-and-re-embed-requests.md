@@ -12873,7 +12873,7 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: cross-operation `start -> reembed` waiting-row updates still leave stale queued settings in place for the same canonical target
 
@@ -12939,6 +12939,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - **BLOCKING ANSWER** Chosen solution: normalize the repo-wide formatter input set by adding `codeInfoStatus/manual-testing/` (or an equivalently tight durable-proof-artifact pattern) to `.prettierignore`, then rerun the repo-supported `npm run format:check`. This fits the current local repo state because the failing files are committed manual-testing proof artifacts rather than Task 162-owned source or proof-authoring files, and the repo already uses `.prettierignore` to carve artifact-like inputs out of repo-wide Prettier ownership. Rejected alternatives are not suitable: marking Testing 5 complete from the task-owned file-scoped Prettier rerun would be dishonest because the listed repo-supported gate still fails, running `npm run format` across unrelated durable proof files would create broad out-of-scope churn on non-owner artifacts, and leaving the repo-wide command unchanged without excluding those proof artifacts would repeat the same blocker on later tasks that did not create the manual-testing JSONs.
 - Planner repair on 2026-04-20: Task 161 now owns the missing repo-root `.prettierignore` prerequisite that this blocker answer proved was absent. This queue-rewrite task returned to `__to_do__` behind that prerequisite with its completed implementation work plus Testing 1 through 4 preserved on disk, and it keeps only Testing 5 for the later repo-wide format rerun once Task 161 is finished.
 - Testing 5: `npm run format:check` now passes cleanly after Task 161 normalized repo-wide Prettier ownership for durable manual-testing artifacts, so the reopened Task 162 proof set is complete without any further queue-owned source changes.
+- Automated-proof audit on 2026-04-20: re-read the bound task, confirmed all five Testing items are now honestly checked on disk with no live blocker remaining, and closed Task 162 as `__done__` because no checklist-owned work is still open.
 
 ### Task 163. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 

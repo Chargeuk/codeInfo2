@@ -179,6 +179,81 @@ const createTempRepo = async (files: Record<string, string>) => {
   };
 };
 
+function buildGeneratedRelPaths(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) =>
+    path.posix.join(
+      prefix,
+      `generated-${String(index + 1).padStart(3, '0')}.ts`,
+    ),
+  );
+}
+
+function buildGeneratedFiles(
+  prefix: string,
+  count: number,
+  contentFactory: (index: number) => string,
+): Record<string, string> {
+  return Object.fromEntries(
+    buildGeneratedRelPaths(prefix, count).map((relPath, index) => [
+      relPath,
+      contentFactory(index),
+    ]),
+  );
+}
+
+function mockPersistedIngestFiles(
+  rows: Array<{ relPath: string; fileHash: string }>,
+) {
+  const persistedRows = new Map(rows.map((row) => [row.relPath, row.fileHash]));
+  const deleteBatches: string[][] = [];
+
+  mock.method(IngestFileModel, 'find', () => ({
+    select: () => ({
+      lean: () => ({
+        exec: async () =>
+          Array.from(persistedRows.entries()).map(([relPath, fileHash]) => ({
+            relPath,
+            fileHash,
+          })),
+      }),
+    }),
+  }));
+
+  mock.method(
+    IngestFileModel,
+    'deleteMany',
+    (query: Record<string, unknown>) => ({
+      exec: async () => {
+        const batch =
+          (query.relPath as { $in?: string[] } | undefined)?.$in?.slice() ?? [];
+        deleteBatches.push(batch);
+        for (const relPath of batch) {
+          persistedRows.delete(relPath);
+        }
+        return { acknowledged: true, deletedCount: batch.length };
+      },
+    }),
+  );
+
+  mock.method(IngestFileModel, 'bulkWrite', async (operations: unknown[]) => {
+    for (const operation of operations as Array<{
+      updateOne?: {
+        filter?: { relPath?: string };
+        update?: { $set?: { fileHash?: string } };
+      };
+    }>) {
+      const relPath = operation.updateOne?.filter?.relPath;
+      const fileHash = operation.updateOne?.update?.$set?.fileHash;
+      if (relPath && fileHash) {
+        persistedRows.set(relPath, fileHash);
+      }
+    }
+    return { acknowledged: true } as never;
+  });
+
+  return { persistedRows, deleteBatches };
+}
+
 const waitForTerminal = async (runId: string) => {
   const result = await waitForTerminalIngestStatus(runId, {
     timeoutMs: 20_000,
@@ -1153,6 +1228,156 @@ test('deletions-only delta reembed returns a zero-count completed terminal resul
       bootstrapCallsBeforeRun,
       'deletions-only fast path should not add a late Chroma bootstrap after validation passes',
     );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('deletions-only delta reembed keeps the small delete cleanup contract after bounded batching lands', async () => {
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'src/keep.ts': 'export const keep = 1;\n',
+    'src/delete-a.ts': 'export const deleteA = 1;\n',
+    'src/delete-b.ts': 'export const deleteB = 1;\n',
+  });
+
+  try {
+    const persistence = mockPersistedIngestFiles([
+      { relPath: 'src/keep.ts', fileHash: 'keep-hash' },
+      { relPath: 'src/delete-a.ts', fileHash: 'delete-a-hash' },
+      { relPath: 'src/delete-b.ts', fileHash: 'delete-b-hash' },
+    ]);
+    await fs.rm(path.join(root, 'src/delete-a.ts'));
+    await fs.rm(path.join(root, 'src/delete-b.ts'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/keep.ts';
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'small-deletion-batch-reembed',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.message, 'Removed vectors for 2 deleted file(s)');
+    assert.deepEqual(persistence.deleteBatches, [
+      ['src/delete-a.ts', 'src/delete-b.ts'],
+    ]);
+    assert.deepEqual(Array.from(persistence.persistedRows.entries()), [
+      ['src/keep.ts', 'keep-hash'],
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('changed delta reembed removes the intended large deleted relPath set across bounded cleanup batches', async () => {
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const deletedRelPaths = buildGeneratedRelPaths('deleted', 205);
+  const { root, cleanup } = await createTempRepo({
+    ...buildGeneratedFiles(
+      'deleted',
+      205,
+      (index) => `export const deleted${index} = ${index};\n`,
+    ),
+    'src/live.ts': 'export const live = 1;\n',
+  });
+
+  try {
+    const liveBeforeHash = await hashFile(path.join(root, 'src/live.ts'));
+    const persistence = mockPersistedIngestFiles([
+      { relPath: 'src/live.ts', fileHash: liveBeforeHash },
+      ...deletedRelPaths.map((relPath, index) => ({
+        relPath,
+        fileHash: `deleted-hash-${index}`,
+      })),
+    ]);
+
+    for (const relPath of deletedRelPaths) {
+      await fs.rm(path.join(root, relPath));
+    }
+    await fs.writeFile(
+      path.join(root, 'src/live.ts'),
+      'export const live = 2;\n',
+      'utf8',
+    );
+    const liveAfterHash = await hashFile(path.join(root, 'src/live.ts'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/live.ts';
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'changed-delta-batched-deletes',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.deepEqual(
+      persistence.deleteBatches.map((batch) => batch.length),
+      [200, 5],
+    );
+    assert.deepEqual(
+      persistence.deleteBatches.flatMap((batch) => batch),
+      deletedRelPaths,
+    );
+    assert.deepEqual(Array.from(persistence.persistedRows.entries()), [
+      ['src/live.ts', liveAfterHash],
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('deletions-only delta reembed tolerates partially pre-cleaned persisted relPaths during bounded cleanup', async () => {
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'src/keep.ts': 'export const keep = 1;\n',
+    'src/delete-a.ts': 'export const deleteA = 1;\n',
+    'src/delete-b.ts': 'export const deleteB = 1;\n',
+    'src/delete-c.ts': 'export const deleteC = 1;\n',
+  });
+
+  try {
+    const persistence = mockPersistedIngestFiles([
+      { relPath: 'src/keep.ts', fileHash: 'keep-hash' },
+      { relPath: 'src/delete-a.ts', fileHash: 'delete-a-hash' },
+      { relPath: 'src/delete-c.ts', fileHash: 'delete-c-hash' },
+    ]);
+    await fs.rm(path.join(root, 'src/delete-a.ts'));
+    await fs.rm(path.join(root, 'src/delete-b.ts'));
+    await fs.rm(path.join(root, 'src/delete-c.ts'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'src/keep.ts';
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'partial-precleaned-deletions-reembed',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    const status = await waitForTerminal(runId);
+
+    assert.equal(status.state, 'completed');
+    assert.equal(status.message, 'Removed vectors for 3 deleted file(s)');
+    assert.deepEqual(persistence.deleteBatches, [
+      ['src/delete-a.ts', 'src/delete-b.ts', 'src/delete-c.ts'],
+    ]);
+    assert.deepEqual(Array.from(persistence.persistedRows.entries()), [
+      ['src/keep.ts', 'keep-hash'],
+    ]);
   } finally {
     await cleanup();
   }

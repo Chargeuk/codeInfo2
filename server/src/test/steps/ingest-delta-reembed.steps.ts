@@ -58,6 +58,15 @@ let rememberedVectorCount: number | null = null;
 let rememberedRunId: string | null = null;
 let rememberedAstCoverageTimestamp: string | null = null;
 
+function buildGeneratedRelPaths(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) =>
+    path.posix.join(
+      prefix,
+      `generated-${String(index + 1).padStart(3, '0')}.ts`,
+    ),
+  );
+}
+
 async function ensureTempDir() {
   if (tempDir) return tempDir;
   tempDir = await createTempRepoRoot('ingest-delta-');
@@ -186,6 +195,20 @@ Given(
   },
 );
 
+Given(
+  'ingest delta temp repo with {int} generated files under {string} containing {string}',
+  async (count: number, prefix: string, content: string) => {
+    const dir = await ensureTempDir();
+    for (const rel of buildGeneratedRelPaths(prefix, count)) {
+      const filePath = path.join(dir, rel);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, content);
+      const fileHash = await hashFile(filePath);
+      originalHashesByRelPath.set(rel, fileHash);
+    }
+  },
+);
+
 When(
   'I POST ingest start for the delta repo with model {string}',
   async (model: string) => {
@@ -257,6 +280,19 @@ When('I delete ingest delta temp file {string}', async (rel: string) => {
   previousHashesByRelPath.set(rel, before);
   await fs.rm(filePath, { force: true });
 });
+
+When(
+  'I delete {int} generated ingest delta temp files under {string}',
+  async (count: number, prefix: string) => {
+    assert(tempDir, 'temp dir missing');
+    for (const rel of buildGeneratedRelPaths(prefix, count)) {
+      const filePath = path.join(tempDir, rel);
+      const before = await hashFile(filePath);
+      previousHashesByRelPath.set(rel, before);
+      await fs.rm(filePath, { force: true });
+    }
+  },
+);
 
 When('I remember ingest delta vector count for the delta repo', async () => {
   assert(tempDir, 'temp dir missing');
@@ -381,6 +417,20 @@ Then(
 );
 
 Then(
+  'ingest delta vectors under {string} should be absent',
+  async (prefix: string) => {
+    assert(tempDir, 'temp dir missing');
+    const raw = await vectorIdsFor({ root: tempDir });
+    const remaining = raw.metadatas.filter((metadata) =>
+      String((metadata as Metadata | undefined)?.relPath ?? '').startsWith(
+        `${prefix}/`,
+      ),
+    );
+    assert.equal(remaining.length, 0);
+  },
+);
+
+Then(
   'ingest delta ingest_files row for {string} should equal the current hash',
   async (rel: string) => {
     assert(tempDir, 'temp dir missing');
@@ -404,6 +454,22 @@ Then(
       .lean()
       .exec();
     assert.equal(row, null);
+  },
+);
+
+Then(
+  'ingest delta ingest_files rows under {string} should be absent',
+  async (prefix: string) => {
+    assert(tempDir, 'temp dir missing');
+    assert(isMongoConnected(), 'mongo should be connected for this step');
+    const rows = (await IngestFileModel.find({ root: tempDir })
+      .select({ _id: 0, relPath: 1 })
+      .lean()
+      .exec()) as Array<{ relPath: string }>;
+    const remaining = rows.filter((row) =>
+      row.relPath.startsWith(`${prefix}/`),
+    );
+    assert.deepEqual(remaining, []);
   },
 );
 

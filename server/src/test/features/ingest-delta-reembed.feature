@@ -103,6 +103,20 @@ Feature: Ingest delta re-embed
     And ingest delta ingest_files row for "a.ts" should equal its original hash
 
   @mongo
+  Scenario: Supported large deletions-only re-embed cleans generated deleted files through bounded cleanup
+    Given ingest delta temp repo with 205 generated files under "deleted" containing "export const deleted=1;"
+    And ingest delta temp repo with file "src/survivor.ts" containing "export const survivor=1;"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    When I delete 205 generated ingest delta temp files under "deleted"
+    And I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And ingest delta vectors under "deleted" should be absent
+    And ingest delta ingest_files rows under "deleted" should be absent
+    And ingest delta vectors for "src/survivor.ts" should contain its original hash
+    And ingest delta ingest_files row for "src/survivor.ts" should equal its original hash
+
+  @mongo
   Scenario: Non-AST-only delta re-embed skips AST work
     Given ingest delta temp repo with file "src/app.ts" containing "export const app=1;"
     And ingest delta temp repo with file "docs/guide.md" containing "# Guide"

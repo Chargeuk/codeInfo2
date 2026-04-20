@@ -93,6 +93,83 @@ test('deleteIngestFilesByRelPaths(...) returns null when Mongo is disconnected',
   }
 });
 
+test('deleteIngestFilesByRelPaths(...) batches large relPath deletes into bounded selectors', async () => {
+  const restoreReadyState = overrideReadyState(1);
+  const queries: Array<{ root?: string; relPath?: { $in?: string[] } }> = [];
+  const restoreDeleteMany = stubModelMethod('deleteMany', ((query: {
+    root?: string;
+    relPath?: { $in?: string[] };
+  }) => ({
+    exec: async () => {
+      queries.push(query);
+      return {
+        acknowledged: true,
+        deletedCount: query.relPath?.$in?.length ?? 0,
+      };
+    },
+  })) as unknown as typeof IngestFileModel.deleteMany);
+
+  try {
+    const relPaths = Array.from(
+      { length: 450 },
+      (_, index) => `src/file-${index}.ts`,
+    );
+    const result = await deleteIngestFilesByRelPaths({
+      root: 'r1',
+      relPaths,
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(queries.length, 3);
+    assert.deepEqual(
+      queries.map((query) => query.relPath?.$in?.length ?? 0),
+      [200, 200, 50],
+    );
+    assert.deepEqual(
+      queries.flatMap((query) => query.relPath?.$in ?? []),
+      relPaths,
+    );
+  } finally {
+    restoreDeleteMany();
+    restoreReadyState();
+  }
+});
+
+test('deleteIngestFilesByRelPaths(...) removes the full intended relPath set across batches', async () => {
+  const restoreReadyState = overrideReadyState(1);
+  const persistedRelPaths = new Set([
+    ...Array.from({ length: 405 }, (_, index) => `docs/deleted-${index}.md`),
+    'docs/keep.md',
+  ]);
+  const restoreDeleteMany = stubModelMethod('deleteMany', ((query: {
+    relPath?: { $in?: string[] };
+  }) => ({
+    exec: async () => {
+      for (const relPath of query.relPath?.$in ?? []) {
+        persistedRelPaths.delete(relPath);
+      }
+      return { acknowledged: true, deletedCount: 0 };
+    },
+  })) as unknown as typeof IngestFileModel.deleteMany);
+
+  try {
+    const relPaths = Array.from(
+      { length: 405 },
+      (_, index) => `docs/deleted-${index}.md`,
+    );
+    const result = await deleteIngestFilesByRelPaths({
+      root: 'r1',
+      relPaths,
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.deepEqual([...persistedRelPaths], ['docs/keep.md']);
+  } finally {
+    restoreDeleteMany();
+    restoreReadyState();
+  }
+});
+
 test('clearIngestFilesByRoot(root) returns null when Mongo is disconnected', async () => {
   const restoreReadyState = overrideReadyState(0);
   const restoreDeleteMany = stubModelMethod('deleteMany', (async () => {

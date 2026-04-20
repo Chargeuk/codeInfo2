@@ -1848,6 +1848,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           workFiles.length === 0 &&
           !shouldRebuildAstForDelta
         ) {
+          const deletedRelPaths = deltaPlan.deleted.map((file) => file.relPath);
           logLifecycle('info', '0000020 ingest delta deletions-only', {
             root,
             deleted: deltaPlan.deleted.length,
@@ -1863,7 +1864,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           }
           await deleteIngestFilesByRelPaths({
             root,
-            relPaths: deltaPlan.deleted.map((f) => f.relPath),
+            relPaths: deletedRelPaths,
           });
           const counts = { files: 0, chunks: 0, embedded: 0 };
           await completeReembedFastPathWithFence({

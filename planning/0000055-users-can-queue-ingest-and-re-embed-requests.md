@@ -12460,7 +12460,7 @@ If a later manual-testing pass wants a live runtime sanity check, keep it limite
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `non_canonical_selector_alias_accepted`
   - `should_fix` `config_domain_fail_open`
@@ -12548,6 +12548,7 @@ This task restores the stricter queueable input contract at the authority-sensit
 - `npm run lint` initially surfaced unused cleanup/import drift from the new shared selector helper and proof rewrites; removing the stale symbols and fixing the integration import order made the repository lint checkpoint pass cleanly.
 - The file-scoped Prettier checkpoint initially reported formatting drift in the trust-boundary files and needed `prettier-plugin-gherkin` to parse the `.feature` owners, so the same Task 157 file list was written and rechecked with that plugin before the subtask was closed.
 - `npm run build:summary:server` first failed on a TypeScript narrowing error in `reingestService.ts`; rewriting the invalid-source branch to return early fixed the compile issue and the rerun passed cleanly.
+- Automated-proof audit: marked Task 157 `__done__` because all 22 subtasks and all 5 testing steps are now checked on disk and `plan_status.py --task-number 157` reports no live blocker or prose-only remaining gate.
 
 ### Task 158. Bound Large Delta Re-Embed Delete Selectors
 

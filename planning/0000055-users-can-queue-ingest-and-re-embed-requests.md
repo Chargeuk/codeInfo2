@@ -12887,7 +12887,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - `R2.` The rewritten waiting row preserves `requestId`, `createdAt`, and source provenance while replacing the normalized stored request settings and refreshing `updatedAt`.
 - `R3.` The duplicate-key retry path applies the same cross-operation rewrite rule as the primary path instead of falling back to stale queued settings.
 - `R4.` Direct unit and route-owner proof covers the cross-operation waiting-row rewrite on current disk.
-- `R5.` This task stays on queue-owned helper and route-owner unit proof only because the changed seam is the waiting-row rewrite helper itself; broader feature-level revalidation remains final story work in Task `168`.
+- `R5.` This task stays on queue-owned helper and route-owner unit proof only because the changed seam is the waiting-row rewrite helper itself; broader feature-level revalidation remains final story work in Task `169`.
 
 #### Proof Mapping
 
@@ -12925,7 +12925,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 
 #### Implementation notes
 
-- Subtask 1: re-read the Story 55 review-created queue-dedupe finding and confirmed Task 162 stays local to waiting-row rewrite parity plus unit proof owners, with broader revalidation deferred to Task 168.
+- Subtask 1: re-read the Story 55 review-created queue-dedupe finding and confirmed Task 162 stays local to waiting-row rewrite parity plus unit proof owners, with broader revalidation deferred to Task 169.
 - Subtasks 2 through 4: repaired `server/src/ingest/requestQueue.ts` so waiting-row rewrites no longer block `start -> reembed` updates on the same canonical target, the update path still preserves queue identity and source provenance by only replacing `operation` plus normalized `requestPayload`, and the duplicate-key retry branch now reuses the same cross-operation rewrite filter.
 - Subtasks 5 through 7: rewrote the queue-owner unit proofs in `server/src/test/unit/ingest-request-queue.test.ts` so the old stale-settings `start -> reembed` coverage now asserts in-place rewrite semantics, refreshed `updatedAt` with preserved `createdAt` and `sourceSurface`, and matching duplicate-key retry behavior for the same waiting row.
 - Subtasks 8 and 9: added route-owner response proof in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` that updated-in-place queue reuse still returns the reused `requestId` plus preserved waiting `queuePosition` without inventing a second queue item.
@@ -12942,11 +12942,56 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - Automated-proof audit on 2026-04-20: re-read the bound task, confirmed all five Testing items are now honestly checked on disk with no live blocker remaining, and closed Task 162 as `__done__` because no checklist-owned work is still open.
 - Manual-testing assessment on 2026-04-20: task-scoped manual testing was not applicable. Task 162 keeps its required proof on queue-owner and route-owner automated coverage, and its own exit criteria explicitly defer broader feature-level revalidation to Task 168, so no runnable, browser-visible, or network-visible manual proof surface was required here.
 
-### Task 163. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
+### Task 163. Repair RequestQueue Helper-Arity Drift Blocking Shared Server Build
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `161`
+- Task Dependencies: `161, 162`
 - Task Status: `__in_progress__`
+- Addresses Findings:
+  - `plan_contract_issue`: stale queue-rewrite caller arity in `server/src/ingest/requestQueue.ts` currently blocks the shared server build gate needed before downstream Task `164` can rerun honest automated proof
+
+#### Overview
+
+Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `server/src/ingest/requestQueue.ts` so the shared server build baseline is runnable again. This task owns only the helper-contract prerequisite that now blocks downstream proof; it must not widen into new queue semantics beyond restoring the current one-argument helper contract or, if direct local evidence proves necessary, reintroducing an explicit second-argument contract with matching proof.
+
+#### Task Exit Criteria
+
+- `R1.` The `requestQueue.ts` helper/caller contract is internally consistent, so `shouldRewriteWaitingRequest(...)` no longer fails TypeScript build with `TS2554`.
+- `R2.` The repair stays local to the queue helper seam and its direct proof owners instead of reopening the deletions-only cleanup-blocked runtime contract already implemented in Task `164`.
+- `R3.` Direct queue-owner proof on current disk shows waiting-row reuse and rewrite behavior still follows the repaired helper contract after the caller-arity fix lands.
+- `R4.` `npm run build:summary:server` runs past the current `requestQueue.ts` arity failure so Task `164` can resume honest automated proof from a runnable build baseline.
+
+#### Proof Mapping
+
+- `P1.` Requirement: stale extra-argument callers no longer violate the current `shouldRewriteWaitingRequest(...)` signature. Owners: `server/src/ingest/requestQueue.ts`. Proof homes: subtasks 1 through 3; Testing 1.
+- `P2.` Requirement: waiting-row reuse and rewrite semantics remain honest after the helper-contract repair. Owners: `server/src/test/unit/ingest-request-queue.test.ts`. Proof homes: subtasks 2 and 3; Testing 2.
+
+#### Documentation Locations
+
+- `server/src/ingest/requestQueue.ts`
+- `server/src/test/unit/ingest-request-queue.test.ts`
+- `logs/test-summaries/build-server-latest.log`
+
+#### Subtasks
+
+1. [ ] Re-read the current Task `164` blocker answer, `logs/test-summaries/build-server-latest.log`, and the live `shouldRewriteWaitingRequest(...)` helper signature in `server/src/ingest/requestQueue.ts`. Purpose: keep this prerequisite anchored to the exact compile gate that is currently blocking downstream proof.
+2. [ ] Repair `server/src/ingest/requestQueue.ts` so the two stale `shouldRewriteWaitingRequest(..., input)` call sites follow the helper’s supported contract again, or only if direct local code evidence proves it necessary, restore an explicit second-argument helper contract with matching behavior. Purpose: eliminate the current `TS2554` build failure without widening into unrelated queue semantics.
+3. [ ] Test type: server unit. Location: `server/src/test/unit/ingest-request-queue.test.ts`. Description: author or update direct proof that waiting-row reuse and waiting-row rewrite behavior still follow the repaired helper contract after the arity fix lands. Purpose: keep the prerequisite behavior-preserving instead of treating the compile fix as unowned churn.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
+
+#### Implementation notes
+
+- Planner repair on 2026-04-20: inserted this prerequisite after Task `164` proved its remaining proof gate is blocked by unowned `requestQueue.ts` caller-arity drift, not by more deletions-only cleanup-path work. This task now owns the compile-gate repair so the implementation loop has one honest active owner again.
+
+### Task 164. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `161, 163`
+- Task Status: `__to_do__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: deletions-only delta re-embed currently reports terminal success even when persisted cleanup degrades under disconnected Mongo
 
@@ -12961,7 +13006,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 - `R3.` The repair stays local to the deletions-only cleanup path and its proof owners instead of widening into unrelated bootstrap or batching seams.
 - `R4.` Direct unit proof covers the degraded cleanup result, retained partial-state tolerance for partially pre-cleaned relPaths, and the still-bounded delete-selector behavior after the repair.
 - `R5.` The repaired deletions-only fast path publishes the same `cleanup-blocked` queue state later reader surfaces already consume instead of reporting a false completed terminal state.
-- `R6.` This task stays on runtime-owner unit proof only because the changed seam is the internal deletions-only fast path plus cleanup-blocked publication path; broader feature-level revalidation remains final story work in Task `168`.
+- `R6.` This task stays on runtime-owner unit proof only because the changed seam is the internal deletions-only fast path plus cleanup-blocked publication path; broader feature-level revalidation remains final story work in Task `169`.
 
 #### Proof Mapping
 
@@ -12999,16 +13044,17 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 
 #### Implementation notes
 
-- Subtask 1: re-read the Story 55 cleanup-blocked acceptance criteria and confirmed Task 163 stays local to the deletions-only fast path plus its direct unit proof owners, with broader story revalidation deferred to Task 168.
+- Subtask 1: re-read the Story 55 cleanup-blocked acceptance criteria and confirmed Task 164 stays local to the deletions-only fast path plus its direct unit proof owners, with broader story revalidation deferred to Task 169.
 - Subtasks 2 and 3: repaired `server/src/ingest/ingestJob.ts` so deletions-only delta re-embed now routes degraded persisted `ingest_files` cleanup through the shared cleanup-blocked status publisher, marks queue-owned rows cleanup-blocked when present, and skips terminal queue cleanup deletion while the run is already stalled instead of falling through to false completed success.
 - Subtasks 4 through 6: updated `server/src/test/unit/ingest-reembed.test.ts` so the deletions-only proof set now names the degraded cleanup-blocked path explicitly while keeping the successful fast path and partial-precleaned tolerance proofs honest beside it.
 - Subtasks 7 and 8: updated `server/src/test/unit/ingest-files-repo-guards.test.ts` titles so the helper-owned degraded `null` return and bounded cleanup batching invariants stay explicit for the repaired caller contract.
 - Subtask 9: added queue-runtime proof in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` that a deletions-only cleanup degradation publishes the shared cleanup-blocked queue state and stalls later waiting work instead of letting terminal cleanup delete the queue row.
-- Testing 1: `npm run build:summary:server` is currently blocked by pre-existing dirty-worktree drift in `server/src/ingest/requestQueue.ts`, where fresh local edits outside Task 163 still call `shouldRewriteWaitingRequest(...)` with two arguments even though the current signature accepts one. I repaired the Task 163-owned compile issue in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and reran the wrapper honestly, but the build still fails only on those unrelated `requestQueue.ts` type errors.
-- **BLOCKER** Testing 1 (`npm run build:summary:server`) stopped after I fixed and reran the Task 163-owned queue-runtime proof file because the remaining failure is an out-of-scope contradiction in dirty local edits to `server/src/ingest/requestQueue.ts` (`TS2554` at lines 258 and 306). I tried repairing the task-owned build break in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and rerunning the wrapper, but the build still fails before any Task 163 proof can continue. The missing capability is a clean or repaired queue-rewrite worktree outside this task’s ownership; keep Task 163 `__in_progress__`, and repair or move that unrelated `requestQueue.ts` drift before automated proof resumes rather than widening this cleanup-blocked task into queue-rewrite maintenance.
+- Testing 1: `npm run build:summary:server` is currently blocked by pre-existing dirty-worktree drift in `server/src/ingest/requestQueue.ts`, where fresh local edits outside Task 164 still call `shouldRewriteWaitingRequest(...)` with two arguments even though the current signature accepts one. I repaired the Task 164-owned compile issue in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and reran the wrapper honestly, but the build still fails only on those unrelated `requestQueue.ts` type errors.
+- **RESOLVED ISSUE** Testing 1 (`npm run build:summary:server`) originally stopped after I fixed and reran the Task 164-owned queue-runtime proof file because the remaining failure is an out-of-scope contradiction in dirty local edits to `server/src/ingest/requestQueue.ts` (`TS2554` at lines 258 and 306). I tried repairing the task-owned build break in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and rerunning the wrapper, but the build still failed before any Task 164 proof could continue. Planner repair inserted Task `163` as the explicit prerequisite owner for that request-queue compile drift, so this note is preserved as history rather than left as the live blocker on the cleanup-blocked task itself.
 - **BLOCKING ANSWER** Repository evidence shows the local fix is to update the two stale `shouldRewriteWaitingRequest(...)` call sites in `server/src/ingest/requestQueue.ts` (build log `TS2554` at lines 258 and 306) so they pass only the `waitingRequest`, then rerun `npm run build:summary:server`. The helper’s current signature at line 204 already accepts exactly one argument and only checks `waitingRequest.queueState === 'waiting'`; adjacent queue-rewrite helpers (`buildRewriteableWaitingRequestFilter`, `buildWaitingRequestUpdate`, and `rewriteWaitingQueueRequestIfAllowed`) already consume `input` directly, so there is no current repository contract that needs a second helper argument. Current TypeScript references agree: the official Functions handbook says the number of call arguments must match the declared parameters unless the API intentionally uses optional or rest parameters, and the declaration-file Do’s and Don’ts say to widen signatures only when extra parameters are genuinely part of the supported contract rather than adding unused optional arity. Targeted issue-resolution references reach the same conclusion in practice: engineers resolve `TS2554: Expected 1 arguments, but got 2` by aligning the call site with the documented one-argument API, not by keeping an unused extra argument alive. That makes the rejected alternatives clear here: reintroducing an unused `input` parameter, optional second parameter, overload, or rest parameter would only mask stale caller drift and misstate the helper API, while removing the two extra arguments is behavior-preserving because the helper does not read `input` at all.
+- Planner repair on 2026-04-20: inserted new Task `163` to own the `requestQueue.ts` helper-arity prerequisite that blocks this task’s first automated proof gate. This deletions-only cleanup task returned to `__to_do__` behind that prerequisite with its completed implementation work preserved on disk.
 
-### Task 164. Restore Honest Admission-Time `/ingest/reembed` Validation
+### Task 165. Restore Honest Admission-Time `/ingest/reembed` Validation
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
@@ -13065,7 +13111,7 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 
 - Pending.
 
-### Task 165. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
+### Task 166. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
@@ -13135,7 +13181,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 
 - Pending.
 
-### Task 166. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
+### Task 167. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
@@ -13197,7 +13243,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 - Pending.
 
-### Task 167. Reject Malformed Classic MCP Arguments Before Domain Validation
+### Task 168. Reject Malformed Classic MCP Arguments Before Domain Validation
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
@@ -13251,21 +13297,21 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 - Pending.
 
-### Task 168. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
+### Task 169. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `161, 162, 163, 164, 165, 166, 167`
+- Task Dependencies: `161, 162, 163, 164, 165, 166, 167, 168`
 - Task Status: `__to_do__`
 - Addresses Findings:
-  - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `162` through `167`, plus the Task `161` formatter-prerequisite repair that keeps that review-created block runnable
+  - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `162` through `168`, plus the Task `161` formatter-prerequisite repair that keeps that review-created block runnable
 
 #### Overview
 
-Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 162 through 167 close the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba`, that Task 161 keeps the repo-wide format gate runnable for that block, refresh the durable close-out summary honestly, and confirm the story’s supported runtime, queue, and repository-list contracts still hold after the review repairs.
+Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 162 through 168 close the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba`, that Task 161 keeps the repo-wide format gate runnable for that block, refresh the durable close-out summary honestly, and confirm the story’s supported runtime, queue, and repository-list contracts still hold after the review repairs.
 
 #### Task Exit Criteria
 
-- `R1.` Tasks `161` through `167` are `__done__`, Tasks `162` through `167` close the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba`, and the shared formatter prerequisite from Task `161` no longer blocks repo-wide proof.
+- `R1.` Tasks `161` through `168` are `__done__`, Tasks `162` through `168` close the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba`, and the shared formatter prerequisite from Task `161` no longer blocks repo-wide proof.
 - `R2.` The exact review-created findings block for review pass `0000055-20260420T140453Z-d9e38eba` is revalidated on disk rather than left as artifact-only review intent.
 - `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes and any still-honest residual risk for this review-created block.
 - `R4.` Fresh automated validation reruns the supported build, test, and stack wrappers needed to revalidate the repaired seams and the story’s supported main runtime path.
@@ -13273,7 +13319,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Proof Mapping
 
-- `P1.` Requirement: Tasks `161` through `167` are complete on current disk, with Tasks `162` through `167` closing the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba` and Task `161` keeping the repo-wide formatting gate runnable for that block. Owners: Tasks `161` through `167`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
+- `P1.` Requirement: Tasks `161` through `168` are complete on current disk, with Tasks `162` through `168` closing the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba` and Task `161` keeping the repo-wide formatting gate runnable for that block. Owners: Tasks `161` through `168`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
 - `P2.` Requirement: the durable review close-out records the repaired proof homes, any retained weak proof, and the current review-pass adjudication honestly. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 5; Testing 1 through 11.
 - `P3.` Requirement: the supported main runtime path still starts, probes, and shuts down cleanly after the repaired review-created block lands. Owners: `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: Testing 6 through 9.
 
@@ -13288,8 +13334,8 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260420T140453Z-d9e38eba` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
-2. [ ] Re-open the completed proof-owner sections for Tasks `161` through `167` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
-3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `167`. Purpose: make the durable close-out name the current repaired owner set explicitly.
+2. [ ] Re-open the completed proof-owner sections for Tasks `161` through `168` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
+3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `168`. Purpose: make the durable close-out name the current repaired owner set explicitly.
 4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
 5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
 6. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260420T140453Z-d9e38eba` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.
@@ -13314,7 +13360,7 @@ For the final manual-testing pass, use the normal human Docker stack rather than
 
 Use the browser-visible client at `http://localhost:5001` after the compose stack is healthy. The required backing services for this proof are the compose-managed server, client, Mongo, and Chroma services that come up through the normal stack; no separate login helper or seeded account is required for the `/ingest` surface.
 
-Focus the manual proof on the `/ingest` page when Task `165` changes land: confirm queued, running, and cleanup-blocked rows keep stable identity after refresh, after a queued re-embed transitions into running work, and after a retried queued request replaces earlier request metadata.
+Focus the manual proof on the `/ingest` page when Task `166` changes land: confirm queued, running, and cleanup-blocked rows keep stable identity after refresh, after a queued re-embed transitions into running work, and after a retried queued request replaces earlier request metadata.
 
 Save any final manual-testing screenshots, logs, or notes under `codeInfoStatus/manual-testing/0000055/` and commit them as durable final story proof.
 

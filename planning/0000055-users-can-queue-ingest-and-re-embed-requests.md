@@ -13206,7 +13206,7 @@ Repair the exact `flows.run.loop` stop-cleanup proof that is currently blocking 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161, 166`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `plan_contract_issue`: queued-roots acceptance proof re-fetches and polls inside `Then` instead of asserting the route response captured by the action step
   - `should_fix` `generic_engineering_issue`: `/ingest/roots` dedupe lets runtime-only `runId` override canonical row identity when stable rows are otherwise tied

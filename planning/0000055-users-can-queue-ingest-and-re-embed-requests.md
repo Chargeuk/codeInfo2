@@ -13072,7 +13072,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: `/ingest/reembed` currently proves immediate `OPENAI_MODEL_UNAVAILABLE` rejection only through a mocked queue-admission seam instead of the real admission path
 
@@ -13134,6 +13134,7 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0`, so the repaired admission-time `/ingest/reembed` contract now matches the cucumber feature owner as well as the integration owners.
 - Testing 4: `npm run lint` first exposed one task-owned import-order warning in `server/src/ingest/reingestService.ts`; after reordering that admission-time validation import, the full lint gate passed cleanly.
 - Testing 5: `npm run format:check` first flagged `server/src/ingest/reingestService.ts`; after formatting that task-owned file with Prettier, the full repo-wide format gate passed with `All matched files use Prettier code style!`.
+- Automated-proof audit: Task 165 now has all subtasks and automated Testing checked on disk, `plan_status.py --task-number 165` reports no live blocker, and the task was closed to `__done__` so the loop can move on to Task 166 honestly.
 
 ### Task 166. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 

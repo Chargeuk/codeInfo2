@@ -12287,7 +12287,7 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `backward_compatibility_reader_writer_mismatch`
   - `should_fix` `normalized_error_shape_consumer_mismatch`
@@ -12382,6 +12382,7 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 - `npm run test:summary:server:cucumber` passed cleanly with `tests run: 101`, `passed: 101`, and `failed: 0` on `test-results/server-cucumber-tests-2026-04-20T04-45-51-128Z.log`, so the feature-owned reader proof is green alongside the unit surfaces.
 - Final `npm run lint` passed cleanly after the Task 155 proof repairs, so no follow-up `lint:fix` or narrow manual cleanup was needed before the closing Prettier check.
 - The closing file-scoped Prettier check needed `prettier-plugin-gherkin` for `server/src/test/features/ingest-roots.feature`; rerunning the same Task 155 file list with that plugin passed cleanly without any writeback formatting changes.
+- Automated-proof audit closed Task 155 as `__done__` because all 21 subtasks and all 5 testing steps are now checked on disk, `plan_status.py --task-number 155` reports no live blockers, and no prose-only remainder remained as an honest gate.
 
 ### Task 156. Re-Tighten Queueable Input Trust Boundaries
 

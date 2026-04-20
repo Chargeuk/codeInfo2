@@ -12460,7 +12460,7 @@ If a later manual-testing pass wants a live runtime sanity check, keep it limite
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `non_canonical_selector_alias_accepted`
   - `should_fix` `config_domain_fail_open`

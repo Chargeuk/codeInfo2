@@ -12188,7 +12188,7 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
+1. [x] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit`.
 3. [ ] Run `npm run test:summary:server:cucumber`.
 4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
@@ -12206,6 +12206,8 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 - Planner repair: rewrote Subtask 21 and Testing 5 from the repo-wide `npm run format:check` gate to the exact Task 153 file set because the blocker proof showed the repo-wide gate is not runnable at this task boundary. Task 153 stays `__in_progress__` so the next implementation pass can finish the narrowed file-scoped formatting work and then continue through the normal automated-proof path honestly.
 - Planner repair: applied the same file-scoped Prettier narrowing to Tasks 154 through 158 so the remaining review-follow-up tasks now have runnable formatter ownership at their own task boundaries instead of inheriting the same unrelated repo-wide blocker.
 - Subtask 21: the exact Task 153 file set passed after one `npx prettier --write` rerun and final `npx prettier --check`, using `--plugin prettier-plugin-gherkin` so Prettier could parse `server/src/test/features/ingest-reembed.feature` in the same way earlier story formatter subtasks already documented.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the repaired replay seam still builds through the repo-supported server wrapper before the deeper proof reruns.
+- **BLOCKER** Testing 2 (`npm run test:summary:server:unit`): the full server unit wrapper failed on three tests outside Task 153's owned proof files, so automated proof cannot continue honestly yet. I inspected `test-results/server-unit-tests-2026-04-20T00-36-15-500Z.log`, confirmed one unrelated checked-in-config failure in `server/src/test/unit/codexConfig.test.ts` because `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codex/chat/config_minimax.toml` is missing, and then ran a targeted rerun with `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts --test-name "late Chroma bootstrap would fail after validation passes"` to isolate the two remaining failures. That targeted rerun reproduced two zero-work delta re-embed expectation mismatches in `server/src/test/unit/ingest-reembed.test.ts` (actual terminal state `error`, expected `completed`) that are not Task 153 proof owners and were not changed by this task. This task should be split or reordered only if Story 55 now expects Task 153 to absorb those unrelated repo-wide unit failures; otherwise a separate owner should repair the missing codex config fixture and the zero-work delta re-embed regressions before Task 153 automated proof resumes.
 - Audit: marked Testing 5 complete because the immediately preceding implementation pass already ran the same file-scoped `npx prettier --check` / `--write` flow that Subtask 21 required and recorded it in the task notes. Task 153 remains `__in_progress__` because wrapper proof steps 1 through 4 are still incomplete and this audit did not treat them as finished.
 
 ### Task 154. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics

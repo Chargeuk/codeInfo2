@@ -446,6 +446,56 @@ function buildCleanupBlockedStatus(params: {
   };
 }
 
+async function publishCleanupBlockedStatus(params: {
+  runId: string;
+  errorMessage: string;
+}) {
+  const previousStatus = jobs.get(params.runId);
+  if (!previousStatus) {
+    return;
+  }
+
+  const requestId = queueRequestIdsByRunId.get(params.runId) ?? params.runId;
+  if (previousStatus.state !== 'cleanup-blocked') {
+    blockedCleanupStatusSnapshots.set(params.runId, previousStatus);
+  }
+
+  setStatusAndPublish(
+    params.runId,
+    buildCleanupBlockedStatus({
+      runId: params.runId,
+      previousStatus,
+      requestId,
+      errorMessage: params.errorMessage,
+    }),
+  );
+
+  const queueRequestId = queueRequestIdsByRunId.get(params.runId);
+  if (queueRequestId) {
+    try {
+      await queueRuntimeOps.markQueueRequestCleanupBlocked({
+        requestId: queueRequestId,
+        runId: params.runId,
+      });
+    } catch (markError) {
+      logWarning('queue cleanup-blocked state update failed', {
+        runId: params.runId,
+        requestId: queueRequestId,
+        error:
+          markError instanceof Error
+            ? markError.message
+            : String(markError ?? 'unknown'),
+      });
+    }
+  }
+
+  logLifecycle('error', 'ingest queue cleanup blocked', {
+    runId: params.runId,
+    requestId: queueRequestId ?? null,
+    error: params.errorMessage,
+  });
+}
+
 function toQueueManagedInput(queueRequest: {
   canonicalTargetPath: string;
   operation: 'start' | 'reembed';
@@ -590,41 +640,9 @@ async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
       clearQueueCleanupRetryState(requestId);
       return true;
     } catch (error) {
-      const previousStatus = jobs.get(runId);
-      if (previousStatus) {
-        if (previousStatus.state !== 'cleanup-blocked') {
-          blockedCleanupStatusSnapshots.set(runId, previousStatus);
-        }
-        const cleanupBlockedStatus = buildCleanupBlockedStatus({
-          runId,
-          previousStatus,
-          requestId,
-          errorMessage:
-            error instanceof Error ? error.message : String(error ?? 'unknown'),
-        });
-        setStatusAndPublish(runId, cleanupBlockedStatus);
-      }
-
-      try {
-        await queueRuntimeOps.markQueueRequestCleanupBlocked({
-          requestId,
-          runId,
-        });
-      } catch (markError) {
-        logWarning('queue cleanup-blocked state update failed', {
-          runId,
-          requestId,
-          error:
-            markError instanceof Error
-              ? markError.message
-              : String(markError ?? 'unknown'),
-        });
-      }
-
-      logLifecycle('error', 'ingest queue cleanup blocked', {
+      await publishCleanupBlockedStatus({
         runId,
-        requestId,
-        error:
+        errorMessage:
           error instanceof Error ? error.message : String(error ?? 'unknown'),
       });
       await scheduleQueueCleanupRetry({ requestId, runId });
@@ -1862,10 +1880,18 @@ async function processRun(runId: string, input: IngestJobInput) {
               where: { $and: [{ root }, { relPath: file.relPath }] },
             });
           }
-          await deleteIngestFilesByRelPaths({
+          const persistedCleanup = await deleteIngestFilesByRelPaths({
             root,
             relPaths: deletedRelPaths,
           });
+          if (!persistedCleanup) {
+            await publishCleanupBlockedStatus({
+              runId,
+              errorMessage:
+                'Persisted ingest_files cleanup was unavailable for deletions-only delta re-embed',
+            });
+            return;
+          }
           const counts = { files: 0, chunks: 0, embedded: 0 };
           await completeReembedFastPathWithFence({
             counts,
@@ -2681,7 +2707,10 @@ async function processRun(runId: string, input: IngestJobInput) {
   } finally {
     activeDispatchers.delete(runId);
     await persistQueueTerminalBarrier(runId);
-    const queueCleanupCompleted = await finalizeQueueRequestForRun(runId);
+    const queueCleanupCompleted =
+      jobs.get(runId)?.state === 'cleanup-blocked'
+        ? false
+        : await finalizeQueueRequestForRun(runId);
     if (queueCleanupCompleted) {
       releaseRunOwnership(runId);
     }

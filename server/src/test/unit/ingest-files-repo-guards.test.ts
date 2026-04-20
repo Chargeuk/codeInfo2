@@ -75,7 +75,7 @@ test('upsertIngestFiles(...) returns null when Mongo is disconnected', async () 
   }
 });
 
-test('deleteIngestFilesByRelPaths(...) returns null when Mongo is disconnected', async () => {
+test('deleteIngestFilesByRelPaths(...) returns degraded null cleanup results for callers that publish cleanup-blocked state', async () => {
   const restoreReadyState = overrideReadyState(0);
   const restoreDeleteMany = stubModelMethod('deleteMany', (async () => {
     throw new Error('unexpected mongo call: IngestFileModel.deleteMany');
@@ -93,7 +93,7 @@ test('deleteIngestFilesByRelPaths(...) returns null when Mongo is disconnected',
   }
 });
 
-test('deleteIngestFilesByRelPaths(...) batches large relPath deletes into bounded selectors', async () => {
+test('deleteIngestFilesByRelPaths(...) keeps bounded cleanup selectors for callers that rely on the repaired deletions-only fast path', async () => {
   const restoreReadyState = overrideReadyState(1);
   const queries: Array<{ root?: string; relPath?: { $in?: string[] } }> = [];
   const restoreDeleteMany = stubModelMethod('deleteMany', ((query: {

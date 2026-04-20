@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import test from 'node:test';
+import { mock } from 'node:test';
+import type { LMStudioClient } from '@lmstudio/sdk';
+import mongoose from 'mongoose';
 import {
   __finalizeQueueRequestForRunForTest,
   __getQueueRequestTerminalStatusCountForTest,
@@ -8,19 +12,45 @@ import {
   __setQueueRequestTerminalStatusNowForTest,
   __setQueueRequestTerminalStatusTtlForTest,
   __setQueueRuntimeOpsForTest,
+  __setRunSchedulerForTest,
   __setStatusAndPublishForTest,
   __setStatusForTest,
   getStatus,
   pumpIngestQueue,
   recoverIngestQueueOnStartup,
+  startIngest,
+  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
+import * as repoModule from '../../mongo/repo.js';
 import {
   createQueueRequest,
+  createTempRepo,
   installQueueRuntimeTestHooks,
+  setupIngestChromaMocks,
   waitForNextTurn,
 } from './ingest-queue-runtime.helpers.js';
 
 installQueueRuntimeTestHooks();
+
+async function waitForTerminal(runId: string) {
+  const result = await waitForTerminalIngestStatus(runId, {
+    timeoutMs: 20_000,
+    pollMs: 10,
+  });
+  if (result.reason === 'terminal' && result.status) {
+    return result.status;
+  }
+  throw new Error(
+    `Timed out waiting for ingest ${runId} (reason=${result.reason}, lastKnown=${result.lastKnown?.state ?? 'missing'})`,
+  );
+}
+
+function buildIngestDeps() {
+  return {
+    baseUrl: 'http://lmstudio.local',
+    lmClientFactory: () => ({}) as LMStudioClient,
+  };
+}
 
 test('terminal queue cleanup deletes the current queue record before the next waiting item starts', async () => {
   const events: string[] = [];
@@ -122,6 +152,80 @@ test('cleanup-blocked queue records stay visible and stall newer waiting work', 
   assert.equal(getStatus('run-blocked')?.state, 'cleanup-blocked');
   assert.equal(stalled.started, false);
   assert.equal(stalled.blockedByCleanup, true);
+});
+
+test('deletions-only cleanup degradation publishes the shared cleanup-blocked queue state and stalls later waiting work', async () => {
+  let scheduledTask: (() => void) | null = null;
+  __setRunSchedulerForTest((task) => {
+    scheduledTask = task;
+  });
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'docs/keep.md': '# keep\n',
+    'docs/delete-a.md': '# delete a\n',
+  });
+
+  let cleanupBlockedRequestId: string | null = null;
+  let deletedDuringFinalize = false;
+
+  try {
+    await fs.rm(`${root}/docs/delete-a.md`);
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
+    mock.method(repoModule, 'deleteIngestFilesByRelPaths', async () => null);
+
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => {
+        deletedDuringFinalize = true;
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () =>
+        cleanupBlockedRequestId
+          ? createQueueRequest({
+              requestId: cleanupBlockedRequestId,
+              root,
+              queueState: 'cleanup-blocked',
+              runId: 'blocked-run',
+            })
+          : null,
+      markQueueRequestCleanupBlocked: async ({ requestId, runId }) => {
+        cleanupBlockedRequestId = requestId;
+        return createQueueRequest({
+          requestId,
+          root,
+          queueState: 'cleanup-blocked',
+          runId,
+        });
+      },
+      promoteOldestWaitingQueueRequest: async () => {
+        throw new Error('cleanup-blocked rows must stall waiting work');
+      },
+    });
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'queue-cleanup-blocked-deletions-reembed',
+        model: 'embed-1',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    __setQueueRequestIdForRunForTest(runId, '11');
+    assert.ok(scheduledTask, 'expected captured run task before execution');
+    scheduledTask?.();
+
+    const status = await waitForTerminal(runId);
+    const stalled = await pumpIngestQueue();
+
+    assert.equal(status.state, 'cleanup-blocked');
+    assert.equal(cleanupBlockedRequestId, '11');
+    assert.equal(deletedDuringFinalize, false);
+    assert.equal(stalled.started, false);
+    assert.equal(stalled.blockedByCleanup, true);
+  } finally {
+    await cleanup();
+  }
 });
 
 test('startup recovery resolves cleanup-blocked before retrying running work or waiting work', async () => {

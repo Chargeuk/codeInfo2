@@ -12683,10 +12683,10 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature`.
-3. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-4. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/test/features/ingest-delta-reembed.feature server/src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature`.
+3. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+4. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/test/features/ingest-delta-reembed.feature server/src/test/steps/ingest-delta-reembed.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 
@@ -12695,6 +12695,10 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 - The step text and scenario title already read like an action and still describe the same missing-`ingest_files` runtime condition honestly after the phase repair, so no rename or scenario split was needed.
 - `npm run lint` passed cleanly after the local feature and step phase-boundary repair, so the task-owned lint hygiene subtask is now complete without a follow-up `lint:fix` pass.
 - The file-scoped Prettier subtask only hit the known `.feature` parser seam, so I reran the same Task 159 file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.
+- `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so Testing 1 is now complete without needing log inspection.
+- `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` passed cleanly with `15/15` scenarios green in `test-results/server-cucumber-tests-2026-04-20T12-53-51-673Z.log`, so the proof-owning feature now has direct wrapper proof for the repaired phase boundary.
+- The Testing 3 rerun of `npm run lint` passed cleanly after the feature-scoped cucumber proof, so no `lint:fix` follow-up was needed during automated proof either.
+- Testing 4 first reproduced the expected `.feature` parser gap, so I reran the same Task 159 file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.
 
 ### Task 160. Re-Validate Story 55 After Review Pass `0000055-20260419T200440Z-d67f1ccc`
 

@@ -904,6 +904,13 @@ test.describe.serial('Ingest flows', () => {
     const activeName = `${fixtureName}-startup-head`;
     const queuedName = `${fixtureName}-startup-next`;
     const queuedPath = `${fixturePath}/docs`;
+    const canonicalPathMatcher = new RegExp(
+      `^${fixturePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+      'i',
+    );
+    const canonicalRows = page
+      .getByRole('row')
+      .filter({ has: page.getByRole('cell', { name: canonicalPathMatcher }) });
     const ctx = await request.newContext();
 
     try {
@@ -954,33 +961,26 @@ test.describe.serial('Ingest flows', () => {
       await expect
         .poll(
           async () => {
-            const queuedRows = page.getByRole('row', {
-              name: new RegExp(queuedName, 'i'),
-            });
-            if ((await queuedRows.count()) === 0) {
+            if ((await canonicalRows.count()) === 0) {
               return 'missing';
             }
             const text =
-              (await queuedRows.first().textContent())?.toLowerCase() ?? '';
-            return (await queuedRows.count()) === 1 &&
+              (await canonicalRows.first().textContent())?.toLowerCase() ?? '';
+            return (await canonicalRows.count()) === 1 &&
               !text.includes('queued (#1)')
               ? 'settled'
-              : `${await queuedRows.count()}:${text}`;
+              : `${await canonicalRows.count()}:${text}`;
           },
           {
             timeout: 60_000,
             message:
-              'waiting for the queued row to stop showing queued (#1) after handoff',
+              'waiting for the canonical repo row to stop showing queued (#1) after handoff',
           },
         )
         .toBe('settled');
 
-      await expect(
-        page.getByRole('row', { name: new RegExp(queuedName, 'i') }),
-      ).toHaveCount(1);
-      await expect(
-        page.getByRole('row', { name: new RegExp(queuedName, 'i') }).first(),
-      ).not.toContainText(/queued \(#1\)/i);
+      await expect(canonicalRows).toHaveCount(1);
+      await expect(canonicalRows.first()).not.toContainText(/queued \(#1\)/i);
     } finally {
       await ctx.dispose();
     }

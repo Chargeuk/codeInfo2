@@ -8,12 +8,20 @@ import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';
 
+const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+
 beforeEach(() => {
   mock.restoreAll();
+  delete process.env.CODEINFO_CODEX_WORKDIR;
 });
 
 afterEach(() => {
   mock.restoreAll();
+  if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  } else {
+    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
 });
 
 test('POST /ingest/start rejects non-allowlisted OpenAI model with OPENAI_MODEL_UNAVAILABLE', async () => {

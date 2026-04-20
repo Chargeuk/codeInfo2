@@ -38,6 +38,7 @@ let tempDir: string | null = null;
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -86,6 +87,7 @@ After(async () => {
     await fs.rm(tempDir, { recursive: true, force: true });
     tempDir = null;
   }
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   await clearLockedModel();
 });
 

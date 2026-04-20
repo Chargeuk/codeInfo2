@@ -488,14 +488,12 @@ export async function runReingestRepository(
   }
 
   const validatedSourceId = validateExactReingestSourceId(sourceId);
-  const validationError = validatedSourceId.ok
-    ? null
-    : invalidParamsError(
-        validatedSourceId.reason,
-        validatedSourceId.message,
-        retryLists,
-      );
-  if (validationError) {
+  if (!validatedSourceId.ok) {
+    const validationError = invalidParamsError(
+      validatedSourceId.reason,
+      validatedSourceId.message,
+      retryLists,
+    );
     logValidationResult(appendLog, { kind: 'error', error: validationError });
     return { ok: false, error: validationError };
   }

@@ -37,6 +37,7 @@ let expectedFiles = 0;
 
 Before(async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -81,6 +82,7 @@ After(async () => {
   }
   lastRunId = null;
   expectedFiles = 0;
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   await clearLockedModel();
 });
 

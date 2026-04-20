@@ -882,6 +882,19 @@ function mapIngestError(err: unknown): {
       },
     };
   }
+  if ((err as { code?: unknown })?.code === 'CONFIGURATION') {
+    return {
+      message:
+        err instanceof Error ? err.message : String(err ?? 'CONFIGURATION'),
+      normalized: {
+        error: 'CONFIGURATION',
+        message:
+          err instanceof Error ? err.message : String(err ?? 'CONFIGURATION'),
+        retryable: false,
+        provider: 'ingest',
+      },
+    };
+  }
   if ((err as { code?: unknown })?.code === 'INVALID_REEMBED_STATE') {
     return {
       message:

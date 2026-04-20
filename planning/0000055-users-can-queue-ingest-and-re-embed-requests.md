@@ -12528,20 +12528,26 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/routes/ingestReembed.ts server/src/ingest/reingestService.ts server/src/ingest/requestContracts.ts server/src/ingest/ingestJob.ts server/src/test/integration/ingest-reembed.test.ts server/src/test/unit/ingest-reembed.test.ts server/src/test/unit/ingest-queue-runtime-recovery.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/integration/ingest-reembed-invalid-state.test.ts server/src/test/features/ingest-reembed.feature server/src/test/features/ingest-start.feature server/src/test/steps/ingest-manage.steps.ts server/src/test/steps/ingest-start.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+5. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/routes/ingestReembed.ts server/src/ingest/reingestService.ts server/src/ingest/requestContracts.ts server/src/ingest/ingestJob.ts server/src/test/integration/ingest-reembed.test.ts server/src/test/unit/ingest-reembed.test.ts server/src/test/unit/ingest-queue-runtime-recovery.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/integration/ingest-reembed-invalid-state.test.ts server/src/test/features/ingest-reembed.feature server/src/test/features/ingest-start.feature server/src/test/steps/ingest-manage.steps.ts server/src/test/steps/ingest-start.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 
 - Added from review pass `0000055-20260419T200440Z-d67f1ccc` to restore exact selector identity and fail-closed queueable-root validation at the input trust boundary.
 - Re-read the preserved review findings block plus Task 157's current overview and proof mapping, then re-opened the selector and queueable-root owners in `reingestService.ts` and `requestContracts.ts` before changing code.
+- `npm run build:summary:server` initially failed on a `runReingestRepository()` narrowing edge in `reingestService.ts`; switched the invalid-source branch to an early return, reran the wrapper, and marked Testing 1 complete after the clean pass.
+- `npm run test:summary:server:unit` initially exposed one malformed-workdir recovery proof seam plus two env/normalization follow-ons; I fixed the recovery proof owner, neutralized `CODEINFO_CODEX_WORKDIR` in the OpenAI contract integration test, preserved `CONFIGURATION` in `mapIngestError()`, reran the full wrapper, and marked Testing 2 complete after the clean `1725/1725` pass.
+- `npm run test:summary:server:cucumber` initially failed on Task 157-owned step leakage and an async startup-recovery assertion seam; I kept the test harness neutral by clearing `CODEINFO_CODEX_WORKDIR` in the affected step files, let the ingest-manage started-path assertion wait for the async recovery hook, reran the original cucumber wrapper, and marked Testing 3 complete after the clean `104/104` pass.
+- `npm run lint` passed cleanly after the proof-owned harness and normalization fixes, so Testing 4 is now complete with no follow-up `lint:fix` pass needed.
+- The file-scoped Prettier proof initially reported one real format drift in `ingestJob.ts` plus the known `.feature` parser seam; I ran the task-owned file list through `prettier-plugin-gherkin --write`, reran the plugin-backed file-scoped `--check`, and marked Testing 5 complete after the clean formatting pass.
 - Restored exact re-embed selector matching by sharing strict sourceId validation between the REST route and `runReingestRepository()`, then retightened `validateQueueableRepositoryRootPath()` so malformed non-placeholder `CODEINFO_CODEX_WORKDIR` values raise deterministic `CONFIGURATION` errors while the exact placeholder remains the only bypass.
 - Added Task 157-owned proof coverage across `ingest-reembed` unit and integration tests, `ingest-start` and replay unit tests, plus cucumber scenarios and steps for selector-alias rejection and configured-workdir fail-closed behavior.
 - `npm run lint` initially surfaced unused cleanup/import drift from the new shared selector helper and proof rewrites; removing the stale symbols and fixing the integration import order made the repository lint checkpoint pass cleanly.
 - The file-scoped Prettier checkpoint initially reported formatting drift in the trust-boundary files and needed `prettier-plugin-gherkin` to parse the `.feature` owners, so the same Task 157 file list was written and rechecked with that plugin before the subtask was closed.
+- `npm run build:summary:server` first failed on a TypeScript narrowing error in `reingestService.ts`; rewriting the invalid-source branch to return early fixed the compile issue and the rerun passed cleanly.
 
 ### Task 158. Bound Large Delta Re-Embed Delete Selectors
 

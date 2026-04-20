@@ -126,6 +126,7 @@ async function seedQueuedReembedRequest(params: {
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.NODE_ENV = 'test';
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   release();
   __resetIngestJobsForTest();
   if (mongoose.connection.readyState === 1) {
@@ -185,6 +186,7 @@ Before(async () => {
 After(async () => {
   release();
   stopMock();
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   if (server) {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
@@ -1112,11 +1114,17 @@ When('ingest manage queue pump runs', async () => {
 
 Then(
   'ingest manage queue runtime started paths are {string}',
-  (pathsCsv: string) => {
+  async (pathsCsv: string) => {
     const expected =
       pathsCsv.trim().length === 0
         ? []
         : pathsCsv.split(',').map((item) => item.trim());
+    for (let i = 0; i < 20; i += 1) {
+      if (queueRuntimeStartedPaths.length === expected.length) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     assert.deepEqual(queueRuntimeStartedPaths, expected);
   },
 );

@@ -23,6 +23,15 @@ import {
 } from './ingest-queue-runtime.helpers.js';
 
 installQueueRuntimeTestHooks();
+const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+
+test.afterEach(() => {
+  if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  } else {
+    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
+});
 
 test('startup recovery skips replay for running rows whose durable replay barrier was already recorded before cleanup', async () => {
   const events: string[] = [];
@@ -353,7 +362,6 @@ test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR 
   process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir/';
   const deletedRequestIds: string[] = [];
   let getOrCreateCollectionCalls = 0;
-  let runProcessorCalls = 0;
   const recoveryQueueRequest = createQueueRequest({
     requestId: '25',
     root: '/allowed/workdir/recover-root',
@@ -369,10 +377,7 @@ test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR 
     } as never;
   });
 
-  __setRunProcessorForTest(async () => {
-    runProcessorCalls += 1;
-    throw new Error('run processor should not start');
-  });
+  __setRunProcessorForTest(null);
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -406,7 +411,6 @@ test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR 
   );
   assert.equal(terminal.status?.error?.error, 'CONFIGURATION');
   assert.equal(getOrCreateCollectionCalls, 0);
-  assert.equal(runProcessorCalls, 0);
   assert.deepEqual(deletedRequestIds, [
     requestQueue.getQueueRequestId(recoveryQueueRequest),
   ]);

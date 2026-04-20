@@ -12817,11 +12817,56 @@ Review pass `0000055-20260420T140453Z-d9e38eba` found actionable follow-up work,
 - `should_fix`: classic MCP `tools/call` still coerces malformed non-object `arguments` payloads to `{}` before validation.
 - `should_fix`: `/ingest/roots` dedupe still lets runtime-only `runId` override canonical row identity when stable row metadata is otherwise tied.
 
-### Task 161. Repair Cross-Operation Waiting Queue Rewrite Parity
+### Task 161. Normalize Repo-Wide Prettier Ownership For Durable Manual-Testing Proof Artifacts
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `160`
 - Task Status: `__in_progress__`
+- Addresses Findings:
+  - Planner repair: repo-wide `npm run format:check` still scans committed `codeInfoStatus/manual-testing/0000055/` proof artifacts, blocking review-created tasks whose source-owned files are already formatting-clean
+
+#### Overview
+
+Normalize the repo-wide Prettier ownership boundary so committed final-story manual-testing artifacts no longer block unrelated review-created tasks from closing their required `npm run format:check` gate. This repair should stay local to formatter-input configuration at the repo root and preserve formatter coverage for actual source, plan, and proof-authoring files.
+
+#### Task Exit Criteria
+
+- `R1.` Repo-wide `npm run format:check` no longer scans committed `codeInfoStatus/manual-testing/<story-number>/` durable proof artifacts.
+- `R2.` The formatter repair stays local to repo-root Prettier ownership and does not replace the repo-supported `npm run format:check` gate with task-local fallback commands.
+- `R3.` Actual source, plan, and proof-authoring files remain inside repo-wide formatter ownership after the ignore-path repair.
+- `R4.` Direct repo-root proof on current disk shows the supported `npm run format:check` gate can reach a clean terminal verdict again after the ignore-path change.
+
+#### Proof Mapping
+
+- `P1.` Requirement: committed durable manual-testing proof artifacts stop participating in repo-wide Prettier scans. Owners: `.prettierignore`, `codeInfoStatus/manual-testing/0000055/`. Proof homes: subtasks 1 through 3; Testing 2.
+- `P2.` Requirement: the repo-supported `npm run format:check` gate remains the proof owner and reaches a real clean verdict after the ignore-path repair. Owners: `package.json`, `.prettierignore`. Proof homes: subtasks 2 and 3; Testing 2.
+
+#### Documentation Locations
+
+- `.prettierignore`
+- `package.json`
+- `codeInfoStatus/manual-testing/0000055/`
+
+#### Subtasks
+
+1. [ ] Re-read the current Task 162 blocker answer, `.prettierignore`, and the committed `codeInfoStatus/manual-testing/0000055/` artifact set so this formatter-owner repair stays anchored to the exact repo inputs that currently fail `npm run format:check`. Purpose: keep the prerequisite scoped to the proven blocker instead of widening into general formatting cleanup.
+2. [ ] Update `.prettierignore` so repo-wide Prettier excludes committed `codeInfoStatus/manual-testing/` durable proof artifacts while leaving actual source, plan, and proof-authoring files under normal formatter ownership. Purpose: remove the non-source artifact path from the shared formatting gate without weakening source-file coverage.
+3. [ ] Re-read `package.json` and keep the supported repo-wide formatter command as `prettier . --check` after the ignore-path repair rather than replacing it with a task-local fallback command. Purpose: preserve the normal repository proof gate while fixing its input set.
+
+#### Testing
+
+1. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+2. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation notes
+
+- Planner repair on 2026-04-20: inserted this prerequisite after Task 162's blocker answer proved the remaining format gate belongs to repo-root Prettier ownership for durable manual-testing artifacts, not to more queue-rewrite implementation. This task now owns the `.prettierignore` repair so the implementation loop can resume with one honest active owner.
+
+### Task 162. Repair Cross-Operation Waiting Queue Rewrite Parity
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `161`
+- Task Status: `__to_do__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: cross-operation `start -> reembed` waiting-row updates still leave stale queued settings in place for the same canonical target
 
@@ -12835,7 +12880,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - `R2.` The rewritten waiting row preserves `requestId`, `createdAt`, and source provenance while replacing the normalized stored request settings and refreshing `updatedAt`.
 - `R3.` The duplicate-key retry path applies the same cross-operation rewrite rule as the primary path instead of falling back to stale queued settings.
 - `R4.` Direct unit and route-owner proof covers the cross-operation waiting-row rewrite on current disk.
-- `R5.` This task stays on queue-owned helper and route-owner unit proof only because the changed seam is the waiting-row rewrite helper itself; broader feature-level revalidation remains final story work in Task `167`.
+- `R5.` This task stays on queue-owned helper and route-owner unit proof only because the changed seam is the waiting-row rewrite helper itself; broader feature-level revalidation remains final story work in Task `168`.
 
 #### Proof Mapping
 
@@ -12873,23 +12918,24 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 
 #### Implementation notes
 
-- Subtask 1: re-read the Story 55 review-created queue-dedupe finding and confirmed Task 161 stays local to waiting-row rewrite parity plus unit proof owners, with broader revalidation deferred to Task 167.
+- Subtask 1: re-read the Story 55 review-created queue-dedupe finding and confirmed Task 162 stays local to waiting-row rewrite parity plus unit proof owners, with broader revalidation deferred to Task 168.
 - Subtasks 2 through 4: repaired `server/src/ingest/requestQueue.ts` so waiting-row rewrites no longer block `start -> reembed` updates on the same canonical target, the update path still preserves queue identity and source provenance by only replacing `operation` plus normalized `requestPayload`, and the duplicate-key retry branch now reuses the same cross-operation rewrite filter.
 - Subtasks 5 through 7: rewrote the queue-owner unit proofs in `server/src/test/unit/ingest-request-queue.test.ts` so the old stale-settings `start -> reembed` coverage now asserts in-place rewrite semantics, refreshed `updatedAt` with preserved `createdAt` and `sourceSurface`, and matching duplicate-key retry behavior for the same waiting row.
 - Subtasks 8 and 9: added route-owner response proof in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` that updated-in-place queue reuse still returns the reused `requestId` plus preserved waiting `queuePosition` without inventing a second queue item.
-- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so Task 161 now has a fresh server build proof home at `logs/test-summaries/build-server-latest.log`.
-- Testing 2: the first full `npm run test:summary:server:unit` rerun exposed one stale Task 161 race proof that still expected the old `start -> reembed` no-rewrite path, so I updated `server/src/test/unit/ingest-request-queue.test.ts`, verified the repaired case with a targeted `--file/--test-name` wrapper rerun, and then reran the full wrapper cleanly with `tests run: 1732`, `passed: 1732`, and `failed: 0` in `test-results/server-unit-tests-2026-04-20T16-42-13-581Z.log`.
-- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0` in `test-results/server-cucumber-tests-2026-04-20T17-00-12-301Z.log`, so the broader server cucumber proof stayed green after the Task 161 queue rewrite repair.
-- Testing 4: `npm run lint` first caught one Task 161-owned unused-parameter issue in `server/src/ingest/requestQueue.ts`; after removing that stale helper parameter, the rerun passed cleanly without needing `npm run lint:fix`.
-- **BLOCKER** Testing 5 (`npm run format:check`) is currently blocked by unrelated repo-wide formatting drift outside Task 161 scope. I first fixed the one in-scope formatting issue in `server/src/ingest/requestQueue.ts`, then reran a task-owned `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/requestQueue.ts server/src/test/unit/ingest-request-queue.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/unit/ingest-reembed.test.ts`, which passed cleanly. The required full `npm run format:check` still fails because 24 unrelated pre-existing files remain unformatted (including prior manual-testing JSON artifacts and broad client or server files), and I cannot honestly satisfy that repo-wide gate without reformatting out-of-scope local changes owned by other work. This task should be split from repo-wide formatting cleanup or the formatting drift should be normalized separately before Task 161 automated proof can fully close.
-- **BLOCKING ANSWER** Repository precedents show this is formatter-input ownership drift, not a Task 161 code-formatting defect. The repo's `.prettierignore` already excludes artifact-like or non-source inputs such as `dist`, `coverage`, and the intentionally broken JSON fixture, and earlier Story 55 tasks (`157`, `158`, and `160`) already used explicit file-scoped `npx prettier --check ...` checkpoints to keep task-owned proof files formatting-clean without widening into unrelated repo-wide drift. Fresh local evidence matches that pattern: the Task 161-owned `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/requestQueue.ts server/src/test/unit/ingest-request-queue.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/unit/ingest-reembed.test.ts` rerun passed cleanly, while a fresh `npm run format:check` rerun failed only on the 24 committed Story 55 manual-testing JSON artifacts under `codeInfoStatus/manual-testing/0000055/`, and `git check-ignore` plus the current `.prettierignore` confirm those durable proof artifacts are not currently excluded from repo-wide Prettier scans.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so Task 162 now has a fresh server build proof home at `logs/test-summaries/build-server-latest.log`.
+- Testing 2: the first full `npm run test:summary:server:unit` rerun exposed one stale Task 162 race proof that still expected the old `start -> reembed` no-rewrite path, so I updated `server/src/test/unit/ingest-request-queue.test.ts`, verified the repaired case with a targeted `--file/--test-name` wrapper rerun, and then reran the full wrapper cleanly with `tests run: 1732`, `passed: 1732`, and `failed: 0` in `test-results/server-unit-tests-2026-04-20T16-42-13-581Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0` in `test-results/server-cucumber-tests-2026-04-20T17-00-12-301Z.log`, so the broader server cucumber proof stayed green after the Task 162 queue rewrite repair.
+- Testing 4: `npm run lint` first caught one Task 162-owned unused-parameter issue in `server/src/ingest/requestQueue.ts`; after removing that stale helper parameter, the rerun passed cleanly without needing `npm run lint:fix`.
+- **RESOLVED ISSUE** Testing 5 (`npm run format:check`) originally stayed live on this queue-rewrite task because repo-wide Prettier was still scanning 24 committed `codeInfoStatus/manual-testing/0000055/` JSON proof artifacts that do not belong to this task's source-owned file list. Planner repair inserted new Task 161 to normalize `.prettierignore` ownership for those durable proof artifacts first, so this task no longer remains the active blocker owner and returns to `__to_do__` behind that prerequisite.
+- **BLOCKING ANSWER** Repository precedents show this is formatter-input ownership drift, not a Task 162 code-formatting defect. The repo's `.prettierignore` already excludes artifact-like or non-source inputs such as `dist`, `coverage`, and the intentionally broken JSON fixture, and earlier Story 55 tasks (`157`, `158`, and `160`) already used explicit file-scoped `npx prettier --check ...` checkpoints to keep task-owned proof files formatting-clean without widening into unrelated repo-wide drift. Fresh local evidence matches that pattern: the Task 162-owned `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/requestQueue.ts server/src/test/unit/ingest-request-queue.test.ts server/src/test/unit/ingest-start.test.ts server/src/test/unit/ingest-reembed.test.ts` rerun passed cleanly, while a fresh `npm run format:check` rerun failed only on the 24 committed Story 55 manual-testing JSON artifacts under `codeInfoStatus/manual-testing/0000055/`, and `git check-ignore` plus the current `.prettierignore` confirm those durable proof artifacts are not currently excluded from repo-wide Prettier scans.
 - **BLOCKING ANSWER** External-library precedents point to the same supported fix boundary. Official Prettier CLI docs and Context7 `/prettier/prettier` both say `prettier . --check` returns exit code `1` when any matched file is not formatted, and that `.prettierignore` is the supported way to exclude generated or artifact files from repo-wide formatting commands. DeepWiki `prettier/prettier` confirms the same documented behavior: `prettier . --check` audits the whole matched repo surface, while `.prettierignore` is the intended project-level exclusion mechanism for artifacts and unwanted files.
-- **BLOCKING ANSWER** Chosen solution: normalize the repo-wide formatter input set by adding `codeInfoStatus/manual-testing/` (or an equivalently tight durable-proof-artifact pattern) to `.prettierignore`, then rerun the repo-supported `npm run format:check`. This fits the current local repo state because the failing files are committed manual-testing proof artifacts rather than Task 161-owned source or proof-authoring files, and the repo already uses `.prettierignore` to carve artifact-like inputs out of repo-wide Prettier ownership. Rejected alternatives are not suitable: marking Testing 5 complete from the task-owned file-scoped Prettier rerun would be dishonest because the listed repo-supported gate still fails, running `npm run format` across unrelated durable proof files would create broad out-of-scope churn on non-owner artifacts, and leaving the repo-wide command unchanged without excluding those proof artifacts would repeat the same blocker on later tasks that did not create the manual-testing JSONs.
+- **BLOCKING ANSWER** Chosen solution: normalize the repo-wide formatter input set by adding `codeInfoStatus/manual-testing/` (or an equivalently tight durable-proof-artifact pattern) to `.prettierignore`, then rerun the repo-supported `npm run format:check`. This fits the current local repo state because the failing files are committed manual-testing proof artifacts rather than Task 162-owned source or proof-authoring files, and the repo already uses `.prettierignore` to carve artifact-like inputs out of repo-wide Prettier ownership. Rejected alternatives are not suitable: marking Testing 5 complete from the task-owned file-scoped Prettier rerun would be dishonest because the listed repo-supported gate still fails, running `npm run format` across unrelated durable proof files would create broad out-of-scope churn on non-owner artifacts, and leaving the repo-wide command unchanged without excluding those proof artifacts would repeat the same blocker on later tasks that did not create the manual-testing JSONs.
+- Planner repair on 2026-04-20: Task 161 now owns the missing repo-root `.prettierignore` prerequisite that this blocker answer proved was absent. This queue-rewrite task returned to `__to_do__` behind that prerequisite with its completed implementation work plus Testing 1 through 4 preserved on disk, and it keeps only Testing 5 for the later repo-wide format rerun once Task 161 is finished.
 
-### Task 162. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
+### Task 163. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `160`
+- Task Dependencies: `161`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: deletions-only delta re-embed currently reports terminal success even when persisted cleanup degrades under disconnected Mongo
@@ -12905,7 +12951,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 - `R3.` The repair stays local to the deletions-only cleanup path and its proof owners instead of widening into unrelated bootstrap or batching seams.
 - `R4.` Direct unit proof covers the degraded cleanup result, retained partial-state tolerance for partially pre-cleaned relPaths, and the still-bounded delete-selector behavior after the repair.
 - `R5.` The repaired deletions-only fast path publishes the same `cleanup-blocked` queue state later reader surfaces already consume instead of reporting a false completed terminal state.
-- `R6.` This task stays on runtime-owner unit proof only because the changed seam is the internal deletions-only fast path plus cleanup-blocked publication path; broader feature-level revalidation remains final story work in Task `167`.
+- `R6.` This task stays on runtime-owner unit proof only because the changed seam is the internal deletions-only fast path plus cleanup-blocked publication path; broader feature-level revalidation remains final story work in Task `168`.
 
 #### Proof Mapping
 
@@ -12945,10 +12991,10 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 
 - Pending.
 
-### Task 163. Restore Honest Admission-Time `/ingest/reembed` Validation
+### Task 164. Restore Honest Admission-Time `/ingest/reembed` Validation
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `160`
+- Task Dependencies: `161`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: `/ingest/reembed` currently proves immediate `OPENAI_MODEL_UNAVAILABLE` rejection only through a mocked queue-admission seam instead of the real admission path
@@ -13002,10 +13048,10 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 
 - Pending.
 
-### Task 164. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
+### Task 165. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `160`
+- Task Dependencies: `161`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `should_fix` `plan_contract_issue`: queued-roots acceptance proof re-fetches and polls inside `Then` instead of asserting the route response captured by the action step
@@ -13072,10 +13118,10 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 
 - Pending.
 
-### Task 165. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
+### Task 166. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `160`
+- Task Dependencies: `161`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: queue-runtime proof owners still rely on `runId` polling instead of the request-aware terminal wait boundary the runtime now exposes
@@ -13134,10 +13180,10 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 - Pending.
 
-### Task 166. Reject Malformed Classic MCP Arguments Before Domain Validation
+### Task 167. Reject Malformed Classic MCP Arguments Before Domain Validation
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `160`
+- Task Dependencies: `161`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: classic MCP `tools/call` currently coerces malformed non-object `arguments` payloads to `{}` before validation
@@ -13188,21 +13234,21 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 - Pending.
 
-### Task 167. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
+### Task 168. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `161, 162, 163, 164, 165, 166`
+- Task Dependencies: `161, 162, 163, 164, 165, 166, 167`
 - Task Status: `__to_do__`
 - Addresses Findings:
-  - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `161` through `166`
+  - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `162` through `167`, plus the Task `161` formatter-prerequisite repair that keeps that review-created block runnable
 
 #### Overview
 
-Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 161 through 166 close the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba`, refresh the durable close-out summary honestly, and confirm the story’s supported runtime, queue, and repository-list contracts still hold after the review repairs.
+Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 162 through 167 close the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba`, that Task 161 keeps the repo-wide format gate runnable for that block, refresh the durable close-out summary honestly, and confirm the story’s supported runtime, queue, and repository-list contracts still hold after the review repairs.
 
 #### Task Exit Criteria
 
-- `R1.` Tasks `161` through `166` are `__done__`, and no actionable finding from review pass `0000055-20260420T140453Z-d9e38eba` remains without an on-disk proof owner.
+- `R1.` Tasks `161` through `167` are `__done__`, Tasks `162` through `167` close the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba`, and the shared formatter prerequisite from Task `161` no longer blocks repo-wide proof.
 - `R2.` The exact review-created findings block for review pass `0000055-20260420T140453Z-d9e38eba` is revalidated on disk rather than left as artifact-only review intent.
 - `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes and any still-honest residual risk for this review-created block.
 - `R4.` Fresh automated validation reruns the supported build, test, and stack wrappers needed to revalidate the repaired seams and the story’s supported main runtime path.
@@ -13210,7 +13256,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Proof Mapping
 
-- `P1.` Requirement: Tasks `161` through `166` close the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba` and keep their proof homes visible on disk. Owners: Tasks `161` through `166`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
+- `P1.` Requirement: Tasks `161` through `167` are complete on current disk, with Tasks `162` through `167` closing the actionable findings from review pass `0000055-20260420T140453Z-d9e38eba` and Task `161` keeping the repo-wide formatting gate runnable for that block. Owners: Tasks `161` through `167`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
 - `P2.` Requirement: the durable review close-out records the repaired proof homes, any retained weak proof, and the current review-pass adjudication honestly. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 5; Testing 1 through 11.
 - `P3.` Requirement: the supported main runtime path still starts, probes, and shuts down cleanly after the repaired review-created block lands. Owners: `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: Testing 6 through 9.
 
@@ -13225,8 +13271,8 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260420T140453Z-d9e38eba` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
-2. [ ] Re-open the completed proof-owner sections for Tasks `161` through `166` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
-3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `166`. Purpose: make the durable close-out name the current repaired owner set explicitly.
+2. [ ] Re-open the completed proof-owner sections for Tasks `161` through `167` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
+3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `167`. Purpose: make the durable close-out name the current repaired owner set explicitly.
 4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
 5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
 6. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260420T140453Z-d9e38eba` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.
@@ -13251,7 +13297,7 @@ For the final manual-testing pass, use the normal human Docker stack rather than
 
 Use the browser-visible client at `http://localhost:5001` after the compose stack is healthy. The required backing services for this proof are the compose-managed server, client, Mongo, and Chroma services that come up through the normal stack; no separate login helper or seeded account is required for the `/ingest` surface.
 
-Focus the manual proof on the `/ingest` page when Task `164` changes land: confirm queued, running, and cleanup-blocked rows keep stable identity after refresh, after a queued re-embed transitions into running work, and after a retried queued request replaces earlier request metadata.
+Focus the manual proof on the `/ingest` page when Task `165` changes land: confirm queued, running, and cleanup-blocked rows keep stable identity after refresh, after a queued re-embed transitions into running work, and after a retried queued request replaces earlier request metadata.
 
 Save any final manual-testing screenshots, logs, or notes under `codeInfoStatus/manual-testing/0000055/` and commit them as durable final story proof.
 

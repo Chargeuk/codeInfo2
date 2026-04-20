@@ -17,7 +17,10 @@ const mountedLargeFixturePath = `${fixturePath}/${largeFixtureRelPath}`;
 const fixtureName = 'fixtures-e2e';
 
 const preferredEmbeddingModel = 'text-embedding-qwen3-embedding-4b';
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 const stableScreenshotDir = path.join(
   repoRoot,
   'artifacts',
@@ -782,9 +785,7 @@ test.describe.serial('Ingest flows', () => {
     await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
   });
 
-  test(overlappingRefreshRetainsVisibleRowsScenario, async ({
-    page,
-  }) => {
+  test(overlappingRefreshRetainsVisibleRowsScenario, async ({ page }) => {
     let rootsRequestCount = 0;
     let releaseRefreshResponse: (() => void) | undefined;
     let observedRefreshRequest: (() => void) | undefined;
@@ -960,7 +961,7 @@ test.describe.serial('Ingest flows', () => {
               return 'missing';
             }
             const text =
-              ((await queuedRows.first().textContent())?.toLowerCase() ?? '');
+              (await queuedRows.first().textContent())?.toLowerCase() ?? '';
             return (await queuedRows.count()) === 1 &&
               !text.includes('queued (#1)')
               ? 'settled'

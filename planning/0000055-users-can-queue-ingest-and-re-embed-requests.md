@@ -13183,17 +13183,22 @@ Repair the exact `flows.run.loop` stop-cleanup proof that is currently blocking 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
 - Planner repair on 2026-04-20: inserted this prerequisite after Task `167` proved its remaining full `server:unit` gate is blocked by the unrelated `flows.run.loop.test.ts` stop-cleanup failure recorded in `test-results/server-unit-tests-2026-04-20T20-30-41-861Z.log`. This task now owns that shared wrapper blocker so the implementation loop selects the real next owner instead of repeatedly reopening `/ingest/roots` proof work.
 - Subtasks 1 and 2: re-read the saved `server:unit` failure log, the named loop-stop scenario, and the local cleanup helpers/checkpoints, then traced the blocker to proof drift inside `server/src/test/integration/flows.run.loop.test.ts`: the scenario treated the first `turn_final status=stopped` event as the end-of-run cleanup boundary even though the recorded stop-unwind checkpoints showed loop teardown could still be in flight after that event.
-- Subtasks 3 and 4: repaired `server/src/test/integration/flows.run.loop.test.ts` so the named scenario now waits for explicit stop-unwind checkpoints (`runStartLoopStep.return.stop.pending_cancel` and `runFlowUnlocked.finalize.exit`) before asserting that later iterations never continue and before falling into runtime-cleanup teardown, replacing the old fixed-delay assumption with a deterministic proof-owned boundary on current disk.
+- Subtasks 3 and 4: repaired `server/src/test/integration/flows.run.loop.test.ts` so the named scenario now waits for the explicit stop-unwind cleanup checkpoint `runFlowUnlocked.finalize.exit` before asserting that later iterations never continue and before falling into runtime-cleanup teardown, replacing the old fixed-delay assumption with a deterministic proof-owned boundary on current disk.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the Task 166 proof owner currently compiles before the targeted loop-stop rerun.
+- Testing 2: the first targeted `server:unit` rerun showed the stop path never reaches `runStartLoopStep.return.stop.pending_cancel` on current disk even though it does reach `runFlowUnlocked.finalize.exit`, so I narrowed the proof wait to that stable finalize checkpoint and reran the exact Task 166 wrapper successfully (`tests run: 1`, `passed: 1`, `failed: 0`).
+- Testing 3: the full `npm run test:summary:server:unit` rerun now passes cleanly (`tests run: 1736`, `passed: 1736`, `failed: 0`), so the shared server-unit blocker that previously stopped Task 167 is no longer live after the Task 166 proof repair.
+- Testing 4: `npm run lint` passed cleanly after the proof-owner checkpoint adjustment, so no Task 166 lint cleanup was needed.
+- Testing 5: `npm run format:check` first surfaced repo-wide Prettier drift in `e2e/ingest.spec.ts` and `server/src/routes/ingestRoots.ts`; after formatting just those named files, the same repo-wide check reran cleanly with `All matched files use Prettier code style!`.
 
 ### Task 167. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 

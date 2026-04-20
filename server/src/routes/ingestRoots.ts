@@ -188,26 +188,34 @@ function getStableIdentityScore(root: RootEntry): number {
 
 function getQueueMetadataScore(root: RootEntry): number {
   let score = 0;
-  if (typeof root.requestId === 'string' && root.requestId.length > 0) score += 4;
+  if (typeof root.requestId === 'string' && root.requestId.length > 0)
+    score += 4;
   if (root.queueState === 'cleanup-blocked') score += 3;
   else if (root.queueState === 'running') score += 2;
   else if (root.queueState === 'waiting') score += 1;
-  if (typeof root.queuePosition === 'number' && root.queuePosition > 0) score += 1;
+  if (typeof root.queuePosition === 'number' && root.queuePosition > 0)
+    score += 1;
   return score;
 }
 
 function getCompletenessScore(root: RootEntry): number {
   let score = 0;
   if (root.name.length > 0) score += 1;
-  if (typeof root.description === 'string' && root.description.length > 0) score += 1;
+  if (typeof root.description === 'string' && root.description.length > 0)
+    score += 1;
   if (root.embeddingProvider) score += 1;
   if (root.embeddingModel.length > 0) score += 1;
   if (root.model.length > 0) score += 1;
   if (root.modelId.length > 0) score += 1;
-  if (root.counts.files > 0 || root.counts.chunks > 0 || root.counts.embedded > 0) {
+  if (
+    root.counts.files > 0 ||
+    root.counts.chunks > 0 ||
+    root.counts.embedded > 0
+  ) {
     score += 1;
   }
-  if (typeof root.lastError === 'string' && root.lastError.length > 0) score += 1;
+  if (typeof root.lastError === 'string' && root.lastError.length > 0)
+    score += 1;
   if (root.error) score += 1;
   if (root.ast) score += 1;
   return score;
@@ -276,51 +284,51 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
       logLockResolverState(requestId, 'ingest/roots', lock);
       const roots = dedupeRootsByPath(
         payload.repos.map((repo) => {
-        const embeddingModel = resolveRootEmbeddingModel(repo, lock);
-        const embeddingProvider = resolveRootEmbeddingProvider(
-          repo,
-          lock,
-          embeddingModel,
-        );
-        const embeddingDimensions =
-          normalizeEmbeddingDimensions(repo.embeddingDimensions) ??
-          (lock &&
-          lock.embeddingProvider === embeddingProvider &&
-          lock.embeddingModel === embeddingModel
-            ? lock.embeddingDimensions
-            : 0);
-        const modelId = resolveRootModelId(repo, embeddingModel);
-        const rootLock: LockEnvelope = {
-          embeddingProvider,
-          embeddingModel,
-          embeddingDimensions,
-          lockedModelId: embeddingModel,
-          modelId: embeddingModel,
-        };
-        return {
-          id: repo.id,
-          requestId: repo.requestId ?? null,
-          runId: repo.runId ?? null,
-          queuePosition: repo.queuePosition ?? null,
-          queueState: repo.queueState ?? null,
-          name: repo.name || repo.id,
-          description: repo.description,
-          path: repo.containerPath,
-          embeddingProvider,
-          embeddingModel,
-          embeddingDimensions,
-          model: repo.model ?? embeddingModel,
-          modelId,
-          lock: rootLock,
-          status: repo.status ?? 'completed',
-          ...(repo.phase ? { phase: repo.phase } : {}),
-          lastIngestAt: repo.lastIngestAt,
-          counts: repo.counts,
-          lastError: repo.lastError,
-          error: repo.error,
-          ast: repo.ast,
-        };
-      }),
+          const embeddingModel = resolveRootEmbeddingModel(repo, lock);
+          const embeddingProvider = resolveRootEmbeddingProvider(
+            repo,
+            lock,
+            embeddingModel,
+          );
+          const embeddingDimensions =
+            normalizeEmbeddingDimensions(repo.embeddingDimensions) ??
+            (lock &&
+            lock.embeddingProvider === embeddingProvider &&
+            lock.embeddingModel === embeddingModel
+              ? lock.embeddingDimensions
+              : 0);
+          const modelId = resolveRootModelId(repo, embeddingModel);
+          const rootLock: LockEnvelope = {
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions,
+            lockedModelId: embeddingModel,
+            modelId: embeddingModel,
+          };
+          return {
+            id: repo.id,
+            requestId: repo.requestId ?? null,
+            runId: repo.runId ?? null,
+            queuePosition: repo.queuePosition ?? null,
+            queueState: repo.queueState ?? null,
+            name: repo.name || repo.id,
+            description: repo.description,
+            path: repo.containerPath,
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions,
+            model: repo.model ?? embeddingModel,
+            modelId,
+            lock: rootLock,
+            status: repo.status ?? 'completed',
+            ...(repo.phase ? { phase: repo.phase } : {}),
+            lastIngestAt: repo.lastIngestAt,
+            counts: repo.counts,
+            lastError: repo.lastError,
+            error: repo.error,
+            ast: repo.ast,
+          };
+        }),
       );
 
       res.json({

@@ -1386,10 +1386,6 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         });
 
         await waitForStopUnwindCheckpoint(
-          'runStartLoopStep.return.stop.pending_cancel',
-          conversationId,
-        );
-        await waitForStopUnwindCheckpoint(
           'runFlowUnlocked.finalize.exit',
           conversationId,
         );

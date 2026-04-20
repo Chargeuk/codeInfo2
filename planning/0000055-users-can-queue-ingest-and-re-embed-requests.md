@@ -12218,7 +12218,7 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152, 156`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Task `155` automated-proof prerequisite: shared loop-flow runtime cleanup release before queue-wait full-wrapper confirmation can resume
 - Notes: Added during planner repair after Task 155 completed and Task 154's full `server:unit` rerun proved the remaining red state belongs to the loop-flow runtime cleanup seam in `server/src/flows/service.ts` and `server/src/test/integration/flows.run.loop.test.ts`, not to the repaired queue-wait owner.
@@ -12274,6 +12274,7 @@ This task repairs the shared flow-runtime stop cleanup seam so the full `node:te
 - Kept `server/src/test/integration/flows.run.loop.test.ts` unchanged because its existing `FLOW_LOOP_*` diagnostics already isolated the owner cleanly; the targeted wrapper rerun passed with `tests run: 1`, `passed: 1`, `failed: 0` in `test-results/server-unit-tests-2026-04-20T05-47-37-826Z.log`, so Subtasks 7 and 8 now rest on the repaired runtime seam rather than on proof rewrites.
 - The full wrapper rerun passed with `tests run: 1719`, `passed: 1719`, `failed: 0` in `test-results/server-unit-tests-2026-04-20T05-48-12-859Z.log`, so the loop-stop cleanup blocker is cleared and Task 155 can resume its own remaining confirmation path without inheriting this earlier suite owner.
 - `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the remaining Task 154 proof state is now down to lint and the file-scoped Prettier check.
+- Automated-proof audit: marked Task 154 `__done__` because all 9 subtasks and all 5 testing steps are now checked on disk and `plan_status.py --task-number 154` reports no live blocker or prose-only remaining gate.
 - `npm run lint` exited cleanly without needing `lint:fix`, so Task 154 now only needs the file-scoped Prettier confirmation in this automated-proof pass.
 - The file-scoped `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/flows/service.ts server/src/test/integration/flows.run.loop.test.ts` passed cleanly, so Task 154's remaining automated proof is now fully recorded on disk for the later audit step.
 

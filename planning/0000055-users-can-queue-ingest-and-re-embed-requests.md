@@ -12555,7 +12555,7 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `unbounded_bulk_selector_growth`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` to put a concrete bound on the large deleted-file selector sent through the delta re-embed cleanup path.
@@ -12629,6 +12629,7 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 - `npm run test:summary:server:cucumber` passed cleanly with `105/105` scenarios green in `test-results/server-cucumber-tests-2026-04-20T12-27-58-295Z.log`, so the deterministic generated-delete feature path is now proven at the cucumber layer as well.
 - The Testing 4 rerun of `npm run lint` passed cleanly after the proof-driven non-AST fixture repair, so no follow-up `lint:fix` pass was needed.
 - Testing 5 first reproduced the usual `.feature` parser gap and one real formatting drift in `ingest-reembed.test.ts`, so I reran the full Task 158 file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.
+- **BLOCKER** Manual proof is blocked at the task-owned seam: I restarted the documented main compose stack from a stopped state, `npm run test:summary:host-network:main` passed, `/health` returned `{"status":"ok","mongoConnected":true}`, and the stack shut down cleanly with scratch artifacts under `codeInfoTmp/manual-testing/0000055/task158-*`, but Task 158's required large-delete batching proof still depends on the test-owned generated-file fixtures and direct `ingest_files` / vector assertions in `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`, and `server/src/test/unit/ingest-files-repo-guards.test.ts`; the current supported live runtime does not expose a manual harness or public observability surface for the internal batch-count / direct cleanup seam, so manual testing cannot honestly prove R1-R4 yet.
 
 ### Task 159. Restore Honest Delta Re-Embed BDD Phase Boundaries
 

@@ -3406,6 +3406,19 @@ async function runFlowUnlocked(params: {
         loopStack.pop();
         return outcome;
       }
+      const pendingCancel = consumePendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+      });
+      if (pendingCancel) {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runStartLoopStep.return.stop.pending_cancel',
+          conversationId: params.conversationId,
+          detail: `loopDepth=${loopStack.length} loopPath=${nextPath.join('.')}`,
+        });
+        loopStack.pop();
+        return 'stopped';
+      }
     }
     lastCompletedStepPath = nextPath;
     await persistFlowResumeState({

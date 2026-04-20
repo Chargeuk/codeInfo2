@@ -1,48 +1,53 @@
 # Title
 
-Users can queue ingest and re-embed requests safely and see trustworthy queued progress
+Users can queue ingest and re-embed requests
 
 # Acceptance
 
-1. Workflow users can submit ingest and re-embed requests even when another run is already active, and that work is queued instead of being lost.
-2. Workflow users can trust queued and startup-recovered re-embed work to follow the same validation rules as immediate requests, even after restart or deferred replay.
-3. Workflow users can see accurate queued repository state and structured diagnostics across the shared repository-list surfaces.
-4. Workflow users can rely on stricter request validation so malformed queueable inputs and non-canonical selectors are rejected instead of being accepted accidentally.
-5. Workflow users benefit from safer large delete-path cleanup during delta re-embed work, so large repository changes do not depend on one unbounded selector.
-6. Support and engineering users can re-validate the repaired story through the repository's wrapper-first server and compose proof paths, with an updated reviewer summary that records what was rerun.
+1. Users can submit queued ingest and re-embed work without creating duplicate waiting jobs for the same repository target.
+2. Users can trust queued cleanup failures to stay visibly blocked instead of being reported as successful when required cleanup did not finish.
+3. Users get honest validation at the point they submit re-embed work, including correct rejection when a locked model is unavailable.
+4. Users see stable queued and running repository rows on `/ingest`, including correct row identity during queued-to-running handoff.
+5. Queue-driven runtime and MCP request handling stay trustworthy because malformed request shapes and request-completion boundaries are proved through the supported automated paths.
+6. Support and engineering users can revalidate the repaired story with the repository's normal wrapper-first build, test, client, e2e, and compose smoke flows.
 
 # Description
 
-This story lets people queue ingest and re-embed work while keeping the queue reliable, visible, and safe. The latest review pass reopened the story to harden deferred replay, shared queue diagnostics, trust-boundary validation, and large cleanup behavior so queued work behaves consistently whether it starts immediately, waits in line, or resumes after restart. When this work is complete, the queueing feature will remain easier for users to trust because accepted requests, queued visibility, and recovery behavior will all stay aligned.
+This story lets people queue ingest and re-embed work safely while keeping the queue results honest and visible. The latest review pass reopened the story to tighten duplicate waiting-job updates, cleanup-blocked handling, submission-time validation, repository-list identity, queue-runtime proof ownership, and classic MCP input validation. When this work is complete, queued work will be easier to trust because accepted requests, blocked cleanup, browser-visible queue rows, and automated proof will all stay aligned.
 
 # Tasks
 
-1. [codeInfo2] - Restore deferred queue replay validation parity.
+1. [codeInfo2] - Repair cross-operation waiting queue rewrite parity.
 
-- Update the replay seam in `server/src/ingest/ingestJob.ts` so queued promotion and startup recovery fail closed on invalid root-state or malformed persisted embedding fields.
-- Extend the replay proof owners in `server/src/test/unit/`, `server/src/test/integration/`, and `server/src/test/features/ingest-reembed.feature`.
+- Update `server/src/ingest/requestQueue.ts` so a waiting `start` row can be rewritten in place by a later `reembed` request for the same canonical target.
+- Extend the queue-owner and route-owner proof files in `server/src/test/unit/ingest-request-queue.test.ts`, `ingest-start.test.ts`, and `ingest-reembed.test.ts`.
 
-2. [codeInfo2] - Repair shared repo-list queue compatibility and diagnostics.
+2. [codeInfo2] - Repair deletions-only cleanup-blocked fast-path behavior.
 
-- Update `server/src/lmstudio/toolService.ts` and the related route and MCP readers so waiting rows preserve normalized provider and model data.
-- Extend the repo-list proof owners in `server/src/test/unit/` and `server/src/test/features/ingest-roots.feature` so structured ingest-origin errors stay visible.
+- Update `server/src/ingest/ingestJob.ts` so delete-only delta re-embed work publishes the shared `cleanup-blocked` state instead of a false success when persisted cleanup degrades.
+- Extend the proof owners in `server/src/test/unit/ingest-reembed.test.ts`, `ingest-files-repo-guards.test.ts`, and `ingest-queue-runtime-terminal.test.ts`.
 
-3. [codeInfo2] - Re-tighten queueable input trust boundaries.
+3. [codeInfo2] - Restore honest admission-time `/ingest/reembed` validation.
 
-- Update `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, and `server/src/ingest/requestContracts.ts` so non-canonical selectors and malformed configured workdirs fail cleanly.
-- Extend the trust-boundary proof owners in `server/src/test/unit/`, `server/src/test/integration/ingest-reembed.test.ts`, and the ingest feature files.
+- Update `server/src/routes/ingestReembed.ts` and `server/src/ingest/reingestService.ts` so locked-model admission failures are rejected at the real route boundary before queue acceptance.
+- Extend the route-owner proof files in `server/src/test/integration/openai-model-unavailable-contract.test.ts`, `ingest-reembed.test.ts`, and `ingest-failure-logging-coverage.test.ts`.
 
-4. [codeInfo2] - Bound large delta re-embed delete selectors.
+4. [codeInfo2] - Restore direct `/ingest/roots` proof and canonical row identity.
 
-- Update `server/src/mongo/repo.ts` and the delete path in `server/src/ingest/ingestJob.ts` so large rel-path cleanup uses an explicit bounded batching rule.
-- Extend the delete-path proof owners in `server/src/test/unit/` and `server/src/test/features/ingest-delta-reembed.feature`.
+- Update `server/src/routes/ingestRoots.ts`, `client/src/hooks/useIngestRoots.ts`, and the related cucumber and e2e proof owners so stable row identity wins over runtime-only metadata.
+- Extend the browser-visible proof in `e2e/ingest.spec.ts` plus the server and client proof files that own queued and cleanup-blocked row visibility.
 
-5. [codeInfo2] - Restore honest BDD phase boundaries for delta re-embed.
+5. [codeInfo2] - Re-anchor queue-runtime proof owners on the request-aware wait boundary.
 
-- Update `server/src/test/steps/ingest-delta-reembed.steps.ts` and `server/src/test/features/ingest-delta-reembed.feature` so state-changing work lives in setup or action steps instead of assertion steps.
-- Keep the scenario proving the same missing-`ingest_files` behavior while making the feature wording and step ownership honest.
+- Update the shared helper in `server/src/test/unit/ingest-queue-runtime.helpers.ts` so request-aware completion replaces polling as the main proof boundary.
+- Extend the affected queue-runtime proof files in `server/src/test/unit/` and `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
 
-6. [codeInfo2] - Re-validate the repaired story and refresh the reviewer summary.
+6. [codeInfo2] - Reject malformed classic MCP arguments before domain validation.
 
-- Update `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes and the current review-pass close-out notes.
-- Re-run the wrapper-first server and compose validation path defined in the main plan before closing the story again.
+- Update `server/src/mcp/server.ts` so non-object `arguments` payloads are rejected at the dispatcher boundary instead of being coerced into an empty object.
+- Extend the classic MCP proof owner in `server/src/test/unit/mcp.reingest.classic.test.ts` for malformed-shape and retained happy-path behavior.
+
+7. [codeInfo2] - Revalidate the review-created repair block and refresh the close-out summary.
+
+- Update `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes and distinguishes fresh reruns from retained earlier evidence.
+- Re-run the repository's wrapper-first server, client, e2e, and compose smoke paths before closing the story again.

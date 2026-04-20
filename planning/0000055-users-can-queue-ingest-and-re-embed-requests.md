@@ -12946,7 +12946,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161, 162`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `plan_contract_issue`: stale queue-rewrite caller arity in `server/src/ingest/requestQueue.ts` currently blocks the shared server build gate needed before downstream Task `164` can rerun honest automated proof
 
@@ -12991,6 +12991,7 @@ Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `serve
 - Subtask 3: updated the direct queue-owner proof titles in `server/src/test/unit/ingest-request-queue.test.ts` so waiting-row rewrite and race-preserved reuse remain explicit after the helper-arity repair lands.
 - Testing 1: `npm run build:summary:server` now passes cleanly with `agent_action: skip_log`, so the shared server build baseline is unblocked again for downstream Task 164 proof.
 - Testing 2: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` passed cleanly with `tests run: 13`, `passed: 13`, and `failed: 0`, so the queue-owner proof still matches the repaired helper contract on current disk.
+- Automated-proof audit on 2026-04-20: re-read the bound task, confirmed all subtasks and both Testing items are now honestly complete on disk with no live blocker remaining, and closed Task 163 as `__done__`.
 
 ### Task 164. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 

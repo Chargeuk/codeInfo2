@@ -12873,7 +12873,7 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: cross-operation `start -> reembed` waiting-row updates still leave stale queued settings in place for the same canonical target
 

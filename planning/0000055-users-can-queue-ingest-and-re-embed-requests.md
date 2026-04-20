@@ -12125,7 +12125,7 @@ This final review-follow-up task re-validates Story 55 after the current pass ar
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `must_fix` `deferred_execution_validation_drift`
   - `must_fix` `malformed_input_normalized_before_validation`
@@ -12211,6 +12211,7 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 - Audit: marked Testing 5 complete because the immediately preceding implementation pass already ran the same file-scoped `npx prettier --check` / `--write` flow that Subtask 21 required and recorded it in the task notes. Task 153 remains `__in_progress__` because wrapper proof steps 1 through 4 are still incomplete and this audit did not treat them as finished.
 - Testing 3: repaired the Task 153-owned cucumber seam by making the queue-runtime started-path step validate replay-start barriers before recording a start, by swapping the stale hard-coded mismatch scenario onto a temp-repo-backed persisted-path mismatch, and by polling the queue-runtime error assertions until the in-memory error status settled. The targeted `--feature server/src/test/features/ingest-reembed.feature` rerun passed first, then the original full wrapper `npm run test:summary:server:cucumber` passed cleanly on `test-results/server-cucumber-tests-2026-04-20T01-32-19-033Z.log`.
 - Testing 4: reran `npm run lint` after the cucumber-seam repair and it passed cleanly without needing `npm run lint:fix`, so Task 153 now has its full planned automated proof chain on disk for the later audit step.
+- Automated-proof audit: marked Task 153 `__done__` because all subtasks and all testing steps are now honestly complete on disk and `plan_status.py --task-number 153` reports no live blocker. No prose-only remaining gate stayed behind after the final cucumber and lint proof passed.
 
 ### Task 154. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics
 

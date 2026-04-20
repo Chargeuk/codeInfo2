@@ -12921,7 +12921,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 2. [x] Run `npm run test:summary:server:unit`.
 3. [x] Run `npm run test:summary:server:cucumber`.
 4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -12938,6 +12938,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - **BLOCKING ANSWER** External-library precedents point to the same supported fix boundary. Official Prettier CLI docs and Context7 `/prettier/prettier` both say `prettier . --check` returns exit code `1` when any matched file is not formatted, and that `.prettierignore` is the supported way to exclude generated or artifact files from repo-wide formatting commands. DeepWiki `prettier/prettier` confirms the same documented behavior: `prettier . --check` audits the whole matched repo surface, while `.prettierignore` is the intended project-level exclusion mechanism for artifacts and unwanted files.
 - **BLOCKING ANSWER** Chosen solution: normalize the repo-wide formatter input set by adding `codeInfoStatus/manual-testing/` (or an equivalently tight durable-proof-artifact pattern) to `.prettierignore`, then rerun the repo-supported `npm run format:check`. This fits the current local repo state because the failing files are committed manual-testing proof artifacts rather than Task 162-owned source or proof-authoring files, and the repo already uses `.prettierignore` to carve artifact-like inputs out of repo-wide Prettier ownership. Rejected alternatives are not suitable: marking Testing 5 complete from the task-owned file-scoped Prettier rerun would be dishonest because the listed repo-supported gate still fails, running `npm run format` across unrelated durable proof files would create broad out-of-scope churn on non-owner artifacts, and leaving the repo-wide command unchanged without excluding those proof artifacts would repeat the same blocker on later tasks that did not create the manual-testing JSONs.
 - Planner repair on 2026-04-20: Task 161 now owns the missing repo-root `.prettierignore` prerequisite that this blocker answer proved was absent. This queue-rewrite task returned to `__to_do__` behind that prerequisite with its completed implementation work plus Testing 1 through 4 preserved on disk, and it keeps only Testing 5 for the later repo-wide format rerun once Task 161 is finished.
+- Testing 5: `npm run format:check` now passes cleanly after Task 161 normalized repo-wide Prettier ownership for durable manual-testing artifacts, so the reopened Task 162 proof set is complete without any further queue-owned source changes.
 
 ### Task 163. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 

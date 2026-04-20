@@ -12867,6 +12867,7 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 - Testing 1: `npm run lint` passed cleanly after the repo-root ignore-path repair, so Task 161’s prerequisite change did not introduce any lint regressions before the repo-wide format gate rerun.
 - Testing 2: `npm run format:check` reached a clean terminal verdict after the `.prettierignore` repair, ending with `All matched files use Prettier code style!` under the supported repo-wide `prettier . --check` gate instead of the earlier durable-artifact blockage.
 - Automated-proof audit on 2026-04-20: re-read the bound task, confirmed both Testing items were already honestly checked on disk with matching implementation notes, and closed Task 161 as `__done__` because no unchecked checklist work or live blocker remained.
+- Manual-testing assessment on 2026-04-20: task-scoped manual testing was not applicable. Task 161 only changes `.prettierignore` and the existing repo-root `npm run format:check` ownership boundary, so it has no runnable, browser-visible, or network-visible proof surface that needed manual runtime validation; no artifacts or additional subtasks were required.
 
 ### Task 162. Repair Cross-Operation Waiting Queue Rewrite Parity
 

@@ -12291,6 +12291,7 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 #### Implementation notes
 
 - Added from review pass `0000055-20260419T200440Z-d67f1ccc` to keep the shared repo-list reader and overlay path aligned with the queue write contract and the newer ingest-origin normalized error shape.
+- **BLOCKER** Stopped at Subtask 1 while trying to re-read `codeInfoTmp/reviews/0000055-20260419T200440Z-d67f1ccc-findings.md`. I checked the exact task-owned path and then searched the current repository for both required review artifacts (`...-findings.md` and `...-evidence.md`), but neither file exists anywhere readable in the current repo scope. The missing capability is the absent on-disk review artifact prerequisite for Subtasks 1 and 2, so this task should be reordered or rewritten to point at the current durable review location before implementation continues.
 
 ### Task 155. Re-Tighten Queueable Input Trust Boundaries
 

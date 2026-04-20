@@ -13206,7 +13206,7 @@ Repair the exact `flows.run.loop` stop-cleanup proof that is currently blocking 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161, 166`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `plan_contract_issue`: queued-roots acceptance proof re-fetches and polls inside `Then` instead of asserting the route response captured by the action step
   - `should_fix` `generic_engineering_issue`: `/ingest/roots` dedupe lets runtime-only `runId` override canonical row identity when stable rows are otherwise tied
@@ -13295,6 +13295,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - Testing 6: `npm run test:summary:e2e` initially failed because the tightened browser proof over-required `requestId` and then `runId` from `/ingest/roots`; after narrowing the proof to the stable queued follow-up path/name plus no-error, non-waiting survival contract, the full e2e wrapper passed cleanly (`tests run: 60`, `passed: 60`, `failed: 0`).
 - Testing 7: `npm run lint` passed cleanly after the queued follow-up fixture and browser-proof changes, so no lint cleanup was needed for the reopened Task 167 work.
 - Testing 8: `npm run format:check` flagged only task-owned Prettier drift in `e2e/ingest.spec.ts` after the e2e proof repair; formatting that file and rerunning the same repo-wide check produced `All matched files use Prettier code style!`.
+- Automated-proof audit on 2026-04-20: normalized Task 167 from `__in_progress__` to `__done__` after the reopened fixture and browser-proof follow-up closed cleanly, because the current plan and parser now show all 14 subtasks complete, all 8 Testing steps complete, and no live blocker.
 
 ### Task 168. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
 

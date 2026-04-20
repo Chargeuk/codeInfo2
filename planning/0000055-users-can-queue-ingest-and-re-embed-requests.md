@@ -12555,7 +12555,7 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `unbounded_bulk_selector_growth`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` to put a concrete bound on the large deleted-file selector sent through the delta re-embed cleanup path.
@@ -12624,6 +12624,7 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 - The file-scoped Prettier subtask first reported real formatting drift in the Task 158 TypeScript owners and the usual `.feature` parser seam, so I reran the same file list with `prettier-plugin-gherkin --write` and then rechecked it cleanly with the matching plugin-backed `--check` command.
 - The newly added `ingest-reembed.test.ts` proof owner also needed its own Prettier pass, so I added a narrow hygiene subtask, ran `npx prettier --write` on that file, and reran `npx prettier --check` cleanly before closing it.
 - `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so Testing 1 is now complete without needing log inspection.
+- Automated-proof audit: marked Task 158 `__done__` because all 16 subtasks and all 5 testing steps are now checked on disk and `plan_status.py --task-number 158` reports no live blocker or prose-only remaining gate.
 - `npm run test:summary:server:unit` first failed only in the three new Task 158 runtime proofs because the test fixtures accidentally crossed into AST-rebuild ownership; I narrowed those proofs and the generated cucumber fixture helper back to non-AST files, corrected the partial-precleanup expectation to match the already-missing persisted row contract, reran targeted proof for each failure, and then reran the full wrapper cleanly with `1730/1730` passing in `test-results/server-unit-tests-2026-04-20T12-11-44-153Z.log`.
 - `npm run test:summary:server:cucumber` passed cleanly with `105/105` scenarios green in `test-results/server-cucumber-tests-2026-04-20T12-27-58-295Z.log`, so the deterministic generated-delete feature path is now proven at the cucumber layer as well.
 - The Testing 4 rerun of `npm run lint` passed cleanly after the proof-driven non-AST fixture repair, so no follow-up `lint:fix` pass was needed.

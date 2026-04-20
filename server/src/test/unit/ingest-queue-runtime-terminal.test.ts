@@ -212,8 +212,11 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
       buildIngestDeps(),
     );
     __setQueueRequestIdForRunForTest(runId, '11');
-    assert.ok(scheduledTask, 'expected captured run task before execution');
-    scheduledTask?.();
+    if (scheduledTask === null) {
+      throw new Error('expected captured run task before execution');
+    }
+    const executeScheduledTask = scheduledTask as () => void;
+    executeScheduledTask();
 
     const status = await waitForTerminal(runId);
     const stalled = await pumpIngestQueue();

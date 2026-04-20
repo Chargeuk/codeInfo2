@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -12218,7 +12218,7 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152, 156`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Task `155` automated-proof prerequisite: shared loop-flow runtime cleanup release before queue-wait full-wrapper confirmation can resume
 - Notes: Added during planner repair after Task 155 completed and Task 154's full `server:unit` rerun proved the remaining red state belongs to the loop-flow runtime cleanup seam in `server/src/flows/service.ts` and `server/src/test/integration/flows.run.loop.test.ts`, not to the repaired queue-wait owner.
@@ -12277,6 +12277,8 @@ This task repairs the shared flow-runtime stop cleanup seam so the full `node:te
 - Automated-proof audit: marked Task 154 `__done__` because all 9 subtasks and all 5 testing steps are now checked on disk and `plan_status.py --task-number 154` reports no live blocker or prose-only remaining gate.
 - `npm run lint` exited cleanly without needing `lint:fix`, so Task 154 now only needs the file-scoped Prettier confirmation in this automated-proof pass.
 - The file-scoped `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/flows/service.ts server/src/test/integration/flows.run.loop.test.ts` passed cleanly, so Task 154's remaining automated proof is now fully recorded on disk for the later audit step.
+- Manual-testing pass on 2026-04-20 restarted the main host-network stack from a previously stopped state with `npm run compose:build` and `npm run compose:up`, confirmed startup health through `npm run test:summary:host-network:main` plus `GET /health`, and saved the live `/flows` payload to `codeInfoTmp/manual-testing/0000055/task154-flows.json` before returning the main stack to its prior stopped state with `npm run compose:down`.
+- **BLOCKER** Manual proof cannot currently exercise Task 154's loop-stop boundary on supported live surfaces: the checked-in runtime only exposes the non-loop sandbox flows in `flows-sandbox/echo.json` and `flows-sandbox/smoke.json`, while the repaired seam is only reproducible today through the test-only `server/src/test/fixtures/flows/loop-break.json` harness and scripted chat timing used by `server/src/test/integration/flows.run.loop.test.ts`. Runtime evidence for the missing live owner path is in `codeInfoTmp/manual-testing/0000055/task154-health.json` and `codeInfoTmp/manual-testing/0000055/task154-flows.json`; what remains missing is a supported loop-capable runtime flow and documented stop-at-boundary repro path for `cancel_inflight`.
 
 ### Task 155. Repair Shared Reingest Queue-Wait Timeout Settlement
 

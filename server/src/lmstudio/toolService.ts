@@ -350,6 +350,7 @@ function resolveQueueRequestEmbeddingIdentity(params: {
   currentRepo?: RepoEntry;
 }) {
   const { payload, fallbackLock, currentRepo } = params;
+  const payloadModel = normalizeEmbeddingModel(payload.model);
   const requestedSelection = resolveRequestEmbeddingSelection({
     embeddingProvider: payload.embeddingProvider,
     embeddingModel: payload.embeddingModel,
@@ -377,7 +378,7 @@ function resolveQueueRequestEmbeddingIdentity(params: {
     currentRepo &&
     payload.embeddingProvider === undefined &&
     payload.embeddingModel === undefined &&
-    payload.model === undefined
+    (payloadModel === null || !payloadModel.includes('/'))
   ) {
     if (currentProvider && currentModel) {
       return {

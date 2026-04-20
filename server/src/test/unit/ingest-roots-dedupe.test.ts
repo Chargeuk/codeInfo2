@@ -16,6 +16,7 @@ import { dedupeRootsByPath } from '../../routes/ingestRoots.js';
 
 const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+const ORIGINAL_READY_STATE = mongoose.connection.readyState;
 
 function createRootsApp(
   roots: { ids: string[]; metadatas: Record<string, unknown>[] },
@@ -44,6 +45,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: ORIGINAL_READY_STATE,
+  });
   if (ORIGINAL_HOST === undefined) {
     delete process.env.CODEINFO_HOST_INGEST_DIR;
   } else {

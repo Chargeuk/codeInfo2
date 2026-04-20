@@ -12266,7 +12266,7 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 1. [x] Run `npm run build:summary:server`.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+4. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
 5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
@@ -12352,10 +12352,10 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 #### Testing
 
 1. [x] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
-5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md common/src/lmstudio.ts server/src/lmstudio/toolService.ts server/src/mcp/server.ts server/src/routes/ingestRoots.ts server/src/routes/toolsIngestedRepos.ts server/src/test/unit/ingest-roots-dedupe.test.ts server/src/test/unit/tools-ingested-repos.test.ts server/src/test/unit/mcp-ingested-repositories.test.ts server/src/test/features/ingest-roots.feature server/src/test/steps/ingest-manage.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+5. [x] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md common/src/lmstudio.ts server/src/lmstudio/toolService.ts server/src/mcp/server.ts server/src/routes/ingestRoots.ts server/src/routes/toolsIngestedRepos.ts server/src/test/unit/ingest-roots-dedupe.test.ts server/src/test/unit/tools-ingested-repos.test.ts server/src/test/unit/mcp-ingested-repositories.test.ts server/src/test/features/ingest-roots.feature server/src/test/steps/ingest-manage.steps.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
 
 #### Implementation notes
 
@@ -12376,6 +12376,12 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 - **RESOLVED ISSUE** Testing 2 (`npm run test:summary:server:unit`) stayed red after the Task 155 fix, but planner repair proved the remaining failure belongs to the shared reingest queue-wait timeout seam rather than the repo-list overlay contract. The rerun on `test-results/server-unit-tests-2026-04-20T02-49-19-577Z.log` first cleared the Task 155 waiting-row assertion, then still failed in `server/src/test/unit/reingestService.test.ts`, where `queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions` cancels with `Promise resolution is still pending but the event loop has already resolved`; planner repair moved that prerequisite into new Task 154 so this overlay task can return to `__to_do__` until the shared queue-wait owner lands.
 - Planner repair: created new Task 154 to own the shared reingest queue-wait timeout settlement regression, returned this repo-list overlay task to `__to_do__`, and made the wrapper rerun depend explicitly on that prerequisite instead of leaving this task blocked on an out-of-scope unit-suite owner.
 - Planner repair: promoted Task 155 back to `__in_progress__` because the remaining red full-wrapper assertions from `test-results/server-unit-tests-2026-04-20T03-28-46-598Z.log` all land in this task's `/ingest/roots` proof homes. Task 154 now waits behind this task only for the post-repair full-wrapper confirmation path.
+- Repaired the remaining Task 155 full-unit reds by restoring `mongoose.connection.readyState` after each `ingest-roots-dedupe` test and by narrowing `resolveQueueRequestEmbeddingIdentity()` so plain legacy aliases preserve an existing canonical pair while provider-qualified legacy model strings still normalize through the admission-style path.
+- Targeted wrapper reruns for `GET /ingest/roots applies active overlay and synthesizes missing active roots`, `GET /ingest/roots keeps a partial-canonical waiting overlay on one canonical provider/model pair`, and `GET /ingest/roots normalizes legacy provider-qualified waiting model ids the same way admission does` all passed before the full rerun.
+- `npm run test:summary:server:unit` now passes cleanly with `tests run: 1719`, `passed: 1719`, and `failed: 0` on `test-results/server-unit-tests-2026-04-20T04-30-54-728Z.log`, so the full server unit wrapper is no longer red on Task 155's proof surface.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 101`, `passed: 101`, and `failed: 0` on `test-results/server-cucumber-tests-2026-04-20T04-45-51-128Z.log`, so the feature-owned reader proof is green alongside the unit surfaces.
+- Final `npm run lint` passed cleanly after the Task 155 proof repairs, so no follow-up `lint:fix` or narrow manual cleanup was needed before the closing Prettier check.
+- The closing file-scoped Prettier check needed `prettier-plugin-gherkin` for `server/src/test/features/ingest-roots.feature`; rerunning the same Task 155 file list with that plugin passed cleanly without any writeback formatting changes.
 
 ### Task 156. Re-Tighten Queueable Input Trust Boundaries
 

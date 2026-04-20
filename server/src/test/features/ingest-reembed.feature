@@ -23,6 +23,15 @@ Feature: Ingest re-embed
     Then ingest manage response status is 202
 
   @mongo
+  Scenario: re-embed rejects a non-canonical selector alias before queue admission
+    Given ingest manage chroma stub is empty
+    And ingest manage mongo queue is empty
+    And ingest manage root metadata exists for "/tmp/reembed-root" with legacy model "embed-1"
+    When I POST ingest manage reembed for root "/tmp/reembed-root/../reembed-root"
+    Then ingest manage response status is 404 with code "NOT_FOUND"
+    And ingest manage mongo queue remains empty
+
+  @mongo
   Scenario: waiting queued re-embed roots view keeps the persisted stable display name
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty

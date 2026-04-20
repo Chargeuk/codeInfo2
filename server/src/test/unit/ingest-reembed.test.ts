@@ -24,7 +24,6 @@ import {
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
-import { normalizeCanonicalQueueTargetPath } from '../../ingest/requestContracts.js';
 import {
   __resetIngestQueueAvailabilityForTest,
   enqueueOrReuseIngestRequest,
@@ -113,10 +112,10 @@ function buildApp(options?: {
         options?.useRealQueueRequest
           ? enqueueOrReuseIngestRequest(input)
           : options?.enqueueOrReuseIngestRequest
-          ? options.enqueueOrReuseIngestRequest(input)
-          : buildQueueResult({
-              canonicalTargetPath: input.canonicalTargetPath,
-            }),
+            ? options.enqueueOrReuseIngestRequest(input)
+            : buildQueueResult({
+                canonicalTargetPath: input.canonicalTargetPath,
+              }),
       pumpIngestQueue: async () =>
         options?.pumpIngestQueue
           ? options.pumpIngestQueue()
@@ -505,12 +504,21 @@ test('ingest-reembed queue admission persists the stable repo name instead of an
   assert.equal(capturedPayload.path, '/tmp/repo');
 });
 
-test('ingest-reembed queue-target normalization resolves encoded route aliases to one canonical target', () => {
-  assert.equal(
-    normalizeCanonicalQueueTargetPath('/tmp/repo/'),
-    normalizeCanonicalQueueTargetPath('/tmp//repo'),
-  );
-  assert.equal(normalizeCanonicalQueueTargetPath('/tmp/repo'), '/tmp/repo');
+test('ingest-reembed rejects a trailing-slash root alias before exact-root lookup begins', async () => {
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo%2F');
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.code, 'NOT_FOUND');
+  assert.equal(enqueueCalled, false);
 });
 
 test('queued reembed execution path and canonical bookkeeping path are kept separate for runtime operations', async () => {

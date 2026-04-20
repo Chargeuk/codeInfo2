@@ -101,6 +101,10 @@ Given('ingest start models scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
 
+Given('configured queueable workdir is {string}', (configuredRoot: string) => {
+  process.env.CODEINFO_CODEX_WORKDIR = configuredRoot;
+});
+
 Given(
   'temp repo with file {string} containing {string}',
   async (rel: string, content: string) => {
@@ -152,6 +156,14 @@ Then('the ingest start status code is {int}', (status: number) => {
 Then('the ingest start error code is {string}', (code: string) => {
   assert(response, 'expected response');
   assert.equal((response.body as { code?: string } | null)?.code, code);
+});
+
+Then('the ingest start error message is {string}', (message: string) => {
+  assert(response, 'expected response');
+  assert.equal(
+    (response.body as { message?: string } | null)?.message,
+    message,
+  );
 });
 
 Then(

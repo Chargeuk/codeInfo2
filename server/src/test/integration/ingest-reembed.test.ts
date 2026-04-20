@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { LMStudioClient } from '@lmstudio/sdk';
+import express from 'express';
+import request from 'supertest';
 import {
   __finalizeQueueRequestForRunForTest,
   __resetIngestJobsForTest,
@@ -13,6 +16,9 @@ import {
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
+import type { EnqueueIngestRequestResult } from '../../ingest/requestQueue.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
+import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 
 function waitForNextTurn() {
   return new Promise<void>((resolve) => {
@@ -31,6 +37,71 @@ function setNoopQueueRuntimeOps() {
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
+}
+
+function buildReembedRepo(): RepoEntry {
+  return {
+    id: 'repo',
+    name: 'repo',
+    description: null,
+    containerPath: '/tmp/reembed-root',
+    hostPath: '/host/tmp/reembed-root',
+    lastIngestAt: '2026-01-01T00:00:00.000Z',
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'embed-1',
+    embeddingDimensions: 768,
+    model: 'embed-1',
+    modelId: 'embed-1',
+    lock: {
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-1',
+      embeddingDimensions: 768,
+      lockedModelId: 'embed-1',
+      modelId: 'embed-1',
+    },
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    lastError: null,
+  };
+}
+
+function buildReembedApp(options?: {
+  listIngestedRepositories?: () => Promise<ListReposResult>;
+  enqueueOrReuseIngestRequest?: () => Promise<EnqueueIngestRequestResult>;
+}) {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    createIngestReembedRouter({
+      clientFactory: () => ({}) as LMStudioClient,
+      listIngestedRepositories: async () =>
+        options?.listIngestedRepositories
+          ? options.listIngestedRepositories()
+          : {
+              repos: [buildReembedRepo()],
+              lockedModelId: 'embed-1',
+            },
+      enqueueOrReuseIngestRequest: async () =>
+        options?.enqueueOrReuseIngestRequest
+          ? options.enqueueOrReuseIngestRequest()
+          : {
+              requestId: 'queue-request-123',
+              canonicalTargetPath: '/tmp/reembed-root',
+              queueState: 'waiting',
+              queuePosition: 1,
+              runId: null,
+              reusedExisting: false,
+              updatedExisting: false,
+              queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+            },
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: null,
+      }),
+    }),
+  );
+  return app;
 }
 
 test.beforeEach(() => {
@@ -208,4 +279,30 @@ test('cleanup boundary exposes a deterministic next-item-not-started state befor
     'delete-complete',
     'start:/data/repo-next',
   ]);
+});
+
+test('ingest-reembed rejects a dot-segment root alias through the public route before queue admission', async () => {
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildReembedApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return {
+          requestId: 'queue-request-123',
+          canonicalTargetPath: '/tmp/reembed-root',
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+        };
+      },
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Freembed-root%2F..%2Freembed-root');
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.code, 'NOT_FOUND');
+  assert.equal(enqueueCalled, false);
 });

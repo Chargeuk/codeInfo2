@@ -258,82 +258,100 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function createValidationError(
-  sourceId: unknown,
-  retryLists: ReingestRetryLists,
-): ReingestError | null {
+export function validateExactReingestSourceId(sourceId: unknown):
+  | { ok: true; sourceId: string }
+  | {
+      ok: false;
+      reason: ValidationReason;
+      message: string;
+    } {
   if (sourceId === undefined) {
-    return invalidParamsError('missing', 'sourceId is required', retryLists);
+    return {
+      ok: false,
+      reason: 'missing',
+      message: 'sourceId is required',
+    };
   }
 
   if (typeof sourceId !== 'string') {
-    return invalidParamsError(
-      'non_string',
-      'sourceId must be a string',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_string',
+      message: 'sourceId must be a string',
+    };
   }
 
   if (!sourceId.trim()) {
-    return invalidParamsError(
-      'empty',
-      'sourceId must be a non-empty string',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'empty',
+      message: 'sourceId must be a non-empty string',
+    };
   }
 
   const hasForwardSlash = sourceId.includes('/');
   const hasBackslash = sourceId.includes('\\');
   if (hasForwardSlash && hasBackslash) {
-    return invalidParamsError(
-      'ambiguous_path',
-      'sourceId must not mix slash styles',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'ambiguous_path',
+      message: 'sourceId must not mix slash styles',
+    };
   }
 
   if (sourceId.length > 1 && sourceId.endsWith('/')) {
-    return invalidParamsError(
-      'ambiguous_path',
-      'sourceId must not include a trailing slash variant',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'ambiguous_path',
+      message: 'sourceId must not include a trailing slash variant',
+    };
   }
 
   if (/\/(\.\.?)(\/|$)/.test(sourceId)) {
-    return invalidParamsError(
-      'ambiguous_path',
-      'sourceId must not include dot-segment path traversal forms',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'ambiguous_path',
+      message: 'sourceId must not include dot-segment path traversal forms',
+    };
   }
 
   if (!path.posix.isAbsolute(sourceId)) {
-    return invalidParamsError(
-      'non_absolute',
-      'sourceId must be an absolute normalized container path',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_absolute',
+      message: 'sourceId must be an absolute normalized container path',
+    };
   }
 
   if (hasBackslash) {
-    return invalidParamsError(
-      'non_normalized',
-      'sourceId must be an absolute normalized container path',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_normalized',
+      message: 'sourceId must be an absolute normalized container path',
+    };
   }
 
   const normalized = normalizeCanonicalQueueTargetPath(sourceId);
   if (normalized !== sourceId) {
-    return invalidParamsError(
-      'non_normalized',
-      'sourceId must be an absolute normalized container path',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_normalized',
+      message: 'sourceId must be an absolute normalized container path',
+    };
   }
 
-  return null;
+  return { ok: true, sourceId };
+}
+
+export function findReingestableRepoByExactSourceId(
+  repos: ListReposResult,
+  sourceId: string,
+): RepoEntry | null {
+  return (
+    repos.repos.find(
+      (repo) => isRepoReingestable(repo) && repo.containerPath === sourceId,
+    ) ?? null
+  );
 }
 
 function findUnsupportedArgKeys(args: unknown) {
@@ -469,15 +487,20 @@ export async function runReingestRepository(
     return { ok: false, error: err };
   }
 
-  const validationError = createValidationError(sourceId, retryLists);
+  const validatedSourceId = validateExactReingestSourceId(sourceId);
+  const validationError = validatedSourceId.ok
+    ? null
+    : invalidParamsError(
+        validatedSourceId.reason,
+        validatedSourceId.message,
+        retryLists,
+      );
   if (validationError) {
     logValidationResult(appendLog, { kind: 'error', error: validationError });
     return { ok: false, error: validationError };
   }
 
-  const normalizedSourceId = normalizeCanonicalQueueTargetPath(
-    sourceId as string,
-  );
+  const normalizedSourceId = validatedSourceId.sourceId;
   const knownRoots = new Set(retryLists.reingestableSourceIds);
   if (!knownRoots.has(normalizedSourceId)) {
     const err = notFoundError(retryLists);
@@ -485,11 +508,9 @@ export async function runReingestRepository(
     return { ok: false, error: err };
   }
 
-  const selectedRepo = repos.repos.find(
-    (repo) =>
-      isRepoReingestable(repo) &&
-      normalizeCanonicalQueueTargetPath(repo.containerPath) ===
-        normalizedSourceId,
+  const selectedRepo = findReingestableRepoByExactSourceId(
+    repos,
+    normalizedSourceId,
   );
   if (!selectedRepo) {
     const err = notFoundError(retryLists);

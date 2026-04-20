@@ -349,6 +349,69 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
   ]);
 });
 
+test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR before replay starts', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir/';
+  const deletedRequestIds: string[] = [];
+  let getOrCreateCollectionCalls = 0;
+  let runProcessorCalls = 0;
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '25',
+    root: '/allowed/workdir/recover-root',
+    operation: 'start',
+    queueState: 'running',
+    runId: 'run-recovered-malformed-workdir',
+  });
+
+  mock.method(ChromaClient.prototype, 'getOrCreateCollection', async () => {
+    getOrCreateCollectionCalls += 1;
+    return {
+      get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
+    } as never;
+  });
+
+  __setRunProcessorForTest(async () => {
+    runProcessorCalls += 1;
+    throw new Error('run processor should not start');
+  });
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  assert.equal(result.recovered, true);
+
+  const terminal = await waitForTerminalIngestStatus(
+    recoveryQueueRequest.runId!,
+    {
+      timeoutMs: 1_000,
+      pollMs: 10,
+    },
+  );
+  await waitForNextTurn();
+  await waitForNextTurn();
+
+  assert.equal(terminal.reason, 'terminal');
+  assert.equal(terminal.status?.state, 'error');
+  assert.equal(
+    terminal.status?.lastError,
+    'CODEINFO_CODEX_WORKDIR must be an absolute normalized repository root path or the exact placeholder "$CODEINFO_CODEX_WORKDIR"',
+  );
+  assert.equal(terminal.status?.error?.error, 'CONFIGURATION');
+  assert.equal(getOrCreateCollectionCalls, 0);
+  assert.equal(runProcessorCalls, 0);
+  assert.deepEqual(deletedRequestIds, [
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+  ]);
+});
+
 test('startup recovery rejects blank canonical model even when a legacy model is also present and does not leave partial running state behind', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({

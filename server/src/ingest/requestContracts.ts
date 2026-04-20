@@ -16,6 +16,8 @@ export type QueuedIngestRequestPaths = {
   requestPayloadPath: string;
 };
 
+const CODEX_WORKDIR_PLACEHOLDER = '$CODEINFO_CODEX_WORKDIR';
+
 function createValidationError(message: string, code = 'VALIDATION') {
   const error = new Error(message);
   (error as { code?: string }).code = code;
@@ -126,18 +128,14 @@ export function validateQueueableRepositoryRootPath(
     );
   }
 
-  const rawAllowedRoot =
-    options?.allowedRoot?.trim() ?? process.env.CODEINFO_CODEX_WORKDIR?.trim();
-  if (
-    !rawAllowedRoot ||
-    rawAllowedRoot.includes('$') ||
-    !path.posix.isAbsolute(normalizeCanonicalQueueTargetPath(rawAllowedRoot))
-  ) {
+  const configuredAllowedRoot = resolveQueueableAllowedRoot(
+    options?.allowedRoot ?? process.env.CODEINFO_CODEX_WORKDIR,
+  );
+  if (!configuredAllowedRoot) {
     return canonicalPath;
   }
 
-  const canonicalAllowedRoot =
-    normalizeCanonicalQueueTargetPath(rawAllowedRoot);
+  const canonicalAllowedRoot = configuredAllowedRoot;
   const withinAllowedRoot =
     canonicalPath === canonicalAllowedRoot ||
     canonicalPath.startsWith(`${canonicalAllowedRoot}/`);
@@ -148,6 +146,59 @@ export function validateQueueableRepositoryRootPath(
   }
 
   return canonicalPath;
+}
+
+function resolveQueueableAllowedRoot(
+  rawAllowedRoot: string | null | undefined,
+) {
+  if (rawAllowedRoot === undefined || rawAllowedRoot === null) {
+    return null;
+  }
+
+  if (rawAllowedRoot === CODEX_WORKDIR_PLACEHOLDER) {
+    return null;
+  }
+
+  const trimmedAllowedRoot = rawAllowedRoot.trim();
+  if (!trimmedAllowedRoot) {
+    throw createValidationError(
+      'CODEINFO_CODEX_WORKDIR must not be blank',
+      'CONFIGURATION',
+    );
+  }
+
+  if (trimmedAllowedRoot === CODEX_WORKDIR_PLACEHOLDER) {
+    return null;
+  }
+
+  const hasForwardSlash = trimmedAllowedRoot.includes('/');
+  const hasBackslash = trimmedAllowedRoot.includes('\\');
+  if (
+    hasBackslash ||
+    (hasForwardSlash && hasBackslash) ||
+    (trimmedAllowedRoot.length > 1 && trimmedAllowedRoot.endsWith('/')) ||
+    /\/(\.\.?)(\/|$)/.test(trimmedAllowedRoot)
+  ) {
+    throw createValidationError(
+      `CODEINFO_CODEX_WORKDIR must be an absolute normalized repository root path or the exact placeholder "${CODEX_WORKDIR_PLACEHOLDER}"`,
+      'CONFIGURATION',
+    );
+  }
+
+  const canonicalAllowedRoot =
+    normalizeCanonicalQueueTargetPath(trimmedAllowedRoot);
+  if (
+    trimmedAllowedRoot.includes('$') ||
+    !path.posix.isAbsolute(trimmedAllowedRoot) ||
+    canonicalAllowedRoot !== trimmedAllowedRoot
+  ) {
+    throw createValidationError(
+      `CODEINFO_CODEX_WORKDIR must be an absolute normalized repository root path or the exact placeholder "${CODEX_WORKDIR_PLACEHOLDER}"`,
+      'CONFIGURATION',
+    );
+  }
+
+  return canonicalAllowedRoot;
 }
 
 function normalizeProvider(

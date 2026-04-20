@@ -20,10 +20,7 @@ import {
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
-import {
-  normalizeCanonicalQueueTargetPath,
-  resolveRequestEmbeddingSelection,
-} from '../../ingest/requestContracts.js';
+import { resolveRequestEmbeddingSelection } from '../../ingest/requestContracts.js';
 import {
   __resetIngestQueueAvailabilityForTest,
   markIngestQueueUnavailable,
@@ -81,10 +78,10 @@ function buildApp(options?: {
         options?.useRealQueueRequest
           ? enqueueOrReuseIngestRequest(input)
           : options?.enqueueOrReuseIngestRequest
-          ? options.enqueueOrReuseIngestRequest(input)
-          : buildQueueResult({
-              canonicalTargetPath: input.canonicalTargetPath,
-            }),
+            ? options.enqueueOrReuseIngestRequest(input)
+            : buildQueueResult({
+                canonicalTargetPath: input.canonicalTargetPath,
+              }),
       pumpIngestQueue: async () =>
         options?.pumpIngestQueue
           ? options.pumpIngestQueue()
@@ -285,10 +282,6 @@ test('ingest-start request contracts keep canonical embedding fields authoritati
   assert.ok(!('status' in resolved));
   assert.equal(resolved.selection.providerId, 'openai');
   assert.equal(resolved.selection.modelKey, 'text-embedding-3-small');
-  assert.equal(
-    normalizeCanonicalQueueTargetPath('/data/example/'),
-    normalizeCanonicalQueueTargetPath('/data//example'),
-  );
 });
 
 test('ingest-start rejects bogus canonical provider even when legacy model is also present', async () => {
@@ -395,10 +388,7 @@ test('ingest-start rejects out-of-scope absolute queue roots before queue admiss
 
   assert.equal(response.status, 400);
   assert.equal(response.body.code, 'VALIDATION');
-  assert.equal(
-    response.body.message,
-    'path must stay within /allowed/workdir',
-  );
+  assert.equal(response.body.message, 'path must stay within /allowed/workdir');
   assert.equal(enqueueCalled, false);
 });
 
@@ -430,6 +420,115 @@ test('ingest-start keeps canonical repository-root admission working for allowed
   assert.equal(response.status, 202);
   assert.equal(capturedCanonicalTargetPath, '/allowed/workdir/repo');
   assert.equal(capturedRequestPayloadPath, '/allowed/workdir/repo');
+});
+
+test('ingest-start rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR values before enqueueing', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir/';
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'CONFIGURATION');
+  assert.equal(
+    response.body.message,
+    'CODEINFO_CODEX_WORKDIR must be an absolute normalized repository root path or the exact placeholder "$CODEINFO_CODEX_WORKDIR"',
+  );
+  assert.equal(enqueueCalled, false);
+});
+
+test('ingest-start rejects blank CODEINFO_CODEX_WORKDIR explicitly before enqueueing', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '';
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'CONFIGURATION');
+  assert.equal(
+    response.body.message,
+    'CODEINFO_CODEX_WORKDIR must not be blank',
+  );
+  assert.equal(enqueueCalled, false);
+});
+
+test('ingest-start rejects whitespace-only CODEINFO_CODEX_WORKDIR explicitly before enqueueing', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '   ';
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'CONFIGURATION');
+  assert.equal(
+    response.body.message,
+    'CODEINFO_CODEX_WORKDIR must not be blank',
+  );
+  assert.equal(enqueueCalled, false);
+});
+
+test('ingest-start keeps the exact CODEINFO_CODEX_WORKDIR placeholder exception narrow and accepted', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '$CODEINFO_CODEX_WORKDIR';
+  let capturedCanonicalTargetPath = '';
+
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) => {
+        capturedCanonicalTargetPath = input.canonicalTargetPath;
+        return buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+        });
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.equal(capturedCanonicalTargetPath, '/tmp/repo');
 });
 
 test('ingest-start legacy model maps to lmstudio compatibility input', async () => {

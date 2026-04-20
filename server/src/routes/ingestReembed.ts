@@ -7,9 +7,9 @@ import {
 } from '../ingest/providers/index.js';
 import {
   buildQueuedReingestRequest,
-  isRepoReingestable,
+  findReingestableRepoByExactSourceId,
+  validateExactReingestSourceId,
 } from '../ingest/reingestService.js';
-import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
 import {
   enqueueOrReuseIngestRequest,
   QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
@@ -35,13 +35,16 @@ export function createIngestReembedRouter({
   router.post('/ingest/reembed/:root', async (req, res) => {
     const { root } = req.params;
     try {
-      const normalizedRoot = normalizeCanonicalQueueTargetPath(root);
+      const validatedRoot = validateExactReingestSourceId(root);
+      if (!validatedRoot.ok) {
+        const error = new Error('NOT_FOUND');
+        (error as { code?: string }).code = 'NOT_FOUND';
+        throw error;
+      }
       const repos = await listIngestedRepositoriesOverride();
-      const selectedRepo = repos.repos.find(
-        (repo) =>
-          isRepoReingestable(repo) &&
-          normalizeCanonicalQueueTargetPath(repo.containerPath) ===
-            normalizedRoot,
+      const selectedRepo = findReingestableRepoByExactSourceId(
+        repos,
+        validatedRoot.sourceId,
       );
       if (!selectedRepo) {
         const error = new Error('NOT_FOUND');

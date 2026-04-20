@@ -790,6 +790,11 @@ Then('ingest manage response status is {int}', (status: number) => {
   assert.equal(response.status, status);
 });
 
+Then('ingest manage mongo queue remains empty', async () => {
+  const count = await IngestQueueRequestModel.countDocuments({});
+  assert.equal(count, 0);
+});
+
 Given(
   'ingest manage mongo queue has running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {

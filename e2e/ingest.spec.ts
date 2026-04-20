@@ -143,11 +143,13 @@ async function fetchRoots(ctx: APIRequestContext) {
   const data = await res.json();
   return Array.isArray(data.roots)
     ? (data.roots as Array<{
+        requestId?: string | null;
         path?: string;
         name?: string;
         status?: string;
         queueState?: string | null;
         runId?: string | null;
+        lastError?: string | null;
       }>)
     : [];
 }
@@ -904,13 +906,13 @@ test.describe.serial('Ingest flows', () => {
     const activeName = `${fixtureName}-startup-head`;
     const queuedName = `${fixtureName}-startup-next`;
     const queuedPath = `${fixturePath}/docs`;
-    const canonicalPathMatcher = new RegExp(
-      `^${fixturePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+    const queuedPathMatcher = new RegExp(
+      `^${queuedPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
       'i',
     );
-    const canonicalRows = page
+    const queuedRows = page
       .getByRole('row')
-      .filter({ has: page.getByRole('cell', { name: canonicalPathMatcher }) });
+      .filter({ has: page.getByRole('cell', { name: queuedPathMatcher }) });
     const ctx = await request.newContext();
 
     try {
@@ -937,50 +939,104 @@ test.describe.serial('Ingest flows', () => {
             if (!queuedRoot) {
               return 'missing';
             }
+            if (queuedRoot.lastError) {
+              return `error:${queuedRoot.lastError}`;
+            }
+            if (queuedRoot.status === 'error') {
+              return 'error-status';
+            }
+            if (!queuedRoot.requestId) {
+              return 'missing-request-id';
+            }
             if (
               queuedRoot.queueState === 'waiting' &&
               queuedRoot.runId == null
             ) {
               return 'waiting-without-owner';
             }
-            return JSON.stringify({
-              status: queuedRoot.status ?? null,
-              queueState: queuedRoot.queueState ?? null,
-              runId: queuedRoot.runId ?? null,
-            });
+            if (queuedRoot.runId == null) {
+              return 'missing-run-id';
+            }
+            return queuedRoot.requestId;
           },
           {
             timeout: 120_000,
             message:
-              'waiting for the queued ingest row to stop being stranded without an owner',
+              'waiting for the queued follow-up request to survive in /ingest/roots with a request owner',
           },
         )
-        .not.toBe('waiting-without-owner');
+        .not.toMatch(
+          /^(missing|error:|error-status|missing-request-id|waiting-without-owner|missing-run-id)/,
+        );
+
+      const queuedRootAfterHandoff = (await fetchRoots(ctx)).find(
+        (root) => root.path === queuedPath,
+      );
+      expect(
+        queuedRootAfterHandoff,
+        'expected queued follow-up request to remain present after the head finished',
+      ).toBeTruthy();
+      expect(queuedRootAfterHandoff?.requestId).toBeTruthy();
+      expect(queuedRootAfterHandoff?.runId).toBeTruthy();
+      expect(queuedRootAfterHandoff?.lastError ?? null).toBeNull();
+      const resumedQueuedRequestId = queuedRootAfterHandoff?.requestId as string;
+
+      await expect
+        .poll(
+          async () => {
+            const queuedRoot = (await fetchRoots(ctx)).find(
+              (root) => root.path === queuedPath,
+            );
+            if (!queuedRoot) {
+              return 'missing-after-handoff';
+            }
+            if (queuedRoot.lastError) {
+              return `error:${queuedRoot.lastError}`;
+            }
+            if (queuedRoot.requestId !== resumedQueuedRequestId) {
+              return `request-mismatch:${queuedRoot.requestId ?? 'none'}`;
+            }
+            return queuedRoot.queueState === 'waiting'
+              ? 'still-waiting'
+              : 'survived';
+          },
+          {
+            timeout: 120_000,
+            message:
+              'waiting for the queued follow-up request to survive as the same request after handoff',
+          },
+        )
+        .toBe('survived');
 
       await page.reload();
       await expect
         .poll(
           async () => {
-            if ((await canonicalRows.count()) === 0) {
+            if ((await queuedRows.count()) === 0) {
               return 'missing';
             }
-            const text =
-              (await canonicalRows.first().textContent())?.toLowerCase() ?? '';
-            return (await canonicalRows.count()) === 1 &&
-              !text.includes('queued (#1)')
+            const text = (await queuedRows.first().textContent()) ?? '';
+            const normalized = text.toLowerCase();
+            return (await queuedRows.count()) === 1 &&
+              normalized.includes(queuedName.toLowerCase()) &&
+              !normalized.includes('queued (#1)') &&
+              !normalized.includes('enoent')
               ? 'settled'
-              : `${await canonicalRows.count()}:${text}`;
+              : `${await queuedRows.count()}:${normalized}`;
           },
           {
             timeout: 60_000,
             message:
-              'waiting for the canonical repo row to stop showing queued (#1) after handoff',
+              'waiting for the queued follow-up row to survive the refresh without queue or ENOENT state',
           },
         )
         .toBe('settled');
 
-      await expect(canonicalRows).toHaveCount(1);
-      await expect(canonicalRows.first()).not.toContainText(/queued \(#1\)/i);
+      await expect(queuedRows).toHaveCount(1);
+      await expect(queuedRows.first()).toContainText(new RegExp(queuedName, 'i'));
+      await expect(queuedRows.first()).toContainText(queuedPath);
+      await expect(queuedRows.first()).not.toContainText(/queued \(#1\)/i);
+      await expect(queuedRows.first()).not.toContainText(/enoent/i);
     } finally {
       await ctx.dispose();
     }

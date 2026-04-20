@@ -1,0 +1,2 @@
+This checked-in child fixture keeps the queued follow-up ingest path real in the
+supported e2e runtime.

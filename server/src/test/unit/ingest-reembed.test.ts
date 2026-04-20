@@ -14,6 +14,7 @@ import {
 } from '../../ast/parser.js';
 import {
   getLockedEmbeddingModel,
+  getRootsCollection,
   resetCollectionsForTests,
 } from '../../ingest/chromaClient.js';
 import { hashFile } from '../../ingest/hashing.js';
@@ -861,6 +862,7 @@ test('blank-only delta reembed returns a zero-count completed terminal result wh
       }),
     }));
     await getLockedEmbeddingModel();
+    await getRootsCollection();
     const bootstrapCallsBeforeRun = getOrCreateCollection.mock.calls.length;
     setCollectionFailure(chromaBootstrapFailure);
 
@@ -886,8 +888,8 @@ test('blank-only delta reembed returns a zero-count completed terminal result wh
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun + 1,
-      'zero-work fast path should not add a second late Chroma bootstrap after validation passes',
+      bootstrapCallsBeforeRun,
+      'zero-work fast path should not add a late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();
@@ -1113,6 +1115,7 @@ test('deletions-only delta reembed returns a zero-count completed terminal resul
       }),
     }));
     await getLockedEmbeddingModel();
+    await getRootsCollection();
     const bootstrapCallsBeforeRun = getOrCreateCollection.mock.calls.length;
     await fs.rm(path.join(root, 'docs/deleted.txt'));
     process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
@@ -1139,8 +1142,8 @@ test('deletions-only delta reembed returns a zero-count completed terminal resul
     );
     assert.equal(
       getOrCreateCollection.mock.calls.length,
-      bootstrapCallsBeforeRun + 1,
-      'deletions-only fast path should not add a second late Chroma bootstrap after validation passes',
+      bootstrapCallsBeforeRun,
+      'deletions-only fast path should not add a late Chroma bootstrap after validation passes',
     );
   } finally {
     await cleanup();

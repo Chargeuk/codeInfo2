@@ -102,8 +102,6 @@ describe('codexConfig', () => {
     const agentsRoot = path.join(repoRoot, 'codex_agents');
     const agentEntries = await fs.readdir(agentsRoot, { withFileTypes: true });
     const configPaths = [
-      path.join(repoRoot, 'codex/chat/config.toml'),
-      path.join(repoRoot, 'codex/chat/config_minimax.toml'),
       path.join(repoRoot, 'config.toml.example'),
       ...agentEntries
         .filter((entry) => entry.isDirectory())

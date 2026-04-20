@@ -13202,8 +13202,8 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
 3. [ ] Run `npm run test:summary:server:unit`.
 4. [ ] Run `npm run test:summary:server:cucumber`.
 5. [ ] Run `npm run test:summary:client`.
@@ -13218,6 +13218,9 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - Subtasks 5 through 8: refactored `server/src/test/steps/ingest-manage.steps.ts` so `When I GET ingest manage roots` stores one named captured roots response and the related `Then` steps assert that stored payload instead of re-fetching, then updated `server/src/test/features/ingest-roots.feature` so the queued and cleanup-blocked scenarios read as captured-payload proof homes.
 - Subtasks 9 through 11: tightened the client proof owners in `client/src/test/useIngestRoots.test.tsx` so canonical route-level `id` stays explicit over runtime-only `runId`, and the queued-to-running and queued-to-retried transition tests name stale display-derived identity exclusion directly.
 - Subtask 12: updated `e2e/ingest.spec.ts` so the queued-to-running handoff proof now waits for exactly one visible row and for the queued badge to disappear, making the browser-visible canonical-identity handoff explicit instead of only inferring it from text drift.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the server build gate is clear for the repaired `/ingest/roots` route and proof-owner boundary.
+- Testing 2: `npm run build:summary:client` first exposed one task-owned duplicate `runId` field in `client/src/test/useIngestRoots.test.tsx`; after removing that stale duplicate, the client typecheck-and-build wrapper passed cleanly with `agent_action: skip_log`.
+- **BLOCKER** Testing 3 (`npm run test:summary:server:unit`) stopped on an out-of-scope failure in `server/src/test/integration/flows.run.loop.test.ts` (`flow stop during a looped flow prevents later iterations from continuing`). I inspected `test-results/server-unit-tests-2026-04-20T20-30-41-861Z.log` and confirmed the failing stack stays on the flow-loop runtime boundary rather than the Task 166 `/ingest/roots` route, step, client, or e2e owners. This task should stay `__in_progress__` and the planner should either split that unrelated server-unit failure into its own owner or reorder automated proof once the dirty-worktree flow runtime drift is repaired.
 
 ### Task 167. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
 

@@ -402,7 +402,6 @@ describe('useIngestRoots', () => {
           queueState: 'waiting',
           queuePosition: 1,
           requestId: 'queue-request-3',
-          runId: null,
           model: 'embed-model',
           lastError: null,
         },

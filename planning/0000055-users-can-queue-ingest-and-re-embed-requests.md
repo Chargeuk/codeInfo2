@@ -12980,8 +12980,8 @@ Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `serve
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
 
 #### Implementation notes
 
@@ -12989,6 +12989,8 @@ Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `serve
 - Subtask 1: re-read Task `164`’s preserved blocker history, the current `logs/test-summaries/build-server-latest.log` failure, and the live one-argument `shouldRewriteWaitingRequest(...)` helper signature to confirm the prerequisite is just caller-arity drift at `requestQueue.ts` lines 258 and 306.
 - Subtask 2: repaired `server/src/ingest/requestQueue.ts` by removing the two stale extra `input` arguments from `shouldRewriteWaitingRequest(...)` call sites so the current helper contract and callers match again without widening queue semantics.
 - Subtask 3: updated the direct queue-owner proof titles in `server/src/test/unit/ingest-request-queue.test.ts` so waiting-row rewrite and race-preserved reuse remain explicit after the helper-arity repair lands.
+- Testing 1: `npm run build:summary:server` now passes cleanly with `agent_action: skip_log`, so the shared server build baseline is unblocked again for downstream Task 164 proof.
+- Testing 2: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` passed cleanly with `tests run: 13`, `passed: 13`, and `failed: 0`, so the queue-owner proof still matches the repaired helper contract on current disk.
 
 ### Task 164. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 

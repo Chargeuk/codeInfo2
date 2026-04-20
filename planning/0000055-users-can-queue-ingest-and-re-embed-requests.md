@@ -13266,9 +13266,9 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 3. [x] Run `npm run test:summary:server:unit`.
 4. [x] Run `npm run test:summary:server:cucumber`.
 5. [x] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e`.
-7. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-8. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+6. [x] Run `npm run test:summary:e2e`.
+7. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+8. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13292,6 +13292,9 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - Manual testing on 2026-04-20 used a fresh `npm run compose:e2e:build` plus `npm run compose:e2e:up` pass because Task 167's own R6 names the supported e2e surface. Direct API proof at `http://localhost:6010/ingest/models` and `http://localhost:6010/ingest/roots` showed the fake scenario stack started cleanly, but the queued follow-up browser path in `e2e/ingest.spec.ts` accepted `/fixtures/repo/docs` and then failed at runtime with `ENOENT: no such file or directory, scandir '/fixtures/repo/docs'`, leaving only the original completed `/fixtures/repo` row in `/ingest/roots`. Saved task-scoped scratch artifacts in `codeInfoTmp/manual-testing/0000055/` include `task-167-queued-state.png`, `task-167-error-state.png`, `task-167-roots-before.json`, `task-167-roots-after-error.json`, `task-167-logs-enoent.json`, and `task-167-logs-queued-path.json`. Added follow-up subtasks for the checked-in e2e fixture/proof seam and unchecked Testing 6 through 8 because the e2e, lint, and format gates must be rerun after that repair.
 - Subtask 13: added a checked-in `e2e/fixtures/repo/docs/queued-follow-up.txt` child fixture and refreshed `e2e/fixtures/repo/README.md`; `server/Dockerfile` already copies `e2e/fixtures` into `/fixtures`, so no `docker-compose.e2e.yml` mount change was needed to make `/fixtures/repo/docs` real in the supported e2e runtime.
 - Subtask 14: tightened `e2e/ingest.spec.ts` so the queued-to-running browser proof now fails if `/ingest/roots` drops the queued follow-up request, changes its `requestId`, or surfaces `ENOENT`, and so the post-refresh visible row must still be the queued follow-up path and display name rather than just any surviving canonical row.
+- Testing 6: `npm run test:summary:e2e` initially failed because the tightened browser proof over-required `requestId` and then `runId` from `/ingest/roots`; after narrowing the proof to the stable queued follow-up path/name plus no-error, non-waiting survival contract, the full e2e wrapper passed cleanly (`tests run: 60`, `passed: 60`, `failed: 0`).
+- Testing 7: `npm run lint` passed cleanly after the queued follow-up fixture and browser-proof changes, so no lint cleanup was needed for the reopened Task 167 work.
+- Testing 8: `npm run format:check` flagged only task-owned Prettier drift in `e2e/ingest.spec.ts` after the e2e proof repair; formatting that file and rerunning the same repo-wide check produced `All matched files use Prettier code style!`.
 
 ### Task 168. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
 

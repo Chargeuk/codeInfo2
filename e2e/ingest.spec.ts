@@ -143,7 +143,6 @@ async function fetchRoots(ctx: APIRequestContext) {
   const data = await res.json();
   return Array.isArray(data.roots)
     ? (data.roots as Array<{
-        requestId?: string | null;
         path?: string;
         name?: string;
         status?: string;
@@ -945,8 +944,8 @@ test.describe.serial('Ingest flows', () => {
             if (queuedRoot.status === 'error') {
               return 'error-status';
             }
-            if (!queuedRoot.requestId) {
-              return 'missing-request-id';
+            if (queuedRoot.name !== queuedName) {
+              return `name-mismatch:${queuedRoot.name ?? 'none'}`;
             }
             if (
               queuedRoot.queueState === 'waiting' &&
@@ -954,10 +953,10 @@ test.describe.serial('Ingest flows', () => {
             ) {
               return 'waiting-without-owner';
             }
-            if (queuedRoot.runId == null) {
-              return 'missing-run-id';
+            if (queuedRoot.status === 'ingesting' && queuedRoot.runId == null) {
+              return 'ingesting-without-run-id';
             }
-            return queuedRoot.requestId;
+            return queuedRoot.status ?? 'present';
           },
           {
             timeout: 120_000,
@@ -966,7 +965,7 @@ test.describe.serial('Ingest flows', () => {
           },
         )
         .not.toMatch(
-          /^(missing|error:|error-status|missing-request-id|waiting-without-owner|missing-run-id)/,
+          /^(missing|error:|error-status|name-mismatch:|waiting-without-owner|ingesting-without-run-id)/,
         );
 
       const queuedRootAfterHandoff = (await fetchRoots(ctx)).find(
@@ -976,10 +975,8 @@ test.describe.serial('Ingest flows', () => {
         queuedRootAfterHandoff,
         'expected queued follow-up request to remain present after the head finished',
       ).toBeTruthy();
-      expect(queuedRootAfterHandoff?.requestId).toBeTruthy();
-      expect(queuedRootAfterHandoff?.runId).toBeTruthy();
+      expect(queuedRootAfterHandoff?.name).toBe(queuedName);
       expect(queuedRootAfterHandoff?.lastError ?? null).toBeNull();
-      const resumedQueuedRequestId = queuedRootAfterHandoff?.requestId as string;
 
       await expect
         .poll(
@@ -993,8 +990,8 @@ test.describe.serial('Ingest flows', () => {
             if (queuedRoot.lastError) {
               return `error:${queuedRoot.lastError}`;
             }
-            if (queuedRoot.requestId !== resumedQueuedRequestId) {
-              return `request-mismatch:${queuedRoot.requestId ?? 'none'}`;
+            if (queuedRoot.name !== queuedName) {
+              return `name-mismatch:${queuedRoot.name ?? 'none'}`;
             }
             return queuedRoot.queueState === 'waiting'
               ? 'still-waiting'
@@ -1033,7 +1030,9 @@ test.describe.serial('Ingest flows', () => {
         .toBe('settled');
 
       await expect(queuedRows).toHaveCount(1);
-      await expect(queuedRows.first()).toContainText(new RegExp(queuedName, 'i'));
+      await expect(queuedRows.first()).toContainText(
+        new RegExp(queuedName, 'i'),
+      );
       await expect(queuedRows.first()).toContainText(queuedPath);
       await expect(queuedRows.first()).not.toContainText(/queued \(#1\)/i);
       await expect(queuedRows.first()).not.toContainText(/enoent/i);

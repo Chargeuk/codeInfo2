@@ -12290,7 +12290,7 @@ If a later manual-testing pass wants a live sanity check, keep it limited to the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152, 154, 156`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Task `156` automated-proof prerequisite: shared reingest queue-wait timeout settlement in `waitForQueueRequestTerminalStatus()`
 - Notes: Added during planner repair after Task 156's wrapper rerun proved the remaining red `server:unit` state belongs to the shared queue-wait timeout seam in `server/src/ingest/ingestJob.ts` and `server/src/test/unit/reingestService.test.ts`, not to the repaired repo-list overlay contract.
@@ -12345,6 +12345,7 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 - **RESOLVED ISSUE** After Task 156 completed, Testing 3 stopped again on `flow stop during a looped flow prevents later iterations from continuing` with `Timed out waiting for flow runtime cleanup`, not in the queue-wait owner. Planner repair moved that blocker into Task 154 and returned this task behind that earlier prerequisite.
 - `npm run test:summary:server:unit` passed with `tests run: 1719`, `passed: 1719`, `failed: 0` in `test-results/server-unit-tests-2026-04-20T06-29-58-700Z.log`, so the remaining Task 155 proof state is now down to the file-scoped Prettier confirmation only.
 - The file-scoped `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts` passed cleanly, so Task 155's automated proof is now fully recorded on disk for the later audit step.
+- Automated-proof audit: marked Task 155 `__done__` because all 8 subtasks and all 5 testing steps are now checked on disk and `plan_status.py --task-number 155` reports no live blocker or prose-only remaining gate.
 
 ### Task 156. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics
 

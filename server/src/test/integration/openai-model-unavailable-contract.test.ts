@@ -3,6 +3,7 @@ import test, { afterEach, beforeEach, mock } from 'node:test';
 import express from 'express';
 import request from 'supertest';
 import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
+import type { EnqueueIngestRequestResult } from '../../ingest/requestQueue.js';
 import { createMcpRouter } from '../../mcp/server.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
@@ -45,7 +46,8 @@ test('POST /ingest/start rejects non-allowlisted OpenAI model with OPENAI_MODEL_
   assert.equal(response.body.code, 'OPENAI_MODEL_UNAVAILABLE');
 });
 
-test('POST /ingest/reembed maps queue admission failures for lock-derived non-allowlisted OpenAI models to OPENAI_MODEL_UNAVAILABLE', async () => {
+test('POST /ingest/reembed rejects a lock-derived non-allowlisted OpenAI model at admission time without queueing work', async () => {
+  let enqueueCalled = false;
   const app = express();
   app.use(express.json());
   app.use(
@@ -78,9 +80,17 @@ test('POST /ingest/reembed maps queue admission failures for lock-derived non-al
         lockedModelId: 'text-embedding-ada-002',
       }),
       enqueueOrReuseIngestRequest: async () => {
-        const error = new Error('model unavailable');
-        (error as { code?: string }).code = 'OPENAI_MODEL_UNAVAILABLE';
-        throw error;
+        enqueueCalled = true;
+        return {
+          requestId: 'queue-request-123',
+          canonicalTargetPath: '/data/repo-openai',
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+        };
       },
     }),
   );
@@ -91,6 +101,7 @@ test('POST /ingest/reembed maps queue admission failures for lock-derived non-al
 
   assert.equal(response.status, 409);
   assert.equal(response.body.code, 'OPENAI_MODEL_UNAVAILABLE');
+  assert.equal(enqueueCalled, false);
 });
 
 test('REST and classic MCP vector-search keep deterministic OPENAI_MODEL_UNAVAILABLE mapping with no silent fallback', async () => {

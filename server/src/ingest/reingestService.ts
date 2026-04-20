@@ -5,6 +5,7 @@ import {
   type RepoEntry,
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
+import { OpenAiEmbeddingError, isOpenAiAllowlistedEmbeddingModel } from './providers/index.js';
 import {
   pumpIngestQueue,
   QUEUE_READ_FAILED_WAIT_REASON,
@@ -254,6 +255,25 @@ export function assertRepoCanQueueReingest(repo: RepoEntry) {
   assertReembedRootStateAllowed(repo.status);
 }
 
+export function assertRepoCanAdmitQueuedReingest(repo: RepoEntry) {
+  assertRepoCanQueueReingest(repo);
+
+  const provider = repo.lock?.embeddingProvider ?? repo.embeddingProvider;
+  const embeddingModel = repo.lock?.embeddingModel ?? repo.embeddingModel;
+  if (
+    provider === 'openai' &&
+    typeof embeddingModel === 'string' &&
+    !isOpenAiAllowlistedEmbeddingModel(embeddingModel)
+  ) {
+    throw new OpenAiEmbeddingError(
+      'OPENAI_MODEL_UNAVAILABLE',
+      'Requested OpenAI embedding model is unavailable for this deployment',
+      false,
+      404,
+    );
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -426,7 +446,7 @@ function logNormalizedResult(
 export function buildQueuedReingestRequest(
   repo: RepoEntry,
 ): Parameters<typeof enqueueOrReuseIngestRequest>[0] {
-  assertRepoCanQueueReingest(repo);
+  assertRepoCanAdmitQueuedReingest(repo);
   const provider = repo.lock?.embeddingProvider ?? repo.embeddingProvider;
   const embeddingModel = repo.lock?.embeddingModel ?? repo.embeddingModel;
   const model =

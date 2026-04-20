@@ -6,6 +6,7 @@ import {
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
 import {
+  assertRepoCanAdmitQueuedReingest,
   buildQueuedReingestRequest,
   findReingestableRepoByExactSourceId,
   validateExactReingestSourceId,
@@ -51,6 +52,7 @@ export function createIngestReembedRouter({
         (error as { code?: string }).code = 'NOT_FOUND';
         throw error;
       }
+      assertRepoCanAdmitQueuedReingest(selectedRepo);
 
       const queueResult = await enqueueOrReuseIngestRequestOverride(
         buildQueuedReingestRequest(selectedRepo),

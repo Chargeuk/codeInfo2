@@ -306,3 +306,33 @@ test('ingest-reembed rejects a dot-segment root alias through the public route b
   assert.equal(response.body.code, 'NOT_FOUND');
   assert.equal(enqueueCalled, false);
 });
+
+test('ingest-reembed keeps the queue-aware acceptance contract for valid requests after the admission guard repair', async () => {
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildReembedApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return {
+          requestId: 'queue-request-123',
+          canonicalTargetPath: '/tmp/reembed-root',
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+        };
+      },
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Freembed-root');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-123',
+    queuePosition: 1,
+  });
+  assert.equal(enqueueCalled, true);
+});

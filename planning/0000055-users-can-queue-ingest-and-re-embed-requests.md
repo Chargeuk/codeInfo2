@@ -13105,13 +13105,13 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 
 #### Subtasks
 
-1. [ ] Re-read the Story 55 queue-admission and retryable-error acceptance criteria plus this review finding so the route repair stays anchored to the real acceptance boundary. Purpose: keep the fix scoped to admission-time contract honesty.
-2. [ ] Update the admission-time model-identity validation seam in `server/src/ingest/reingestService.ts` so a disallowed locked OpenAI model can be rejected before queue acceptance. Purpose: move the real allowlist check to the shared seam the route depends on.
-3. [ ] Update `server/src/routes/ingestReembed.ts` so the route surfaces the repaired admission-time `OPENAI_MODEL_UNAVAILABLE` result without queuing work. Purpose: keep the REST contract honest at the acceptance boundary.
-4. [ ] Update the shared validation branch in `server/src/ingest/reingestService.ts` so the new admission-time locked-model rejection and the existing later execution-time validation both emit the same `OPENAI_MODEL_UNAVAILABLE` code for the same disallowed model identity. Purpose: prevent route and runtime validation from drifting apart again after the admission fix lands.
-5. [ ] Test type: server integration. Location: `server/src/test/integration/openai-model-unavailable-contract.test.ts`. Description: author or update direct route-owner proof that `/ingest/reembed` rejects a disallowed locked OpenAI model at admission time without relying on a mocked queue-admission throw; rename or rewrite any existing queue-admission-failure title or assertion that would otherwise keep claiming the old mocked boundary. Purpose: make the repaired rejection boundary explicit at the route-owned proof file.
-6. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-failure-logging-coverage.test.ts`. Description: author or update proof that the repaired admission-time error shape still drives the intended logging and response-shape assertions without widening into broader logging redesign. Purpose: keep adjacent logging-visibility proof honest after the admission boundary changes.
-7. [ ] Test type: server integration. Location: `server/src/test/integration/ingest-reembed.test.ts`. Description: author or update proof that valid `/ingest/reembed` requests still follow the queue-aware acceptance contract after the repaired admission-time guard lands. Purpose: keep the green admission path visible beside the repaired rejection proof.
+1. [x] Re-read the Story 55 queue-admission and retryable-error acceptance criteria plus this review finding so the route repair stays anchored to the real acceptance boundary. Purpose: keep the fix scoped to admission-time contract honesty.
+2. [x] Update the admission-time model-identity validation seam in `server/src/ingest/reingestService.ts` so a disallowed locked OpenAI model can be rejected before queue acceptance. Purpose: move the real allowlist check to the shared seam the route depends on.
+3. [x] Update `server/src/routes/ingestReembed.ts` so the route surfaces the repaired admission-time `OPENAI_MODEL_UNAVAILABLE` result without queuing work. Purpose: keep the REST contract honest at the acceptance boundary.
+4. [x] Update the shared validation branch in `server/src/ingest/reingestService.ts` so the new admission-time locked-model rejection and the existing later execution-time validation both emit the same `OPENAI_MODEL_UNAVAILABLE` code for the same disallowed model identity. Purpose: prevent route and runtime validation from drifting apart again after the admission fix lands.
+5. [x] Test type: server integration. Location: `server/src/test/integration/openai-model-unavailable-contract.test.ts`. Description: author or update direct route-owner proof that `/ingest/reembed` rejects a disallowed locked OpenAI model at admission time without relying on a mocked queue-admission throw; rename or rewrite any existing queue-admission-failure title or assertion that would otherwise keep claiming the old mocked boundary. Purpose: make the repaired rejection boundary explicit at the route-owned proof file.
+6. [x] Test type: server integration. Location: `server/src/test/integration/ingest-failure-logging-coverage.test.ts`. Description: author or update proof that the repaired admission-time error shape still drives the intended logging and response-shape assertions without widening into broader logging redesign. Purpose: keep adjacent logging-visibility proof honest after the admission boundary changes.
+7. [x] Test type: server integration. Location: `server/src/test/integration/ingest-reembed.test.ts`. Description: author or update proof that valid `/ingest/reembed` requests still follow the queue-aware acceptance contract after the repaired admission-time guard lands. Purpose: keep the green admission path visible beside the repaired rejection proof.
 
 #### Testing
 
@@ -13123,7 +13123,11 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: re-read the Story 55 queue-admission and retryable-error acceptance criteria plus the active review finding, and confirmed the repair must move `OPENAI_MODEL_UNAVAILABLE` to the real `/ingest/reembed` admission boundary without widening into queue-runtime or final story revalidation work.
+- Subtasks 2 through 4: added `assertRepoCanAdmitQueuedReingest(...)` in `server/src/ingest/reingestService.ts` and used it from `server/src/routes/ingestReembed.ts` before queue admission so lock-derived disallowed OpenAI models now fail at admission time with the same `OPENAI_MODEL_UNAVAILABLE` code the later executable validation already emits.
+- Subtask 5: rewrote `server/src/test/integration/openai-model-unavailable-contract.test.ts` so the `/ingest/reembed` route-owner proof now verifies admission-time rejection and explicitly proves the queue seam is never called for the disallowed locked OpenAI model case.
+- Subtask 6: updated `server/src/test/integration/ingest-failure-logging-coverage.test.ts` so the adjacent logging proof now observes the repaired `OPENAI_MODEL_UNAVAILABLE` ingest-reembed failure shape instead of the old mocked `MODEL_LOCKED` queue-admission path.
+- Subtask 7: extended `server/src/test/integration/ingest-reembed.test.ts` with a green-path acceptance proof that valid `/ingest/reembed` requests still return the existing queue-aware queued response contract after the new admission-time guard lands.
 
 ### Task 166. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 

@@ -37,29 +37,24 @@ function createApp() {
             containerPath: '/tmp/repo',
             hostPath: '/host/tmp/repo',
             lastIngestAt: '2026-01-01T00:00:00.000Z',
-            embeddingProvider: 'lmstudio',
-            embeddingModel: 'embed-model',
-            embeddingDimensions: 768,
-            model: 'embed-model',
-            modelId: 'embed-model',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-ada-002',
+            embeddingDimensions: 1536,
+            model: 'text-embedding-ada-002',
+            modelId: 'text-embedding-ada-002',
             lock: {
-              embeddingProvider: 'lmstudio',
-              embeddingModel: 'embed-model',
-              embeddingDimensions: 768,
-              lockedModelId: 'embed-model',
-              modelId: 'embed-model',
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-ada-002',
+              embeddingDimensions: 1536,
+              lockedModelId: 'text-embedding-ada-002',
+              modelId: 'text-embedding-ada-002',
             },
             counts: { files: 1, chunks: 1, embedded: 1 },
             lastError: null,
           },
         ],
-        lockedModelId: 'embed-model',
+        lockedModelId: 'text-embedding-ada-002',
       }),
-      enqueueOrReuseIngestRequest: async () => {
-        const error = new Error('locked');
-        (error as { code?: string }).code = 'MODEL_LOCKED';
-        throw error;
-      },
     }),
   );
 
@@ -130,13 +125,13 @@ test('ingest route failure coverage emits structured warn/error entries via /log
         (entry) =>
           entry.level === 'error' &&
           entry.context?.surface === 'ingest/reembed' &&
-          entry.context?.code === 'MODEL_LOCKED',
+          entry.context?.code === 'OPENAI_MODEL_UNAVAILABLE',
       ),
     );
     const reembedEntry = items.find(
       (entry) =>
         entry.context?.surface === 'ingest/reembed' &&
-        entry.context?.code === 'MODEL_LOCKED',
+        entry.context?.code === 'OPENAI_MODEL_UNAVAILABLE',
     );
     assert.equal(reembedEntry?.context?.root, '/tmp/repo');
     assert.equal(reembedEntry?.context?.runId, undefined);

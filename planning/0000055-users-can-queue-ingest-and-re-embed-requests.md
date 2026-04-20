@@ -13115,19 +13115,25 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
 - Subtask 1: re-read the Story 55 queue-admission and retryable-error acceptance criteria plus the active review finding, and confirmed the repair must move `OPENAI_MODEL_UNAVAILABLE` to the real `/ingest/reembed` admission boundary without widening into queue-runtime or final story revalidation work.
 - Subtasks 2 through 4: added `assertRepoCanAdmitQueuedReingest(...)` in `server/src/ingest/reingestService.ts` and used it from `server/src/routes/ingestReembed.ts` before queue admission so lock-derived disallowed OpenAI models now fail at admission time with the same `OPENAI_MODEL_UNAVAILABLE` code the later executable validation already emits.
 - Subtask 5: rewrote `server/src/test/integration/openai-model-unavailable-contract.test.ts` so the `/ingest/reembed` route-owner proof now verifies admission-time rejection and explicitly proves the queue seam is never called for the disallowed locked OpenAI model case.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the shared server build gate is clear for the repaired admission-time `/ingest/reembed` validation seam.
+- Testing 2: `npm run test:summary:server:unit` passed cleanly with `tests run: 1735`, `passed: 1735`, and `failed: 0`, so the repaired admission-time guard and its adjacent integration and unit owners hold together on the full server unit wrapper.
 - Subtask 6: updated `server/src/test/integration/ingest-failure-logging-coverage.test.ts` so the adjacent logging proof now observes the repaired `OPENAI_MODEL_UNAVAILABLE` ingest-reembed failure shape instead of the old mocked `MODEL_LOCKED` queue-admission path.
 - Subtask 7: extended `server/src/test/integration/ingest-reembed.test.ts` with a green-path acceptance proof that valid `/ingest/reembed` requests still return the existing queue-aware queued response contract after the new admission-time guard lands.
+- Testing repair: updated `server/src/test/features/ingest-reembed.feature` so the cucumber owner now expects the repaired admission-time `409 OPENAI_MODEL_UNAVAILABLE` contract instead of the stale queued `202` path for a lock-derived disallowed OpenAI model.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `tests run: 105`, `passed: 105`, and `failed: 0`, so the repaired admission-time `/ingest/reembed` contract now matches the cucumber feature owner as well as the integration owners.
+- Testing 4: `npm run lint` first exposed one task-owned import-order warning in `server/src/ingest/reingestService.ts`; after reordering that admission-time validation import, the full lint gate passed cleanly.
+- Testing 5: `npm run format:check` first flagged `server/src/ingest/reingestService.ts`; after formatting that task-owned file with Prettier, the full repo-wide format gate passed with `All matched files use Prettier code style!`.
 
 ### Task 166. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 

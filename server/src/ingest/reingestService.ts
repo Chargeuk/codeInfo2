@@ -5,7 +5,6 @@ import {
   type RepoEntry,
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
-import { OpenAiEmbeddingError, isOpenAiAllowlistedEmbeddingModel } from './providers/index.js';
 import {
   pumpIngestQueue,
   QUEUE_READ_FAILED_WAIT_REASON,
@@ -14,6 +13,10 @@ import {
   waitForQueueRequestTerminalStatus,
 } from './ingestJob.js';
 import { resolveMountedIngestPath } from './pathMap.js';
+import {
+  OpenAiEmbeddingError,
+  isOpenAiAllowlistedEmbeddingModel,
+} from './providers/index.js';
 import {
   assertReembedRootStateAllowed,
   normalizeCanonicalQueueTargetPath,

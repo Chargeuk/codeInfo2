@@ -15,12 +15,12 @@ Feature: Ingest re-embed
     Then ingest manage roots first model is "embed-1"
 
   @mongo
-  Scenario: re-embed uses lock-derived provider and accepts the queued request
+  Scenario: re-embed rejects a non-allowlisted lock-derived OpenAI model before queue admission
     Given ingest manage chroma stub is empty
     And ingest manage root metadata exists for "/tmp/reembed-root" with legacy model "embed-1"
     And ingest manage lock is provider "openai" model "text-embedding-3-small" dimensions 1536
     When I POST ingest manage reembed for root "/tmp/reembed-root"
-    Then ingest manage response status is 202
+    Then ingest manage response status is 409 with code "OPENAI_MODEL_UNAVAILABLE"
 
   @mongo
   Scenario: re-embed rejects a non-canonical selector alias before queue admission

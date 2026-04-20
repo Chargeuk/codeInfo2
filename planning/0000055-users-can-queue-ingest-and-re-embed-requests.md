@@ -12287,7 +12287,7 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `backward_compatibility_reader_writer_mismatch`
   - `should_fix` `normalized_error_shape_consumer_mismatch`
@@ -12383,6 +12383,7 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 - Final `npm run lint` passed cleanly after the Task 155 proof repairs, so no follow-up `lint:fix` or narrow manual cleanup was needed before the closing Prettier check.
 - The closing file-scoped Prettier check needed `prettier-plugin-gherkin` for `server/src/test/features/ingest-roots.feature`; rerunning the same Task 155 file list with that plugin passed cleanly without any writeback formatting changes.
 - Automated-proof audit closed Task 155 as `__done__` because all 21 subtasks and all 5 testing steps are now checked on disk, `plan_status.py --task-number 155` reports no live blockers, and no prose-only remainder remained as an honest gate.
+- **BLOCKER** Manual testing stayed task-scoped and restarted the documented main host-network stack with `npm run compose:build` plus `npm run compose:up` because the stored runtime research still documents no trustworthy freshness marker for reusing a prior main runtime. `npm run test:summary:host-network:main` passed, `GET /health` returned `{"status":"ok",...,"mongoConnected":true}`, and both `GET /ingest/roots` plus `GET /tools/ingested-repos` were reachable on the live stack, but the Task 155-owned repaired states could not be exercised through supported runtime surfaces: the current public routes only expose canonicalized queue admission (`server/src/routes/ingestStart.ts`), while the exact legacy waiting-row and structured ingest-origin overlay cases are still created in proof code by direct queue seeding and runtime-status injection (`server/src/test/features/ingest-roots.feature`, `server/src/test/steps/ingest-manage.steps.ts` calling `IngestQueueRequestModel.create`, `seedQueuedReembedRequest(...)`, and `__setStatusForTest(...)`). Scratch proof artifacts were saved under `codeInfoTmp/manual-testing/0000055/` (`compose-build.txt`, `compose-up.txt`, `host-network-main-wrapper.txt`, `health.json`, `ingest-roots-baseline.json`, `tools-ingested-repos-baseline.json`, `compose-down.txt`). The main stack was stopped cleanly afterwards and the pre-existing `compose:local` stack was left untouched, but planner repair is now required because Task 155 has no supported manual-proof path for `R1`, `R2`, and `R4` beyond test-only queue/runtime hooks.
 
 ### Task 156. Re-Tighten Queueable Input Trust Boundaries
 

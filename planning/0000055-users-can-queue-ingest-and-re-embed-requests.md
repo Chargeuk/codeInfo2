@@ -13072,7 +13072,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: `/ingest/reembed` currently proves immediate `OPENAI_MODEL_UNAVAILABLE` rejection only through a mocked queue-admission seam instead of the real admission path
 
@@ -13149,7 +13149,7 @@ Do not treat a live negative `409 OPENAI_MODEL_UNAVAILABLE` check as required on
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `plan_contract_issue`: queued-roots acceptance proof re-fetches and polls inside `Then` instead of asserting the route response captured by the action step
   - `should_fix` `generic_engineering_issue`: `/ingest/roots` dedupe lets runtime-only `runId` override canonical row identity when stable rows are otherwise tied

@@ -13072,7 +13072,7 @@ Repair the deletions-only delta re-embed fast path so it honors persisted cleanu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: `/ingest/reembed` currently proves immediate `OPENAI_MODEL_UNAVAILABLE` rejection only through a mocked queue-admission seam instead of the real admission path
 
@@ -13135,6 +13135,7 @@ Make `/ingest/reembed` either perform the real admission-time OpenAI allowlist c
 - Testing 4: `npm run lint` first exposed one task-owned import-order warning in `server/src/ingest/reingestService.ts`; after reordering that admission-time validation import, the full lint gate passed cleanly.
 - Testing 5: `npm run format:check` first flagged `server/src/ingest/reingestService.ts`; after formatting that task-owned file with Prettier, the full repo-wide format gate passed with `All matched files use Prettier code style!`.
 - Automated-proof audit: Task 165 now has all subtasks and automated Testing checked on disk, `plan_status.py --task-number 165` reports no live blocker, and the task was closed to `__done__` so the loop can move on to Task 166 honestly.
+- **BLOCKER** Manual testing restarted the stale stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, then confirmed host-network reachability with `npm run test:summary:host-network:main` and a live happy-path `POST /ingest/reembed/%2FUsers%2Fdanielstapleton%2FDocuments%2Fdev%2Fstory55-manual-proof%2Froot-a` request that returned `202` with a run id; however, the task-owned negative `409 OPENAI_MODEL_UNAVAILABLE` route proof remains structurally unavailable on the checked-in runtime because `/ingest/roots` and `/tools/ingested-repos` only expose allowlisted `text-embedding-3-small` locks, `/ingest/models` only advertises allowlisted OpenAI models, and `/ingest/start` rejects non-allowlisted OpenAI models before a disallowed locked repo can be created through supported surfaces. Scratch artifacts for this blocked task-scoped pass live under `codeInfoTmp/manual-testing/0000055/`.
 
 ### Task 166. Restore Direct `/ingest/roots` Proof And Canonical Row Identity
 

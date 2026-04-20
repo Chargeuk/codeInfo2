@@ -12998,7 +12998,7 @@ Repair the stale `shouldRewriteWaitingRequest(...)` caller arity drift in `serve
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161, 163`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `must_fix` `plan_contract_issue`: deletions-only delta re-embed currently reports terminal success even when persisted cleanup degrades under disconnected Mongo
 

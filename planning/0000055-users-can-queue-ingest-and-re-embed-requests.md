@@ -12214,11 +12214,70 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 - Automated-proof audit: marked Task 153 `__done__` because all subtasks and all testing steps are now honestly complete on disk and `plan_status.py --task-number 153` reports no live blocker. No prose-only remaining gate stayed behind after the final cucumber and lint proof passed.
 - Manual testing: this pass stayed task-scoped and restarted the main host-network compose stack with `npm run compose:build` plus `npm run compose:up` because the stored runtime research documents no trustworthy freshness marker for reusing a prior main-stack runtime. `npm run test:summary:host-network:main` passed, `GET /health` returned `{"status":"ok",...,"mongoConnected":true}`, `GET /ingest/roots` returned the expected reachable empty queue-backed payload, and `npm run compose:down` stopped the main stack cleanly afterwards. Scratch proof artifacts were saved under `codeInfoTmp/manual-testing/0000055/` (`host-network-main-wrapper.txt`, `health.json`, `ingest-roots.json`, `server-startup.log`, `compose-down.txt`). No screenshots were captured because Task 153 owns no browser-visible surface, and the deeper malformed persisted replay paths remain automation-owned at this task boundary because current repository evidence exposes them only through startup-owned queue records and test-only hooks rather than a supported runtime/API trigger, so no new subtasks were needed.
 
-### Task 154. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics
+### Task 154. Repair Shared Reingest Queue-Wait Timeout Settlement
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
 - Task Status: `__in_progress__`
+- Addresses Findings:
+  - Task `155` automated-proof prerequisite: shared reingest queue-wait timeout settlement in `waitForQueueRequestTerminalStatus()`
+- Notes: Added during planner repair after Task 155's wrapper rerun proved the remaining red `server:unit` state belongs to the shared queue-wait timeout seam in `server/src/ingest/ingestJob.ts` and `server/src/test/unit/reingestService.test.ts`, not to the repaired repo-list overlay contract.
+
+#### Overview
+
+This task repairs the shared reingest queue-wait timeout and listener-cleanup seam so `node:test` wrapper proof settles deterministically instead of leaving pending promises behind when the event loop drains. The goal is to restore the queue-wait proof owner itself, then hand Task 155 back an honest unit-wrapper prerequisite instead of keeping the repo-list overlay repair blocked on an out-of-scope timeout harness defect.
+
+#### Task Exit Criteria
+
+- `R1.` `waitForQueueRequestTerminalStatus()` no longer depends on an unref'd real timeout path that can leave queue-wait proofs pending after the event loop resolves under `node:test`.
+- `R2.` The queue-wait proof cluster in `server/src/test/unit/reingestService.test.ts` passes while preserving request-identity filtering, listener cleanup, and deterministic `WAIT_TIMEOUT` / `QUEUE_READ_FAILED` outcomes.
+- `R3.` The repair stays local to the shared queue-wait timeout seam and its proof owner instead of widening into Task 155's repo-list overlay contract.
+- `R4.` Task 155 can resume `npm run test:summary:server:unit` without inheriting this out-of-scope queue-wait regression as its active blocker.
+
+#### Proof Mapping
+
+- `P1.` Requirement: shared reingest queue waits settle deterministically under timeout and queue-read-failure paths without leaving pending listener or timer work behind after the test runner drains the event loop. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/reingestService.test.ts`. Proof homes: subtasks 1 through 9; Testing 2 and 3.
+- `P2.` Requirement: request identity filtering, listener cleanup, `WAIT_TIMEOUT`, and `QUEUE_READ_FAILED` semantics remain intact after the timeout-settlement repair. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/reingestService.test.ts`. Proof homes: subtasks 3 through 9; Testing 2 and 3.
+- `P3.` Requirement: the fix remains on the shared queue-wait owner so Task 155's overlay seam can resume proof without absorbing unrelated timeout cleanup behavior. Owners: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/reingestService.test.ts`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 through 11; Testing 2 and 3.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+
+#### Subtasks
+
+1. [ ] Re-read the current `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, then re-read the carried-forward blocker history in Task 155. Purpose: keep this prerequisite repair anchored to the current on-disk owner transfer rather than reopening the repo-list overlay seam.
+2. [ ] Re-read this task's `Notes`, `Overview`, and `Proof Mapping`. Purpose: keep the timeout-settlement repair bounded to the shared queue-wait seam and the specific wrapper blocker it must clear for Task 155.
+3. [ ] Re-read `waitForQueueRequestTerminalStatus()` and adjacent timeout / queue-read-fallback helpers in `server/src/ingest/ingestJob.ts`. Purpose: locate the exact timeout-settlement and listener-cleanup ownership point instead of patching downstream consumers.
+4. [ ] Re-read the queue-wait result mapping in `server/src/ingest/reingestService.ts`. Purpose: preserve `WAIT_TIMEOUT` / `QUEUE_READ_FAILED` result semantics while the shared wait seam is repaired.
+5. [ ] Re-read the queue-wait proof cluster in `server/src/test/unit/reingestService.test.ts`, especially the tests covering request identity cleanup, genuine timeout, timeout-fallback read rejection, setup-read rejection, and observed cancelled terminal state. Purpose: keep the repair tied to the actual proof-owner surfaces that are currently failing as `cancelledByParent`.
+6. [ ] Update the shared queue-wait timeout ownership in `server/src/ingest/ingestJob.ts` so the timeout and fallback settlement path no longer depends on an unref'd real timer surviving to process drain under `node:test`. Purpose: make the shared wait seam settle deterministically in the test runner without widening into unrelated runtime behavior.
+7. [ ] Update `server/src/test/unit/reingestService.test.ts` only as needed so the queue-wait timeout proofs use deterministic timer control or equivalent test-owned settlement support while preserving the existing listener-count assertions. Purpose: keep the proof owner honest instead of papering over the pending-promise failure.
+8. [ ] Proof type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: keep `queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions` passing with zero leftover listeners. Purpose: prove the shared wait seam still preserves request identity and timeout semantics after the repair.
+9. [ ] Proof type: server unit. Location: `server/src/test/unit/reingestService.test.ts`. Description: keep the genuine-timeout, timeout-fallback read rejection, setup-read rejection, and observed-cancelled-terminal cases passing together after the shared timeout-settlement repair. Purpose: prove the fix covers the whole failing queue-wait proof cluster instead of only one case.
+10. [ ] Run `npm run lint`. Purpose: catch repository-wide lint regressions before wrapper proof begins, using the current repo-supported lint entry point instead of a narrower server-only default.
+11. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts`. Purpose: keep the shared queue-wait repair and its proof owner formatting-clean without blocking this task on unrelated repo-wide Prettier drift. If Prettier reports differences, run the same file list with `npx prettier --write` before making manual formatting edits.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run lint`; if issues are found, run `npm run lint:fix` before any narrow manual cleanup, then rerun `npm run lint`.
+5. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md server/src/ingest/ingestJob.ts server/src/ingest/reingestService.ts server/src/test/unit/reingestService.test.ts`; if issues are found, run the same file list with `npx prettier --write` before any narrow manual cleanup, then rerun the file-scoped `npx prettier --check` command.
+
+#### Implementation notes
+
+- Added during planner repair after Task 155's automated-proof rerun showed the remaining red `server:unit` failure belongs to the shared reingest queue-wait timeout seam instead of the repaired repo-list overlay seam.
+
+### Task 155. Repair Shared Repo-List Queue Overlay Compatibility And Diagnostics
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `152, 154`
+- Task Status: `__to_do__`
 - Addresses Findings:
   - `should_fix` `backward_compatibility_reader_writer_mismatch`
   - `should_fix` `normalized_error_shape_consumer_mismatch`
@@ -12259,7 +12318,7 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 #### Subtasks
 
 1. [x] Re-read the `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the repair anchored to the endorsed `backward_compatibility_reader_writer_mismatch` and `normalized_error_shape_consumer_mismatch` defects using the current on-disk review record for this pass.
-2. [x] Re-read this task's `Notes`, `Overview`, and `Proof Mapping` immediately after that review block. Purpose: keep the shared-reader repair tied to the current-pass queue overlay evidence that is actually preserved on disk for Task 154.
+2. [x] Re-read this task's `Notes`, `Overview`, and `Proof Mapping` immediately after that review block. Purpose: keep the shared-reader repair tied to the current-pass queue overlay evidence that is actually preserved on disk for Task 155.
 3. [x] Re-read the admission-side normalization owner in `server/src/ingest/requestContracts.ts`. Purpose: target the same provider and model contract the queue write path already enforces.
 4. [x] Re-read the queued-only reader in `server/src/lmstudio/toolService.ts`. Purpose: locate the single shared repo-list seam that needs the compatibility repair.
 5. [x] Update `buildRepoFromQueueRequest()` in `server/src/lmstudio/toolService.ts` so queued-only waiting rows normalize legacy provider-qualified `model` values the same way admission already does. Purpose: keep queued-only rows on the same provider and model identity contract as written rows.
@@ -12300,13 +12359,14 @@ This task repairs the shared repo-list read path so queued-only rows keep the sa
 - `npm run lint` passed cleanly after the shared queue overlay repair and proof-authoring edits, so Task 154 is clear to finish on the file-scoped formatting checkpoint instead of widening into unrelated lint cleanup.
 - File-scoped Prettier initially failed because `server/src/test/features/ingest-roots.feature` needed the Gherkin parser plugin and `server/src/lmstudio/toolService.ts` still needed formatting; rerunning the same file list with `prettier-plugin-gherkin --write` and then `--check` closed the final subtask without reopening repo-wide formatter drift.
 - `npm run build:summary:server` passed cleanly (`agent_action: skip_log`), so the shared repo-list overlay repair is ready for the task-owned unit and cucumber wrapper proof without a build blocker.
-- `npm run test:summary:server:unit` first exposed one Task 154-owned regression in the partial-canonical waiting overlay path; tightening the shared queue identity resolver to preserve an existing canonical pair when a waiting overlay carries no canonical fields fixed that in-scope break and justified the full wrapper rerun.
+- `npm run test:summary:server:unit` first exposed one Task 155-owned regression in the partial-canonical waiting overlay path; tightening the shared queue identity resolver to preserve an existing canonical pair when a waiting overlay carries no canonical fields fixed that in-scope break and justified the full wrapper rerun.
 - Deep blocker repair: tightened `resolveQueueRequestEmbeddingIdentity()` in `server/src/lmstudio/toolService.ts` so waiting overlays only preserve the current canonical pair when the payload has no model-selection fields at all; a legacy provider-qualified `model` now still reuses admission-side normalization. The targeted wrapper rerun `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --test-name "GET /ingest/roots normalizes legacy provider-qualified waiting model ids the same way admission does"` passed cleanly on `test-results/server-unit-tests-2026-04-20T03-05-08-448Z.log`.
 - **RESOLVED ISSUE** The earlier flow-runtime cleanup blocker from `test-results/server-unit-tests-2026-04-20T02-37-21-732Z.log` did not survive deeper diagnosis: the exact targeted wrapper rerun for `flow stop during a looped flow prevents later iterations from continuing` passed in isolation, and the next honest full `npm run test:summary:server:unit` rerun failed elsewhere instead of reproducing the flow-stop timeout.
-- **BLOCKING ANSWER** Repository precedents: the shared wait owner already lives in `waitForQueueRequestTerminalStatus()` inside `server/src/ingest/ingestJob.ts`, and the failing proof cluster in `server/src/test/unit/reingestService.test.ts:695-870` already treats listener cleanup as a first-class contract by asserting `__getIngestEventListenerCountForTest() === 0` and, in the later timeout-specific cases, mocking `setTimeout` and `clearTimeout` so the timeout path settles deterministically inside the test lifecycle. Current repo evidence from `test-results/server-unit-tests-2026-04-20T02-49-19-577Z.log` shows the whole queue-wait block from tests 1214 through 1218 failing as `cancelledByParent` with `Promise resolution is still pending but the event loop has already resolved`, not just one Task 154 assertion. External precedents: the official Node `node:test` docs on extraneous asynchronous activity explain that async work which outlives the test is not awaited for completion, and the official Node timers docs for `timeout.unref()` say the callback may never run if no other work keeps the event loop alive; DeepWiki and Context7 returned the same guidance, including Node's recommended deterministic timer-mocking patterns. Chosen solution: do not widen Task 154 to own this out-of-scope regression; the next owner should repair the shared reingest queue-wait timeout seam by removing the affected tests' dependence on an unref'd real timer, most likely through deterministic timer injection or mocking in the queue-wait proof owner (or an equivalent test-owned path that keeps the timeout callback alive until settlement), while preserving the existing listener-cleanup assertions. Rejected alternatives: retrying Task 154's overlay code would not address this owner because the targeted waiting-row regression already passed after the in-scope fix, suppressing or skipping the failing reingest queue-wait tests would hide a real shared wait-cleanup defect, and re-pointing the blocker at route-specific overlay files would be an invented workaround that conflicts with the failing files, logs, and Node timer semantics.
-- **BLOCKER** Testing 2 (`npm run test:summary:server:unit`) remains red after the Task 154 fix, but the fresh blocker is now an out-of-scope queue-wait regression rather than the shared repo-list overlay seam. The rerun on `test-results/server-unit-tests-2026-04-20T02-49-19-577Z.log` first cleared the Task 154 waiting-row assertion, then still failed in `server/src/test/unit/reingestService.test.ts`, where `queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions` cancels with `Promise resolution is still pending but the event loop has already resolved`; the same targeted wrapper rerun for that test alone stays red. That failure points at `waitForQueueRequestTerminalStatus()` / reingest queue-wait cleanup ownership instead of any Task 154 proof owner, so Task 154 stays honestly blocked on an external unit-suite regression after the bounded repair pass closed the in-scope waiting-row mismatch.
+- **BLOCKING ANSWER** Repository precedents: the shared wait owner already lives in `waitForQueueRequestTerminalStatus()` inside `server/src/ingest/ingestJob.ts`, and the failing proof cluster in `server/src/test/unit/reingestService.test.ts:695-870` already treats listener cleanup as a first-class contract by asserting `__getIngestEventListenerCountForTest() === 0` and, in the later timeout-specific cases, mocking `setTimeout` and `clearTimeout` so the timeout path settles deterministically inside the test lifecycle. Current repo evidence from `test-results/server-unit-tests-2026-04-20T02-49-19-577Z.log` shows the whole queue-wait block from tests 1214 through 1218 failing as `cancelledByParent` with `Promise resolution is still pending but the event loop has already resolved`, not just one Task 155 assertion. External precedents: the official Node `node:test` docs on extraneous asynchronous activity explain that async work which outlives the test is not awaited for completion, and the official Node timers docs for `timeout.unref()` say the callback may never run if no other work keeps the event loop alive; DeepWiki and Context7 returned the same guidance, including Node's recommended deterministic timer-mocking patterns. Chosen solution: do not widen Task 155 to own this out-of-scope regression; the next owner should repair the shared reingest queue-wait timeout seam by removing the affected tests' dependence on an unref'd real timer, most likely through deterministic timer injection or mocking in the queue-wait proof owner (or an equivalent test-owned path that keeps the timeout callback alive until settlement), while preserving the existing listener-cleanup assertions. Rejected alternatives: retrying Task 155's overlay code would not address this owner because the targeted waiting-row regression already passed after the in-scope fix, suppressing or skipping the failing reingest queue-wait tests would hide a real shared wait-cleanup defect, and re-pointing the blocker at route-specific overlay files would be an invented workaround that conflicts with the failing files, logs, and Node timer semantics.
+- **RESOLVED ISSUE** Testing 2 (`npm run test:summary:server:unit`) stayed red after the Task 155 fix, but planner repair proved the remaining failure belongs to the shared reingest queue-wait timeout seam rather than the repo-list overlay contract. The rerun on `test-results/server-unit-tests-2026-04-20T02-49-19-577Z.log` first cleared the Task 155 waiting-row assertion, then still failed in `server/src/test/unit/reingestService.test.ts`, where `queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions` cancels with `Promise resolution is still pending but the event loop has already resolved`; planner repair moved that prerequisite into new Task 154 so this overlay task can return to `__to_do__` until the shared queue-wait owner lands.
+- Planner repair: created new Task 154 to own the shared reingest queue-wait timeout settlement regression, returned this repo-list overlay task to `__to_do__`, and made the wrapper rerun depend explicitly on that prerequisite instead of leaving this task blocked on an out-of-scope unit-suite owner.
 
-### Task 155. Re-Tighten Queueable Input Trust Boundaries
+### Task 156. Re-Tighten Queueable Input Trust Boundaries
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
@@ -12388,7 +12448,7 @@ This task restores the stricter queueable input contract at the authority-sensit
 
 - Added from review pass `0000055-20260419T200440Z-d67f1ccc` to restore exact selector identity and fail-closed queueable-root validation at the input trust boundary.
 
-### Task 156. Bound Large Delta Re-Embed Delete Selectors
+### Task 157. Bound Large Delta Re-Embed Delete Selectors
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
@@ -12453,7 +12513,7 @@ This task bounds the large deleted-file selector used by the changed delta re-em
 
 - Added from review pass `0000055-20260419T200440Z-d67f1ccc` to close the scale-shaped Mongo selector gap in the changed delta re-embed cleanup path.
 
-### Task 157. Restore Honest Delta Re-Embed BDD Phase Boundaries
+### Task 158. Restore Honest Delta Re-Embed BDD Phase Boundaries
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
@@ -12508,22 +12568,22 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 - Added from review pass `0000055-20260419T200440Z-d67f1ccc` to keep the changed delta re-embed feature's phase boundary honest without widening the repair beyond the proof-owning scenario.
 
-### Task 158. Re-Validate Story 55 After Review Pass `0000055-20260419T200440Z-d67f1ccc`
+### Task 159. Re-Validate Story 55 After Review Pass `0000055-20260419T200440Z-d67f1ccc`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `153, 154, 155, 156, 157`
+- Task Dependencies: `153, 154, 155, 156, 157, 158`
 - Task Status: `__to_do__`
 - Addresses Findings:
-  - Review pass `0000055-20260419T200440Z-d67f1ccc` final validation across Tasks `153` through `157`
+  - Review pass `0000055-20260419T200440Z-d67f1ccc` final validation across Tasks `153` through `158`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` as the required final validation task after the new review-created findings block lands.
 
 #### Overview
 
-This task re-validates Story 55 after the current review-created findings block is repaired. It must prove that Tasks 153 through 157 close the endorsed findings from review pass `0000055-20260419T200440Z-d67f1ccc`, refresh the maintained close-out record honestly, and keep the story’s broader acceptance-proof chain aligned without overstating unaffected client or browser proof.
+This task re-validates Story 55 after the current review-created findings block is repaired. It must prove that Tasks 153 through 158 close the endorsed findings and prerequisite repairs required by review pass `0000055-20260419T200440Z-d67f1ccc`, refresh the maintained close-out record honestly, and keep the story’s broader acceptance-proof chain aligned without overstating unaffected client or browser proof.
 
 #### Task Exit Criteria
 
-- `R1.` Tasks `153` through `157` are `__done__`, and no endorsed finding from review pass `0000055-20260419T200440Z-d67f1ccc` remains without an on-disk proof owner.
+- `R1.` Tasks `153` through `158` are `__done__`, and no endorsed finding or prerequisite repair from review pass `0000055-20260419T200440Z-d67f1ccc` remains without an on-disk proof owner.
 - `R2.` This exact review-created findings block for review pass `0000055-20260419T200440Z-d67f1ccc` is revalidated against the repaired seams rather than being left as artifact-only intent.
 - `R3.` Fresh server validation reruns the relevant build and automated test wrappers for the repaired runtime and proof-owner seams.
 - `R4.` `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is created or refreshed to cite the new proof homes for this pass, carry forward any still-honest weak-proof notes, and distinguish newly rerun server proof from retained earlier client, browser, and broader acceptance evidence that was not reopened by this review.
@@ -12532,11 +12592,11 @@ This task re-validates Story 55 after the current review-created findings block 
 
 #### Proof Mapping
 
-- `P1.` Requirement: Tasks `153` through `157` are all complete, and every endorsed finding from review pass `0000055-20260419T200440Z-d67f1ccc` has a repaired proof owner on disk. Owners: Tasks `153` through `157`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 through 10 and 22; Testing 2 and 3.
+- `P1.` Requirement: Tasks `153` through `158` are all complete, and every endorsed finding or prerequisite repair from review pass `0000055-20260419T200440Z-d67f1ccc` has a repaired proof owner on disk. Owners: Tasks `153` through `158`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 through 11 and 23; Testing 2 and 3.
 - `P2.` Requirement: the maintained close-out for this review pass cites the repaired proof homes and clearly separates newly rerun server proof from retained earlier client or browser evidence that was not reopened. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 1 through 21; Testing 1 through 3.
 - `P3.` Requirement: the current review-created findings block is re-opened and verified on disk after the summary refresh rather than left as unchecked task text alone. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 11 through 22; Testing 1 through 3.
-- `P4.` Requirement: if reruns expose a partially repaired finding or still-weak proof, final validation records a bounded non-closing state instead of restating the story as complete. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 17 through 21; Testing 1 through 3.
-- `P5.` Requirement: the supported main stack still builds, starts, probes, and shuts down cleanly through the repository-supported compose and host-network wrappers. Owners: `README.md`, `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: subtasks 16 through 22; Testing 4 through 7.
+- `P4.` Requirement: if reruns expose a partially repaired finding or still-weak proof, final validation records a bounded non-closing state instead of restating the story as complete. Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 18 through 22; Testing 1 through 3.
+- `P5.` Requirement: the supported main stack still builds, starts, probes, and shuts down cleanly through the repository-supported compose and host-network wrappers. Owners: `README.md`, `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: subtasks 17 through 23; Testing 4 through 7.
 
 #### Documentation Locations
 
@@ -12552,28 +12612,30 @@ This task re-validates Story 55 after the current review-created findings block 
 
 1. [ ] Re-read the `Review Pass 0000055-20260419T200440Z-d67f1ccc` and `Code Review Findings` blocks in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final validation to the current on-disk review-created block for this pass instead of missing transient artifacts.
 2. [ ] Re-read this task's `Overview`, `Task Exit Criteria`, and `Proof Mapping`. Purpose: keep final validation tied to the exact accepted evidence boundary that is actually maintained on disk for this pass.
-3. [ ] Re-read the `Addresses Findings` mappings on Tasks `153` through `157` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the final summary aligned with the exact endorsed finding labels, severities, and task ownership for this review-created block.
+3. [ ] Re-read the `Addresses Findings` mappings on Tasks `153` through `158` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: keep the final summary aligned with the exact endorsed finding labels, severities, prerequisite ownership, and task ownership for this review-created block.
 4. [ ] Re-read the latest relevant close-out context in `planning/0000055-pr-summary.md`. Purpose: carry forward the sibling-scan or checked-defect-family reasoning that is already preserved on disk for Story 55.
 5. [ ] Re-read the still-relevant residual-risk and rejected-risk notes in `planning/0000055-pr-summary.md`. Purpose: carry forward additive challenge reasoning already preserved on disk for Story 55 without depending on missing review artifacts.
 6. [ ] Re-read the completed implementation notes and proof owners for Task 153 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact replay-validation proof homes that the close-out must cite.
-7. [ ] Re-read the completed implementation notes and proof owners for Task 154 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact shared repo-list compatibility proof homes that the close-out must cite.
-8. [ ] Re-read the completed implementation notes and proof owners for Task 155 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact trust-boundary proof homes that the close-out must cite.
-9. [ ] Re-read the completed implementation notes and proof owners for Task 156 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact bounded delete-path proof homes that the close-out must cite.
-10. [ ] Re-read the completed implementation notes and proof owners for Task 157 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact BDD phase-boundary proof homes that the close-out must cite.
-11. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 153, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep deferred replay validation proof explicit in the canonical durable reviewer summary.
-12. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 154, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep shared repo-list compatibility and diagnostics proof explicit in the canonical durable reviewer summary.
-13. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 155, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep selector and configured-workdir trust-boundary proof explicit in the canonical durable reviewer summary.
-14. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 156, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep bounded delete-selector proof explicit in the canonical durable reviewer summary.
-15. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 157, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep BDD phase-boundary proof explicit in the canonical durable reviewer summary.
-16. [ ] Update `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the rerun server build, unit, and cucumber wrappers for this pass are listed separately from retained earlier proof. Purpose: avoid implying fresh client, browser, or unaffected acceptance reruns that did not happen in this review pass.
-17. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the residual weak-proof note updates for any repaired seam that still relies on indirect proof after this pass. Purpose: keep the close-out honest where proof remains weaker than the primary wrapper reruns.
-18. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the rejected-risk note updates for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the pass-specific adjudication record instead of leaving rejected risks implied.
-19. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the saturation reasoning updates that explain why adjacent defect families remain sufficiently checked after Tasks 153 through 157. Purpose: keep the sibling-scan or defect-family coverage explicit in the final close-out.
-20. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the blind-spot challenge outcome for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the additive challenge result as part of the final review narrative.
-21. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the bounded residual-risk slot that will be used if reruns surface a partially repaired finding. Purpose: give final wrapper validation an honest non-closing destination without improvising summary structure after execution.
-22. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the canonical summary refresh. Purpose: verify the appended `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc` still matches the final on-disk disposition.
-23. [ ] Run `npm run lint`. Purpose: catch final cross-workspace lint regressions after Tasks 153 through 157 land and before wrapper revalidation closes the review-created block.
-24. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs`. Purpose: confirm the repaired review-created block and maintained summary stay formatting-clean without blocking this task on unrelated repo-wide Prettier drift. If Prettier reports differences, run the same file list with `npx prettier --write` before making manual formatting edits.
+7. [ ] Re-read the completed implementation notes and proof owners for Task 154 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact shared queue-wait timeout proof homes that the close-out must cite.
+8. [ ] Re-read the completed implementation notes and proof owners for Task 155 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact shared repo-list compatibility proof homes that the close-out must cite.
+9. [ ] Re-read the completed implementation notes and proof owners for Task 156 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact trust-boundary proof homes that the close-out must cite.
+10. [ ] Re-read the completed implementation notes and proof owners for Task 157 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact bounded delete-path proof homes that the close-out must cite.
+11. [ ] Re-read the completed implementation notes and proof owners for Task 158 in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: capture the exact BDD phase-boundary proof homes that the close-out must cite.
+12. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 153, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep deferred replay validation proof explicit in the canonical durable reviewer summary.
+13. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 154, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep shared queue-wait timeout settlement proof explicit in the canonical durable reviewer summary.
+14. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 155, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep shared repo-list compatibility and diagnostics proof explicit in the canonical durable reviewer summary.
+15. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 156, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep selector and configured-workdir trust-boundary proof explicit in the canonical durable reviewer summary.
+16. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 157, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep bounded delete-selector proof explicit in the canonical durable reviewer summary.
+17. [ ] Create or update the Story 55 review-pass close-out section in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the repaired proof homes from Task 158, using `planning/0000055-pr-summary.md` only as legacy source context when earlier retained notes still need to be carried forward. Purpose: keep BDD phase-boundary proof explicit in the canonical durable reviewer summary.
+18. [ ] Update `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the rerun server build, unit, and cucumber wrappers for this pass are listed separately from retained earlier proof. Purpose: avoid implying fresh client, browser, or unaffected acceptance reruns that did not happen in this review pass.
+19. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the residual weak-proof note updates for any repaired seam that still relies on indirect proof after this pass. Purpose: keep the close-out honest where proof remains weaker than the primary wrapper reruns.
+20. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the rejected-risk note updates for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the pass-specific adjudication record instead of leaving rejected risks implied.
+21. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the saturation reasoning updates that explain why adjacent defect families remain sufficiently checked after Tasks 153 through 158. Purpose: keep the sibling-scan or defect-family coverage explicit in the final close-out.
+22. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the blind-spot challenge outcome for review pass `0000055-20260419T200440Z-d67f1ccc`. Purpose: preserve the additive challenge result as part of the final review narrative.
+23. [ ] Proof type: maintained summary. Location: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Description: author the bounded residual-risk slot that will be used if reruns surface a partially repaired finding. Purpose: give final wrapper validation an honest non-closing destination without improvising summary structure after execution.
+24. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the canonical summary refresh. Purpose: verify the appended `Code Review Findings` block for pass `0000055-20260419T200440Z-d67f1ccc` still matches the final on-disk disposition.
+25. [ ] Run `npm run lint`. Purpose: catch final cross-workspace lint regressions after Tasks 153 through 158 land and before wrapper revalidation closes the review-created block.
+26. [ ] Run `npx prettier --check planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoStatus/pr-summaries/0000055-pr-summary.md planning/0000055-pr-summary.md README.md docker-compose.yml scripts/docker-compose-with-env.sh scripts/test-summary-host-network-main.mjs`. Purpose: confirm the repaired review-created block and maintained summary stay formatting-clean without blocking this task on unrelated repo-wide Prettier drift. If Prettier reports differences, run the same file list with `npx prettier --write` before making manual formatting edits.
 
 #### Testing
 

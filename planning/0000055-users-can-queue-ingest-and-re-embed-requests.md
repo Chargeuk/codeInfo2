@@ -12706,7 +12706,7 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `153, 154, 155, 156, 157, 158, 159`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Review pass `0000055-20260419T200440Z-d67f1ccc` final validation across Tasks `153` through `159`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` as the required final validation task after the new review-created findings block lands.
@@ -12802,3 +12802,4 @@ This task re-validates Story 55 after the current review-created findings block 
 - Testing 7: `npm run compose:down` completed cleanly and removed the supported containers plus `codeinfo2_internal`, so the main stack returned to a stopped state after the smoke pass.
 - Testing 8: the final `npm run lint` rerun passed cleanly after the supported-stack proof chain, so no `npm run lint:fix` follow-up was needed in the automated-proof phase either.
 - Testing 9: the exact file-scoped `npx prettier --check` command reproduced the current parser gap on `scripts/docker-compose-with-env.sh`, and the immediate task-owned rerun with `--ignore-unknown` passed cleanly for the same file list, so the maintained summary and final-validation support files are formatting-clean on current disk without widening repo formatter setup in this proof pass.
+- Automated-proof audit: marked Task 160 `__done__` because all 28 subtasks and all 9 testing steps are now checked on disk and `plan_status.py --task-number 160` reports no live blocker or prose-only remaining gate.

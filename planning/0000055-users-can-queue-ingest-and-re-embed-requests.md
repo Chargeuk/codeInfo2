@@ -12706,7 +12706,7 @@ This task repairs the changed BDD proof owner so the state-mutating delete step 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `153, 154, 155, 156, 157, 158, 159`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Review pass `0000055-20260419T200440Z-d67f1ccc` final validation across Tasks `153` through `159`
 - Notes: Added from review pass `0000055-20260419T200440Z-d67f1ccc` as the required final validation task after the new review-created findings block lands.

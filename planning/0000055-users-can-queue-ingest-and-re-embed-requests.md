@@ -12218,7 +12218,7 @@ This task repairs the two deferred replay validation defects in `server/src/inge
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152, 155`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Task `155` automated-proof prerequisite: shared reingest queue-wait timeout settlement in `waitForQueueRequestTerminalStatus()`
 - Notes: Added during planner repair after Task 155's wrapper rerun proved the remaining red `server:unit` state belongs to the shared queue-wait timeout seam in `server/src/ingest/ingestJob.ts` and `server/src/test/unit/reingestService.test.ts`, not to the repaired repo-list overlay contract.
@@ -12287,7 +12287,7 @@ This task repairs the shared reingest queue-wait timeout and listener-cleanup se
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `152`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `backward_compatibility_reader_writer_mismatch`
   - `should_fix` `normalized_error_shape_consumer_mismatch`

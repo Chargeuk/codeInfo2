@@ -12940,6 +12940,7 @@ Repair the waiting-row dedupe contract so a later `reembed` request can rewrite 
 - Planner repair on 2026-04-20: Task 161 now owns the missing repo-root `.prettierignore` prerequisite that this blocker answer proved was absent. This queue-rewrite task returned to `__to_do__` behind that prerequisite with its completed implementation work plus Testing 1 through 4 preserved on disk, and it keeps only Testing 5 for the later repo-wide format rerun once Task 161 is finished.
 - Testing 5: `npm run format:check` now passes cleanly after Task 161 normalized repo-wide Prettier ownership for durable manual-testing artifacts, so the reopened Task 162 proof set is complete without any further queue-owned source changes.
 - Automated-proof audit on 2026-04-20: re-read the bound task, confirmed all five Testing items are now honestly checked on disk with no live blocker remaining, and closed Task 162 as `__done__` because no checklist-owned work is still open.
+- Manual-testing assessment on 2026-04-20: task-scoped manual testing was not applicable. Task 162 keeps its required proof on queue-owner and route-owner automated coverage, and its own exit criteria explicitly defer broader feature-level revalidation to Task 168, so no runnable, browser-visible, or network-visible manual proof surface was required here.
 
 ### Task 163. Repair Deletions-Only Cleanup-Blocked Fast-Path Behavior
 

@@ -12855,8 +12855,8 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 
 #### Testing
 
-1. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-2. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+2. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -12864,6 +12864,8 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 - Subtask 1: re-read the Task 162 blocker answer, the current `.prettierignore`, and the committed `codeInfoStatus/manual-testing/0000055/` artifact set so the prerequisite stayed anchored to the proven repo-wide Prettier input drift instead of widening into general formatting cleanup.
 - Subtask 2: updated `.prettierignore` to exclude `codeInfoStatus/manual-testing/` durable proof artifacts from repo-wide Prettier ownership while leaving source, plan, and proof-authoring files under the normal formatter gate.
 - Subtask 3: re-read `package.json` and kept the supported repo-wide formatter command unchanged as `prettier . --check`, so the repair stays on the shared input boundary instead of replacing the repository gate with task-local fallback commands.
+- Testing 1: `npm run lint` passed cleanly after the repo-root ignore-path repair, so Task 161’s prerequisite change did not introduce any lint regressions before the repo-wide format gate rerun.
+- Testing 2: `npm run format:check` reached a clean terminal verdict after the `.prettierignore` repair, ending with `All matched files use Prettier code style!` under the supported repo-wide `prettier . --check` gate instead of the earlier durable-artifact blockage.
 
 ### Task 162. Repair Cross-Operation Waiting Queue Rewrite Parity
 

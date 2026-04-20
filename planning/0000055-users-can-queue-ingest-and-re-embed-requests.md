@@ -12998,12 +12998,14 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - `R2.` The route-owned unit proof covers the repaired canonical-row tie-break behavior directly.
 - `R3.` The cucumber roots proof asserts the payload captured by the `When I GET ingest manage roots` action instead of re-fetching or polling in `Then`.
 - `R4.` The repaired route and proof owners still cover queued-row visibility and cleanup-blocked visibility honestly on current disk.
+- `R5.` Client row tracking excludes stale display-derived identity during queued-to-running and queued-to-retried refetches instead of retaining contradictory local row state.
 
 #### Proof Mapping
 
 - `P1.` Requirement: `/ingest/roots` duplicate-row selection keeps canonical row identity and queue metadata stable instead of letting `runId` decide the winner. Owners: `server/src/routes/ingestRoots.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`. Proof homes: subtasks 2 through 4; Testing 2.
 - `P2.` Requirement: the cucumber roots proof asserts the payload captured by the route action step instead of re-fetching inside `Then`, while still proving queued-row visibility and cleanup-blocked visibility from that captured response. Owners: `server/src/test/steps/ingest-manage.steps.ts`, `server/src/test/features/ingest-roots.feature`. Proof homes: subtasks 5 through 8; Testing 3.
-- `P3.` Requirement: client normalization still treats `id` as canonical row identity after the repaired route response semantics. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtask 9; Testing 4.
+- `P3.` Requirement: client normalization still treats `id` as canonical row identity after the repaired route response semantics instead of letting runtime-only `runId` pick the visible row identity. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtask 9; Testing 4.
+- `P4.` Requirement: queued-to-running and queued-to-retried refetches exclude stale display-derived identity from client row tracking rather than retaining contradictory local row state. Owners: `client/src/hooks/useIngestRoots.ts`, `client/src/test/useIngestRoots.test.tsx`. Proof homes: subtasks 10 and 11; Testing 4.
 
 #### Documentation Locations
 
@@ -13024,7 +13026,9 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 6. [ ] Proof type: cucumber step support. Location: `server/src/test/steps/ingest-manage.steps.ts`. Description: refactor the related `Then` steps so they assert the stored payload rather than re-fetching or polling, and name the captured response state they rely on. Purpose: keep the assertion phase honest about the deterministic boundary it is checking.
 7. [ ] Proof type: cucumber feature. Location: `server/src/test/features/ingest-roots.feature`. Description: author or update the queued-roots scenario so it proves queued-row visibility from the payload captured by the `When` step rather than from a later fetch. Purpose: give the queued-visibility invariant its own BDD proof home.
 8. [ ] Proof type: cucumber feature. Location: `server/src/test/features/ingest-roots.feature`. Description: author or update the cleanup-blocked scenario so it proves cleanup-blocked visibility from the payload captured by the `When` step rather than from a later fetch. Purpose: give the cleanup-blocked visibility invariant its own BDD proof home.
-9. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: author or update proof that client normalization still treats `id` as canonical row identity and does not silently re-encode the old `runId` winner behavior. Purpose: keep the client contract aligned with the repaired server response.
+9. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: author or update proof that client normalization still treats the restored route-level `id` as canonical row identity and does not let runtime-only `runId` choose the visible row identity. Purpose: keep the client contract aligned with the repaired server response.
+10. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: author or update mixed-state proof that a queued row refetching into a running or resumed row excludes stale display-derived identity from client row tracking and keeps one canonical visible row. Purpose: prevent queued-vs-running state transitions from duplicating or orphaning a visible UI row.
+11. [ ] Test type: client unit. Location: `client/src/test/useIngestRoots.test.tsx`. Description: author or update mixed-state proof that a queued row refetching into a retried waiting row excludes stale display-derived identity and tracks the retried row by canonical identity even when request metadata changes. Purpose: prevent new-request-vs-old-selection state from reviving stale local row identity.
 
 #### Testing
 
